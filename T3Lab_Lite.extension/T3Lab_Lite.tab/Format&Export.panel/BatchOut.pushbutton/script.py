@@ -166,6 +166,21 @@ class ExportManagerWindow(forms.WPFWindow):
             self.filtered_sheets = []
             self.export_items = []
 
+            # Set window icon and title bar logo
+            try:
+                logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
+                if os.path.exists(logo_path):
+                    bitmap = BitmapImage()
+                    bitmap.BeginInit()
+                    bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                    bitmap.EndInit()
+                    # Set window icon
+                    self.Icon = bitmap
+                    # Set title bar logo
+                    self.logo_image.Source = bitmap
+            except Exception as icon_ex:
+                logger.warning("Could not set window icon: {}".format(icon_ex))
+
             # Initialize Smart API Adapter for self-learning capability
             if HAS_API_LEARNER:
                 try:

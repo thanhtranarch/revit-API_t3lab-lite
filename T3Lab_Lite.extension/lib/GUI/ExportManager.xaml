@@ -6,7 +6,16 @@
         MinWidth="900" MinHeight="650"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="White">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="True"/>
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <!-- Styles -->
@@ -65,14 +74,36 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Tab Control -->
-        <TabControl Grid.Row="0" Margin="0,0,0,0" x:Name="main_tabs">
+        <!-- Custom Title Bar -->
+        <Grid Grid.Row="0" Background="White" Height="40">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Logo and Title -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <Image x:Name="logo_image" Width="24" Height="24" Margin="0,0,10,0"/>
+                <TextBlock Text="BatchOut" FontSize="14" FontWeight="SemiBold"
+                          Foreground="#2C3E50" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1" Margin="20,10,20,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Tab Control -->
+            <TabControl Grid.Row="0" Margin="0,0,0,0" x:Name="main_tabs">
 
             <!-- Selection Tab -->
             <TabItem Header="Selection" Style="{StaticResource TabItemStyle}">
@@ -483,6 +514,7 @@
                     Style="{StaticResource SecondaryButton}"
                     Click="cancel_export"
                     Width="100"/>
+        </Grid>
         </Grid>
     </Grid>
 </Window>
