@@ -63,7 +63,7 @@ logger = script.get_logger()
 output = script.get_output()
 
 # Get Revit version information
-REVIT_VERSION = int(revit.app.VersionNumber)  # e.g., 2023, 2024, 2025, 2026
+REVIT_VERSION = int(revit.doc.Application.VersionNumber) 
 
 
 class SheetItem(forms.Reactive):
@@ -1039,3 +1039,4 @@ if __name__ == '__main__':
     # Show Export Manager window
     window = ExportManagerWindow()
     window.ShowDialog()
+
