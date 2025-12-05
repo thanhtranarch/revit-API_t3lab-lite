@@ -44,8 +44,6 @@ clr.AddReference('PresentationCore')
 clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows import Visibility
-from System.Windows.Media.Imaging import BitmapImage
-from System import Uri, UriKind
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import revit, DB, UI, forms, script
