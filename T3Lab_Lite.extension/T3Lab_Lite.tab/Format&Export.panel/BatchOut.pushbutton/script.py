@@ -902,9 +902,14 @@ class ExportManagerWindow(forms.WPFWindow):
                             logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
 
                     # VERSION-AWARE: Export using Revit's native PDF export
-                    # Note: Direct export to avoid Python.NET method overload resolution issues with DXF/PDF
-                    # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                    self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                    # Use Smart API Adapter if available for intelligent export (handles method overload resolution)
+                    if self.api_adapter:
+                        # Smart adapter automatically handles version differences and method overload resolution
+                        self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
+                    else:
+                        # Fallback to direct export call
+                        # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".pdf")
@@ -973,9 +978,14 @@ class ExportManagerWindow(forms.WPFWindow):
                         sheet_ids.Add(sheet_item.Sheet.Id)
 
                         # VERSION-AWARE: Export using Revit's native PDF export
-                        # Note: Direct export to avoid Python.NET method overload resolution issues with DXF/PDF
-                        # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                        # Use Smart API Adapter if available for intelligent export (handles method overload resolution)
+                        if self.api_adapter:
+                            # Smart adapter automatically handles version differences and method overload resolution
+                            self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
+                        else:
+                            # Fallback to direct export call
+                            # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                            self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                         # Verify file was created
                         expected_file = os.path.join(output_folder, filename + ".pdf")
