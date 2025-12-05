@@ -33,6 +33,19 @@
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#2980B9"/>
@@ -52,6 +65,19 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#BDC3C7"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#D5DBDB"/>
@@ -162,7 +188,7 @@
                     </Grid>
 
                     <!-- Sheets List -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5">
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
                         <ListView x:Name="sheets_listview"
                                   SelectionMode="Extended"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -213,33 +239,81 @@
                         <!-- Export Formats -->
                         <StackPanel Grid.Row="0">
                             <TextBlock Text="Export Formats" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <WrapPanel>
-                                    <CheckBox x:Name="export_pdf" Content="PDF"
-                                              Style="{StaticResource FormatCheckBox}" IsChecked="True"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_dwg" Content="DWG (AutoCAD)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_dgn" Content="DGN (MicroStation)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_dwf" Content="DWF"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_nwd" Content="NWC (Navisworks)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_ifc" Content="IFC"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_img" Content="IMG (Image)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <!-- PDF Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_pdf" Content="PDF" IsChecked="True"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Portable Document Format"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- DWG Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_dwg" Content="DWG (AutoCAD)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="AutoCAD Drawing File"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- DGN Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_dgn" Content="DGN (MicroStation)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="MicroStation Design File"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- DWF Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_dwf" Content="DWF"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Design Web Format"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- NWC Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_nwd" Content="NWC (Navisworks)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Navisworks Cache File"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- IFC Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_ifc" Content="IFC"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Industry Foundation Classes"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- IMG Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_img" Content="IMG (Image)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="PNG Image Format"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
                                 </WrapPanel>
                             </Border>
                         </StackPanel>
@@ -247,7 +321,7 @@
                         <!-- PDF Options -->
                         <StackPanel Grid.Row="1" x:Name="pdf_options_panel" Margin="0,10,0,0">
                             <TextBlock Text="PDF Options" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -306,7 +380,7 @@
                         <!-- DWG/CAD Options -->
                         <StackPanel Grid.Row="2" x:Name="dwg_options_panel" Margin="0,10,0,0">
                             <TextBlock Text="DWG/CAD Export Options" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -351,7 +425,7 @@
                         <!-- File Naming -->
                         <StackPanel Grid.Row="3" Margin="0,10,0,0">
                             <TextBlock Text="File Naming" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -396,7 +470,7 @@
                     <!-- Export Rules -->
                     <StackPanel Grid.Row="0">
                         <TextBlock Text="Export Rules" Style="{StaticResource SectionHeader}"/>
-                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -444,7 +518,7 @@
                     </StackPanel>
 
                     <!-- Preview List -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5">
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
                         <ListView x:Name="export_preview_list"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListView.View>
