@@ -253,7 +253,7 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.debug("API update check failed: {}".format(ex))
 
     def load_cad_export_setups(self):
-        """Load available DWG/DXF export setups from the document."""
+        """Load available DWG export setups from the document."""
         try:
             # Clear existing items
             self.cad_export_setup.Items.Clear()
@@ -908,8 +908,10 @@ class ExportManagerWindow(forms.WPFWindow):
                         self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
                     else:
                         # Fallback to direct export call
-                        # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                        # Revit 2022-2026 signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
+                        # NOTE: PDF export does NOT take a filename parameter (unlike DWG/DXF)
+                        # The filename is automatically generated from sheet number/name
+                        self.doc.Export(output_folder, sheet_ids, pdf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".pdf")
@@ -984,8 +986,10 @@ class ExportManagerWindow(forms.WPFWindow):
                             self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
                         else:
                             # Fallback to direct export call
-                            # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                            self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                            # Revit 2022-2026 signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
+                            # NOTE: PDF export does NOT take a filename parameter (unlike DWG/DXF)
+                            # The filename is automatically generated from sheet number/name
+                            self.doc.Export(output_folder, sheet_ids, pdf_options)
 
                         # Verify file was created
                         expected_file = os.path.join(output_folder, filename + ".pdf")
