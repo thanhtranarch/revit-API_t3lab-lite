@@ -1180,7 +1180,30 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Update progress text to show IFC export
                     self.progress_text.Text = "Exporting entire model to IFC..."
 
-                    filename = "Model_IFC_Export"
+                    # Generate filename using naming pattern similar to combined PDF
+                    # Use first and last sheet for combined exports
+                    if len(sheets) > 1:
+                        first_sheet = sheets[0]
+                        last_sheet = sheets[-1]
+                        filename = "{}-{}_Model_IFC".format(
+                            first_sheet.Sheet.SheetNumber,
+                            last_sheet.Sheet.SheetNumber
+                        )
+                    elif len(sheets) == 1:
+                        # Use the naming pattern for single sheet
+                        filename = self.get_export_filename(sheets[0]) + "_IFC"
+                    else:
+                        filename = "Model_IFC_Export"
+
+                    # Remove extension if present
+                    if filename.lower().endswith('.ifc'):
+                        filename = filename[:-4]
+
+                    # Clean filename - remove invalid chars and extra spaces
+                    invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                    for char in invalid_chars:
+                        filename = filename.replace(char, '_')
+                    filename = filename.strip()
 
                     # IFC export needs to be wrapped in a transaction
                     with Transaction(self.doc, "Export IFC") as trans:
