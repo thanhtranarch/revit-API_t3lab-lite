@@ -1,6 +1,5 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BatchOut - T3Lab"
         Width="1000" Height="750"
         MinWidth="900" MinHeight="650"
         WindowStartupLocation="CenterScreen"
@@ -167,7 +166,7 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="Sheet Number" Width="120"
+                                    <GridViewColumn Header="Sheet Number" Width="300"
                                                     DisplayMemberBinding="{Binding SheetNumber}"/>
                                     <GridViewColumn Header="Sheet Name" Width="300"
                                                     DisplayMemberBinding="{Binding SheetName}"/>
@@ -440,9 +439,9 @@
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="Sheet Number" Width="120"
+                                    <GridViewColumn Header="Sheet Number" Width="300"
                                                     DisplayMemberBinding="{Binding SheetNumber}"/>
-                                    <GridViewColumn Header="Sheet Name" Width="250"
+                                    <GridViewColumn Header="Sheet Name" Width="300"
                                                     DisplayMemberBinding="{Binding SheetName}"/>
                                     <GridViewColumn Header="Format" Width="100"
                                                     DisplayMemberBinding="{Binding Format}"/>
