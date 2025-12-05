@@ -454,10 +454,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
                 return
 
-            # Generate custom filenames if not set
-            for sheet in selected_sheets:
-                if not sheet.CustomFilename:
-                    sheet.CustomFilename = self.get_export_filename(sheet)
+            # Don't cache filenames here - they will be generated fresh during export
+            # to ensure they reflect the current state of the sheets (e.g., updated sheet numbers)
 
             # Move to Format tab
             self.main_tabs.SelectedIndex = 1
@@ -519,7 +517,11 @@ class ExportManagerWindow(forms.WPFWindow):
         self.progress_text.Text = "Ready to export {} items".format(len(self.export_items))
 
     def get_export_filename(self, sheet_item):
-        """Generate export filename based on naming pattern."""
+        """Generate export filename based on naming pattern.
+
+        Always reads live values from the Revit sheet to ensure the filename
+        reflects the current state of the sheet (e.g., if sheet number changed).
+        """
         pattern = self.naming_pattern.Text
 
         # Get project info
@@ -531,14 +533,52 @@ class ExportManagerWindow(forms.WPFWindow):
             project_number = ""
             project_name = ""
 
-        # Replace placeholders
-        filename = pattern.replace("{SheetNumber}", sheet_item.SheetNumber)
-        filename = filename.replace("{SheetName}", sheet_item.SheetName)
-        filename = filename.replace("{Revision}", sheet_item.Revision)
-        filename = filename.replace("{RevisionDate}", sheet_item.RevisionDate)
-        filename = filename.replace("{RevisionDescription}", sheet_item.RevisionDescription)
-        filename = filename.replace("{DrawnBy}", sheet_item.DrawnBy)
-        filename = filename.replace("{CheckedBy}", sheet_item.CheckedBy)
+        # Get live values from the actual Revit sheet object
+        # This ensures we always use current values, not cached ones
+        sheet = sheet_item.Sheet
+        sheet_number = sheet.SheetNumber
+        sheet_name = sheet.Name
+
+        # Get live revision info
+        try:
+            rev_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION)
+            revision = rev_param.AsString() if rev_param else ""
+        except:
+            revision = ""
+
+        try:
+            rev_date_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE)
+            revision_date = rev_date_param.AsString() if rev_date_param else ""
+        except:
+            revision_date = ""
+
+        try:
+            rev_desc_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION)
+            revision_description = rev_desc_param.AsString() if rev_desc_param else ""
+        except:
+            revision_description = ""
+
+        # Get live drawn by and checked by
+        try:
+            drawn_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY)
+            drawn_by = drawn_param.AsString() if drawn_param else ""
+        except:
+            drawn_by = ""
+
+        try:
+            checked_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY)
+            checked_by = checked_param.AsString() if checked_param else ""
+        except:
+            checked_by = ""
+
+        # Replace placeholders with live values
+        filename = pattern.replace("{SheetNumber}", sheet_number)
+        filename = filename.replace("{SheetName}", sheet_name)
+        filename = filename.replace("{Revision}", revision)
+        filename = filename.replace("{RevisionDate}", revision_date)
+        filename = filename.replace("{RevisionDescription}", revision_description)
+        filename = filename.replace("{DrawnBy}", drawn_by)
+        filename = filename.replace("{CheckedBy}", checked_by)
         filename = filename.replace("{ProjectNumber}", project_number)
         filename = filename.replace("{ProjectName}", project_name)
         filename = filename.replace("{Date}", datetime.now().strftime("%Y%m%d"))
