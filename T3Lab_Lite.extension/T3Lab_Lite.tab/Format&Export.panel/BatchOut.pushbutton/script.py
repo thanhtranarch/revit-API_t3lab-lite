@@ -641,8 +641,9 @@ class ExportManagerWindow(forms.WPFWindow):
                         pdf_options.HideUnreferencedViewTags = True
 
                     # Export using Revit's native PDF export
-                    # Pass filename directly to Export method, not via FileName property
-                    self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                    # Signature: Export(String filepath, IList<ElementId> viewIds, PDFExportOptions options)
+                    filepath = os.path.join(output_folder, filename)
+                    self.doc.Export(filepath, sheet_ids, pdf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".pdf")
@@ -684,8 +685,9 @@ class ExportManagerWindow(forms.WPFWindow):
                         sheet_ids.Add(sheet_item.Sheet.Id)
 
                         # Export using Revit's native PDF export
-                        # Pass filename directly to Export method, not via FileName property
-                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                        # Signature: Export(String filepath, IList<ElementId> viewIds, PDFExportOptions options)
+                        filepath = os.path.join(output_folder, filename)
+                        self.doc.Export(filepath, sheet_ids, pdf_options)
 
                         # Verify file was created
                         expected_file = os.path.join(output_folder, filename + ".pdf")
