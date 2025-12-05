@@ -834,6 +834,9 @@ class ExportManagerWindow(forms.WPFWindow):
         Supports Revit 2022-2026 with appropriate API handling for each version.
         """
         try:
+            import time
+            import glob
+
             output.print_md("### Exporting to PDF...")
             output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
@@ -862,6 +865,15 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Remove extension if present (pyRevit style)
                     if filename.lower().endswith('.pdf'):
                         filename = filename[:-4]
+
+                    # Clean filename - remove invalid chars and extra spaces
+                    invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                    for char in invalid_chars:
+                        filename = filename.replace(char, '_')
+                    filename = filename.strip()
+
+                    # Get list of existing PDF files before export
+                    existing_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
 
                     # Get all sheet IDs as System.Collections.Generic.List
                     sheet_ids = List[DB.ElementId]()
@@ -915,6 +927,13 @@ class ExportManagerWindow(forms.WPFWindow):
                         # Instead, filename is set via PDFExportOptions.FileName property (learned from pyRevit)
                         self.doc.Export(output_folder, sheet_ids, pdf_options)
 
+                    # Wait briefly for file system to update
+                    time.sleep(0.5)
+
+                    # Get list of PDF files after export
+                    current_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
+                    new_pdfs = current_pdfs - existing_pdfs
+
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".pdf")
                     if os.path.exists(expected_file):
@@ -924,8 +943,20 @@ class ExportManagerWindow(forms.WPFWindow):
                         # Update progress for all sheets in combined PDF
                         for s in sheets:
                             self.update_export_item_progress(s.SheetNumber, "PDF", 100)
+                    elif new_pdfs:
+                        # A PDF was created but with a different name - report it
+                        actual_file = list(new_pdfs)[0]
+                        actual_filename = os.path.basename(actual_file)
+                        output.print_md("- Exported: **{} sheets** → `{}`".format(
+                            len(sheets), actual_filename))
+                        output.print_md("  *(Note: Revit used filename: `{}` instead of `{}.pdf`)*".format(
+                            actual_filename, filename))
+                        exported_count = 1
+                        # Update progress for all sheets in combined PDF
+                        for s in sheets:
+                            self.update_export_item_progress(s.SheetNumber, "PDF", 100)
                     else:
-                        output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
+                        output.print_md("- **Warning**: Export completed but no new PDF file detected")
 
                 except Exception as ex:
                     logger.error("Error exporting combined PDF: {}".format(ex))
@@ -943,6 +974,15 @@ class ExportManagerWindow(forms.WPFWindow):
                         # Remove extension if present (pyRevit style)
                         if filename.lower().endswith('.pdf'):
                             filename = filename[:-4]
+
+                        # Clean filename - remove invalid chars and extra spaces
+                        invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                        for char in invalid_chars:
+                            filename = filename.replace(char, '_')
+                        filename = filename.strip()
+
+                        # Get list of existing PDF files before export
+                        existing_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
 
                         # Create PDF export options
                         pdf_options = PDFExportOptions()
@@ -995,6 +1035,13 @@ class ExportManagerWindow(forms.WPFWindow):
                             # Instead, filename is set via PDFExportOptions.FileName property (learned from pyRevit)
                             self.doc.Export(output_folder, sheet_ids, pdf_options)
 
+                        # Wait briefly for file system to update
+                        time.sleep(0.3)
+
+                        # Get list of PDF files after export
+                        current_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
+                        new_pdfs = current_pdfs - existing_pdfs
+
                         # Verify file was created
                         expected_file = os.path.join(output_folder, filename + ".pdf")
                         if os.path.exists(expected_file):
@@ -1003,8 +1050,18 @@ class ExportManagerWindow(forms.WPFWindow):
                             exported_count += 1
                             # Update progress for this export item
                             self.update_export_item_progress(sheet_item.SheetNumber, "PDF", 100)
+                        elif new_pdfs:
+                            # A PDF was created but with a different name - report it
+                            actual_file = list(new_pdfs)[0]
+                            actual_filename = os.path.basename(actual_file)
+                            output.print_md("- Exported: **{}** → `{}`".format(
+                                sheet_item.SheetNumber, actual_filename))
+                            exported_count += 1
+                            # Update progress for this export item
+                            self.update_export_item_progress(sheet_item.SheetNumber, "PDF", 100)
                         else:
-                            output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
+                            output.print_md("- **Warning**: Export completed but no new PDF file detected for {}".format(
+                                sheet_item.SheetNumber))
 
                     except Exception as ex:
                         logger.error("Error exporting {} to PDF: {}".format(
