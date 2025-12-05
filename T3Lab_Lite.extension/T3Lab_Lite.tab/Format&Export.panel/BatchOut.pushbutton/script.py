@@ -551,6 +551,18 @@ class ExportManagerWindow(forms.WPFWindow):
 
         return filename
 
+    def update_export_item_progress(self, sheet_number, format_name, progress):
+        """Update progress for a specific export item and refresh the display."""
+        try:
+            for item in self.export_items:
+                if item.SheetNumber == sheet_number and item.Format == format_name:
+                    item.Progress = progress
+                    # Refresh the ListView to show updated progress
+                    self.export_preview_list.Items.Refresh()
+                    break
+        except:
+            pass
+
     def start_export(self):
         """Start the export process."""
         try:
@@ -734,36 +746,38 @@ class ExportManagerWindow(forms.WPFWindow):
                 logger.debug("MergedViews not supported in Revit {}: {}".format(REVIT_VERSION, ex))
 
             # VERSION-AWARE: Handle export setup application
-            # PropOverrides handling differs between versions
+            # Load settings from selected ExportDWGSettings
             if selected_setup:
                 try:
-                    # Use Smart API Adapter if available for intelligent configuration
-                    if self.api_adapter:
-                        dwg_options = self.api_adapter.configure_dwg_options(
-                            dwg_options,
-                            prop_override_mode=PropOverrideMode.ByEntity
-                        )
-                        output.print_md("**INFO**: Export setup '{}' applied using Smart API Adapter.".format(selected_setup_name))
-                    else:
-                        # Fallback to manual configuration
-                        # For Revit 2022-2026, PropOverrides expects PropOverrideMode enum
-                        # We cannot directly apply ExportDWGSettings object
-                        # Set to ByEntity (most common use case)
-                        dwg_options.PropOverrides = PropOverrideMode.ByEntity
-
-                        # Inform user about the limitation
-                        output.print_md("**INFO**: Export setup '{}' selected.".format(selected_setup_name))
-                        output.print_md("  *Layer properties will be exported by entity. To use setup-specific settings,*")
-                        output.print_md("  *please configure them in Revit's DWG/DXF Export Settings dialog.*")
-
+                    # Load all settings from the ExportDWGSettings object
+                    # LoadSettingsFrom copies all settings including layers, colors, line weights, etc.
+                    dwg_options.LoadSettingsFrom(selected_setup, True)
+                    output.print_md("**INFO**: Export setup '{}' applied successfully.".format(selected_setup_name))
+                    output.print_md("  *All settings from export setup including layers, colors, and line weights have been loaded.*")
                 except Exception as setup_ex:
-                    logger.warning("Could not apply export setup in Revit {}: {}".format(
-                        REVIT_VERSION, setup_ex))
+                    logger.warning("Could not apply export setup '{}': {}".format(
+                        selected_setup_name, setup_ex))
+                    # Fallback: Set PropOverrides to ByEntity to match Revit colors
+                    try:
+                        dwg_options.PropOverrides = PropOverrideMode.ByEntity
+                        output.print_md("**WARNING**: Could not load export setup. Using ByEntity mode for colors.")
+                    except:
+                        pass
+            else:
+                # No setup selected - ensure colors match Revit by using ByEntity mode
+                try:
+                    dwg_options.PropOverrides = PropOverrideMode.ByEntity
+                    output.print_md("**INFO**: Using ByEntity mode - colors will match Revit display.")
+                except Exception as prop_ex:
+                    logger.debug("Could not set PropOverrides: {}".format(prop_ex))
 
             exported_count = 0
 
             for sheet_item in sheets:
                 try:
+                    # Update progress text to show current sheet and format
+                    self.progress_text.Text = "Exporting {} to DWG...".format(sheet_item.SheetNumber)
+
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
                     # Remove extension if present
@@ -795,6 +809,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         output.print_md("- Exported: **{}** → `{}.dwg`".format(
                             sheet_item.SheetNumber, filename))
                         exported_count += 1
+                        # Update progress for this export item
+                        self.update_export_item_progress(sheet_item.SheetNumber, "DWG", 100)
                     else:
                         output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
@@ -829,6 +845,9 @@ class ExportManagerWindow(forms.WPFWindow):
             if combine_pdf:
                 # Export all sheets to a single PDF
                 try:
+                    # Update progress text
+                    self.progress_text.Text = "Exporting combined PDF with {} sheets...".format(len(sheets))
+
                     # Generate combined filename
                     if len(sheets) > 0:
                         first_sheet = sheets[0]
@@ -883,12 +902,9 @@ class ExportManagerWindow(forms.WPFWindow):
                             logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
 
                     # VERSION-AWARE: Export using Revit's native PDF export
-                    # Use Smart API Adapter if available for intelligent export
-                    if self.api_adapter:
-                        self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
-                    else:
-                        # Fallback: Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                    # Note: Direct export to avoid Python.NET method overload resolution issues with DXF/PDF
+                    # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                    self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".pdf")
@@ -896,6 +912,9 @@ class ExportManagerWindow(forms.WPFWindow):
                         output.print_md("- Exported: **{} sheets** → `{}.pdf`".format(
                             len(sheets), filename))
                         exported_count = 1
+                        # Update progress for all sheets in combined PDF
+                        for s in sheets:
+                            self.update_export_item_progress(s.SheetNumber, "PDF", 100)
                     else:
                         output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
@@ -907,6 +926,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 # Export each sheet individually
                 for sheet_item in sheets:
                     try:
+                        # Update progress text to show current sheet and format
+                        self.progress_text.Text = "Exporting {} to PDF...".format(sheet_item.SheetNumber)
+
                         filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
                         # Remove extension if present
@@ -951,12 +973,9 @@ class ExportManagerWindow(forms.WPFWindow):
                         sheet_ids.Add(sheet_item.Sheet.Id)
 
                         # VERSION-AWARE: Export using Revit's native PDF export
-                        # Use Smart API Adapter if available for intelligent export
-                        if self.api_adapter:
-                            self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
-                        else:
-                            # Fallback: Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                            self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                        # Note: Direct export to avoid Python.NET method overload resolution issues with DXF/PDF
+                        # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                         # Verify file was created
                         expected_file = os.path.join(output_folder, filename + ".pdf")
@@ -964,6 +983,8 @@ class ExportManagerWindow(forms.WPFWindow):
                             output.print_md("- Exported: **{}** → `{}.pdf`".format(
                                 sheet_item.SheetNumber, filename))
                             exported_count += 1
+                            # Update progress for this export item
+                            self.update_export_item_progress(sheet_item.SheetNumber, "PDF", 100)
                         else:
                             output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
@@ -997,6 +1018,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in sheets:
                 try:
+                    # Update progress text to show current sheet and format
+                    self.progress_text.Text = "Exporting {} to DWF...".format(sheet_item.SheetNumber)
+
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
                     # Remove extension if present
@@ -1016,6 +1040,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         output.print_md("- Exported: **{}** → `{}.dwf`".format(
                             sheet_item.SheetNumber, filename))
                         exported_count += 1
+                        # Update progress for this export item
+                        self.update_export_item_progress(sheet_item.SheetNumber, "DWF", 100)
                     else:
                         output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
@@ -1050,6 +1076,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in sheets:
                 try:
+                    # Update progress text to show current sheet and format
+                    self.progress_text.Text = "Exporting {} to NWC...".format(sheet_item.SheetNumber)
+
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
                     filepath = os.path.join(output_folder, filename + ".nwc")
 
@@ -1062,6 +1091,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     output.print_md("- Exported: **{}** → `{}.nwc`".format(
                         sheet_item.SheetNumber, filename))
                     exported_count += 1
+                    # Update progress for this export item
+                    self.update_export_item_progress(sheet_item.SheetNumber, "NWC", 100)
 
                 except Exception as ex:
                     logger.error("Error exporting {} to NWC: {}".format(
@@ -1098,6 +1129,9 @@ class ExportManagerWindow(forms.WPFWindow):
             # Note: IFC export requires a transaction (unique requirement compared to other formats)
             if len(sheets) > 0:
                 try:
+                    # Update progress text to show IFC export
+                    self.progress_text.Text = "Exporting entire model to IFC..."
+
                     filename = "Model_IFC_Export"
 
                     # IFC export needs to be wrapped in a transaction
@@ -1109,6 +1143,9 @@ class ExportManagerWindow(forms.WPFWindow):
                     output.print_md("- Exported: **Model** → `{}.ifc`".format(filename))
                     output.print_md("  *(Note: IFC exports the entire model, not individual sheets)*")
                     exported_count = 1
+                    # Update progress for all IFC export items
+                    for s in sheets:
+                        self.update_export_item_progress(s.SheetNumber, "IFC", 100)
                 except Exception as ex:
                     logger.error("Error exporting to IFC: {}".format(ex))
                     output.print_md("- **Error** exporting to IFC: {}".format(str(ex)))
@@ -1131,6 +1168,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in sheets:
                 try:
+                    # Update progress text to show current sheet and format
+                    self.progress_text.Text = "Exporting {} to Image...".format(sheet_item.SheetNumber)
+
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
                     # Remove extension if present
@@ -1161,6 +1201,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         output.print_md("- Exported: **{}** → `{}.png`".format(
                             sheet_item.SheetNumber, filename))
                         exported_count += 1
+                        # Update progress for this export item
+                        self.update_export_item_progress(sheet_item.SheetNumber, "IMG", 100)
                     else:
                         output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
