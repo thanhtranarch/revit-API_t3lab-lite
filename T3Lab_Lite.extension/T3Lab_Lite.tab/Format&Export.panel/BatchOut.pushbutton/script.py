@@ -37,10 +37,11 @@ from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventAr
 from pyrevit import revit, DB, UI, forms, script
 from Autodesk.Revit.DB import (
     Transaction, FilteredElementCollector, BuiltInCategory,
-    ViewSheet, DWGExportOptions, DWFExportOptions,
+    ViewSheet, ViewSet, DWGExportOptions, DWFExportOptions,
     ExportDWGSettings, ACADVersion, PDFExportOptions,
     ImageExportOptions, ImageFileType, ImageResolution,
 )
+from System.Collections.Generic import List
 
 # Try to import IFC export
 try:
@@ -61,7 +62,7 @@ output = script.get_output()
 
 
 class SheetItem(forms.Reactive):
-    """Represents a sheet item in the list."""
+    """Represents a sheet item in the list - optimized for performance."""
     def __init__(self, sheet, is_selected=False):
         self.Sheet = sheet
         self.IsSelected = is_selected
@@ -69,95 +70,42 @@ class SheetItem(forms.Reactive):
         self.SheetName = sheet.Name
         self.Status = "Ready"
         self.Progress = 0
+        self.Size = "-"  # Simplified - not loading size for performance
 
-        # Get sheet size
+        # Get sheet revision info (fast parameter access)
         try:
-            titleblock = self.get_titleblock(sheet)
-            if titleblock:
-                # Get titleblock size parameter
-                size_param = titleblock.LookupParameter("Sheet Size")
-                if not size_param:
-                    size_param = titleblock.LookupParameter("Size")
-                if size_param:
-                    self.Size = size_param.AsString() or self.get_size_from_dimensions(sheet)
-                else:
-                    self.Size = self.get_size_from_dimensions(sheet)
-            else:
-                self.Size = self.get_size_from_dimensions(sheet)
-        except:
-            self.Size = "-"
-
-        # Get sheet revision info
-        try:
-            self.Revision = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION).AsString() or ""
-            self.RevisionDate = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE).AsString() or ""
-            self.RevisionDescription = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION).AsString() or ""
+            rev_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION)
+            self.Revision = rev_param.AsString() if rev_param else ""
         except:
             self.Revision = ""
+
+        try:
+            rev_date_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE)
+            self.RevisionDate = rev_date_param.AsString() if rev_date_param else ""
+        except:
             self.RevisionDate = ""
+
+        try:
+            rev_desc_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION)
+            self.RevisionDescription = rev_desc_param.AsString() if rev_desc_param else ""
+        except:
             self.RevisionDescription = ""
 
-        # Get drawn by and checked by
+        # Get drawn by and checked by (fast parameter access)
         try:
-            self.DrawnBy = sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY).AsString() or ""
-            self.CheckedBy = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY).AsString() or ""
+            drawn_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY)
+            self.DrawnBy = drawn_param.AsString() if drawn_param else ""
         except:
             self.DrawnBy = ""
+
+        try:
+            checked_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY)
+            self.CheckedBy = checked_param.AsString() if checked_param else ""
+        except:
             self.CheckedBy = ""
 
         # Custom filename (defaults to naming pattern)
         self.CustomFilename = ""
-
-    def get_titleblock(self, sheet):
-        """Get the first titleblock on the sheet."""
-        try:
-            collector = FilteredElementCollector(revit.doc, sheet.Id)\
-                .OfCategory(BuiltInCategory.OST_TitleBlocks)\
-                .WhereElementIsNotElementType()
-            titleblocks = list(collector)
-            return titleblocks[0] if titleblocks else None
-        except:
-            return None
-
-    def get_size_from_dimensions(self, sheet):
-        """Determine sheet size from dimensions."""
-        try:
-            # Get sheet outline
-            outline = sheet.Outline
-            if not outline:
-                return "-"
-
-            # Calculate dimensions in mm (approximate)
-            min_pt = outline.Min
-            max_pt = outline.Max
-            width_ft = abs(max_pt.U - min_pt.U)
-            height_ft = abs(max_pt.V - min_pt.V)
-
-            # Convert to mm (1 ft = 304.8 mm)
-            width_mm = width_ft * 304.8
-            height_mm = height_ft * 304.8
-
-            # Determine paper size (with tolerance)
-            tolerance = 50  # mm
-
-            # Common paper sizes in mm (width x height)
-            sizes = {
-                "A0": (841, 1189),
-                "A1": (594, 841),
-                "A2": (420, 594),
-                "A3": (297, 420),
-                "A4": (210, 297),
-            }
-
-            for size_name, (w, h) in sizes.items():
-                # Check both orientations
-                if (abs(width_mm - w) < tolerance and abs(height_mm - h) < tolerance) or \
-                   (abs(width_mm - h) < tolerance and abs(height_mm - w) < tolerance):
-                    return size_name
-
-            return "-"
-        except:
-            return "-"
 
     def __repr__(self):
         return "{} - {}".format(self.SheetNumber, self.SheetName)
@@ -612,15 +560,25 @@ class ExportManagerWindow(forms.WPFWindow):
                 try:
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
-                    # Create a list with single sheet ID
-                    sheet_ids = [sheet_item.Sheet.Id]
+                    # Remove extension if present
+                    if filename.lower().endswith('.dwg'):
+                        filename = filename[:-4]
 
-                    # Export
-                    self.doc.Export(output_folder, filename, sheet_ids, dwg_options)
+                    # Create ViewSet for export (using Revit API ViewSet class)
+                    view_set = DB.ViewSet()
+                    view_set.Insert(sheet_item.Sheet)
 
-                    output.print_md("- Exported: **{}** → `{}.dwg`".format(
-                        sheet_item.SheetNumber, filename))
-                    exported_count += 1
+                    # Export using Revit's native DWG export
+                    self.doc.Export(output_folder, filename, dwg_options, view_set)
+
+                    # Verify file was created
+                    expected_file = os.path.join(output_folder, filename + ".dwg")
+                    if os.path.exists(expected_file):
+                        output.print_md("- Exported: **{}** → `{}.dwg`".format(
+                            sheet_item.SheetNumber, filename))
+                        exported_count += 1
+                    else:
+                        output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
                 except Exception as ex:
                     logger.error("Error exporting {} to DWG: {}".format(
@@ -637,7 +595,7 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_pdf(self, sheets, output_folder):
-        """Export sheets to PDF format."""
+        """Export sheets to PDF format using Revit's native PDF export."""
         try:
             output.print_md("### Exporting to PDF...")
 
@@ -660,8 +618,14 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         filename = "Combined_Sheets"
 
-                    # Get all sheet IDs
-                    sheet_ids = [s.Sheet.Id for s in sheets]
+                    # Remove extension if present
+                    if filename.lower().endswith('.pdf'):
+                        filename = filename[:-4]
+
+                    # Get all sheet IDs as System.Collections.Generic.List
+                    sheet_ids = List[DB.ElementId]()
+                    for s in sheets:
+                        sheet_ids.Add(s.Sheet.Id)
 
                     # Create PDF export options
                     pdf_options = PDFExportOptions()
@@ -676,12 +640,18 @@ class ExportManagerWindow(forms.WPFWindow):
                     if self.pdf_hide_unreferenced_tags.IsChecked:
                         pdf_options.HideUnreferencedViewTags = True
 
-                    # Export
-                    self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                    # Export using Revit's native PDF export
+                    # When using FileName property, pass empty string as filename parameter
+                    self.doc.Export(output_folder, "", sheet_ids, pdf_options)
 
-                    output.print_md("- Exported: **{} sheets** → `{}.pdf`".format(
-                        len(sheets), filename))
-                    exported_count = 1
+                    # Verify file was created
+                    expected_file = os.path.join(output_folder, filename + ".pdf")
+                    if os.path.exists(expected_file):
+                        output.print_md("- Exported: **{} sheets** → `{}.pdf`".format(
+                            len(sheets), filename))
+                        exported_count = 1
+                    else:
+                        output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
                 except Exception as ex:
                     logger.error("Error exporting combined PDF: {}".format(ex))
@@ -692,6 +662,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 for sheet_item in sheets:
                     try:
                         filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
+
+                        # Remove extension if present
+                        if filename.lower().endswith('.pdf'):
+                            filename = filename[:-4]
 
                         # Create PDF export options
                         pdf_options = PDFExportOptions()
@@ -706,12 +680,22 @@ class ExportManagerWindow(forms.WPFWindow):
                         if self.pdf_hide_unreferenced_tags.IsChecked:
                             pdf_options.HideUnreferencedViewTags = True
 
-                        # Export
-                        self.doc.Export(output_folder, filename, [sheet_item.Sheet.Id], pdf_options)
+                        # Create System.Collections.Generic.List for sheet IDs
+                        sheet_ids = List[DB.ElementId]()
+                        sheet_ids.Add(sheet_item.Sheet.Id)
 
-                        output.print_md("- Exported: **{}** → `{}.pdf`".format(
-                            sheet_item.SheetNumber, filename))
-                        exported_count += 1
+                        # Export using Revit's native PDF export
+                        # When using FileName property, pass empty string as filename parameter
+                        self.doc.Export(output_folder, "", sheet_ids, pdf_options)
+
+                        # Verify file was created
+                        expected_file = os.path.join(output_folder, filename + ".pdf")
+                        if os.path.exists(expected_file):
+                            output.print_md("- Exported: **{}** → `{}.pdf`".format(
+                                sheet_item.SheetNumber, filename))
+                            exported_count += 1
+                        else:
+                            output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
                     except Exception as ex:
                         logger.error("Error exporting {} to PDF: {}".format(
@@ -728,7 +712,7 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_dwf(self, sheets, output_folder):
-        """Export sheets to DWF format."""
+        """Export sheets to DWF format using Revit's native DWF export."""
         try:
             output.print_md("### Exporting to DWF...")
 
@@ -741,12 +725,25 @@ class ExportManagerWindow(forms.WPFWindow):
                 try:
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
-                    # Export
-                    self.doc.Export(output_folder, filename, [sheet_item.Sheet.Id], dwf_options)
+                    # Remove extension if present
+                    if filename.lower().endswith('.dwf'):
+                        filename = filename[:-4]
 
-                    output.print_md("- Exported: **{}** → `{}.dwf`".format(
-                        sheet_item.SheetNumber, filename))
-                    exported_count += 1
+                    # Create ViewSet for export
+                    view_set = DB.ViewSet()
+                    view_set.Insert(sheet_item.Sheet)
+
+                    # Export using Revit's native DWF export
+                    self.doc.Export(output_folder, filename, dwf_options, view_set)
+
+                    # Verify file was created
+                    expected_file = os.path.join(output_folder, filename + ".dwf")
+                    if os.path.exists(expected_file):
+                        output.print_md("- Exported: **{}** → `{}.dwf`".format(
+                            sheet_item.SheetNumber, filename))
+                        exported_count += 1
+                    else:
+                        output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
                 except Exception as ex:
                     logger.error("Error exporting {} to DWF: {}".format(
@@ -842,36 +839,46 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_images(self, sheets, output_folder):
-        """Export sheets to image format."""
+        """Export sheets to image format using Revit's native image export."""
         try:
             output.print_md("### Exporting to Images...")
-
-            # Create image export options
-            img_options = ImageExportOptions()
-            img_options.ZoomType = DB.ZoomFitType.FitToPage
-            img_options.ImageResolution = ImageResolution.DPI_150
-            img_options.FilePath = output_folder
-            img_options.FitDirection = DB.FitDirectionType.Horizontal
-            img_options.HLRandWFViewsFileType = ImageFileType.PNG
-            img_options.ShadowViewsFileType = ImageFileType.PNG
 
             exported_count = 0
 
             for sheet_item in sheets:
                 try:
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
+
+                    # Remove extension if present
+                    if filename.lower().endswith('.png'):
+                        filename = filename[:-4]
+
+                    # Create image export options for each sheet
+                    img_options = ImageExportOptions()
+                    img_options.ZoomType = DB.ZoomFitType.FitToPage
+                    img_options.ImageResolution = ImageResolution.DPI_150
+                    img_options.FilePath = os.path.join(output_folder, filename)
+                    img_options.FitDirection = DB.FitDirectionType.Horizontal
+                    img_options.HLRandWFViewsFileType = ImageFileType.PNG
+                    img_options.ShadowViewsFileType = ImageFileType.PNG
                     img_options.ExportRange = DB.ExportRange.SetOfViews
 
-                    # Set the view
-                    view_ids = DB.List[DB.ElementId]()
+                    # Set the view IDs using System.Collections.Generic.List
+                    view_ids = List[DB.ElementId]()
                     view_ids.Add(sheet_item.Sheet.Id)
+                    img_options.SetViewsAndSheets(view_ids)
 
-                    # Export
+                    # Export using Revit's native image export
                     self.doc.ExportImage(img_options)
 
-                    output.print_md("- Exported: **{}** → `{}.png`".format(
-                        sheet_item.SheetNumber, filename))
-                    exported_count += 1
+                    # Verify file was created
+                    expected_file = os.path.join(output_folder, filename + ".png")
+                    if os.path.exists(expected_file):
+                        output.print_md("- Exported: **{}** → `{}.png`".format(
+                            sheet_item.SheetNumber, filename))
+                        exported_count += 1
+                    else:
+                        output.print_md("- **Warning**: Export completed but file not found: {}".format(filename))
 
                 except Exception as ex:
                     logger.error("Error exporting {} to Image: {}".format(
