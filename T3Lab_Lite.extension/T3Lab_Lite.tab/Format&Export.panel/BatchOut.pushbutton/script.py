@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Export Manager - Batch export sheets to multiple formats.
+"""BatchOut - Batch export sheets to multiple formats.
 
 Enhanced version inspired by DiRoots ProSheets with tabbed interface.
 
@@ -15,9 +15,9 @@ Features:
 - File organization options (same folder or split by format)
 """
 
-__title__ = "Export\nManager"
+__title__ = "Batch\nOut"
 __author__ = "T3Lab"
-__version__ = "3.0.0"
+__version__ = "1.0.0"
 
 # IMPORTS
 import os
@@ -29,8 +29,10 @@ from collections import defaultdict
 clr.AddReference('System.Windows.Forms')
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
+clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows import Visibility
+from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import revit, DB, UI, forms, script
 from Autodesk.Revit.DB import (
@@ -58,7 +60,7 @@ logger = script.get_logger()
 output = script.get_output()
 
 
-class SheetItem(object):
+class SheetItem(forms.Reactive):
     """Represents a sheet item in the list."""
     def __init__(self, sheet, is_selected=False):
         self.Sheet = sheet
@@ -206,7 +208,7 @@ class ExportManagerWindow(forms.WPFWindow):
             self.update_navigation_buttons()
 
         except Exception as ex:
-            logger.error("Error initializing Export Manager window: {}".format(ex))
+            logger.error("Error initializing BatchOut window: {}".format(ex))
             raise
 
     def load_sheets(self):
