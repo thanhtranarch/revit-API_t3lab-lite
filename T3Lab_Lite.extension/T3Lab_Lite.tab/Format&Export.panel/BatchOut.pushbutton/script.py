@@ -44,8 +44,6 @@ clr.AddReference('PresentationCore')
 clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows import Visibility
-from System.Windows.Media.Imaging import BitmapImage
-from System import Uri, UriKind
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import revit, DB, UI, forms, script
@@ -181,18 +179,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.api_adapter = None
             else:
                 self.api_adapter = None
-
-            # Load and set logo
-            try:
-                logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
-                if os.path.exists(logo_path):
-                    bitmap = BitmapImage()
-                    bitmap.BeginInit()
-                    bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
-                    bitmap.EndInit()
-                    self.logo_image.Source = bitmap
-            except Exception as logo_ex:
-                logger.warning("Could not load logo: {}".format(logo_ex))
 
             # Set default output folder
             default_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'Revit Exports')
