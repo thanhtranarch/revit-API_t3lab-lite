@@ -640,15 +640,19 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Print export summary with logo and title
             try:
-                # Try to load and display logo
+                # Try to load and display logo (larger size)
                 extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
                 logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
                 if os.path.exists(logo_path):
                     output.print_image(logo_path)
+                    # Add spacing after logo
+                    output.print_md("\n")
             except Exception as logo_ex:
                 logger.debug("Could not display logo in output: {}".format(logo_ex))
 
-            output.print_md("# T3Lab - BatchOut Export")
+            # Large, bold title for BatchOut
+            output.print_md("# **T3Lab - BATCHOUT**")
+            output.print_md("### *Batch Export Tool for Multiple Formats*")
             output.print_md("---")
             output.print_md("## Export Summary")
             output.print_md("**Sheets to export:** {}".format(len(selected_sheets)))
@@ -722,10 +726,11 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Show completion message with branding
             output.print_md("\n---")
-            output.print_md("# ✅ Export Complete!")
-            output.print_md("**Total files exported:** {}".format(total_exported))
+            output.print_md("# ✅ **EXPORT COMPLETE!**")
+            output.print_md("## **Total files exported:** {}".format(total_exported))
             output.print_md("---")
-            output.print_md("*Exported with T3Lab BatchOut*")
+            output.print_md("### *Exported with T3Lab BATCHOUT*")
+            output.print_md("*Professional batch export solution for Revit sheets*")
 
             self.status_text.Text = "Export complete! {} files exported".format(total_exported)
             self.progress_text.Text = "Export complete! {} files exported".format(total_exported)
