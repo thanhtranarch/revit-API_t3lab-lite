@@ -859,7 +859,7 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         filename = "Combined_Sheets"
 
-                    # Remove extension if present
+                    # Remove extension if present (pyRevit style)
                     if filename.lower().endswith('.pdf'):
                         filename = filename[:-4]
 
@@ -871,6 +871,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Create PDF export options
                     pdf_options = PDFExportOptions()
                     pdf_options.Combine = True
+                    # Set filename (learned from pyRevit)
+                    pdf_options.FileName = filename
 
                     # VERSION-AWARE: Apply PDF settings
                     # Use Smart API Adapter if available for intelligent configuration
@@ -909,8 +911,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         # Fallback to direct export call
                         # Revit 2022-2026 signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
-                        # NOTE: PDF export does NOT take a filename parameter (unlike DWG/DXF)
-                        # The filename is automatically generated from sheet number/name
+                        # NOTE: PDF export does NOT take a filename parameter in the Export() method (unlike DWG/DXF)
+                        # Instead, filename is set via PDFExportOptions.FileName property (learned from pyRevit)
                         self.doc.Export(output_folder, sheet_ids, pdf_options)
 
                     # Verify file was created
@@ -938,13 +940,15 @@ class ExportManagerWindow(forms.WPFWindow):
 
                         filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
-                        # Remove extension if present
+                        # Remove extension if present (pyRevit style)
                         if filename.lower().endswith('.pdf'):
                             filename = filename[:-4]
 
                         # Create PDF export options
                         pdf_options = PDFExportOptions()
                         pdf_options.Combine = False
+                        # Set filename (learned from pyRevit)
+                        pdf_options.FileName = filename
 
                         # VERSION-AWARE: Apply PDF settings
                         # Use Smart API Adapter if available for intelligent configuration
@@ -987,8 +991,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         else:
                             # Fallback to direct export call
                             # Revit 2022-2026 signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
-                            # NOTE: PDF export does NOT take a filename parameter (unlike DWG/DXF)
-                            # The filename is automatically generated from sheet number/name
+                            # NOTE: PDF export does NOT take a filename parameter in the Export() method (unlike DWG/DXF)
+                            # Instead, filename is set via PDFExportOptions.FileName property (learned from pyRevit)
                             self.doc.Export(output_folder, sheet_ids, pdf_options)
 
                         # Verify file was created

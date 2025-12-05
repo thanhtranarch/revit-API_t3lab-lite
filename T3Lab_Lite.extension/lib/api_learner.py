@@ -108,7 +108,7 @@ class RevitAPILearner(object):
                 },
                 'pdf_export': {
                     'signature': 'Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)',
-                    'note': 'PDF export does NOT take a filename parameter - filename is auto-generated from sheet number/name',
+                    'note': 'PDF export does NOT take filename parameter in Export() method. Use PDFExportOptions.FileName property instead (learned from pyRevit)',
                 },
                 'dwf_export': {
                     'signature': 'Export(String folder, String name, ViewSet views, DWFExportOptions options)',
@@ -133,6 +133,10 @@ class RevitAPILearner(object):
 
             # PDFExportOptions compatibility
             'pdf_export_options': {
+                'file_name': {
+                    'available': self.revit_version >= 2022,
+                    'note': 'Set output filename (without .pdf extension). Learned from pyRevit.',
+                },
                 'combine': {
                     'available': self.revit_version >= 2018,
                 },
@@ -311,7 +315,7 @@ class SmartAPIAdapter(object):
 
         Args:
             folder: Output folder path
-            filename: Output filename (without extension) - NOT USED, kept for backward compatibility
+            filename: Output filename (without extension)
             view_ids: List or IList of ElementIds
             options: PDFExportOptions object
 
@@ -322,7 +326,11 @@ class SmartAPIAdapter(object):
             # IMPORTANT: PDF export in Revit 2022+ uses a different signature than DWG/DXF
             # PDF signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
             # DWG/DXF signature: Export(String folder, String filename, ICollection<ElementId> views, DWGExportOptions options)
-            # Note: PDF export does NOT take a filename parameter - filename is auto-generated from sheet number/name
+            # Note: PDF export does NOT take a filename parameter in Export() method
+            # Instead, filename is set via PDFExportOptions.FileName property (learned from pyRevit)
+
+            # Set filename via options property (pyRevit style)
+            options.FileName = filename
 
             # Always use the 3-parameter signature for PDF export (Revit 2022+)
             self.doc.Export(folder, view_ids, options)
