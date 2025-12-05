@@ -9,10 +9,10 @@
         Background="White">
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="40"
+        <WindowChrome CaptionHeight="100"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="0"
+                      CornerRadius="8"
                       UseAeroCaptionButtons="True"/>
     </WindowChrome.WindowChrome>
 
@@ -33,6 +33,19 @@
             <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#2980B9"/>
@@ -52,6 +65,19 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#BDC3C7"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#D5DBDB"/>
@@ -75,22 +101,22 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="40"/>
+            <RowDefinition Height="100"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
-        <Grid Grid.Row="0" Background="White" Height="40">
+        <Grid Grid.Row="0" Background="White" Height="100">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Logo and Title -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center"
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="15,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Image x:Name="logo_image" Width="24" Height="24" Margin="0,0,10,0"/>
-                <TextBlock Text="BatchOut" FontSize="14" FontWeight="SemiBold"
+                <Image x:Name="logo_image" Width="72" Height="72" Margin="0,0,15,0"/>
+                <TextBlock Text="BATCHOUT" FontSize="42" FontWeight="Bold"
                           Foreground="#2C3E50" VerticalAlignment="Center"/>
             </StackPanel>
         </Grid>
@@ -162,7 +188,7 @@
                     </Grid>
 
                     <!-- Sheets List -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5">
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
                         <ListView x:Name="sheets_listview"
                                   SelectionMode="Extended"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -213,7 +239,7 @@
                         <!-- Export Formats -->
                         <StackPanel Grid.Row="0">
                             <TextBlock Text="Export Formats" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <WrapPanel>
                                     <CheckBox x:Name="export_pdf" Content="PDF"
                                               Style="{StaticResource FormatCheckBox}" IsChecked="True"
@@ -247,7 +273,7 @@
                         <!-- PDF Options -->
                         <StackPanel Grid.Row="1" x:Name="pdf_options_panel" Margin="0,10,0,0">
                             <TextBlock Text="PDF Options" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -306,7 +332,7 @@
                         <!-- DWG/CAD Options -->
                         <StackPanel Grid.Row="2" x:Name="dwg_options_panel" Margin="0,10,0,0">
                             <TextBlock Text="DWG/CAD Export Options" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -351,7 +377,7 @@
                         <!-- File Naming -->
                         <StackPanel Grid.Row="3" Margin="0,10,0,0">
                             <TextBlock Text="File Naming" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -396,7 +422,7 @@
                     <!-- Export Rules -->
                     <StackPanel Grid.Row="0">
                         <TextBlock Text="Export Rules" Style="{StaticResource SectionHeader}"/>
-                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -444,7 +470,7 @@
                     </StackPanel>
 
                     <!-- Preview List -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5">
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
                         <ListView x:Name="export_preview_list"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListView.View>
