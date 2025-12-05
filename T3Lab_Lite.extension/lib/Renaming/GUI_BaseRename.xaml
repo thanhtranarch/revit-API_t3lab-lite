@@ -204,17 +204,16 @@
                         Grid.ColumnSpan="2"
                         VerticalAlignment="Center"
                         HorizontalAlignment="Left">
-                                    <Image Width="20" Height="20"
-                      />
-                                    <!--Source="https://www.erikfrits.com/media/images/LOGO.png"-->
+                                    <Image Width="20" Height="20" Margin="5,0,5,0"
+                                           Source="../GUI/Resources/T3Lab_logo.png" />
 
                                     <TextBlock>
                     <Hyperlink  RequestNavigate="Hyperlink_RequestNavigate"
-                                NavigateUri="https://erikfrits.com/blog/"
+                                NavigateUri="https://www.t3lab.vn"
                                 FontSize="14px"
                                 FontWeight="Heavy"
                                 Foreground="{StaticResource text_white}">
-                                EF-Tools
+                                T3Lab
                     </Hyperlink>
                                     </TextBlock>
                                 </DockPanel>
@@ -492,18 +491,17 @@
                         Grid.ColumnSpan="2"
                         VerticalAlignment="Center"
                         HorizontalAlignment="Left">
-                <Image Width="20" Height="20"
-                      />
-                <!--Source="https://www.erikfrits.com/media/images/LOGO.png"-->
+                <Image Width="20" Height="20" Margin="5,0,5,0"
+                       Source="../GUI/Resources/T3Lab_logo.png" />
 
                 <TextBlock>
                     <Hyperlink
                         RequestNavigate="Hyperlink_RequestNavigate"
-                        NavigateUri="https://www.youtube.com/channel/UC1LgjdE6zW3HNWg-IGo2d-Q"
+                        NavigateUri="https://www.t3lab.vn"
                         FontSize="14px"
                         FontWeight="Heavy"
                         Foreground="{StaticResource text_white}">
-                        EF-Tools
+                        T3Lab
                     </Hyperlink>
                 </TextBlock>
             </DockPanel>
