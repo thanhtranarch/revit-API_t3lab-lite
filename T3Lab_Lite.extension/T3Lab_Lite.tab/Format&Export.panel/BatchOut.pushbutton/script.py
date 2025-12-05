@@ -90,12 +90,7 @@ logger = script.get_logger()
 output = script.get_output()
 
 # Get Revit version information
-<<<<<<< Updated upstream
-REVIT_VERSION = int(revit.doc.Application.VersionNumber) 
-=======
 REVIT_VERSION = int(revit.doc.Application.VersionNumber)  # e.g., 2023, 2024, 2025, 2026
->>>>>>> Stashed changes
-
 
 class SheetItem(forms.Reactive):
     """Represents a sheet item in the list - optimized for performance."""
@@ -1197,4 +1192,5 @@ if __name__ == '__main__':
     # Show Export Manager window
     window = ExportManagerWindow()
     window.ShowDialog()
+
 
