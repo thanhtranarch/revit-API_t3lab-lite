@@ -565,12 +565,13 @@ class ExportManagerWindow(forms.WPFWindow):
                     if filename.lower().endswith('.dwg'):
                         filename = filename[:-4]
 
-                    # Create ViewSet for export (using Revit API ViewSet class)
-                    view_set = DB.ViewSet()
-                    view_set.Insert(sheet_item.Sheet)
+                    # Create ICollection<ElementId> for export (DWG needs ElementId collection, not ViewSet)
+                    view_ids = List[DB.ElementId]()
+                    view_ids.Add(sheet_item.Sheet.Id)
 
                     # Export using Revit's native DWG export
-                    self.doc.Export(output_folder, filename, dwg_options, view_set)
+                    # Signature: Export(String folder, String name, ICollection<ElementId> views, DWGExportOptions options)
+                    self.doc.Export(output_folder, filename, view_ids, dwg_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".dwg")
@@ -735,7 +736,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     view_set.Insert(sheet_item.Sheet)
 
                     # Export using Revit's native DWF export
-                    self.doc.Export(output_folder, filename, dwf_options, view_set)
+                    # Signature: Export(String folder, String name, ViewSet views, DWFExportOptions options)
+                    self.doc.Export(output_folder, filename, view_set, dwf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".dwf")
@@ -820,10 +822,17 @@ class ExportManagerWindow(forms.WPFWindow):
             exported_count = 0
 
             # For IFC, export the entire model once
+            # Note: IFC export requires a transaction (unique requirement compared to other formats)
             if len(sheets) > 0:
                 try:
                     filename = "Model_IFC_Export"
-                    self.doc.Export(output_folder, filename, ifc_options)
+
+                    # IFC export needs to be wrapped in a transaction
+                    with Transaction(self.doc, "Export IFC") as trans:
+                        trans.Start()
+                        self.doc.Export(output_folder, filename, ifc_options)
+                        trans.Commit()
+
                     output.print_md("- Exported: **Model** → `{}.ifc`".format(filename))
                     output.print_md("  *(Note: IFC exports the entire model, not individual sheets)*")
                     exported_count = 1
