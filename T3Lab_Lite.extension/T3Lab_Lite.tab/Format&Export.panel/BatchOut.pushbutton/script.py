@@ -638,8 +638,19 @@ class ExportManagerWindow(forms.WPFWindow):
             self.back_button.IsEnabled = False
             self.status_text.Text = "Exporting..."
 
-            # Print export summary
-            output.print_md("# Export Summary")
+            # Print export summary with logo and title
+            try:
+                # Try to load and display logo
+                extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+                logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
+                if os.path.exists(logo_path):
+                    output.print_image(logo_path)
+            except Exception as logo_ex:
+                logger.debug("Could not display logo in output: {}".format(logo_ex))
+
+            output.print_md("# T3Lab - BatchOut Export")
+            output.print_md("---")
+            output.print_md("## Export Summary")
             output.print_md("**Sheets to export:** {}".format(len(selected_sheets)))
             output.print_md("**Output folder:** `{}`".format(output_folder))
             output.print_md("---\n")
@@ -709,10 +720,12 @@ class ExportManagerWindow(forms.WPFWindow):
                 if total_items > 0:
                     self.overall_progress.Value = (current_item * 100.0) / total_items
 
-            # Show completion message
+            # Show completion message with branding
             output.print_md("\n---")
-            output.print_md("# Export Complete!")
+            output.print_md("# ✅ Export Complete!")
             output.print_md("**Total files exported:** {}".format(total_exported))
+            output.print_md("---")
+            output.print_md("*Exported with T3Lab BatchOut*")
 
             self.status_text.Text = "Export complete! {} files exported".format(total_exported)
             self.progress_text.Text = "Export complete! {} files exported".format(total_exported)
