@@ -53,15 +53,17 @@
                         VerticalAlignment="Center"
                         HorizontalAlignment="Left">
 
+                <Image Width="20" Height="20" Margin="5,0,5,0"
+                       Source="Resources/T3Lab_logo.png" />
 
-                <TextBlock Margin="5,0,0,0">
+                <TextBlock Margin="0,0,0,0">
                     <Hyperlink
                         RequestNavigate="Hyperlink_RequestNavigate"
-                        NavigateUri="https://www.linkedin.com/company/80151029"
+                        NavigateUri="https://www.t3lab.vn"
                         FontSize="14px"
                         FontWeight="Heavy"
                         Foreground="{StaticResource text_white}">
-                        EF-Tools
+                        T3Lab
                     </Hyperlink>
                 </TextBlock>
             </DockPanel>
@@ -235,9 +237,9 @@
 
             <!--IMAGE-->
             <TextBlock>
-                <Hyperlink  NavigateUri="https://www.learnrevitapi.com" RequestNavigate="Hyperlink_RequestNavigate">
+                <Hyperlink  NavigateUri="https://www.t3lab.vn" RequestNavigate="Hyperlink_RequestNavigate">
                                <Image  Height="20"   Margin="1"  HorizontalAlignment="Left"   VerticalAlignment="Top"
-                                   Source="https://www.learnrevitapi.com/static/img_new/logo/logo_learnrevitapi.png" />
+                                   Source="Resources/T3Lab_logo.png" />
                 </Hyperlink>
             </TextBlock>
 
@@ -252,17 +254,17 @@
               Foreground="{StaticResource text_gray}"
     />
 
-            <!--Ko-Fi-->
+            <!--Support-->
             <TextBlock  Grid.Column="2"
               VerticalAlignment="Center"
               HorizontalAlignment="Right"
               Margin="0,0,10,0">
               <Hyperlink
                   RequestNavigate="Hyperlink_RequestNavigate"
-                  NavigateUri="https://www.ko-fi.com/ErikFrits"
+                  NavigateUri="https://www.t3lab.vn"
                   FontWeight="Medium"
                   Foreground="{StaticResource button_bg_hover}">
-                  Support EF-Tools
+                  T3Lab
               </Hyperlink>
             </TextBlock>
         </Grid>
