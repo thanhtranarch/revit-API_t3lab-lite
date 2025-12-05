@@ -54,10 +54,23 @@ from Autodesk.Revit.DB import (
     ViewSheet, ViewSet, DWGExportOptions, DWFExportOptions,
     ExportDWGSettings, ACADVersion, PDFExportOptions,
     ImageExportOptions, ImageFileType, ImageResolution,
+    PropOverrideMode,
 )
 
-
 from System.Collections.Generic import List
+
+# Import API learner and updater modules
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+lib_dir = os.path.join(extension_dir, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
+
+try:
+    from api_learner import SmartAPIAdapter, RevitAPILearner
+    from api_updater import auto_check_and_update
+    HAS_API_LEARNER = True
+except:
+    HAS_API_LEARNER = False
 
 # Try to import IFC export
 try:
@@ -160,6 +173,20 @@ class ExportManagerWindow(forms.WPFWindow):
             self.filtered_sheets = []
             self.export_items = []
 
+            # Initialize Smart API Adapter for self-learning capability
+            if HAS_API_LEARNER:
+                try:
+                    self.api_adapter = SmartAPIAdapter(self.doc, REVIT_VERSION)
+                    logger.info("Smart API Adapter initialized successfully")
+
+                    # Check for API updates (non-blocking, runs in background)
+                    self._check_for_api_updates()
+                except Exception as adapter_ex:
+                    logger.warning("Could not initialize Smart API Adapter: {}".format(adapter_ex))
+                    self.api_adapter = None
+            else:
+                self.api_adapter = None
+
             # Load and set logo
             try:
                 logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
@@ -197,6 +224,38 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Error initializing BatchOut window: {}".format(ex))
             raise
+
+    def _check_for_api_updates(self):
+        """Check for API updates in the background (non-blocking)."""
+        try:
+            # Auto-check for updates (this runs on Fridays or if never checked)
+            update_result = auto_check_and_update()
+
+            if update_result.get('checked'):
+                # Log the check
+                logger.info("API update check performed")
+
+                # Show notifications if any
+                notifications = update_result.get('notifications', [])
+                for notif in notifications:
+                    if notif.get('severity') == 'critical':
+                        output.print_md("**⚠ CRITICAL**: {}".format(notif.get('message', '')))
+                    elif notif.get('severity') == 'warning':
+                        output.print_md("**⚡ INFO**: {}".format(notif.get('message', '')))
+                    else:
+                        output.print_md("**ℹ**: {}".format(notif.get('message', '')))
+
+                # Show learner info
+                if self.api_adapter:
+                    learner_info = self.api_adapter.get_learner_info()
+                    logger.info("API Learner: Cached date: {}, Source: {}".format(
+                        learner_info.get('cached_date'),
+                        learner_info.get('learned_from')
+                    ))
+
+        except Exception as ex:
+            # Don't fail initialization if update check fails
+            logger.debug("API update check failed: {}".format(ex))
 
     def load_cad_export_setups(self):
         """Load available DWG/DXF export setups from the document."""
@@ -683,18 +742,24 @@ class ExportManagerWindow(forms.WPFWindow):
             # PropOverrides handling differs between versions
             if selected_setup:
                 try:
-                    # Import PropOverrideMode for all versions
-                    from Autodesk.Revit.DB import PropOverrideMode
+                    # Use Smart API Adapter if available for intelligent configuration
+                    if self.api_adapter:
+                        dwg_options = self.api_adapter.configure_dwg_options(
+                            dwg_options,
+                            prop_override_mode=PropOverrideMode.ByEntity
+                        )
+                        output.print_md("**INFO**: Export setup '{}' applied using Smart API Adapter.".format(selected_setup_name))
+                    else:
+                        # Fallback to manual configuration
+                        # For Revit 2022-2026, PropOverrides expects PropOverrideMode enum
+                        # We cannot directly apply ExportDWGSettings object
+                        # Set to ByEntity (most common use case)
+                        dwg_options.PropOverrides = PropOverrideMode.ByEntity
 
-                    # For Revit 2022-2026, PropOverrides expects PropOverrideMode enum
-                    # We cannot directly apply ExportDWGSettings object
-                    # Set to ByEntity (most common use case)
-                    dwg_options.PropOverrides = PropOverrideMode.ByEntity
-
-                    # Inform user about the limitation
-                    output.print_md("**INFO**: Export setup '{}' selected.".format(selected_setup_name))
-                    output.print_md("  *Layer properties will be exported by entity. To use setup-specific settings,*")
-                    output.print_md("  *please configure them in Revit's DWG/DXF Export Settings dialog.*")
+                        # Inform user about the limitation
+                        output.print_md("**INFO**: Export setup '{}' selected.".format(selected_setup_name))
+                        output.print_md("  *Layer properties will be exported by entity. To use setup-specific settings,*")
+                        output.print_md("  *please configure them in Revit's DWG/DXF Export Settings dialog.*")
 
                 except Exception as setup_ex:
                     logger.warning("Could not apply export setup in Revit {}: {}".format(
@@ -716,13 +781,18 @@ class ExportManagerWindow(forms.WPFWindow):
                     view_ids = List[DB.ElementId]()
                     view_ids.Add(sheet_item.Sheet.Id)
 
-                    # Export using version-appropriate method
-                    if REVIT_VERSION >= 2022:
-                        # Revit 2022-2026: Use ICollection<ElementId> signature
-                        self.doc.Export(output_folder, filename, view_ids, dwg_options)
+                    # Use Smart API Adapter if available for intelligent export
+                    if self.api_adapter:
+                        # Smart adapter automatically handles version differences
+                        self.api_adapter.export_dwg(output_folder, filename, view_ids, dwg_options)
                     else:
-                        # Fallback for older versions (if needed)
-                        self.doc.Export(output_folder, filename, view_ids, dwg_options)
+                        # Fallback to direct export call
+                        if REVIT_VERSION >= 2022:
+                            # Revit 2022-2026: Use ICollection<ElementId> signature
+                            self.doc.Export(output_folder, filename, view_ids, dwg_options)
+                        else:
+                            # Fallback for older versions (if needed)
+                            self.doc.Export(output_folder, filename, view_ids, dwg_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".dwg")
@@ -789,28 +859,41 @@ class ExportManagerWindow(forms.WPFWindow):
                     pdf_options.Combine = True
 
                     # VERSION-AWARE: Apply PDF settings
-                    # These properties are available in Revit 2022-2026
-                    try:
-                        if self.pdf_hide_ref_planes.IsChecked:
-                            pdf_options.HideScopeBoxes = True
-                    except:
-                        logger.debug("HideScopeBoxes not supported in Revit {}".format(REVIT_VERSION))
+                    # Use Smart API Adapter if available for intelligent configuration
+                    if self.api_adapter:
+                        pdf_options = self.api_adapter.configure_pdf_options(
+                            pdf_options,
+                            hide_scope_boxes=self.pdf_hide_ref_planes.IsChecked,
+                            hide_crop_boundaries=self.pdf_hide_crop_boundaries.IsChecked,
+                            hide_unreferenced_tags=self.pdf_hide_unreferenced_tags.IsChecked
+                        )
+                    else:
+                        # Fallback to manual configuration
+                        try:
+                            if self.pdf_hide_ref_planes.IsChecked:
+                                pdf_options.HideScopeBoxes = True
+                        except:
+                            logger.debug("HideScopeBoxes not supported in Revit {}".format(REVIT_VERSION))
 
-                    try:
-                        if self.pdf_hide_crop_boundaries.IsChecked:
-                            pdf_options.HideCropBoundaries = True
-                    except:
-                        logger.debug("HideCropBoundaries not supported in Revit {}".format(REVIT_VERSION))
+                        try:
+                            if self.pdf_hide_crop_boundaries.IsChecked:
+                                pdf_options.HideCropBoundaries = True
+                        except:
+                            logger.debug("HideCropBoundaries not supported in Revit {}".format(REVIT_VERSION))
 
-                    try:
-                        if self.pdf_hide_unreferenced_tags.IsChecked:
-                            pdf_options.HideUnreferencedViewTags = True
-                    except:
-                        logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
+                        try:
+                            if self.pdf_hide_unreferenced_tags.IsChecked:
+                                pdf_options.HideUnreferencedViewTags = True
+                        except:
+                            logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
 
                     # VERSION-AWARE: Export using Revit's native PDF export
-                    # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                    self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                    # Use Smart API Adapter if available for intelligent export
+                    if self.api_adapter:
+                        self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
+                    else:
+                        # Fallback: Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".pdf")
@@ -840,32 +923,45 @@ class ExportManagerWindow(forms.WPFWindow):
                         pdf_options.Combine = False
 
                         # VERSION-AWARE: Apply PDF settings
-                        # These properties are available in Revit 2022-2026
-                        try:
-                            if self.pdf_hide_ref_planes.IsChecked:
-                                pdf_options.HideScopeBoxes = True
-                        except:
-                            logger.debug("HideScopeBoxes not supported in Revit {}".format(REVIT_VERSION))
+                        # Use Smart API Adapter if available for intelligent configuration
+                        if self.api_adapter:
+                            pdf_options = self.api_adapter.configure_pdf_options(
+                                pdf_options,
+                                hide_scope_boxes=self.pdf_hide_ref_planes.IsChecked,
+                                hide_crop_boundaries=self.pdf_hide_crop_boundaries.IsChecked,
+                                hide_unreferenced_tags=self.pdf_hide_unreferenced_tags.IsChecked
+                            )
+                        else:
+                            # Fallback to manual configuration
+                            try:
+                                if self.pdf_hide_ref_planes.IsChecked:
+                                    pdf_options.HideScopeBoxes = True
+                            except:
+                                logger.debug("HideScopeBoxes not supported in Revit {}".format(REVIT_VERSION))
 
-                        try:
-                            if self.pdf_hide_crop_boundaries.IsChecked:
-                                pdf_options.HideCropBoundaries = True
-                        except:
-                            logger.debug("HideCropBoundaries not supported in Revit {}".format(REVIT_VERSION))
+                            try:
+                                if self.pdf_hide_crop_boundaries.IsChecked:
+                                    pdf_options.HideCropBoundaries = True
+                            except:
+                                logger.debug("HideCropBoundaries not supported in Revit {}".format(REVIT_VERSION))
 
-                        try:
-                            if self.pdf_hide_unreferenced_tags.IsChecked:
-                                pdf_options.HideUnreferencedViewTags = True
-                        except:
-                            logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
+                            try:
+                                if self.pdf_hide_unreferenced_tags.IsChecked:
+                                    pdf_options.HideUnreferencedViewTags = True
+                            except:
+                                logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
 
                         # Create System.Collections.Generic.List for sheet IDs
                         sheet_ids = List[DB.ElementId]()
                         sheet_ids.Add(sheet_item.Sheet.Id)
 
                         # VERSION-AWARE: Export using Revit's native PDF export
-                        # Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
-                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
+                        # Use Smart API Adapter if available for intelligent export
+                        if self.api_adapter:
+                            self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
+                        else:
+                            # Fallback: Revit 2022-2026 signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                            self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                         # Verify file was created
                         expected_file = os.path.join(output_folder, filename + ".pdf")
