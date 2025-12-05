@@ -868,7 +868,7 @@ class ExportManagerWindow(forms.WPFWindow):
                     expected_file = os.path.join(output_folder, filename + ".dwg")
                     if os.path.exists(expected_file):
                         output.print_md("- Exported: **{}** → `{}.dwg`".format(
-                            sheet_item.SheetNumber, filename))
+                            sheet_item.Sheet.SheetNumber, filename))
                         exported_count += 1
                         # Update progress for this export item
                         self.update_export_item_progress(sheet_item.SheetNumber, "DWG", 100)
@@ -877,9 +877,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
                 except Exception as ex:
                     logger.error("Error exporting {} to DWG: {}".format(
-                        sheet_item.SheetNumber, ex))
+                        sheet_item.Sheet.SheetNumber, ex))
                     output.print_md("- **Error** exporting {}: {}".format(
-                        sheet_item.SheetNumber, str(ex)))
+                        sheet_item.Sheet.SheetNumber, str(ex)))
 
             output.print_md("\n**DWG Export Complete:** {} sheets exported".format(exported_count))
             return exported_count
@@ -1108,7 +1108,7 @@ class ExportManagerWindow(forms.WPFWindow):
                         expected_file = os.path.join(output_folder, filename + ".pdf")
                         if os.path.exists(expected_file):
                             output.print_md("- Exported: **{}** → `{}.pdf`".format(
-                                sheet_item.SheetNumber, filename))
+                                sheet_item.Sheet.SheetNumber, filename))
                             exported_count += 1
                             # Update progress for this export item
                             self.update_export_item_progress(sheet_item.SheetNumber, "PDF", 100)
@@ -1117,19 +1117,19 @@ class ExportManagerWindow(forms.WPFWindow):
                             actual_file = list(new_pdfs)[0]
                             actual_filename = os.path.basename(actual_file)
                             output.print_md("- Exported: **{}** → `{}`".format(
-                                sheet_item.SheetNumber, actual_filename))
+                                sheet_item.Sheet.SheetNumber, actual_filename))
                             exported_count += 1
                             # Update progress for this export item
                             self.update_export_item_progress(sheet_item.SheetNumber, "PDF", 100)
                         else:
                             output.print_md("- **Warning**: Export completed but no new PDF file detected for {}".format(
-                                sheet_item.SheetNumber))
+                                sheet_item.Sheet.SheetNumber))
 
                     except Exception as ex:
                         logger.error("Error exporting {} to PDF: {}".format(
-                            sheet_item.SheetNumber, ex))
+                            sheet_item.Sheet.SheetNumber, ex))
                         output.print_md("- **Error** exporting {}: {}".format(
-                            sheet_item.SheetNumber, str(ex)))
+                            sheet_item.Sheet.SheetNumber, str(ex)))
 
             output.print_md("\n**PDF Export Complete:** {} file(s) exported".format(exported_count))
             return exported_count
@@ -1175,7 +1175,7 @@ class ExportManagerWindow(forms.WPFWindow):
                     expected_file = os.path.join(output_folder, filename + ".dwf")
                     if os.path.exists(expected_file):
                         output.print_md("- Exported: **{}** → `{}.dwf`".format(
-                            sheet_item.SheetNumber, filename))
+                            sheet_item.Sheet.SheetNumber, filename))
                         exported_count += 1
                         # Update progress for this export item
                         self.update_export_item_progress(sheet_item.SheetNumber, "DWF", 100)
@@ -1184,9 +1184,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
                 except Exception as ex:
                     logger.error("Error exporting {} to DWF: {}".format(
-                        sheet_item.SheetNumber, ex))
+                        sheet_item.Sheet.SheetNumber, ex))
                     output.print_md("- **Error** exporting {}: {}".format(
-                        sheet_item.SheetNumber, str(ex)))
+                        sheet_item.Sheet.SheetNumber, str(ex)))
 
             output.print_md("\n**DWF Export Complete:** {} sheets exported".format(exported_count))
             return exported_count
@@ -1226,16 +1226,16 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.doc.Export(output_folder, filename, nwd_options)
 
                     output.print_md("- Exported: **{}** → `{}.nwc`".format(
-                        sheet_item.SheetNumber, filename))
+                        sheet_item.Sheet.SheetNumber, filename))
                     exported_count += 1
                     # Update progress for this export item
                     self.update_export_item_progress(sheet_item.SheetNumber, "NWC", 100)
 
                 except Exception as ex:
                     logger.error("Error exporting {} to NWC: {}".format(
-                        sheet_item.SheetNumber, ex))
+                        sheet_item.Sheet.SheetNumber, ex))
                     output.print_md("- **Error** exporting {}: {}".format(
-                        sheet_item.SheetNumber, str(ex)))
+                        sheet_item.Sheet.SheetNumber, str(ex)))
 
             output.print_md("\n**NWC Export Complete:** {} sheets exported".format(exported_count))
             return exported_count
@@ -1298,6 +1298,9 @@ class ExportManagerWindow(forms.WPFWindow):
     def export_to_images(self, sheets, output_folder):
         """Export sheets to image format using Revit's native image export with version-aware API usage."""
         try:
+            import time
+            import glob
+
             output.print_md("### Exporting to Images...")
             output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
@@ -1313,6 +1316,15 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Remove extension if present
                     if filename.lower().endswith('.png'):
                         filename = filename[:-4]
+
+                    # Clean filename - remove invalid chars and extra spaces
+                    invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+                    for char in invalid_chars:
+                        filename = filename.replace(char, '_')
+                    filename = filename.strip()
+
+                    # Get list of existing image files before export
+                    existing_images = set(glob.glob(os.path.join(output_folder, "*.png")))
 
                     # Create image export options for each sheet
                     img_options = ImageExportOptions()
@@ -1332,11 +1344,29 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Export using Revit's native image export
                     self.doc.ExportImage(img_options)
 
+                    # Wait briefly for file system to update
+                    time.sleep(0.3)
+
+                    # Get list of image files after export
+                    current_images = set(glob.glob(os.path.join(output_folder, "*.png")))
+                    new_images = current_images - existing_images
+
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".png")
                     if os.path.exists(expected_file):
                         output.print_md("- Exported: **{}** → `{}.png`".format(
-                            sheet_item.SheetNumber, filename))
+                            sheet_item.Sheet.SheetNumber, filename))
+                        exported_count += 1
+                        # Update progress for this export item
+                        self.update_export_item_progress(sheet_item.SheetNumber, "IMG", 100)
+                    elif new_images:
+                        # An image was created but with a different name - report it
+                        actual_file = list(new_images)[0]
+                        actual_filename = os.path.basename(actual_file)
+                        output.print_md("- Exported: **{}** → `{}`".format(
+                            sheet_item.Sheet.SheetNumber, actual_filename))
+                        output.print_md("  *(Note: Revit used filename: `{}` instead of `{}.png`)*".format(
+                            actual_filename, filename))
                         exported_count += 1
                         # Update progress for this export item
                         self.update_export_item_progress(sheet_item.SheetNumber, "IMG", 100)
@@ -1345,9 +1375,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
                 except Exception as ex:
                     logger.error("Error exporting {} to Image: {}".format(
-                        sheet_item.SheetNumber, ex))
+                        sheet_item.Sheet.SheetNumber, ex))
                     output.print_md("- **Error** exporting {}: {}".format(
-                        sheet_item.SheetNumber, str(ex)))
+                        sheet_item.Sheet.SheetNumber, str(ex)))
 
             output.print_md("\n**Image Export Complete:** {} sheets exported".format(exported_count))
             return exported_count
