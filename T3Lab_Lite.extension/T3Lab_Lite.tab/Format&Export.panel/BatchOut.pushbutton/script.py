@@ -308,6 +308,11 @@ class ExportManagerWindow(forms.WPFWindow):
             self.all_sheets = [SheetItem(sheet, False) for sheet in sheets]
             self.filtered_sheets = list(self.all_sheets)
 
+            # Clear any cached custom filenames to ensure they're generated fresh
+            # This prevents old cached values from being used
+            for sheet_item in self.all_sheets:
+                sheet_item.CustomFilename = ""
+
             # Update ListView
             self.update_sheets_list()
 
