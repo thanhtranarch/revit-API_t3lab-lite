@@ -640,15 +640,19 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Print export summary with logo and title
             try:
-                # Try to load and display logo
+                # Try to load and display logo (larger size)
                 extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
                 logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
                 if os.path.exists(logo_path):
                     output.print_image(logo_path)
+                    # Add spacing after logo
+                    output.print_md("\n")
             except Exception as logo_ex:
                 logger.debug("Could not display logo in output: {}".format(logo_ex))
 
-            output.print_md("# T3Lab - BatchOut Export")
+            # Large, bold title for BatchOut
+            output.print_md("# **T3Lab - BATCHOUT**")
+            output.print_md("### *Batch Export Tool for Multiple Formats*")
             output.print_md("---")
             output.print_md("## Export Summary")
             output.print_md("**Sheets to export:** {}".format(len(selected_sheets)))
@@ -722,10 +726,11 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Show completion message with branding
             output.print_md("\n---")
-            output.print_md("# ✅ Export Complete!")
-            output.print_md("**Total files exported:** {}".format(total_exported))
+            output.print_md("# ✅ **EXPORT COMPLETE!**")
+            output.print_md("## **Total files exported:** {}".format(total_exported))
             output.print_md("---")
-            output.print_md("*Exported with T3Lab BatchOut*")
+            output.print_md("### *Exported with T3Lab BATCHOUT*")
+            output.print_md("*Professional batch export solution for Revit sheets*")
 
             self.status_text.Text = "Export complete! {} files exported".format(total_exported)
             self.progress_text.Text = "Export complete! {} files exported".format(total_exported)
@@ -831,8 +836,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in sheets:
                 try:
-                    # Update progress text to show current sheet and format
-                    self.progress_text.Text = "Exporting {} to DWG...".format(sheet_item.SheetNumber)
+                    # Update progress text to show current sheet and format using live sheet number
+                    self.progress_text.Text = "Exporting {} to DWG...".format(sheet_item.Sheet.SheetNumber)
 
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
@@ -907,13 +912,14 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Update progress text
                     self.progress_text.Text = "Exporting combined PDF with {} sheets...".format(len(sheets))
 
-                    # Generate combined filename
+                    # Generate combined filename using live sheet numbers
                     if len(sheets) > 0:
                         first_sheet = sheets[0]
                         last_sheet = sheets[-1]
+                        # Use live sheet numbers from actual Revit sheets
                         filename = "{}-{}_Combined".format(
-                            first_sheet.SheetNumber,
-                            last_sheet.SheetNumber
+                            first_sheet.Sheet.SheetNumber,
+                            last_sheet.Sheet.SheetNumber
                         )
                     else:
                         filename = "Combined_Sheets"
@@ -1022,8 +1028,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 # Export each sheet individually
                 for sheet_item in sheets:
                     try:
-                        # Update progress text to show current sheet and format
-                        self.progress_text.Text = "Exporting {} to PDF...".format(sheet_item.SheetNumber)
+                        # Update progress text to show current sheet and format using live sheet number
+                        self.progress_text.Text = "Exporting {} to PDF...".format(sheet_item.Sheet.SheetNumber)
 
                         filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
@@ -1149,8 +1155,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in sheets:
                 try:
-                    # Update progress text to show current sheet and format
-                    self.progress_text.Text = "Exporting {} to DWF...".format(sheet_item.SheetNumber)
+                    # Update progress text to show current sheet and format using live sheet number
+                    self.progress_text.Text = "Exporting {} to DWF...".format(sheet_item.Sheet.SheetNumber)
 
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
@@ -1207,8 +1213,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in sheets:
                 try:
-                    # Update progress text to show current sheet and format
-                    self.progress_text.Text = "Exporting {} to NWC...".format(sheet_item.SheetNumber)
+                    # Update progress text to show current sheet and format using live sheet number
+                    self.progress_text.Text = "Exporting {} to NWC...".format(sheet_item.Sheet.SheetNumber)
 
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
                     filepath = os.path.join(output_folder, filename + ".nwc")
@@ -1299,8 +1305,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in sheets:
                 try:
-                    # Update progress text to show current sheet and format
-                    self.progress_text.Text = "Exporting {} to Image...".format(sheet_item.SheetNumber)
+                    # Update progress text to show current sheet and format using live sheet number
+                    self.progress_text.Text = "Exporting {} to Image...".format(sheet_item.Sheet.SheetNumber)
 
                     filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
 
