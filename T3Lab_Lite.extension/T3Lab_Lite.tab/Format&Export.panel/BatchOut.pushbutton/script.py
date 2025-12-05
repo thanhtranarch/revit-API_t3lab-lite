@@ -529,7 +529,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 count = self.export_to_dwg(selected_sheets, folder)
                 total_exported += count
                 current_item += count
-                self.overall_progress.Value = (current_item * 100.0) / total_items
+                if total_items > 0:
+                    self.overall_progress.Value = (current_item * 100.0) / total_items
 
             if self.export_pdf.IsChecked:
                 folder = os.path.join(output_folder, "PDF") if split_by_format else output_folder
@@ -538,7 +539,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 count = self.export_to_pdf(selected_sheets, folder)
                 total_exported += count
                 current_item += count
-                self.overall_progress.Value = (current_item * 100.0) / total_items
+                if total_items > 0:
+                    self.overall_progress.Value = (current_item * 100.0) / total_items
 
             if self.export_dwf.IsChecked:
                 folder = os.path.join(output_folder, "DWF") if split_by_format else output_folder
@@ -547,7 +549,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 count = self.export_to_dwf(selected_sheets, folder)
                 total_exported += count
                 current_item += count
-                self.overall_progress.Value = (current_item * 100.0) / total_items
+                if total_items > 0:
+                    self.overall_progress.Value = (current_item * 100.0) / total_items
 
             if self.export_nwd.IsChecked:
                 folder = os.path.join(output_folder, "NWC") if split_by_format else output_folder
@@ -556,7 +559,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 count = self.export_to_nwd(selected_sheets, folder)
                 total_exported += count
                 current_item += count
-                self.overall_progress.Value = (current_item * 100.0) / total_items
+                if total_items > 0:
+                    self.overall_progress.Value = (current_item * 100.0) / total_items
 
             if self.export_ifc.IsChecked:
                 folder = os.path.join(output_folder, "IFC") if split_by_format else output_folder
@@ -565,7 +569,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 count = self.export_to_ifc(selected_sheets, folder)
                 total_exported += count
                 current_item += count
-                self.overall_progress.Value = (current_item * 100.0) / total_items
+                if total_items > 0:
+                    self.overall_progress.Value = (current_item * 100.0) / total_items
 
             if self.export_img.IsChecked:
                 folder = os.path.join(output_folder, "Images") if split_by_format else output_folder
@@ -574,7 +579,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 count = self.export_to_images(selected_sheets, folder)
                 total_exported += count
                 current_item += count
-                self.overall_progress.Value = (current_item * 100.0) / total_items
+                if total_items > 0:
+                    self.overall_progress.Value = (current_item * 100.0) / total_items
 
             # Show completion message
             output.print_md("\n---")
@@ -631,20 +637,27 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Apply CAD export options
             # Export views on sheets (default: False)
+            # Note: ExportingAreas is not available in Revit 2023 and earlier
             export_views_on_sheets = self.cad_export_views_on_sheets.IsChecked
-            if hasattr(dwg_options, 'ExportingAreas'):
-                if export_views_on_sheets:
-                    dwg_options.ExportingAreas = DB.ExportingAreas.ExportViewsOnSheets
-                    output.print_md("- Export views on sheets: **Enabled**")
-                else:
-                    dwg_options.ExportingAreas = DB.ExportingAreas.DontExportViewsOnSheets
+            try:
+                if hasattr(dwg_options, 'ExportingAreas') and hasattr(DB, 'ExportingAreas'):
+                    if export_views_on_sheets:
+                        dwg_options.ExportingAreas = DB.ExportingAreas.ExportViewsOnSheets
+                        output.print_md("- Export views on sheets: **Enabled**")
+                    else:
+                        dwg_options.ExportingAreas = DB.ExportingAreas.DontExportViewsOnSheets
+            except Exception as ex:
+                logger.warning("ExportingAreas not supported in this Revit version: {}".format(ex))
 
             # Export links as external references (default: False)
             export_links_as_external = self.cad_export_links_as_external.IsChecked
-            if hasattr(dwg_options, 'MergedViews'):
-                dwg_options.MergedViews = not export_links_as_external
-                if export_links_as_external:
-                    output.print_md("- Export links as external references: **Enabled**")
+            try:
+                if hasattr(dwg_options, 'MergedViews'):
+                    dwg_options.MergedViews = not export_links_as_external
+                    if export_links_as_external:
+                        output.print_md("- Export links as external references: **Enabled**")
+            except Exception as ex:
+                logger.warning("MergedViews not supported in this Revit version: {}".format(ex))
 
             # If a specific setup is selected, try to use its settings
             if selected_setup:
