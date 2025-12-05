@@ -1,7 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="BatchOut"
-        Icon="T3Lab_logo.png"
         Width="1000" Height="750"
         MinWidth="900" MinHeight="650"
         WindowStartupLocation="CenterScreen"

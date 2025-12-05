@@ -44,6 +44,8 @@ clr.AddReference('PresentationCore')
 clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows import Visibility
+from System.Windows.Media.Imaging import BitmapImage
+from System import Uri, UriKind
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import revit, DB, UI, forms, script
@@ -165,6 +167,18 @@ class ExportManagerWindow(forms.WPFWindow):
             self.all_sheets = []
             self.filtered_sheets = []
             self.export_items = []
+
+            # Set window icon
+            try:
+                logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
+                if os.path.exists(logo_path):
+                    bitmap = BitmapImage()
+                    bitmap.BeginInit()
+                    bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                    bitmap.EndInit()
+                    self.Icon = bitmap
+            except Exception as icon_ex:
+                logger.warning("Could not set window icon: {}".format(icon_ex))
 
             # Initialize Smart API Adapter for self-learning capability
             if HAS_API_LEARNER:
