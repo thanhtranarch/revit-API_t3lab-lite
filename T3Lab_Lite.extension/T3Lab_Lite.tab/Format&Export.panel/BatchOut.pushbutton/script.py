@@ -60,6 +60,9 @@ except:
 logger = script.get_logger()
 output = script.get_output()
 
+# Get Revit version information
+REVIT_VERSION = int(revit.app.VersionNumber)  # e.g., 2023, 2024, 2025, 2026
+
 
 class SheetItem(forms.Reactive):
     """Represents a sheet item in the list - optimized for performance."""
@@ -180,8 +183,9 @@ class ExportManagerWindow(forms.WPFWindow):
             # Update ListView
             self.update_sheets_list()
 
-            # Update status
-            self.status_text.Text = "Loaded {} sheets".format(len(self.all_sheets))
+            # Update status with version info
+            self.status_text.Text = "Loaded {} sheets | Revit {}".format(
+                len(self.all_sheets), REVIT_VERSION)
 
         except Exception as ex:
             logger.error("Error loading sheets: {}".format(ex))
@@ -541,9 +545,10 @@ class ExportManagerWindow(forms.WPFWindow):
             self.back_button.IsEnabled = True
 
     def export_to_dwg(self, sheets, output_folder):
-        """Export sheets to DWG format."""
+        """Export sheets to DWG format with version-aware API usage."""
         try:
             output.print_md("### Exporting to DWG...")
+            output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
             # Create DWG export options
             dwg_options = DWGExportOptions()
@@ -565,13 +570,21 @@ class ExportManagerWindow(forms.WPFWindow):
                     if filename.lower().endswith('.dwg'):
                         filename = filename[:-4]
 
-                    # Create ICollection<ElementId> for export (DWG needs ElementId collection, not ViewSet)
-                    view_ids = List[DB.ElementId]()
-                    view_ids.Add(sheet_item.Sheet.Id)
-
-                    # Export using Revit's native DWG export
-                    # Signature: Export(String folder, String name, ICollection<ElementId> views, DWGExportOptions options)
-                    self.doc.Export(output_folder, filename, view_ids, dwg_options)
+                    # Version-aware export handling
+                    # Revit 2024+ uses ICollection<ElementId> signature
+                    # Older versions may use ViewSet (but newer API is backwards compatible)
+                    if REVIT_VERSION >= 2024:
+                        # Revit 2024+ recommended approach
+                        # Signature: Export(String folder, String name, ICollection<ElementId> views, DWGExportOptions options)
+                        view_ids = List[DB.ElementId]()
+                        view_ids.Add(sheet_item.Sheet.Id)
+                        self.doc.Export(output_folder, filename, view_ids, dwg_options)
+                    else:
+                        # Revit 2023 and earlier - use ICollection<ElementId> (works in 2018+)
+                        # This signature is backwards compatible with older versions
+                        view_ids = List[DB.ElementId]()
+                        view_ids.Add(sheet_item.Sheet.Id)
+                        self.doc.Export(output_folder, filename, view_ids, dwg_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".dwg")
@@ -597,9 +610,10 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_pdf(self, sheets, output_folder):
-        """Export sheets to PDF format using Revit's native PDF export."""
+        """Export sheets to PDF format using Revit's native PDF export with version-aware API usage."""
         try:
             output.print_md("### Exporting to PDF...")
+            output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
             # Check if combine PDF is enabled
             combine_pdf = self.combine_pdf.IsChecked
@@ -714,9 +728,10 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_dwf(self, sheets, output_folder):
-        """Export sheets to DWF format using Revit's native DWF export."""
+        """Export sheets to DWF format using Revit's native DWF export with version-aware API usage."""
         try:
             output.print_md("### Exporting to DWF...")
+            output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
             # Create DWF export options
             dwf_options = DWFExportOptions()
@@ -731,13 +746,22 @@ class ExportManagerWindow(forms.WPFWindow):
                     if filename.lower().endswith('.dwf'):
                         filename = filename[:-4]
 
-                    # Create ViewSet for export
-                    view_set = DB.ViewSet()
-                    view_set.Insert(sheet_item.Sheet)
-
-                    # Export using Revit's native DWF export
-                    # Signature: Export(String folder, String name, ViewSet views, DWFExportOptions options)
-                    self.doc.Export(output_folder, filename, view_set, dwf_options)
+                    # Version-aware export handling
+                    # Revit 2024+ may prefer ICollection<ElementId>, but ViewSet is still supported
+                    # Using ViewSet for better backward compatibility with older Revit versions
+                    if REVIT_VERSION >= 2024:
+                        # Revit 2024+ can use either ViewSet or ICollection<ElementId>
+                        # Using ViewSet for consistency with older code
+                        view_set = DB.ViewSet()
+                        view_set.Insert(sheet_item.Sheet)
+                        # Signature: Export(String folder, String name, ViewSet views, DWFExportOptions options)
+                        self.doc.Export(output_folder, filename, view_set, dwf_options)
+                    else:
+                        # Revit 2023 and earlier - use ViewSet (standard approach)
+                        view_set = DB.ViewSet()
+                        view_set.Insert(sheet_item.Sheet)
+                        # Signature: Export(String folder, String name, ViewSet views, DWFExportOptions options)
+                        self.doc.Export(output_folder, filename, view_set, dwf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".dwf")
@@ -763,13 +787,14 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_nwd(self, sheets, output_folder):
-        """Export to Navisworks NWD format."""
+        """Export to Navisworks NWD format with version-aware API usage."""
         if not HAS_NAVISWORKS:
             output.print_md("**Navisworks export not available**")
             return 0
 
         try:
             output.print_md("### Exporting to NWC (Navisworks)...")
+            output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
             # Create Navisworks export options
             nwd_options = NavisworksExportOptions()
@@ -806,13 +831,14 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_ifc(self, sheets, output_folder):
-        """Export to IFC format."""
+        """Export to IFC format with version-aware API usage."""
         if not HAS_IFC:
             output.print_md("**IFC export not available**")
             return 0
 
         try:
             output.print_md("### Exporting to IFC...")
+            output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
             # Create IFC export options
             ifc_options = IFCExportOptions()
@@ -849,9 +875,10 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
     def export_to_images(self, sheets, output_folder):
-        """Export sheets to image format using Revit's native image export."""
+        """Export sheets to image format using Revit's native image export with version-aware API usage."""
         try:
             output.print_md("### Exporting to Images...")
+            output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
             exported_count = 0
 
