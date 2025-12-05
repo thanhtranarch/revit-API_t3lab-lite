@@ -43,6 +43,8 @@ from Autodesk.Revit.DB import (
     ExportDWGSettings, ACADVersion, PDFExportOptions,
     ImageExportOptions, ImageFileType, ImageResolution,
 )
+
+
 from System.Collections.Generic import List
 
 # Try to import IFC export
@@ -63,7 +65,11 @@ logger = script.get_logger()
 output = script.get_output()
 
 # Get Revit version information
+<<<<<<< Updated upstream
 REVIT_VERSION = int(revit.doc.Application.VersionNumber) 
+=======
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)  # e.g., 2023, 2024, 2025, 2026
+>>>>>>> Stashed changes
 
 
 class SheetItem(forms.Reactive):
