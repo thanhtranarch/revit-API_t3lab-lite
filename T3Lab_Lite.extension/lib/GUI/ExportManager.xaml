@@ -241,31 +241,79 @@
                             <TextBlock Text="Export Formats" Style="{StaticResource SectionHeader}"/>
                             <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
                                 <WrapPanel>
-                                    <CheckBox x:Name="export_pdf" Content="PDF"
-                                              Style="{StaticResource FormatCheckBox}" IsChecked="True"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_dwg" Content="DWG (AutoCAD)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_dgn" Content="DGN (MicroStation)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_dwf" Content="DWF"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_nwd" Content="NWC (Navisworks)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_ifc" Content="IFC"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              IsEnabled="False" ToolTip="Temporarily disabled"
-                                              Checked="format_changed" Unchecked="format_changed"/>
-                                    <CheckBox x:Name="export_img" Content="IMG (Image)"
-                                              Style="{StaticResource FormatCheckBox}"
-                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <!-- PDF Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_pdf" Content="PDF" IsChecked="True"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Portable Document Format"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- DWG Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_dwg" Content="DWG (AutoCAD)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="AutoCAD Drawing File"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- DGN Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_dgn" Content="DGN (MicroStation)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="MicroStation Design File"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- DWF Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_dwf" Content="DWF"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Design Web Format"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- NWC Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_nwd" Content="NWC (Navisworks)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Navisworks Cache File"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- IFC Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_ifc" Content="IFC"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Temporarily disabled"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="Industry Foundation Classes"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
+
+                                    <!-- IMG Format -->
+                                    <StackPanel Margin="5">
+                                        <CheckBox x:Name="export_img" Content="IMG (Image)"
+                                                  FontSize="13" FontWeight="Medium"
+                                                  Checked="format_changed" Unchecked="format_changed"/>
+                                        <TextBlock Text="PNG Image Format"
+                                                   FontSize="10" Foreground="#7F8C8D"
+                                                   Margin="22,2,0,0" TextWrapping="Wrap" MaxWidth="150"/>
+                                    </StackPanel>
                                 </WrapPanel>
                             </Border>
                         </StackPanel>
