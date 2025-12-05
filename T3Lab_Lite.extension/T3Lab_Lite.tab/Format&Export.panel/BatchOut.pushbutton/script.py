@@ -17,7 +17,7 @@ Features:
 
 __title__ = "Batch\nOut"
 __author__ = "T3Lab"
-__version__ = "3.0.0"
+__version__ = "1.0.0"
 
 # IMPORTS
 import os

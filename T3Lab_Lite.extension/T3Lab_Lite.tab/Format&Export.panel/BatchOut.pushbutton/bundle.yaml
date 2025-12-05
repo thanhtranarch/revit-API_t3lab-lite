@@ -1,5 +1,5 @@
 # BatchOut pushbutton configuration
-# Version 3.0.0 - Enhanced with features from pyRevit Print Sheets tool
+# Version 1.0.0 - Enhanced with features from pyRevit Print Sheets tool
 
 title: BatchOut
 tooltip: Batch export sheets to DWG, PDF, NWD, and IFC formats with advanced options
@@ -17,4 +17,4 @@ description: |
   Inspired by pyRevit Print Sheets tool.
 
 author: T3Lab
-version: 3.0.0
+version: 1.0.0
