@@ -271,7 +271,11 @@ class ExportManagerWindow(forms.WPFWindow):
 
     def apply_filters(self):
         """Apply search and size filters."""
-        search_text = self.search_textbox.Text.lower()
+        # Check if controls are initialized (prevents error during XAML loading)
+        if not hasattr(self, 'search_textbox') or not hasattr(self, 'size_filter'):
+            return
+
+        search_text = self.search_textbox.Text.lower() if self.search_textbox.Text else ""
 
         # Get selected size filter
         size_filter = None
