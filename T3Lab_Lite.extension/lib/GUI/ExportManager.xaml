@@ -113,10 +113,10 @@
             </Grid.ColumnDefinitions>
 
             <!-- Logo and Title -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="15,0,0,0" VerticalAlignment="Center"
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="30,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Image x:Name="logo_image" Width="72" Height="72" Margin="0,0,15,0"/>
-                <TextBlock Text="BATCHOUT" FontSize="42" FontWeight="Bold"
+                <Image x:Name="logo_image" Width="99" Height="99" Margin="0,0,30,0"/>
+                <TextBlock Text="BatchOut" FontSize="36" FontWeight="Bold"
                           Foreground="#2C3E50" VerticalAlignment="Center"/>
             </StackPanel>
         </Grid>
