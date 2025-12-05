@@ -127,8 +127,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
     def __init__(self):
         try:
-            # Get absolute path to XAML file
-            xaml_file_path = os.path.join(os.path.dirname(__file__), 'ExportManager.xaml')
+            # Get absolute path to XAML file from lib/GUI folder
+            extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+            xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'ExportManager.xaml')
             forms.WPFWindow.__init__(self, xaml_file_path)
 
             self.doc = revit.doc
