@@ -80,7 +80,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Logo -->
-                <Image Grid.Column="0" Source="T3Lab_logo.png" Width="40" Height="40"
+                <Image x:Name="logo_image" Grid.Column="0" Width="40" Height="40"
                        Margin="0,0,15,0" VerticalAlignment="Center"/>
 
                 <!-- Title and Description -->
@@ -214,15 +214,19 @@
                                               Checked="format_changed" Unchecked="format_changed"/>
                                     <CheckBox x:Name="export_dgn" Content="DGN (MicroStation)"
                                               Style="{StaticResource FormatCheckBox}"
+                                              IsEnabled="False" ToolTip="Temporarily disabled"
                                               Checked="format_changed" Unchecked="format_changed"/>
                                     <CheckBox x:Name="export_dwf" Content="DWF"
                                               Style="{StaticResource FormatCheckBox}"
+                                              IsEnabled="False" ToolTip="Temporarily disabled"
                                               Checked="format_changed" Unchecked="format_changed"/>
                                     <CheckBox x:Name="export_nwd" Content="NWC (Navisworks)"
                                               Style="{StaticResource FormatCheckBox}"
+                                              IsEnabled="False" ToolTip="Temporarily disabled"
                                               Checked="format_changed" Unchecked="format_changed"/>
                                     <CheckBox x:Name="export_ifc" Content="IFC"
                                               Style="{StaticResource FormatCheckBox}"
+                                              IsEnabled="False" ToolTip="Temporarily disabled"
                                               Checked="format_changed" Unchecked="format_changed"/>
                                     <CheckBox x:Name="export_img" Content="IMG (Image)"
                                               Style="{StaticResource FormatCheckBox}"
@@ -290,23 +294,47 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- DWG Options -->
+                        <!-- DWG/CAD Options -->
                         <StackPanel Grid.Row="2" x:Name="dwg_options_panel" Margin="0,10,0,0">
-                            <TextBlock Text="DWG Options" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="DWG/CAD Export Options" Style="{StaticResource SectionHeader}"/>
                             <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
                                 <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBlock Grid.Column="0" Text="AutoCAD Version:" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Column="1" x:Name="dwg_version" Height="28" Margin="5"
+                                    <!-- AutoCAD Version -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="AutoCAD Version:" VerticalAlignment="Center" Margin="0,5"/>
+                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="dwg_version" Height="28" Margin="5"
                                               SelectedIndex="0">
                                         <ComboBoxItem Content="AutoCAD 2013"/>
                                         <ComboBoxItem Content="AutoCAD 2010"/>
                                         <ComboBoxItem Content="AutoCAD 2007"/>
                                     </ComboBox>
+
+                                    <!-- Export Setup -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Export Setup:" VerticalAlignment="Center" Margin="0,5"/>
+                                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="cad_export_setup" Height="28" Margin="5"
+                                              SelectedIndex="0">
+                                        <ComboBoxItem Content="Use setup from file"/>
+                                    </ComboBox>
+
+                                    <!-- Additional CAD Options -->
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Additional Options:" VerticalAlignment="Top" Margin="0,10,0,5"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Margin="5,10,5,0">
+                                        <CheckBox x:Name="cad_export_views_on_sheets" Content="Export views on sheets"
+                                                  IsChecked="False" Margin="0,3"
+                                                  ToolTip="Export views placed on sheets (default: OFF)"/>
+                                        <CheckBox x:Name="cad_export_links_as_external" Content="Export links as external references"
+                                                  IsChecked="False" Margin="0,3"
+                                                  ToolTip="Export linked files as external references (default: OFF)"/>
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                         </StackPanel>

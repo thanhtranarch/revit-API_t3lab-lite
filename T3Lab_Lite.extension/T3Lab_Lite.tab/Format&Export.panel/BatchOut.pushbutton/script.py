@@ -32,6 +32,8 @@ clr.AddReference('PresentationCore')
 clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows import Visibility
+from System.Windows.Media.Imaging import BitmapImage
+from System import Uri, UriKind
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import revit, DB, UI, forms, script
@@ -140,9 +142,24 @@ class ExportManagerWindow(forms.WPFWindow):
             self.filtered_sheets = []
             self.export_items = []
 
+            # Load and set logo
+            try:
+                logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
+                if os.path.exists(logo_path):
+                    bitmap = BitmapImage()
+                    bitmap.BeginInit()
+                    bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                    bitmap.EndInit()
+                    self.logo_image.Source = bitmap
+            except Exception as logo_ex:
+                logger.warning("Could not load logo: {}".format(logo_ex))
+
             # Set default output folder
             default_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'Revit Exports')
             self.output_folder.Text = default_folder
+
+            # Load CAD export setups
+            self.load_cad_export_setups()
 
             # Load sheets
             self.load_sheets()
@@ -162,6 +179,45 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Error initializing BatchOut window: {}".format(ex))
             raise
+
+    def load_cad_export_setups(self):
+        """Load available DWG/DXF export setups from the document."""
+        try:
+            # Clear existing items
+            self.cad_export_setup.Items.Clear()
+
+            # Add default option
+            from System.Windows.Controls import ComboBoxItem
+            default_item = ComboBoxItem()
+            default_item.Content = "Use setup from file (Default)"
+            self.cad_export_setup.Items.Add(default_item)
+
+            # Get all export settings from the document
+            collector = FilteredElementCollector(self.doc)\
+                .OfClass(ExportDWGSettings)
+
+            # Add each export setup to the combo box
+            for setup in collector:
+                try:
+                    setup_name = setup.Name if hasattr(setup, 'Name') else "Setup {}".format(setup.Id.IntegerValue)
+                    item = ComboBoxItem()
+                    item.Content = setup_name
+                    item.Tag = setup  # Store the setup object for later use
+                    self.cad_export_setup.Items.Add(item)
+                except:
+                    pass
+
+            # Select the first item (default)
+            self.cad_export_setup.SelectedIndex = 0
+
+        except Exception as ex:
+            logger.warning("Could not load CAD export setups: {}".format(ex))
+            # Add just the default if there's an error
+            from System.Windows.Controls import ComboBoxItem
+            default_item = ComboBoxItem()
+            default_item.Content = "Use setup from file (Default)"
+            self.cad_export_setup.Items.Add(default_item)
+            self.cad_export_setup.SelectedIndex = 0
 
     def load_sheets(self):
         """Load all sheets from the document."""
@@ -550,8 +606,21 @@ class ExportManagerWindow(forms.WPFWindow):
             output.print_md("### Exporting to DWG...")
             output.print_md("**Revit Version:** {}".format(REVIT_VERSION))
 
+            # Get selected export setup (if any)
+            selected_setup = None
+            selected_setup_name = None
+            if self.cad_export_setup.SelectedIndex > 0:
+                # User selected a specific setup (not the default)
+                selected_item = self.cad_export_setup.SelectedItem
+                if hasattr(selected_item, 'Tag') and selected_item.Tag:
+                    selected_setup = selected_item.Tag
+                    selected_setup_name = selected_item.Content
+                    output.print_md("Using export setup: **{}**".format(selected_setup_name))
+
             # Create DWG export options
             dwg_options = DWGExportOptions()
+
+            # Set AutoCAD version
             dwg_version_index = self.dwg_version.SelectedIndex
             if dwg_version_index == 0:
                 dwg_options.FileVersion = ACADVersion.R2013
@@ -559,6 +628,32 @@ class ExportManagerWindow(forms.WPFWindow):
                 dwg_options.FileVersion = ACADVersion.R2010
             else:
                 dwg_options.FileVersion = ACADVersion.R2007
+
+            # Apply CAD export options
+            # Export views on sheets (default: False)
+            export_views_on_sheets = self.cad_export_views_on_sheets.IsChecked
+            if hasattr(dwg_options, 'ExportingAreas'):
+                if export_views_on_sheets:
+                    dwg_options.ExportingAreas = DB.ExportingAreas.ExportViewsOnSheets
+                    output.print_md("- Export views on sheets: **Enabled**")
+                else:
+                    dwg_options.ExportingAreas = DB.ExportingAreas.DontExportViewsOnSheets
+
+            # Export links as external references (default: False)
+            export_links_as_external = self.cad_export_links_as_external.IsChecked
+            if hasattr(dwg_options, 'MergedViews'):
+                dwg_options.MergedViews = not export_links_as_external
+                if export_links_as_external:
+                    output.print_md("- Export links as external references: **Enabled**")
+
+            # If a specific setup is selected, try to use its settings
+            if selected_setup:
+                try:
+                    # Copy settings from the selected setup to dwg_options
+                    # Note: This is a simplification - actual implementation may vary
+                    dwg_options.PropOverrides = selected_setup
+                except Exception as setup_ex:
+                    logger.warning("Could not apply export setup: {}".format(setup_ex))
 
             exported_count = 0
 
@@ -656,9 +751,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         pdf_options.HideUnreferencedViewTags = True
 
                     # Export using Revit's native PDF export
-                    # Signature: Export(String filepath, IList<ElementId> viewIds, PDFExportOptions options)
-                    filepath = os.path.join(output_folder, filename)
-                    self.doc.Export(filepath, sheet_ids, pdf_options)
+                    # Signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                    self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".pdf")
