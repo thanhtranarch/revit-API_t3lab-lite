@@ -107,8 +107,8 @@ class RevitAPILearner(object):
                     'supports_viewset': True,
                 },
                 'pdf_export': {
-                    'signature': 'Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)',
-                    'requires_separate_folder_filename': self.revit_version >= 2022,
+                    'signature': 'Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)',
+                    'note': 'PDF export does NOT take a filename parameter - filename is auto-generated from sheet number/name',
                 },
                 'dwf_export': {
                     'signature': 'Export(String folder, String name, ViewSet views, DWFExportOptions options)',
@@ -311,7 +311,7 @@ class SmartAPIAdapter(object):
 
         Args:
             folder: Output folder path
-            filename: Output filename (without extension)
+            filename: Output filename (without extension) - NOT USED, kept for backward compatibility
             view_ids: List or IList of ElementIds
             options: PDFExportOptions object
 
@@ -319,16 +319,13 @@ class SmartAPIAdapter(object):
             bool: True if export succeeded
         """
         try:
-            # Get signature info
-            sig_info = self.learner.get_export_signature('pdf')
+            # IMPORTANT: PDF export in Revit 2022+ uses a different signature than DWG/DXF
+            # PDF signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
+            # DWG/DXF signature: Export(String folder, String filename, ICollection<ElementId> views, DWGExportOptions options)
+            # Note: PDF export does NOT take a filename parameter - filename is auto-generated from sheet number/name
 
-            if sig_info and sig_info.get('requires_separate_folder_filename', True):
-                # Use separate folder and filename (Revit 2022+)
-                self.doc.Export(folder, filename, view_ids, options)
-            else:
-                # Use combined filepath (older versions - unlikely for PDF)
-                filepath = os.path.join(folder, filename)
-                self.doc.Export(filepath, view_ids, options)
+            # Always use the 3-parameter signature for PDF export (Revit 2022+)
+            self.doc.Export(folder, view_ids, options)
 
             return True
         except Exception as ex:

@@ -931,7 +931,7 @@ def checkModel(doc, output):
         try:
             category = element.Category.Name
             categoryId = element.Category.Id.IntegerValue
-            # filtering out DWGs and DXFs, categories from banlist
+            # filtering out DWGs, categories from banlist
             # filtering out categories in catBanlist
             # DB.BuiltInCategory Ids are negative integers
             if categoryId < 0 and categoryId not in catBanlist:
