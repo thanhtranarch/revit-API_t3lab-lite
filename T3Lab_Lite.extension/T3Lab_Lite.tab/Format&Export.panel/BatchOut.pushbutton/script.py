@@ -668,9 +668,15 @@ class ExportManagerWindow(forms.WPFWindow):
             # If a specific setup is selected, try to use its settings
             if selected_setup:
                 try:
-                    # Copy settings from the selected setup to dwg_options
-                    # Note: This is a simplification - actual implementation may vary
-                    dwg_options.PropOverrides = selected_setup
+                    # In Revit 2023, we cannot directly assign ExportDWGSettings to PropOverrides
+                    # PropOverrides expects a PropOverrideMode enum value
+                    # Instead, we need to load the settings using the proper method
+                    from Autodesk.Revit.DB import PropOverrideMode
+                    # Set the export setup ID to use predefined settings
+                    # Note: The setup will be applied through the export setup name in Revit
+                    dwg_options.PropOverrides = PropOverrideMode.ByEntity
+                    output.print_md("**WARNING**: Export setup '{}' selected but cannot be applied directly in Revit 2023.".format(selected_setup_name))
+                    output.print_md("  *Please ensure the export setup is configured correctly in Revit's DWG/DXF Export Settings.*")
                 except Exception as setup_ex:
                     logger.warning("Could not apply export setup: {}".format(setup_ex))
 
@@ -813,9 +819,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         sheet_ids.Add(sheet_item.Sheet.Id)
 
                         # Export using Revit's native PDF export
-                        # Signature: Export(String filepath, IList<ElementId> viewIds, PDFExportOptions options)
-                        filepath = os.path.join(output_folder, filename)
-                        self.doc.Export(filepath, sheet_ids, pdf_options)
+                        # Signature: Export(String folder, String filename, IList<ElementId> viewIds, PDFExportOptions options)
+                        self.doc.Export(output_folder, filename, sheet_ids, pdf_options)
 
                         # Verify file was created
                         expected_file = os.path.join(output_folder, filename + ".pdf")
