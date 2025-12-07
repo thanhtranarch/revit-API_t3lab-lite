@@ -488,6 +488,11 @@ class ExportManagerWindow(forms.WPFWindow):
         """Build the export preview list."""
         selected_sheets = [s for s in self.all_sheets if s.IsSelected]
 
+        # Sync cached sheet numbers with live values from Revit before building preview
+        for sheet_item in selected_sheets:
+            sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+            sheet_item.SheetName = sheet_item.Sheet.Name
+
         # Get orientation
         orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
 
@@ -750,6 +755,11 @@ class ExportManagerWindow(forms.WPFWindow):
         Supports Revit 2022-2026 with appropriate API handling for each version.
         """
         try:
+            # Sync cached sheet numbers with live values from Revit
+            for sheet_item in sheets:
+                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                sheet_item.SheetName = sheet_item.Sheet.Name
+
             # Get selected export setup (if any)
             selected_setup = None
             selected_setup_name = None
@@ -871,6 +881,11 @@ class ExportManagerWindow(forms.WPFWindow):
         try:
             import time
             import glob
+
+            # Sync cached sheet numbers with live values from Revit
+            for sheet_item in sheets:
+                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                sheet_item.SheetName = sheet_item.Sheet.Name
 
             # Check if combine PDF is enabled
             combine_pdf = self.combine_pdf.IsChecked
@@ -1081,6 +1096,11 @@ class ExportManagerWindow(forms.WPFWindow):
         Supports Revit 2022-2026 with appropriate API handling for each version.
         """
         try:
+            # Sync cached sheet numbers with live values from Revit
+            for sheet_item in sheets:
+                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                sheet_item.SheetName = sheet_item.Sheet.Name
+
             # Create DWF export options
             dwf_options = DWFExportOptions()
 
@@ -1127,6 +1147,11 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
         try:
+            # Sync cached sheet numbers with live values from Revit
+            for sheet_item in sheets:
+                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                sheet_item.SheetName = sheet_item.Sheet.Name
+
             # Create Navisworks export options
             nwd_options = NavisworksExportOptions()
 
@@ -1166,6 +1191,11 @@ class ExportManagerWindow(forms.WPFWindow):
             return 0
 
         try:
+            # Sync cached sheet numbers with live values from Revit
+            for sheet_item in sheets:
+                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                sheet_item.SheetName = sheet_item.Sheet.Name
+
             # Create IFC export options
             ifc_options = IFCExportOptions()
             ifc_options.FileVersion = IFCVersion.IFC2x3
@@ -1229,6 +1259,11 @@ class ExportManagerWindow(forms.WPFWindow):
         try:
             import time
             import glob
+
+            # Sync cached sheet numbers with live values from Revit
+            for sheet_item in sheets:
+                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                sheet_item.SheetName = sheet_item.Sheet.Name
 
             exported_count = 0
 
