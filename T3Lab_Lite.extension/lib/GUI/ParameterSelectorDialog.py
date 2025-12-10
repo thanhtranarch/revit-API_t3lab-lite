@@ -24,7 +24,7 @@ from System import Uri, UriKind
 from pyrevit import revit, DB, forms
 from Autodesk.Revit.DB import (
     BuiltInParameter, ViewSheet, View,
-    ParameterType, StorageType
+    StorageType
 )
 
 
