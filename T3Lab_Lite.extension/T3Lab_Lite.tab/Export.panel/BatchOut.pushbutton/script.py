@@ -54,7 +54,8 @@ from Autodesk.Revit.DB import (
     ViewSheet, ViewSet, DWGExportOptions, DWFExportOptions,
     ExportDWGSettings, ACADVersion, PDFExportOptions,
     ImageExportOptions, ImageFileType, ImageResolution,
-    PropOverrideMode,
+    PropOverrideMode, View, ViewPlan, ViewSection, View3D,
+    ViewSchedule, ViewDrafting, ViewType,
 )
 
 from System.Collections.Generic import List
@@ -142,11 +143,110 @@ class SheetItem(forms.Reactive):
         return "{} - {}".format(self.SheetNumber, self.SheetName)
 
 
+class ViewItem(forms.Reactive):
+    """Represents a view item in the list - optimized for performance."""
+    def __init__(self, view, is_selected=False):
+        self.View = view
+        self.IsSelected = is_selected
+        self.ViewName = view.Name
+        # Add aliases for compatibility with sheet ListView
+        self.SheetNumber = view.Name  # Use view name as "number"
+        self.SheetName = ""  # Will be filled with view type
+
+        # Determine view type
+        try:
+            view_type = view.ViewType
+            if view_type == ViewType.FloorPlan:
+                self.ViewType = "Floor Plan"
+            elif view_type == ViewType.CeilingPlan:
+                self.ViewType = "Ceiling Plan"
+            elif view_type == ViewType.Elevation:
+                self.ViewType = "Elevation"
+            elif view_type == ViewType.Section:
+                self.ViewType = "Section"
+            elif view_type == ViewType.ThreeD:
+                self.ViewType = "3D View"
+            elif view_type == ViewType.Schedule:
+                self.ViewType = "Schedule"
+            elif view_type == ViewType.DraftingView:
+                self.ViewType = "Drafting"
+            elif view_type == ViewType.Legend:
+                self.ViewType = "Legend"
+            elif view_type == ViewType.EngineeringPlan:
+                self.ViewType = "Engineering"
+            elif view_type == ViewType.AreaPlan:
+                self.ViewType = "Area Plan"
+            else:
+                self.ViewType = str(view_type)
+        except:
+            self.ViewType = "Unknown"
+
+        # Set SheetName to view type for compatibility
+        self.SheetName = self.ViewType
+
+        # Get view scale
+        try:
+            self.Scale = "1:{}".format(view.Scale) if hasattr(view, 'Scale') and view.Scale else "-"
+        except:
+            self.Scale = "-"
+
+        # Get phase
+        try:
+            phase_param = view.get_Parameter(DB.BuiltInParameter.VIEW_PHASE)
+            if phase_param:
+                phase_id = phase_param.AsElementId()
+                if phase_id and phase_id != DB.ElementId.InvalidElementId:
+                    phase_elem = view.Document.GetElement(phase_id)
+                    self.Phase = phase_elem.Name if phase_elem else "-"
+                else:
+                    self.Phase = "-"
+            else:
+                self.Phase = "-"
+        except:
+            self.Phase = "-"
+
+        # Get view template
+        try:
+            template_id = view.ViewTemplateId
+            if template_id and template_id != DB.ElementId.InvalidElementId:
+                template = view.Document.GetElement(template_id)
+                self.ViewTemplate = template.Name if template else "-"
+            else:
+                self.ViewTemplate = "-"
+        except:
+            self.ViewTemplate = "-"
+
+        self.Status = "Ready"
+        self.Progress = 0
+        self.CustomFilename = ""
+
+        # Add more compatibility properties
+        self.Size = self.Scale  # Use scale as "size" for views
+        self.Revision = "-"  # Views don't have revisions
+
+    def __repr__(self):
+        return "{} ({})".format(self.ViewName, self.ViewType)
+
+
 class ExportPreviewItem(object):
     """Represents an export preview item."""
-    def __init__(self, sheet_item, format_name, size, orientation):
-        self.SheetNumber = sheet_item.SheetNumber
-        self.SheetName = sheet_item.SheetName
+    def __init__(self, item, format_name, size, orientation):
+        # Support both SheetItem and ViewItem
+        if hasattr(item, 'SheetNumber'):
+            # It's a SheetItem
+            self.SheetNumber = item.SheetNumber
+            self.SheetName = item.SheetName
+            self.ItemName = "{} - {}".format(item.SheetNumber, item.SheetName)
+        elif hasattr(item, 'ViewName'):
+            # It's a ViewItem
+            self.SheetNumber = item.ViewName  # Use ViewName as identifier
+            self.SheetName = item.ViewType
+            self.ItemName = "{} ({})".format(item.ViewName, item.ViewType)
+        else:
+            self.SheetNumber = "Unknown"
+            self.SheetName = "Unknown"
+            self.ItemName = "Unknown"
+
         self.Format = format_name
         self.Size = size
         self.Orientation = orientation
@@ -166,7 +266,10 @@ class ExportManagerWindow(forms.WPFWindow):
             self.doc = revit.doc
             self.all_sheets = []
             self.filtered_sheets = []
+            self.all_views = []
+            self.filtered_views = []
             self.export_items = []
+            self.selection_mode = "sheets"  # "sheets" or "views"
 
             # Set window icon and title bar logo
             try:
@@ -322,28 +425,125 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("Error loading sheets: {}".format(ex))
             forms.alert("Error loading sheets: {}".format(ex), exitscript=True)
 
+    def load_views(self):
+        """Load all views from the document."""
+        try:
+            # Get all views
+            views_collector = FilteredElementCollector(self.doc)\
+                .OfCategory(BuiltInCategory.OST_Views)\
+                .WhereElementIsNotElementType()
+
+            # Filter to get only valid view types (exclude templates, legends on sheets, etc.)
+            views = []
+            for v in views_collector:
+                # Skip if it's a template
+                if v.IsTemplate:
+                    continue
+                # Skip sheets (they're handled separately)
+                if isinstance(v, ViewSheet):
+                    continue
+                # Skip invalid view types
+                if not isinstance(v, (ViewPlan, ViewSection, View3D, ViewSchedule, ViewDrafting)):
+                    continue
+                # Add to list
+                views.append(v)
+
+            # Sort by name
+            views.sort(key=lambda x: x.Name)
+
+            # Create view items
+            self.all_views = [ViewItem(view, False) for view in views]
+            self.filtered_views = list(self.all_views)
+
+            # Update ListView
+            self.update_items_list()
+
+            # Update status with version info
+            self.status_text.Text = "Loaded {} views | Revit {}".format(
+                len(self.all_views), REVIT_VERSION)
+
+        except Exception as ex:
+            logger.error("Error loading views: {}".format(ex))
+            forms.alert("Error loading views: {}".format(ex), exitscript=True)
+
     def update_sheets_list(self):
         """Update the sheets ListView."""
         self.sheets_listview.ItemsSource = None
         self.sheets_listview.ItemsSource = self.filtered_sheets
 
+    def update_items_list(self):
+        """Update the items ListView based on current selection mode."""
+        if self.selection_mode == "sheets":
+            self.update_sheets_list()
+        else:
+            self.update_views_list()
+
+    def update_views_list(self):
+        """Update the views ListView."""
+        self.sheets_listview.ItemsSource = None
+        self.sheets_listview.ItemsSource = self.filtered_views
+
+    def selection_mode_changed(self, sender, e):
+        """Handle selection mode change (Sheets vs Views radio button)."""
+        try:
+            # Determine which mode is selected
+            if hasattr(self, 'sheets_radio') and self.sheets_radio.IsChecked:
+                self.selection_mode = "sheets"
+                # Show sheets
+                if not self.all_sheets:
+                    self.load_sheets()
+                else:
+                    self.update_items_list()
+                # Update UI visibility
+                if hasattr(self, 'view_type_filter'):
+                    self.view_type_filter.Visibility = Visibility.Collapsed
+                    self.view_type_label.Visibility = Visibility.Collapsed
+            elif hasattr(self, 'views_radio') and self.views_radio.IsChecked:
+                self.selection_mode = "views"
+                # Show views
+                if not self.all_views:
+                    self.load_views()
+                else:
+                    self.update_items_list()
+                # Update UI visibility
+                if hasattr(self, 'view_type_filter'):
+                    self.view_type_filter.Visibility = Visibility.Visible
+                    self.view_type_label.Visibility = Visibility.Visible
+        except Exception as ex:
+            logger.error("Error changing selection mode: {}".format(ex))
+
     def select_all_sheets(self, sender, e):
-        """Select all sheets."""
-        for sheet_item in self.filtered_sheets:
-            sheet_item.IsSelected = True
-        self.sheets_listview.Items.Refresh()
-        self.status_text.Text = "Selected {} sheets".format(len(self.filtered_sheets))
+        """Select all items (sheets or views)."""
+        if self.selection_mode == "sheets":
+            for sheet_item in self.filtered_sheets:
+                sheet_item.IsSelected = True
+            self.sheets_listview.Items.Refresh()
+            self.status_text.Text = "Selected {} sheets".format(len(self.filtered_sheets))
+        else:
+            for view_item in self.filtered_views:
+                view_item.IsSelected = True
+            self.sheets_listview.Items.Refresh()
+            self.status_text.Text = "Selected {} views".format(len(self.filtered_views))
 
     def select_none_sheets(self, sender, e):
-        """Deselect all sheets."""
-        for sheet_item in self.filtered_sheets:
-            sheet_item.IsSelected = False
-        self.sheets_listview.Items.Refresh()
-        self.status_text.Text = "Deselected all sheets"
+        """Deselect all items (sheets or views)."""
+        if self.selection_mode == "sheets":
+            for sheet_item in self.filtered_sheets:
+                sheet_item.IsSelected = False
+            self.sheets_listview.Items.Refresh()
+            self.status_text.Text = "Deselected all sheets"
+        else:
+            for view_item in self.filtered_views:
+                view_item.IsSelected = False
+            self.sheets_listview.Items.Refresh()
+            self.status_text.Text = "Deselected all views"
 
     def refresh_sheets(self, sender, e):
-        """Refresh the sheets list."""
-        self.load_sheets()
+        """Refresh the list (sheets or views)."""
+        if self.selection_mode == "sheets":
+            self.load_sheets()
+        else:
+            self.load_views()
 
     def search_sheets(self, sender, e):
         """Filter sheets by search text."""
@@ -354,38 +554,65 @@ class ExportManagerWindow(forms.WPFWindow):
         self.apply_filters()
 
     def apply_filters(self):
-        """Apply search and size filters."""
+        """Apply search and filters."""
         # Check if controls are initialized (prevents error during XAML loading)
-        if not hasattr(self, 'search_textbox') or not hasattr(self, 'size_filter'):
+        if not hasattr(self, 'search_textbox'):
             return
 
         search_text = self.search_textbox.Text.lower() if self.search_textbox.Text else ""
 
-        # Get selected size filter
-        size_filter = None
-        if self.size_filter.SelectedItem:
-            size_text = self.size_filter.SelectedItem.Content
-            if size_text != "All Sizes":
-                size_filter = size_text
+        if self.selection_mode == "sheets":
+            # Get selected size filter
+            size_filter = None
+            if hasattr(self, 'size_filter') and self.size_filter.SelectedItem:
+                size_text = self.size_filter.SelectedItem.Content
+                if size_text != "All Sizes":
+                    size_filter = size_text
 
-        # Apply filters
-        self.filtered_sheets = []
-        for sheet in self.all_sheets:
-            # Check search text
-            if search_text:
-                if search_text not in sheet.SheetNumber.lower() and \
-                   search_text not in sheet.SheetName.lower():
-                    continue
+            # Apply filters for sheets
+            self.filtered_sheets = []
+            for sheet in self.all_sheets:
+                # Check search text
+                if search_text:
+                    if search_text not in sheet.SheetNumber.lower() and \
+                       search_text not in sheet.SheetName.lower():
+                        continue
 
-            # Check size filter
-            if size_filter:
-                if sheet.Size != size_filter:
-                    continue
+                # Check size filter
+                if size_filter:
+                    if sheet.Size != size_filter:
+                        continue
 
-            self.filtered_sheets.append(sheet)
+                self.filtered_sheets.append(sheet)
 
-        self.update_sheets_list()
-        self.status_text.Text = "Found {} sheets".format(len(self.filtered_sheets))
+            self.update_items_list()
+            self.status_text.Text = "Found {} sheets".format(len(self.filtered_sheets))
+        else:
+            # Get selected view type filter
+            view_type_filter = None
+            if hasattr(self, 'view_type_filter') and self.view_type_filter.SelectedItem:
+                type_text = self.view_type_filter.SelectedItem.Content
+                if type_text != "All Views":
+                    view_type_filter = type_text
+
+            # Apply filters for views
+            self.filtered_views = []
+            for view in self.all_views:
+                # Check search text
+                if search_text:
+                    if search_text not in view.ViewName.lower() and \
+                       search_text not in view.ViewType.lower():
+                        continue
+
+                # Check view type filter
+                if view_type_filter:
+                    if view.ViewType != view_type_filter:
+                        continue
+
+                self.filtered_views.append(view)
+
+            self.update_items_list()
+            self.status_text.Text = "Found {} views".format(len(self.filtered_views))
 
     def browse_output_folder(self, sender, e):
         """Browse for output folder."""
@@ -451,14 +678,20 @@ class ExportManagerWindow(forms.WPFWindow):
         current_index = self.main_tabs.SelectedIndex
 
         if current_index == 0:  # Selection tab
-            # Validate selection
-            selected_sheets = [s for s in self.all_sheets if s.IsSelected]
-            if not selected_sheets:
-                forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
-                return
+            # Validate selection based on mode
+            if self.selection_mode == "sheets":
+                selected_items = [s for s in self.all_sheets if s.IsSelected]
+                if not selected_items:
+                    forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
+                    return
+            else:
+                selected_items = [v for v in self.all_views if v.IsSelected]
+                if not selected_items:
+                    forms.alert("Please select at least one view to export.", title="No Views Selected")
+                    return
 
             # Don't cache filenames here - they will be generated fresh during export
-            # to ensure they reflect the current state of the sheets (e.g., updated sheet numbers)
+            # to ensure they reflect the current state of the items (e.g., updated names)
 
             # Move to Format tab
             self.main_tabs.SelectedIndex = 1
@@ -486,12 +719,19 @@ class ExportManagerWindow(forms.WPFWindow):
 
     def build_export_preview(self):
         """Build the export preview list."""
-        selected_sheets = [s for s in self.all_sheets if s.IsSelected]
-
-        # Sync cached sheet numbers with live values from Revit before building preview
-        for sheet_item in selected_sheets:
-            sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-            sheet_item.SheetName = sheet_item.Sheet.Name
+        # Get selected items based on mode
+        if self.selection_mode == "sheets":
+            selected_items = [s for s in self.all_sheets if s.IsSelected]
+            # Sync cached sheet numbers with live values from Revit before building preview
+            for sheet_item in selected_items:
+                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
+                sheet_item.SheetName = sheet_item.Sheet.Name
+        else:
+            selected_items = [v for v in self.all_views if v.IsSelected]
+            # Sync cached view names with live values from Revit before building preview
+            for view_item in selected_items:
+                view_item.ViewName = view_item.View.Name
+                view_item.SheetNumber = view_item.View.Name
 
         # Get orientation
         orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
@@ -515,20 +755,21 @@ class ExportManagerWindow(forms.WPFWindow):
 
         # Build preview items
         self.export_items = []
-        for sheet in selected_sheets:
+        for item in selected_items:
             for fmt in formats:
-                item = ExportPreviewItem(sheet, fmt, sheet.Size, orientation)
-                self.export_items.append(item)
+                preview_item = ExportPreviewItem(item, fmt, item.Size, orientation)
+                self.export_items.append(preview_item)
 
         # Update preview list
         self.export_preview_list.ItemsSource = self.export_items
         self.progress_text.Text = "Ready to export {} items".format(len(self.export_items))
 
-    def get_export_filename(self, sheet_item):
+    def get_export_filename(self, item):
         """Generate export filename based on naming pattern.
 
-        Always reads live values from the Revit sheet to ensure the filename
-        reflects the current state of the sheet (e.g., if sheet number changed).
+        Always reads live values from the Revit item (sheet or view) to ensure the filename
+        reflects the current state of the item (e.g., if name changed).
+        Supports both SheetItem and ViewItem.
         """
         pattern = self.naming_pattern.Text
 
@@ -541,42 +782,60 @@ class ExportManagerWindow(forms.WPFWindow):
             project_number = ""
             project_name = ""
 
-        # Get live values from the actual Revit sheet object
+        # Get live values from the actual Revit object
         # This ensures we always use current values, not cached ones
-        sheet = sheet_item.Sheet
-        sheet_number = sheet.SheetNumber
-        sheet_name = sheet.Name
+        if hasattr(item, 'Sheet'):
+            # It's a SheetItem
+            sheet = item.Sheet
+            sheet_number = sheet.SheetNumber
+            sheet_name = sheet.Name
+        elif hasattr(item, 'View'):
+            # It's a ViewItem
+            view = item.View
+            sheet_number = view.Name  # Use view name as "number"
+            sheet_name = item.ViewType  # Use view type as "name"
+        else:
+            sheet_number = "Unknown"
+            sheet_name = "Unknown"
 
-        # Get live revision info
-        try:
-            rev_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION)
-            revision = rev_param.AsString() if rev_param else ""
-        except:
+        # Get live revision info (only for sheets)
+        if hasattr(item, 'Sheet'):
+            try:
+                rev_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION)
+                revision = rev_param.AsString() if rev_param else ""
+            except:
+                revision = ""
+
+            try:
+                rev_date_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE)
+                revision_date = rev_date_param.AsString() if rev_date_param else ""
+            except:
+                revision_date = ""
+
+            try:
+                rev_desc_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION)
+                revision_description = rev_desc_param.AsString() if rev_desc_param else ""
+            except:
+                revision_description = ""
+
+            # Get live drawn by and checked by
+            try:
+                drawn_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY)
+                drawn_by = drawn_param.AsString() if drawn_param else ""
+            except:
+                drawn_by = ""
+
+            try:
+                checked_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY)
+                checked_by = checked_param.AsString() if checked_param else ""
+            except:
+                checked_by = ""
+        else:
+            # Views don't have revision info
             revision = ""
-
-        try:
-            rev_date_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE)
-            revision_date = rev_date_param.AsString() if rev_date_param else ""
-        except:
             revision_date = ""
-
-        try:
-            rev_desc_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION)
-            revision_description = rev_desc_param.AsString() if rev_desc_param else ""
-        except:
             revision_description = ""
-
-        # Get live drawn by and checked by
-        try:
-            drawn_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY)
-            drawn_by = drawn_param.AsString() if drawn_param else ""
-        except:
             drawn_by = ""
-
-        try:
-            checked_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY)
-            checked_by = checked_param.AsString() if checked_param else ""
-        except:
             checked_by = ""
 
         # Replace placeholders with live values
@@ -614,16 +873,23 @@ class ExportManagerWindow(forms.WPFWindow):
     def start_export(self):
         """Start the export process."""
         try:
-            # Get selected sheets
-            selected_sheets = [s for s in self.all_sheets if s.IsSelected]
-
-            if not selected_sheets:
-                forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
-                return
+            # Get selected items based on mode
+            if self.selection_mode == "sheets":
+                selected_items = [s for s in self.all_sheets if s.IsSelected]
+                if not selected_items:
+                    forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
+                    return
+                item_type_name = "sheets"
+            else:
+                selected_items = [v for v in self.all_views if v.IsSelected]
+                if not selected_items:
+                    forms.alert("Please select at least one view to export.", title="No Views Selected")
+                    return
+                item_type_name = "views"
 
             # Check if reverse order is enabled
             if self.reverse_order.IsChecked:
-                selected_sheets.reverse()
+                selected_items.reverse()
 
             # Get output folder
             output_folder = self.output_folder.Text
@@ -656,7 +922,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Header
             output.print_md("# **T3Lab - BATCHOUT**")
-            output.print_md("### *Exporting {} sheets...*".format(len(selected_sheets)))
+            output.print_md("### *Exporting {} {}...*".format(len(selected_items), item_type_name))
             output.print_md("---\n")
 
             # Export to each format
@@ -668,7 +934,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 folder = os.path.join(output_folder, "DWG") if split_by_format else output_folder
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                count = self.export_to_dwg(selected_sheets, folder)
+                count = self.export_to_dwg(selected_items, folder)
                 total_exported += count
                 current_item += count
                 if total_items > 0:
@@ -678,7 +944,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 folder = os.path.join(output_folder, "PDF") if split_by_format else output_folder
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                count = self.export_to_pdf(selected_sheets, folder)
+                count = self.export_to_pdf(selected_items, folder)
                 total_exported += count
                 current_item += count
                 if total_items > 0:
@@ -688,7 +954,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 folder = os.path.join(output_folder, "DWF") if split_by_format else output_folder
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                count = self.export_to_dwf(selected_sheets, folder)
+                count = self.export_to_dwf(selected_items, folder)
                 total_exported += count
                 current_item += count
                 if total_items > 0:
@@ -698,7 +964,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 folder = os.path.join(output_folder, "NWC") if split_by_format else output_folder
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                count = self.export_to_nwd(selected_sheets, folder)
+                count = self.export_to_nwd(selected_items, folder)
                 total_exported += count
                 current_item += count
                 if total_items > 0:
@@ -708,7 +974,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 folder = os.path.join(output_folder, "IFC") if split_by_format else output_folder
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                count = self.export_to_ifc(selected_sheets, folder)
+                count = self.export_to_ifc(selected_items, folder)
                 total_exported += count
                 current_item += count
                 if total_items > 0:
@@ -718,7 +984,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 folder = os.path.join(output_folder, "Images") if split_by_format else output_folder
                 if not os.path.exists(folder):
                     os.makedirs(folder)
-                count = self.export_to_images(selected_sheets, folder)
+                count = self.export_to_images(selected_items, folder)
                 total_exported += count
                 current_item += count
                 if total_items > 0:
@@ -749,16 +1015,20 @@ class ExportManagerWindow(forms.WPFWindow):
             self.next_button.IsEnabled = True
             self.back_button.IsEnabled = True
 
-    def export_to_dwg(self, sheets, output_folder):
-        """Export sheets to DWG format with version-aware API usage.
+    def export_to_dwg(self, items, output_folder):
+        """Export items (sheets or views) to DWG format with version-aware API usage.
 
         Supports Revit 2022-2026 with appropriate API handling for each version.
         """
         try:
-            # Sync cached sheet numbers with live values from Revit
-            for sheet_item in sheets:
-                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-                sheet_item.SheetName = sheet_item.Sheet.Name
+            # Sync cached values with live values from Revit
+            for item in items:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
 
             # Get selected export setup (if any)
             selected_setup = None
@@ -826,12 +1096,22 @@ class ExportManagerWindow(forms.WPFWindow):
 
             exported_count = 0
 
-            for sheet_item in sheets:
+            for item in items:
                 try:
-                    # Update progress text to show current sheet and format using live sheet number
-                    self.progress_text.Text = "Exporting {} to DWG...".format(sheet_item.Sheet.SheetNumber)
+                    # Get the actual element (sheet or view)
+                    if hasattr(item, 'Sheet'):
+                        element = item.Sheet
+                        element_name = element.SheetNumber
+                    elif hasattr(item, 'View'):
+                        element = item.View
+                        element_name = element.Name
+                    else:
+                        continue
 
-                    filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
+                    # Update progress text to show current item and format
+                    self.progress_text.Text = "Exporting {} to DWG...".format(element_name)
+
+                    filename = item.CustomFilename or self.get_export_filename(item)
 
                     # Remove extension if present
                     if filename.lower().endswith('.dwg'):
@@ -841,7 +1121,7 @@ class ExportManagerWindow(forms.WPFWindow):
                     # All versions 2022-2026 support ICollection<ElementId> signature
                     # Signature: Export(String folder, String name, ICollection<ElementId> views, DWGExportOptions options)
                     view_ids = List[DB.ElementId]()
-                    view_ids.Add(sheet_item.Sheet.Id)
+                    view_ids.Add(element.Id)
 
                     # Use Smart API Adapter if available for intelligent export
                     if self.api_adapter:
@@ -861,11 +1141,10 @@ class ExportManagerWindow(forms.WPFWindow):
                     if os.path.exists(expected_file):
                         exported_count += 1
                         # Update progress for this export item
-                        self.update_export_item_progress(sheet_item.SheetNumber, "DWG", 100)
+                        self.update_export_item_progress(item.SheetNumber, "DWG", 100)
 
                 except Exception as ex:
-                    logger.error("Error exporting {} to DWG: {}".format(
-                        sheet_item.Sheet.SheetNumber, ex))
+                    logger.error("Error exporting {} to DWG: {}".format(element_name, ex))
 
             return exported_count
 
@@ -873,8 +1152,8 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("DWG export failed: {}".format(ex))
             return 0
 
-    def export_to_pdf(self, sheets, output_folder):
-        """Export sheets to PDF format using Revit's native PDF export with version-aware API usage.
+    def export_to_pdf(self, items, output_folder):
+        """Export items (sheets or views) to PDF format using Revit's native PDF export with version-aware API usage.
 
         Supports Revit 2022-2026 with appropriate API handling for each version.
         """
@@ -882,10 +1161,14 @@ class ExportManagerWindow(forms.WPFWindow):
             import time
             import glob
 
-            # Sync cached sheet numbers with live values from Revit
-            for sheet_item in sheets:
-                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-                sheet_item.SheetName = sheet_item.Sheet.Name
+            # Sync cached values with live values from Revit
+            for item in items:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
 
             # Check if combine PDF is enabled
             combine_pdf = self.combine_pdf.IsChecked
@@ -893,22 +1176,25 @@ class ExportManagerWindow(forms.WPFWindow):
             exported_count = 0
 
             if combine_pdf:
-                # Export all sheets to a single PDF
+                # Export all items to a single PDF
                 try:
                     # Update progress text
-                    self.progress_text.Text = "Exporting combined PDF with {} sheets...".format(len(sheets))
+                    self.progress_text.Text = "Exporting combined PDF with {} items...".format(len(items))
 
-                    # Generate combined filename using live sheet numbers
-                    if len(sheets) > 0:
-                        first_sheet = sheets[0]
-                        last_sheet = sheets[-1]
-                        # Use live sheet numbers from actual Revit sheets
-                        filename = "{}-{}_Combined".format(
-                            first_sheet.Sheet.SheetNumber,
-                            last_sheet.Sheet.SheetNumber
-                        )
+                    # Generate combined filename using live names
+                    if len(items) > 0:
+                        first_item = items[0]
+                        last_item = items[-1]
+                        # Get names from actual Revit elements
+                        if hasattr(first_item, 'Sheet'):
+                            first_name = first_item.Sheet.SheetNumber
+                            last_name = last_item.Sheet.SheetNumber
+                        else:
+                            first_name = first_item.View.Name[:20]  # Limit name length
+                            last_name = last_item.View.Name[:20]
+                        filename = "{}-{}_Combined".format(first_name, last_name)
                     else:
-                        filename = "Combined_Sheets"
+                        filename = "Combined_Export"
 
                     # Remove extension if present (pyRevit style)
                     if filename.lower().endswith('.pdf'):
@@ -923,10 +1209,13 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Get list of existing PDF files before export
                     existing_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
 
-                    # Get all sheet IDs as System.Collections.Generic.List
-                    sheet_ids = List[DB.ElementId]()
-                    for s in sheets:
-                        sheet_ids.Add(s.Sheet.Id)
+                    # Get all element IDs as System.Collections.Generic.List
+                    element_ids = List[DB.ElementId]()
+                    for item in items:
+                        if hasattr(item, 'Sheet'):
+                            element_ids.Add(item.Sheet.Id)
+                        elif hasattr(item, 'View'):
+                            element_ids.Add(item.View.Id)
 
                     # Create PDF export options
                     pdf_options = PDFExportOptions()
@@ -967,13 +1256,13 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Use Smart API Adapter if available for intelligent export (handles method overload resolution)
                     if self.api_adapter:
                         # Smart adapter automatically handles version differences and method overload resolution
-                        self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
+                        self.api_adapter.export_pdf(output_folder, filename, element_ids, pdf_options)
                     else:
                         # Fallback to direct export call
                         # Revit 2022-2026 signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
                         # NOTE: PDF export does NOT take a filename parameter in the Export() method (unlike DWG/DXF)
                         # Instead, filename is set via PDFExportOptions.FileName property (learned from pyRevit)
-                        self.doc.Export(output_folder, sheet_ids, pdf_options)
+                        self.doc.Export(output_folder, element_ids, pdf_options)
 
                     # Wait briefly for file system to update
                     time.sleep(0.5)
@@ -986,21 +1275,31 @@ class ExportManagerWindow(forms.WPFWindow):
                     expected_file = os.path.join(output_folder, filename + ".pdf")
                     if os.path.exists(expected_file) or new_pdfs:
                         exported_count = 1
-                        # Update progress for all sheets in combined PDF
-                        for s in sheets:
-                            self.update_export_item_progress(s.SheetNumber, "PDF", 100)
+                        # Update progress for all items in combined PDF
+                        for item in items:
+                            self.update_export_item_progress(item.SheetNumber, "PDF", 100)
 
                 except Exception as ex:
                     logger.error("Error exporting combined PDF: {}".format(ex))
 
             else:
-                # Export each sheet individually
-                for sheet_item in sheets:
+                # Export each item individually
+                for item in items:
                     try:
-                        # Update progress text to show current sheet and format using live sheet number
-                        self.progress_text.Text = "Exporting {} to PDF...".format(sheet_item.Sheet.SheetNumber)
+                        # Get the actual element (sheet or view)
+                        if hasattr(item, 'Sheet'):
+                            element = item.Sheet
+                            element_name = element.SheetNumber
+                        elif hasattr(item, 'View'):
+                            element = item.View
+                            element_name = element.Name
+                        else:
+                            continue
 
-                        filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
+                        # Update progress text to show current item and format
+                        self.progress_text.Text = "Exporting {} to PDF...".format(element_name)
+
+                        filename = item.CustomFilename or self.get_export_filename(item)
 
                         # Remove extension if present (pyRevit style)
                         if filename.lower().endswith('.pdf'):
@@ -1050,21 +1349,21 @@ class ExportManagerWindow(forms.WPFWindow):
                             except:
                                 logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
 
-                        # Create System.Collections.Generic.List for sheet IDs
-                        sheet_ids = List[DB.ElementId]()
-                        sheet_ids.Add(sheet_item.Sheet.Id)
+                        # Create System.Collections.Generic.List for element IDs
+                        element_ids = List[DB.ElementId]()
+                        element_ids.Add(element.Id)
 
                         # VERSION-AWARE: Export using Revit's native PDF export
                         # Use Smart API Adapter if available for intelligent export (handles method overload resolution)
                         if self.api_adapter:
                             # Smart adapter automatically handles version differences and method overload resolution
-                            self.api_adapter.export_pdf(output_folder, filename, sheet_ids, pdf_options)
+                            self.api_adapter.export_pdf(output_folder, filename, element_ids, pdf_options)
                         else:
                             # Fallback to direct export call
                             # Revit 2022-2026 signature: Export(String folder, IList<ElementId> viewIds, PDFExportOptions options)
                             # NOTE: PDF export does NOT take a filename parameter in the Export() method (unlike DWG/DXF)
                             # Instead, filename is set via PDFExportOptions.FileName property (learned from pyRevit)
-                            self.doc.Export(output_folder, sheet_ids, pdf_options)
+                            self.doc.Export(output_folder, element_ids, pdf_options)
 
                         # Wait briefly for file system to update
                         time.sleep(0.3)
@@ -1078,11 +1377,10 @@ class ExportManagerWindow(forms.WPFWindow):
                         if os.path.exists(expected_file) or new_pdfs:
                             exported_count += 1
                             # Update progress for this export item
-                            self.update_export_item_progress(sheet_item.SheetNumber, "PDF", 100)
+                            self.update_export_item_progress(item.SheetNumber, "PDF", 100)
 
                     except Exception as ex:
-                        logger.error("Error exporting {} to PDF: {}".format(
-                            sheet_item.Sheet.SheetNumber, ex))
+                        logger.error("Error exporting {} to PDF: {}".format(element_name, ex))
 
             return exported_count
 
@@ -1090,28 +1388,42 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("PDF export failed: {}".format(ex))
             return 0
 
-    def export_to_dwf(self, sheets, output_folder):
-        """Export sheets to DWF format using Revit's native DWF export with version-aware API usage.
+    def export_to_dwf(self, items, output_folder):
+        """Export items (sheets or views) to DWF format using Revit's native DWF export with version-aware API usage.
 
         Supports Revit 2022-2026 with appropriate API handling for each version.
         """
         try:
-            # Sync cached sheet numbers with live values from Revit
-            for sheet_item in sheets:
-                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-                sheet_item.SheetName = sheet_item.Sheet.Name
+            # Sync cached values with live values from Revit
+            for item in items:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
 
             # Create DWF export options
             dwf_options = DWFExportOptions()
 
             exported_count = 0
 
-            for sheet_item in sheets:
+            for item in items:
                 try:
-                    # Update progress text to show current sheet and format using live sheet number
-                    self.progress_text.Text = "Exporting {} to DWF...".format(sheet_item.Sheet.SheetNumber)
+                    # Get the actual element (sheet or view)
+                    if hasattr(item, 'Sheet'):
+                        element = item.Sheet
+                        element_name = element.SheetNumber
+                    elif hasattr(item, 'View'):
+                        element = item.View
+                        element_name = element.Name
+                    else:
+                        continue
 
-                    filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
+                    # Update progress text to show current item and format
+                    self.progress_text.Text = "Exporting {} to DWF...".format(element_name)
+
+                    filename = item.CustomFilename or self.get_export_filename(item)
 
                     # Remove extension if present
                     if filename.lower().endswith('.dwf'):
@@ -1121,7 +1433,7 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Revit 2022-2026 all support ViewSet for DWF export
                     # Signature: Export(String folder, String name, ViewSet views, DWFExportOptions options)
                     view_set = DB.ViewSet()
-                    view_set.Insert(sheet_item.Sheet)
+                    view_set.Insert(element)
                     self.doc.Export(output_folder, filename, view_set, dwf_options)
 
                     # Verify file was created
@@ -1129,11 +1441,10 @@ class ExportManagerWindow(forms.WPFWindow):
                     if os.path.exists(expected_file):
                         exported_count += 1
                         # Update progress for this export item
-                        self.update_export_item_progress(sheet_item.SheetNumber, "DWF", 100)
+                        self.update_export_item_progress(item.SheetNumber, "DWF", 100)
 
                 except Exception as ex:
-                    logger.error("Error exporting {} to DWF: {}".format(
-                        sheet_item.Sheet.SheetNumber, ex))
+                    logger.error("Error exporting {} to DWF: {}".format(element_name, ex))
 
             return exported_count
 
@@ -1141,43 +1452,56 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("DWF export failed: {}".format(ex))
             return 0
 
-    def export_to_nwd(self, sheets, output_folder):
-        """Export to Navisworks NWD format with version-aware API usage."""
+    def export_to_nwd(self, items, output_folder):
+        """Export items (sheets or views) to Navisworks NWD format with version-aware API usage."""
         if not HAS_NAVISWORKS:
             return 0
 
         try:
-            # Sync cached sheet numbers with live values from Revit
-            for sheet_item in sheets:
-                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-                sheet_item.SheetName = sheet_item.Sheet.Name
+            # Sync cached values with live values from Revit
+            for item in items:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
 
             # Create Navisworks export options
             nwd_options = NavisworksExportOptions()
 
             exported_count = 0
 
-            for sheet_item in sheets:
+            for item in items:
                 try:
-                    # Update progress text to show current sheet and format using live sheet number
-                    self.progress_text.Text = "Exporting {} to NWC...".format(sheet_item.Sheet.SheetNumber)
+                    # Get the actual element (sheet or view)
+                    if hasattr(item, 'Sheet'):
+                        element = item.Sheet
+                        element_name = element.SheetNumber
+                    elif hasattr(item, 'View'):
+                        element = item.View
+                        element_name = element.Name
+                    else:
+                        continue
 
-                    filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
+                    # Update progress text to show current item and format
+                    self.progress_text.Text = "Exporting {} to NWC...".format(element_name)
+
+                    filename = item.CustomFilename or self.get_export_filename(item)
                     filepath = os.path.join(output_folder, filename + ".nwc")
 
                     # Export view
                     nwd_options.ExportScope = DB.NavisworksExportScope.View
-                    nwd_options.ViewId = sheet_item.Sheet.Id
+                    nwd_options.ViewId = element.Id
 
                     self.doc.Export(output_folder, filename, nwd_options)
 
                     exported_count += 1
                     # Update progress for this export item
-                    self.update_export_item_progress(sheet_item.SheetNumber, "NWC", 100)
+                    self.update_export_item_progress(item.SheetNumber, "NWC", 100)
 
                 except Exception as ex:
-                    logger.error("Error exporting {} to NWC: {}".format(
-                        sheet_item.Sheet.SheetNumber, ex))
+                    logger.error("Error exporting {} to NWC: {}".format(element_name, ex))
 
             return exported_count
 
@@ -1185,16 +1509,20 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("NWC export failed: {}".format(ex))
             return 0
 
-    def export_to_ifc(self, sheets, output_folder):
+    def export_to_ifc(self, items, output_folder):
         """Export to IFC format with version-aware API usage."""
         if not HAS_IFC:
             return 0
 
         try:
-            # Sync cached sheet numbers with live values from Revit
-            for sheet_item in sheets:
-                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-                sheet_item.SheetName = sheet_item.Sheet.Name
+            # Sync cached values with live values from Revit
+            for item in items:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
 
             # Create IFC export options
             ifc_options = IFCExportOptions()
@@ -1205,23 +1533,27 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # For IFC, export the entire model once
             # Note: IFC export requires a transaction (unique requirement compared to other formats)
-            if len(sheets) > 0:
+            if len(items) > 0:
                 try:
                     # Update progress text to show IFC export
                     self.progress_text.Text = "Exporting entire model to IFC..."
 
                     # Generate filename using naming pattern similar to combined PDF
-                    # Use first and last sheet for combined exports
-                    if len(sheets) > 1:
-                        first_sheet = sheets[0]
-                        last_sheet = sheets[-1]
-                        filename = "{}-{}_Model_IFC".format(
-                            first_sheet.Sheet.SheetNumber,
-                            last_sheet.Sheet.SheetNumber
-                        )
-                    elif len(sheets) == 1:
-                        # Use the naming pattern for single sheet
-                        filename = self.get_export_filename(sheets[0]) + "_IFC"
+                    # Use first and last item for combined exports
+                    if len(items) > 1:
+                        first_item = items[0]
+                        last_item = items[-1]
+                        # Get names from actual Revit elements
+                        if hasattr(first_item, 'Sheet'):
+                            first_name = first_item.Sheet.SheetNumber
+                            last_name = last_item.Sheet.SheetNumber
+                        else:
+                            first_name = first_item.View.Name[:20]
+                            last_name = last_item.View.Name[:20]
+                        filename = "{}-{}_Model_IFC".format(first_name, last_name)
+                    elif len(items) == 1:
+                        # Use the naming pattern for single item
+                        filename = self.get_export_filename(items[0]) + "_IFC"
                     else:
                         filename = "Model_IFC_Export"
 
@@ -1243,8 +1575,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     exported_count = 1
                     # Update progress for all IFC export items
-                    for s in sheets:
-                        self.update_export_item_progress(s.SheetNumber, "IFC", 100)
+                    for item in items:
+                        self.update_export_item_progress(item.SheetNumber, "IFC", 100)
                 except Exception as ex:
                     logger.error("Error exporting to IFC: {}".format(ex))
 
@@ -1254,25 +1586,39 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("IFC export failed: {}".format(ex))
             return 0
 
-    def export_to_images(self, sheets, output_folder):
-        """Export sheets to image format using Revit's native image export with version-aware API usage."""
+    def export_to_images(self, items, output_folder):
+        """Export items (sheets or views) to image format using Revit's native image export with version-aware API usage."""
         try:
             import time
             import glob
 
-            # Sync cached sheet numbers with live values from Revit
-            for sheet_item in sheets:
-                sheet_item.SheetNumber = sheet_item.Sheet.SheetNumber
-                sheet_item.SheetName = sheet_item.Sheet.Name
+            # Sync cached values with live values from Revit
+            for item in items:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
 
             exported_count = 0
 
-            for sheet_item in sheets:
+            for item in items:
                 try:
-                    # Update progress text to show current sheet and format using live sheet number
-                    self.progress_text.Text = "Exporting {} to Image...".format(sheet_item.Sheet.SheetNumber)
+                    # Get the actual element (sheet or view)
+                    if hasattr(item, 'Sheet'):
+                        element = item.Sheet
+                        element_name = element.SheetNumber
+                    elif hasattr(item, 'View'):
+                        element = item.View
+                        element_name = element.Name
+                    else:
+                        continue
 
-                    filename = sheet_item.CustomFilename or self.get_export_filename(sheet_item)
+                    # Update progress text to show current item and format
+                    self.progress_text.Text = "Exporting {} to Image...".format(element_name)
+
+                    filename = item.CustomFilename or self.get_export_filename(item)
 
                     # Remove extension if present
                     if filename.lower().endswith('.png'):
@@ -1299,7 +1645,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     # Set the view IDs using System.Collections.Generic.List
                     view_ids = List[DB.ElementId]()
-                    view_ids.Add(sheet_item.Sheet.Id)
+                    view_ids.Add(element.Id)
                     img_options.SetViewsAndSheets(view_ids)
 
                     # Export using Revit's native image export
@@ -1317,11 +1663,10 @@ class ExportManagerWindow(forms.WPFWindow):
                     if os.path.exists(expected_file) or new_images:
                         exported_count += 1
                         # Update progress for this export item
-                        self.update_export_item_progress(sheet_item.SheetNumber, "IMG", 100)
+                        self.update_export_item_progress(item.SheetNumber, "IMG", 100)
 
                 except Exception as ex:
-                    logger.error("Error exporting {} to Image: {}".format(
-                        sheet_item.Sheet.SheetNumber, ex))
+                    logger.error("Error exporting {} to Image: {}".format(element_name, ex))
 
             return exported_count
 
