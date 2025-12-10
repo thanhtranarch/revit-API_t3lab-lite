@@ -142,6 +142,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
@@ -229,8 +230,53 @@
                         </Grid>
                     </Grid>
 
+                    <!-- File Naming Section -->
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" Padding="10" Background="#F8F9FA" CornerRadius="6">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="File Naming Pattern" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox x:Name="naming_pattern"
+                                         Grid.Column="0"
+                                         Height="28"
+                                         VerticalContentAlignment="Center"
+                                         Text="{}{SheetNumber}-{SheetName}"
+                                         ToolTip="Pattern for auto-generating filenames"/>
+
+                                <Button x:Name="btn_custom_parameters"
+                                        Content="Select Parameters"
+                                        Grid.Column="1"
+                                        Height="28"
+                                        Padding="10,0"
+                                        Margin="5,0,0,0"
+                                        ToolTip="Select custom parameters for filename pattern"
+                                        Click="button_custom_parameters"/>
+
+                                <Button x:Name="btn_apply_pattern"
+                                        Content="Apply to All"
+                                        Grid.Column="2"
+                                        Height="28"
+                                        Padding="10,0"
+                                        Margin="5,0,0,0"
+                                        ToolTip="Apply naming pattern to all selected items' Custom Filename column"
+                                        Click="button_apply_pattern_to_all"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
                     <!-- Sheets List -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
+                    <Border Grid.Row="3" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
                         <ListView x:Name="sheets_listview"
                                   SelectionMode="Extended"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -244,19 +290,20 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn x:Name="col_number" Header="Sheet Number" Width="300"
+                                    <GridViewColumn x:Name="col_number" Header="Sheet Number" Width="250"
                                                     DisplayMemberBinding="{Binding SheetNumber}"/>
-                                    <GridViewColumn x:Name="col_name" Header="Sheet Name" Width="300"
+                                    <GridViewColumn x:Name="col_name" Header="Sheet Name" Width="250"
                                                     DisplayMemberBinding="{Binding SheetName}"/>
                                     <GridViewColumn x:Name="col_revision" Header="Revision" Width="80"
                                                     DisplayMemberBinding="{Binding Revision}"/>
                                     <GridViewColumn x:Name="col_size" Header="Size" Width="80"
                                                     DisplayMemberBinding="{Binding Size}"/>
-                                    <GridViewColumn Header="Custom Filename" Width="250">
+                                    <GridViewColumn Header="Custom Filename" Width="350">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                         BorderThickness="0" Background="Transparent"/>
+                                                         BorderThickness="0" Background="Transparent"
+                                                         ToolTip="Custom filename (leave empty to use pattern)"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -272,7 +319,6 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Grid Margin="10">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -459,56 +505,6 @@
                                         <CheckBox x:Name="cad_export_links_as_external" Content="Export links as external references"
                                                   IsChecked="False" Margin="0,3"
                                                   ToolTip="Export linked files as external references (default: OFF)"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                        </StackPanel>
-
-                        <!-- File Naming -->
-                        <StackPanel Grid.Row="3" Margin="0,10,0,0">
-                            <TextBlock Text="File Naming" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-
-                                    <StackPanel Grid.Row="0">
-                                        <TextBlock Text="Naming Pattern:" FontWeight="Medium" Margin="0,0,0,5"/>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBox x:Name="naming_pattern" Height="28"
-                                                     Grid.Column="0"
-                                                     VerticalContentAlignment="Center"
-                                                     Text="{}{SheetNumber}-{SheetName}"/>
-                                            <Button x:Name="btn_custom_parameters"
-                                                    Content="Custom Parameters"
-                                                    Grid.Column="1"
-                                                    Height="28"
-                                                    Padding="10,0"
-                                                    Margin="5,0,0,0"
-                                                    ToolTip="Select custom parameters for filename"
-                                                    Click="button_custom_parameters"/>
-                                        </Grid>
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Row="1" Margin="0,10,0,0">
-                                        <TextBlock TextWrapping="Wrap" FontSize="10" Foreground="#7F8C8D">
-                                            <Run Text="Available placeholders:"/>
-                                            <LineBreak/>
-                                            <Run Text="• {SheetNumber}, {SheetName}, {Revision}, {RevisionDate}"/>
-                                            <LineBreak/>
-                                            <Run Text="• {DrawnBy}, {CheckedBy}, {ProjectNumber}, {ProjectName}"/>
-                                            <LineBreak/>
-                                            <Run Text="• {Date}, {Time}"/>
-                                            <LineBreak/>
-                                            <Run Text="• Click 'Custom Parameters' button to select from ALL available parameters"/>
-                                        </TextBlock>
                                     </StackPanel>
                                 </Grid>
                             </Border>
