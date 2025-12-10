@@ -487,7 +487,7 @@
                                                      VerticalContentAlignment="Center"
                                                      Text="{}{SheetNumber}-{SheetName}"/>
                                             <Button x:Name="btn_custom_parameters"
-                                                    Content="📝 Custom Parameters"
+                                                    Content="Custom Parameters"
                                                     Grid.Column="1"
                                                     Height="28"
                                                     Padding="10,0"
