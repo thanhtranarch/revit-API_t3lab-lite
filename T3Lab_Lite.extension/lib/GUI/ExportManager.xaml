@@ -115,10 +115,11 @@
             <!-- Logo and Title -->
             <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="15,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Image x:Name="logo_image" Width="48" Height="48" Margin="0,0,15,0"/>
+                <Image x:Name="logo_image" Width="80" Height="80" Margin="0,0,15,0"/>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="BatchOut" FontSize="22" FontWeight="Bold"
-                              Foreground="#2C3E50" Margin="0,0,0,2"/>
+                              Foreground="#2C3E50" Margin="0,0,0,5"/>
+                    <Separator Height="2" Background="#BDC3C7" Margin="0,3,0,5"/>
                     <TextBlock Text="Batch export sheets to multiple formats with advanced options"
                               FontSize="11" Foreground="#7F8C8D" FontStyle="Italic"/>
                 </StackPanel>
