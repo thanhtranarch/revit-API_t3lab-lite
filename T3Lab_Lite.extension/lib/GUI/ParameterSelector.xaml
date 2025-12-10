@@ -31,8 +31,7 @@
         </Grid.RowDefinitions>
 
         <!--HEADER START-->
-        <Grid MouseDown="header_drag"
-              Background="{StaticResource header_background}"
+        <Grid Background="{StaticResource header_background}"
               Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="75"/>
