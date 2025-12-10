@@ -235,7 +235,7 @@
                                   SelectionMode="Extended"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListView.View>
-                                <GridView>
+                                <GridView x:Name="items_gridview">
                                     <GridViewColumn Width="40">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
@@ -244,13 +244,13 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="Sheet Number" Width="300"
+                                    <GridViewColumn x:Name="col_number" Header="Sheet Number" Width="300"
                                                     DisplayMemberBinding="{Binding SheetNumber}"/>
-                                    <GridViewColumn Header="Sheet Name" Width="300"
+                                    <GridViewColumn x:Name="col_name" Header="Sheet Name" Width="300"
                                                     DisplayMemberBinding="{Binding SheetName}"/>
-                                    <GridViewColumn Header="Revision" Width="80"
+                                    <GridViewColumn x:Name="col_revision" Header="Revision" Width="80"
                                                     DisplayMemberBinding="{Binding Revision}"/>
-                                    <GridViewColumn Header="Size" Width="80"
+                                    <GridViewColumn x:Name="col_size" Header="Size" Width="80"
                                                     DisplayMemberBinding="{Binding Size}"/>
                                     <GridViewColumn Header="Custom Filename" Width="250">
                                         <GridViewColumn.CellTemplate>

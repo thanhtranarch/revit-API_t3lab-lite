@@ -222,7 +222,7 @@ class ViewItem(forms.Reactive):
 
         # Add more compatibility properties
         self.Size = self.Scale  # Use scale as "size" for views
-        self.Revision = "-"  # Views don't have revisions
+        self.Revision = self.Phase  # Use phase for "revision" column in views mode
 
     def __repr__(self):
         return "{} ({})".format(self.ViewName, self.ViewType)
@@ -501,6 +501,12 @@ class ExportManagerWindow(forms.WPFWindow):
                 if hasattr(self, 'view_type_filter'):
                     self.view_type_filter.Visibility = Visibility.Collapsed
                     self.view_type_label.Visibility = Visibility.Collapsed
+                # Update column headers for Sheets mode
+                if hasattr(self, 'col_number'):
+                    self.col_number.Header = "Sheet Number"
+                    self.col_name.Header = "Sheet Name"
+                    self.col_revision.Header = "Revision"
+                    self.col_size.Header = "Size"
             elif hasattr(self, 'views_radio') and self.views_radio.IsChecked:
                 self.selection_mode = "views"
                 # Show views
@@ -515,6 +521,12 @@ class ExportManagerWindow(forms.WPFWindow):
                 if hasattr(self, 'view_type_filter'):
                     self.view_type_filter.Visibility = Visibility.Visible
                     self.view_type_label.Visibility = Visibility.Visible
+                # Update column headers for Views mode
+                if hasattr(self, 'col_number'):
+                    self.col_number.Header = "View Name"
+                    self.col_name.Header = "View Type"
+                    self.col_revision.Header = "Phase"
+                    self.col_size.Header = "Scale"
         except Exception as ex:
             logger.error("Error changing selection mode: {}".format(ex))
 
