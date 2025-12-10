@@ -664,6 +664,27 @@ class ExportManagerWindow(forms.WPFWindow):
         if formats:
             self.status_text.Text = "Selected formats: {}".format(", ".join(formats))
 
+    def button_custom_parameters(self, sender, e):
+        """Open custom parameters dialog to select parameters for filename."""
+        try:
+            # Import the parameter selector dialog
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+            from ParameterSelectorDialog import ParameterSelectorDialog
+
+            # Determine element type based on current selection mode
+            element_type = 'sheet' if self.selection_mode == 'sheets' else 'view'
+
+            # Show the parameter selector dialog
+            pattern = ParameterSelectorDialog.show_dialog(self.doc, element_type)
+
+            if pattern:
+                # Update the naming pattern textbox
+                self.naming_pattern.Text = pattern
+                self.status_text.Text = "Custom parameters applied to naming pattern"
+        except Exception as ex:
+            logger.error("Error opening custom parameters dialog: {}".format(ex))
+            forms.alert("Error opening custom parameters dialog:\n{}".format(str(ex)))
+
     def reverse_order_changed(self, sender, e):
         """Handle reverse order checkbox change."""
         # Reverse the filtered sheets list
@@ -788,6 +809,7 @@ class ExportManagerWindow(forms.WPFWindow):
         Always reads live values from the Revit item (sheet or view) to ensure the filename
         reflects the current state of the item (e.g., if name changed).
         Supports both SheetItem and ViewItem.
+        Now supports ALL parameters dynamically.
         """
         pattern = self.naming_pattern.Text
 
@@ -796,78 +818,159 @@ class ExportManagerWindow(forms.WPFWindow):
             project_info = self.doc.ProjectInformation
             project_number = project_info.Number or ""
             project_name = project_info.Name or ""
+            project_address = project_info.Address or ""
+            client_name = project_info.ClientName or ""
+            project_status = project_info.Status or ""
         except:
             project_number = ""
             project_name = ""
+            project_address = ""
+            client_name = ""
+            project_status = ""
 
-        # Get live values from the actual Revit object
-        # This ensures we always use current values, not cached ones
+        # Get the actual Revit element (sheet or view)
+        element = None
         if hasattr(item, 'Sheet'):
-            # It's a SheetItem
-            sheet = item.Sheet
-            sheet_number = sheet.SheetNumber
-            sheet_name = sheet.Name
+            element = item.Sheet
+            sheet_number = element.SheetNumber
+            sheet_name = element.Name
         elif hasattr(item, 'View'):
-            # It's a ViewItem
-            view = item.View
-            sheet_number = view.Name  # Use view name as "number"
+            element = item.View
+            sheet_number = element.Name  # Use view name as "number"
             sheet_name = item.ViewType  # Use view type as "name"
         else:
             sheet_number = "Unknown"
             sheet_name = "Unknown"
 
-        # Get live revision info (only for sheets)
+        # Build a dictionary of all standard replacements
+        replacements = {
+            "{SheetNumber}": sheet_number,
+            "{SheetName}": sheet_name,
+            "{ViewName}": sheet_number if hasattr(item, 'View') else "",
+            "{ProjectNumber}": project_number,
+            "{ProjectName}": project_name,
+            "{ProjectAddress}": project_address,
+            "{ClientName}": client_name,
+            "{ProjectStatus}": project_status,
+            "{Date}": datetime.now().strftime("%Y%m%d"),
+            "{Time}": datetime.now().strftime("%H%M%S"),
+        }
+
+        # Get ALL parameters from the element dynamically
+        if element:
+            try:
+                for param in element.Parameters:
+                    try:
+                        param_name = param.Definition.Name
+                        param_value = ""
+
+                        # Get parameter value based on storage type
+                        if param.HasValue:
+                            if param.StorageType == DB.StorageType.String:
+                                param_value = param.AsString() or ""
+                            elif param.StorageType == DB.StorageType.Integer:
+                                param_value = str(param.AsInteger())
+                            elif param.StorageType == DB.StorageType.Double:
+                                param_value = str(param.AsDouble())
+                            elif param.StorageType == DB.StorageType.ElementId:
+                                elem_id = param.AsElementId()
+                                if elem_id and elem_id.IntegerValue > 0:
+                                    try:
+                                        elem = self.doc.GetElement(elem_id)
+                                        param_value = elem.Name if elem else ""
+                                    except:
+                                        param_value = str(elem_id.IntegerValue)
+
+                        # Add to replacements dictionary
+                        # Support both {ParamName} format
+                        replacements["{" + param_name + "}"] = param_value
+
+                    except Exception as param_ex:
+                        # Skip problematic parameters
+                        logger.debug("Could not read parameter {}: {}".format(
+                            param.Definition.Name if hasattr(param, 'Definition') else 'unknown',
+                            str(param_ex)
+                        ))
+                        continue
+            except Exception as params_ex:
+                logger.warning("Could not iterate parameters: {}".format(str(params_ex)))
+
+        # Add common sheet-specific built-in parameters explicitly
         if hasattr(item, 'Sheet'):
             try:
                 rev_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION)
-                revision = rev_param.AsString() if rev_param else ""
+                replacements["{Revision}"] = rev_param.AsString() if rev_param else ""
             except:
-                revision = ""
+                replacements["{Revision}"] = ""
 
             try:
                 rev_date_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE)
-                revision_date = rev_date_param.AsString() if rev_date_param else ""
+                replacements["{RevisionDate}"] = rev_date_param.AsString() if rev_date_param else ""
             except:
-                revision_date = ""
+                replacements["{RevisionDate}"] = ""
 
             try:
                 rev_desc_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION)
-                revision_description = rev_desc_param.AsString() if rev_desc_param else ""
+                replacements["{RevisionDescription}"] = rev_desc_param.AsString() if rev_desc_param else ""
             except:
-                revision_description = ""
+                replacements["{RevisionDescription}"] = ""
 
-            # Get live drawn by and checked by
             try:
                 drawn_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY)
-                drawn_by = drawn_param.AsString() if drawn_param else ""
+                replacements["{DrawnBy}"] = drawn_param.AsString() if drawn_param else ""
             except:
-                drawn_by = ""
+                replacements["{DrawnBy}"] = ""
 
             try:
                 checked_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY)
-                checked_by = checked_param.AsString() if checked_param else ""
+                replacements["{CheckedBy}"] = checked_param.AsString() if checked_param else ""
             except:
-                checked_by = ""
-        else:
-            # Views don't have revision info
-            revision = ""
-            revision_date = ""
-            revision_description = ""
-            drawn_by = ""
-            checked_by = ""
+                replacements["{CheckedBy}"] = ""
 
-        # Replace placeholders with live values
-        filename = pattern.replace("{SheetNumber}", sheet_number)
-        filename = filename.replace("{SheetName}", sheet_name)
-        filename = filename.replace("{Revision}", revision)
-        filename = filename.replace("{RevisionDate}", revision_date)
-        filename = filename.replace("{RevisionDescription}", revision_description)
-        filename = filename.replace("{DrawnBy}", drawn_by)
-        filename = filename.replace("{CheckedBy}", checked_by)
-        filename = filename.replace("{ProjectNumber}", project_number)
-        filename = filename.replace("{ProjectName}", project_name)
-        filename = filename.replace("{Date}", datetime.now().strftime("%Y%m%d"))
-        filename = filename.replace("{Time}", datetime.now().strftime("%H%M%S"))
+            try:
+                approved_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_APPROVED_BY)
+                replacements["{ApprovedBy}"] = approved_param.AsString() if approved_param else ""
+            except:
+                replacements["{ApprovedBy}"] = ""
+
+            try:
+                issue_date_param = item.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_ISSUE_DATE)
+                replacements["{IssueDate}"] = issue_date_param.AsString() if issue_date_param else ""
+            except:
+                replacements["{IssueDate}"] = ""
+
+        # Add view-specific parameters explicitly
+        elif hasattr(item, 'View'):
+            try:
+                replacements["{ViewType}"] = item.ViewType
+                replacements["{Scale}"] = item.Scale if hasattr(item, 'Scale') else ""
+            except:
+                pass
+
+            try:
+                phase_param = element.get_Parameter(DB.BuiltInParameter.VIEW_PHASE)
+                if phase_param:
+                    phase_id = phase_param.AsElementId()
+                    if phase_id and phase_id.IntegerValue > 0:
+                        phase = self.doc.GetElement(phase_id)
+                        replacements["{Phase}"] = phase.Name if phase else ""
+            except:
+                replacements["{Phase}"] = ""
+
+            try:
+                level_param = element.get_Parameter(DB.BuiltInParameter.VIEW_LEVEL)
+                if level_param:
+                    level_id = level_param.AsElementId()
+                    if level_id and level_id.IntegerValue > 0:
+                        level = self.doc.GetElement(level_id)
+                        replacements["{Level}"] = level.Name if level else ""
+            except:
+                replacements["{Level}"] = ""
+
+        # Replace all placeholders in the pattern
+        filename = pattern
+        for placeholder, value in replacements.items():
+            filename = filename.replace(placeholder, str(value))
 
         # Remove invalid characters
         invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
