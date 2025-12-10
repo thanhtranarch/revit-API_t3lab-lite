@@ -494,7 +494,10 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.load_sheets()
                 else:
                     self.update_items_list()
-                # Update UI visibility
+                # Update UI visibility - Show size filter, hide view type filter
+                if hasattr(self, 'size_filter'):
+                    self.size_filter.Visibility = Visibility.Visible
+                    self.size_filter_label.Visibility = Visibility.Visible
                 if hasattr(self, 'view_type_filter'):
                     self.view_type_filter.Visibility = Visibility.Collapsed
                     self.view_type_label.Visibility = Visibility.Collapsed
@@ -505,7 +508,10 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.load_views()
                 else:
                     self.update_items_list()
-                # Update UI visibility
+                # Update UI visibility - Hide size filter, show view type filter
+                if hasattr(self, 'size_filter'):
+                    self.size_filter.Visibility = Visibility.Collapsed
+                    self.size_filter_label.Visibility = Visibility.Collapsed
                 if hasattr(self, 'view_type_filter'):
                     self.view_type_filter.Visibility = Visibility.Visible
                     self.view_type_label.Visibility = Visibility.Visible
