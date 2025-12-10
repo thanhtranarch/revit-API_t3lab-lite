@@ -153,13 +153,13 @@
                 <!--BUTTONS-->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center"
                             HorizontalAlignment="Center">
-                    <Button Content="Add >"
-                            Width="60" Height="40"
+                    <Button Content="▶ Add >"
+                            Width="70" Height="40"
                             Margin="5"
                             Click="button_add_parameter"
                             ToolTip="Add selected parameters"/>
-                    <Button Content="< Remove"
-                            Width="60" Height="40"
+                    <Button Content="◀ < Remove"
+                            Width="85" Height="40"
                             Margin="5"
                             Click="button_remove_parameter"
                             ToolTip="Remove selected parameters"/>
@@ -195,13 +195,13 @@
                         <!--ARRANGEMENT BUTTONS-->
                         <StackPanel Grid.Row="1" Orientation="Horizontal"
                                     HorizontalAlignment="Center" Margin="5">
-                            <Button Content="Move Up" Width="70" Height="30"
+                            <Button Content="▲ Move Up" Width="90" Height="30"
                                     Margin="2" Click="button_move_up"
                                     ToolTip="Move up"/>
-                            <Button Content="Move Down" Width="80" Height="30"
+                            <Button Content="▼ Move Down" Width="100" Height="30"
                                     Margin="2" Click="button_move_down"
                                     ToolTip="Move down"/>
-                            <Button Content="Refresh" Width="70" Height="30"
+                            <Button Content="↻ Refresh" Width="80" Height="30"
                                     Margin="2" Click="button_refresh"
                                     ToolTip="Refresh parameters"/>
                         </StackPanel>
