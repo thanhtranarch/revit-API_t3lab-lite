@@ -472,13 +472,29 @@
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
                                     <StackPanel Grid.Row="0">
                                         <TextBlock Text="Naming Pattern:" FontWeight="Medium" Margin="0,0,0,5"/>
-                                        <TextBox x:Name="naming_pattern" Height="28"
-                                                 VerticalContentAlignment="Center"
-                                                 Text="{}{SheetNumber}-{SheetName}"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="naming_pattern" Height="28"
+                                                     Grid.Column="0"
+                                                     VerticalContentAlignment="Center"
+                                                     Text="{}{SheetNumber}-{SheetName}"/>
+                                            <Button x:Name="btn_custom_parameters"
+                                                    Content="Custom Parameters"
+                                                    Grid.Column="1"
+                                                    Height="28"
+                                                    Padding="10,0"
+                                                    Margin="5,0,0,0"
+                                                    ToolTip="Select custom parameters for filename"
+                                                    Click="button_custom_parameters"/>
+                                        </Grid>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="1" Margin="0,10,0,0">
@@ -490,6 +506,8 @@
                                             <Run Text="• {DrawnBy}, {CheckedBy}, {ProjectNumber}, {ProjectName}"/>
                                             <LineBreak/>
                                             <Run Text="• {Date}, {Time}"/>
+                                            <LineBreak/>
+                                            <Run Text="• Click 'Custom Parameters' button to select from ALL available parameters"/>
                                         </TextBlock>
                                     </StackPanel>
                                 </Grid>
