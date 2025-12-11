@@ -98,6 +98,10 @@ class ParameterSelectorDialog(Window):
         self.ui.FindName('button_cancel').Click += self.button_cancel
         self.ui.FindName('button_preview').Click += self.button_preview
 
+        # Set up checkbox event handlers
+        self.chk_include_project_params.Checked += self.toggle_project_params
+        self.chk_include_project_params.Unchecked += self.toggle_project_params
+
         # Set up drag handler for header
         self.ui.MouseDown += self.header_drag
 

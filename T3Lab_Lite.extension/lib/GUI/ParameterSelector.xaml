@@ -229,11 +229,10 @@
                         VerticalAlignment="Center"
                         HorizontalAlignment="Left">
                                     <Image Width="20" Height="20" Margin="5,0,5,0"
-                                           Source="T3Lab_logo.png" />
+                                           Source="Resources/T3Lab_logo.png" />
 
                                     <TextBlock>
-                    <Hyperlink  RequestNavigate="Hyperlink_RequestNavigate"
-                                NavigateUri="https://www.t3lab.vn"
+                    <Hyperlink  NavigateUri="https://www.t3lab.vn"
                                 FontSize="14px"
                                 FontWeight="Heavy"
                                 Foreground="{StaticResource text_white}">
@@ -519,8 +518,7 @@
                 <Image Width="20" Height="20" Margin="5,0,5,0"
                        Source="Resources/T3Lab_logo.png" />
                 <TextBlock Margin="0,0,0,0">
-                    <Hyperlink RequestNavigate="Hyperlink_RequestNavigate"
-                               NavigateUri="https://www.t3lab.vn"
+                    <Hyperlink NavigateUri="https://www.t3lab.vn"
                                FontSize="14px"
                                FontWeight="Heavy"
                                Foreground="{StaticResource text_white}">
@@ -538,11 +536,11 @@
                        Foreground="{StaticResource text_white}"/>
 
             <!--CLOSE-->
-            <Button Content="Close"
+            <Button x:Name="button_close"
+                    Content="Close"
                     Grid.Column="2"
                     Width="60" Height="20"
                     FontSize="10"
-                    Click="button_close"
                     VerticalAlignment="Center"
                     HorizontalAlignment="Right"/>
         </Grid>
@@ -599,9 +597,7 @@
                                   Content="Include Project Information Parameters"
                                   IsChecked="True"
                                   Margin="5"
-                                  Foreground="{StaticResource text_white}"
-                                  Checked="toggle_project_params"
-                                  Unchecked="toggle_project_params"/>
+                                  Foreground="{StaticResource text_white}"/>
 
                         <!--AVAILABLE LIST-->
                         <ListBox x:Name="list_available"
@@ -625,15 +621,15 @@
                 <!--BUTTONS-->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center"
                             HorizontalAlignment="Center">
-                    <Button Content="▶ Add >"
+                    <Button x:Name="button_add_parameter"
+                            Content="▶ Add >"
                             Width="70" Height="40"
                             Margin="5"
-                            Click="button_add_parameter"
                             ToolTip="Add selected parameters"/>
-                    <Button Content="◀ < Remove"
+                    <Button x:Name="button_remove_parameter"
+                            Content="◀ < Remove"
                             Width="85" Height="40"
                             Margin="5"
-                            Click="button_remove_parameter"
                             ToolTip="Remove selected parameters"/>
                 </StackPanel>
 
@@ -667,14 +663,17 @@
                         <!--ARRANGEMENT BUTTONS-->
                         <StackPanel Grid.Row="1" Orientation="Horizontal"
                                     HorizontalAlignment="Center" Margin="5">
-                            <Button Content="▲ Move Up" Width="90" Height="30"
-                                    Margin="2" Click="button_move_up"
+                            <Button x:Name="button_move_up"
+                                    Content="▲ Move Up" Width="90" Height="30"
+                                    Margin="2"
                                     ToolTip="Move up"/>
-                            <Button Content="▼ Move Down" Width="100" Height="30"
-                                    Margin="2" Click="button_move_down"
+                            <Button x:Name="button_move_down"
+                                    Content="▼ Move Down" Width="100" Height="30"
+                                    Margin="2"
                                     ToolTip="Move down"/>
-                            <Button Content="↻ Refresh" Width="80" Height="30"
-                                    Margin="2" Click="button_refresh"
+                            <Button x:Name="button_refresh"
+                                    Content="↻ Refresh" Width="80" Height="30"
+                                    Margin="2"
                                     ToolTip="Refresh parameters"/>
                         </StackPanel>
                     </Grid>
@@ -702,10 +701,10 @@
                              Background="{StaticResource header_background}"
                              Foreground="{StaticResource text_white}"
                              BorderBrush="{StaticResource border_magenta}"/>
-                    <Button Content="+"
+                    <Button x:Name="button_add_custom_field"
+                            Content="+"
                             Width="40" Height="25"
                             Margin="5"
-                            Click="button_add_custom_field"
                             ToolTip="Add custom field to selected parameters"/>
                 </StackPanel>
 
@@ -723,10 +722,10 @@
                              Background="{StaticResource header_background}"
                              Foreground="{StaticResource text_white}"
                              BorderBrush="{StaticResource border_magenta}"/>
-                    <Button Content="+"
+                    <Button x:Name="button_add_custom_separator"
+                            Content="+"
                             Width="40" Height="25"
                             Margin="5"
-                            Click="button_add_custom_separator"
                             ToolTip="Add custom separator to selected parameters"/>
                 </StackPanel>
             </Grid>
@@ -737,19 +736,19 @@
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
-                <Button Content="OK"
+                <Button x:Name="button_ok"
+                        Content="OK"
                         Width="100" Height="35"
                         Margin="5"
-                        Click="button_ok"
                         FontWeight="Bold"/>
-                <Button Content="Cancel"
+                <Button x:Name="button_cancel"
+                        Content="Cancel"
+                        Width="100" Height="35"
+                        Margin="5"/>
+                <Button x:Name="button_preview"
+                        Content="Preview"
                         Width="100" Height="35"
                         Margin="5"
-                        Click="button_cancel"/>
-                <Button Content="Preview"
-                        Width="100" Height="35"
-                        Margin="5"
-                        Click="button_preview"
                         ToolTip="Preview filename with current parameters"/>
             </StackPanel>
         </Grid>
@@ -764,8 +763,7 @@
 
             <!--IMAGE-->
             <TextBlock>
-                <Hyperlink NavigateUri="https://www.t3lab.vn"
-                           RequestNavigate="Hyperlink_RequestNavigate">
+                <Hyperlink NavigateUri="https://www.t3lab.vn">
                     <Image Height="20" Margin="1"
                            HorizontalAlignment="Left"
                            VerticalAlignment="Top"
@@ -786,8 +784,7 @@
                        VerticalAlignment="Center"
                        HorizontalAlignment="Right"
                        Margin="0,0,10,0">
-                <Hyperlink RequestNavigate="Hyperlink_RequestNavigate"
-                           NavigateUri="https://www.t3lab.vn"
+                <Hyperlink NavigateUri="https://www.t3lab.vn"
                            FontWeight="Medium"
                            Foreground="{StaticResource button_bg_hover}">
                     T3Lab
