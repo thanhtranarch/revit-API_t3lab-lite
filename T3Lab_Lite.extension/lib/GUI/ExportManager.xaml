@@ -244,7 +244,6 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <TextBox x:Name="naming_pattern"
@@ -252,7 +251,7 @@
                                          Height="28"
                                          VerticalContentAlignment="Center"
                                          Text="{}{SheetNumber}-{SheetName}"
-                                         ToolTip="Pattern for auto-generating filenames"/>
+                                         ToolTip="Pattern for auto-generating filenames. Updates automatically when you select parameters."/>
 
                                 <Button x:Name="btn_custom_parameters"
                                         Content="Select Parameters"
@@ -260,17 +259,8 @@
                                         Height="28"
                                         Padding="10,0"
                                         Margin="5,0,0,0"
-                                        ToolTip="Select custom parameters for filename pattern"
+                                        ToolTip="Select custom parameters for filename pattern (auto-applies to selected items)"
                                         Click="button_custom_parameters"/>
-
-                                <Button x:Name="btn_apply_pattern"
-                                        Content="Apply to All"
-                                        Grid.Column="2"
-                                        Height="28"
-                                        Padding="10,0"
-                                        Margin="5,0,0,0"
-                                        ToolTip="Apply naming pattern to all selected items' Custom Filename column"
-                                        Click="button_apply_pattern_to_all"/>
                             </Grid>
                         </Grid>
                     </Border>

@@ -665,7 +665,10 @@ class ExportManagerWindow(forms.WPFWindow):
             self.status_text.Text = "Selected formats: {}".format(", ".join(formats))
 
     def button_custom_parameters(self, sender, e):
-        """Open custom parameters dialog to select parameters for filename."""
+        """Open custom parameters dialog to select parameters for filename.
+
+        When a pattern is selected, it automatically applies to ALL items (sheets or views).
+        """
         try:
             # Import the parameter selector dialog
             sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
@@ -680,40 +683,25 @@ class ExportManagerWindow(forms.WPFWindow):
             if pattern:
                 # Update the naming pattern textbox
                 self.naming_pattern.Text = pattern
-                self.status_text.Text = "Custom parameters applied to naming pattern"
-        except Exception as ex:
-            logger.error("Error opening custom parameters dialog: {}".format(ex))
-            forms.alert("Error opening custom parameters dialog:\n{}".format(str(ex)))
 
-    def button_apply_pattern_to_all(self, sender, e):
-        """Apply the naming pattern to all selected items' CustomFilename field."""
-        try:
-            # Get the current list based on selection mode
-            items_list = self.all_sheets if self.selection_mode == 'sheets' else self.all_views
+                # Auto-apply the pattern to ALL items (not just selected)
+                items_list = self.all_sheets if self.selection_mode == 'sheets' else self.all_views
 
-            # Count items that will be updated
-            selected_count = sum(1 for item in items_list if item.IsSelected)
-
-            if selected_count == 0:
-                forms.alert("No items selected. Please select at least one item to apply the pattern.")
-                return
-
-            # Apply the naming pattern to each selected item
-            for item in items_list:
-                if item.IsSelected:
+                # Apply the naming pattern to each item
+                for item in items_list:
                     # Generate filename using the current naming pattern
                     filename = self.get_export_filename(item)
                     # Set it to the CustomFilename property
                     item.CustomFilename = filename
 
-            # Refresh the ListView to show the updated CustomFilename values
-            self.sheets_listview.Items.Refresh()
+                # Refresh the ListView to show the updated CustomFilename values
+                self.sheets_listview.Items.Refresh()
 
-            self.status_text.Text = "Applied naming pattern to {} selected item(s)".format(selected_count)
+                self.status_text.Text = "Pattern applied to {} item(s)".format(len(items_list))
 
         except Exception as ex:
-            logger.error("Error applying pattern to all: {}".format(ex))
-            forms.alert("Error applying pattern:\n{}".format(str(ex)))
+            logger.error("Error opening custom parameters dialog: {}".format(ex))
+            forms.alert("Error opening custom parameters dialog:\n{}".format(str(ex)))
 
     def reverse_order_changed(self, sender, e):
         """Handle reverse order checkbox change."""
