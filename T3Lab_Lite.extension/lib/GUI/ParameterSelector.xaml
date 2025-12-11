@@ -232,8 +232,7 @@
                                            Source="T3Lab_logo.png" />
 
                                     <TextBlock>
-                    <Hyperlink  RequestNavigate="Hyperlink_RequestNavigate"
-                                NavigateUri="https://www.t3lab.vn"
+                    <Hyperlink  NavigateUri="https://www.t3lab.vn"
                                 FontSize="14px"
                                 FontWeight="Heavy"
                                 Foreground="{StaticResource text_white}">
@@ -519,8 +518,7 @@
                 <Image Width="20" Height="20" Margin="5,0,5,0"
                        Source="Resources/T3Lab_logo.png" />
                 <TextBlock Margin="0,0,0,0">
-                    <Hyperlink RequestNavigate="Hyperlink_RequestNavigate"
-                               NavigateUri="https://www.t3lab.vn"
+                    <Hyperlink NavigateUri="https://www.t3lab.vn"
                                FontSize="14px"
                                FontWeight="Heavy"
                                Foreground="{StaticResource text_white}">
@@ -764,8 +762,7 @@
 
             <!--IMAGE-->
             <TextBlock>
-                <Hyperlink NavigateUri="https://www.t3lab.vn"
-                           RequestNavigate="Hyperlink_RequestNavigate">
+                <Hyperlink NavigateUri="https://www.t3lab.vn">
                     <Image Height="20" Margin="1"
                            HorizontalAlignment="Left"
                            VerticalAlignment="Top"
@@ -786,8 +783,7 @@
                        VerticalAlignment="Center"
                        HorizontalAlignment="Right"
                        Margin="0,0,10,0">
-                <Hyperlink RequestNavigate="Hyperlink_RequestNavigate"
-                           NavigateUri="https://www.t3lab.vn"
+                <Hyperlink NavigateUri="https://www.t3lab.vn"
                            FontWeight="Medium"
                            Foreground="{StaticResource button_bg_hover}">
                     T3Lab
