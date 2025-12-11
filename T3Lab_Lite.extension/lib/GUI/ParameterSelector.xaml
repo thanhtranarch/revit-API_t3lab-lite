@@ -627,7 +627,7 @@
                             Margin="5"
                             ToolTip="Add selected parameters"/>
                     <Button x:Name="button_remove_parameter"
-                            Content="◀ < Remove"
+                            Content="◀ &lt; Remove"
                             Width="85" Height="40"
                             Margin="5"
                             ToolTip="Remove selected parameters"/>
