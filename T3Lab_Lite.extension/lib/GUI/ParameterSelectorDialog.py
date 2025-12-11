@@ -16,7 +16,7 @@ clr.AddReference('System.Windows.Forms')
 clr.AddReference('System')
 
 import System
-from System.Windows import Window
+from System.Windows import Window, WindowStartupLocation, WindowStyle
 from System.Windows.Markup import XamlReader
 from System.Windows.Controls import ListBox
 from System.Collections.ObjectModel import ObservableCollection
@@ -64,8 +64,8 @@ class ParameterSelectorDialog(Window):
         self.Title = "Custom Filename Parameters"
         self.Width = 800
         self.Height = 700
-        self.WindowStartupLocation = Window.WindowStartupLocation.CenterScreen
-        self.WindowStyle = Window.WindowStyle.None
+        self.WindowStartupLocation = WindowStartupLocation.CenterScreen
+        self.WindowStyle = WindowStyle.None
         self.AllowsTransparency = True
         self.Background = System.Windows.Media.SolidColorBrush(
             System.Windows.Media.Color.FromArgb(255, 8, 3, 38))
