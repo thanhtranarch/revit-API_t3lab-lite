@@ -15,6 +15,7 @@ clr.AddReference('PresentationCore')
 clr.AddReference('System.Windows.Forms')
 clr.AddReference('System')
 
+import System
 from System.Windows import Window
 from System.Windows.Markup import XamlReader
 from System.Windows.Controls import ListBox
@@ -59,22 +60,27 @@ class ParameterSelectorDialog(Window):
         self.selected_result = None
         self.field_separator = '-'
 
+        # Set up window properties first
+        self.Title = "Custom Filename Parameters"
+        self.Width = 800
+        self.Height = 700
+        self.WindowStartupLocation = Window.WindowStartupLocation.CenterScreen
+        self.WindowStyle = Window.WindowStyle.None
+        self.AllowsTransparency = True
+        self.Background = System.Windows.Media.SolidColorBrush(
+            System.Windows.Media.Color.FromArgb(255, 8, 3, 38))
+
         # Load XAML
         xaml_file = os.path.join(os.path.dirname(__file__), 'ParameterSelector.xaml')
         try:
             with open(xaml_file, 'r') as f:
                 xaml_content = f.read()
             self.ui = XamlReader.Parse(xaml_content)
+            # Set the parsed content directly
+            self.Content = self.ui
         except Exception as e:
             forms.alert("Error loading XAML: {}".format(str(e)))
             return
-
-        # Set up window
-        self.Title = self.ui.Title
-        self.Width = self.ui.Width
-        self.Height = self.ui.Height
-        self.Content = self.ui.Content
-        self.WindowStartupLocation = self.ui.WindowStartupLocation
 
         # Get controls
         self.list_available = self.ui.FindName('list_available')
