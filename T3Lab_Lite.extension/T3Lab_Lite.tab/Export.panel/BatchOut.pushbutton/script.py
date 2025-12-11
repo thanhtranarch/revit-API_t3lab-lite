@@ -667,7 +667,7 @@ class ExportManagerWindow(forms.WPFWindow):
     def button_custom_parameters(self, sender, e):
         """Open custom parameters dialog to select parameters for filename.
 
-        When a pattern is selected, it automatically applies to all selected items.
+        When a pattern is selected, it automatically applies to ALL items (sheets or views).
         """
         try:
             # Import the parameter selector dialog
@@ -684,25 +684,20 @@ class ExportManagerWindow(forms.WPFWindow):
                 # Update the naming pattern textbox
                 self.naming_pattern.Text = pattern
 
-                # Auto-apply the pattern to all selected items
+                # Auto-apply the pattern to ALL items (not just selected)
                 items_list = self.all_sheets if self.selection_mode == 'sheets' else self.all_views
-                selected_count = sum(1 for item in items_list if item.IsSelected)
 
-                if selected_count > 0:
-                    # Apply the naming pattern to each selected item
-                    for item in items_list:
-                        if item.IsSelected:
-                            # Generate filename using the current naming pattern
-                            filename = self.get_export_filename(item)
-                            # Set it to the CustomFilename property
-                            item.CustomFilename = filename
+                # Apply the naming pattern to each item
+                for item in items_list:
+                    # Generate filename using the current naming pattern
+                    filename = self.get_export_filename(item)
+                    # Set it to the CustomFilename property
+                    item.CustomFilename = filename
 
-                    # Refresh the ListView to show the updated CustomFilename values
-                    self.sheets_listview.Items.Refresh()
+                # Refresh the ListView to show the updated CustomFilename values
+                self.sheets_listview.Items.Refresh()
 
-                    self.status_text.Text = "Pattern applied to {} selected item(s)".format(selected_count)
-                else:
-                    self.status_text.Text = "Pattern updated (no items selected)"
+                self.status_text.Text = "Pattern applied to {} item(s)".format(len(items_list))
 
         except Exception as ex:
             logger.error("Error opening custom parameters dialog: {}".format(ex))
