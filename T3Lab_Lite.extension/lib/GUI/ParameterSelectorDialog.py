@@ -79,8 +79,12 @@ class ParameterSelectorDialog(Window):
             # Set the parsed content directly
             self.Content = self.ui
         except Exception as e:
-            forms.alert("Error loading XAML: {}".format(str(e)))
-            return
+            # Use print and raise instead of forms.alert to avoid infinite loop
+            # (forms.alert would create another dialog that could fail the same way)
+            print("Error loading XAML: {}".format(str(e)))
+            import traceback
+            traceback.print_exc()
+            raise
 
         # Get controls
         self.list_available = self.ui.FindName('list_available')
@@ -402,5 +406,9 @@ class ParameterSelectorDialog(Window):
                 return dialog.selected_result
             return None
         except Exception as e:
-            forms.alert("Error showing dialog: {}".format(str(e)))
+            # Use print instead of forms.alert to avoid infinite loop
+            # (forms.alert would create another dialog that could fail the same way)
+            print("Error showing ParameterSelectorDialog: {}".format(str(e)))
+            import traceback
+            traceback.print_exc()
             return None
