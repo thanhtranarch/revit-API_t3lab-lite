@@ -387,6 +387,7 @@
                                     <StackPanel Margin="5">
                                         <CheckBox x:Name="export_img" Content="IMG (Image)"
                                                   FontSize="13" FontWeight="Medium"
+                                                  IsEnabled="False" ToolTip="Image export is currently disabled"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Text="PNG Image Format"
                                                    FontSize="10" Foreground="#7F8C8D"
