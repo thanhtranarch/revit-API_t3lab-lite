@@ -31,7 +31,7 @@ def get_element_edges(element, view):
         pass
     return edges
 
-with revit.Transaction ("Reset Overrides"):
+with revit.Transaction ("Reset Visibility"):
     for el_id in collector:
         # Reset element overrides
         view.SetElementOverrides(el_id, override)
