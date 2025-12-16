@@ -112,13 +112,26 @@ class FamilyLoaderWindow(Window):
             return
 
         # Get named controls
+        self.btn_select_folder = self.ui.FindName('btn_select_folder')
         self.txt_current_folder = self.ui.FindName('txt_current_folder')
         self.txt_search = self.ui.FindName('txt_search')
         self.tree_categories = self.ui.FindName('tree_categories')
         self.items_families = self.ui.FindName('items_families')
         self.txt_result_count = self.ui.FindName('txt_result_count')
         self.txt_selected_count = self.ui.FindName('txt_selected_count')
+        self.btn_select_all = self.ui.FindName('btn_select_all')
+        self.btn_select_none = self.ui.FindName('btn_select_none')
         self.btn_load = self.ui.FindName('btn_load')
+        self.btn_cancel = self.ui.FindName('btn_cancel')
+
+        # Wire up event handlers
+        self.btn_select_folder.Click += self.select_folder_clicked
+        self.txt_search.TextChanged += self.search_text_changed
+        self.tree_categories.SelectedItemChanged += self.category_selected
+        self.btn_select_all.Click += self.select_all_clicked
+        self.btn_select_none.Click += self.select_none_clicked
+        self.btn_load.Click += self.load_clicked
+        self.btn_cancel.Click += self.cancel_clicked
 
         # Initialize variables
         self.current_folder = None
