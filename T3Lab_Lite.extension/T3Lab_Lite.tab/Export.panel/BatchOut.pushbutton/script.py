@@ -1443,8 +1443,10 @@ class ExportManagerWindow(forms.WPFWindow):
 
                         # Create PDF export options
                         pdf_options = PDFExportOptions()
-                        pdf_options.Combine = False
-                        # Set filename (learned from pyRevit)
+                        # IMPORTANT: Use Combine = True even for single sheets to force Revit to use our filename
+                        # When Combine = False, Revit ignores FileName and uses sheet number/name
+                        pdf_options.Combine = True
+                        # Set filename to match DWG naming pattern
                         pdf_options.FileName = filename
 
                         # VERSION-AWARE: Apply PDF settings
