@@ -41,8 +41,7 @@
                 <Button x:Name="btn_select_folder"
                         Content="Select Folder..."
                         DockPanel.Dock="Left"
-                        Style="{StaticResource FolderButtonStyle}"
-                        Click="select_folder_clicked"/>
+                        Style="{StaticResource FolderButtonStyle}"/>
                 <TextBlock x:Name="txt_current_folder"
                            Text="No folder selected"
                            VerticalAlignment="Center"
@@ -62,8 +61,7 @@
                            Margin="5,0,10,0"/>
                 <TextBox x:Name="txt_search"
                          Height="32"
-                         VerticalContentAlignment="Center"
-                         TextChanged="search_text_changed">
+                         VerticalContentAlignment="Center">
                     <TextBox.Style>
                         <Style TargetType="TextBox">
                             <Setter Property="Background" Value="White"/>
@@ -93,8 +91,7 @@
                         <TreeView x:Name="tree_categories"
                                   Padding="5"
                                   BorderThickness="0"
-                                  Background="Transparent"
-                                  SelectedItemChanged="category_selected">
+                                  Background="Transparent">
                         </TreeView>
                     </ScrollViewer>
                 </DockPanel>
@@ -115,13 +112,13 @@
                         <StackPanel Orientation="Horizontal"
                                     HorizontalAlignment="Right"
                                     DockPanel.Dock="Right">
-                            <Button Content="Select All"
+                            <Button x:Name="btn_select_all"
+                                    Content="Select All"
                                     Margin="5,0"
-                                    Padding="8,4"
-                                    Click="select_all_clicked"/>
-                            <Button Content="Select None"
-                                    Padding="8,4"
-                                    Click="select_none_clicked"/>
+                                    Padding="8,4"/>
+                            <Button x:Name="btn_select_none"
+                                    Content="Select None"
+                                    Padding="8,4"/>
                         </StackPanel>
                     </DockPanel>
                 </Border>
@@ -196,12 +193,11 @@
                         Background="#0078D4"
                         Foreground="White"
                         Margin="5,0"
-                        Click="load_clicked"
                         IsEnabled="False"/>
-                <Button Content="Cancel"
+                <Button x:Name="btn_cancel"
+                        Content="Cancel"
                         Style="{StaticResource ActionButtonStyle}"
-                        Margin="5,0"
-                        Click="cancel_clicked"/>
+                        Margin="5,0"/>
             </StackPanel>
         </Border>
     </Grid>
