@@ -55,6 +55,9 @@ class ParameterSelectorDialog(Window):
             doc: Revit document
             element_type: 'sheet' or 'view' - determines which parameters to load
         """
+        # CRITICAL: Initialize the base Window class FIRST
+        Window.__init__(self)
+
         self.doc = doc
         self.element_type = element_type
         self.selected_result = None
