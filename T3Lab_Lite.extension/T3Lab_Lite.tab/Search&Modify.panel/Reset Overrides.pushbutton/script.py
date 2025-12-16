@@ -36,24 +36,9 @@ with revit.Transaction ("Reset Overrides"):
         # Reset element overrides
         view.SetElementOverrides(el_id, override)
 
-        # Reset linework overrides and set linework by category
+        # Reset linework overrides to by category
         element = doc.GetElement(el_id)
         if element:
-            # Get element's category graphics style
-            category = element.Category
-            graphics_style_id = DB.ElementId.InvalidElementId
-
-            if category and category.Id.IntegerValue > 0:
-                try:
-                    # Get the category's graphics style for lines
-                    graphics_style_category = doc.Settings.Categories.get_Item(category.Name)
-                    if graphics_style_category:
-                        subcats = graphics_style_category.SubCategories
-                        # Use the parent category's graphics style (by category)
-                        graphics_style_id = graphics_style_category.GetGraphicsStyle(DB.GraphicsStyleType.Projection).Id
-                except:
-                    pass
-
             edges = get_element_edges(element, view)
             for edge in edges:
                 try:
@@ -61,8 +46,7 @@ with revit.Transaction ("Reset Overrides"):
                         # Remove line pattern override
                         view.RemoveLinePatternOverride(edge.Reference)
 
-                        # Set linework to by category
-                        if graphics_style_id.IntegerValue != -1:
-                            doc.SetLineworkGraphicsStyle(edge.Reference, graphics_style_id)
+                        # Set linework to by category (use InvalidElementId to reset)
+                        view.SetLineworkGraphicsStyle(edge.Reference, DB.ElementId.InvalidElementId)
                 except:
                     pass
