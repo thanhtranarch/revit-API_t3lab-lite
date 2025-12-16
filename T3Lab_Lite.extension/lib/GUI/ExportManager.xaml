@@ -179,6 +179,9 @@
                                     Click="select_all_sheets" Margin="0,0,5,0"/>
                             <Button Content="Select None" Style="{StaticResource SecondaryButton}"
                                     Click="select_none_sheets" Margin="0,0,5,0"/>
+                            <Button x:Name="load_sheet_set_button" Content="Load Sheet Set" Style="{StaticResource SecondaryButton}"
+                                    Click="load_sheet_set_clicked" Margin="0,0,5,0"
+                                    ToolTip="Select sheets from a saved Sheet Set"/>
                             <Button Content="Refresh" Style="{StaticResource SecondaryButton}"
                                     Click="refresh_sheets" Margin="0,0,10,0"/>
                         </WrapPanel>

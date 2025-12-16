@@ -563,6 +563,123 @@ class ExportManagerWindow(forms.WPFWindow):
         else:
             self.load_views()
 
+    def load_sheet_set_clicked(self, sender, e):
+        """Load sheets from a saved ViewSheetSet."""
+        try:
+            if self.selection_mode == "sheets":
+                # Get all saved ViewSheetSet names from the document
+                saved_set_names = self.get_saved_sheet_set_names()
+
+                if not saved_set_names:
+                    forms.alert("No Sheet Sets found in this document.\n\nSheet Sets are created in Revit's Print dialog (File > Print > Sheet Set).",
+                               title="No Sheet Sets Found")
+                    return
+
+                # Show selection dialog
+                selected_set_name = forms.SelectFromList.show(
+                    sorted(saved_set_names),
+                    title="Select Sheet Set",
+                    button_name="Load",
+                    multiselect=False
+                )
+
+                if not selected_set_name:
+                    return
+
+                # Load the selected sheet set and get sheet IDs
+                sheet_ids = self.get_sheet_ids_from_set(selected_set_name)
+
+                if not sheet_ids:
+                    forms.alert("Could not load sheets from set '{}'".format(selected_set_name),
+                               title="Error Loading Sheet Set")
+                    return
+
+                # Select sheets that are in the set
+                selected_count = 0
+                for sheet_item in self.all_sheets:
+                    if sheet_item.Sheet.Id in sheet_ids:
+                        sheet_item.IsSelected = True
+                        selected_count += 1
+                    else:
+                        sheet_item.IsSelected = False
+
+                # Refresh the ListView
+                self.sheets_listview.Items.Refresh()
+                self.status_text.Text = "Loaded '{}': {} sheets selected".format(selected_set_name, selected_count)
+
+            else:
+                # For views mode, we can implement similar functionality if needed
+                forms.alert("Sheet Set loading is only available in Sheets mode.\n\nPlease switch to Sheets mode first.",
+                           title="Views Mode Active")
+
+        except Exception as ex:
+            logger.error("Error loading sheet set: {}".format(ex))
+            forms.alert("Error loading sheet set:\n{}".format(str(ex)), title="Error")
+
+    def get_saved_sheet_set_names(self):
+        """Get names of all saved ViewSheetSets from the document.
+
+        ViewSheetSets are created in Revit's Print dialog and contain saved sets of sheets.
+        """
+        try:
+            # Get PrintManager from the document
+            print_manager = self.doc.PrintManager
+            view_sheet_setting = print_manager.ViewSheetSetting
+
+            # Get saved view sheet set names
+            saved_settings = view_sheet_setting.SavedViewSheetSetNames
+
+            return list(saved_settings)
+
+        except Exception as ex:
+            logger.error("Error getting sheet set names: {}".format(ex))
+            return []
+
+    def get_sheet_ids_from_set(self, set_name):
+        """Get all sheet IDs from a saved ViewSheetSet.
+
+        Args:
+            set_name: Name of the saved ViewSheetSet
+
+        Returns:
+            List of ElementIds for sheets in the set
+        """
+        try:
+            # Get PrintManager from the document
+            print_manager = self.doc.PrintManager
+            view_sheet_setting = print_manager.ViewSheetSetting
+
+            # Temporarily load the set to get its sheets
+            # Save current state if exists
+            current_set_name = None
+            try:
+                if view_sheet_setting.CurrentViewSheetSet:
+                    current_set_name = view_sheet_setting.CurrentViewSheetSet.Name
+            except:
+                pass
+
+            # Load the requested set
+            loaded_set = view_sheet_setting.LoadSavedViewSheetSet(set_name)
+
+            # Get all view IDs from the set
+            sheet_ids = []
+            if loaded_set and loaded_set.Views:
+                for view_id in loaded_set.Views:
+                    sheet_ids.append(view_id)
+
+            # Restore previous set if needed
+            if current_set_name and current_set_name != set_name:
+                try:
+                    view_sheet_setting.LoadSavedViewSheetSet(current_set_name)
+                except:
+                    pass
+
+            return sheet_ids
+
+        except Exception as ex:
+            logger.error("Error getting sheets from set '{}': {}".format(set_name, ex))
+            return []
+
     def search_sheets(self, sender, e):
         """Filter sheets by search text."""
         self.apply_filters()
