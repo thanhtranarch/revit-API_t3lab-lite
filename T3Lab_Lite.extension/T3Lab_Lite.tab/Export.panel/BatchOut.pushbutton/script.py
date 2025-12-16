@@ -1789,7 +1789,26 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     # Verify file was created
                     expected_file = os.path.join(output_folder, filename + ".png")
-                    if os.path.exists(expected_file) or new_images:
+
+                    # Handle Revit's automatic filename modification
+                    # Revit adds " - Sheet - " or similar to filenames, so we need to rename
+                    if new_images:
+                        # Get the actual file created by Revit
+                        actual_file = list(new_images)[0]
+
+                        # If the actual file is different from expected, rename it
+                        if actual_file != expected_file:
+                            try:
+                                # Rename to the expected filename
+                                os.rename(actual_file, expected_file)
+                            except Exception as rename_ex:
+                                logger.warning("Could not rename {} to {}: {}".format(
+                                    os.path.basename(actual_file),
+                                    os.path.basename(expected_file),
+                                    rename_ex
+                                ))
+
+                    if os.path.exists(expected_file):
                         exported_count += 1
                         # Update progress for this export item
                         self.update_export_item_progress(item.SheetNumber, "IMG", 100)
