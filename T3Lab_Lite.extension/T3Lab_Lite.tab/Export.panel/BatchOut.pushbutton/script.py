@@ -1335,15 +1335,9 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         filename = "Combined_Export"
 
-                    # Remove extension if present (pyRevit style)
+                    # Remove extension if present
                     if filename.lower().endswith('.pdf'):
                         filename = filename[:-4]
-
-                    # Clean filename - remove invalid chars and extra spaces
-                    invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
-                    for char in invalid_chars:
-                        filename = filename.replace(char, '_')
-                    filename = filename.strip()
 
                     # Get list of existing PDF files before export
                     existing_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
@@ -1440,15 +1434,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
                         filename = item.CustomFilename or self.get_export_filename(item)
 
-                        # Remove extension if present (pyRevit style)
+                        # Remove extension if present
                         if filename.lower().endswith('.pdf'):
                             filename = filename[:-4]
-
-                        # Clean filename - remove invalid chars and extra spaces
-                        invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
-                        for char in invalid_chars:
-                            filename = filename.replace(char, '_')
-                        filename = filename.strip()
 
                         # Get list of existing PDF files before export
                         existing_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
