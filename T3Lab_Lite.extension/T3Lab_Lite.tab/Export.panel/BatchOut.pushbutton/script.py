@@ -307,6 +307,9 @@ class ExportManagerWindow(forms.WPFWindow):
             # Load CAD export setups
             self.load_cad_export_setups()
 
+            # Load sheet sets for filtering
+            self.load_sheet_sets_for_filter()
+
             # Load sheets
             self.load_sheets()
 
@@ -396,6 +399,49 @@ class ExportManagerWindow(forms.WPFWindow):
             default_item.Content = "Use setup from file (Default)"
             self.cad_export_setup.Items.Add(default_item)
             self.cad_export_setup.SelectedIndex = 0
+
+    def load_sheet_sets_for_filter(self):
+        """Load available ViewSheetSets from Print Settings for filtering."""
+        try:
+            # Clear existing items (except default)
+            self.sheet_set_filter.Items.Clear()
+
+            # Add default "All" option
+            from System.Windows.Controls import ComboBoxItem
+            default_item = ComboBoxItem()
+            default_item.Content = "All Sheets/Views"
+            default_item.Tag = None  # No filter
+            self.sheet_set_filter.Items.Add(default_item)
+
+            # Get saved sheet set names from Print Settings
+            saved_set_names = self.get_saved_sheet_set_names()
+
+            if saved_set_names:
+                # Add each sheet set to the filter dropdown
+                for set_name in sorted(saved_set_names):
+                    item = ComboBoxItem()
+                    item.Content = set_name
+                    item.Tag = set_name  # Store the set name for later use
+                    self.sheet_set_filter.Items.Add(item)
+            else:
+                # Add "None" option if no sheet sets found
+                none_item = ComboBoxItem()
+                none_item.Content = "None (No saved Sheet Sets)"
+                none_item.Tag = None
+                none_item.IsEnabled = False
+                self.sheet_set_filter.Items.Add(none_item)
+
+            # Select the first item (default "All")
+            self.sheet_set_filter.SelectedIndex = 0
+
+        except Exception as ex:
+            logger.warning("Could not load sheet sets for filter: {}".format(ex))
+            # Add just the default if there's an error
+            from System.Windows.Controls import ComboBoxItem
+            default_item = ComboBoxItem()
+            default_item.Content = "All Sheets/Views"
+            self.sheet_set_filter.Items.Add(default_item)
+            self.sheet_set_filter.SelectedIndex = 0
 
     def load_sheets(self):
         """Load all sheets from the document."""
@@ -688,8 +734,49 @@ class ExportManagerWindow(forms.WPFWindow):
         """Filter sheets by size."""
         self.apply_filters()
 
-    def apply_filters(self):
-        """Apply search and filters."""
+    def filter_by_sheet_set(self, sender, e):
+        """Filter sheets by selected View/Sheet Set."""
+        try:
+            # Check if controls are initialized
+            if not hasattr(self, 'sheet_set_filter'):
+                return
+
+            # Get selected sheet set
+            selected_item = self.sheet_set_filter.SelectedItem
+            if not selected_item:
+                return
+
+            # Get the sheet set name from Tag
+            set_name = selected_item.Tag if hasattr(selected_item, 'Tag') else None
+
+            # If "All" is selected (Tag is None), just apply normal filters
+            if set_name is None:
+                self.apply_filters()
+                return
+
+            # Get sheet IDs from the selected set
+            sheet_ids = self.get_sheet_ids_from_set(set_name)
+
+            if not sheet_ids:
+                self.status_text.Text = "No sheets found in set '{}'".format(set_name)
+                return
+
+            # Apply the sheet set filter along with other filters
+            self.apply_filters(sheet_set_ids=sheet_ids)
+
+            # Update status
+            self.status_text.Text = "Showing sheets from set '{}': {} sheets".format(
+                set_name, len([s for s in self.filtered_sheets if s.Sheet.Id in sheet_ids]))
+
+        except Exception as ex:
+            logger.error("Error filtering by sheet set: {}".format(ex))
+
+    def apply_filters(self, sheet_set_ids=None):
+        """Apply search and filters.
+
+        Args:
+            sheet_set_ids: Optional list of ElementIds to filter sheets by (from ViewSheetSet)
+        """
         # Check if controls are initialized (prevents error during XAML loading)
         if not hasattr(self, 'search_textbox'):
             return
@@ -707,6 +794,11 @@ class ExportManagerWindow(forms.WPFWindow):
             # Apply filters for sheets
             self.filtered_sheets = []
             for sheet in self.all_sheets:
+                # Check sheet set filter first (if provided)
+                if sheet_set_ids is not None:
+                    if sheet.Sheet.Id not in sheet_set_ids:
+                        continue
+
                 # Check search text
                 if search_text:
                     if search_text not in sheet.SheetNumber.lower() and \
@@ -721,7 +813,13 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.filtered_sheets.append(sheet)
 
             self.update_items_list()
-            self.status_text.Text = "Found {} sheets".format(len(self.filtered_sheets))
+
+            # Update status message based on filters
+            if sheet_set_ids is not None:
+                # Status is set in filter_by_sheet_set method
+                pass
+            else:
+                self.status_text.Text = "Found {} sheets".format(len(self.filtered_sheets))
         else:
             # Get selected view type filter
             view_type_filter = None
