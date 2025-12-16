@@ -25,10 +25,10 @@ from System import Uri
 from System.Collections.ObjectModel import ObservableCollection
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System.Windows import Window, Visibility
+from System.Windows.Markup import XamlReader
 from System.Windows.Media.Imaging import BitmapImage
 from System.Windows.Controls import TreeViewItem
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
-import wpf
 
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
@@ -96,9 +96,29 @@ class FamilyLoaderWindow(Window):
     """Main window for Family Loader"""
 
     def __init__(self):
+        # Initialize the base Window class first
+        Window.__init__(self)
+
         # Load XAML
         xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoader.xaml')
-        wpf.LoadComponent(self, xaml_path)
+        try:
+            with open(xaml_path, 'r') as f:
+                xaml_content = f.read()
+            self.ui = XamlReader.Parse(xaml_content)
+            # Set the parsed content
+            self.Content = self.ui
+        except Exception as e:
+            forms.alert("Error loading XAML: {}".format(str(e)))
+            return
+
+        # Get named controls
+        self.txt_current_folder = self.ui.FindName('txt_current_folder')
+        self.txt_search = self.ui.FindName('txt_search')
+        self.tree_categories = self.ui.FindName('tree_categories')
+        self.items_families = self.ui.FindName('items_families')
+        self.txt_result_count = self.ui.FindName('txt_result_count')
+        self.txt_selected_count = self.ui.FindName('txt_selected_count')
+        self.btn_load = self.ui.FindName('btn_load')
 
         # Initialize variables
         self.current_folder = None
