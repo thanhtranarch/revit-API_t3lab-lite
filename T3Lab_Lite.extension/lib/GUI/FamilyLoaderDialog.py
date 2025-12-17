@@ -21,6 +21,7 @@ clr.AddReference("PresentationFramework")
 clr.AddReference("PresentationCore")
 clr.AddReference("WindowsBase")
 
+import System
 from System import Uri
 from System.Collections.ObjectModel import ObservableCollection
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
@@ -99,6 +100,14 @@ class FamilyLoaderWindow(Window):
         # Initialize the base Window class first
         Window.__init__(self)
 
+        # Set Window properties
+        self.Title = "Load Autodesk Family"
+        self.Height = 700
+        self.Width = 1000
+        self.MinHeight = 500
+        self.MinWidth = 800
+        self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
+
         # Load XAML
         xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoader.xaml')
         try:
@@ -132,6 +141,7 @@ class FamilyLoaderWindow(Window):
         self.btn_select_none.Click += self.select_none_clicked
         self.btn_load.Click += self.load_clicked
         self.btn_cancel.Click += self.cancel_clicked
+        self.Loaded += self.window_loaded
 
         # Initialize variables
         self.current_folder = None
@@ -149,6 +159,12 @@ class FamilyLoaderWindow(Window):
     # ║╣ ╚╗╔╝║╣ ║║║ ║   ╠═╣╠═╣║║║ ║║║  ║╣ ╠╦╝╚═╗
     # ╚═╝ ╚╝ ╚═╝╝╚╝ ╩   ╩ ╩╩ ╩╝╚╝═╩╝╩═╝╚═╝╩╚═╚═╝
     #====================================================================================================
+
+    def window_loaded(self, sender, e):
+        """Handle window loaded event - auto-show folder dialog if no folder is set"""
+        if not self.current_folder:
+            # Automatically show folder selection dialog when window first opens
+            self.select_folder_clicked(None, None)
 
     def select_folder_clicked(self, sender, e):
         """Handle folder selection"""
