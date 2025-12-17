@@ -94,13 +94,12 @@ def save_config(config):
 class FamilyItem(INotifyPropertyChanged):
     """Represents a family file with its properties"""
 
-    def __init__(self, name, full_path, category, thumbnail_path=None, parent_window=None):
+    def __init__(self, name, full_path, category, thumbnail_path=None):
         self._is_checked = False
         self.Name = name
         self.FullPath = full_path
         self.Category = category
         self.Thumbnail = self._load_thumbnail(thumbnail_path)
-        self.parent_window = parent_window
 
     def _load_thumbnail(self, thumbnail_path):
         """Load thumbnail image or return default"""
@@ -126,17 +125,14 @@ class FamilyItem(INotifyPropertyChanged):
         if self._is_checked != value:
             self._is_checked = value
             self.OnPropertyChanged("IsChecked")
-            # Notify parent window to update count
-            if self.parent_window:
-                try:
-                    self.parent_window.update_result_count()
-                except Exception as ex:
-                    # Silently ignore update errors to prevent cascade failures
-                    logger.debug("Error updating count from IsChecked: {}".format(ex))
 
     def OnPropertyChanged(self, propertyName):
-        if self.PropertyChanged is not None:
-            self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
+        try:
+            if self.PropertyChanged is not None:
+                self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
+        except Exception as ex:
+            # Silently ignore PropertyChanged errors
+            logger.debug("Error in OnPropertyChanged: {}".format(ex))
 
     # INotifyPropertyChanged implementation
     PropertyChanged = None
@@ -295,8 +291,10 @@ class FamilyLoaderWindow(Window):
         self.all_families = []
         self.category_structure = {}
         scan_errors = 0
+        family_count = 0
 
         try:
+            logger.info("Walking through directory structure...")
             # Walk through directory
             for root, dirs, files in os.walk(self.current_folder):
                 for file in files:
@@ -308,25 +306,36 @@ class FamilyLoaderWindow(Window):
                             # Use folder name as category
                             category = relative_path if relative_path != '.' else 'Root'
 
-                            # Create family item
+                            # Create family item (NO parent_window to avoid circular reference)
                             family_name = os.path.splitext(file)[0]
-                            family_item = FamilyItem(family_name, full_path, category, parent_window=self)
+                            family_item = FamilyItem(family_name, full_path, category)
                             self.all_families.append(family_item)
 
                             # Add to category structure
                             if category not in self.category_structure:
                                 self.category_structure[category] = []
                             self.category_structure[category].append(family_item)
+
+                            family_count += 1
+                            # Log progress every 100 families
+                            if family_count % 100 == 0:
+                                logger.info("Scanned {} families so far...".format(family_count))
+
                         except Exception as item_ex:
                             scan_errors += 1
                             logger.warning("Failed to process family {}: {}".format(file, item_ex))
                             # Continue scanning other families
 
+            logger.info("Directory walk completed. Processing {} families...".format(len(self.all_families)))
+
             # Re-enable UI updates
             self._is_updating = False
 
             # Update UI
+            logger.info("Updating category tree...")
             self.update_category_tree()
+
+            logger.info("Updating family display...")
             self.update_family_display()
 
             logger.info("Scan completed: {} families found in {} categories".format(
@@ -421,6 +430,11 @@ class FamilyLoaderWindow(Window):
 
             self.filtered_families.Clear()
             for family in families:
+                # Subscribe to PropertyChanged event to update count when checkbox changes
+                try:
+                    family.PropertyChanged += self.on_family_property_changed
+                except:
+                    pass  # Ignore if already subscribed
                 self.filtered_families.Add(family)
 
             self.update_result_count()
@@ -428,6 +442,14 @@ class FamilyLoaderWindow(Window):
         except Exception as ex:
             logger.error("Error updating family display: {}".format(ex))
             logger.error(traceback.format_exc())
+
+    def on_family_property_changed(self, sender, e):
+        """Handle property changed event from family items"""
+        try:
+            if e.PropertyName == "IsChecked" and not self._is_updating:
+                self.update_result_count()
+        except Exception as ex:
+            logger.debug("Error in on_family_property_changed: {}".format(ex))
 
     def update_result_count(self):
         """Update the result count text"""
