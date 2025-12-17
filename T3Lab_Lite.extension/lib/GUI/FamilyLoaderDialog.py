@@ -13,6 +13,8 @@ __author__ = "T3Lab"
 import os
 import sys
 import clr
+import json
+import traceback
 
 # .NET Imports
 clr.AddReference("System")
@@ -42,6 +44,48 @@ logger = script.get_logger()
 doc = revit.doc
 uidoc = revit.uidoc
 
+# Config file path
+CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".t3lab")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
+
+# ╦ ╦╔═╗╦  ╔═╗╔═╗╦═╗  ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
+# ╠═╣║╣ ║  ╠═╝║╣ ╠╦╝  ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
+# ╩ ╩╚═╝╩═╝╩  ╚═╝╩╚═  ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝
+#====================================================================================================
+
+def load_config():
+    """Load configuration from JSON file"""
+    try:
+        if os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                logger.info("Loaded config from: {}".format(CONFIG_FILE))
+                return config
+        else:
+            logger.info("No config file found at: {}".format(CONFIG_FILE))
+            return {}
+    except Exception as ex:
+        logger.error("Failed to load config: {}".format(ex))
+        logger.error(traceback.format_exc())
+        return {}
+
+def save_config(config):
+    """Save configuration to JSON file"""
+    try:
+        # Create config directory if it doesn't exist
+        if not os.path.exists(CONFIG_DIR):
+            os.makedirs(CONFIG_DIR)
+            logger.info("Created config directory: {}".format(CONFIG_DIR))
+
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=4)
+        logger.info("Saved config to: {}".format(CONFIG_FILE))
+        return True
+    except Exception as ex:
+        logger.error("Failed to save config: {}".format(ex))
+        logger.error(traceback.format_exc())
+        return False
+
 # ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
 # ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
 # ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
@@ -68,8 +112,9 @@ class FamilyItem(INotifyPropertyChanged):
                 bitmap.DecodePixelWidth = 90
                 bitmap.EndInit()
                 return bitmap
-        except:
-            pass
+        except Exception as ex:
+            # Silently ignore thumbnail loading errors
+            logger.debug("Failed to load thumbnail {}: {}".format(thumbnail_path, ex))
         return None
 
     @property
@@ -144,7 +189,8 @@ class FamilyLoaderWindow(Window):
         self.Loaded += self.window_loaded
 
         # Initialize variables
-        self.current_folder = None
+        self.config = load_config()
+        self.current_folder = self.config.get('last_folder', None)
         self.all_families = []
         self.filtered_families = ObservableCollection[object]()
         self.category_structure = {}
@@ -155,6 +201,10 @@ class FamilyLoaderWindow(Window):
         # Result
         self.loaded_families = []
 
+        logger.info("Family Loader window initialized")
+        if self.current_folder:
+            logger.info("Last used folder: {}".format(self.current_folder))
+
     # ╔═╗╦  ╦╔═╗╔╗╔╔╦╗  ╦ ╦╔═╗╔╗╔╔╦╗╦  ╔═╗╦═╗╔═╗
     # ║╣ ╚╗╔╝║╣ ║║║ ║   ╠═╣╠═╣║║║ ║║║  ║╣ ╠╦╝╚═╗
     # ╚═╝ ╚╝ ╚═╝╝╚╝ ╩   ╩ ╩╩ ╩╝╚╝═╩╝╩═╝╚═╝╩╚═╚═╝
@@ -162,118 +212,162 @@ class FamilyLoaderWindow(Window):
 
     def window_loaded(self, sender, e):
         """Handle window loaded event - auto-show folder dialog if no folder is set"""
-        if not self.current_folder:
-            # Automatically show folder selection dialog when window first opens
-            self.select_folder_clicked(None, None)
+        try:
+            if self.current_folder:
+                # Check if saved folder still exists
+                if os.path.exists(self.current_folder):
+                    logger.info("Loading families from saved folder: {}".format(self.current_folder))
+                    self.txt_current_folder.Text = self.current_folder
+                    self.scan_families()
+                else:
+                    logger.warning("Saved folder no longer exists: {}".format(self.current_folder))
+                    self.current_folder = None
+                    self.select_folder_clicked(None, None)
+            else:
+                # No saved folder - show dialog
+                logger.info("No saved folder found, showing folder selection dialog")
+                self.select_folder_clicked(None, None)
+        except Exception as ex:
+            logger.error("Error in window_loaded: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def select_folder_clicked(self, sender, e):
         """Handle folder selection"""
-        dialog = FolderBrowserDialog()
-        dialog.Description = "Select folder containing Revit families"
+        try:
+            dialog = FolderBrowserDialog()
+            dialog.Description = "Select folder containing Revit families"
 
-        if dialog.ShowDialog() == DialogResult.OK:
-            self.current_folder = dialog.SelectedPath
-            self.txt_current_folder.Text = self.current_folder
-            self.scan_families()
+            if dialog.ShowDialog() == DialogResult.OK:
+                self.current_folder = dialog.SelectedPath
+                self.txt_current_folder.Text = self.current_folder
+                logger.info("User selected folder: {}".format(self.current_folder))
+
+                # Save folder to config
+                self.config['last_folder'] = self.current_folder
+                if save_config(self.config):
+                    logger.info("Folder path saved to config")
+
+                self.scan_families()
+        except Exception as ex:
+            logger.error("Error in select_folder_clicked: {}".format(ex))
+            logger.error(traceback.format_exc())
+            forms.alert("Error selecting folder: {}".format(ex), exitscript=False)
 
     def scan_families(self):
         """Scan selected folder for .rfa files"""
         if not self.current_folder:
+            logger.warning("No current folder set for scanning")
             return
 
+        logger.info("Starting to scan folder: {}".format(self.current_folder))
         self.all_families = []
         self.category_structure = {}
+        scan_errors = 0
 
         try:
             # Walk through directory
             for root, dirs, files in os.walk(self.current_folder):
                 for file in files:
                     if file.lower().endswith('.rfa'):
-                        full_path = os.path.join(root, file)
-                        relative_path = os.path.relpath(root, self.current_folder)
+                        try:
+                            full_path = os.path.join(root, file)
+                            relative_path = os.path.relpath(root, self.current_folder)
 
-                        # Use folder name as category
-                        category = relative_path if relative_path != '.' else 'Root'
+                            # Use folder name as category
+                            category = relative_path if relative_path != '.' else 'Root'
 
-                        # Create family item
-                        family_name = os.path.splitext(file)[0]
-                        family_item = FamilyItem(family_name, full_path, category, parent_window=self)
-                        self.all_families.append(family_item)
+                            # Create family item
+                            family_name = os.path.splitext(file)[0]
+                            family_item = FamilyItem(family_name, full_path, category, parent_window=self)
+                            self.all_families.append(family_item)
 
-                        # Add to category structure
-                        if category not in self.category_structure:
-                            self.category_structure[category] = []
-                        self.category_structure[category].append(family_item)
+                            # Add to category structure
+                            if category not in self.category_structure:
+                                self.category_structure[category] = []
+                            self.category_structure[category].append(family_item)
+                        except Exception as item_ex:
+                            scan_errors += 1
+                            logger.warning("Failed to process family {}: {}".format(file, item_ex))
+                            # Continue scanning other families
 
             # Update UI
             self.update_category_tree()
             self.update_family_display()
 
-            logger.info("Found {} families in {} categories".format(
+            logger.info("Scan completed: {} families found in {} categories".format(
                 len(self.all_families),
                 len(self.category_structure)
             ))
 
+            if scan_errors > 0:
+                logger.warning("Encountered {} errors while scanning families".format(scan_errors))
+
         except Exception as ex:
-            logger.error("Error scanning families: {}".format(ex))
+            logger.error("Critical error scanning families: {}".format(ex))
+            logger.error(traceback.format_exc())
             forms.alert("Error scanning folder: {}".format(ex), exitscript=False)
 
     def update_category_tree(self):
         """Update the category tree view with hierarchical structure"""
-        self.tree_categories.Items.Clear()
+        try:
+            self.tree_categories.Items.Clear()
 
-        # Add "All" item
-        all_item = TreeViewItem()
-        all_item.Header = "All ({})".format(len(self.all_families))
-        all_item.Tag = "ALL"
-        all_item.IsExpanded = True
-        self.tree_categories.Items.Add(all_item)
+            # Add "All" item
+            all_item = TreeViewItem()
+            all_item.Header = "All ({})".format(len(self.all_families))
+            all_item.Tag = "ALL"
+            all_item.IsExpanded = True
+            self.tree_categories.Items.Add(all_item)
 
-        # Build hierarchical tree structure
-        tree_dict = {}
+            # Build hierarchical tree structure
+            tree_dict = {}
 
-        for category, families in self.category_structure.items():
-            # Split category path
-            if category == 'Root':
-                parts = ['Root']
-            else:
-                parts = category.split(os.sep)
+            for category, families in self.category_structure.items():
+                # Split category path
+                if category == 'Root':
+                    parts = ['Root']
+                else:
+                    parts = category.split(os.sep)
 
-            # Build nested structure
-            current_dict = tree_dict
-            for i, part in enumerate(parts):
-                if part not in current_dict:
-                    current_dict[part] = {'_families': [], '_children': {}}
-                current_dict = current_dict[part]['_children']
+                # Build nested structure
+                current_dict = tree_dict
+                for i, part in enumerate(parts):
+                    if part not in current_dict:
+                        current_dict[part] = {'_families': [], '_children': {}}
+                    current_dict = current_dict[part]['_children']
 
-            # Add families to the leaf
-            path_key = os.sep.join(parts) if parts != ['Root'] else 'Root'
-            if path_key in self.category_structure:
-                tree_dict_leaf = tree_dict
-                for part in parts:
-                    tree_dict_leaf = tree_dict_leaf[part]
-                tree_dict_leaf['_families'] = self.category_structure[path_key]
+                # Add families to the leaf
+                path_key = os.sep.join(parts) if parts != ['Root'] else 'Root'
+                if path_key in self.category_structure:
+                    tree_dict_leaf = tree_dict
+                    for part in parts:
+                        tree_dict_leaf = tree_dict_leaf[part]
+                    tree_dict_leaf['_families'] = self.category_structure[path_key]
 
-        # Recursively add tree items
-        def add_tree_items(parent_item, tree_data, path_prefix=""):
-            for folder_name, data in sorted(tree_data.items()):
-                folder_path = os.path.join(path_prefix, folder_name) if path_prefix else folder_name
+            # Recursively add tree items
+            def add_tree_items(parent_item, tree_data, path_prefix=""):
+                for folder_name, data in sorted(tree_data.items()):
+                    folder_path = os.path.join(path_prefix, folder_name) if path_prefix else folder_name
 
-                # Count all families in this folder and subfolders
-                total_families = self._count_families_in_tree(data)
+                    # Count all families in this folder and subfolders
+                    total_families = self._count_families_in_tree(data)
 
-                # Create tree item
-                item = TreeViewItem()
-                item.Header = "{} ({})".format(folder_name, total_families)
-                item.Tag = folder_path if folder_path != 'Root' else 'Root'
-                item.IsExpanded = True
-                parent_item.Items.Add(item)
+                    # Create tree item
+                    item = TreeViewItem()
+                    item.Header = "{} ({})".format(folder_name, total_families)
+                    item.Tag = folder_path if folder_path != 'Root' else 'Root'
+                    item.IsExpanded = True
+                    parent_item.Items.Add(item)
 
-                # Add children recursively
-                if data['_children']:
-                    add_tree_items(item, data['_children'], folder_path)
+                    # Add children recursively
+                    if data['_children']:
+                        add_tree_items(item, data['_children'], folder_path)
 
-        add_tree_items(self.tree_categories, tree_dict)
+            add_tree_items(self.tree_categories, tree_dict)
+            logger.debug("Category tree updated with {} categories".format(len(self.category_structure)))
+        except Exception as ex:
+            logger.error("Error updating category tree: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def _count_families_in_tree(self, tree_node):
         """Count all families in a tree node and its children"""
@@ -284,110 +378,165 @@ class FamilyLoaderWindow(Window):
 
     def update_family_display(self, families=None):
         """Update the family display grid"""
-        if families is None:
-            families = self.all_families
+        try:
+            if families is None:
+                families = self.all_families
 
-        self.filtered_families.Clear()
-        for family in families:
-            self.filtered_families.Add(family)
+            self.filtered_families.Clear()
+            for family in families:
+                self.filtered_families.Add(family)
 
-        self.update_result_count()
+            self.update_result_count()
+            logger.debug("Family display updated with {} families".format(len(families)))
+        except Exception as ex:
+            logger.error("Error updating family display: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def update_result_count(self):
         """Update the result count text"""
-        count = len(self.filtered_families)
-        self.txt_result_count.Text = "{} families found".format(count)
+        try:
+            count = len(self.filtered_families)
+            self.txt_result_count.Text = "{} families found".format(count)
 
-        # Update selected count
-        selected = sum(1 for f in self.filtered_families if f.IsChecked)
-        self.txt_selected_count.Text = "{} families selected".format(selected)
+            # Update selected count
+            selected = sum(1 for f in self.filtered_families if f.IsChecked)
+            self.txt_selected_count.Text = "{} families selected".format(selected)
 
-        # Enable/disable load button
-        self.btn_load.IsEnabled = selected > 0
+            # Enable/disable load button
+            self.btn_load.IsEnabled = selected > 0
+        except Exception as ex:
+            logger.error("Error updating result count: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def category_selected(self, sender, e):
         """Handle category selection"""
-        selected_item = self.tree_categories.SelectedItem
-        if not selected_item:
-            return
+        try:
+            selected_item = self.tree_categories.SelectedItem
+            if not selected_item:
+                return
 
-        tag = selected_item.Tag
+            tag = selected_item.Tag
 
-        if tag == "ALL":
-            self.update_family_display(self.all_families)
-        else:
-            # Show families in selected folder and all subfolders
-            filtered = [f for f in self.all_families
-                       if f.Category == tag or f.Category.startswith(tag + os.sep)]
-            self.update_family_display(filtered)
+            if tag == "ALL":
+                self.update_family_display(self.all_families)
+            else:
+                # Show families in selected folder and all subfolders
+                filtered = [f for f in self.all_families
+                           if f.Category == tag or f.Category.startswith(tag + os.sep)]
+                self.update_family_display(filtered)
+                logger.debug("Category selected: {} ({} families)".format(tag, len(filtered)))
+        except Exception as ex:
+            logger.error("Error in category_selected: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def search_text_changed(self, sender, e):
         """Handle search text changes"""
-        search_text = self.txt_search.Text.lower()
+        try:
+            search_text = self.txt_search.Text.lower()
 
-        if not search_text:
-            # Get current category selection
-            selected_item = self.tree_categories.SelectedItem
-            if selected_item and selected_item.Tag != "ALL":
-                filtered = [f for f in self.all_families if f.Category == selected_item.Tag]
-                self.update_family_display(filtered)
+            if not search_text:
+                # Get current category selection
+                selected_item = self.tree_categories.SelectedItem
+                if selected_item and selected_item.Tag != "ALL":
+                    filtered = [f for f in self.all_families if f.Category == selected_item.Tag]
+                    self.update_family_display(filtered)
+                else:
+                    self.update_family_display(self.all_families)
             else:
-                self.update_family_display(self.all_families)
-        else:
-            # Filter by search text
-            filtered = [f for f in self.all_families
-                       if search_text in f.Name.lower() or
-                          search_text in f.Category.lower()]
-            self.update_family_display(filtered)
+                # Filter by search text
+                filtered = [f for f in self.all_families
+                           if search_text in f.Name.lower() or
+                              search_text in f.Category.lower()]
+                self.update_family_display(filtered)
+                logger.debug("Search: '{}' found {} families".format(search_text, len(filtered)))
+        except Exception as ex:
+            logger.error("Error in search_text_changed: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def select_all_clicked(self, sender, e):
         """Select all families"""
-        for family in self.filtered_families:
-            family.IsChecked = True
-        self.update_result_count()
+        try:
+            for family in self.filtered_families:
+                family.IsChecked = True
+            self.update_result_count()
+            logger.debug("Selected all {} families".format(len(self.filtered_families)))
+        except Exception as ex:
+            logger.error("Error in select_all_clicked: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def select_none_clicked(self, sender, e):
         """Deselect all families"""
-        for family in self.filtered_families:
-            family.IsChecked = False
-        self.update_result_count()
+        try:
+            for family in self.filtered_families:
+                family.IsChecked = False
+            self.update_result_count()
+            logger.debug("Deselected all families")
+        except Exception as ex:
+            logger.error("Error in select_none_clicked: {}".format(ex))
+            logger.error(traceback.format_exc())
 
     def load_clicked(self, sender, e):
         """Load selected families into Revit"""
-        selected_families = [f for f in self.all_families if f.IsChecked]
+        try:
+            selected_families = [f for f in self.all_families if f.IsChecked]
 
-        if not selected_families:
-            forms.alert("Please select at least one family to load.", exitscript=False)
-            return
+            if not selected_families:
+                forms.alert("Please select at least one family to load.", exitscript=False)
+                return
 
-        # Load families
-        success_count = 0
-        fail_count = 0
+            logger.info("Starting to load {} selected families".format(len(selected_families)))
 
-        with revit.Transaction("Load Families"):
-            for family in selected_families:
-                try:
-                    # Load family
-                    loaded = doc.LoadFamily(family.FullPath)
-                    if loaded:
-                        success_count += 1
-                        self.loaded_families.append(family.FullPath)
-                    else:
+            # Load families
+            success_count = 0
+            fail_count = 0
+            failed_families = []
+
+            with revit.Transaction("Load Families"):
+                for family in selected_families:
+                    try:
+                        logger.debug("Attempting to load: {}".format(family.FullPath))
+
+                        # Check if file exists before attempting to load
+                        if not os.path.exists(family.FullPath):
+                            logger.error("Family file not found: {}".format(family.FullPath))
+                            fail_count += 1
+                            failed_families.append(family.Name)
+                            continue
+
+                        # Load family
+                        loaded = doc.LoadFamily(family.FullPath)
+                        if loaded:
+                            success_count += 1
+                            self.loaded_families.append(family.FullPath)
+                            logger.info("Successfully loaded: {}".format(family.Name))
+                        else:
+                            fail_count += 1
+                            failed_families.append(family.Name)
+                            logger.warning("LoadFamily returned False for: {}".format(family.Name))
+                    except Exception as ex:
+                        logger.error("Failed to load {}: {}".format(family.Name, ex))
+                        logger.error(traceback.format_exc())
                         fail_count += 1
-                except Exception as ex:
-                    logger.error("Failed to load {}: {}".format(family.Name, ex))
-                    fail_count += 1
+                        failed_families.append(family.Name)
 
-        # Show result
-        message = "Loaded {} families successfully.".format(success_count)
-        if fail_count > 0:
-            message += "\n{} families failed to load.".format(fail_count)
+            # Show result
+            message = "Loaded {} families successfully.".format(success_count)
+            if fail_count > 0:
+                message += "\n{} families failed to load.".format(fail_count)
+                if len(failed_families) <= 5:
+                    message += "\nFailed families: {}".format(", ".join(failed_families))
 
-        forms.alert(message, exitscript=False)
+            logger.info("Load completed: {} success, {} failed".format(success_count, fail_count))
+            forms.alert(message, exitscript=False)
 
-        # Close dialog
-        self.DialogResult = True
-        self.Close()
+            # Close dialog
+            self.DialogResult = True
+            self.Close()
+
+        except Exception as ex:
+            logger.error("Critical error in load_clicked: {}".format(ex))
+            logger.error(traceback.format_exc())
+            forms.alert("Error loading families: {}".format(ex), exitscript=False)
 
     def cancel_clicked(self, sender, e):
         """Cancel and close dialog"""
@@ -402,11 +551,21 @@ class FamilyLoaderWindow(Window):
 def show_family_loader():
     """Show the family loader dialog"""
     try:
+        logger.info("=" * 80)
+        logger.info("Family Loader Dialog Starting")
+        logger.info("=" * 80)
+
         window = FamilyLoaderWindow()
         window.ShowDialog()
+
+        logger.info("Family Loader Dialog Closed")
+        logger.info("Loaded {} families".format(len(window.loaded_families)))
+        logger.info("=" * 80)
+
         return window.loaded_families
     except Exception as ex:
-        logger.error("Error showing family loader: {}".format(ex))
+        logger.error("Critical error showing family loader: {}".format(ex))
+        logger.error(traceback.format_exc())
         forms.alert("Error: {}".format(ex))
         return []
 

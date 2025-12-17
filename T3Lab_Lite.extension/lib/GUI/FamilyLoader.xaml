@@ -35,7 +35,7 @@
         <Border Grid.Row="0" Background="#F0F0F0" Padding="10" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
             <DockPanel>
                 <Button x:Name="btn_select_folder"
-                        Content="Select Folder..."
+                        Content="Update Folder"
                         DockPanel.Dock="Left"
                         Style="{StaticResource FolderButtonStyle}"/>
                 <TextBlock x:Name="txt_current_folder"
