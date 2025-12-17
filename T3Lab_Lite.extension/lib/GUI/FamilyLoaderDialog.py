@@ -94,13 +94,12 @@ def save_config(config):
 class FamilyItem(INotifyPropertyChanged):
     """Represents a family file with its properties"""
 
-    def __init__(self, name, full_path, category, thumbnail_path=None, parent_window=None):
+    def __init__(self, name, full_path, category, thumbnail_path=None):
         self._is_checked = False
         self.Name = name
         self.FullPath = full_path
         self.Category = category
         self.Thumbnail = self._load_thumbnail(thumbnail_path)
-        self.parent_window = parent_window
 
     def _load_thumbnail(self, thumbnail_path):
         """Load thumbnail image or return default"""
@@ -126,13 +125,14 @@ class FamilyItem(INotifyPropertyChanged):
         if self._is_checked != value:
             self._is_checked = value
             self.OnPropertyChanged("IsChecked")
-            # Notify parent window to update count
-            if self.parent_window:
-                self.parent_window.update_result_count()
 
     def OnPropertyChanged(self, propertyName):
-        if self.PropertyChanged is not None:
-            self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
+        try:
+            if self.PropertyChanged is not None:
+                self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
+        except Exception as ex:
+            # Silently ignore PropertyChanged errors
+            logger.debug("Error in OnPropertyChanged: {}".format(ex))
 
     # INotifyPropertyChanged implementation
     PropertyChanged = None
@@ -142,68 +142,85 @@ class FamilyLoaderWindow(Window):
     """Main window for Family Loader"""
 
     def __init__(self):
-        # Initialize the base Window class first
-        Window.__init__(self)
-
-        # Set Window properties
-        self.Title = "Load Autodesk Family"
-        self.Height = 700
-        self.Width = 1000
-        self.MinHeight = 500
-        self.MinWidth = 800
-        self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
-
-        # Load XAML
-        xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoader.xaml')
         try:
-            with open(xaml_path, 'r') as f:
-                xaml_content = f.read()
-            self.ui = XamlReader.Parse(xaml_content)
-            # Set the parsed content
-            self.Content = self.ui
-        except Exception as e:
-            forms.alert("Error loading XAML: {}".format(str(e)))
-            return
+            logger.info("Initializing FamilyLoaderWindow...")
 
-        # Get named controls
-        self.btn_select_folder = self.ui.FindName('btn_select_folder')
-        self.txt_current_folder = self.ui.FindName('txt_current_folder')
-        self.txt_search = self.ui.FindName('txt_search')
-        self.tree_categories = self.ui.FindName('tree_categories')
-        self.items_families = self.ui.FindName('items_families')
-        self.txt_result_count = self.ui.FindName('txt_result_count')
-        self.txt_selected_count = self.ui.FindName('txt_selected_count')
-        self.btn_select_all = self.ui.FindName('btn_select_all')
-        self.btn_select_none = self.ui.FindName('btn_select_none')
-        self.btn_load = self.ui.FindName('btn_load')
-        self.btn_cancel = self.ui.FindName('btn_cancel')
+            # Initialize the base Window class first
+            Window.__init__(self)
 
-        # Wire up event handlers
-        self.btn_select_folder.Click += self.select_folder_clicked
-        self.txt_search.TextChanged += self.search_text_changed
-        self.tree_categories.SelectedItemChanged += self.category_selected
-        self.btn_select_all.Click += self.select_all_clicked
-        self.btn_select_none.Click += self.select_none_clicked
-        self.btn_load.Click += self.load_clicked
-        self.btn_cancel.Click += self.cancel_clicked
-        self.Loaded += self.window_loaded
+            # Set Window properties
+            self.Title = "Load Autodesk Family"
+            self.Height = 700
+            self.Width = 1000
+            self.MinHeight = 500
+            self.MinWidth = 800
+            self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
 
-        # Initialize variables
-        self.config = load_config()
-        self.current_folder = self.config.get('last_folder', None)
-        self.all_families = []
-        self.filtered_families = ObservableCollection[object]()
-        self.category_structure = {}
+            # Load XAML
+            xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoader.xaml')
+            logger.info("Loading XAML from: {}".format(xaml_path))
 
-        # Bind to ItemsControl
-        self.items_families.ItemsSource = self.filtered_families
+            try:
+                with open(xaml_path, 'r') as f:
+                    xaml_content = f.read()
+                self.ui = XamlReader.Parse(xaml_content)
+                # Set the parsed content
+                self.Content = self.ui
+                logger.info("XAML loaded successfully")
+            except Exception as e:
+                logger.error("Error loading XAML: {}".format(str(e)))
+                logger.error(traceback.format_exc())
+                forms.alert("Error loading XAML: {}".format(str(e)))
+                raise
 
-        # Result
-        self.loaded_families = []
+            # Get named controls
+            logger.info("Getting named controls from XAML...")
+            self.btn_select_folder = self.ui.FindName('btn_select_folder')
+            self.txt_current_folder = self.ui.FindName('txt_current_folder')
+            self.txt_search = self.ui.FindName('txt_search')
+            self.tree_categories = self.ui.FindName('tree_categories')
+            self.items_families = self.ui.FindName('items_families')
+            self.txt_result_count = self.ui.FindName('txt_result_count')
+            self.txt_selected_count = self.ui.FindName('txt_selected_count')
+            self.btn_select_all = self.ui.FindName('btn_select_all')
+            self.btn_select_none = self.ui.FindName('btn_select_none')
+            self.btn_load = self.ui.FindName('btn_load')
+            self.btn_cancel = self.ui.FindName('btn_cancel')
 
-        logger.info("Family Loader window initialized")
-        if self.current_folder:
-            logger.info("Last used folder: {}".format(self.current_folder))
+            # Wire up event handlers
+            logger.info("Wiring up event handlers...")
+            self.btn_select_folder.Click += self.select_folder_clicked
+            self.txt_search.TextChanged += self.search_text_changed
+            self.tree_categories.SelectedItemChanged += self.category_selected
+            self.btn_select_all.Click += self.select_all_clicked
+            self.btn_select_none.Click += self.select_none_clicked
+            self.btn_load.Click += self.load_clicked
+            self.btn_cancel.Click += self.cancel_clicked
+            self.Loaded += self.window_loaded
+
+            # Initialize variables
+            logger.info("Initializing variables...")
+            self.config = load_config()
+            self.current_folder = self.config.get('last_folder', None)
+            self.all_families = []
+            self.filtered_families = ObservableCollection[object]()
+            self.category_structure = {}
+            self._is_updating = False  # Flag to prevent UI updates during batch operations
+
+            # Bind to ItemsControl
+            self.items_families.ItemsSource = self.filtered_families
+
+            # Result
+            self.loaded_families = []
+
+            logger.info("Family Loader window initialized successfully")
+            if self.current_folder:
+                logger.info("Last used folder: {}".format(self.current_folder))
+
+        except Exception as ex:
+            logger.error("Critical error in FamilyLoaderWindow.__init__: {}".format(ex))
+            logger.error(traceback.format_exc())
+            raise
 
     # ╔═╗╦  ╦╔═╗╔╗╔╔╦╗  ╦ ╦╔═╗╔╗╔╔╦╗╦  ╔═╗╦═╗╔═╗
     # ║╣ ╚╗╔╝║╣ ║║║ ║   ╠═╣╠═╣║║║ ║║║  ║╣ ╠╦╝╚═╗
@@ -213,6 +230,13 @@ class FamilyLoaderWindow(Window):
     def window_loaded(self, sender, e):
         """Handle window loaded event - auto-show folder dialog if no folder is set"""
         try:
+            logger.info("Window loaded event triggered")
+
+            # Check if all UI elements are ready
+            if not hasattr(self, 'txt_current_folder') or not self.txt_current_folder:
+                logger.error("UI elements not ready in window_loaded")
+                return
+
             if self.current_folder:
                 # Check if saved folder still exists
                 if os.path.exists(self.current_folder):
@@ -260,11 +284,17 @@ class FamilyLoaderWindow(Window):
             return
 
         logger.info("Starting to scan folder: {}".format(self.current_folder))
+
+        # Set updating flag to prevent UI updates during scan
+        self._is_updating = True
+
         self.all_families = []
         self.category_structure = {}
         scan_errors = 0
+        family_count = 0
 
         try:
+            logger.info("Walking through directory structure...")
             # Walk through directory
             for root, dirs, files in os.walk(self.current_folder):
                 for file in files:
@@ -276,22 +306,36 @@ class FamilyLoaderWindow(Window):
                             # Use folder name as category
                             category = relative_path if relative_path != '.' else 'Root'
 
-                            # Create family item
+                            # Create family item (NO parent_window to avoid circular reference)
                             family_name = os.path.splitext(file)[0]
-                            family_item = FamilyItem(family_name, full_path, category, parent_window=self)
+                            family_item = FamilyItem(family_name, full_path, category)
                             self.all_families.append(family_item)
 
                             # Add to category structure
                             if category not in self.category_structure:
                                 self.category_structure[category] = []
                             self.category_structure[category].append(family_item)
+
+                            family_count += 1
+                            # Log progress every 100 families
+                            if family_count % 100 == 0:
+                                logger.info("Scanned {} families so far...".format(family_count))
+
                         except Exception as item_ex:
                             scan_errors += 1
                             logger.warning("Failed to process family {}: {}".format(file, item_ex))
                             # Continue scanning other families
 
+            logger.info("Directory walk completed. Processing {} families...".format(len(self.all_families)))
+
+            # Re-enable UI updates
+            self._is_updating = False
+
             # Update UI
+            logger.info("Updating category tree...")
             self.update_category_tree()
+
+            logger.info("Updating family display...")
             self.update_family_display()
 
             logger.info("Scan completed: {} families found in {} categories".format(
@@ -303,6 +347,8 @@ class FamilyLoaderWindow(Window):
                 logger.warning("Encountered {} errors while scanning families".format(scan_errors))
 
         except Exception as ex:
+            # Re-enable UI updates even on error
+            self._is_updating = False
             logger.error("Critical error scanning families: {}".format(ex))
             logger.error(traceback.format_exc())
             forms.alert("Error scanning folder: {}".format(ex), exitscript=False)
@@ -384,6 +430,11 @@ class FamilyLoaderWindow(Window):
 
             self.filtered_families.Clear()
             for family in families:
+                # Subscribe to PropertyChanged event to update count when checkbox changes
+                try:
+                    family.PropertyChanged += self.on_family_property_changed
+                except:
+                    pass  # Ignore if already subscribed
                 self.filtered_families.Add(family)
 
             self.update_result_count()
@@ -392,8 +443,20 @@ class FamilyLoaderWindow(Window):
             logger.error("Error updating family display: {}".format(ex))
             logger.error(traceback.format_exc())
 
+    def on_family_property_changed(self, sender, e):
+        """Handle property changed event from family items"""
+        try:
+            if e.PropertyName == "IsChecked" and not self._is_updating:
+                self.update_result_count()
+        except Exception as ex:
+            logger.debug("Error in on_family_property_changed: {}".format(ex))
+
     def update_result_count(self):
         """Update the result count text"""
+        # Skip updates during batch operations
+        if self._is_updating:
+            return
+
         try:
             count = len(self.filtered_families)
             self.txt_result_count.Text = "{} families found".format(count)
