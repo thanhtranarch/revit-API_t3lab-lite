@@ -2,6 +2,7 @@
 """
 Family Loader Dialog
 Load Revit families from folders with category organization
+COMPREHENSIVE FIX: Memory leaks, threading, error handling, and stability improvements
 """
 __title__ = "Family Loader"
 __author__ = "T3Lab"
@@ -15,6 +16,9 @@ import sys
 import clr
 import json
 import traceback
+import time
+import datetime
+import threading
 
 # .NET Imports
 clr.AddReference("System")
@@ -24,7 +28,7 @@ clr.AddReference("PresentationCore")
 clr.AddReference("WindowsBase")
 
 import System
-from System import Uri
+from System import Uri, Action
 from System.Collections.ObjectModel import ObservableCollection
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System.Windows import Window, Visibility
@@ -32,6 +36,7 @@ from System.Windows.Markup import XamlReader
 from System.Windows.Media.Imaging import BitmapImage
 from System.Windows.Controls import TreeViewItem
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
+from System.Windows.Threading import Dispatcher
 
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
@@ -54,16 +59,32 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 #====================================================================================================
 
 def load_config():
-    """Load configuration from JSON file"""
+    """Load configuration from JSON file with validation and corruption recovery"""
     try:
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, 'r') as f:
                 config = json.load(f)
+
+                # Validate config structure
+                if not isinstance(config, dict):
+                    raise ValueError("Invalid config format: expected dict, got {}".format(type(config)))
+
                 logger.info("Loaded config from: {}".format(CONFIG_FILE))
                 return config
         else:
             logger.info("No config file found at: {}".format(CONFIG_FILE))
             return {}
+    except (ValueError, json.JSONDecodeError) as ex:
+        logger.error("Config file corrupted, recreating: {}".format(ex))
+        # Backup corrupted file
+        try:
+            backup_path = CONFIG_FILE + ".corrupted.{}".format(int(time.time()))
+            if os.path.exists(CONFIG_FILE):
+                os.rename(CONFIG_FILE, backup_path)
+                logger.info("Backed up corrupted config to: {}".format(backup_path))
+        except Exception as backup_ex:
+            logger.error("Failed to backup corrupted config: {}".format(backup_ex))
+        return {}
     except Exception as ex:
         logger.error("Failed to load config: {}".format(ex))
         logger.error(traceback.format_exc())
@@ -86,16 +107,63 @@ def save_config(config):
         logger.error(traceback.format_exc())
         return False
 
+def is_valid_rfa_file(file_path):
+    """Validate if file is a valid Revit family file"""
+    try:
+        # Check file exists
+        if not os.path.exists(file_path):
+            return False
+
+        # Check file size (min 1KB, max 500MB)
+        size = os.path.getsize(file_path)
+        if size < 1024 or size > 500 * 1024 * 1024:
+            logger.debug("File size out of range: {} bytes for {}".format(size, file_path))
+            return False
+
+        # Try to open file to check if accessible
+        with open(file_path, 'rb') as f:
+            # Read header to validate (Revit files are OLE/Structured storage)
+            header = f.read(8)
+            if not header.startswith(b'\xD0\xCF\x11\xE0'):
+                logger.debug("Invalid file header for: {}".format(file_path))
+                return False
+
+        return True
+    except Exception as ex:
+        logger.debug("File validation failed for {}: {}".format(file_path, ex))
+        return False
+
 # ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
 # ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
 # ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
 #====================================================================================================
+
+class FamilyLoadOptions(DB.IFamilyLoadOptions):
+    """Custom IFamilyLoadOptions to handle family conflicts automatically"""
+
+    def OnFamilyFound(self, familyInUse, overwriteParameterValues):
+        """Handle when family already exists in project"""
+        # Always overwrite existing families
+        overwriteParameterValues = True
+        logger.debug("Family found in project, overwriting: {}".format(
+            familyInUse.Name if hasattr(familyInUse, 'Name') else 'Unknown'
+        ))
+        return True
+
+    def OnSharedFamilyFound(self, sharedFamily, familyInUse, source, overwriteParameterValues):
+        """Handle when shared family is found"""
+        # Always use the source (file) version
+        overwriteParameterValues = True
+        source = DB.FamilySource.Family
+        logger.debug("Shared family found, using source version")
+        return True
 
 class FamilyItem(INotifyPropertyChanged):
     """Represents a family file with its properties"""
 
     def __init__(self, name, full_path, category, thumbnail_path=None):
         self._is_checked = False
+        self._is_disposed = False
         self.Name = name
         self.FullPath = full_path
         self.Category = category
@@ -109,7 +177,9 @@ class FamilyItem(INotifyPropertyChanged):
                 bitmap.BeginInit()
                 bitmap.UriSource = Uri(thumbnail_path)
                 bitmap.DecodePixelWidth = 90
+                bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad
                 bitmap.EndInit()
+                bitmap.Freeze()  # Make bitmap immutable for thread safety and memory optimization
                 return bitmap
         except Exception as ex:
             # Silently ignore thumbnail loading errors
@@ -128,11 +198,23 @@ class FamilyItem(INotifyPropertyChanged):
 
     def OnPropertyChanged(self, propertyName):
         try:
-            if self.PropertyChanged is not None:
+            if not self._is_disposed and self.PropertyChanged is not None:
                 self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
         except Exception as ex:
             # Silently ignore PropertyChanged errors
             logger.debug("Error in OnPropertyChanged: {}".format(ex))
+
+    def Dispose(self):
+        """Clean up resources to prevent memory leaks"""
+        try:
+            if not self._is_disposed:
+                # Clear thumbnail reference
+                self.Thumbnail = None
+                # Clear event handlers
+                self.PropertyChanged = None
+                self._is_disposed = True
+        except Exception as ex:
+            logger.debug("Error disposing FamilyItem: {}".format(ex))
 
     # INotifyPropertyChanged implementation
     PropertyChanged = None
@@ -206,6 +288,9 @@ class FamilyLoaderWindow(Window):
             self.filtered_families = ObservableCollection[object]()
             self.category_structure = {}
             self._is_updating = False  # Flag to prevent UI updates during batch operations
+            self._cancel_requested = False  # Flag for cancellation
+            self._scan_thread = None  # Background scan thread
+            self._seen_family_names = {}  # Track duplicate family names
 
             # Bind to ItemsControl
             self.items_families.ItemsSource = self.filtered_families
@@ -278,80 +363,223 @@ class FamilyLoaderWindow(Window):
             forms.alert("Error selecting folder: {}".format(ex), exitscript=False)
 
     def scan_families(self):
-        """Scan selected folder for .rfa files"""
+        """Scan selected folder for .rfa files with background threading"""
         if not self.current_folder:
             logger.warning("No current folder set for scanning")
             return
 
-        logger.info("Starting to scan folder: {}".format(self.current_folder))
+        # Reset cancellation flag
+        self._cancel_requested = False
 
-        # Set updating flag to prevent UI updates during scan
-        self._is_updating = True
+        # Disable UI controls during scan
+        self.btn_select_folder.IsEnabled = False
+        self.btn_load.IsEnabled = False
+        self.txt_current_folder.Text = "{} (Scanning...)".format(self.current_folder)
 
-        self.all_families = []
-        self.category_structure = {}
+        logger.info("=" * 80)
+        logger.info("FAMILY SCAN STARTED: {}".format(datetime.datetime.now()))
+        logger.info("Folder: {}".format(self.current_folder))
+        logger.info("=" * 80)
+
+        # Start background scan thread
+        self._scan_thread = threading.Thread(target=self._scan_families_worker)
+        self._scan_thread.IsBackground = True
+        self._scan_thread.Start()
+
+    def _scan_families_worker(self):
+        """Background worker for scanning families"""
+        start_time = time.time()
         scan_errors = 0
-        family_count = 0
+        permission_errors = 0
+        validation_errors = 0
+        timeout_seconds = 300  # 5 minutes timeout
+
+        temp_families = []
+        temp_category_structure = {}
+        temp_seen_names = {}
 
         try:
             logger.info("Walking through directory structure...")
-            # Walk through directory
-            for root, dirs, files in os.walk(self.current_folder):
+
+            # Walk through directory with error handling
+            for root, dirs, files in os.walk(self.current_folder, followlinks=False):
+                # Check for cancellation
+                if self._cancel_requested:
+                    logger.info("Scan cancelled by user")
+                    self._scan_complete([], {}, cancelled=True)
+                    return
+
+                # Check for timeout
+                if time.time() - start_time > timeout_seconds:
+                    logger.error("Scan timeout after {} seconds".format(timeout_seconds))
+                    self._scan_complete([], {}, timeout=True)
+                    return
+
+                # Test directory accessibility
+                try:
+                    _ = os.listdir(root)
+                except (PermissionError, OSError) as access_ex:
+                    logger.warning("Skipping inaccessible folder {}: {}".format(root, access_ex))
+                    permission_errors += 1
+                    dirs[:] = []  # Don't descend into this directory
+                    continue
+
+                # Process files
                 for file in files:
+                    # Check cancellation
+                    if self._cancel_requested:
+                        logger.info("Scan cancelled by user")
+                        self._scan_complete([], {}, cancelled=True)
+                        return
+
                     if file.lower().endswith('.rfa'):
                         try:
                             full_path = os.path.join(root, file)
                             relative_path = os.path.relpath(root, self.current_folder)
 
+                            # Validate file
+                            if not is_valid_rfa_file(full_path):
+                                logger.debug("Skipping invalid .rfa file: {}".format(full_path))
+                                validation_errors += 1
+                                continue
+
                             # Use folder name as category
                             category = relative_path if relative_path != '.' else 'Root'
 
-                            # Create family item (NO parent_window to avoid circular reference)
+                            # Create family name with duplicate detection
                             family_name = os.path.splitext(file)[0]
+                            if family_name in temp_seen_names:
+                                # Append folder name to disambiguate
+                                logger.warning("Duplicate family name: {} in {} and {}".format(
+                                    family_name,
+                                    temp_seen_names[family_name],
+                                    full_path
+                                ))
+                                folder_name = os.path.basename(root)
+                                family_name = "{} ({})".format(family_name, folder_name)
+                            else:
+                                temp_seen_names[family_name] = full_path
+
+                            # Create family item
                             family_item = FamilyItem(family_name, full_path, category)
-                            self.all_families.append(family_item)
+                            temp_families.append(family_item)
 
                             # Add to category structure
-                            if category not in self.category_structure:
-                                self.category_structure[category] = []
-                            self.category_structure[category].append(family_item)
+                            if category not in temp_category_structure:
+                                temp_category_structure[category] = []
+                            temp_category_structure[category].append(family_item)
 
-                            family_count += 1
-                            # Log progress every 100 families
-                            if family_count % 100 == 0:
-                                logger.info("Scanned {} families so far...".format(family_count))
+                            # Update progress every 50 families
+                            if len(temp_families) % 50 == 0:
+                                logger.info("Scanned {} families so far...".format(len(temp_families)))
+                                # Update UI progress on main thread
+                                self._update_scan_progress(len(temp_families))
 
                         except Exception as item_ex:
                             scan_errors += 1
                             logger.warning("Failed to process family {}: {}".format(file, item_ex))
+                            logger.debug(traceback.format_exc())
                             # Continue scanning other families
 
-            logger.info("Directory walk completed. Processing {} families...".format(len(self.all_families)))
+            # Calculate duration
+            duration = time.time() - start_time
 
-            # Re-enable UI updates
-            self._is_updating = False
-
-            # Update UI
-            logger.info("Updating category tree...")
-            self.update_category_tree()
-
-            logger.info("Updating family display...")
-            self.update_family_display()
-
-            logger.info("Scan completed: {} families found in {} categories".format(
-                len(self.all_families),
-                len(self.category_structure)
+            logger.info("Directory walk completed in {:.2f} seconds".format(duration))
+            logger.info("Found {} families in {} categories".format(
+                len(temp_families),
+                len(temp_category_structure)
             ))
 
             if scan_errors > 0:
-                logger.warning("Encountered {} errors while scanning families".format(scan_errors))
+                logger.warning("Encountered {} file processing errors".format(scan_errors))
+            if permission_errors > 0:
+                logger.warning("Encountered {} permission errors (folders skipped)".format(permission_errors))
+            if validation_errors > 0:
+                logger.warning("Skipped {} invalid .rfa files".format(validation_errors))
+
+            # Complete scan on UI thread
+            self._scan_complete(temp_families, temp_category_structure)
 
         except Exception as ex:
-            # Re-enable UI updates even on error
-            self._is_updating = False
-            logger.error("Critical error scanning families: {}".format(ex))
+            logger.error("Critical error in scan worker: {}".format(ex))
             logger.error(traceback.format_exc())
-            forms.alert("Error scanning folder: {}".format(ex), exitscript=False)
+            self._scan_complete([], {}, error=str(ex))
+
+    def _update_scan_progress(self, count):
+        """Update scan progress on UI thread"""
+        try:
+            if self.Dispatcher:
+                self.Dispatcher.Invoke(
+                    Action(lambda: self._update_scan_progress_ui(count))
+                )
+        except Exception as ex:
+            logger.debug("Error updating progress: {}".format(ex))
+
+    def _update_scan_progress_ui(self, count):
+        """Update progress UI (called on UI thread)"""
+        try:
+            self.txt_current_folder.Text = "{} (Scanning... {} families found)".format(
+                self.current_folder, count
+            )
+        except Exception as ex:
+            logger.debug("Error updating progress UI: {}".format(ex))
+
+    def _scan_complete(self, families, category_structure, error=None, cancelled=False, timeout=False):
+        """Handle scan completion on UI thread"""
+        try:
+            if self.Dispatcher:
+                self.Dispatcher.Invoke(
+                    Action(lambda: self._scan_complete_ui(families, category_structure, error, cancelled, timeout))
+                )
+        except Exception as ex:
+            logger.error("Error invoking scan complete: {}".format(ex))
+
+    def _scan_complete_ui(self, families, category_structure, error=None, cancelled=False, timeout=False):
+        """Complete scan and update UI (called on UI thread)"""
+        try:
+            # Clean up old families to prevent memory leaks
+            for old_family in self.all_families:
+                if hasattr(old_family, 'Dispose'):
+                    old_family.Dispose()
+
+            # Update data
+            self.all_families = families
+            self.category_structure = category_structure
+
+            # Re-enable UI
+            self.btn_select_folder.IsEnabled = True
+            self.txt_current_folder.Text = self.current_folder
+
+            # Handle different completion states
+            if error:
+                logger.error("Scan failed with error: {}".format(error))
+                forms.alert("Error scanning folder: {}".format(error), exitscript=False)
+            elif cancelled:
+                logger.info("Scan cancelled by user")
+                forms.alert("Scan cancelled", exitscript=False)
+            elif timeout:
+                logger.error("Scan timeout")
+                forms.alert("Scan timeout: Operation took too long (>5 minutes)", exitscript=False)
+            else:
+                # Update UI with results
+                logger.info("Updating category tree...")
+                self.update_category_tree()
+
+                logger.info("Updating family display...")
+                self.update_family_display()
+
+                logger.info("=" * 80)
+                logger.info("FAMILY SCAN COMPLETED: {}".format(datetime.datetime.now()))
+                logger.info("Total families: {}".format(len(self.all_families)))
+                logger.info("Total categories: {}".format(len(self.category_structure)))
+                logger.info("=" * 80)
+
+        except Exception as ex:
+            logger.error("Critical error in scan complete UI: {}".format(ex))
+            logger.error(traceback.format_exc())
+            self.btn_select_folder.IsEnabled = True
+            self.txt_current_folder.Text = self.current_folder
+            forms.alert("Error completing scan: {}".format(ex), exitscript=False)
 
     def update_category_tree(self):
         """Update the category tree view with hierarchical structure"""
@@ -423,12 +651,22 @@ class FamilyLoaderWindow(Window):
         return count
 
     def update_family_display(self, families=None):
-        """Update the family display grid"""
+        """Update the family display grid with proper event cleanup"""
         try:
             if families is None:
                 families = self.all_families
 
+            # Unsubscribe old events to prevent memory leaks
+            for old_family in self.filtered_families:
+                try:
+                    old_family.PropertyChanged -= self.on_family_property_changed
+                except:
+                    pass  # Ignore if not subscribed
+
+            # Clear collection
             self.filtered_families.Clear()
+
+            # Add new families and subscribe events
             for family in families:
                 # Subscribe to PropertyChanged event to update count when checkbox changes
                 try:
@@ -539,7 +777,7 @@ class FamilyLoaderWindow(Window):
             logger.error(traceback.format_exc())
 
     def load_clicked(self, sender, e):
-        """Load selected families into Revit"""
+        """Load selected families into Revit with comprehensive error handling"""
         try:
             selected_families = [f for f in self.all_families if f.IsChecked]
 
@@ -547,63 +785,197 @@ class FamilyLoaderWindow(Window):
                 forms.alert("Please select at least one family to load.", exitscript=False)
                 return
 
-            logger.info("Starting to load {} selected families".format(len(selected_families)))
+            # Validate document state
+            if doc.IsReadOnly:
+                forms.alert("Cannot load families: Document is read-only.\nPlease open a modifiable document.", exitscript=False)
+                return
 
-            # Load families
+            if doc.IsModifiable:
+                forms.alert("Cannot load families: Document is currently being modified.\nPlease finish current operation first.", exitscript=False)
+                return
+
+            # Warn if document is workshared
+            if doc.IsWorkshared and not doc.IsDetached:
+                result = forms.alert(
+                    "Document is workshared. Families will be loaded to central model.\n\nDo you want to continue?",
+                    yes=True, no=True, exitscript=False
+                )
+                if not result:
+                    logger.info("User cancelled loading due to workshared warning")
+                    return
+
+            logger.info("=" * 80)
+            logger.info("FAMILY LOADING STARTED: {}".format(datetime.datetime.now()))
+            logger.info("Selected families: {}".format(len(selected_families)))
+            logger.info("=" * 80)
+
+            start_time = time.time()
+
+            # Disable UI during load
+            self.btn_load.IsEnabled = False
+            self.btn_cancel.IsEnabled = False
+
+            # Load families with individual transactions
             success_count = 0
             fail_count = 0
             failed_families = []
+            load_options = FamilyLoadOptions()
 
-            with revit.Transaction("Load Families"):
-                for family in selected_families:
-                    try:
-                        logger.debug("Attempting to load: {}".format(family.FullPath))
+            for i, family in enumerate(selected_families):
+                try:
+                    logger.debug("[{}/{}] Attempting to load: {}".format(
+                        i + 1, len(selected_families), family.FullPath
+                    ))
 
-                        # Check if file exists before attempting to load
-                        if not os.path.exists(family.FullPath):
-                            logger.error("Family file not found: {}".format(family.FullPath))
-                            fail_count += 1
-                            failed_families.append(family.Name)
-                            continue
-
-                        # Load family
-                        loaded = doc.LoadFamily(family.FullPath)
-                        if loaded:
-                            success_count += 1
-                            self.loaded_families.append(family.FullPath)
-                            logger.info("Successfully loaded: {}".format(family.Name))
-                        else:
-                            fail_count += 1
-                            failed_families.append(family.Name)
-                            logger.warning("LoadFamily returned False for: {}".format(family.Name))
-                    except Exception as ex:
-                        logger.error("Failed to load {}: {}".format(family.Name, ex))
-                        logger.error(traceback.format_exc())
+                    # Check if file exists and is valid
+                    if not os.path.exists(family.FullPath):
+                        logger.error("Family file not found: {}".format(family.FullPath))
                         fail_count += 1
-                        failed_families.append(family.Name)
+                        failed_families.append((family.Name, "File not found"))
+                        continue
+
+                    if not is_valid_rfa_file(family.FullPath):
+                        logger.error("Invalid .rfa file: {}".format(family.FullPath))
+                        fail_count += 1
+                        failed_families.append((family.Name, "Invalid file format"))
+                        continue
+
+                    # Use individual transaction for each family
+                    # This prevents one failure from rolling back all others
+                    with revit.Transaction("Load Family: {}".format(family.Name)):
+                        try:
+                            # Load family with options to handle conflicts
+                            loaded = doc.LoadFamily(family.FullPath, load_options)
+
+                            if loaded:
+                                success_count += 1
+                                self.loaded_families.append(family.FullPath)
+                                logger.info("[{}/{}] Successfully loaded: {}".format(
+                                    i + 1, len(selected_families), family.Name
+                                ))
+                            else:
+                                fail_count += 1
+                                failed_families.append((family.Name, "LoadFamily returned False"))
+                                logger.warning("[{}/{}] LoadFamily returned False for: {}".format(
+                                    i + 1, len(selected_families), family.Name
+                                ))
+
+                        except DB.InvalidOperationException as inv_ex:
+                            fail_count += 1
+                            error_msg = "Invalid operation: {}".format(str(inv_ex))
+                            failed_families.append((family.Name, error_msg))
+                            logger.error("InvalidOperationException loading {}: {}".format(family.Name, inv_ex))
+
+                        except DB.Exceptions.CorruptModelException as corrupt_ex:
+                            fail_count += 1
+                            error_msg = "Corrupt file"
+                            failed_families.append((family.Name, error_msg))
+                            logger.error("Corrupt family file {}: {}".format(family.Name, corrupt_ex))
+
+                        except Exception as load_ex:
+                            fail_count += 1
+                            error_msg = str(load_ex)[:50]  # Truncate long errors
+                            failed_families.append((family.Name, error_msg))
+                            logger.error("Failed to load {}: {}".format(family.Name, load_ex))
+                            logger.debug(traceback.format_exc())
+
+                except Exception as outer_ex:
+                    fail_count += 1
+                    failed_families.append((family.Name, "Transaction error"))
+                    logger.error("Transaction error for {}: {}".format(family.Name, outer_ex))
+                    logger.error(traceback.format_exc())
+
+            # Calculate duration
+            duration = time.time() - start_time
+
+            logger.info("=" * 80)
+            logger.info("FAMILY LOADING COMPLETED: {}".format(datetime.datetime.now()))
+            logger.info("Duration: {:.2f} seconds".format(duration))
+            logger.info("Success: {}, Failed: {}".format(success_count, fail_count))
+            logger.info("=" * 80)
+
+            # Re-enable UI
+            self.btn_load.IsEnabled = True
+            self.btn_cancel.IsEnabled = True
 
             # Show result
-            message = "Loaded {} families successfully.".format(success_count)
+            message = "Successfully loaded {} families in {:.1f} seconds.".format(success_count, duration)
             if fail_count > 0:
-                message += "\n{} families failed to load.".format(fail_count)
-                if len(failed_families) <= 5:
-                    message += "\nFailed families: {}".format(", ".join(failed_families))
+                message += "\n\n{} families failed to load.".format(fail_count)
+                if len(failed_families) <= 10:
+                    message += "\n\nFailed families:"
+                    for fam_name, error in failed_families:
+                        message += "\n- {}: {}".format(fam_name, error)
+                else:
+                    message += "\n\nShowing first 10 failures:"
+                    for fam_name, error in failed_families[:10]:
+                        message += "\n- {}: {}".format(fam_name, error)
+                    message += "\n... and {} more (check log for details)".format(len(failed_families) - 10)
 
-            logger.info("Load completed: {} success, {} failed".format(success_count, fail_count))
             forms.alert(message, exitscript=False)
 
-            # Close dialog
-            self.DialogResult = True
-            self.Close()
+            # Close dialog if any families were loaded successfully
+            if success_count > 0:
+                self.DialogResult = True
+                self.Close()
 
         except Exception as ex:
+            # Re-enable UI on error
+            try:
+                self.btn_load.IsEnabled = True
+                self.btn_cancel.IsEnabled = True
+            except:
+                pass
+
             logger.error("Critical error in load_clicked: {}".format(ex))
             logger.error(traceback.format_exc())
-            forms.alert("Error loading families: {}".format(ex), exitscript=False)
+            forms.alert("Critical error loading families:\n{}".format(str(ex)[:200]), exitscript=False)
 
     def cancel_clicked(self, sender, e):
-        """Cancel and close dialog"""
-        self.Close()
+        """Cancel and close dialog (or cancel scan if in progress)"""
+        try:
+            # If scan is in progress, cancel it
+            if self._scan_thread and self._scan_thread.IsAlive:
+                logger.info("User requested scan cancellation")
+                self._cancel_requested = True
+                # Don't close dialog, let scan complete
+                forms.alert("Cancelling scan...", exitscript=False)
+                return
+
+            # Clean up resources before closing
+            self._cleanup()
+
+            # Close dialog
+            self.Close()
+        except Exception as ex:
+            logger.error("Error in cancel_clicked: {}".format(ex))
+            self.Close()
+
+    def _cleanup(self):
+        """Clean up resources to prevent memory leaks"""
+        try:
+            logger.info("Cleaning up Family Loader resources...")
+
+            # Unsubscribe all PropertyChanged events
+            for family in self.filtered_families:
+                try:
+                    family.PropertyChanged -= self.on_family_property_changed
+                except:
+                    pass
+
+            # Dispose all family items
+            for family in self.all_families:
+                if hasattr(family, 'Dispose'):
+                    family.Dispose()
+
+            # Clear collections
+            self.filtered_families.Clear()
+            self.all_families = []
+            self.category_structure = {}
+
+            logger.info("Cleanup completed successfully")
+        except Exception as ex:
+            logger.error("Error during cleanup: {}".format(ex))
 
 
 # ╔╦╗╔═╗╦╔╗╔
