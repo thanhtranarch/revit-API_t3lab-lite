@@ -383,8 +383,8 @@ class FamilyLoaderWindow(Window):
 
         # Start background scan thread
         self._scan_thread = threading.Thread(target=self._scan_families_worker)
-        self._scan_thread.IsBackground = True
-        self._scan_thread.Start()
+        self._scan_thread.daemon = True
+        self._scan_thread.start()
 
     def _scan_families_worker(self):
         """Background worker for scanning families"""
@@ -935,7 +935,7 @@ class FamilyLoaderWindow(Window):
         """Cancel and close dialog (or cancel scan if in progress)"""
         try:
             # If scan is in progress, cancel it
-            if self._scan_thread and self._scan_thread.IsAlive:
+            if self._scan_thread and self._scan_thread.is_alive():
                 logger.info("User requested scan cancellation")
                 self._cancel_requested = True
                 # Don't close dialog, let scan complete
