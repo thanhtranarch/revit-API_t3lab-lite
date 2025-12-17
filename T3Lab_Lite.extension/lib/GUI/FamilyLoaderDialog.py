@@ -164,6 +164,7 @@ class FamilyItem(INotifyPropertyChanged):
     def __init__(self, name, full_path, category, thumbnail_path=None):
         self._is_checked = False
         self._is_disposed = False
+        self._property_changed_handlers = []
         self.Name = name
         self.FullPath = full_path
         self.Category = category
@@ -196,10 +197,24 @@ class FamilyItem(INotifyPropertyChanged):
             self._is_checked = value
             self.OnPropertyChanged("IsChecked")
 
+    def add_PropertyChanged(self, handler):
+        """Add event handler for PropertyChanged event"""
+        if handler not in self._property_changed_handlers:
+            self._property_changed_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        """Remove event handler for PropertyChanged event"""
+        if handler in self._property_changed_handlers:
+            self._property_changed_handlers.remove(handler)
+
     def OnPropertyChanged(self, propertyName):
         try:
-            if not self._is_disposed and self.PropertyChanged is not None:
-                self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
+            if not self._is_disposed:
+                for handler in self._property_changed_handlers[:]:  # Use copy to avoid modification during iteration
+                    try:
+                        handler(self, PropertyChangedEventArgs(propertyName))
+                    except Exception as ex:
+                        logger.debug("Error calling PropertyChanged handler: {}".format(ex))
         except Exception as ex:
             # Silently ignore PropertyChanged errors
             logger.debug("Error in OnPropertyChanged: {}".format(ex))
@@ -211,13 +226,10 @@ class FamilyItem(INotifyPropertyChanged):
                 # Clear thumbnail reference
                 self.Thumbnail = None
                 # Clear event handlers
-                self.PropertyChanged = None
+                self._property_changed_handlers = []
                 self._is_disposed = True
         except Exception as ex:
             logger.debug("Error disposing FamilyItem: {}".format(ex))
-
-    # INotifyPropertyChanged implementation
-    PropertyChanged = None
 
 
 class FamilyLoaderWindow(Window):
