@@ -41,6 +41,20 @@ from System.Windows.Threading import Dispatcher
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
 
+# Supabase integration
+try:
+    import sys
+    import os
+    lib_path = os.path.join(os.path.dirname(os.path.dirname(__file__)))
+    if lib_path not in sys.path:
+        sys.path.insert(0, lib_path)
+    from supabase_client import get_client as get_supabase_client
+    from GUI.SupabaseConfigDialog import show_supabase_config
+except Exception as supabase_import_ex:
+    logger.warning("Supabase integration not available: {}".format(supabase_import_ex))
+    get_supabase_client = None
+    show_supabase_config = None
+
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
@@ -268,6 +282,8 @@ class FamilyLoaderWindow(Window):
             self.btn_select_none = self.ui.FindName('btn_select_none')
             self.btn_load = self.ui.FindName('btn_load')
             self.btn_cancel = self.ui.FindName('btn_cancel')
+            self.chk_sync_supabase = self.ui.FindName('chk_sync_supabase')
+            self.btn_supabase_config = self.ui.FindName('btn_supabase_config')
 
             # Wire up event handlers
             logger.info("Wiring up event handlers...")
@@ -278,6 +294,7 @@ class FamilyLoaderWindow(Window):
             self.btn_select_none.Click += self.select_none_clicked
             self.btn_load.Click += self.load_clicked
             self.btn_cancel.Click += self.cancel_clicked
+            self.btn_supabase_config.Click += self.supabase_config_clicked
             self.Loaded += self.window_loaded
 
             # Initialize variables
@@ -776,6 +793,19 @@ class FamilyLoaderWindow(Window):
             logger.error("Error in select_none_clicked: {}".format(ex))
             logger.error(traceback.format_exc())
 
+    def supabase_config_clicked(self, sender, e):
+        """Show Supabase configuration dialog"""
+        try:
+            if show_supabase_config:
+                logger.info("Opening Supabase configuration dialog")
+                show_supabase_config()
+            else:
+                forms.alert("Supabase integration not available", exitscript=False)
+        except Exception as ex:
+            logger.error("Error showing Supabase config: {}".format(ex))
+            logger.error(traceback.format_exc())
+            forms.alert("Error: {}".format(ex), exitscript=False)
+
     def load_clicked(self, sender, e):
         """Load selected families into Revit with comprehensive error handling"""
         try:
@@ -898,8 +928,62 @@ class FamilyLoaderWindow(Window):
             self.btn_load.IsEnabled = True
             self.btn_cancel.IsEnabled = True
 
+            # Sync to Supabase if enabled
+            sync_enabled = self.chk_sync_supabase.IsChecked if self.chk_sync_supabase else False
+            synced_count = 0
+            sync_failed = 0
+
+            if sync_enabled and get_supabase_client and success_count > 0:
+                logger.info("=" * 80)
+                logger.info("SUPABASE SYNC STARTED: {}".format(datetime.datetime.now()))
+                logger.info("=" * 80)
+
+                try:
+                    supabase = get_supabase_client()
+
+                    if supabase.is_configured():
+                        # Get current project and user info
+                        project_name = doc.Title if doc else "Unknown"
+                        user_name = System.Environment.UserName
+
+                        # Sync successfully loaded families
+                        for family_path in self.loaded_families:
+                            try:
+                                # Find the family item
+                                family_item = next((f for f in selected_families if f.FullPath == family_path), None)
+                                if family_item:
+                                    logger.info("Syncing to Supabase: {}".format(family_item.Name))
+                                    supabase.sync_family(
+                                        name=family_item.Name,
+                                        file_path=family_item.FullPath,
+                                        category=family_item.Category,
+                                        project_name=project_name,
+                                        user_name=user_name,
+                                        upload_file=True
+                                    )
+                                    synced_count += 1
+                            except Exception as sync_ex:
+                                sync_failed += 1
+                                logger.warning("Failed to sync {}: {}".format(family_item.Name if family_item else family_path, sync_ex))
+
+                        logger.info("=" * 80)
+                        logger.info("SUPABASE SYNC COMPLETED")
+                        logger.info("Synced: {}, Failed: {}".format(synced_count, sync_failed))
+                        logger.info("=" * 80)
+                    else:
+                        logger.warning("Supabase not configured, skipping sync")
+                        forms.alert("Supabase sync enabled but not configured.\nPlease configure Supabase first.", exitscript=False)
+
+                except Exception as supabase_ex:
+                    logger.error("Supabase sync error: {}".format(supabase_ex))
+                    logger.error(traceback.format_exc())
+
             # Show result
             message = "Successfully loaded {} families in {:.1f} seconds.".format(success_count, duration)
+            if synced_count > 0:
+                message += "\n\nSynced {} families to Supabase.".format(synced_count)
+            if sync_failed > 0:
+                message += "\n{} families failed to sync to Supabase.".format(sync_failed)
             if fail_count > 0:
                 message += "\n\n{} families failed to load.".format(fail_count)
                 if len(failed_families) <= 10:

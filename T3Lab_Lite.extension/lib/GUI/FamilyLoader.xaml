@@ -177,24 +177,44 @@
                 Padding="15"
                 BorderBrush="#D0D0D0"
                 BorderThickness="0,1,0,0">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <TextBlock x:Name="txt_selected_count"
-                           Text="0 families selected"
-                           VerticalAlignment="Center"
-                           Margin="0,0,20,0"
-                           FontWeight="SemiBold"/>
-                <Button x:Name="btn_load"
-                        Content="Load"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Background="#0078D4"
-                        Foreground="White"
-                        Margin="5,0"
-                        IsEnabled="False"/>
-                <Button x:Name="btn_cancel"
-                        Content="Cancel"
-                        Style="{StaticResource ActionButtonStyle}"
-                        Margin="5,0"/>
-            </StackPanel>
+            <DockPanel>
+                <!-- Supabase Sync Options (Left) -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <CheckBox x:Name="chk_sync_supabase"
+                              Content="Sync to Supabase"
+                              VerticalAlignment="Center"
+                              Margin="0,0,10,0"
+                              ToolTip="Enable to sync family data to Supabase"/>
+                    <Button x:Name="btn_supabase_config"
+                            Content="⚙ Configure"
+                            Padding="8,4"
+                            Background="#4CAF50"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            ToolTip="Configure Supabase connection"/>
+                </StackPanel>
+
+                <!-- Load/Cancel Buttons (Right) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <TextBlock x:Name="txt_selected_count"
+                               Text="0 families selected"
+                               VerticalAlignment="Center"
+                               Margin="0,0,20,0"
+                               FontWeight="SemiBold"/>
+                    <Button x:Name="btn_load"
+                            Content="Load"
+                            Style="{StaticResource ActionButtonStyle}"
+                            Background="#0078D4"
+                            Foreground="White"
+                            Margin="5,0"
+                            IsEnabled="False"/>
+                    <Button x:Name="btn_cancel"
+                            Content="Cancel"
+                            Style="{StaticResource ActionButtonStyle}"
+                            Margin="5,0"/>
+                </StackPanel>
+            </DockPanel>
         </Border>
     </Grid>
 </Grid>

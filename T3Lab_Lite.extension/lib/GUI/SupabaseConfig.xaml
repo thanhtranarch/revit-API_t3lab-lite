@@ -1,0 +1,120 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Supabase Configuration"
+        Height="350" Width="600"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#F5F5F5">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,0,0,5"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="20,8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <TextBlock Grid.Row="0"
+                   Text="Configure Supabase Connection"
+                   FontSize="16"
+                   FontWeight="Bold"
+                   Margin="0,0,0,20"/>
+
+        <!-- Supabase URL -->
+        <TextBlock Grid.Row="1" Text="Supabase Project URL:"/>
+        <TextBox Grid.Row="1"
+                 Name="txt_url"
+                 Margin="0,25,0,15"
+                 ToolTip="Example: https://xxxxx.supabase.co"/>
+
+        <!-- API Key -->
+        <TextBlock Grid.Row="2" Text="Supabase API Key (anon/public):"/>
+        <TextBox Grid.Row="2"
+                 Name="txt_api_key"
+                 Margin="0,25,0,15"
+                 ToolTip="Find in Settings > API > anon public key"/>
+
+        <!-- Bucket Name -->
+        <TextBlock Grid.Row="3" Text="Storage Bucket Name:"/>
+        <TextBox Grid.Row="3"
+                 Name="txt_bucket_name"
+                 Margin="0,25,0,15"
+                 Text="revit-family-free"
+                 ToolTip="Name of your Supabase storage bucket"/>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="4"
+                   Name="txt_status"
+                   Foreground="Green"
+                   FontStyle="Italic"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,10"/>
+
+        <!-- Help Text -->
+        <Border Grid.Row="5"
+                Background="#E3F2FD"
+                BorderBrush="#2196F3"
+                BorderThickness="1"
+                Padding="10"
+                CornerRadius="3"
+                Margin="0,10,0,10">
+            <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#1976D2">
+                <Run FontWeight="Bold">How to get your credentials:</Run>
+                <LineBreak/>
+                1. Go to your Supabase project dashboard
+                <LineBreak/>
+                2. Navigate to Settings > API
+                <LineBreak/>
+                3. Copy the "Project URL" and "anon public" key
+                <LineBreak/>
+                4. Make sure your storage bucket is created in Storage section
+            </TextBlock>
+        </Border>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="6"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            <Button Name="btn_test"
+                    Content="Test Connection"
+                    Background="#FFC107"
+                    Foreground="White"
+                    BorderThickness="0"/>
+            <Button Name="btn_save"
+                    Content="Save"
+                    Background="#4CAF50"
+                    Foreground="White"
+                    BorderThickness="0"/>
+            <Button Name="btn_cancel"
+                    Content="Cancel"
+                    Background="#9E9E9E"
+                    Foreground="White"
+                    BorderThickness="0"/>
+        </StackPanel>
+    </Grid>
+</Window>
