@@ -419,6 +419,9 @@ class FamilyLoaderWindow(Window):
     def data_source_changed(self, sender, e):
         """Handle data source toggle between Local and Cloud"""
         try:
+            # Cancel any existing scan/load operation before switching modes
+            self._cancel_current_scan()
+
             if self.radio_cloud.IsChecked:
                 logger.info("Switched to Cloud mode")
                 self.txt_current_folder.Text = "Loading from Cloud (Vercel)..."
@@ -459,9 +462,34 @@ class FamilyLoaderWindow(Window):
             logger.error(traceback.format_exc())
             forms.alert("Error selecting folder: {}".format(ex), exitscript=False)
 
+    def _cancel_current_scan(self):
+        """Safely cancel any existing scan/load operation"""
+        try:
+            if self._scan_thread and self._scan_thread.is_alive():
+                logger.info("Cancelling existing scan thread before starting new operation")
+                self._cancel_requested = True
+
+                # Wait for thread to finish (with timeout)
+                self._scan_thread.join(timeout=2.0)
+
+                if self._scan_thread.is_alive():
+                    logger.warning("Scan thread did not stop gracefully within timeout")
+                else:
+                    logger.info("Scan thread cancelled successfully")
+
+                # Reset for new scan
+                self._scan_thread = None
+                self._cancel_requested = False
+        except Exception as ex:
+            logger.error("Error cancelling current scan: {}".format(ex))
+            logger.error(traceback.format_exc())
+
     def load_cloud_families(self):
         """Load families from cloud API"""
         try:
+            # Cancel any existing scan before starting cloud load
+            self._cancel_current_scan()
+
             # Disable UI controls during load
             self.btn_load.IsEnabled = False
             self.txt_current_folder.Text = "Loading from Cloud (Vercel)..."
@@ -540,6 +568,9 @@ class FamilyLoaderWindow(Window):
         if not self.current_folder:
             logger.warning("No current folder set for scanning")
             return
+
+        # Cancel any existing scan before starting new one
+        self._cancel_current_scan()
 
         # Reset cancellation flag
         self._cancel_requested = False
