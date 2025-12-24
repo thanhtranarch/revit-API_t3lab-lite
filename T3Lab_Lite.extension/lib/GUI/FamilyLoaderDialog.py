@@ -282,8 +282,7 @@ class FamilyItem(INotifyPropertyChanged):
             if not self._is_disposed:
                 # Clear thumbnail reference
                 self.Thumbnail = None
-                # Clear event handlers
-                self.PropertyChanged = None
+                # Note: Don't clear PropertyChanged - WPF data binding manages this
                 self._is_disposed = True
         except Exception as ex:
             logger.debug("Error disposing FamilyItem: {}".format(ex))
