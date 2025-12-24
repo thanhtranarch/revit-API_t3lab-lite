@@ -490,6 +490,22 @@ class FamilyLoaderWindow(Window):
             # Cancel any existing scan before starting cloud load
             self._cancel_current_scan()
 
+            # Check if cloud API URL is properly configured
+            if "your-vercel-app.vercel.app" in CLOUD_API_URL or "your-project-name" in CLOUD_API_URL:
+                logger.warning("Cloud API URL is not configured")
+                self.txt_current_folder.Text = "Cloud mode not configured"
+                forms.alert(
+                    "Cloud Family Loader is not configured yet.\n\n"
+                    "To use this feature:\n"
+                    "1. Deploy the API to Vercel (see CLOUD_FAMILY_LOADER_README.md)\n"
+                    "2. Update CLOUD_API_URL in FamilyLoaderDialog.py\n\n"
+                    "For now, please use Local mode to load families from a folder.",
+                    exitscript=False
+                )
+                # Switch back to local mode
+                self.radio_local.IsChecked = True
+                return
+
             # Disable UI controls during load
             self.btn_load.IsEnabled = False
             self.txt_current_folder.Text = "Loading from Cloud (Vercel)..."
@@ -561,7 +577,22 @@ class FamilyLoaderWindow(Window):
         except Exception as ex:
             logger.error("Error loading cloud families: {}".format(ex))
             logger.error(traceback.format_exc())
-            self._scan_complete([], {}, error=str(ex))
+
+            # Provide helpful error message based on error type
+            error_msg = str(ex)
+            if "HTTP 404" in error_msg:
+                error_msg = ("Cloud API endpoint not found (HTTP 404).\n\n"
+                           "The cloud family loader is not properly configured.\n"
+                           "Please see CLOUD_FAMILY_LOADER_README.md for setup instructions.\n\n"
+                           "Switch to Local mode to load families from a folder.")
+            elif "connect" in error_msg.lower() or "connection" in error_msg.lower():
+                error_msg = ("Cannot connect to cloud API.\n\n"
+                           "Please check:\n"
+                           "1. Your internet connection\n"
+                           "2. The CLOUD_API_URL configuration\n"
+                           "3. Vercel deployment status")
+
+            self._scan_complete([], {}, error=error_msg)
 
     def scan_families(self):
         """Scan selected folder for .rfa files with background threading"""
