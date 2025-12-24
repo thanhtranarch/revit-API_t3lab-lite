@@ -889,28 +889,18 @@ class FamilyLoaderWindow(Window):
         return count
 
     def update_family_display(self, families=None):
-        """Update the family display grid with proper event cleanup"""
+        """Update the family display grid"""
         try:
             if families is None:
                 families = self.all_families
 
-            # Unsubscribe old events to prevent memory leaks
-            for old_family in self.filtered_families:
-                try:
-                    old_family.PropertyChanged -= self.on_family_property_changed
-                except:
-                    pass  # Ignore if not subscribed
-
             # Clear collection
             self.filtered_families.Clear()
 
-            # Add new families and subscribe events
+            # Add new families
+            # Note: WPF data binding handles PropertyChanged automatically
+            # No need for manual event subscription in IronPython
             for family in families:
-                # Subscribe to PropertyChanged event to update count when checkbox changes
-                try:
-                    family.PropertyChanged += self.on_family_property_changed
-                except:
-                    pass  # Ignore if already subscribed
                 self.filtered_families.Add(family)
 
             self.update_result_count()
@@ -1209,13 +1199,6 @@ class FamilyLoaderWindow(Window):
         """Clean up resources to prevent memory leaks"""
         try:
             logger.info("Cleaning up Family Loader resources...")
-
-            # Unsubscribe all PropertyChanged events
-            for family in self.filtered_families:
-                try:
-                    family.PropertyChanged -= self.on_family_property_changed
-                except:
-                    pass
 
             # Dispose all family items
             for family in self.all_families:
