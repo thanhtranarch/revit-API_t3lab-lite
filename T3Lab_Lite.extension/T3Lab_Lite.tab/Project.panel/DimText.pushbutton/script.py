@@ -66,11 +66,11 @@ with Transaction(doc, "Adjust DimentionsText") as t:
     sufix = ""
     above = ""
     # below = "CANOPY TO AC LEDGE SLAB EDGE"
-    below = "(E)"
+    # below = "(E)"
     # below = "M&E SPACE"
     # below = "CANOPY TO SLAB EDGE"
     # below = "CLEAR"
-    # below = "CANOPY TO FACADE LINE"
+    below = "CANOPY TO FACADE LINE"
     overide = ""
     sub_z=0
     
