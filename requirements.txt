@@ -1,0 +1,2 @@
+# Vercel Python Runtime Dependencies
+# No additional dependencies needed for basic API

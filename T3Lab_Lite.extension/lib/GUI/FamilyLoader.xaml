@@ -31,9 +31,26 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Folder Selection Bar -->
+        <!-- Folder Selection Bar with Cloud Toggle -->
         <Border Grid.Row="0" Background="#F0F0F0" Padding="10" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
             <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0">
+                    <TextBlock Text="Source:"
+                               VerticalAlignment="Center"
+                               Margin="0,0,10,0"
+                               FontWeight="SemiBold"/>
+                    <RadioButton x:Name="radio_local"
+                                 Content="Local"
+                                 GroupName="DataSource"
+                                 IsChecked="True"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,15,0"/>
+                    <RadioButton x:Name="radio_cloud"
+                                 Content="Cloud (Vercel)"
+                                 GroupName="DataSource"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,10,0"/>
+                </StackPanel>
                 <Button x:Name="btn_select_folder"
                         Content="Update Folder"
                         DockPanel.Dock="Left"

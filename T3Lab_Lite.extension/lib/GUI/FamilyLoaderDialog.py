@@ -19,6 +19,8 @@ import traceback
 import time
 import datetime
 import threading
+import urllib2
+import tempfile
 
 # .NET Imports
 clr.AddReference("System")
@@ -52,6 +54,14 @@ uidoc = revit.uidoc
 # Config file path
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".t3lab")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
+
+# Cloud API configuration
+# Update this URL to your Vercel deployment URL
+CLOUD_API_URL = "https://your-vercel-app.vercel.app/api/families"
+# For local testing, you can use: "http://localhost:3000/api/families"
+
+# Temp folder for downloaded families
+TEMP_FAMILIES_DIR = os.path.join(tempfile.gettempdir(), "t3lab_cloud_families")
 
 # ╦ ╦╔═╗╦  ╔═╗╔═╗╦═╗  ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
 # ╠═╣║╣ ║  ╠═╝║╣ ╠╦╝  ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
@@ -133,6 +143,66 @@ def is_valid_rfa_file(file_path):
         logger.debug("File validation failed for {}: {}".format(file_path, ex))
         return False
 
+def fetch_cloud_families(api_url):
+    """Fetch family data from cloud API"""
+    try:
+        logger.info("Fetching family data from cloud: {}".format(api_url))
+
+        # Make HTTP request
+        request = urllib2.Request(api_url)
+        request.add_header('User-Agent', 'T3Lab Family Loader/1.0')
+
+        response = urllib2.urlopen(request, timeout=30)
+        data = response.read()
+
+        # Parse JSON response
+        families_data = json.loads(data)
+        logger.info("Successfully fetched cloud family data")
+
+        return families_data
+    except urllib2.HTTPError as ex:
+        logger.error("HTTP error fetching cloud families: {} - {}".format(ex.code, ex.reason))
+        raise Exception("Failed to fetch from cloud: HTTP {}".format(ex.code))
+    except urllib2.URLError as ex:
+        logger.error("URL error fetching cloud families: {}".format(ex.reason))
+        raise Exception("Failed to connect to cloud API")
+    except Exception as ex:
+        logger.error("Error fetching cloud families: {}".format(ex))
+        logger.error(traceback.format_exc())
+        raise
+
+def download_family_file(download_url, save_path):
+    """Download a family file from cloud URL"""
+    try:
+        logger.debug("Downloading family from: {}".format(download_url))
+
+        # Make sure directory exists
+        save_dir = os.path.dirname(save_path)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+        # Download file
+        request = urllib2.Request(download_url)
+        request.add_header('User-Agent', 'T3Lab Family Loader/1.0')
+
+        response = urllib2.urlopen(request, timeout=120)
+
+        # Write to file
+        with open(save_path, 'wb') as f:
+            chunk_size = 8192
+            while True:
+                chunk = response.read(chunk_size)
+                if not chunk:
+                    break
+                f.write(chunk)
+
+        logger.debug("Successfully downloaded to: {}".format(save_path))
+        return True
+    except Exception as ex:
+        logger.error("Error downloading family file: {}".format(ex))
+        logger.error(traceback.format_exc())
+        return False
+
 # ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
 # ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
 # ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
@@ -161,12 +231,14 @@ class FamilyLoadOptions(DB.IFamilyLoadOptions):
 class FamilyItem(INotifyPropertyChanged):
     """Represents a family file with its properties"""
 
-    def __init__(self, name, full_path, category, thumbnail_path=None):
+    def __init__(self, name, full_path, category, thumbnail_path=None, is_cloud=False, download_url=None):
         self._is_checked = False
         self._is_disposed = False
         self.Name = name
         self.FullPath = full_path
         self.Category = category
+        self.IsCloud = is_cloud  # Flag to indicate if this is a cloud family
+        self.DownloadUrl = download_url  # URL to download the family file
         self.Thumbnail = self._load_thumbnail(thumbnail_path)
 
     def _load_thumbnail(self, thumbnail_path):
@@ -268,6 +340,8 @@ class FamilyLoaderWindow(Window):
             self.btn_select_none = self.ui.FindName('btn_select_none')
             self.btn_load = self.ui.FindName('btn_load')
             self.btn_cancel = self.ui.FindName('btn_cancel')
+            self.radio_local = self.ui.FindName('radio_local')
+            self.radio_cloud = self.ui.FindName('radio_cloud')
 
             # Wire up event handlers
             logger.info("Wiring up event handlers...")
@@ -278,6 +352,8 @@ class FamilyLoaderWindow(Window):
             self.btn_select_none.Click += self.select_none_clicked
             self.btn_load.Click += self.load_clicked
             self.btn_cancel.Click += self.cancel_clicked
+            self.radio_local.Checked += self.data_source_changed
+            self.radio_cloud.Checked += self.data_source_changed
             self.Loaded += self.window_loaded
 
             # Initialize variables
@@ -340,6 +416,27 @@ class FamilyLoaderWindow(Window):
             logger.error("Error in window_loaded: {}".format(ex))
             logger.error(traceback.format_exc())
 
+    def data_source_changed(self, sender, e):
+        """Handle data source toggle between Local and Cloud"""
+        try:
+            if self.radio_cloud.IsChecked:
+                logger.info("Switched to Cloud mode")
+                self.txt_current_folder.Text = "Loading from Cloud (Vercel)..."
+                self.btn_select_folder.IsEnabled = False
+                self.load_cloud_families()
+            else:
+                logger.info("Switched to Local mode")
+                self.btn_select_folder.IsEnabled = True
+                if self.current_folder:
+                    self.txt_current_folder.Text = self.current_folder
+                    self.scan_families()
+                else:
+                    self.txt_current_folder.Text = "No folder selected"
+        except Exception as ex:
+            logger.error("Error in data_source_changed: {}".format(ex))
+            logger.error(traceback.format_exc())
+            forms.alert("Error changing data source: {}".format(ex), exitscript=False)
+
     def select_folder_clicked(self, sender, e):
         """Handle folder selection"""
         try:
@@ -361,6 +458,82 @@ class FamilyLoaderWindow(Window):
             logger.error("Error in select_folder_clicked: {}".format(ex))
             logger.error(traceback.format_exc())
             forms.alert("Error selecting folder: {}".format(ex), exitscript=False)
+
+    def load_cloud_families(self):
+        """Load families from cloud API"""
+        try:
+            # Disable UI controls during load
+            self.btn_load.IsEnabled = False
+            self.txt_current_folder.Text = "Loading from Cloud (Vercel)..."
+
+            logger.info("=" * 80)
+            logger.info("CLOUD FAMILY LOAD STARTED: {}".format(datetime.datetime.now()))
+            logger.info("API URL: {}".format(CLOUD_API_URL))
+            logger.info("=" * 80)
+
+            # Start background thread for cloud loading
+            self._scan_thread = threading.Thread(target=self._load_cloud_families_worker)
+            self._scan_thread.daemon = True
+            self._scan_thread.start()
+
+        except Exception as ex:
+            logger.error("Error in load_cloud_families: {}".format(ex))
+            logger.error(traceback.format_exc())
+            forms.alert("Error loading from cloud: {}".format(ex), exitscript=False)
+
+    def _load_cloud_families_worker(self):
+        """Background worker for loading cloud families"""
+        temp_families = []
+        temp_category_structure = {}
+
+        try:
+            # Fetch data from cloud API
+            families_data = fetch_cloud_families(CLOUD_API_URL)
+
+            # Process categories and families
+            for category_data in families_data.get('categories', []):
+                category_name = category_data.get('name', 'Unknown')
+                category_path = category_data.get('path', category_name)
+
+                for family_data in category_data.get('families', []):
+                    # Create family item with cloud data
+                    family_name = family_data.get('name', 'Unknown')
+                    file_name = family_data.get('fileName', '{}.rfa'.format(family_name))
+                    download_url = family_data.get('downloadUrl', '')
+                    thumbnail_url = family_data.get('thumbnailUrl', None)
+
+                    # For cloud families, use temp directory path
+                    temp_path = os.path.join(TEMP_FAMILIES_DIR, category_name, file_name)
+
+                    # Create family item
+                    family_item = FamilyItem(
+                        name=family_name,
+                        full_path=temp_path,
+                        category=category_path,
+                        thumbnail_path=thumbnail_url,
+                        is_cloud=True,
+                        download_url=download_url
+                    )
+
+                    temp_families.append(family_item)
+
+                    # Add to category structure
+                    if category_path not in temp_category_structure:
+                        temp_category_structure[category_path] = []
+                    temp_category_structure[category_path].append(family_item)
+
+            logger.info("Loaded {} cloud families in {} categories".format(
+                len(temp_families),
+                len(temp_category_structure)
+            ))
+
+            # Complete load on UI thread
+            self._scan_complete(temp_families, temp_category_structure)
+
+        except Exception as ex:
+            logger.error("Error loading cloud families: {}".format(ex))
+            logger.error(traceback.format_exc())
+            self._scan_complete([], {}, error=str(ex))
 
     def scan_families(self):
         """Scan selected folder for .rfa files with background threading"""
@@ -547,8 +720,11 @@ class FamilyLoaderWindow(Window):
             self.category_structure = category_structure
 
             # Re-enable UI
-            self.btn_select_folder.IsEnabled = True
-            self.txt_current_folder.Text = self.current_folder
+            if self.radio_cloud.IsChecked:
+                self.txt_current_folder.Text = "Cloud (Vercel) - {} families loaded".format(len(families))
+            else:
+                self.btn_select_folder.IsEnabled = True
+                self.txt_current_folder.Text = self.current_folder
 
             # Handle different completion states
             if error:
@@ -826,6 +1002,22 @@ class FamilyLoaderWindow(Window):
                     logger.debug("[{}/{}] Attempting to load: {}".format(
                         i + 1, len(selected_families), family.FullPath
                     ))
+
+                    # If this is a cloud family, download it first
+                    if family.IsCloud:
+                        if not family.DownloadUrl:
+                            logger.error("Cloud family has no download URL: {}".format(family.Name))
+                            fail_count += 1
+                            failed_families.append((family.Name, "No download URL"))
+                            continue
+
+                        # Download the family file
+                        logger.info("Downloading cloud family: {}".format(family.Name))
+                        if not download_family_file(family.DownloadUrl, family.FullPath):
+                            logger.error("Failed to download cloud family: {}".format(family.Name))
+                            fail_count += 1
+                            failed_families.append((family.Name, "Download failed"))
+                            continue
 
                     # Check if file exists and is valid
                     if not os.path.exists(family.FullPath):
