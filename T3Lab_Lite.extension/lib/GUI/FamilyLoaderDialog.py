@@ -62,7 +62,7 @@ CLOUD_API_ENDPOINT = "/api/families"
 
 # Vercel Protection Bypass Token (get from: Settings → Deployment Protection → Protection Bypass)
 # Leave empty if no protection is enabled
-VERCEL_BYPASS_TOKEN = ""  # TODO: Add your bypass token here
+VERCEL_BYPASS_TOKEN = "1McvpSpOLuCfzLkqAybnPgtxlbAgFv6V"
 
 # Build full URL with bypass token if needed
 if VERCEL_BYPASS_TOKEN:
