@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Family Loader Dialog
-Load Revit families from folders with category organization
-COMPREHENSIVE FIX: Memory leaks, threading, error handling, and stability improvements
+Family Loader Cloud Dialog
+Load Revit families from Vercel cloud API
+Cloud-only version with bypass token support
 """
-__title__ = "Family Loader"
+__title__ = "Family Loader (Cloud)"
 __author__ = "T3Lab"
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
@@ -248,6 +248,7 @@ class FamilyItem(INotifyPropertyChanged):
     def __init__(self, name, full_path, category, thumbnail_path=None, is_cloud=False, download_url=None):
         self._is_checked = False
         self._is_disposed = False
+        self._property_changed_handlers = []
         self.Name = name
         self.FullPath = full_path
         self.Category = category
@@ -282,10 +283,25 @@ class FamilyItem(INotifyPropertyChanged):
             self._is_checked = value
             self.OnPropertyChanged("IsChecked")
 
+    def add_PropertyChanged(self, handler):
+        """Add PropertyChanged event handler"""
+        if handler not in self._property_changed_handlers:
+            self._property_changed_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        """Remove PropertyChanged event handler"""
+        if handler in self._property_changed_handlers:
+            self._property_changed_handlers.remove(handler)
+
     def OnPropertyChanged(self, propertyName):
+        """Raise PropertyChanged event"""
         try:
-            if not self._is_disposed and self.PropertyChanged is not None:
-                self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
+            if not self._is_disposed:
+                for handler in self._property_changed_handlers:
+                    try:
+                        handler(self, PropertyChangedEventArgs(propertyName))
+                    except Exception as ex:
+                        logger.debug("Error calling PropertyChanged handler: {}".format(ex))
         except Exception as ex:
             # Silently ignore PropertyChanged errors
             logger.debug("Error in OnPropertyChanged: {}".format(ex))
@@ -297,27 +313,24 @@ class FamilyItem(INotifyPropertyChanged):
                 # Clear thumbnail reference
                 self.Thumbnail = None
                 # Clear event handlers
-                self.PropertyChanged = None
+                self._property_changed_handlers = []
                 self._is_disposed = True
         except Exception as ex:
             logger.debug("Error disposing FamilyItem: {}".format(ex))
 
-    # INotifyPropertyChanged implementation
-    PropertyChanged = None
 
-
-class FamilyLoaderWindow(Window):
-    """Main window for Family Loader"""
+class FamilyLoaderCloudWindow(Window):
+    """Main window for Family Loader Cloud"""
 
     def __init__(self):
         try:
-            logger.info("Initializing FamilyLoaderWindow...")
+            logger.info("Initializing FamilyLoaderCloudWindow...")
 
             # Initialize the base Window class first
             Window.__init__(self)
 
             # Set Window properties
-            self.Title = "Load Autodesk Family"
+            self.Title = "Load Autodesk Family (Cloud)"
             self.Height = 700
             self.Width = 1000
             self.MinHeight = 500
@@ -325,7 +338,7 @@ class FamilyLoaderWindow(Window):
             self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
 
             # Load XAML
-            xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoader.xaml')
+            xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoaderCloud.xaml')
             logger.info("Loading XAML from: {}".format(xaml_path))
 
             try:
@@ -343,7 +356,6 @@ class FamilyLoaderWindow(Window):
 
             # Get named controls
             logger.info("Getting named controls from XAML...")
-            self.btn_select_folder = self.ui.FindName('btn_select_folder')
             self.txt_current_folder = self.ui.FindName('txt_current_folder')
             self.txt_search = self.ui.FindName('txt_search')
             self.tree_categories = self.ui.FindName('tree_categories')
@@ -354,33 +366,32 @@ class FamilyLoaderWindow(Window):
             self.btn_select_none = self.ui.FindName('btn_select_none')
             self.btn_load = self.ui.FindName('btn_load')
             self.btn_cancel = self.ui.FindName('btn_cancel')
-            self.radio_local = self.ui.FindName('radio_local')
-            self.radio_cloud = self.ui.FindName('radio_cloud')
 
             # Wire up event handlers
             logger.info("Wiring up event handlers...")
-            self.btn_select_folder.Click += self.select_folder_clicked
             self.txt_search.TextChanged += self.search_text_changed
             self.tree_categories.SelectedItemChanged += self.category_selected
             self.btn_select_all.Click += self.select_all_clicked
             self.btn_select_none.Click += self.select_none_clicked
             self.btn_load.Click += self.load_clicked
             self.btn_cancel.Click += self.cancel_clicked
-            self.radio_local.Checked += self.data_source_changed
-            self.radio_cloud.Checked += self.data_source_changed
             self.Loaded += self.window_loaded
+
+            # Add hyperlink event handler
+            from System.Windows.Navigation import RequestNavigateEventArgs
+            self.ui.AddHandler(
+                System.Windows.Documents.Hyperlink.RequestNavigateEvent,
+                System.Windows.Navigation.RequestNavigateEventHandler(self.hyperlink_navigate)
+            )
 
             # Initialize variables
             logger.info("Initializing variables...")
-            self.config = load_config()
-            self.current_folder = self.config.get('last_folder', None)
             self.all_families = []
             self.filtered_families = ObservableCollection[object]()
             self.category_structure = {}
             self._is_updating = False  # Flag to prevent UI updates during batch operations
             self._cancel_requested = False  # Flag for cancellation
             self._scan_thread = None  # Background scan thread
-            self._seen_family_names = {}  # Track duplicate family names
 
             # Bind to ItemsControl
             self.items_families.ItemsSource = self.filtered_families
@@ -388,9 +399,7 @@ class FamilyLoaderWindow(Window):
             # Result
             self.loaded_families = []
 
-            logger.info("Family Loader window initialized successfully")
-            if self.current_folder:
-                logger.info("Last used folder: {}".format(self.current_folder))
+            logger.info("Family Loader window initialized successfully - Cloud mode only")
 
         except Exception as ex:
             logger.error("Critical error in FamilyLoaderWindow.__init__: {}".format(ex))
@@ -403,75 +412,32 @@ class FamilyLoaderWindow(Window):
     #====================================================================================================
 
     def window_loaded(self, sender, e):
-        """Handle window loaded event - auto-show folder dialog if no folder is set"""
+        """Handle window loaded event - automatically load cloud families"""
         try:
-            logger.info("Window loaded event triggered")
+            logger.info("Window loaded event triggered - Cloud mode only")
 
             # Check if all UI elements are ready
             if not hasattr(self, 'txt_current_folder') or not self.txt_current_folder:
                 logger.error("UI elements not ready in window_loaded")
                 return
 
-            if self.current_folder:
-                # Check if saved folder still exists
-                if os.path.exists(self.current_folder):
-                    logger.info("Loading families from saved folder: {}".format(self.current_folder))
-                    self.txt_current_folder.Text = self.current_folder
-                    self.scan_families()
-                else:
-                    logger.warning("Saved folder no longer exists: {}".format(self.current_folder))
-                    self.current_folder = None
-                    self.select_folder_clicked(None, None)
-            else:
-                # No saved folder - show dialog
-                logger.info("No saved folder found, showing folder selection dialog")
-                self.select_folder_clicked(None, None)
+            # Automatically load cloud families
+            logger.info("Auto-loading families from Vercel Cloud...")
+            self.load_cloud_families()
         except Exception as ex:
             logger.error("Error in window_loaded: {}".format(ex))
             logger.error(traceback.format_exc())
 
-    def data_source_changed(self, sender, e):
-        """Handle data source toggle between Local and Cloud"""
+    def hyperlink_navigate(self, sender, e):
+        """Handle hyperlink clicks to open URLs in browser"""
         try:
-            if self.radio_cloud.IsChecked:
-                logger.info("Switched to Cloud mode")
-                self.txt_current_folder.Text = "Loading from Cloud (Vercel)..."
-                self.btn_select_folder.IsEnabled = False
-                self.load_cloud_families()
-            else:
-                logger.info("Switched to Local mode")
-                self.btn_select_folder.IsEnabled = True
-                if self.current_folder:
-                    self.txt_current_folder.Text = self.current_folder
-                    self.scan_families()
-                else:
-                    self.txt_current_folder.Text = "No folder selected"
+            import webbrowser
+            webbrowser.open(str(e.Uri))
+            e.Handled = True
+            logger.info("Opened URL in browser: {}".format(e.Uri))
         except Exception as ex:
-            logger.error("Error in data_source_changed: {}".format(ex))
+            logger.error("Error opening URL: {}".format(ex))
             logger.error(traceback.format_exc())
-            forms.alert("Error changing data source: {}".format(ex), exitscript=False)
-
-    def select_folder_clicked(self, sender, e):
-        """Handle folder selection"""
-        try:
-            dialog = FolderBrowserDialog()
-            dialog.Description = "Select folder containing Revit families"
-
-            if dialog.ShowDialog() == DialogResult.OK:
-                self.current_folder = dialog.SelectedPath
-                self.txt_current_folder.Text = self.current_folder
-                logger.info("User selected folder: {}".format(self.current_folder))
-
-                # Save folder to config
-                self.config['last_folder'] = self.current_folder
-                if save_config(self.config):
-                    logger.info("Folder path saved to config")
-
-                self.scan_families()
-        except Exception as ex:
-            logger.error("Error in select_folder_clicked: {}".format(ex))
-            logger.error(traceback.format_exc())
-            forms.alert("Error selecting folder: {}".format(ex), exitscript=False)
 
     def load_cloud_families(self):
         """Load families from cloud API"""
@@ -733,23 +699,22 @@ class FamilyLoaderWindow(Window):
             self.all_families = families
             self.category_structure = category_structure
 
-            # Re-enable UI
-            if self.radio_cloud.IsChecked:
-                self.txt_current_folder.Text = "Cloud (Vercel) - {} families loaded".format(len(families))
-            else:
-                self.btn_select_folder.IsEnabled = True
-                self.txt_current_folder.Text = self.current_folder
+            # Update status text
+            self.txt_current_folder.Text = "Cloud (Vercel) - {} families loaded".format(len(families))
 
             # Handle different completion states
             if error:
-                logger.error("Scan failed with error: {}".format(error))
-                forms.alert("Error scanning folder: {}".format(error), exitscript=False)
+                logger.error("Cloud load failed with error: {}".format(error))
+                self.txt_current_folder.Text = "Error loading from cloud"
+                forms.alert("Error loading from cloud: {}".format(error), exitscript=False)
             elif cancelled:
-                logger.info("Scan cancelled by user")
-                forms.alert("Scan cancelled", exitscript=False)
+                logger.info("Load cancelled by user")
+                self.txt_current_folder.Text = "Load cancelled"
+                forms.alert("Load cancelled", exitscript=False)
             elif timeout:
-                logger.error("Scan timeout")
-                forms.alert("Scan timeout: Operation took too long (>5 minutes)", exitscript=False)
+                logger.error("Load timeout")
+                self.txt_current_folder.Text = "Load timeout"
+                forms.alert("Load timeout: Operation took too long (>5 minutes)", exitscript=False)
             else:
                 # Update UI with results
                 logger.info("Updating category tree...")
@@ -759,17 +724,16 @@ class FamilyLoaderWindow(Window):
                 self.update_family_display()
 
                 logger.info("=" * 80)
-                logger.info("FAMILY SCAN COMPLETED: {}".format(datetime.datetime.now()))
+                logger.info("CLOUD FAMILY LOAD COMPLETED: {}".format(datetime.datetime.now()))
                 logger.info("Total families: {}".format(len(self.all_families)))
                 logger.info("Total categories: {}".format(len(self.category_structure)))
                 logger.info("=" * 80)
 
         except Exception as ex:
-            logger.error("Critical error in scan complete UI: {}".format(ex))
+            logger.error("Critical error in load complete UI: {}".format(ex))
             logger.error(traceback.format_exc())
-            self.btn_select_folder.IsEnabled = True
-            self.txt_current_folder.Text = self.current_folder
-            forms.alert("Error completing scan: {}".format(ex), exitscript=False)
+            self.txt_current_folder.Text = "Error loading families"
+            forms.alert("Error completing load: {}".format(ex), exitscript=False)
 
     def update_category_tree(self):
         """Update the category tree view with hierarchical structure"""
@@ -1189,27 +1153,27 @@ class FamilyLoaderWindow(Window):
 # ╩ ╩╩ ╩╩╝╚╝ MAIN
 #====================================================================================================
 
-def show_family_loader():
-    """Show the family loader dialog"""
+def show_family_loader_cloud():
+    """Show the family loader cloud dialog"""
     try:
         logger.info("=" * 80)
-        logger.info("Family Loader Dialog Starting")
+        logger.info("Family Loader Cloud Dialog Starting")
         logger.info("=" * 80)
 
-        window = FamilyLoaderWindow()
+        window = FamilyLoaderCloudWindow()
         window.ShowDialog()
 
-        logger.info("Family Loader Dialog Closed")
+        logger.info("Family Loader Cloud Dialog Closed")
         logger.info("Loaded {} families".format(len(window.loaded_families)))
         logger.info("=" * 80)
 
         return window.loaded_families
     except Exception as ex:
-        logger.error("Critical error showing family loader: {}".format(ex))
+        logger.error("Critical error showing family loader cloud: {}".format(ex))
         logger.error(traceback.format_exc())
         forms.alert("Error: {}".format(ex))
         return []
 
 
 if __name__ == '__main__':
-    show_family_loader()
+    show_family_loader_cloud()

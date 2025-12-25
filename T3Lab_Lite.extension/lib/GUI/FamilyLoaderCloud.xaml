@@ -31,36 +31,33 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Folder Selection Bar with Cloud Toggle -->
+        <!-- Cloud Source Info Bar -->
         <Border Grid.Row="0" Background="#F0F0F0" Padding="10" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0">
-                    <TextBlock Text="Source:"
+                    <TextBlock Text="☁️ Cloud Mode"
                                VerticalAlignment="Center"
                                Margin="0,0,10,0"
-                               FontWeight="SemiBold"/>
-                    <RadioButton x:Name="radio_local"
-                                 Content="Local"
-                                 GroupName="DataSource"
-                                 IsChecked="True"
-                                 VerticalAlignment="Center"
-                                 Margin="0,0,15,0"/>
-                    <RadioButton x:Name="radio_cloud"
-                                 Content="Cloud (Vercel)"
-                                 GroupName="DataSource"
-                                 VerticalAlignment="Center"
-                                 Margin="0,0,10,0"/>
+                               FontWeight="Bold"
+                               Foreground="#0078D4"/>
+                    <TextBlock x:Name="txt_web_link"
+                               VerticalAlignment="Center"
+                               Foreground="#0078D4"
+                               TextDecorations="Underline"
+                               Cursor="Hand"
+                               ToolTip="Open cloud family library in browser">
+                        <Hyperlink NavigateUri="https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
+                                   RequestNavigate="Hyperlink_RequestNavigate">
+                            View Online
+                        </Hyperlink>
+                    </TextBlock>
                 </StackPanel>
-                <Button x:Name="btn_select_folder"
-                        Content="Update Folder"
-                        DockPanel.Dock="Left"
-                        Style="{StaticResource FolderButtonStyle}"/>
                 <TextBlock x:Name="txt_current_folder"
-                           Text="No folder selected"
+                           Text="Loading families from Vercel Cloud..."
                            VerticalAlignment="Center"
-                           Margin="15,0,0,0"
-                           FontStyle="Italic"
-                           Foreground="#666666"/>
+                           Margin="10,0,0,0"
+                           FontWeight="SemiBold"
+                           Foreground="#333333"/>
             </DockPanel>
         </Border>
 
