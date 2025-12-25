@@ -59,18 +59,12 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 # Update this URL to your Vercel deployment URL
 CLOUD_API_BASE = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
 CLOUD_API_ENDPOINT = "/api/families"
+CLOUD_API_URL = "{}{}".format(CLOUD_API_BASE, CLOUD_API_ENDPOINT)
 
 # Vercel Protection Bypass Token (get from: Settings → Deployment Protection → Protection Bypass)
 # Leave empty if no protection is enabled
+# Token will be sent via HTTP header: x-vercel-protection-bypass
 VERCEL_BYPASS_TOKEN = "1McvpSpOLuCfzLkqAybnPgtxlbAgFv6V"
-
-# Build full URL with bypass token if needed
-if VERCEL_BYPASS_TOKEN:
-    CLOUD_API_URL = "{}{}?x-vercel-protection-bypass={}".format(
-        CLOUD_API_BASE, CLOUD_API_ENDPOINT, VERCEL_BYPASS_TOKEN
-    )
-else:
-    CLOUD_API_URL = "{}{}".format(CLOUD_API_BASE, CLOUD_API_ENDPOINT)
 
 # For local testing, you can use: "http://localhost:3000/api/families"
 
@@ -166,6 +160,11 @@ def fetch_cloud_families(api_url):
         request = urllib2.Request(api_url)
         request.add_header('User-Agent', 'T3Lab Family Loader/1.0')
 
+        # Add bypass token to header if configured
+        if VERCEL_BYPASS_TOKEN:
+            request.add_header('x-vercel-protection-bypass', VERCEL_BYPASS_TOKEN)
+            logger.debug("Added bypass token to request header")
+
         response = urllib2.urlopen(request, timeout=30)
         data = response.read()
 
@@ -198,6 +197,11 @@ def download_family_file(download_url, save_path):
         # Download file
         request = urllib2.Request(download_url)
         request.add_header('User-Agent', 'T3Lab Family Loader/1.0')
+
+        # Add bypass token if downloading from Vercel
+        if VERCEL_BYPASS_TOKEN and CLOUD_API_BASE in download_url:
+            request.add_header('x-vercel-protection-bypass', VERCEL_BYPASS_TOKEN)
+            logger.debug("Added bypass token for download request")
 
         response = urllib2.urlopen(request, timeout=120)
 
