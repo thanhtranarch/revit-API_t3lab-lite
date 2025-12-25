@@ -189,11 +189,93 @@ For production, use environment variables for sensitive data:
 
 ## Troubleshooting
 
+### "API endpoint not found (HTTP 404)"
+
+This error means the Vercel deployment URL is incorrect or the API endpoint doesn't exist.
+
+**Solution:**
+
+1. **Check if your Vercel deployment is active:**
+   ```bash
+   vercel ls
+   ```
+
+2. **Verify your Vercel deployment URL:**
+   ```bash
+   vercel inspect your-deployment-url
+   ```
+
+3. **Update the API URL using one of these methods:**
+
+   **Method 1: Edit the Python file directly**
+   - Open: `T3Lab_Lite.extension/lib/GUI/FamilyLoaderCloudDialog.py`
+   - Update lines 79-80 with your correct Vercel deployment URL:
+     ```python
+     DEFAULT_CLOUD_API_BASE = "https://your-actual-deployment.vercel.app"
+     DEFAULT_CLOUD_API_ENDPOINT = "/api/families"
+     ```
+
+   **Method 2: Use the config file (recommended)**
+   - Create config directory: `mkdir -p ~/.t3lab`
+   - Create config file: `~/.t3lab/family_loader_config.json`
+   - Add your deployment URL:
+     ```json
+     {
+       "cloud_api_base": "https://your-actual-deployment.vercel.app",
+       "cloud_api_endpoint": "/api/families",
+       "vercel_bypass_token": "your-token-if-needed"
+     }
+     ```
+   - You can use the template file as reference: `T3Lab_Lite.extension/lib/GUI/family_loader_config.json.template`
+
+4. **Redeploy to Vercel if needed:**
+   ```bash
+   vercel --prod
+   ```
+
+### "Authentication required (HTTP 401/403)"
+
+This error means Vercel Deployment Protection is enabled but the bypass token is missing or invalid.
+
+**Solution:**
+
+1. **Get your bypass token:**
+   - Go to: https://vercel.com/dashboard → Your Project
+   - Navigate to: Settings → Deployment Protection
+   - Click: "Manage" or "Create Bypass Token"
+   - Copy the token
+
+2. **Add the token to your config:**
+   - Edit: `~/.t3lab/family_loader_config.json`
+   - Add the token:
+     ```json
+     {
+       "vercel_bypass_token": "your-bypass-token-here"
+     }
+     ```
+
+   OR edit `FamilyLoaderCloudDialog.py` line 85:
+   ```python
+   DEFAULT_VERCEL_BYPASS_TOKEN = "your-bypass-token-here"
+   ```
+
+3. **Alternative: Disable Deployment Protection**
+   - Go to: Vercel Dashboard → Settings → Deployment Protection
+   - Set to: "Standard" (no password)
+
 ### "Failed to connect to cloud API"
 
 - Check your internet connection
-- Verify the `CLOUD_API_URL` is correct
-- Check Vercel deployment status: `vercel ls`
+- Verify the API URL is accessible from your network
+- Check if a firewall is blocking the connection
+- Try accessing the URL in a web browser first
+
+### "Server error (HTTP 500)"
+
+- The Vercel API encountered an error
+- Check Vercel deployment logs: `vercel logs`
+- Verify the `api/families.py` file is working correctly
+- Test the API endpoint directly in a browser
 
 ### "Download failed"
 

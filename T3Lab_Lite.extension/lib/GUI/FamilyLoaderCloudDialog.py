@@ -55,24 +55,67 @@ uidoc = revit.uidoc
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".t3lab")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 
-# Cloud API configuration
-# Update this URL to your Vercel deployment URL
-CLOUD_API_BASE = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
-CLOUD_API_ENDPOINT = "/api/families"
+# ╔═╗╦  ╔═╗╦ ╦╔╦╗  ╔═╗╔═╗╦  ╔═╗╔═╗╔╗╔╔═╗╦╔═╗
+# ║  ║  ║ ║║ ║ ║║  ║  ║ ║║║║╠╣ ║║ ╦
+# ╚═╝╩═╝╚═╝╚═╝═╩╝  ╚═╝╚═╝╝╚╝╚  ╩╚═╝ CONFIG
+#====================================================================================================
+# Cloud API configuration (defaults)
+#
+# CONFIGURATION OPTIONS:
+#
+# Option 1: Edit these defaults directly in this file
+# Option 2: Configure via JSON config file (recommended)
+#
+# To use the config file, create: ~/.t3lab/family_loader_config.json
+# {
+#   "cloud_api_base": "https://your-deployment.vercel.app",
+#   "cloud_api_endpoint": "/api/families",
+#   "vercel_bypass_token": "your-bypass-token-here"
+# }
+#
+# If configuration values are not found in the config file, these defaults are used:
+#====================================================================================================
 
-# Vercel Protection Bypass Token (get from: Settings → Deployment Protection → Protection Bypass)
+DEFAULT_CLOUD_API_BASE = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
+DEFAULT_CLOUD_API_ENDPOINT = "/api/families"
+
+# Vercel Protection Bypass Token
+# Get from: Vercel Dashboard → Settings → Deployment Protection → Protection Bypass
 # Leave empty if no protection is enabled
-VERCEL_BYPASS_TOKEN = "1McvpSpOLuCfzLkqAybnPgtxlbAgFv6V"
-
-# Build full URL with bypass token if needed
-if VERCEL_BYPASS_TOKEN:
-    CLOUD_API_URL = "{}{}?x-vercel-protection-bypass={}".format(
-        CLOUD_API_BASE, CLOUD_API_ENDPOINT, VERCEL_BYPASS_TOKEN
-    )
-else:
-    CLOUD_API_URL = "{}{}".format(CLOUD_API_BASE, CLOUD_API_ENDPOINT)
+DEFAULT_VERCEL_BYPASS_TOKEN = "1McvpSpOLuCfzLkqAybnPgtxlbAgFv6V"
 
 # For local testing, you can use: "http://localhost:3000/api/families"
+
+def get_cloud_api_url():
+    """Get cloud API URL from config or use default"""
+    try:
+        # Load config to check for custom API URL
+        config = load_config()
+
+        # Get API base URL from config or use default
+        api_base = config.get('cloud_api_base', DEFAULT_CLOUD_API_BASE)
+        api_endpoint = config.get('cloud_api_endpoint', DEFAULT_CLOUD_API_ENDPOINT)
+        bypass_token = config.get('vercel_bypass_token', DEFAULT_VERCEL_BYPASS_TOKEN)
+
+        # Build full URL with bypass token if needed
+        if bypass_token:
+            full_url = "{}{}?x-vercel-protection-bypass={}".format(
+                api_base, api_endpoint, bypass_token
+            )
+        else:
+            full_url = "{}{}".format(api_base, api_endpoint)
+
+        logger.info("Using Cloud API URL: {}".format(full_url))
+        return full_url
+    except Exception as ex:
+        logger.warning("Error getting cloud API URL from config: {}".format(ex))
+        # Fall back to default
+        if DEFAULT_VERCEL_BYPASS_TOKEN:
+            return "{}{}?x-vercel-protection-bypass={}".format(
+                DEFAULT_CLOUD_API_BASE, DEFAULT_CLOUD_API_ENDPOINT, DEFAULT_VERCEL_BYPASS_TOKEN
+            )
+        else:
+            return "{}{}".format(DEFAULT_CLOUD_API_BASE, DEFAULT_CLOUD_API_ENDPOINT)
 
 # Temp folder for downloaded families
 TEMP_FAMILIES_DIR = os.path.join(tempfile.gettempdir(), "t3lab_cloud_families")
@@ -176,10 +219,49 @@ def fetch_cloud_families(api_url):
         return families_data
     except urllib2.HTTPError as ex:
         logger.error("HTTP error fetching cloud families: {} - {}".format(ex.code, ex.reason))
-        raise Exception("Failed to fetch from cloud: HTTP {}".format(ex.code))
+
+        # Provide specific error messages for different HTTP status codes
+        if ex.code == 404:
+            error_msg = (
+                "API endpoint not found (HTTP 404).\n\n"
+                "This usually means:\n"
+                "1. The Vercel deployment URL is incorrect or outdated\n"
+                "2. The API endpoint doesn't exist at this URL\n"
+                "3. The deployment may have been deleted\n\n"
+                "Please check:\n"
+                "- Verify your Vercel deployment is active\n"
+                "- Update CLOUD_API_BASE in FamilyLoaderCloudDialog.py\n"
+                "- Or configure the API URL in the config file"
+            )
+        elif ex.code == 401 or ex.code == 403:
+            error_msg = (
+                "Authentication required (HTTP {}).\n\n"
+                "The API requires authentication or the bypass token is invalid.\n\n"
+                "Please check:\n"
+                "- Verify VERCEL_BYPASS_TOKEN in FamilyLoaderCloudDialog.py\n"
+                "- Or disable Vercel Deployment Protection"
+            ).format(ex.code)
+        elif ex.code == 500:
+            error_msg = (
+                "Server error (HTTP 500).\n\n"
+                "The API server encountered an error.\n"
+                "Please check the Vercel deployment logs."
+            )
+        else:
+            error_msg = "Failed to fetch from cloud: HTTP {} - {}".format(ex.code, ex.reason)
+
+        raise Exception(error_msg)
     except urllib2.URLError as ex:
         logger.error("URL error fetching cloud families: {}".format(ex.reason))
-        raise Exception("Failed to connect to cloud API")
+        error_msg = (
+            "Failed to connect to cloud API.\n\n"
+            "This usually means:\n"
+            "1. No internet connection\n"
+            "2. The API URL is invalid\n"
+            "3. Network firewall is blocking the connection\n\n"
+            "Error: {}".format(str(ex.reason))
+        )
+        raise Exception(error_msg)
     except Exception as ex:
         logger.error("Error fetching cloud families: {}".format(ex))
         logger.error(traceback.format_exc())
@@ -443,7 +525,7 @@ class FamilyLoaderCloudWindow(Window):
 
             logger.info("=" * 80)
             logger.info("CLOUD FAMILY LOAD STARTED: {}".format(datetime.datetime.now()))
-            logger.info("API URL: {}".format(CLOUD_API_URL))
+            logger.info("API URL: {}".format(get_cloud_api_url()))
             logger.info("=" * 80)
 
             # Start background thread for cloud loading
@@ -463,7 +545,8 @@ class FamilyLoaderCloudWindow(Window):
 
         try:
             # Fetch data from cloud API
-            families_data = fetch_cloud_families(CLOUD_API_URL)
+            api_url = get_cloud_api_url()
+            families_data = fetch_cloud_families(api_url)
 
             # Process categories and families
             for category_data in families_data.get('categories', []):

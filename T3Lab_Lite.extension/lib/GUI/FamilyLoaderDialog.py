@@ -176,10 +176,49 @@ def fetch_cloud_families(api_url):
         return families_data
     except urllib2.HTTPError as ex:
         logger.error("HTTP error fetching cloud families: {} - {}".format(ex.code, ex.reason))
-        raise Exception("Failed to fetch from cloud: HTTP {}".format(ex.code))
+
+        # Provide specific error messages for different HTTP status codes
+        if ex.code == 404:
+            error_msg = (
+                "API endpoint not found (HTTP 404).\n\n"
+                "This usually means:\n"
+                "1. The Vercel deployment URL is incorrect or outdated\n"
+                "2. The API endpoint doesn't exist at this URL\n"
+                "3. The deployment may have been deleted\n\n"
+                "Please check:\n"
+                "- Verify your Vercel deployment is active\n"
+                "- Update CLOUD_API_URL in FamilyLoaderDialog.py\n"
+                "- See CLOUD_FAMILY_LOADER_README.md for more details"
+            )
+        elif ex.code == 401 or ex.code == 403:
+            error_msg = (
+                "Authentication required (HTTP {}).\n\n"
+                "The API requires authentication or the bypass token is invalid.\n\n"
+                "Please check:\n"
+                "- Verify VERCEL_BYPASS_TOKEN in FamilyLoaderDialog.py\n"
+                "- Or disable Vercel Deployment Protection"
+            ).format(ex.code)
+        elif ex.code == 500:
+            error_msg = (
+                "Server error (HTTP 500).\n\n"
+                "The API server encountered an error.\n"
+                "Please check the Vercel deployment logs."
+            )
+        else:
+            error_msg = "Failed to fetch from cloud: HTTP {} - {}".format(ex.code, ex.reason)
+
+        raise Exception(error_msg)
     except urllib2.URLError as ex:
         logger.error("URL error fetching cloud families: {}".format(ex.reason))
-        raise Exception("Failed to connect to cloud API")
+        error_msg = (
+            "Failed to connect to cloud API.\n\n"
+            "This usually means:\n"
+            "1. No internet connection\n"
+            "2. The API URL is invalid\n"
+            "3. Network firewall is blocking the connection\n\n"
+            "Error: {}".format(str(ex.reason))
+        )
+        raise Exception(error_msg)
     except Exception as ex:
         logger.error("Error fetching cloud families: {}".format(ex))
         logger.error(traceback.format_exc())
