@@ -51,10 +51,35 @@ This feature allows you to load Revit families from a cloud-based API hosted on 
 2. Find and update the `CLOUD_API_URL` variable (around line 60):
    ```python
    # Cloud API configuration
-   CLOUD_API_URL = "https://your-project-name.vercel.app/api/families"
+   CLOUD_API_URL = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app/api/families"
    ```
 
-3. Replace `your-project-name.vercel.app` with your actual Vercel deployment URL
+3. **✅ Already configured!** Current deployment URL is set.
+
+### 2.1. Configure Vercel Deployment Protection
+
+**Option A: Keep Protection + Use Bypass Token (Recommended for Security)**
+
+If you want to keep deployment protection enabled:
+
+1. Go to https://vercel.com/dashboard → Your Project
+2. Navigate to **Settings** → **Deployment Protection**
+3. Scroll down to **"Protection Bypass for Automation"**
+4. Click **"Manage"** or **"Create Bypass Token"**
+5. Copy the bypass token
+6. Open `FamilyLoaderDialog.py` (line 65) and paste the token:
+   ```python
+   VERCEL_BYPASS_TOKEN = "your-bypass-token-here"
+   ```
+
+**Option B: Disable Protection (Simpler but Less Secure)**
+
+1. Go to https://vercel.com/dashboard → Your Project
+2. Navigate to **Settings** → **Deployment Protection**
+3. Set to **"Standard"** (no password/authentication)
+4. Leave `VERCEL_BYPASS_TOKEN = ""` in the code
+
+Without configuring protection bypass, the API will return "Authentication Required" error.
 
 ### 3. Set Up Your Family Data
 

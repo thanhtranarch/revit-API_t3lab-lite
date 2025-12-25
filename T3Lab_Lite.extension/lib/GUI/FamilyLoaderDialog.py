@@ -57,7 +57,21 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 
 # Cloud API configuration
 # Update this URL to your Vercel deployment URL
-CLOUD_API_URL = "https://your-vercel-app.vercel.app/api/families"
+CLOUD_API_BASE = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
+CLOUD_API_ENDPOINT = "/api/families"
+
+# Vercel Protection Bypass Token (get from: Settings → Deployment Protection → Protection Bypass)
+# Leave empty if no protection is enabled
+VERCEL_BYPASS_TOKEN = "1McvpSpOLuCfzLkqAybnPgtxlbAgFv6V"
+
+# Build full URL with bypass token if needed
+if VERCEL_BYPASS_TOKEN:
+    CLOUD_API_URL = "{}{}?x-vercel-protection-bypass={}".format(
+        CLOUD_API_BASE, CLOUD_API_ENDPOINT, VERCEL_BYPASS_TOKEN
+    )
+else:
+    CLOUD_API_URL = "{}{}".format(CLOUD_API_BASE, CLOUD_API_ENDPOINT)
+
 # For local testing, you can use: "http://localhost:3000/api/families"
 
 # Temp folder for downloaded families
