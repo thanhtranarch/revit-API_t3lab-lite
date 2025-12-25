@@ -357,6 +357,7 @@ class FamilyLoaderCloudWindow(Window):
             # Get named controls
             logger.info("Getting named controls from XAML...")
             self.txt_current_folder = self.ui.FindName('txt_current_folder')
+            self.txt_web_link = self.ui.FindName('txt_web_link')
             self.txt_search = self.ui.FindName('txt_search')
             self.tree_categories = self.ui.FindName('tree_categories')
             self.items_families = self.ui.FindName('items_families')
@@ -369,6 +370,7 @@ class FamilyLoaderCloudWindow(Window):
 
             # Wire up event handlers
             logger.info("Wiring up event handlers...")
+            self.txt_web_link.MouseDown += self.web_link_clicked
             self.txt_search.TextChanged += self.search_text_changed
             self.tree_categories.SelectedItemChanged += self.category_selected
             self.btn_select_all.Click += self.select_all_clicked
@@ -376,13 +378,6 @@ class FamilyLoaderCloudWindow(Window):
             self.btn_load.Click += self.load_clicked
             self.btn_cancel.Click += self.cancel_clicked
             self.Loaded += self.window_loaded
-
-            # Add hyperlink event handler
-            from System.Windows.Navigation import RequestNavigateEventArgs
-            self.ui.AddHandler(
-                System.Windows.Documents.Hyperlink.RequestNavigateEvent,
-                System.Windows.Navigation.RequestNavigateEventHandler(self.hyperlink_navigate)
-            )
 
             # Initialize variables
             logger.info("Initializing variables...")
@@ -428,13 +423,13 @@ class FamilyLoaderCloudWindow(Window):
             logger.error("Error in window_loaded: {}".format(ex))
             logger.error(traceback.format_exc())
 
-    def hyperlink_navigate(self, sender, e):
-        """Handle hyperlink clicks to open URLs in browser"""
+    def web_link_clicked(self, sender, e):
+        """Handle web link click to open Vercel URL in browser"""
         try:
             import webbrowser
-            webbrowser.open(str(e.Uri))
-            e.Handled = True
-            logger.info("Opened URL in browser: {}".format(e.Uri))
+            url = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
+            webbrowser.open(url)
+            logger.info("Opened URL in browser: {}".format(url))
         except Exception as ex:
             logger.error("Error opening URL: {}".format(ex))
             logger.error(traceback.format_exc())

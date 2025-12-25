@@ -41,16 +41,13 @@
                                FontWeight="Bold"
                                Foreground="#0078D4"/>
                     <TextBlock x:Name="txt_web_link"
+                               Text="[View Online]"
                                VerticalAlignment="Center"
                                Foreground="#0078D4"
                                TextDecorations="Underline"
                                Cursor="Hand"
-                               ToolTip="Open cloud family library in browser">
-                        <Hyperlink NavigateUri="https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
-                                   RequestNavigate="Hyperlink_RequestNavigate">
-                            View Online
-                        </Hyperlink>
-                    </TextBlock>
+                               ToolTip="Open cloud family library in browser: https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
+                               Margin="5,0,0,0"/>
                 </StackPanel>
                 <TextBlock x:Name="txt_current_folder"
                            Text="Loading families from Vercel Cloud..."
