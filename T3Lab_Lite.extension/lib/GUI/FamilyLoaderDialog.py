@@ -57,7 +57,7 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 
 # Cloud API configuration
 # Update this URL to your Vercel deployment URL
-CLOUD_API_URL = "https://your-vercel-app.vercel.app/api/families"
+CLOUD_API_URL = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app/api/families"
 # For local testing, you can use: "http://localhost:3000/api/families"
 
 # Temp folder for downloaded families
