@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Load Family Tool
-Load Revit families from folders with category organization
+Load Family Cloud Tool
+Load Revit families from Vercel cloud API
 """
-__title__ = "Load Family"
+__title__ = "Load Family (Cloud)"
 __author__ = "T3Lab"
-__doc__ = """Load Revit families from folders with category organization.
+__doc__ = """Load Revit families from Vercel cloud API.
 
 Features:
-- Select folder to browse families
-- Categories organized by folder structure
+- Cloud-based family library hosted on Vercel
+- Categories organized by API metadata
 - Search functionality for quick filtering
 - Preview family thumbnails
-- Batch loading of multiple families
+- Batch loading with automatic download
+- Vercel deployment protection bypass support
 """
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
@@ -28,8 +29,8 @@ lib_dir = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
-# Import the dialog
-from GUI.FamilyLoaderDialog import show_family_loader
+# Import the cloud dialog
+from GUI.FamilyLoaderCloudDialog import show_family_loader_cloud
 
 # pyRevit Imports
 from pyrevit import script
@@ -43,15 +44,15 @@ if __name__ == '__main__':
     logger = script.get_logger()
 
     try:
-        # Show the family loader dialog
-        loaded_families = show_family_loader()
+        # Show the family loader cloud dialog
+        loaded_families = show_family_loader_cloud()
 
         if loaded_families:
-            logger.info("Successfully loaded {} families".format(len(loaded_families)))
+            logger.info("Successfully loaded {} families from cloud".format(len(loaded_families)))
         else:
-            logger.info("No families were loaded")
+            logger.info("No families were loaded from cloud")
 
     except Exception as ex:
-        logger.error("Error in Load Family tool: {}".format(ex))
+        logger.error("Error in Load Family Cloud tool: {}".format(ex))
         import traceback
         logger.error(traceback.format_exc())
