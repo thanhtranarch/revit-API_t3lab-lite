@@ -59,13 +59,15 @@ CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".t3lab")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 
 # Cloud API configuration
-# Update this URL to your Vercel deployment URL
-CLOUD_API_BASE = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
+# SECURITY NOTE: Configure in ~/.t3lab/family_loader_config.json instead
+# These are fallback defaults only
+CLOUD_API_BASE = "https://your-deployment.vercel.app"
 CLOUD_API_ENDPOINT = "/api/families"
 
-# Vercel Protection Bypass Token (get from: Settings → Deployment Protection → Protection Bypass)
-# Leave empty if no protection is enabled
-VERCEL_BYPASS_TOKEN = "1McvpSpOLuCfzLkqAybnPgtxlbAgFv6V"
+# Vercel Protection Bypass Token
+# IMPORTANT: Configure in ~/.t3lab/family_loader_config.json for security
+# DO NOT hardcode production credentials here
+VERCEL_BYPASS_TOKEN = ""
 
 # Build full URL with bypass token if needed
 if VERCEL_BYPASS_TOKEN:

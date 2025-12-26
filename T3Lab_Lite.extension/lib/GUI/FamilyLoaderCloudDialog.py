@@ -77,13 +77,16 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 # If configuration values are not found in the config file, these defaults are used:
 #====================================================================================================
 
-DEFAULT_CLOUD_API_BASE = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
+# Default values (fallback if config file not found)
+# SECURITY NOTE: Update these in ~/.t3lab/family_loader_config.json instead
+DEFAULT_CLOUD_API_BASE = "https://your-deployment.vercel.app"
 DEFAULT_CLOUD_API_ENDPOINT = "/api/families"
 
 # Vercel Protection Bypass Token
 # Get from: Vercel Dashboard → Settings → Deployment Protection → Protection Bypass
-# Leave empty if no protection is enabled
-DEFAULT_VERCEL_BYPASS_TOKEN = "1McvpSpOLuCfzLkqAybnPgtxlbAgFv6V"
+# IMPORTANT: Configure in ~/.t3lab/family_loader_config.json for security
+# DO NOT hardcode production credentials here
+DEFAULT_VERCEL_BYPASS_TOKEN = ""
 
 # For local testing, you can use: "http://localhost:3000/api/families"
 

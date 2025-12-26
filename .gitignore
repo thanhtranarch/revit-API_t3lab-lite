@@ -1,28 +1,14 @@
-# Python cache files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# Distribution / packaging
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# PyRevit specific
-*.pyc
+# Virtual Environment
+venv/
+ENV/
+env/
 
 # IDE
 .vscode/
@@ -31,13 +17,33 @@ wheels/
 *.swo
 *~
 
-# OS specific
+# OS
 .DS_Store
 Thumbs.db
+
+# Configuration files with credentials
+*.config.json
+.env
+*.token
+*.secret
+
+# pyRevit
+*.pyc
+*.pyo
 
 # Logs
 *.log
 
 # Temporary files
 *.tmp
-*.temp
+*~
+.cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# User-specific configuration (contains credentials)
+.t3lab/
+**/family_loader_config.json
