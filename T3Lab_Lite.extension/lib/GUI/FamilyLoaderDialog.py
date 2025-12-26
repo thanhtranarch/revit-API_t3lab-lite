@@ -460,11 +460,17 @@ class FamilyLoaderWindow(Window):
                 else:
                     logger.warning("Saved folder no longer exists: {}".format(self.current_folder))
                     self.current_folder = None
-                    self.select_folder_clicked(None, None)
+                    # Defer folder dialog to after window is fully rendered
+                    self.Dispatcher.BeginInvoke(
+                        Action(lambda: self.select_folder_clicked(None, None))
+                    )
             else:
-                # No saved folder - show dialog
-                logger.info("No saved folder found, showing folder selection dialog")
-                self.select_folder_clicked(None, None)
+                # No saved folder - defer dialog to after window is fully rendered
+                logger.info("No saved folder found, will show folder selection dialog")
+                # Update UI first
+                self.txt_current_folder.Text = "Click 'Update Folder' to select a folder or switch to Cloud mode"
+                # Don't auto-show dialog to prevent crash - let user click the button
+                # This prevents modal dialog issues during window initialization
         except Exception as ex:
             logger.error("Error in window_loaded: {}".format(ex))
             logger.error(traceback.format_exc())
