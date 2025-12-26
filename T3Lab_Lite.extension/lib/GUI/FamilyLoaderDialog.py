@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 """
 Family Loader Dialog
-Load Revit families from folders with category organization
-COMPREHENSIVE FIX: Memory leaks, threading, error handling, and stability improvements
-"""
-__title__ = "Family Loader"
-__author__ = "T3Lab"
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+Load Revit families from folders with category organization.
+Supports both local folder scanning and cloud-based family loading from Vercel API.
+Includes comprehensive error handling, threading, and memory management.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__ = "Tran Tien Thanh"
+__title__  = "Family Loader"
+
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import sys
 import clr
@@ -43,10 +48,8 @@ from System.Windows.Threading import Dispatcher
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-#====================================================================================================
+# DEFINE VARIABLES
+# ==================================================
 logger = script.get_logger()
 doc = revit.doc
 uidoc = revit.uidoc
@@ -77,10 +80,8 @@ else:
 # Temp folder for downloaded families
 TEMP_FAMILIES_DIR = os.path.join(tempfile.gettempdir(), "t3lab_cloud_families")
 
-# ╦ ╦╔═╗╦  ╔═╗╔═╗╦═╗  ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠═╣║╣ ║  ╠═╝║╣ ╠╦╝  ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
-# ╩ ╩╚═╝╩═╝╩  ╚═╝╩╚═  ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝
-#====================================================================================================
+# HELPER FUNCTIONS
+# ==================================================
 
 def load_config():
     """Load configuration from JSON file with validation and corruption recovery"""
@@ -256,10 +257,8 @@ def download_family_file(download_url, save_path):
         logger.error(traceback.format_exc())
         return False
 
-# ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
-# ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
-# ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
-#====================================================================================================
+# CLASSES
+# ==================================================
 
 class FamilyLoadOptions(DB.IFamilyLoadOptions):
     """Custom IFamilyLoadOptions to handle family conflicts automatically"""
@@ -575,10 +574,8 @@ class FamilyLoaderWindow(Window):
             logger.error("=" * 80)
             raise
 
-    # ╔═╗╦  ╦╔═╗╔╗╔╔╦╗  ╦ ╦╔═╗╔╗╔╔╦╗╦  ╔═╗╦═╗╔═╗
-    # ║╣ ╚╗╔╝║╣ ║║║ ║   ╠═╣╠═╣║║║ ║║║  ║╣ ╠╦╝╚═╗
-    # ╚═╝ ╚╝ ╚═╝╝╚╝ ╩   ╩ ╩╩ ╩╝╚╝═╩╝╩═╝╚═╝╩╚═╚═╝
-    #====================================================================================================
+    # EVENT HANDLERS
+    # ==================================================
 
     def window_loaded(self, sender, e):
         """Handle window loaded event - auto-show folder dialog if no folder is set"""
@@ -1500,10 +1497,8 @@ class FamilyLoaderWindow(Window):
             logger.error("Error during cleanup: {}".format(ex))
 
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝ MAIN
-#====================================================================================================
+# MAIN SCRIPT
+# ==================================================
 
 def show_family_loader():
     """Show the family loader dialog"""
