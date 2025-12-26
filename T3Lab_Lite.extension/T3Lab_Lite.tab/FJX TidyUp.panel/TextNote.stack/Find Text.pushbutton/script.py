@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Find Text
+
 Find View of TextNote
 Search TextNotes placed in model by name and jump to their View
 
@@ -8,10 +10,14 @@ Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 --------------------------------------------------------
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
-__title__ = "Find Text"
+
 __author__ = "Tran Tien Thanh"
-__version__ = 'Version: 1.0'
+__title__  = "Find Text"
 
 # IMPORT LIBRARIES
 # ==================================================

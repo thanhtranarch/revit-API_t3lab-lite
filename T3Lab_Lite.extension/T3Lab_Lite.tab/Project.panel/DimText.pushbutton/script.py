@@ -2,15 +2,21 @@
 """
 Text in Dimension
 
+Text in Dimension
+
 Adjust Dimension Text
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__author__  = "Tran Tien Thanh"
-__title__   = "Text in Dimension"
+__author__ = "Tran Tien Thanh"
+__title__  = "Text in Dimension"
 
 # IMPORT LIBRARIES
 # ==================================================

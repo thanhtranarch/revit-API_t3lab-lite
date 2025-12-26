@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 """
 Family Loader Cloud Dialog
-Load Revit families from Vercel cloud API
-Cloud-only version with bypass token support
-"""
-__title__ = "Family Loader (Cloud)"
-__author__ = "T3Lab"
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+Load Revit families from Vercel cloud API.
+Cloud-only version with bypass token support for deployment protection.
+Supports automatic download, caching, and batch loading of families.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__ = "Tran Tien Thanh"
+__title__  = "Family Loader (Cloud)"
+
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import sys
 import clr
@@ -43,10 +48,8 @@ from System.Windows.Threading import Dispatcher
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-#====================================================================================================
+# DEFINE VARIABLES
+# ==================================================
 logger = script.get_logger()
 doc = revit.doc
 uidoc = revit.uidoc
@@ -55,10 +58,8 @@ uidoc = revit.uidoc
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".t3lab")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "family_loader_config.json")
 
-# ╔═╗╦  ╔═╗╦ ╦╔╦╗  ╔═╗╔═╗╦  ╔═╗╔═╗╔╗╔╔═╗╦╔═╗
-# ║  ║  ║ ║║ ║ ║║  ║  ║ ║║║║╠╣ ║║ ╦
-# ╚═╝╩═╝╚═╝╚═╝═╩╝  ╚═╝╚═╝╝╚╝╚  ╩╚═╝ CONFIG
-#====================================================================================================
+# Cloud API Configuration
+# ==================================================
 # Cloud API configuration (defaults)
 #
 # CONFIGURATION OPTIONS:
@@ -120,10 +121,8 @@ def get_cloud_api_url():
 # Temp folder for downloaded families
 TEMP_FAMILIES_DIR = os.path.join(tempfile.gettempdir(), "t3lab_cloud_families")
 
-# ╦ ╦╔═╗╦  ╔═╗╔═╗╦═╗  ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠═╣║╣ ║  ╠═╝║╣ ╠╦╝  ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
-# ╩ ╩╚═╝╩═╝╩  ╚═╝╩╚═  ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝
-#====================================================================================================
+# HELPER FUNCTIONS
+# ==================================================
 
 def load_config():
     """Load configuration from JSON file with validation and corruption recovery"""
@@ -299,10 +298,8 @@ def download_family_file(download_url, save_path):
         logger.error(traceback.format_exc())
         return False
 
-# ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
-# ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
-# ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
-#====================================================================================================
+# CLASSES
+# ==================================================
 
 class FamilyLoadOptions(DB.IFamilyLoadOptions):
     """Custom IFamilyLoadOptions to handle family conflicts automatically"""
@@ -483,10 +480,8 @@ class FamilyLoaderCloudWindow(Window):
             logger.error(traceback.format_exc())
             raise
 
-    # ╔═╗╦  ╦╔═╗╔╗╔╔╦╗  ╦ ╦╔═╗╔╗╔╔╦╗╦  ╔═╗╦═╗╔═╗
-    # ║╣ ╚╗╔╝║╣ ║║║ ║   ╠═╣╠═╣║║║ ║║║  ║╣ ╠╦╝╚═╗
-    # ╚═╝ ╚╝ ╚═╝╝╚╝ ╩   ╩ ╩╩ ╩╝╚╝═╩╝╩═╝╚═╝╩╚═╚═╝
-    #====================================================================================================
+    # EVENT HANDLERS
+    # ==================================================
 
     def window_loaded(self, sender, e):
         """Handle window loaded event - automatically load cloud families"""
@@ -1226,10 +1221,8 @@ class FamilyLoaderCloudWindow(Window):
             logger.error("Error during cleanup: {}".format(ex))
 
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝ MAIN
-#====================================================================================================
+# MAIN SCRIPT
+# ==================================================
 
 def show_family_loader_cloud():
     """Show the family loader cloud dialog"""

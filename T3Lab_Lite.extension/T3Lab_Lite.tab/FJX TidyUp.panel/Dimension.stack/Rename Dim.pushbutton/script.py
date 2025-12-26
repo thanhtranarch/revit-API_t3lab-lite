@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-
 """
+Ren Dim
+
 Rename Dimmension
 Auto rename Dimension Types
 LB_<discipline>_<textsize>_<textfont>_<textbackground>_<color>_<dimsuffix>
@@ -10,10 +11,14 @@ Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 --------------------------------------------------------
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
-__title__ = "Ren Dim"
+
 __author__ = "Tran Tien Thanh"
-__version__ = 'Version: 3.0'
+__title__  = "Ren Dim"
 
 # IMPORT LIBRARIES
 # ==================================================

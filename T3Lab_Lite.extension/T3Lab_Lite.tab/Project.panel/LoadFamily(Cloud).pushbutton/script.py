@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Load Family Cloud Tool
-Load Revit families from Vercel cloud API
-"""
-__title__ = "Load Family (Cloud)"
-__author__ = "T3Lab"
-__doc__ = """Load Revit families from Vercel cloud API.
+Load Family (Cloud)
+
+Load Revit families from Vercel cloud API.
+Provides cloud-based family library access with automatic downloading.
 
 Features:
 - Cloud-based family library hosted on Vercel
@@ -14,12 +12,17 @@ Features:
 - Preview family thumbnails
 - Batch loading with automatic download
 - Vercel deployment protection bypass support
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+__author__ = "Tran Tien Thanh"
+__title__  = "Load Family (Cloud)"
+
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import sys
 
@@ -35,10 +38,8 @@ from GUI.FamilyLoaderCloudDialog import show_family_loader_cloud
 # pyRevit Imports
 from pyrevit import script
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝ MAIN
-#====================================================================================================
+# MAIN SCRIPT
+# ==================================================
 
 if __name__ == '__main__':
     logger = script.get_logger()

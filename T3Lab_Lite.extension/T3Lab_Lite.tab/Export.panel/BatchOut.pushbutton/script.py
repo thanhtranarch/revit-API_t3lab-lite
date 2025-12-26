@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-"""BatchOut - Batch export sheets to multiple formats.
+"""
+Batch\nOut
+
+BatchOut - Batch export sheets to multiple formats.
 
 Enhanced version inspired by DiRoots ProSheets with tabbed interface.
 
@@ -25,11 +28,14 @@ API Version Notes:
 - Revit 2022-2026: DWGExportOptions.PropOverrides expects PropOverrideMode enum
 - Revit 2022-2026: PDFExportOptions signature requires separate folder and filename
 - Revit 2025+: Built on .NET 8 (backward compatible with same API)
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__title__ = "Batch\nOut"
-__author__ = "T3Lab"
-__version__ = "1.0.0"
+__author__ = "Tran Tien Thanh"
+__title__  = "Batch\nOut"
 
 # IMPORTS
 import os

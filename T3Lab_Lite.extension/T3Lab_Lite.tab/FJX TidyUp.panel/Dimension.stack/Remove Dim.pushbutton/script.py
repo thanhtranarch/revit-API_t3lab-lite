@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Del Dim
+
 Delete Dimensions by Name
 Search Dimensions by name, select from list, and delete selected ones
 
@@ -8,10 +10,14 @@ Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 --------------------------------------------------------
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
-__title__ = "Del Dim"
+
 __author__ = "Tran Tien Thanh"
-__version__ = 'Version: 1.0'
+__title__  = "Del Dim"
 
 # IMPORT LIBRARIES
 # ==================================================

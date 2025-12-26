@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Ren TextType
+
 Rename TextNoteType
 Auto rename TextNote Types:
 LB_<discipline>_<textsize>_<textfont>_<textbackground>_<textfactor>_<textcolor>[_Border][_B][_U][_I]
@@ -9,10 +11,14 @@ Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 --------------------------------------------------------
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
-__title__ = "Ren TextType"
+
 __author__ = "Tran Tien Thanh"
-__version__ = 'Version: 1.3'
+__title__  = "Ren TextType"
 
 # IMPORT LIBRARIES
 # ==================================================

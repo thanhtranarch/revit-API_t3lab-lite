@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Load Family Tool
-Load Revit families from folders with category organization
-"""
-__title__ = "Load Family"
-__author__ = "T3Lab"
-__doc__ = """Load Revit families from folders with category organization.
+Load Family
+
+Load Revit families from local folders with category organization.
+Provides an intuitive interface for browsing and batch loading families.
 
 Features:
 - Select folder to browse families
@@ -13,12 +11,17 @@ Features:
 - Search functionality for quick filtering
 - Preview family thumbnails
 - Batch loading of multiple families
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+__author__ = "Tran Tien Thanh"
+__title__  = "Load Family"
+
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import sys
 
@@ -34,10 +37,8 @@ from GUI.FamilyLoaderDialog import show_family_loader
 # pyRevit Imports
 from pyrevit import script
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝ MAIN
-#====================================================================================================
+# MAIN SCRIPT
+# ==================================================
 
 if __name__ == '__main__':
     logger = script.get_logger()

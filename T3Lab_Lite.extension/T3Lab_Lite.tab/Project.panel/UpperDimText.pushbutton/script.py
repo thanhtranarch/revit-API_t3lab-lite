@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+Upper Text
+
 UpperText
 
 Adjust Dimension Text with Enhanced Control
@@ -7,10 +9,14 @@ Adjust Dimension Text with Enhanced Control
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__author__  = "Tran Tien Thanh"
-__title__   = "Upper Text"
+__author__ = "Tran Tien Thanh"
+__title__  = "Upper Text"
 
 # IMPORT LIBRARIES
 # ==================================================
