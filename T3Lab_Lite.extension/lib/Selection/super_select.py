@@ -44,6 +44,10 @@ If you select an element and it changes your selection to many other
 unwanted types, please let me know the Category of the elmenet, 
 it might need an individual filtering rule.
 _____________________________________________________________________
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
 #____________________________________________________________________ IMPORTS

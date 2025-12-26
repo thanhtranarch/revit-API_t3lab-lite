@@ -11,7 +11,12 @@ def override_graphics_region(doc, view, region,
     :param fg_color:        Foreground - Colour
     :param bg_pattern_id:   Background - Pattern id
     :param bg_color:        Background - Colour
-    :return:                None """
+    :return:                None
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     try:
         override_settings = OverrideGraphicSettings()
         if fg_pattern_id != ElementId(-1):

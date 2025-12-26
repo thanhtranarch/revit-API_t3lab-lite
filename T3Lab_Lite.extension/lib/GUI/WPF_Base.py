@@ -2,9 +2,7 @@
 __title__ = "Template for my custom WPF windows."
 __author__ = "Erik Frits"
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
+# IMPORT LIBRARIES
 # ==================================================
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> .NET IMPORTS
 import os, sys
@@ -20,27 +18,23 @@ import wpf
 from System.Windows import Application, Window, ResourceDictionary
 from System import Uri
 
-# ╦ ╦╔═╗╔═╗  ╔╦╗╔═╗╔╦╗╔═╗╦  ╔═╗╔╦╗╔═╗
-# ║║║╠═╝╠╣    ║ ║╣ ║║║╠═╝║  ╠═╣ ║ ║╣
-# ╚╩╝╩  ╚     ╩ ╚═╝╩ ╩╩  ╩═╝╩ ╩ ╩ ╚═╝ WPF TEMPLATE
 # ==================================================
 class my_WPF(Window):
 
-    # ╔╦╗╔═╗╔╦╗╦ ╦╔═╗╔╦╗╔═╗
-    # ║║║║╣  ║ ╠═╣║ ║ ║║╚═╗
-    # ╩ ╩╚═╝ ╩ ╩ ╩╚═╝═╩╝╚═╝ METHODS
     #==================================================
     def add_wpf_resource(self):
-        """Function to add WPF resources."""
+        """Function to add WPF resources.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
         dir_path        = os.path.dirname(__file__)
         path_styles     = os.path.join(dir_path, 'Resources/WPF_styles.xaml')
         r               = ResourceDictionary()
         r.Source        = Uri(path_styles)
         self.Resources  = r
 
-    # ╔═╗╦ ╦╦  ╔═╗╦  ╦╔═╗╔╗╔╔╦╗╔═╗
-    # ║ ╦║ ║║  ║╣ ╚╗╔╝║╣ ║║║ ║ ╚═╗
-    # ╚═╝╚═╝╩  ╚═╝ ╚╝ ╚═╝╝╚╝ ╩ ╚═╝ GUI EVENTS
     #==================================================
     def button_close(self, sender, e):
         """Stop application by clicking on a <Close> button in the top right corner."""

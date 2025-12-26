@@ -36,7 +36,10 @@ class ModelChecker(PreflightTestCase):
     This QC tools returns you with the following data:
         Reference planes count, link to, name
 
-    """
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
 
     name = "Reference Plan Lister"
     author = "Jean-Marc Couffin"

@@ -186,7 +186,12 @@ def flatten(l):
 
 
 def chunks(l, n):
-    """Yield n number of striped chunks from l."""
+    """Yield n number of striped chunks from l.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     for i in range(0, n):
         yield l[i::n]
 

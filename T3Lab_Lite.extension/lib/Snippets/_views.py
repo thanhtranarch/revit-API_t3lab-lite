@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
+# IMPORT LIBRARIES
 # ==================================================
 from pyrevit import forms
 from Autodesk.Revit.DB import ( Transaction,
@@ -22,21 +20,22 @@ from Autodesk.Revit.DB import ( Transaction,
                                 ViewFamily,
                                 ViewFamilyType)
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
+# DEFINE VARIABLES
 # ==================================================
 uidoc    = __revit__.ActiveUIDocument
 doc      = __revit__.ActiveUIDocument.Document
 app      = __revit__.Application
 rvt_year = int(app.VersionNumber)
 
-# ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
-# ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝ FUNCTIONS
+# HELPER FUNCTIONS
 # ==================================================
 def create_string_equals_filter(key_parameter, element_value, caseSensitive = True):
-    """Function to create ElementParameterFilter based on FilterStringRule."""
+    """Function to create ElementParameterFilter based on FilterStringRule.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     f_parameter         = ParameterValueProvider(ElementId(key_parameter))
     f_parameter_value   = element_value
 

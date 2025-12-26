@@ -3,6 +3,10 @@
 
 This dialog allows users to select from all available sheet/view parameters
 to build custom filename patterns.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
 import os

@@ -26,7 +26,12 @@ default_doc = default_uidoc.Document
 
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> FUNCTIONS
 def create_filter(key_parameter, element_value):
-    """Function to create a RevitAPI filter."""
+    """Function to create a RevitAPI filter.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     f_parameter = ParameterValueProvider(ElementId(key_parameter))
     f_parameter_value = element_value #e.g. element.Category.Id
     f_rule = FilterElementIdRule(f_parameter, FilterNumericEquals(), f_parameter_value)

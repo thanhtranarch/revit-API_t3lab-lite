@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+# IMPORT LIBRARIES
+# ==================================================
 from Autodesk.Revit.DB import *
 from pyrevit import forms
 
@@ -20,10 +18,6 @@ from System.Collections.Generic import List
 
 
 
-# ╔═╗╔╗╔╔╗╔╔═╗╔╦╗╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠═╣║║║║║║║ ║ ║ ╠═╣ ║ ║║ ║║║║╚═╗
-# ╩ ╩╝╚╝╝╚╝╚═╝ ╩ ╩ ╩ ╩ ╩╚═╝╝╚╝╚═╝ ANNOTATIONS
-#==================================================
 def create_text_note(doc, view, x ,y ,text, text_note_type, bold=False):
     #type:(Document, View, float, float, str, ElementId) -> TextNote
     """Function to create a TextNote.
@@ -33,7 +27,12 @@ def create_text_note(doc, view, x ,y ,text, text_note_type, bold=False):
     :param y:               Position Coordinate Y
     :param text:            TextNote Content
     :param text_note_type:  text_note_type
-    :return:                TextNote"""
+    :return:                TextNote
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     text = '-' if not text else text
     # TEXTNOTE
     text_note = TextNote.Create(doc, view.Id, XYZ(x, y, 0),text, text_note_type.Id)

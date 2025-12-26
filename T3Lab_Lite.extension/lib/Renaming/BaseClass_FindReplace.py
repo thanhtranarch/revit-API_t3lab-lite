@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+# IMPORT LIBRARIES
+# ==================================================
 from abc import ABCMeta, abstractmethod, abstractproperty
 from pyrevit import forms
 
@@ -16,13 +14,14 @@ from System.Windows.Input import MouseButtonState
 
 import os
 
-# ╔╗ ╔═╗╔═╗╔═╗  ╔═╗╦  ╔═╗╔═╗╔═╗
-# ╠╩╗╠═╣╚═╗║╣   ║  ║  ╠═╣╚═╗╚═╗
-# ╚═╝╩ ╩╚═╝╚═╝  ╚═╝╩═╝╩ ╩╚═╝╚═╝ BASE CLASS
-#====================================================================================================
 
 class BaseRenaming(forms.WPFWindow):
-    """GUI for [Views: Find and Replace]"""
+    """GUI for [Views: Find and Replace]
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     def start(self, title, version="Version: _"):
         xaml_dir_abs_path = os.path.abspath(os.path.dirname(__file__))
         xaml_file_name = os.path.join(xaml_dir_abs_path,"GUI_BaseRename.xaml")
@@ -37,9 +36,6 @@ class BaseRenaming(forms.WPFWindow):
         else:
             forms.alert("No matching elements for renaming were selected. \nPlease Try again.", exitscript=True, title="Script Cancelled.")
 
-    # ╔═╗╔╗ ╔═╗╔╦╗╦═╗╔═╗╔═╗╔╦╗
-    # ╠═╣╠╩╗╚═╗ ║ ╠╦╝╠═╣║   ║
-    # ╩ ╩╚═╝╚═╝ ╩ ╩╚═╩ ╩╚═╝ ╩ ABSTRACT PART
     # ====================================================================================================
 
     @abstractproperty
@@ -65,9 +61,6 @@ class BaseRenaming(forms.WPFWindow):
     def get_selected_elements(self):
         return [self.doc.GetElement(elem_id) for elem_id in self.uidoc.Selection.GetElementIds() if type(self.doc.GetElement(elem_id)) in self.element_types]
 
-    # ╔═╗╦ ╦╦  ╔═╗╦═╗╔═╗╔═╗╔═╗╦═╗╔╦╗╦╔═╗╔═╗
-    # ║ ╦║ ║║  ╠═╝╠╦╝║ ║╠═╝║╣ ╠╦╝ ║ ║║╣ ╚═╗
-    # ╚═╝╚═╝╩  ╩  ╩╚═╚═╝╩  ╚═╝╩╚═ ╩ ╩╚═╝╚═╝ GUI PROPERTIES
     # ====================================================================================================
 
     @property
@@ -86,9 +79,6 @@ class BaseRenaming(forms.WPFWindow):
     def suffix(self):
         return self.input_suffix.Text
 
-    # ╔═╗╦ ╦╦  ╔═╗╦  ╦╔═╗╔╗╔╔╦╗╔═╗
-    # ║ ╦║ ║║  ║╣ ╚╗╔╝║╣ ║║║ ║ ╚═╗
-    # ╚═╝╚═╝╩  ╚═╝ ╚╝ ╚═╝╝╚╝ ╩ ╚═╝ GUI EVENTS (BUTTONS)
     # ====================================================================================================
     def button_close(self,sender,e):
         """Stop application by clicking on a <Close> button in the top right corner."""

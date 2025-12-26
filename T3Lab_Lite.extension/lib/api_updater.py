@@ -10,6 +10,10 @@ Features:
 - Detect new Revit versions
 - Update cached API information
 - Notify users of important API changes
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
 import os
@@ -28,7 +32,7 @@ try:
 except:
     HAS_WEB_CLIENT = False
 
-__author__ = "T3Lab"
+__author__ = "Tran Tien Thanh"
 __version__ = "1.0.0"
 
 

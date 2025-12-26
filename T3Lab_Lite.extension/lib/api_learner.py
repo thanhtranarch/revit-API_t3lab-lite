@@ -10,6 +10,10 @@ Features:
 - Cache API information for offline usage
 - Smart fallback when documentation is unavailable
 - Auto-update support for new Revit versions
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
 import os
@@ -26,7 +30,7 @@ try:
 except:
     HAS_WEB_CLIENT = False
 
-__author__ = "T3Lab"
+__author__ = "Tran Tien Thanh"
 __version__ = "1.0.0"
 
 

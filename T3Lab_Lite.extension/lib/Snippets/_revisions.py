@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+# IMPORT LIBRARIES
+# ==================================================
 import traceback
 
 from Autodesk.Revit.DB import (RevisionNumberType,
@@ -21,7 +19,12 @@ def create_revision(description, date, revision_type = RevisionNumberType.None):
     """Function to create new Revision.
     :param description: string for Description
     :param date:        string for Date
-    :return:            new Revision"""
+    :return:            new Revision
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     with try_except(debug=True):
         new_rev              = Revision.Create(doc)
         new_rev.Description  = description
@@ -59,10 +62,6 @@ def add_revision_to_sheet(sheet, revision_id):
 
 
 
-# ╔╦╗╔═╗╔═╗╔╦╗╦╔╗╔╔═╗
-#  ║ ║╣ ╚═╗ ║ ║║║║║ ╦
-#  ╩ ╚═╝╚═╝ ╩ ╩╝╚╝╚═╝
-#==================================================
 def revision_data(revision):
     print("SequenceNumber: "            + str( revision.SequenceNumber))
     print("NumberType: "                + str( revision.NumberType))

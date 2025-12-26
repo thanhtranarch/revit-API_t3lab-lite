@@ -1,25 +1,24 @@
 # -*- coding: utf-8 -*-
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
+# IMPORT LIBRARIES
 # ==================================================
 
 from Autodesk.Revit.DB import *
 from pyrevit.forms import alert
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
+# DEFINE VARIABLES
 # ==================================================
 doc   = __revit__.ActiveUIDocument.Document     # Document   class from RevitAPI that represents project. Used to Create, Delete, Modify and Query elements from the project.
 uidoc = __revit__.ActiveUIDocument              # UIDocument class from RevitAPI that represents Revit project opened in the Revit UI.
 app   = __revit__.Application                   # Represents the Autodesk Revit Application, providing access to documents, options and other application wide data and settings.
 
-# ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
-# ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝ FUNCTIONS
+# HELPER FUNCTIONS
 # ==================================================
 def create_filter(key_parameter, element_value):
-    """Function to create a RevitAPI filter."""
+    """Function to create a RevitAPI filter.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     f_parameter = ParameterValueProvider(ElementId(key_parameter))
     f_parameter_value = element_value  # e.g. element.Category.Id
     f_rule = FilterElementIdRule(f_parameter, FilterNumericEquals(), f_parameter_value)

@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+# IMPORT LIBRARIES
+# ==================================================
 import os, clr, traceback, sys
 
 #>>>>>>>>>> pyRevit
@@ -17,10 +15,8 @@ clr.AddReference("System")
 from System.Collections.Generic import List
 import wpf
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-#====================================================================================================
+# DEFINE VARIABLES
+# ==================================================
 PATH_SCRIPT = os.path.dirname(__file__)
 
 uidoc   = __revit__.ActiveUIDocument
@@ -32,16 +28,19 @@ active_view         = doc.GetElement(active_view_id)
 active_view_level   = active_view.GenLevel
 
 class ListItem:
-    """Helper Class for displaying selected sheets in my custom GUI."""
+    """Helper Class for displaying selected sheets in my custom GUI.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     def __init__(self,  Name='Unnamed', element = None, checked = False):
         self.Name       = Name
         self.IsChecked  = checked
         self.element    = element
 
-# ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
-# ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
-# ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
-#====================================================================================================
+# CLASSES
+# ==================================================
 class CreateFromRooms(my_WPF):
     selected_type = []
     offset         = 0
@@ -94,9 +93,6 @@ class CreateFromRooms(my_WPF):
         return list_of_items
 
 
-    # ╔═╗╦ ╦╦  ╔═╗╦  ╦╔═╗╔╗╔╔╦╗╔═╗
-    # ║ ╦║ ║║  ║╣ ╚╗╔╝║╣ ║║║ ║ ╚═╗
-    # ╚═╝╚═╝╩  ╚═╝ ╚╝ ╚═╝╝╚╝ ╩ ╚═╝ GUI EVENTS
     #==================================================
     def text_filter_updated(self, sender, e):
         """Function to filter items in the main_ListBox."""
@@ -135,9 +131,6 @@ class CreateFromRooms(my_WPF):
         e.Handled = regex.match(e.Text)
 
 
-    # ╔╗ ╦ ╦╔╦╗╔╦╗╔═╗╔╗╔╔═╗
-    # ╠╩╗║ ║ ║  ║ ║ ║║║║╚═╗
-    # ╚═╝╚═╝ ╩  ╩ ╚═╝╝╚╝╚═╝ BUTTONS
     #==================================================
     def button_close(self, sender, e):
         """Stop application by clicking on a <Close> button in the top right corner."""

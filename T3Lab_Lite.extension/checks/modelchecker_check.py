@@ -185,7 +185,12 @@ CRITICAL_WARNINGS = [
 
 
 def dashboardRectMaker(value, description, treshold):
-    """dashboard HTMl maker - rectangle with large number"""
+    """dashboard HTMl maker - rectangle with large number
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     content = str(value)
     # normal button
     if value <= treshold:

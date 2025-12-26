@@ -7,7 +7,12 @@ default_doc = default_uidoc.Document
 
 
 def get_views_on_sheet(sheet, uidoc=default_uidoc):
-    """Function to return all views found on the given sheet."""
+    """Function to return all views found on the given sheet.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     doc = uidoc.Document
     viewports_ids   = sheet.GetAllViewports()
     viewports       = [doc.GetElement(viewport_id)  for viewport_id in viewports_ids]

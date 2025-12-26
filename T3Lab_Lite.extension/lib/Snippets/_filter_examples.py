@@ -13,7 +13,12 @@ app = __revit__.Application
 
 #>>>>>>>>>> STRING FILTER
 def create_string_filter(key_parameter, element_value, caseSensitive = True):
-    """Function to create a RevitAPI filter."""
+    """Function to create a RevitAPI filter.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     f_parameter         = ParameterValueProvider(ElementId(key_parameter))  #sheet.SheetNumber
     f_parameter_value   = element_value #e.g. element.Category.Id           #element.GetPara
     caseSensitive       = True

@@ -1,41 +1,17 @@
 # -*- coding: utf-8 -*-
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝
-#==================================================
-import sys, clr
-import traceback
-
-from Autodesk.Revit.UI.Selection    import ISelectionFilter, ObjectType, Selection
-from Autodesk.Revit.DB.Architecture import Room
-from Autodesk.Revit.DB import *
-
-# pyRevit IMPORTS
-from pyrevit.forms import SelectFromList
-from pyrevit import forms
-
-#.NET
-clr.AddReference('System')
-from System.Collections.Generic import List
-
-# CUSTOM IMPORTS
-from Snippets._variables import ALL_VIEW_TYPES
-from GUI.forms           import select_from_dict
-
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝
-#==================================================
+# IMPORT LIBRARIES
+# ==================================================
 uidoc     = __revit__.ActiveUIDocument
 doc       = __revit__.ActiveUIDocument.Document
 selection = uidoc.Selection                          # type: Selection
 
-# ╔═╗╔═╗╔╦╗  ╔═╗╔═╗╦  ╔═╗╔═╗╔╦╗╔═╗╔╦╗
-# ║ ╦║╣  ║   ╚═╗║╣ ║  ║╣ ║   ║ ║╣  ║║
-# ╚═╝╚═╝ ╩   ╚═╝╚═╝╩═╝╚═╝╚═╝ ╩ ╚═╝═╩╝
-#==================================================
 def get_selected_elements(uidoc = uidoc, exitscript=True):
-    """Property that retrieves selected views or promt user to select some from the dialog box."""
+    """Property that retrieves selected views or promt user to select some from the dialog box.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     doc       = uidoc.Document
     selection = uidoc.Selection  # type: Selection
 
@@ -136,10 +112,6 @@ def get_selected_sheets(given_uidoc = uidoc, exit_if_none = False, title='__titl
         forms.alert("No sheets were selected. Please try again.", exitscript=True)
     return selected_sheets
 
-# ╔═╗╔═╗╦  ╔═╗╔═╗╔╦╗
-# ╚═╗║╣ ║  ║╣ ║   ║
-# ╚═╝╚═╝╩═╝╚═╝╚═╝ ╩
-#==================================================
 #>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> SELECT TITLEBLOCK
 def select_title_block(given_uidoc = uidoc, exitscript = True):
     """Function to let user select a title block.
@@ -186,9 +158,6 @@ def select_floor_type(given_uidoc = uidoc):
 
 
 #>>>>>>>>> LIMIT SELECTION
-# ╦  ╔═╗╔═╗╦  ╔═╗╔═╗╔╦╗╦╔═╗╔╗╔  ╔═╗╦╦ ╔╦╗╔═╗╦═╗
-# ║  ╚═╗║╣ ║  ║╣ ║   ║ ║║ ║║║║  ╠╣ ║║  ║ ║╣ ╠╦╝
-# ╩  ╚═╝╚═╝╩═╝╚═╝╚═╝ ╩ ╩╚═╝╝╚╝  ╚  ╩╩═╝╩ ╚═╝╩╚═
 class CustomISelectionFilter(ISelectionFilter):
     """Filter user selection to certain element."""
     def __init__(self, cats):
@@ -210,10 +179,6 @@ class ISelectionFilter_Classes(ISelectionFilter):
             return True
 
 
-# ╔═╗╦╔═╗╦╔═  ╔═╗╦  ╔═╗╔╦╗╔═╗╔╗╔╔╦╗╔═╗
-# ╠═╝║║  ╠╩╗  ║╣ ║  ║╣ ║║║║╣ ║║║ ║ ╚═╗
-# ╩  ╩╚═╝╩ ╩  ╚═╝╩═╝╚═╝╩ ╩╚═╝╝╚╝ ╩ ╚═╝
-#==================================================
 #>>>>>>>>>> PICK WALL
 def pick_wall(given_uidoc = uidoc):
     """Function to promt user to select a wall element in Revit UI."""

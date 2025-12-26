@@ -1,21 +1,15 @@
 # -*- coding: utf-8 -*-
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
+# IMPORT LIBRARIES
 # ==================================================
 from Autodesk.Revit.DB import *
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
+# DEFINE VARIABLES
 # ==================================================
 app      = __revit__.Application
 rvt_year = int(app.VersionNumber)
 
 
-# ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
-# ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝ FUNCTIONS
+# HELPER FUNCTIONS
 # ==================================================
 def convert_internal_units(value, get_internal = True, units='m'):
     #type: (float, bool, str) -> float
@@ -23,7 +17,12 @@ def convert_internal_units(value, get_internal = True, units='m'):
     :param value:        Value to convert
     :param get_internal: True to get internal units, False to get Meters
     :param units:        Select desired Units: ['m', 'm2']
-    :return:             Length in Internal units or Meters."""
+    :return:             Length in Internal units or Meters.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
 
     if rvt_year >= 2021:
         from Autodesk.Revit.DB import UnitTypeId
@@ -59,9 +58,6 @@ def convert_internal_units(value, get_internal = True, units='m'):
 
 
 
-# ╔═╗╔╗ ╔═╗╔═╗╦  ╔═╗╔╦╗╔═╗
-# ║ ║╠╩╗╚═╗║ ║║  ║╣  ║ ║╣
-# ╚═╝╚═╝╚═╝╚═╝╩═╝╚═╝ ╩ ╚═╝ OBSOLETE ( still need to refactor the code)
 def convert_cm_to_feet(length):
     """Function to convert cm to feet."""
 

@@ -1,16 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝
-#==================================================
-from Autodesk.Revit.DB import *
-
-
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-#==================================================
+# DEFINE VARIABLES
+# ==================================================
 uidoc   = __revit__.ActiveUIDocument
 app     = __revit__.Application
 doc     = __revit__.ActiveUIDocument.Document
@@ -19,16 +10,19 @@ active_view_id      = doc.ActiveView.Id
 active_view         = doc.GetElement(active_view_id)
 active_view_level   = active_view.GenLevel
 
-# ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
-# ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝ FUNCTIONS
-#==================================================
+# HELPER FUNCTIONS
+# ==================================================
 
 def get_points_along_a_curve(curve, step=0.3):
     """ Function to get points along given Curve
     :param curve: Curve that will be tessellated.
     :param step:  approx. Step distance between points in feet
-    :return: list of Points along the curve."""
+    :return: list of Points along the curve.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
 
     # Generate points along curve
     pt_0 = curve.GetEndParameter(0)

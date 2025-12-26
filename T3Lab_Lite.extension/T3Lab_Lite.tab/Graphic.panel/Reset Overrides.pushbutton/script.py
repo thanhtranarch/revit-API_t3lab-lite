@@ -7,7 +7,12 @@ collector = DB.FilteredElementCollector(doc, view.Id).WhereElementIsNotElementTy
 override = DB.OverrideGraphicSettings()
 
 def get_element_edges(element, view):
-    """Get all edges from an element's geometry"""
+    """Get all edges from an element's geometry
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     edges = []
     try:
         options = DB.Options()

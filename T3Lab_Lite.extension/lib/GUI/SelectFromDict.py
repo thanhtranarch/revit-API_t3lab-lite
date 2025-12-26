@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+# IMPORT LIBRARIES
+# ==================================================
 import os
 
 #>>>>>>>>>> pyRevit
@@ -20,10 +18,8 @@ from System.Collections.Generic import List
 from System.Windows             import Visibility
 import wpf
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-#====================================================================================================
+# DEFINE VARIABLES
+# ==================================================
 PATH_SCRIPT = os.path.dirname(__file__)
 
 uidoc   = __revit__.ActiveUIDocument
@@ -35,16 +31,19 @@ active_view         = doc.GetElement(active_view_id)
 active_view_level   = active_view.GenLevel
 
 class ListItem:
-    """Helper Class for displaying selected sheets in my custom GUI."""
+    """Helper Class for displaying selected sheets in my custom GUI.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     def __init__(self,  Name='Unnamed', element = None, checked = False):
         self.Name       = Name
         self.IsChecked  = checked
         self.element    = element
 
-# ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
-# ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
-# ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
-#====================================================================================================
+# CLASSES
+# ==================================================
 class SelectFromDict(my_WPF):
     def __init__(self, items,
                  title = '__title',
@@ -97,85 +96,8 @@ class SelectFromDict(my_WPF):
         super(SelectFromDict, self).add_wpf_resource()
 
 
-    # ╔═╗╦ ╦╦  ╔═╗╦  ╦╔═╗╔╗╔╔╦╗╔═╗
-    # ║ ╦║ ║║  ║╣ ╚╗╔╝║╣ ║║║ ║ ╚═╗
-    # ╚═╝╚═╝╩  ╚═╝ ╚╝ ╚═╝╝╚╝ ╩ ╚═╝ GUI EVENTS
-    #==================================================
-    def text_filter_updated(self, sender, e):
-        """Function to filter items in the main_ListBox."""
-        filtered_list_of_items = List[type(ListItem())]()
-        filter_keyword = self.textbox_filter.Text
-
-        #RESTORE ORIGINAL LIST
-        if not filter_keyword:
-            self.main_ListBox.ItemsSource = self.items
-
-            return
-
-        # FILTER ITEMS
-        for item in self.items:
-            if filter_keyword.lower() in item.Name.lower():
-                filtered_list_of_items.Add(item)
-
-        # UPDATE LIST OF ITEMS
-        self.main_ListBox.ItemsSource = filtered_list_of_items
-
-
-    def UIe_ItemChecked(self, sender, e):
-        # SINGLE SELECTIOn
-        if not self.SelectMultiple:
-            filtered_list_of_items = List[type(ListItem())]()
-            for item in self.main_ListBox.Items:
-                item.IsChecked = True if item.Name == sender.Content.Text else False
-                filtered_list_of_items.Add(item)
-            self.main_ListBox.ItemsSource = filtered_list_of_items
-
-    # ╔╗ ╦ ╦╔╦╗╔╦╗╔═╗╔╗╔╔═╗
-    # ╠╩╗║ ║ ║  ║ ║ ║║║║╚═╗
-    # ╚═╝╚═╝ ╩  ╩ ╚═╝╝╚╝╚═╝ BUTTONS
-    #==================================================
-    def select_mode(self, mode):
-        """Helper function for following buttons:
-        - button_select_all
-        - button_select_none"""
-
-        list_of_items = List[type(ListItem())]()
-        checked = True if mode=='all' else False
-        for item in self.main_ListBox.ItemsSource:
-            item.IsChecked = checked
-            list_of_items.Add(item)
-
-        self.main_ListBox.ItemsSource = list_of_items
-
-    def button_select_all(self, sender, e):
-        """ """
-        self.select_mode(mode='all')
-
-    def button_select_none(self, sender, e):
-        """ """
-        self.select_mode(mode='none')
-
-    def button_select(self, sender, e):
-        """Button to finilize selection"""
-        # Reset Filter
-        self.textbox_filter.Text = ''
-        self.Close()
-
-
-
-        selected_items = []
-        for item in self.main_ListBox.ItemsSource:
-            if item.IsChecked:
-                selected_items.append(item.element)
-        self.selected_items = selected_items
-
-
-
-
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝MAIN
-#====================================================================================================
+    # MAIN SCRIPT
+# ==================================================
 def select_from_dict(elements_dict,
                      title          = '__title__',
                      label          = "Select Elements:" ,

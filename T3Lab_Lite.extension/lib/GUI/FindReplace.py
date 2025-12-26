@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+# IMPORT LIBRARIES
+# ==================================================
 
 import os, sys
 from pyrevit import forms
@@ -28,18 +26,19 @@ import wpf
 
 
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-#====================================================================================================
+# DEFINE VARIABLES
+# ==================================================
 PATH_SCRIPT = os.path.dirname(__file__)
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝MAIN
-#====================================================================================================
+# MAIN SCRIPT
+# ==================================================
 class FindReplace(my_WPF):
-    """GUI for [Views: Find and Replace]"""
+    """GUI for [Views: Find and Replace]
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     run = False
 
     def __init__(self, title, label = "Find and Replace", button_name = "Rename"):

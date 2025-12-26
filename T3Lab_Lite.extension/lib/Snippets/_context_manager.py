@@ -4,15 +4,16 @@ import contextlib
 import traceback
 
 import sys, os
-# ╔═╗╔═╗╔╗╔╔╦╗╔═╗═╗ ╦╔╦╗  ╔╦╗╔═╗╔╗╔╔═╗╔═╗╔═╗╦═╗╔═╗
-# ║  ║ ║║║║ ║ ║╣ ╔╩╦╝ ║   ║║║╠═╣║║║╠═╣║ ╦║╣ ╠╦╝╚═╗
-# ╚═╝╚═╝╝╚╝ ╩ ╚═╝╩ ╚═ ╩   ╩ ╩╩ ╩╝╚╝╩ ╩╚═╝╚═╝╩╚═╚═╝ CONTEXT MANAGERS
-#====================================================================================================
 
 @contextlib.contextmanager
 def try_except(debug=False):
     """ContextManager for Try/Except statement with debug option for except.
-    :param debug: if True - Exception error will be displayed with traceback.format_exc()"""
+    :param debug: if True - Exception error will be displayed with traceback.format_exc()
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     try:
         yield
     except Exception as e:

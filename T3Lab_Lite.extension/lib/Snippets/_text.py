@@ -7,7 +7,12 @@ def get_text_in_brackets(text, symbol_start, symbol_end):
     :return:
     e.g.
     get_text_in_brackets('This is [not] important message', '[', ']')
-    => 'not'"""
+    => 'not'
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
     start = text.find(symbol_start) + len(symbol_start) if symbol_start in text else None
     stop = text.find(symbol_end) if symbol_end in text else None
     return str(text[start:stop])

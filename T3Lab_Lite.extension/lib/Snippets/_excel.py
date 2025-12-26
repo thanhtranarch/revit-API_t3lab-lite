@@ -9,7 +9,12 @@ class ExcelWriter:
 
     @property
     def excel_filename(self):
-        """Generate filename with a timestamp for an Excel file."""
+        """Generate filename with a timestamp for an Excel file.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
         dir = os.path.dirname(__file__)
         doc_name = doc.Title
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")

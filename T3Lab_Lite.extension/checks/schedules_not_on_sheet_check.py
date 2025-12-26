@@ -62,7 +62,10 @@ class ModelChecker(PreflightTestCase):
     This QC tools returns you with the following data:
         Type, Id + link and Schedule name with the ability to click on the link to open the schedule
 
-    """
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
 
     name = "Schedules not on sheet lister"
     author = "Jean-Marc Couffin"

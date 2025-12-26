@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗
-# ║║║║╠═╝║ ║╠╦╝ ║
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩  IMPORT
-#==================================================
 
 from Autodesk.Revit.DB import *
 from pyrevit import forms
@@ -24,7 +20,11 @@ def select_group_types(given_groups = None, uidoc = default_uidoc ,title='__titl
     :param uidoc:
     :param exit_if_none:
     :return: list of selected group types_names
-    """
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
 
     #TODO if given_groups , verify that all elements are Groups
     if not given_groups:
