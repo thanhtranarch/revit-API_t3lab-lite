@@ -251,6 +251,8 @@ class ExportPreviewItem(object):
         self.Size = size
         self.Orientation = orientation
         self.Progress = 0
+        self.Status = ""
+        self.ProgressText = ""
 
 
 class ExportManagerWindow(forms.WPFWindow):
@@ -1212,12 +1214,16 @@ class ExportManagerWindow(forms.WPFWindow):
 
         return filename
 
-    def update_export_item_progress(self, sheet_number, format_name, progress):
+    def update_export_item_progress(self, sheet_number, format_name, progress, status=""):
         """Update progress for a specific export item and refresh the display."""
         try:
             for item in self.export_items:
                 if item.SheetNumber == sheet_number and item.Format == format_name:
                     item.Progress = progress
+                    if status:
+                        item.Status = status
+                    elif progress == 100:
+                        item.Status = "Successfully Completed"
                     # Refresh the ListView to show updated progress
                     self.export_preview_list.Items.Refresh()
                     break
@@ -1292,7 +1298,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    self.overall_progress.Value = (current_item * 100.0) / total_items
+                    progress_percent = int((current_item * 100.0) / total_items)
+                    self.overall_progress.Value = progress_percent
+                    self.progress_text.Text = "Completed {}%".format(progress_percent)
 
             if self.export_pdf.IsChecked:
                 folder = os.path.join(output_folder, "PDF") if split_by_format else output_folder
@@ -1302,7 +1310,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    self.overall_progress.Value = (current_item * 100.0) / total_items
+                    progress_percent = int((current_item * 100.0) / total_items)
+                    self.overall_progress.Value = progress_percent
+                    self.progress_text.Text = "Completed {}%".format(progress_percent)
 
             if self.export_dwf.IsChecked:
                 folder = os.path.join(output_folder, "DWF") if split_by_format else output_folder
@@ -1312,7 +1322,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    self.overall_progress.Value = (current_item * 100.0) / total_items
+                    progress_percent = int((current_item * 100.0) / total_items)
+                    self.overall_progress.Value = progress_percent
+                    self.progress_text.Text = "Completed {}%".format(progress_percent)
 
             if self.export_nwd.IsChecked:
                 folder = os.path.join(output_folder, "NWC") if split_by_format else output_folder
@@ -1322,7 +1334,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    self.overall_progress.Value = (current_item * 100.0) / total_items
+                    progress_percent = int((current_item * 100.0) / total_items)
+                    self.overall_progress.Value = progress_percent
+                    self.progress_text.Text = "Completed {}%".format(progress_percent)
 
             if self.export_ifc.IsChecked:
                 folder = os.path.join(output_folder, "IFC") if split_by_format else output_folder
@@ -1332,7 +1346,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    self.overall_progress.Value = (current_item * 100.0) / total_items
+                    progress_percent = int((current_item * 100.0) / total_items)
+                    self.overall_progress.Value = progress_percent
+                    self.progress_text.Text = "Completed {}%".format(progress_percent)
 
             if self.export_img.IsChecked:
                 folder = os.path.join(output_folder, "Images") if split_by_format else output_folder
@@ -1342,7 +1358,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    self.overall_progress.Value = (current_item * 100.0) / total_items
+                    progress_percent = int((current_item * 100.0) / total_items)
+                    self.overall_progress.Value = progress_percent
+                    self.progress_text.Text = "Completed {}%".format(progress_percent)
 
             # Show completion message
             output.print_md("\n---")
