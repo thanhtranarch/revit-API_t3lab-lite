@@ -606,10 +606,37 @@
                                                     DisplayMemberBinding="{Binding Size}"/>
                                     <GridViewColumn Header="Orientation" Width="100"
                                                     DisplayMemberBinding="{Binding Orientation}"/>
-                                    <GridViewColumn Header="Progress" Width="200">
+                                    <GridViewColumn Header="Progress" Width="300">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
-                                                <ProgressBar Value="{Binding Progress}" Height="20" Minimum="0" Maximum="100"/>
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto"/>
+                                                        <RowDefinition Height="Auto"/>
+                                                    </Grid.RowDefinitions>
+                                                    <ProgressBar Grid.Row="0" Value="{Binding Progress}" Height="18" Minimum="0" Maximum="100" Margin="0,0,0,2">
+                                                        <ProgressBar.Style>
+                                                            <Style TargetType="ProgressBar">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Progress}" Value="100">
+                                                                        <Setter Property="Foreground" Value="#27AE60"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ProgressBar.Style>
+                                                    </ProgressBar>
+                                                    <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="11" Foreground="#27AE60" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,2,0,0">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Status}" Value="">
+                                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
