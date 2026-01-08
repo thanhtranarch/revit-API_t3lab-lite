@@ -674,8 +674,31 @@ class ExportManagerWindow(forms.WPFWindow):
             print_manager = self.doc.PrintManager
             view_sheet_setting = print_manager.ViewSheetSetting
 
+            # Save current print range if possible
+            original_print_range = None
+            try:
+                if view_sheet_setting.CurrentViewSheetSet:
+                    original_print_range = view_sheet_setting.CurrentViewSheetSet.PrintRange
+            except:
+                pass
+
+            # Temporarily set to Select mode to access SavedViewSheetSetNames
+            # This is required by Revit API - the property is only accessible when print range is set
+            try:
+                if view_sheet_setting.CurrentViewSheetSet:
+                    view_sheet_setting.CurrentViewSheetSet.PrintRange = DB.PrintRange.Select
+            except Exception as range_ex:
+                logger.debug("Could not set print range: {}".format(range_ex))
+
             # Get saved view sheet set names
             saved_settings = view_sheet_setting.SavedViewSheetSetNames
+
+            # Restore original print range
+            if original_print_range is not None:
+                try:
+                    view_sheet_setting.CurrentViewSheetSet.PrintRange = original_print_range
+                except:
+                    pass
 
             return list(saved_settings)
 
