@@ -148,6 +148,14 @@
 
                     <TextBlock Grid.Row="0" Text="Select Sheets or Views to Export" Style="{StaticResource SectionHeader}"/>
 
+                    <!-- Hint -->
+                    <Border BorderBrush="#3498DB" BorderThickness="1" Padding="10" Background="#E8F4F8" CornerRadius="4" Margin="0,5,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="💡 Tip:" FontWeight="Bold" Foreground="#2980B9" Margin="0,0,5,0"/>
+                            <TextBlock Text="Click on any row to select/deselect, or use checkboxes. Ctrl+Click and Shift+Click work too!" Foreground="#2C3E50"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Selection Controls -->
                     <Grid Grid.Row="1" Margin="0,5">
                         <Grid.RowDefinitions>
@@ -295,7 +303,14 @@
                     <Border Grid.Row="3" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
                         <ListView x:Name="sheets_listview"
                                   SelectionMode="Extended"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  MouseDoubleClick="listview_item_double_clicked">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <EventSetter Event="PreviewMouseLeftButtonDown" Handler="listview_item_clicked"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                </Style>
+                            </ListView.ItemContainerStyle>
                             <ListView.View>
                                 <GridView x:Name="items_gridview">
                                     <GridViewColumn Width="40">
@@ -319,7 +334,8 @@
                                             <DataTemplate>
                                                 <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                          BorderThickness="0" Background="Transparent"
-                                                         ToolTip="Custom filename (leave empty to use pattern)"/>
+                                                         ToolTip="Custom filename (leave empty to use pattern)"
+                                                         PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>

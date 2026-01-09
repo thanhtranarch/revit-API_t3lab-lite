@@ -1130,6 +1130,50 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Error changing selection mode: {}".format(ex))
 
+    def listview_item_clicked(self, sender, e):
+        """Handle click on ListView item to toggle selection.
+
+        This allows users to click anywhere on a row to toggle its selection,
+        in addition to using the checkbox.
+        """
+        try:
+            # Get the clicked ListViewItem
+            from System.Windows import FrameworkElement
+            from System.Windows.Controls import ListViewItem, TextBox
+
+            # Check if the click was on a TextBox (Custom Filename column)
+            # If so, don't toggle selection - let the user edit the textbox
+            element = e.OriginalSource
+            while element is not None and not isinstance(element, ListViewItem):
+                if isinstance(element, TextBox):
+                    # Click was in a textbox, don't toggle selection
+                    return
+                element = element.Parent if hasattr(element, 'Parent') else None
+
+            # Get the ListViewItem that was clicked
+            item = sender
+            if item and hasattr(item, 'DataContext'):
+                data_item = item.DataContext
+                if data_item:
+                    # Toggle the IsSelected property
+                    data_item.IsSelected = not data_item.IsSelected
+                    # Refresh to show the change
+                    self.sheets_listview.Items.Refresh()
+
+        except Exception as ex:
+            logger.debug("Error handling listview item click: {}".format(ex))
+
+    def listview_item_double_clicked(self, sender, e):
+        """Handle double-click on ListView item - same as single click for now."""
+        # Double-click just toggles like single click
+        # This prevents accidental double-click from causing issues
+        pass
+
+    def textbox_prevent_toggle(self, sender, e):
+        """Prevent row toggle when clicking on textbox in Custom Filename column."""
+        # Stop propagation so that clicking in textbox doesn't toggle row selection
+        e.Handled = True
+
     def select_all_sheets(self, sender, e):
         """Select all items (sheets or views)."""
         if self.selection_mode == "sheets":
