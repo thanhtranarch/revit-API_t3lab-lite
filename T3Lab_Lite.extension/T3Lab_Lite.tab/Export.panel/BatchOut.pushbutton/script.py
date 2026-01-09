@@ -35,6 +35,7 @@ __version__ = "1.0.0"
 import os
 import sys
 import clr
+import json
 from datetime import datetime
 from collections import defaultdict
 
@@ -255,6 +256,89 @@ class ExportPreviewItem(object):
         self.ProgressText = ""
 
 
+class ExportProfile(object):
+    """Represents an export profile with all settings."""
+    def __init__(self, name="", description=""):
+        self.Name = name
+        self.Description = description
+        self.CreatedDate = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        # Export format settings
+        self.ExportPDF = True
+        self.ExportDWG = False
+        self.ExportDGN = False
+        self.ExportDWF = False
+        self.ExportNWD = False
+        self.ExportIFC = False
+        self.ExportIMG = False
+
+        # PDF settings
+        self.PDFPaperSize = "Use Sheet Size"
+        self.PDFOrientation = "Landscape"
+        self.PDFZoom = "Fit to Page"
+        self.PDFHideRefPlanes = False
+        self.PDFHideScopeBoxes = False
+        self.PDFHideCropBoundaries = False
+        self.PDFHideUnreferencedTags = False
+        self.PDFViewLinksBlue = False
+        self.CombinePDF = False
+
+        # DWG settings
+        self.DWGVersion = "AutoCAD 2013"
+        self.CADExportSetup = "Use setup from file"
+        self.CADExportViewsOnSheets = False
+        self.CADExportLinksAsExternal = False
+
+        # File organization
+        self.OutputFolder = os.path.join(os.path.expanduser('~'), 'Documents', 'Revit Exports')
+        self.SplitByFormat = False
+        self.ReverseOrder = False
+
+        # Naming pattern
+        self.NamingPattern = "{SheetNumber}-{SheetName}"
+
+    def to_dict(self):
+        """Convert profile to dictionary for JSON serialization."""
+        return {
+            'Name': self.Name,
+            'Description': self.Description,
+            'CreatedDate': self.CreatedDate,
+            'ExportPDF': self.ExportPDF,
+            'ExportDWG': self.ExportDWG,
+            'ExportDGN': self.ExportDGN,
+            'ExportDWF': self.ExportDWF,
+            'ExportNWD': self.ExportNWD,
+            'ExportIFC': self.ExportIFC,
+            'ExportIMG': self.ExportIMG,
+            'PDFPaperSize': self.PDFPaperSize,
+            'PDFOrientation': self.PDFOrientation,
+            'PDFZoom': self.PDFZoom,
+            'PDFHideRefPlanes': self.PDFHideRefPlanes,
+            'PDFHideScopeBoxes': self.PDFHideScopeBoxes,
+            'PDFHideCropBoundaries': self.PDFHideCropBoundaries,
+            'PDFHideUnreferencedTags': self.PDFHideUnreferencedTags,
+            'PDFViewLinksBlue': self.PDFViewLinksBlue,
+            'CombinePDF': self.CombinePDF,
+            'DWGVersion': self.DWGVersion,
+            'CADExportSetup': self.CADExportSetup,
+            'CADExportViewsOnSheets': self.CADExportViewsOnSheets,
+            'CADExportLinksAsExternal': self.CADExportLinksAsExternal,
+            'OutputFolder': self.OutputFolder,
+            'SplitByFormat': self.SplitByFormat,
+            'ReverseOrder': self.ReverseOrder,
+            'NamingPattern': self.NamingPattern
+        }
+
+    @staticmethod
+    def from_dict(data):
+        """Create profile from dictionary."""
+        profile = ExportProfile()
+        for key, value in data.items():
+            if hasattr(profile, key):
+                setattr(profile, key, value)
+        return profile
+
+
 class ExportManagerWindow(forms.WPFWindow):
     """Export Manager Window."""
 
@@ -272,6 +356,8 @@ class ExportManagerWindow(forms.WPFWindow):
             self.filtered_views = []
             self.export_items = []
             self.selection_mode = "sheets"  # "sheets" or "views"
+            self.profiles = []  # List of ExportProfile objects
+            self.profiles_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'T3Lab_BatchOut_Profiles')
 
             # Set window icon and title bar logo
             try:
@@ -314,6 +400,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Load sheets
             self.load_sheets()
+
+            # Load profiles
+            self.load_profiles()
 
             # Disable formats if not available
             if not HAS_NAVISWORKS:
@@ -362,6 +451,469 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             # Don't fail initialization if update check fails
             logger.debug("API update check failed: {}".format(ex))
+
+    def load_profiles(self):
+        """Load all saved profiles from disk."""
+        try:
+            # Create profiles folder if it doesn't exist
+            if not os.path.exists(self.profiles_folder):
+                os.makedirs(self.profiles_folder)
+
+            # Load all JSON files from profiles folder
+            self.profiles = []
+            if os.path.exists(self.profiles_folder):
+                for filename in os.listdir(self.profiles_folder):
+                    if filename.endswith('.json'):
+                        filepath = os.path.join(self.profiles_folder, filename)
+                        try:
+                            with open(filepath, 'r') as f:
+                                data = json.load(f)
+                                profile = ExportProfile.from_dict(data)
+                                self.profiles.append(profile)
+                        except Exception as file_ex:
+                            logger.warning("Could not load profile {}: {}".format(filename, file_ex))
+
+            # Update profiles listview
+            self.profiles_listview.ItemsSource = self.profiles
+            logger.info("Loaded {} profiles".format(len(self.profiles)))
+
+        except Exception as ex:
+            logger.error("Error loading profiles: {}".format(ex))
+
+    def save_profiles(self):
+        """Save all profiles to disk."""
+        try:
+            # Create profiles folder if it doesn't exist
+            if not os.path.exists(self.profiles_folder):
+                os.makedirs(self.profiles_folder)
+
+            # Save each profile as a JSON file
+            for profile in self.profiles:
+                # Create safe filename from profile name
+                safe_name = "".join(c for c in profile.Name if c.isalnum() or c in (' ', '-', '_')).strip()
+                filename = "{}.json".format(safe_name)
+                filepath = os.path.join(self.profiles_folder, filename)
+
+                try:
+                    with open(filepath, 'w') as f:
+                        json.dump(profile.to_dict(), f, indent=2)
+                except Exception as file_ex:
+                    logger.warning("Could not save profile {}: {}".format(profile.Name, file_ex))
+
+            logger.info("Saved {} profiles".format(len(self.profiles)))
+
+        except Exception as ex:
+            logger.error("Error saving profiles: {}".format(ex))
+
+    def get_current_settings_as_profile(self):
+        """Capture current UI settings as a profile."""
+        profile = ExportProfile()
+
+        # Export formats
+        profile.ExportPDF = self.export_pdf.IsChecked if self.export_pdf.IsChecked is not None else False
+        profile.ExportDWG = self.export_dwg.IsChecked if self.export_dwg.IsChecked is not None else False
+        profile.ExportDGN = self.export_dgn.IsChecked if self.export_dgn.IsChecked is not None else False
+        profile.ExportDWF = self.export_dwf.IsChecked if self.export_dwf.IsChecked is not None else False
+        profile.ExportNWD = self.export_nwd.IsChecked if self.export_nwd.IsChecked is not None else False
+        profile.ExportIFC = self.export_ifc.IsChecked if self.export_ifc.IsChecked is not None else False
+        profile.ExportIMG = self.export_img.IsChecked if self.export_img.IsChecked is not None else False
+
+        # PDF settings
+        if self.pdf_paper_size.SelectedItem:
+            profile.PDFPaperSize = self.pdf_paper_size.SelectedItem.Content
+        profile.PDFOrientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
+        profile.PDFZoom = "Fit to Page" if self.pdf_fit_to_page.IsChecked else "Custom Zoom"
+        profile.PDFHideRefPlanes = self.pdf_hide_ref_planes.IsChecked if self.pdf_hide_ref_planes.IsChecked is not None else False
+        profile.PDFHideScopeBoxes = self.pdf_hide_scope_boxes.IsChecked if self.pdf_hide_scope_boxes.IsChecked is not None else False
+        profile.PDFHideCropBoundaries = self.pdf_hide_crop_boundaries.IsChecked if self.pdf_hide_crop_boundaries.IsChecked is not None else False
+        profile.PDFHideUnreferencedTags = self.pdf_hide_unreferenced_tags.IsChecked if self.pdf_hide_unreferenced_tags.IsChecked is not None else False
+        profile.PDFViewLinksBlue = self.pdf_view_links_blue.IsChecked if self.pdf_view_links_blue.IsChecked is not None else False
+        profile.CombinePDF = self.combine_pdf.IsChecked if self.combine_pdf.IsChecked is not None else False
+
+        # DWG settings
+        if self.dwg_version.SelectedItem:
+            profile.DWGVersion = self.dwg_version.SelectedItem.Content
+        if self.cad_export_setup.SelectedItem:
+            profile.CADExportSetup = self.cad_export_setup.SelectedItem.Content
+        profile.CADExportViewsOnSheets = self.cad_export_views_on_sheets.IsChecked if self.cad_export_views_on_sheets.IsChecked is not None else False
+        profile.CADExportLinksAsExternal = self.cad_export_links_as_external.IsChecked if self.cad_export_links_as_external.IsChecked is not None else False
+
+        # File organization
+        profile.OutputFolder = self.output_folder.Text if self.output_folder.Text else ""
+        profile.SplitByFormat = self.save_split_by_format.IsChecked if self.save_split_by_format.IsChecked is not None else False
+        profile.ReverseOrder = self.reverse_order.IsChecked if self.reverse_order.IsChecked is not None else False
+
+        # Naming pattern
+        profile.NamingPattern = self.naming_pattern.Text if self.naming_pattern.Text else "{SheetNumber}-{SheetName}"
+
+        return profile
+
+    def apply_profile_to_ui(self, profile):
+        """Apply profile settings to UI controls."""
+        try:
+            # Export formats
+            self.export_pdf.IsChecked = profile.ExportPDF
+            self.export_dwg.IsChecked = profile.ExportDWG
+            self.export_dgn.IsChecked = profile.ExportDGN
+            self.export_dwf.IsChecked = profile.ExportDWF
+            self.export_nwd.IsChecked = profile.ExportNWD
+            self.export_ifc.IsChecked = profile.ExportIFC
+            self.export_img.IsChecked = profile.ExportIMG
+
+            # PDF settings
+            # Set paper size
+            for i in range(self.pdf_paper_size.Items.Count):
+                if self.pdf_paper_size.Items[i].Content == profile.PDFPaperSize:
+                    self.pdf_paper_size.SelectedIndex = i
+                    break
+
+            # Set orientation
+            if profile.PDFOrientation == "Landscape":
+                self.pdf_landscape.IsChecked = True
+            else:
+                self.pdf_portrait.IsChecked = True
+
+            # Set zoom
+            if profile.PDFZoom == "Fit to Page":
+                self.pdf_fit_to_page.IsChecked = True
+            else:
+                self.pdf_zoom_custom.IsChecked = True
+
+            self.pdf_hide_ref_planes.IsChecked = profile.PDFHideRefPlanes
+            self.pdf_hide_scope_boxes.IsChecked = profile.PDFHideScopeBoxes
+            self.pdf_hide_crop_boundaries.IsChecked = profile.PDFHideCropBoundaries
+            self.pdf_hide_unreferenced_tags.IsChecked = profile.PDFHideUnreferencedTags
+            self.pdf_view_links_blue.IsChecked = profile.PDFViewLinksBlue
+            self.combine_pdf.IsChecked = profile.CombinePDF
+
+            # DWG settings
+            for i in range(self.dwg_version.Items.Count):
+                if self.dwg_version.Items[i].Content == profile.DWGVersion:
+                    self.dwg_version.SelectedIndex = i
+                    break
+
+            for i in range(self.cad_export_setup.Items.Count):
+                if self.cad_export_setup.Items[i].Content == profile.CADExportSetup:
+                    self.cad_export_setup.SelectedIndex = i
+                    break
+
+            self.cad_export_views_on_sheets.IsChecked = profile.CADExportViewsOnSheets
+            self.cad_export_links_as_external.IsChecked = profile.CADExportLinksAsExternal
+
+            # File organization
+            self.output_folder.Text = profile.OutputFolder
+            if profile.SplitByFormat:
+                self.save_split_by_format.IsChecked = True
+            else:
+                self.save_same_folder.IsChecked = True
+            self.reverse_order.IsChecked = profile.ReverseOrder
+
+            # Naming pattern
+            self.naming_pattern.Text = profile.NamingPattern
+
+            self.status_text.Text = "Profile '{}' loaded successfully".format(profile.Name)
+
+        except Exception as ex:
+            logger.error("Error applying profile to UI: {}".format(ex))
+            forms.alert("Error applying profile:\n{}".format(str(ex)))
+
+    def save_profile_clicked(self, sender, e):
+        """Save current settings as a new profile."""
+        try:
+            # Prompt for profile name and description
+            from System.Windows import Window, TextBlock, TextBox, Button, Thickness, VerticalAlignment, HorizontalAlignment
+            from System.Windows.Controls import StackPanel, Label
+            from System.Windows.Media import SolidColorBrush, Color
+
+            # Create dialog window
+            dialog = Window()
+            dialog.Title = "Save Profile"
+            dialog.Width = 400
+            dialog.Height = 250
+            dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner
+            dialog.Owner = self
+
+            # Create content panel
+            panel = StackPanel()
+            panel.Margin = Thickness(20)
+
+            # Name label and textbox
+            name_label = TextBlock()
+            name_label.Text = "Profile Name:"
+            name_label.Margin = Thickness(0, 0, 0, 5)
+            panel.Children.Add(name_label)
+
+            name_textbox = TextBox()
+            name_textbox.Height = 28
+            name_textbox.Margin = Thickness(0, 0, 0, 15)
+            panel.Children.Add(name_textbox)
+
+            # Description label and textbox
+            desc_label = TextBlock()
+            desc_label.Text = "Description (optional):"
+            desc_label.Margin = Thickness(0, 0, 0, 5)
+            panel.Children.Add(desc_label)
+
+            desc_textbox = TextBox()
+            desc_textbox.Height = 60
+            desc_textbox.TextWrapping = System.Windows.TextWrapping.Wrap
+            desc_textbox.AcceptsReturn = True
+            desc_textbox.VerticalScrollBarVisibility = System.Windows.Controls.ScrollBarVisibility.Auto
+            desc_textbox.Margin = Thickness(0, 0, 0, 20)
+            panel.Children.Add(desc_textbox)
+
+            # Buttons panel
+            buttons_panel = StackPanel()
+            buttons_panel.Orientation = System.Windows.Controls.Orientation.Horizontal
+            buttons_panel.HorizontalAlignment = HorizontalAlignment.Right
+
+            # OK button
+            ok_button = Button()
+            ok_button.Content = "Save"
+            ok_button.Width = 80
+            ok_button.Height = 28
+            ok_button.Margin = Thickness(0, 0, 10, 0)
+
+            def ok_clicked(s, ev):
+                if not name_textbox.Text or name_textbox.Text.strip() == "":
+                    forms.alert("Please enter a profile name.", title="Profile Name Required")
+                    return
+                dialog.DialogResult = True
+                dialog.Close()
+
+            ok_button.Click += ok_clicked
+            buttons_panel.Children.Add(ok_button)
+
+            # Cancel button
+            cancel_button = Button()
+            cancel_button.Content = "Cancel"
+            cancel_button.Width = 80
+            cancel_button.Height = 28
+
+            def cancel_clicked(s, ev):
+                dialog.DialogResult = False
+                dialog.Close()
+
+            cancel_button.Click += cancel_clicked
+            buttons_panel.Children.Add(cancel_button)
+
+            panel.Children.Add(buttons_panel)
+            dialog.Content = panel
+
+            # Show dialog
+            result = dialog.ShowDialog()
+
+            if result:
+                # Create profile from current settings
+                profile = self.get_current_settings_as_profile()
+                profile.Name = name_textbox.Text.strip()
+                profile.Description = desc_textbox.Text.strip()
+
+                # Add to profiles list
+                self.profiles.append(profile)
+
+                # Save to disk
+                self.save_profiles()
+
+                # Refresh listview
+                self.profiles_listview.ItemsSource = None
+                self.profiles_listview.ItemsSource = self.profiles
+
+                self.status_text.Text = "Profile '{}' saved successfully".format(profile.Name)
+
+        except Exception as ex:
+            logger.error("Error saving profile: {}".format(ex))
+            forms.alert("Error saving profile:\n{}".format(str(ex)))
+
+    def load_profile_clicked(self, sender, e):
+        """Load selected profile and apply to UI."""
+        try:
+            selected_profile = self.profiles_listview.SelectedItem
+            if not selected_profile:
+                forms.alert("Please select a profile to load.", title="No Profile Selected")
+                return
+
+            # Apply profile to UI
+            self.apply_profile_to_ui(selected_profile)
+
+        except Exception as ex:
+            logger.error("Error loading profile: {}".format(ex))
+            forms.alert("Error loading profile:\n{}".format(str(ex)))
+
+    def delete_profile_clicked(self, sender, e):
+        """Delete selected profile."""
+        try:
+            selected_profile = self.profiles_listview.SelectedItem
+            if not selected_profile:
+                forms.alert("Please select a profile to delete.", title="No Profile Selected")
+                return
+
+            # Confirm deletion
+            if not forms.alert("Are you sure you want to delete profile '{}'?".format(selected_profile.Name),
+                              title="Confirm Deletion",
+                              yes=True, no=True):
+                return
+
+            # Remove from list
+            self.profiles.remove(selected_profile)
+
+            # Delete file
+            safe_name = "".join(c for c in selected_profile.Name if c.isalnum() or c in (' ', '-', '_')).strip()
+            filename = "{}.json".format(safe_name)
+            filepath = os.path.join(self.profiles_folder, filename)
+            if os.path.exists(filepath):
+                os.remove(filepath)
+
+            # Refresh listview
+            self.profiles_listview.ItemsSource = None
+            self.profiles_listview.ItemsSource = self.profiles
+
+            self.status_text.Text = "Profile '{}' deleted successfully".format(selected_profile.Name)
+
+        except Exception as ex:
+            logger.error("Error deleting profile: {}".format(ex))
+            forms.alert("Error deleting profile:\n{}".format(str(ex)))
+
+    def import_profile_clicked(self, sender, e):
+        """Import profile from file."""
+        try:
+            from System.Windows.Forms import OpenFileDialog, DialogResult
+
+            # Show open file dialog
+            dialog = OpenFileDialog()
+            dialog.Title = "Import Profile"
+            dialog.Filter = "Profile Files (*.json)|*.json|All Files (*.*)|*.*"
+            dialog.FilterIndex = 1
+
+            if dialog.ShowDialog() == DialogResult.OK:
+                # Load profile from file
+                with open(dialog.FileName, 'r') as f:
+                    data = json.load(f)
+                    profile = ExportProfile.from_dict(data)
+
+                # Check if profile with same name already exists
+                existing = [p for p in self.profiles if p.Name == profile.Name]
+                if existing:
+                    if not forms.alert("A profile with name '{}' already exists.\n\nDo you want to replace it?".format(profile.Name),
+                                      title="Profile Exists",
+                                      yes=True, no=True):
+                        return
+                    # Remove existing profile
+                    for p in existing:
+                        self.profiles.remove(p)
+
+                # Add to profiles list
+                self.profiles.append(profile)
+
+                # Save to disk
+                self.save_profiles()
+
+                # Refresh listview
+                self.profiles_listview.ItemsSource = None
+                self.profiles_listview.ItemsSource = self.profiles
+
+                self.status_text.Text = "Profile '{}' imported successfully".format(profile.Name)
+
+        except Exception as ex:
+            logger.error("Error importing profile: {}".format(ex))
+            forms.alert("Error importing profile:\n{}".format(str(ex)))
+
+    def export_profile_clicked(self, sender, e):
+        """Export selected profile to file."""
+        try:
+            selected_profile = self.profiles_listview.SelectedItem
+            if not selected_profile:
+                forms.alert("Please select a profile to export.", title="No Profile Selected")
+                return
+
+            from System.Windows.Forms import SaveFileDialog, DialogResult
+
+            # Show save file dialog
+            dialog = SaveFileDialog()
+            dialog.Title = "Export Profile"
+            dialog.Filter = "Profile Files (*.json)|*.json|All Files (*.*)|*.*"
+            dialog.FilterIndex = 1
+            dialog.FileName = "{}.json".format(selected_profile.Name)
+
+            if dialog.ShowDialog() == DialogResult.OK:
+                # Save profile to file
+                with open(dialog.FileName, 'w') as f:
+                    json.dump(selected_profile.to_dict(), f, indent=2)
+
+                self.status_text.Text = "Profile '{}' exported to {}".format(
+                    selected_profile.Name, os.path.basename(dialog.FileName))
+
+                forms.alert("Profile exported successfully to:\n{}".format(dialog.FileName),
+                           title="Export Complete")
+
+        except Exception as ex:
+            logger.error("Error exporting profile: {}".format(ex))
+            forms.alert("Error exporting profile:\n{}".format(str(ex)))
+
+    def get_sheet_paper_size_and_orientation(self, sheet):
+        """Auto-detect paper size and orientation from Title Block parameters.
+
+        Returns tuple: (paper_size, orientation)
+        Where paper_size is like "A0", "A1", "A2", "A3", "A4", etc.
+        And orientation is either "Landscape" or "Portrait"
+        """
+        try:
+            # Get the title block on the sheet
+            titleblock = None
+            collector = FilteredElementCollector(self.doc, sheet.Id)\
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)\
+                .WhereElementIsNotElementType()
+
+            for tb in collector:
+                titleblock = tb
+                break
+
+            if not titleblock:
+                return ("Use Sheet Size", "Landscape")
+
+            # Get Sheet Width and Sheet Height parameters from title block family
+            width_param = titleblock.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
+            height_param = titleblock.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
+
+            if not width_param or not height_param:
+                return ("Use Sheet Size", "Landscape")
+
+            # Get values in millimeters (Revit internal units are feet)
+            width_mm = width_param.AsDouble() * 304.8  # Convert feet to mm
+            height_mm = height_param.AsDouble() * 304.8
+
+            # Determine orientation
+            if width_mm > height_mm:
+                orientation = "Landscape"
+            else:
+                orientation = "Portrait"
+                # Swap for standard comparison (we'll compare in landscape orientation)
+                width_mm, height_mm = height_mm, width_mm
+
+            # Determine paper size based on dimensions (with tolerance of +/- 10mm)
+            # Standard ISO paper sizes in mm (width x height in landscape)
+            paper_sizes = {
+                "A0": (1189, 841),
+                "A1": (841, 594),
+                "A2": (594, 420),
+                "A3": (420, 297),
+                "A4": (297, 210),
+            }
+
+            tolerance = 10  # mm
+            detected_size = "Use Sheet Size"
+
+            for size_name, (std_width, std_height) in paper_sizes.items():
+                if (abs(width_mm - std_width) < tolerance and
+                    abs(height_mm - std_height) < tolerance):
+                    detected_size = size_name
+                    break
+
+            return (detected_size, orientation)
+
+        except Exception as ex:
+            logger.debug("Could not auto-detect paper size for sheet: {}".format(ex))
+            return ("Use Sheet Size", "Landscape")
 
     def load_cad_export_setups(self):
         """Load available DWG export setups from the document."""
@@ -577,6 +1129,50 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.col_size.Header = "Scale"
         except Exception as ex:
             logger.error("Error changing selection mode: {}".format(ex))
+
+    def listview_item_clicked(self, sender, e):
+        """Handle click on ListView item to toggle selection.
+
+        This allows users to click anywhere on a row to toggle its selection,
+        in addition to using the checkbox.
+        """
+        try:
+            # Get the clicked ListViewItem
+            from System.Windows import FrameworkElement
+            from System.Windows.Controls import ListViewItem, TextBox
+
+            # Check if the click was on a TextBox (Custom Filename column)
+            # If so, don't toggle selection - let the user edit the textbox
+            element = e.OriginalSource
+            while element is not None and not isinstance(element, ListViewItem):
+                if isinstance(element, TextBox):
+                    # Click was in a textbox, don't toggle selection
+                    return
+                element = element.Parent if hasattr(element, 'Parent') else None
+
+            # Get the ListViewItem that was clicked
+            item = sender
+            if item and hasattr(item, 'DataContext'):
+                data_item = item.DataContext
+                if data_item:
+                    # Toggle the IsSelected property
+                    data_item.IsSelected = not data_item.IsSelected
+                    # Refresh to show the change
+                    self.sheets_listview.Items.Refresh()
+
+        except Exception as ex:
+            logger.debug("Error handling listview item click: {}".format(ex))
+
+    def listview_item_double_clicked(self, sender, e):
+        """Handle double-click on ListView item - same as single click for now."""
+        # Double-click just toggles like single click
+        # This prevents accidental double-click from causing issues
+        pass
+
+    def textbox_prevent_toggle(self, sender, e):
+        """Prevent row toggle when clicking on textbox in Custom Filename column."""
+        # Stop propagation so that clicking in textbox doesn't toggle row selection
+        e.Handled = True
 
     def select_all_sheets(self, sender, e):
         """Select all items (sheets or views)."""
@@ -904,6 +1500,25 @@ class ExportManagerWindow(forms.WPFWindow):
         if formats:
             self.status_text.Text = "Selected formats: {}".format(", ".join(formats))
 
+    def pdf_auto_detect_changed(self, sender, e):
+        """Handle PDF auto-detect checkbox change."""
+        try:
+            # Enable/disable manual controls based on auto-detect state
+            is_auto = self.pdf_auto_detect_size.IsChecked
+
+            # Disable manual controls when auto-detect is enabled
+            self.pdf_paper_size.IsEnabled = not is_auto
+            self.pdf_landscape.IsEnabled = not is_auto
+            self.pdf_portrait.IsEnabled = not is_auto
+
+            if is_auto:
+                self.status_text.Text = "Paper size and orientation will be auto-detected from Title Block"
+            else:
+                self.status_text.Text = "Using manual paper size and orientation settings"
+
+        except Exception as ex:
+            logger.error("Error handling auto-detect change: {}".format(ex))
+
     def button_custom_parameters(self, sender, e):
         """Open custom parameters dialog to select parameters for filename.
 
@@ -1030,9 +1645,6 @@ class ExportManagerWindow(forms.WPFWindow):
                 view_item.ViewName = view_item.View.Name
                 view_item.SheetNumber = view_item.View.Name
 
-        # Get orientation
-        orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
-
         # Get selected formats
         formats = []
         if self.export_pdf.IsChecked:
@@ -1050,11 +1662,25 @@ class ExportManagerWindow(forms.WPFWindow):
         if self.export_img.IsChecked:
             formats.append("IMG")
 
+        # Check if auto-detect is enabled
+        is_auto_detect = self.pdf_auto_detect_size.IsChecked if hasattr(self, 'pdf_auto_detect_size') and self.pdf_auto_detect_size.IsChecked is not None else False
+
         # Build preview items
         self.export_items = []
         for item in selected_items:
+            # Determine paper size and orientation for this item
+            if is_auto_detect and self.selection_mode == "sheets" and hasattr(item, 'Sheet'):
+                # Auto-detect from Title Block
+                detected_size, detected_orientation = self.get_sheet_paper_size_and_orientation(item.Sheet)
+                size = detected_size
+                orientation = detected_orientation
+            else:
+                # Use manual settings
+                size = item.Size if hasattr(item, 'Size') else "-"
+                orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
+
             for fmt in formats:
-                preview_item = ExportPreviewItem(item, fmt, item.Size, orientation)
+                preview_item = ExportPreviewItem(item, fmt, size, orientation)
                 self.export_items.append(preview_item)
 
         # Update preview list

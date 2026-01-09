@@ -148,6 +148,14 @@
 
                     <TextBlock Grid.Row="0" Text="Select Sheets or Views to Export" Style="{StaticResource SectionHeader}"/>
 
+                    <!-- Hint -->
+                    <Border BorderBrush="#3498DB" BorderThickness="1" Padding="10" Background="#E8F4F8" CornerRadius="4" Margin="0,5,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="💡 Tip:" FontWeight="Bold" Foreground="#2980B9" Margin="0,0,5,0"/>
+                            <TextBlock Text="Click on any row to select/deselect, or use checkboxes. Ctrl+Click and Shift+Click work too!" Foreground="#2C3E50"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Selection Controls -->
                     <Grid Grid.Row="1" Margin="0,5">
                         <Grid.RowDefinitions>
@@ -295,7 +303,14 @@
                     <Border Grid.Row="3" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
                         <ListView x:Name="sheets_listview"
                                   SelectionMode="Extended"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                  MouseDoubleClick="listview_item_double_clicked">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <EventSetter Event="PreviewMouseLeftButtonDown" Handler="listview_item_clicked"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                </Style>
+                            </ListView.ItemContainerStyle>
                             <ListView.View>
                                 <GridView x:Name="items_gridview">
                                     <GridViewColumn Width="40">
@@ -319,7 +334,8 @@
                                             <DataTemplate>
                                                 <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                          BorderThickness="0" Background="Transparent"
-                                                         ToolTip="Custom filename (leave empty to use pattern)"/>
+                                                         ToolTip="Custom filename (leave empty to use pattern)"
+                                                         PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
@@ -439,24 +455,30 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Paper Size -->
+                                    <!-- Auto-Detect Paper Size -->
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Paper Size:" VerticalAlignment="Center" Margin="0,5"/>
-                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="pdf_paper_size" Height="28" Margin="5"
-                                              SelectedIndex="0">
-                                        <ComboBoxItem Content="Use Sheet Size"/>
-                                        <ComboBoxItem Content="A0"/>
-                                        <ComboBoxItem Content="A1"/>
-                                        <ComboBoxItem Content="A2"/>
-                                        <ComboBoxItem Content="A3"/>
-                                        <ComboBoxItem Content="A4"/>
-                                    </ComboBox>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="5">
+                                        <CheckBox x:Name="pdf_auto_detect_size" Content="Auto-detect from Title Block" Margin="0,0,0,5"
+                                                  IsChecked="True"
+                                                  ToolTip="Automatically detect paper size and orientation from Title Block family parameters"
+                                                  Checked="pdf_auto_detect_changed" Unchecked="pdf_auto_detect_changed"/>
+                                        <ComboBox x:Name="pdf_paper_size" Height="28"
+                                                  SelectedIndex="0" IsEnabled="False">
+                                            <ComboBoxItem Content="Use Sheet Size"/>
+                                            <ComboBoxItem Content="A0"/>
+                                            <ComboBoxItem Content="A1"/>
+                                            <ComboBoxItem Content="A2"/>
+                                            <ComboBoxItem Content="A3"/>
+                                            <ComboBoxItem Content="A4"/>
+                                        </ComboBox>
+                                    </StackPanel>
 
                                     <!-- Orientation -->
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Orientation:" VerticalAlignment="Center" Margin="0,5"/>
                                     <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="5">
                                         <RadioButton x:Name="pdf_landscape" Content="Landscape" GroupName="orientation"
-                                                     IsChecked="True" Margin="0,0,20,0"/>
-                                        <RadioButton x:Name="pdf_portrait" Content="Portrait" GroupName="orientation"/>
+                                                     IsChecked="True" Margin="0,0,20,0" IsEnabled="False"/>
+                                        <RadioButton x:Name="pdf_portrait" Content="Portrait" GroupName="orientation" IsEnabled="False"/>
                                     </StackPanel>
 
                                     <!-- Zoom -->
@@ -528,6 +550,94 @@
                         </StackPanel>
                     </Grid>
                 </ScrollViewer>
+            </TabItem>
+
+            <!-- Profiles Tab -->
+            <TabItem Header="Profiles" Style="{StaticResource TabItemStyle}">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Export Profiles" Style="{StaticResource SectionHeader}"/>
+
+                    <!-- Profile List and Management -->
+                    <Border Grid.Row="1" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" Padding="15" Background="#F8F9FA" CornerRadius="6">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Saved Profiles" FontWeight="Bold" FontSize="13" Margin="0,0,0,10"/>
+
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="200"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Profile List -->
+                                <Border Grid.Column="0" BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="6" Margin="0,0,10,0">
+                                    <ListView x:Name="profiles_listview" SelectionMode="Single"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                              Background="White">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="Profile Name" Width="250"
+                                                                DisplayMemberBinding="{Binding Name}"/>
+                                                <GridViewColumn Header="Description" Width="300"
+                                                                DisplayMemberBinding="{Binding Description}"/>
+                                                <GridViewColumn Header="Created Date" Width="150"
+                                                                DisplayMemberBinding="{Binding CreatedDate}"/>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </Border>
+
+                                <!-- Profile Actions -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                    <TextBlock Text="Profile Actions" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                    <Button Content="Save Current Settings" Style="{StaticResource SecondaryButton}"
+                                            Click="save_profile_clicked" Margin="0,0,0,5"
+                                            ToolTip="Save current export settings as a new profile"/>
+
+                                    <Button Content="Load Profile" Style="{StaticResource SecondaryButton}"
+                                            Click="load_profile_clicked" Margin="0,0,0,5"
+                                            ToolTip="Load selected profile settings"/>
+
+                                    <Button Content="Delete Profile" Style="{StaticResource SecondaryButton}"
+                                            Click="delete_profile_clicked" Margin="0,0,0,5"
+                                            ToolTip="Delete selected profile"/>
+
+                                    <Separator Margin="0,15,0,15"/>
+
+                                    <Button Content="Import from File..." Style="{StaticResource SecondaryButton}"
+                                            Click="import_profile_clicked" Margin="0,0,0,5"
+                                            ToolTip="Import profile from file (e.g., network location)"/>
+
+                                    <Button Content="Export to File..." Style="{StaticResource SecondaryButton}"
+                                            Click="export_profile_clicked" Margin="0,0,0,5"
+                                            ToolTip="Export selected profile to file for sharing"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- Profile Description -->
+                    <Border Grid.Row="2" BorderBrush="#3498DB" BorderThickness="2" Padding="15" Background="#E8F4F8" CornerRadius="6" Margin="0,10,0,0">
+                        <StackPanel>
+                            <TextBlock Text="ℹ About Profiles" FontWeight="Bold" FontSize="13" Margin="0,0,0,5" Foreground="#2980B9"/>
+                            <TextBlock TextWrapping="Wrap" Foreground="#2C3E50">
+                                Profiles allow you to save and reuse export configurations. Save your frequently used settings as profiles to streamline your workflow.
+                                You can also share profiles with your team by exporting them to a network location.
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </TabItem>
 
             <!-- Create Tab -->
