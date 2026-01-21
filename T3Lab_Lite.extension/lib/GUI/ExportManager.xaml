@@ -246,19 +246,19 @@
 
                     <!-- Selection Controls -->
                     <Grid Grid.Row="1" Margin="0,5">
-                        <!-- Single Row with Sheets/Views Radio Buttons, Search, View/Sheet Set, and Save V/S Set -->
+                        <!-- Single Row with Sheets/Views Radio Buttons, View/Sheet Set, Save V/S Set, and Search -->
                         <Grid Margin="0,5">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="20"/>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="200"/>
-                                <ColumnDefinition Width="20"/>
-                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="20"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Radio Buttons for Sheets/Views -->
@@ -287,64 +287,29 @@
                                 <ComboBoxItem Content="Area Plan"/>
                             </ComboBox>
 
-                            <!-- Search Box -->
-                            <TextBlock Grid.Column="3" Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <TextBox Grid.Column="4" x:Name="search_textbox" Height="28"
-                                     VerticalContentAlignment="Center"
-                                     TextChanged="search_sheets"/>
-
                             <!-- View/Sheet Set -->
-                            <TextBlock Grid.Column="6" Text="View/Sheet Set:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                            <ComboBox Grid.Column="7" x:Name="sheet_set_filter" Height="28"
+                            <TextBlock Grid.Column="3" Text="View/Sheet Set:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox Grid.Column="4" x:Name="sheet_set_filter" Height="28"
                                       SelectionChanged="filter_by_sheet_set"
                                       ToolTip="Filter by saved View/Sheet Sets from Print Settings">
                                 <ComboBoxItem Content="All Sheets/Views" IsSelected="True"/>
                             </ComboBox>
 
                             <!-- Save V/S Set Button -->
-                            <Button Grid.Column="9" x:Name="save_vs_set_button"
+                            <Button Grid.Column="6" x:Name="save_vs_set_button"
                                     Content="Save V/S Set"
                                     Height="28"
                                     Style="{StaticResource SecondaryButton}"
                                     Click="save_vs_set_clicked"
                                     ToolTip="Save current selection as View/Sheet Set"/>
+
+                            <!-- Search Box -->
+                            <TextBlock Grid.Column="8" Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBox Grid.Column="9" x:Name="search_textbox" Height="28"
+                                     VerticalContentAlignment="Center"
+                                     TextChanged="search_sheets"/>
                         </Grid>
                     </Grid>
-
-                    <!-- File Naming Section -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" Padding="10" Background="#F8F9FA" CornerRadius="6">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="File Naming Pattern" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
-
-                            <Grid Grid.Row="1">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBox x:Name="naming_pattern"
-                                         Grid.Column="0"
-                                         Height="28"
-                                         VerticalContentAlignment="Center"
-                                         Text="{}{SheetNumber}-{SheetName}"
-                                         ToolTip="Pattern for auto-generating filenames. Updates automatically when you select parameters."/>
-
-                                <Button x:Name="btn_custom_parameters"
-                                        Content="Select Parameters"
-                                        Grid.Column="1"
-                                        Height="28"
-                                        Padding="10,0"
-                                        Margin="5,0,0,0"
-                                        ToolTip="Select custom parameters for filename pattern (auto-applies to selected items)"
-                                        Click="button_custom_parameters"/>
-                            </Grid>
-                        </Grid>
-                    </Border>
 
                     <!-- Sheets List with Selection Status -->
                     <Grid Grid.Row="3">
@@ -387,13 +352,27 @@
                                                         DisplayMemberBinding="{Binding Revision}"/>
                                         <GridViewColumn x:Name="col_size" Header="Size" Width="80"
                                                         DisplayMemberBinding="{Binding Size}"/>
-                                        <GridViewColumn Header="Custom Filename" Width="350">
+                                        <GridViewColumn Header="Custom Filename" Width="300">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                              BorderThickness="0" Background="Transparent"
                                                              ToolTip="Custom filename (leave empty to use pattern)"
                                                              PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Naming" Width="80">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="Pattern"
+                                                            Height="24"
+                                                            Padding="8,4"
+                                                            FontSize="11"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            Click="button_row_naming_pattern"
+                                                            Tag="{Binding}"
+                                                            ToolTip="Set naming pattern for this row"/>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
@@ -759,7 +738,6 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <TextBlock x:Name="status_text" Grid.Column="0"
@@ -780,13 +758,7 @@
                     Content="Next"
                     Style="{StaticResource PrimaryButton}"
                     Click="go_next"
-                    Margin="0,0,10,0"
                     Width="120"/>
-
-            <Button Grid.Column="3" Content="Cancel"
-                    Style="{StaticResource SecondaryButton}"
-                    Click="cancel_export"
-                    Width="100"/>
         </Grid>
         </Grid>
     </Grid>

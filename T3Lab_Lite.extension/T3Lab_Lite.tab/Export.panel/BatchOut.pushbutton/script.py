@@ -359,6 +359,13 @@ class ExportManagerWindow(forms.WPFWindow):
             self.profiles = []  # List of ExportProfile objects
             self.profiles_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'T3Lab_BatchOut_Profiles')
 
+            # Initialize naming pattern (removed from UI, now using per-row pattern buttons)
+            # Create a simple object to hold the pattern text for compatibility
+            class NamingPattern:
+                def __init__(self):
+                    self.Text = "{SheetNumber}-{SheetName}"
+            self.naming_pattern = NamingPattern()
+
             # Set window icon and title bar logo
             try:
                 logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
@@ -1706,6 +1713,54 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Error opening custom parameters dialog: {}".format(ex))
             forms.alert("Error opening custom parameters dialog:\n{}".format(str(ex)))
+
+    def button_row_naming_pattern(self, sender, e):
+        """Open parameter selector dialog for a specific row.
+
+        This applies the naming pattern to only the selected row's item.
+        """
+        try:
+            # Get the item from the button's Tag
+            item = sender.Tag
+            if not item:
+                return
+
+            # Import the parameter selector dialog
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+            from ParameterSelectorDialog import ParameterSelectorDialog
+
+            # Determine element type based on current selection mode
+            element_type = 'sheet' if self.selection_mode == 'sheets' else 'view'
+
+            # Show the parameter selector dialog
+            pattern = ParameterSelectorDialog.show_dialog(self.doc, element_type)
+
+            if pattern:
+                # Store the pattern temporarily
+                temp_pattern = self.naming_pattern.Text if hasattr(self, 'naming_pattern') else ""
+
+                # Temporarily set the pattern
+                if hasattr(self, 'naming_pattern'):
+                    self.naming_pattern.Text = pattern
+
+                # Generate filename using the selected pattern
+                filename = self.get_export_filename(item)
+
+                # Restore the original pattern
+                if hasattr(self, 'naming_pattern') and temp_pattern:
+                    self.naming_pattern.Text = temp_pattern
+
+                # Set the generated filename to this item's CustomFilename
+                item.CustomFilename = filename
+
+                # Refresh the ListView to show the updated CustomFilename value
+                self.sheets_listview.Items.Refresh()
+
+                self.status_text.Text = "Pattern applied to row"
+
+        except Exception as ex:
+            logger.error("Error opening row naming pattern dialog: {}".format(ex))
+            forms.alert("Error opening row naming pattern dialog:\n{}".format(str(ex)))
 
     def reverse_order_changed(self, sender, e):
         """Handle reverse order checkbox change."""
