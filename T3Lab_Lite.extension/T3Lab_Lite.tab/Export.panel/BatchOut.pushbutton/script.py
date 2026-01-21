@@ -2881,10 +2881,6 @@ class ExportManagerWindow(forms.WPFWindow):
         """Close the window."""
         self.Close()
 
-    def settings_button_clicked(self, sender, e):
-        """Show settings dialog."""
-        forms.alert("Settings dialog will be implemented in a future version.",
-                    title="Settings")
 
     def cancel_export(self, sender, e):
         """Cancel and close the window."""

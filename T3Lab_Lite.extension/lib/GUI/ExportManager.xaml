@@ -5,7 +5,7 @@
         MinWidth="900" MinHeight="650"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        ShowInTaskbar="False"
+        ShowInTaskbar="True"
         Background="White">
 
     <WindowChrome.WindowChrome>
@@ -203,13 +203,6 @@
                     </TextBlock>
                 </Button>
 
-                <!-- Settings Button -->
-                <Button x:Name="btn_settings"
-                        Style="{StaticResource WindowControlButton}"
-                        ToolTip="Settings"
-                        Click="settings_button_clicked">
-                    <TextBlock Text="⚙" FontSize="18" Foreground="#7F8C8D"/>
-                </Button>
             </StackPanel>
         </Grid>
 
