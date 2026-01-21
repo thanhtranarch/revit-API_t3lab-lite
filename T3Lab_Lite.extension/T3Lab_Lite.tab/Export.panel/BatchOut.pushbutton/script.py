@@ -1121,13 +1121,9 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.load_sheets()
                 else:
                     self.update_items_list()
-                # Update UI visibility - Show size filter, hide view type filter
-                if hasattr(self, 'size_filter'):
-                    self.size_filter.Visibility = Visibility.Visible
-                    self.size_filter_label.Visibility = Visibility.Visible
+                # Update UI visibility - Hide view type filter
                 if hasattr(self, 'view_type_filter'):
                     self.view_type_filter.Visibility = Visibility.Collapsed
-                    self.view_type_label.Visibility = Visibility.Collapsed
                 # Update column headers for Sheets mode
                 if hasattr(self, 'col_number'):
                     self.col_number.Header = "Sheet Number"
@@ -1141,13 +1137,9 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.load_views()
                 else:
                     self.update_items_list()
-                # Update UI visibility - Hide size filter, show view type filter
-                if hasattr(self, 'size_filter'):
-                    self.size_filter.Visibility = Visibility.Collapsed
-                    self.size_filter_label.Visibility = Visibility.Collapsed
+                # Update UI visibility - Show view type filter
                 if hasattr(self, 'view_type_filter'):
                     self.view_type_filter.Visibility = Visibility.Visible
-                    self.view_type_label.Visibility = Visibility.Visible
                 # Update column headers for Views mode
                 if hasattr(self, 'col_number'):
                     self.col_number.Header = "View Name"
@@ -1519,12 +1511,6 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.apply_filters()
                 return
 
-            # Check if filtering is enabled
-            if hasattr(self, 'filter_by_vs_checkbox') and not self.filter_by_vs_checkbox.IsChecked:
-                # Filtering disabled - just apply normal filters
-                self.apply_filters()
-                return
-
             # Get sheet IDs from the selected set
             sheet_ids = self.get_sheet_ids_from_set(set_name)
 
@@ -1580,13 +1566,6 @@ class ExportManagerWindow(forms.WPFWindow):
         search_text = self.search_textbox.Text.lower() if self.search_textbox.Text else ""
 
         if self.selection_mode == "sheets":
-            # Get selected size filter
-            size_filter = None
-            if hasattr(self, 'size_filter') and self.size_filter.SelectedItem:
-                size_text = self.size_filter.SelectedItem.Content
-                if size_text != "All Sizes":
-                    size_filter = size_text
-
             # Apply filters for sheets
             self.filtered_sheets = []
             for sheet in self.all_sheets:
@@ -1599,11 +1578,6 @@ class ExportManagerWindow(forms.WPFWindow):
                 if search_text:
                     if search_text not in sheet.SheetNumber.lower() and \
                        search_text not in sheet.SheetName.lower():
-                        continue
-
-                # Check size filter
-                if size_filter:
-                    if sheet.Size != size_filter:
                         continue
 
                 self.filtered_sheets.append(sheet)
