@@ -199,6 +199,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
 
                             <!-- First Row: Search and Size/View Type Filter -->
@@ -247,11 +248,14 @@
                                 </ComboBox>
                             </Grid>
 
-                            <!-- Second Row: View/Sheet Set Filter -->
+                            <!-- Second Row: View/Sheet Set Filter with Checkbox -->
                             <Grid Grid.Row="1" Margin="0,10,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="150"/>
                                 </Grid.ColumnDefinitions>
 
                                 <TextBlock Grid.Column="0" Text="View/Sheet Set:" VerticalAlignment="Center" Margin="0,0,5,0"/>
@@ -260,6 +264,23 @@
                                           ToolTip="Filter by saved View/Sheet Sets from Print Settings">
                                     <ComboBoxItem Content="All Sheets/Views" IsSelected="True"/>
                                 </ComboBox>
+
+                                <!-- Filter by V/S Checkbox -->
+                                <CheckBox Grid.Column="3" x:Name="filter_by_vs_checkbox"
+                                          Content="Filter by V/S"
+                                          VerticalAlignment="Center"
+                                          IsChecked="False"
+                                          Checked="filter_by_vs_changed"
+                                          Unchecked="filter_by_vs_changed"
+                                          ToolTip="Enable filtering by View/Sheet Set"/>
+
+                                <!-- Save V/S Set Button -->
+                                <Button Grid.Column="4" x:Name="save_vs_set_button"
+                                        Content="Save V/S Set"
+                                        Height="28"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="save_vs_set_clicked"
+                                        ToolTip="Save current selection as View/Sheet Set"/>
                             </Grid>
                         </Grid>
                     </Grid>
@@ -299,50 +320,75 @@
                         </Grid>
                     </Border>
 
-                    <!-- Sheets List -->
-                    <Border Grid.Row="3" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
-                        <ListView x:Name="sheets_listview"
-                                  SelectionMode="Extended"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                  MouseDoubleClick="listview_item_double_clicked">
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <EventSetter Event="PreviewMouseLeftButtonDown" Handler="listview_item_clicked"/>
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.View>
-                                <GridView x:Name="items_gridview">
-                                    <GridViewColumn Width="40">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                          HorizontalAlignment="Center"/>
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                    <GridViewColumn x:Name="col_number" Header="Sheet Number" Width="250"
-                                                    DisplayMemberBinding="{Binding SheetNumber}"/>
-                                    <GridViewColumn x:Name="col_name" Header="Sheet Name" Width="250"
-                                                    DisplayMemberBinding="{Binding SheetName}"/>
-                                    <GridViewColumn x:Name="col_revision" Header="Revision" Width="80"
-                                                    DisplayMemberBinding="{Binding Revision}"/>
-                                    <GridViewColumn x:Name="col_size" Header="Size" Width="80"
-                                                    DisplayMemberBinding="{Binding Size}"/>
-                                    <GridViewColumn Header="Custom Filename" Width="350">
-                                        <GridViewColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                         BorderThickness="0" Background="Transparent"
-                                                         ToolTip="Custom filename (leave empty to use pattern)"
-                                                         PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
-                                            </DataTemplate>
-                                        </GridViewColumn.CellTemplate>
-                                    </GridViewColumn>
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
-                    </Border>
+                    <!-- Sheets List with Selection Status -->
+                    <Grid Grid.Row="3">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
+                            <ListView x:Name="sheets_listview"
+                                      SelectionMode="Extended"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      MouseDoubleClick="listview_item_double_clicked">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <EventSetter Event="PreviewMouseLeftButtonDown" Handler="listview_item_clicked"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.View>
+                                    <GridView x:Name="items_gridview">
+                                        <GridViewColumn Width="40">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                              HorizontalAlignment="Center"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn x:Name="col_number" Header="Sheet Number" Width="250"
+                                                        DisplayMemberBinding="{Binding SheetNumber}"/>
+                                        <GridViewColumn x:Name="col_name" Header="Sheet Name" Width="250"
+                                                        DisplayMemberBinding="{Binding SheetName}"/>
+                                        <GridViewColumn x:Name="col_revision" Header="Revision" Width="80"
+                                                        DisplayMemberBinding="{Binding Revision}"/>
+                                        <GridViewColumn x:Name="col_size" Header="Size" Width="80"
+                                                        DisplayMemberBinding="{Binding Size}"/>
+                                        <GridViewColumn Header="Custom Filename" Width="350">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent"
+                                                             ToolTip="Custom filename (leave empty to use pattern)"
+                                                             PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </Border>
+
+                        <!-- Selection Count Status Bar -->
+                        <Border Grid.Row="1" Background="#F8F9FA" BorderBrush="#BDC3C7" BorderThickness="1"
+                                Padding="10,8" Margin="0,5,0,0" CornerRadius="4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="selection_count_text"
+                                           Grid.Column="0"
+                                           Text="0 sheets and 0 views selected. Total: 0"
+                                           FontSize="12"
+                                           FontWeight="Medium"
+                                           Foreground="#2C3E50"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
             </TabItem>
 
