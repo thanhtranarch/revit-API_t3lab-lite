@@ -334,7 +334,6 @@
                                       MouseDoubleClick="listview_item_double_clicked">
                                 <ListView.ItemContainerStyle>
                                     <Style TargetType="ListViewItem">
-                                        <EventSetter Event="PreviewMouseLeftButtonDown" Handler="listview_item_clicked"/>
                                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                     </Style>
                                 </ListView.ItemContainerStyle>
