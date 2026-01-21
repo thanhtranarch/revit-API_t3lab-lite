@@ -1078,10 +1078,33 @@ class ExportManagerWindow(forms.WPFWindow):
         else:
             self.update_views_list()
 
+        # Update selection count
+        self.update_selection_count()
+
     def update_views_list(self):
         """Update the views ListView."""
         self.sheets_listview.ItemsSource = None
         self.sheets_listview.ItemsSource = self.filtered_views
+
+    def update_selection_count(self):
+        """Update the selection count status bar."""
+        try:
+            if not hasattr(self, 'selection_count_text'):
+                return
+
+            if self.selection_mode == "sheets":
+                selected_count = sum(1 for s in self.filtered_sheets if s.IsSelected)
+                total_count = len(self.filtered_sheets)
+                self.selection_count_text.Text = "{} sheets and 0 views selected. Total: {}".format(
+                    selected_count, total_count)
+            else:
+                selected_count = sum(1 for v in self.filtered_views if v.IsSelected)
+                total_count = len(self.filtered_views)
+                self.selection_count_text.Text = "0 sheets and {} views selected. Total: {}".format(
+                    selected_count, total_count)
+
+        except Exception as ex:
+            logger.debug("Error updating selection count: {}".format(ex))
 
     def selection_mode_changed(self, sender, e):
         """Handle selection mode change (Sheets vs Views radio button)."""
@@ -1159,6 +1182,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     data_item.IsSelected = not data_item.IsSelected
                     # Refresh to show the change
                     self.sheets_listview.Items.Refresh()
+                    # Update selection count
+                    self.update_selection_count()
 
         except Exception as ex:
             logger.debug("Error handling listview item click: {}".format(ex))
@@ -1187,6 +1212,9 @@ class ExportManagerWindow(forms.WPFWindow):
             self.sheets_listview.Items.Refresh()
             self.status_text.Text = "Selected {} views".format(len(self.filtered_views))
 
+        # Update selection count
+        self.update_selection_count()
+
     def select_none_sheets(self, sender, e):
         """Deselect all items (sheets or views)."""
         if self.selection_mode == "sheets":
@@ -1199,6 +1227,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 view_item.IsSelected = False
             self.sheets_listview.Items.Refresh()
             self.status_text.Text = "Deselected all views"
+
+        # Update selection count
+        self.update_selection_count()
 
     def refresh_sheets(self, sender, e):
         """Refresh the list (sheets or views)."""
@@ -1347,6 +1378,75 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("Error getting sheets from set '{}': {}".format(set_name, ex))
             return []
 
+    def save_current_selection_as_vs_set(self):
+        """Save current selection as a new View/Sheet Set."""
+        try:
+            # Get currently selected items
+            if self.selection_mode == "sheets":
+                selected_items = [s for s in self.filtered_sheets if s.IsSelected]
+                mode_name = "Sheet"
+            else:
+                selected_items = [v for v in self.filtered_views if v.IsSelected]
+                mode_name = "View"
+
+            if not selected_items:
+                forms.alert("No {} selected.\n\nPlease select at least one {} first.".format(
+                    mode_name.lower() + "s", mode_name.lower()),
+                    title="No Selection")
+                return
+
+            # Prompt for set name
+            set_name = forms.ask_for_string(
+                prompt="Enter a name for the new {}/Sheet Set:".format(mode_name),
+                title="Save {}/Sheet Set".format(mode_name),
+                default="Custom Selection {}".format(datetime.now().strftime("%Y-%m-%d %H:%M"))
+            )
+
+            if not set_name:
+                return
+
+            # Create ViewSet with selected items
+            view_set = ViewSet()
+            for item in selected_items:
+                if self.selection_mode == "sheets":
+                    view_set.Insert(item.Sheet)
+                else:
+                    view_set.Insert(item.View)
+
+            # Save as ViewSheetSet using PrintManager
+            print_manager = self.doc.PrintManager
+            view_sheet_setting = print_manager.ViewSheetSetting
+
+            # Start a transaction to save the set
+            t = Transaction(self.doc, "Save View/Sheet Set")
+            t.Start()
+
+            try:
+                # Save the view set
+                view_sheet_setting.SaveAs(set_name)
+                view_sheet_setting.CurrentViewSheetSet.Views = view_set
+
+                t.Commit()
+
+                # Refresh the sheet set filter dropdown
+                self.load_sheet_sets_for_filter()
+
+                # Show success message
+                self.status_text.Text = "Saved '{}' with {} {}s".format(
+                    set_name, len(selected_items), mode_name.lower())
+
+                forms.alert("Successfully saved '{}' with {} {}s".format(
+                    set_name, len(selected_items), mode_name.lower()),
+                    title="Success")
+
+            except Exception as save_ex:
+                t.RollBack()
+                raise save_ex
+
+        except Exception as ex:
+            logger.error("Error saving View/Sheet Set: {}".format(ex))
+            forms.alert("Error saving View/Sheet Set:\n{}".format(str(ex)), title="Error")
+
     def search_sheets(self, sender, e):
         """Filter sheets by search text."""
         self.apply_filters()
@@ -1375,6 +1475,12 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.apply_filters()
                 return
 
+            # Check if filtering is enabled
+            if hasattr(self, 'filter_by_vs_checkbox') and not self.filter_by_vs_checkbox.IsChecked:
+                # Filtering disabled - just apply normal filters
+                self.apply_filters()
+                return
+
             # Get sheet IDs from the selected set
             sheet_ids = self.get_sheet_ids_from_set(set_name)
 
@@ -1391,6 +1497,31 @@ class ExportManagerWindow(forms.WPFWindow):
 
         except Exception as ex:
             logger.error("Error filtering by sheet set: {}".format(ex))
+
+    def filter_by_vs_changed(self, sender, e):
+        """Handle Filter by V/S checkbox change."""
+        try:
+            # Re-apply filters when checkbox state changes
+            if hasattr(self, 'filter_by_vs_checkbox') and self.filter_by_vs_checkbox.IsChecked:
+                # Filter is now enabled - apply sheet set filter
+                self.filter_by_sheet_set(sender, e)
+            else:
+                # Filter is now disabled - remove sheet set filtering
+                self.apply_filters()
+
+            self.update_selection_count()
+
+        except Exception as ex:
+            logger.error("Error handling Filter by V/S change: {}".format(ex))
+
+    def save_vs_set_clicked(self, sender, e):
+        """Handle Save V/S Set button click."""
+        try:
+            # User wants to save current selection as a new View/Sheet Set
+            self.save_current_selection_as_vs_set()
+
+        except Exception as ex:
+            logger.error("Error handling Save V/S Set: {}".format(ex))
 
     def apply_filters(self, sheet_set_ids=None):
         """Apply search and filters.
