@@ -424,6 +424,9 @@ class ExportManagerWindow(forms.WPFWindow):
             # This is done programmatically because EventSetters in Styles don't work with pyRevit
             self.sheets_listview.PreviewMouseLeftButtonDown += self.listview_clicked
 
+            # Attach event handler for tab changes to update preview
+            self.main_tabs.SelectionChanged += self.tab_changed
+
             # Update button text based on current tab
             self.update_navigation_buttons()
 
@@ -1199,6 +1202,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.sheets_listview.Items.Refresh()
                     # Update selection count
                     self.update_selection_count()
+                    # Update export preview if on Create tab
+                    self.update_export_preview_if_needed()
 
         except Exception as ex:
             logger.debug("Error handling listview click: {}".format(ex))
@@ -1241,6 +1246,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
         # Update selection count
         self.update_selection_count()
+        # Update export preview if on Create tab
+        self.update_export_preview_if_needed()
 
     def select_all_sheets(self, sender, e):
         """Select all items (sheets or views)."""
@@ -1656,6 +1663,9 @@ class ExportManagerWindow(forms.WPFWindow):
         if formats:
             self.status_text.Text = "Selected formats: {}".format(", ".join(formats))
 
+        # Update export preview if on Create tab
+        self.update_export_preview_if_needed()
+
     def pdf_auto_detect_changed(self, sender, e):
         """Handle PDF auto-detect checkbox change."""
         try:
@@ -1781,6 +1791,39 @@ class ExportManagerWindow(forms.WPFWindow):
         elif current_tab_index == 2:  # Create tab
             self.back_button.Visibility = Visibility.Visible
             self.next_button.Content = "Create"
+
+    def tab_changed(self, sender, e):
+        """Handle tab change event to update export preview when switching to Create tab."""
+        try:
+            current_tab_index = self.main_tabs.SelectedIndex
+            if current_tab_index == 2:  # Create tab
+                # Update export preview when switching to Create tab
+                self.update_export_preview_if_needed()
+        except Exception as ex:
+            logger.debug("Error handling tab change: {}".format(ex))
+
+    def update_export_preview_if_needed(self):
+        """Update export preview if currently on Create tab."""
+        try:
+            # Check if we're on the Create tab
+            current_tab_index = self.main_tabs.SelectedIndex
+            if current_tab_index == 2:  # Create tab
+                # Validate that we have selected items
+                if self.selection_mode == "sheets":
+                    selected_items = [s for s in self.all_sheets if s.IsSelected]
+                else:
+                    selected_items = [v for v in self.all_views if v.IsSelected]
+
+                # Only update if we have selections
+                if selected_items:
+                    self.build_export_preview()
+                else:
+                    # Clear preview if no items selected
+                    self.export_items = []
+                    self.export_preview_list.ItemsSource = self.export_items
+                    self.progress_text.Text = "No items selected for export"
+        except Exception as ex:
+            logger.debug("Error updating export preview: {}".format(ex))
 
     def go_back(self, sender, e):
         """Navigate to previous tab."""
