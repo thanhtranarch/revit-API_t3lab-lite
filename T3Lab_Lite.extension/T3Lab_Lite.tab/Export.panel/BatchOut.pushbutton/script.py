@@ -44,7 +44,7 @@ clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
-from System.Windows import Visibility
+from System.Windows import Visibility, WindowState
 from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
@@ -2850,6 +2850,41 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Image export failed: {}".format(ex))
             return 0
+
+    def help_button_clicked(self, sender, e):
+        """Show help information."""
+        help_message = ("BatchOut - Batch Export Tool\n\n"
+                        "This tool allows you to batch export sheets and views to multiple formats.\n\n"
+                        "Features:\n"
+                        "• Export to PDF, DWG, DWF, DGN, NWC, IFC, and Image formats\n"
+                        "• Custom naming patterns with parameters\n"
+                        "• Advanced export options\n"
+                        "• Profile management for saving/loading configurations\n"
+                        "• Real-time progress tracking\n\n"
+                        "For more help, please refer to the documentation.")
+        forms.alert(help_message, title="BatchOut Help")
+
+    def minimize_button_clicked(self, sender, e):
+        """Minimize the window."""
+        self.WindowState = WindowState.Minimized
+
+    def maximize_button_clicked(self, sender, e):
+        """Toggle between maximize and restore."""
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+            self.btn_maximize.ToolTip = "Maximize"
+        else:
+            self.WindowState = WindowState.Maximized
+            self.btn_maximize.ToolTip = "Restore"
+
+    def close_button_clicked(self, sender, e):
+        """Close the window."""
+        self.Close()
+
+    def settings_button_clicked(self, sender, e):
+        """Show settings dialog."""
+        forms.alert("Settings dialog will be implemented in a future version.",
+                    title="Settings")
 
     def cancel_export(self, sender, e):
         """Cancel and close the window."""
