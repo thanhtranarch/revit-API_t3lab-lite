@@ -2851,6 +2851,184 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("Image export failed: {}".format(ex))
             return 0
 
+    def profile_button_clicked(self, sender, e):
+        """Show profile management dialog."""
+        try:
+            from System.Windows import Window, TextBlock, Button, Thickness, VerticalAlignment, HorizontalAlignment
+            from System.Windows.Controls import StackPanel, ListView, Grid, RowDefinition, ColumnDefinition, GridLength, GridUnitType, Border, ScrollViewer, ScrollBarVisibility
+            from System.Windows.Media import SolidColorBrush, Color
+
+            # Create dialog window
+            dialog = Window()
+            dialog.Title = "Profile Management"
+            dialog.Width = 800
+            dialog.Height = 500
+            dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner
+            dialog.Owner = self
+            dialog.ShowInTaskbar = False
+
+            # Create main grid
+            main_grid = Grid()
+            main_grid.Margin = Thickness(20)
+
+            # Define rows
+            row1 = RowDefinition()
+            row1.Height = GridLength(1, GridUnitType.Star)
+            row2 = RowDefinition()
+            row2.Height = GridLength.Auto
+            main_grid.RowDefinitions.Add(row1)
+            main_grid.RowDefinitions.Add(row2)
+
+            # Create content grid for listview and buttons
+            content_grid = Grid()
+            Grid.SetRow(content_grid, 0)
+
+            # Define columns
+            col1 = ColumnDefinition()
+            col1.Width = GridLength(1, GridUnitType.Star)
+            col2 = ColumnDefinition()
+            col2.Width = GridLength(200, GridUnitType.Pixel)
+            content_grid.ColumnDefinitions.Add(col1)
+            content_grid.ColumnDefinitions.Add(col2)
+
+            # Profile ListView
+            profile_list = ListView()
+            profile_list.Margin = Thickness(0, 0, 10, 0)
+            profile_list.ItemsSource = self.profiles
+            Grid.SetColumn(profile_list, 0)
+
+            # Create custom template for listview items
+            from System.Windows import DataTemplate, FrameworkElementFactory
+            from System.Windows.Controls import TextBlock as WPFTextBlock
+            template = DataTemplate()
+
+            # Stack panel for each item
+            stack_factory = FrameworkElementFactory(StackPanel)
+            stack_factory.SetValue(StackPanel.MarginProperty, Thickness(5))
+
+            # Name TextBlock
+            name_factory = FrameworkElementFactory(WPFTextBlock)
+            name_factory.SetBinding(WPFTextBlock.TextProperty, System.Windows.Data.Binding("Name"))
+            name_factory.SetValue(WPFTextBlock.FontWeightProperty, System.Windows.FontWeights.Bold)
+            name_factory.SetValue(WPFTextBlock.FontSizeProperty, 14.0)
+            stack_factory.AppendChild(name_factory)
+
+            # Description TextBlock
+            desc_factory = FrameworkElementFactory(WPFTextBlock)
+            desc_factory.SetBinding(WPFTextBlock.TextProperty, System.Windows.Data.Binding("Description"))
+            desc_factory.SetValue(WPFTextBlock.FontSizeProperty, 11.0)
+            desc_factory.SetValue(WPFTextBlock.ForegroundProperty, SolidColorBrush(Color.FromRgb(127, 140, 141)))
+            desc_factory.SetValue(WPFTextBlock.MarginProperty, Thickness(0, 2, 0, 0))
+            stack_factory.AppendChild(desc_factory)
+
+            # Date TextBlock
+            date_factory = FrameworkElementFactory(WPFTextBlock)
+            date_factory.SetBinding(WPFTextBlock.TextProperty, System.Windows.Data.Binding("CreatedDate"))
+            date_factory.SetValue(WPFTextBlock.FontSizeProperty, 10.0)
+            date_factory.SetValue(WPFTextBlock.ForegroundProperty, SolidColorBrush(Color.FromRgb(149, 165, 166)))
+            date_factory.SetValue(WPFTextBlock.MarginProperty, Thickness(0, 5, 0, 0))
+            stack_factory.AppendChild(date_factory)
+
+            template.VisualTree = stack_factory
+            profile_list.ItemTemplate = template
+
+            content_grid.Children.Add(profile_list)
+
+            # Buttons panel
+            buttons_panel = StackPanel()
+            buttons_panel.Margin = Thickness(10, 0, 0, 0)
+            Grid.SetColumn(buttons_panel, 1)
+
+            # Save button
+            save_btn = Button()
+            save_btn.Content = "Save Current Settings"
+            save_btn.Height = 32
+            save_btn.Margin = Thickness(0, 0, 0, 8)
+            save_btn.Click += lambda s, ev: (self.save_profile_clicked(s, ev), dialog.Close() if hasattr(self, '_profile_saved') else None)
+            buttons_panel.Children.Add(save_btn)
+
+            # Load button
+            load_btn = Button()
+            load_btn.Content = "Load Profile"
+            load_btn.Height = 32
+            load_btn.Margin = Thickness(0, 0, 0, 8)
+
+            def load_and_close(s, ev):
+                if profile_list.SelectedItem:
+                    self.load_profile_clicked(s, ev)
+                    dialog.Close()
+
+            load_btn.Click += load_and_close
+            buttons_panel.Children.Add(load_btn)
+
+            # Delete button
+            delete_btn = Button()
+            delete_btn.Content = "Delete Profile"
+            delete_btn.Height = 32
+            delete_btn.Margin = Thickness(0, 0, 0, 8)
+
+            def delete_and_refresh(s, ev):
+                self.delete_profile_clicked(s, ev)
+                profile_list.ItemsSource = None
+                profile_list.ItemsSource = self.profiles
+
+            delete_btn.Click += delete_and_refresh
+            buttons_panel.Children.Add(delete_btn)
+
+            # Separator
+            from System.Windows.Controls import Separator
+            sep = Separator()
+            sep.Margin = Thickness(0, 15, 0, 15)
+            buttons_panel.Children.Add(sep)
+
+            # Import button
+            import_btn = Button()
+            import_btn.Content = "Import from File..."
+            import_btn.Height = 32
+            import_btn.Margin = Thickness(0, 0, 0, 8)
+
+            def import_and_refresh(s, ev):
+                self.import_profile_clicked(s, ev)
+                profile_list.ItemsSource = None
+                profile_list.ItemsSource = self.profiles
+
+            import_btn.Click += import_and_refresh
+            buttons_panel.Children.Add(import_btn)
+
+            # Export button
+            export_btn = Button()
+            export_btn.Content = "Export to File..."
+            export_btn.Height = 32
+            export_btn.Margin = Thickness(0, 0, 0, 8)
+            export_btn.Click += self.export_profile_clicked
+            buttons_panel.Children.Add(export_btn)
+
+            content_grid.Children.Add(buttons_panel)
+            main_grid.Children.Add(content_grid)
+
+            # Close button at bottom
+            close_button = Button()
+            close_button.Content = "Close"
+            close_button.Width = 100
+            close_button.Height = 32
+            close_button.HorizontalAlignment = HorizontalAlignment.Right
+            close_button.Margin = Thickness(0, 15, 0, 0)
+            close_button.Click += lambda s, ev: dialog.Close()
+            Grid.SetRow(close_button, 1)
+            main_grid.Children.Add(close_button)
+
+            dialog.Content = main_grid
+
+            # Store reference for event handlers
+            self.profiles_listview = profile_list
+
+            # Show dialog
+            dialog.ShowDialog()
+
+        except Exception as ex:
+            logger.error("Error showing profile dialog: {}".format(ex))
+            forms.alert("Error showing profile dialog:\n{}".format(str(ex)))
+
     def help_button_clicked(self, sender, e):
         """Show help information."""
         help_message = ("BatchOut - Batch Export Tool\n\n"
