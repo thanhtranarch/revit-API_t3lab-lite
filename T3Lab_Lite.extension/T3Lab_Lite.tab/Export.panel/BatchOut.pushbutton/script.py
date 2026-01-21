@@ -103,7 +103,7 @@ class SheetItem(forms.Reactive):
         self.SheetName = sheet.Name
         self.Status = "Ready"
         self.Progress = 0
-        self.Size = "-"  # Simplified - not loading size for performance
+        self.Size = "-"  # Will be loaded by load_sheets() after initialization
 
         # Get sheet revision info (fast parameter access)
         try:
@@ -487,8 +487,9 @@ class ExportManagerWindow(forms.WPFWindow):
                         except Exception as file_ex:
                             logger.warning("Could not load profile {}: {}".format(filename, file_ex))
 
-            # Update profiles listview
-            self.profiles_listview.ItemsSource = self.profiles
+            # Update profiles listview (only if dialog is open)
+            if hasattr(self, 'profiles_listview') and self.profiles_listview:
+                self.profiles_listview.ItemsSource = self.profiles
             logger.info("Loaded {} profiles".format(len(self.profiles)))
 
         except Exception as ex:
@@ -868,7 +869,13 @@ class ExportManagerWindow(forms.WPFWindow):
         """Auto-detect paper size and orientation from Title Block parameters.
 
         Returns tuple: (paper_size, orientation)
-        Where paper_size is like "A0", "A1", "A2", "A3", "A4", etc.
+        Where paper_size can be:
+        - ISO A Series: A0, A1, A2, A3, A4, A5
+        - ISO B Series: B0, B1, B2, B3, B4, B5
+        - ANSI Series: ANSI A, ANSI B, ANSI C, ANSI D, ANSI E
+        - ARCH Series: ARCH A, ARCH B, ARCH C, ARCH D, ARCH E, ARCH E1
+        - Common: Letter, Legal, Tabloid, Ledger
+        - Or "Use Sheet Size" if not detected
         And orientation is either "Landscape" or "Portrait"
         """
         try:
@@ -905,18 +912,52 @@ class ExportManagerWindow(forms.WPFWindow):
                 width_mm, height_mm = height_mm, width_mm
 
             # Determine paper size based on dimensions (with tolerance of +/- 10mm)
-            # Standard ISO paper sizes in mm (width x height in landscape)
+            # Comprehensive paper sizes in mm (width x height in landscape)
+            # Organized by standard: ISO A, ISO B, ANSI, ARCH, and Common sizes
             paper_sizes = {
+                # ISO A Series (most common)
                 "A0": (1189, 841),
                 "A1": (841, 594),
                 "A2": (594, 420),
                 "A3": (420, 297),
                 "A4": (297, 210),
+                "A5": (210, 148),
+
+                # ISO B Series
+                "B0": (1414, 1000),
+                "B1": (1000, 707),
+                "B2": (707, 500),
+                "B3": (500, 353),
+                "B4": (353, 250),
+                "B5": (250, 176),
+
+                # ANSI Series (US standard)
+                "ANSI A": (279, 216),  # Letter size (11 x 8.5 inches)
+                "ANSI B": (432, 279),  # Tabloid/Ledger (17 x 11 inches)
+                "ANSI C": (559, 432),  # 22 x 17 inches
+                "ANSI D": (864, 559),  # 34 x 22 inches
+                "ANSI E": (1118, 864), # 44 x 34 inches
+
+                # ARCH Series (Architectural)
+                "ARCH A": (305, 229),  # 12 x 9 inches
+                "ARCH B": (457, 305),  # 18 x 12 inches
+                "ARCH C": (610, 457),  # 24 x 18 inches
+                "ARCH D": (914, 610),  # 36 x 24 inches
+                "ARCH E": (1219, 914), # 48 x 36 inches
+                "ARCH E1": (1067, 762),# 42 x 30 inches
+
+                # Common named sizes
+                "Letter": (279, 216),  # 11 x 8.5 inches (same as ANSI A)
+                "Legal": (356, 216),   # 14 x 8.5 inches
+                "Tabloid": (432, 279), # 17 x 11 inches (same as ANSI B)
+                "Ledger": (432, 279),  # 17 x 11 inches (same as ANSI B)
             }
 
             tolerance = 10  # mm
             detected_size = "Use Sheet Size"
 
+            # Try to match with a known paper size
+            # Check in order: ISO A (most common), ANSI, ARCH, ISO B, then common sizes
             for size_name, (std_width, std_height) in paper_sizes.items():
                 if (abs(width_mm - std_width) < tolerance and
                     abs(height_mm - std_height) < tolerance):
@@ -1026,6 +1067,12 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Create sheet items
             self.all_sheets = [SheetItem(sheet, False) for sheet in sheets]
+
+            # Load paper sizes for each sheet
+            for sheet_item in self.all_sheets:
+                size, orientation = self.get_sheet_paper_size_and_orientation(sheet_item.Sheet)
+                sheet_item.Size = size
+
             self.filtered_sheets = list(self.all_sheets)
 
             # Update ListView
@@ -1351,36 +1398,50 @@ class ExportManagerWindow(forms.WPFWindow):
             print_manager = self.doc.PrintManager
             view_sheet_setting = print_manager.ViewSheetSetting
 
-            # Save current print range if possible
+            # Save current state
             original_print_range = None
+            original_set_name = None
+            current_set = None
+
             try:
-                if view_sheet_setting.CurrentViewSheetSet:
-                    original_print_range = view_sheet_setting.CurrentViewSheetSet.PrintRange
+                current_set = view_sheet_setting.CurrentViewSheetSet
+                if current_set:
+                    original_print_range = current_set.PrintRange
+                    try:
+                        original_set_name = current_set.Name
+                    except:
+                        pass
             except:
                 pass
 
             # Temporarily set to Select mode to access SavedViewSheetSetNames
             # This is required by Revit API - the property is only accessible when print range is set
             try:
-                if view_sheet_setting.CurrentViewSheetSet:
-                    view_sheet_setting.CurrentViewSheetSet.PrintRange = DB.PrintRange.Select
+                if current_set:
+                    current_set.PrintRange = DB.PrintRange.Select
             except Exception as range_ex:
                 logger.debug("Could not set print range: {}".format(range_ex))
 
-            # Get saved view sheet set names
-            saved_settings = view_sheet_setting.SavedViewSheetSetNames
+            # Get saved view sheet set names (wrap in try-catch as it may fail if no sets exist)
+            saved_settings = []
+            try:
+                saved_settings = view_sheet_setting.SavedViewSheetSetNames
+            except Exception as saved_ex:
+                logger.debug("Could not get saved sheet set names: {}".format(saved_ex))
+                # This is normal if no sheet sets have been saved yet
+                return []
 
             # Restore original print range
-            if original_print_range is not None:
+            if original_print_range is not None and current_set:
                 try:
-                    view_sheet_setting.CurrentViewSheetSet.PrintRange = original_print_range
+                    current_set.PrintRange = original_print_range
                 except:
                     pass
 
-            return list(saved_settings)
+            return list(saved_settings) if saved_settings else []
 
         except Exception as ex:
-            logger.error("Error getting sheet set names: {}".format(ex))
+            logger.debug("Error getting sheet set names: {}".format(ex))
             return []
 
     def get_sheet_ids_from_set(self, set_name):
