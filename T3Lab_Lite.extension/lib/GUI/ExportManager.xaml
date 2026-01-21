@@ -246,126 +246,68 @@
 
                     <!-- Selection Controls -->
                     <Grid Grid.Row="1" Margin="0,5">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <!-- Sheets/Views Radio Buttons and Action Buttons -->
-                        <Grid Grid.Row="0" Margin="0,5">
+                        <!-- Single Row with Sheets/Views Radio Buttons, Search, View/Sheet Set, and Save V/S Set -->
+                        <Grid Margin="0,5">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Radio Buttons -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <!-- Radio Buttons for Sheets/Views -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                                 <RadioButton x:Name="sheets_radio" Content="Sheets" GroupName="selectionMode"
                                              IsChecked="True" Margin="0,0,20,0"
                                              Checked="selection_mode_changed" FontWeight="Medium"/>
                                 <RadioButton x:Name="views_radio" Content="Views" GroupName="selectionMode"
                                              Checked="selection_mode_changed" FontWeight="Medium"/>
                             </StackPanel>
-                        </Grid>
 
-                        <!-- Buttons Row -->
-                        <WrapPanel Grid.Row="1" Margin="0,10,0,0">
-                            <Button x:Name="load_sheet_set_button" Content="Load Sheet Set" Style="{StaticResource SecondaryButton}"
-                                    Click="load_sheet_set_clicked" Margin="0,0,5,0"
-                                    ToolTip="Select sheets from a saved Sheet Set"/>
-                            <Button Content="Refresh" Style="{StaticResource SecondaryButton}"
-                                    Click="refresh_sheets" Margin="0,0,10,0"/>
-                        </WrapPanel>
+                            <!-- View Type Filter (for Views) - Hidden by default -->
+                            <ComboBox Grid.Column="1" x:Name="view_type_filter" Height="28"
+                                      SelectionChanged="filter_by_size" Visibility="Collapsed"
+                                      VerticalAlignment="Center" Width="150" Margin="20,0,0,0">
+                                <ComboBoxItem Content="All Views" IsSelected="True"/>
+                                <ComboBoxItem Content="Floor Plan"/>
+                                <ComboBoxItem Content="Ceiling Plan"/>
+                                <ComboBoxItem Content="Elevation"/>
+                                <ComboBoxItem Content="Section"/>
+                                <ComboBoxItem Content="3D View"/>
+                                <ComboBoxItem Content="Schedule"/>
+                                <ComboBoxItem Content="Drafting"/>
+                                <ComboBoxItem Content="Legend"/>
+                                <ComboBoxItem Content="Engineering"/>
+                                <ComboBoxItem Content="Area Plan"/>
+                            </ComboBox>
 
-                        <!-- Search and Filter Row -->
-                        <Grid Grid.Row="2" Margin="0,10,0,5">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
+                            <!-- Search Box -->
+                            <TextBlock Grid.Column="3" Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBox Grid.Column="4" x:Name="search_textbox" Height="28"
+                                     VerticalContentAlignment="Center"
+                                     TextChanged="search_sheets"/>
 
-                            <!-- First Row: Search and Size/View Type Filter -->
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="200"/>
-                                    <ColumnDefinition Width="20"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="150"/>
-                                </Grid.ColumnDefinitions>
+                            <!-- View/Sheet Set -->
+                            <TextBlock Grid.Column="6" Text="View/Sheet Set:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox Grid.Column="7" x:Name="sheet_set_filter" Height="28"
+                                      SelectionChanged="filter_by_sheet_set"
+                                      ToolTip="Filter by saved View/Sheet Sets from Print Settings">
+                                <ComboBoxItem Content="All Sheets/Views" IsSelected="True"/>
+                            </ComboBox>
 
-                                <!-- Search Box -->
-                                <TextBlock Grid.Column="0" Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBox Grid.Column="1" x:Name="search_textbox" Height="28"
-                                         VerticalContentAlignment="Center"
-                                         TextChanged="search_sheets"/>
-
-                                <!-- Size Filter (for Sheets) - Visible by default -->
-                                <TextBlock x:Name="size_filter_label" Grid.Column="3" Text="Filter by Size:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <ComboBox Grid.Column="4" x:Name="size_filter" Height="28"
-                                          SelectionChanged="filter_by_size">
-                                    <ComboBoxItem Content="All Sizes" IsSelected="True"/>
-                                    <ComboBoxItem Content="A0"/>
-                                    <ComboBoxItem Content="A1"/>
-                                    <ComboBoxItem Content="A2"/>
-                                    <ComboBoxItem Content="A3"/>
-                                    <ComboBoxItem Content="A4"/>
-                                </ComboBox>
-
-                                <!-- View Type Filter (for Views) - Hidden by default -->
-                                <TextBlock x:Name="view_type_label" Grid.Column="3" Text="View Type:" VerticalAlignment="Center" Margin="0,0,5,0" Visibility="Collapsed"/>
-                                <ComboBox x:Name="view_type_filter" Grid.Column="4" Height="28"
-                                          SelectionChanged="filter_by_size" Visibility="Collapsed">
-                                    <ComboBoxItem Content="All Views" IsSelected="True"/>
-                                    <ComboBoxItem Content="Floor Plan"/>
-                                    <ComboBoxItem Content="Ceiling Plan"/>
-                                    <ComboBoxItem Content="Elevation"/>
-                                    <ComboBoxItem Content="Section"/>
-                                    <ComboBoxItem Content="3D View"/>
-                                    <ComboBoxItem Content="Schedule"/>
-                                    <ComboBoxItem Content="Drafting"/>
-                                    <ComboBoxItem Content="Legend"/>
-                                    <ComboBoxItem Content="Engineering"/>
-                                    <ComboBoxItem Content="Area Plan"/>
-                                </ComboBox>
-                            </Grid>
-
-                            <!-- Second Row: View/Sheet Set Filter with Checkbox -->
-                            <Grid Grid.Row="1" Margin="0,10,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="20"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="150"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0" Text="View/Sheet Set:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <ComboBox Grid.Column="1" x:Name="sheet_set_filter" Height="28"
-                                          SelectionChanged="filter_by_sheet_set"
-                                          ToolTip="Filter by saved View/Sheet Sets from Print Settings">
-                                    <ComboBoxItem Content="All Sheets/Views" IsSelected="True"/>
-                                </ComboBox>
-
-                                <!-- Filter by V/S Checkbox -->
-                                <CheckBox Grid.Column="3" x:Name="filter_by_vs_checkbox"
-                                          Content="Filter by V/S"
-                                          VerticalAlignment="Center"
-                                          IsChecked="False"
-                                          Checked="filter_by_vs_changed"
-                                          Unchecked="filter_by_vs_changed"
-                                          ToolTip="Enable filtering by View/Sheet Set"/>
-
-                                <!-- Save V/S Set Button -->
-                                <Button Grid.Column="4" x:Name="save_vs_set_button"
-                                        Content="Save V/S Set"
-                                        Height="28"
-                                        Style="{StaticResource SecondaryButton}"
-                                        Click="save_vs_set_clicked"
-                                        ToolTip="Save current selection as View/Sheet Set"/>
-                            </Grid>
+                            <!-- Save V/S Set Button -->
+                            <Button Grid.Column="9" x:Name="save_vs_set_button"
+                                    Content="Save V/S Set"
+                                    Height="28"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="save_vs_set_clicked"
+                                    ToolTip="Save current selection as View/Sheet Set"/>
                         </Grid>
                     </Grid>
 
