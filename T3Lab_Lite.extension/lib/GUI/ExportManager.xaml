@@ -5,7 +5,7 @@
         MinWidth="900" MinHeight="650"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        ShowInTaskbar="False"
+        ShowInTaskbar="True"
         Background="White">
 
     <WindowChrome.WindowChrome>
@@ -161,6 +161,14 @@
             <!-- Window Control Buttons -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- Profile Button -->
+                <Button x:Name="btn_profile"
+                        Style="{StaticResource WindowControlButton}"
+                        ToolTip="Profiles"
+                        Click="profile_button_clicked">
+                    <TextBlock Text="👤" FontSize="18" Foreground="#7F8C8D"/>
+                </Button>
+
                 <!-- Help Button -->
                 <Button x:Name="btn_help"
                         Style="{StaticResource WindowControlButton}"
@@ -203,13 +211,6 @@
                     </TextBlock>
                 </Button>
 
-                <!-- Settings Button -->
-                <Button x:Name="btn_settings"
-                        Style="{StaticResource WindowControlButton}"
-                        ToolTip="Settings"
-                        Click="settings_button_clicked">
-                    <TextBlock Text="⚙" FontSize="18" Foreground="#7F8C8D"/>
-                </Button>
             </StackPanel>
         </Grid>
 
@@ -270,10 +271,6 @@
 
                         <!-- Buttons Row -->
                         <WrapPanel Grid.Row="1" Margin="0,10,0,0">
-                            <Button Content="Select All" Style="{StaticResource SecondaryButton}"
-                                    Click="select_all_sheets" Margin="0,0,5,0"/>
-                            <Button Content="Select None" Style="{StaticResource SecondaryButton}"
-                                    Click="select_none_sheets" Margin="0,0,5,0"/>
                             <Button x:Name="load_sheet_set_button" Content="Load Sheet Set" Style="{StaticResource SecondaryButton}"
                                     Click="load_sheet_set_clicked" Margin="0,0,5,0"
                                     ToolTip="Select sheets from a saved Sheet Set"/>
@@ -427,6 +424,12 @@
                                 <ListView.View>
                                     <GridView x:Name="items_gridview">
                                         <GridViewColumn Width="40">
+                                            <GridViewColumn.Header>
+                                                <CheckBox x:Name="header_checkbox"
+                                                          HorizontalAlignment="Center"
+                                                          ToolTip="Select All / Deselect All"
+                                                          Click="header_checkbox_clicked"/>
+                                            </GridViewColumn.Header>
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
@@ -684,95 +687,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- Profiles Tab -->
-            <TabItem Header="Profiles" Style="{StaticResource TabItemStyle}">
-                <Grid Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="Export Profiles" Style="{StaticResource SectionHeader}"/>
-
-                    <!-- Profile List and Management -->
-                    <Border Grid.Row="1" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" Padding="15" Background="#F8F9FA" CornerRadius="6">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="Saved Profiles" FontWeight="Bold" FontSize="13" Margin="0,0,0,10"/>
-
-                            <Grid Grid.Row="1">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="200"/>
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Profile List -->
-                                <Border Grid.Column="0" BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="6" Margin="0,0,10,0">
-                                    <ListView x:Name="profiles_listview" SelectionMode="Single"
-                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                              Background="White">
-                                        <ListView.View>
-                                            <GridView>
-                                                <GridViewColumn Header="Profile Name" Width="250"
-                                                                DisplayMemberBinding="{Binding Name}"/>
-                                                <GridViewColumn Header="Description" Width="300"
-                                                                DisplayMemberBinding="{Binding Description}"/>
-                                                <GridViewColumn Header="Created Date" Width="150"
-                                                                DisplayMemberBinding="{Binding CreatedDate}"/>
-                                            </GridView>
-                                        </ListView.View>
-                                    </ListView>
-                                </Border>
-
-                                <!-- Profile Actions -->
-                                <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                                    <TextBlock Text="Profile Actions" FontWeight="Bold" Margin="0,0,0,10"/>
-
-                                    <Button Content="Save Current Settings" Style="{StaticResource SecondaryButton}"
-                                            Click="save_profile_clicked" Margin="0,0,0,5"
-                                            ToolTip="Save current export settings as a new profile"/>
-
-                                    <Button Content="Load Profile" Style="{StaticResource SecondaryButton}"
-                                            Click="load_profile_clicked" Margin="0,0,0,5"
-                                            ToolTip="Load selected profile settings"/>
-
-                                    <Button Content="Delete Profile" Style="{StaticResource SecondaryButton}"
-                                            Click="delete_profile_clicked" Margin="0,0,0,5"
-                                            ToolTip="Delete selected profile"/>
-
-                                    <Separator Margin="0,15,0,15"/>
-
-                                    <Button Content="Import from File..." Style="{StaticResource SecondaryButton}"
-                                            Click="import_profile_clicked" Margin="0,0,0,5"
-                                            ToolTip="Import profile from file (e.g., network location)"/>
-
-                                    <Button Content="Export to File..." Style="{StaticResource SecondaryButton}"
-                                            Click="export_profile_clicked" Margin="0,0,0,5"
-                                            ToolTip="Export selected profile to file for sharing"/>
-                                </StackPanel>
-                            </Grid>
-                        </Grid>
-                    </Border>
-
-                    <!-- Profile Description -->
-                    <Border Grid.Row="2" BorderBrush="#3498DB" BorderThickness="2" Padding="15" Background="#E8F4F8" CornerRadius="6" Margin="0,10,0,0">
-                        <StackPanel>
-                            <TextBlock Text="ℹ About Profiles" FontWeight="Bold" FontSize="13" Margin="0,0,0,5" Foreground="#2980B9"/>
-                            <TextBlock TextWrapping="Wrap" Foreground="#2C3E50">
-                                Profiles allow you to save and reuse export configurations. Save your frequently used settings as profiles to streamline your workflow.
-                                You can also share profiles with your team by exporting them to a network location.
-                            </TextBlock>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-            </TabItem>
-
-            <!-- Create Tab -->
+<!-- Create Tab -->
             <TabItem Header="Create" Style="{StaticResource TabItemStyle}">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
