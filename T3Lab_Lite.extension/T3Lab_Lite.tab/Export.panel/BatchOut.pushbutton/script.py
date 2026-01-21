@@ -413,6 +413,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.export_ifc.IsEnabled = False
                 self.export_ifc.ToolTip = "IFC export not available in this Revit version"
 
+            # Attach event handler for click-to-select functionality
+            # This is done programmatically because EventSetters in Styles don't work with pyRevit
+            self.sheets_listview.PreviewMouseLeftButtonDown += self.listview_clicked
+
             # Update button text based on current tab
             self.update_navigation_buttons()
 
@@ -1153,28 +1157,40 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Error changing selection mode: {}".format(ex))
 
-    def listview_item_clicked(self, sender, e):
-        """Handle click on ListView item to toggle selection.
+    def listview_clicked(self, sender, e):
+        """Handle click on ListView to toggle item selection.
 
         This allows users to click anywhere on a row to toggle its selection,
         in addition to using the checkbox.
         """
         try:
-            # Get the clicked ListViewItem
+            # Get the clicked element
             from System.Windows import FrameworkElement
-            from System.Windows.Controls import ListViewItem, TextBox
+            from System.Windows.Controls import ListViewItem, TextBox, CheckBox
+            from System.Windows.Media import VisualTreeHelper
 
-            # Check if the click was on a TextBox (Custom Filename column)
-            # If so, don't toggle selection - let the user edit the textbox
+            # Check if the click was on a TextBox or CheckBox
+            # If so, don't toggle selection - let the control handle it
             element = e.OriginalSource
-            while element is not None and not isinstance(element, ListViewItem):
-                if isinstance(element, TextBox):
-                    # Click was in a textbox, don't toggle selection
+            temp_element = element
+            while temp_element is not None:
+                if isinstance(temp_element, (TextBox, CheckBox)):
+                    # Click was in a textbox or checkbox, don't toggle selection
                     return
-                element = element.Parent if hasattr(element, 'Parent') else None
+                if isinstance(temp_element, ListViewItem):
+                    break
+                temp_element = temp_element.Parent if hasattr(temp_element, 'Parent') else None
 
-            # Get the ListViewItem that was clicked
-            item = sender
+            # Find the ListViewItem that was clicked
+            item = None
+            element = e.OriginalSource
+            while element is not None:
+                if isinstance(element, ListViewItem):
+                    item = element
+                    break
+                element = VisualTreeHelper.GetParent(element) if element else None
+
+            # Toggle the selection
             if item and hasattr(item, 'DataContext'):
                 data_item = item.DataContext
                 if data_item:
@@ -1186,7 +1202,7 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.update_selection_count()
 
         except Exception as ex:
-            logger.debug("Error handling listview item click: {}".format(ex))
+            logger.debug("Error handling listview click: {}".format(ex))
 
     def listview_item_double_clicked(self, sender, e):
         """Handle double-click on ListView item - same as single click for now."""
