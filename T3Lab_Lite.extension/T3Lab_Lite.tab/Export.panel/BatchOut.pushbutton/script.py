@@ -1215,6 +1215,34 @@ class ExportManagerWindow(forms.WPFWindow):
         # Stop propagation so that clicking in textbox doesn't toggle row selection
         e.Handled = True
 
+    def header_checkbox_clicked(self, sender, e):
+        """Handle header checkbox click to select/deselect all items."""
+        is_checked = sender.IsChecked
+
+        if self.selection_mode == "sheets":
+            if is_checked:
+                for sheet_item in self.filtered_sheets:
+                    sheet_item.IsSelected = True
+                self.status_text.Text = "Selected {} sheets".format(len(self.filtered_sheets))
+            else:
+                for sheet_item in self.filtered_sheets:
+                    sheet_item.IsSelected = False
+                self.status_text.Text = "Deselected all sheets"
+            self.sheets_listview.Items.Refresh()
+        else:
+            if is_checked:
+                for view_item in self.filtered_views:
+                    view_item.IsSelected = True
+                self.status_text.Text = "Selected {} views".format(len(self.filtered_views))
+            else:
+                for view_item in self.filtered_views:
+                    view_item.IsSelected = False
+                self.status_text.Text = "Deselected all views"
+            self.sheets_listview.Items.Refresh()
+
+        # Update selection count
+        self.update_selection_count()
+
     def select_all_sheets(self, sender, e):
         """Select all items (sheets or views)."""
         if self.selection_mode == "sheets":

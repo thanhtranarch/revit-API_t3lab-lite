@@ -271,10 +271,6 @@
 
                         <!-- Buttons Row -->
                         <WrapPanel Grid.Row="1" Margin="0,10,0,0">
-                            <Button Content="Select All" Style="{StaticResource SecondaryButton}"
-                                    Click="select_all_sheets" Margin="0,0,5,0"/>
-                            <Button Content="Select None" Style="{StaticResource SecondaryButton}"
-                                    Click="select_none_sheets" Margin="0,0,5,0"/>
                             <Button x:Name="load_sheet_set_button" Content="Load Sheet Set" Style="{StaticResource SecondaryButton}"
                                     Click="load_sheet_set_clicked" Margin="0,0,5,0"
                                     ToolTip="Select sheets from a saved Sheet Set"/>
@@ -428,6 +424,12 @@
                                 <ListView.View>
                                     <GridView x:Name="items_gridview">
                                         <GridViewColumn Width="40">
+                                            <GridViewColumn.Header>
+                                                <CheckBox x:Name="header_checkbox"
+                                                          HorizontalAlignment="Center"
+                                                          ToolTip="Select All / Deselect All"
+                                                          Click="header_checkbox_clicked"/>
+                                            </GridViewColumn.Header>
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
