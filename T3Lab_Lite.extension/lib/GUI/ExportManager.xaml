@@ -352,7 +352,21 @@
                                                         DisplayMemberBinding="{Binding Revision}"/>
                                         <GridViewColumn x:Name="col_size" Header="Size" Width="80"
                                                         DisplayMemberBinding="{Binding Size}"/>
-                                        <GridViewColumn Header="Custom Filename" Width="280">
+                                        <GridViewColumn Width="280">
+                                            <GridViewColumn.Header>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="Custom Filename" VerticalAlignment="Center"/>
+                                                    <Button x:Name="btn_edit_filename"
+                                                            Content="Edit"
+                                                            Height="20"
+                                                            Padding="8,2"
+                                                            FontSize="10"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            Click="edit_filename_clicked"
+                                                            ToolTip="Edit filename pattern for all items"
+                                                            Margin="10,0,0,0"/>
+                                                </StackPanel>
+                                            </GridViewColumn.Header>
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Grid>

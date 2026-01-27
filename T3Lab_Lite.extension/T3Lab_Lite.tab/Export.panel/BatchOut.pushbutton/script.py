@@ -1873,8 +1873,9 @@ class ExportManagerWindow(forms.WPFWindow):
                 # Update the naming pattern
                 self.naming_pattern.Text = pattern
 
-                # Update the sample display in DWG Options
-                self.dwg_filename_sample.Text = pattern
+                # Update the sample display in DWG Options (if exists)
+                if hasattr(self, 'dwg_filename_sample') and self.dwg_filename_sample:
+                    self.dwg_filename_sample.Text = pattern
 
                 # Auto-apply the pattern to ALL items
                 items_list = self.all_sheets if self.selection_mode == 'sheets' else self.all_views
