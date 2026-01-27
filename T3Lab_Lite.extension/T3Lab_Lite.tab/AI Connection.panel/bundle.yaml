@@ -1,6 +1,8 @@
 title: T3Lab MCP
 layout:
-  - StartMCP
-  - StopMCP
-  - StatusMCP
+  - Connect
+  - Disconnect
+  - StatusConnected
+  - StatusError
+  - StatusNotStarting
   - Settings
