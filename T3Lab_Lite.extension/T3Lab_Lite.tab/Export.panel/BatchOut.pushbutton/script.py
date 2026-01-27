@@ -359,6 +359,10 @@ class ExportManagerWindow(forms.WPFWindow):
             self.profiles = []  # List of ExportProfile objects
             self.profiles_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'T3Lab_BatchOut_Profiles')
 
+            # Performance optimization: caches for batch loading
+            self._titleblock_size_cache = {}  # Sheet ID -> (width_mm, height_mm)
+            self._paper_size_cache = {}  # Sheet ID -> (size_name, orientation)
+
             # Initialize naming pattern (removed from UI, now using per-row pattern buttons)
             # Create a simple object to hold the pattern text for compatibility
             class NamingPattern:
@@ -865,106 +869,160 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("Error exporting profile: {}".format(ex))
             forms.alert("Error exporting profile:\n{}".format(str(ex)))
 
+    # Pre-computed paper sizes lookup table for O(1) matching
+    # Format: (rounded_width, rounded_height) -> size_name
+    # We round dimensions to nearest 5mm for tolerance matching
+    PAPER_SIZES_MM = {
+        # ISO A Series (most common)
+        "A0": (1189, 841),
+        "A1": (841, 594),
+        "A2": (594, 420),
+        "A3": (420, 297),
+        "A4": (297, 210),
+        "A5": (210, 148),
+        # ISO B Series
+        "B0": (1414, 1000),
+        "B1": (1000, 707),
+        "B2": (707, 500),
+        "B3": (500, 353),
+        "B4": (353, 250),
+        "B5": (250, 176),
+        # ANSI Series (US standard)
+        "ANSI A": (279, 216),
+        "ANSI B": (432, 279),
+        "ANSI C": (559, 432),
+        "ANSI D": (864, 559),
+        "ANSI E": (1118, 864),
+        # ARCH Series (Architectural)
+        "ARCH A": (305, 229),
+        "ARCH B": (457, 305),
+        "ARCH C": (610, 457),
+        "ARCH D": (914, 610),
+        "ARCH E": (1219, 914),
+        "ARCH E1": (1067, 762),
+        # Common named sizes
+        "Letter": (279, 216),
+        "Legal": (356, 216),
+        "Tabloid": (432, 279),
+        "Ledger": (432, 279),
+    }
+
+    def _batch_load_titleblock_sizes(self):
+        """Batch load all titleblock dimensions in ONE query for performance.
+
+        This replaces the per-sheet FilteredElementCollector approach which was
+        causing O(n) queries. Now we do 1 query for ALL titleblocks and build
+        a lookup cache.
+        """
+        try:
+            # Clear existing cache
+            self._titleblock_size_cache = {}
+
+            # Single query to get ALL titleblocks in the document
+            all_titleblocks = FilteredElementCollector(self.doc)\
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)\
+                .WhereElementIsNotElementType()\
+                .ToElements()
+
+            # Build cache: OwnerViewId (Sheet ID) -> (width_mm, height_mm)
+            for tb in all_titleblocks:
+                try:
+                    owner_view_id = tb.OwnerViewId
+                    if owner_view_id and owner_view_id != DB.ElementId.InvalidElementId:
+                        # Get dimensions
+                        width_param = tb.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
+                        height_param = tb.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
+
+                        if width_param and height_param:
+                            width_mm = width_param.AsDouble() * 304.8
+                            height_mm = height_param.AsDouble() * 304.8
+                            self._titleblock_size_cache[owner_view_id.IntegerValue] = (width_mm, height_mm)
+                except:
+                    continue
+
+            logger.debug("Batch loaded {} titleblock sizes".format(len(self._titleblock_size_cache)))
+
+        except Exception as ex:
+            logger.debug("Error batch loading titleblocks: {}".format(ex))
+            self._titleblock_size_cache = {}
+
+    def _detect_paper_size_from_dimensions(self, width_mm, height_mm):
+        """Fast paper size detection from dimensions using pre-computed lookup.
+
+        Uses tolerance matching with O(n) worst case but optimized with
+        early exit for common sizes (A-series checked first).
+        """
+        # Determine orientation and normalize to landscape
+        if width_mm > height_mm:
+            orientation = "Landscape"
+        else:
+            orientation = "Portrait"
+            width_mm, height_mm = height_mm, width_mm
+
+        tolerance = 10  # mm
+
+        # Check most common sizes first for early exit (A-series)
+        priority_sizes = ["A3", "A1", "A2", "A0", "A4", "ARCH D", "ARCH E", "ANSI D", "ANSI E"]
+
+        for size_name in priority_sizes:
+            if size_name in self.PAPER_SIZES_MM:
+                std_width, std_height = self.PAPER_SIZES_MM[size_name]
+                if (abs(width_mm - std_width) < tolerance and
+                    abs(height_mm - std_height) < tolerance):
+                    return (size_name, orientation)
+
+        # Check remaining sizes
+        for size_name, (std_width, std_height) in self.PAPER_SIZES_MM.items():
+            if size_name in priority_sizes:
+                continue  # Already checked
+            if (abs(width_mm - std_width) < tolerance and
+                abs(height_mm - std_height) < tolerance):
+                return (size_name, orientation)
+
+        return ("Use Sheet Size", orientation)
+
     def get_sheet_paper_size_and_orientation(self, sheet):
         """Auto-detect paper size and orientation from Title Block parameters.
 
         Returns tuple: (paper_size, orientation)
-        Where paper_size can be:
-        - ISO A Series: A0, A1, A2, A3, A4, A5
-        - ISO B Series: B0, B1, B2, B3, B4, B5
-        - ANSI Series: ANSI A, ANSI B, ANSI C, ANSI D, ANSI E
-        - ARCH Series: ARCH A, ARCH B, ARCH C, ARCH D, ARCH E, ARCH E1
-        - Common: Letter, Legal, Tabloid, Ledger
-        - Or "Use Sheet Size" if not detected
-        And orientation is either "Landscape" or "Portrait"
+        Uses cached titleblock data for performance (batch loaded).
         """
         try:
-            # Get the title block on the sheet
-            titleblock = None
+            sheet_id = sheet.Id.IntegerValue
+
+            # Check paper size cache first
+            if sheet_id in self._paper_size_cache:
+                return self._paper_size_cache[sheet_id]
+
+            # Check titleblock size cache
+            if sheet_id in self._titleblock_size_cache:
+                width_mm, height_mm = self._titleblock_size_cache[sheet_id]
+                result = self._detect_paper_size_from_dimensions(width_mm, height_mm)
+                self._paper_size_cache[sheet_id] = result
+                return result
+
+            # Fallback: query directly if not in cache (for dynamically added sheets)
             collector = FilteredElementCollector(self.doc, sheet.Id)\
                 .OfCategory(BuiltInCategory.OST_TitleBlocks)\
                 .WhereElementIsNotElementType()
 
             for tb in collector:
-                titleblock = tb
+                width_param = tb.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
+                height_param = tb.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
+
+                if width_param and height_param:
+                    width_mm = width_param.AsDouble() * 304.8
+                    height_mm = height_param.AsDouble() * 304.8
+                    # Cache for future use
+                    self._titleblock_size_cache[sheet_id] = (width_mm, height_mm)
+                    result = self._detect_paper_size_from_dimensions(width_mm, height_mm)
+                    self._paper_size_cache[sheet_id] = result
+                    return result
                 break
 
-            if not titleblock:
-                return ("Use Sheet Size", "Landscape")
-
-            # Get Sheet Width and Sheet Height parameters from title block family
-            width_param = titleblock.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
-            height_param = titleblock.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
-
-            if not width_param or not height_param:
-                return ("Use Sheet Size", "Landscape")
-
-            # Get values in millimeters (Revit internal units are feet)
-            width_mm = width_param.AsDouble() * 304.8  # Convert feet to mm
-            height_mm = height_param.AsDouble() * 304.8
-
-            # Determine orientation
-            if width_mm > height_mm:
-                orientation = "Landscape"
-            else:
-                orientation = "Portrait"
-                # Swap for standard comparison (we'll compare in landscape orientation)
-                width_mm, height_mm = height_mm, width_mm
-
-            # Determine paper size based on dimensions (with tolerance of +/- 10mm)
-            # Comprehensive paper sizes in mm (width x height in landscape)
-            # Organized by standard: ISO A, ISO B, ANSI, ARCH, and Common sizes
-            paper_sizes = {
-                # ISO A Series (most common)
-                "A0": (1189, 841),
-                "A1": (841, 594),
-                "A2": (594, 420),
-                "A3": (420, 297),
-                "A4": (297, 210),
-                "A5": (210, 148),
-
-                # ISO B Series
-                "B0": (1414, 1000),
-                "B1": (1000, 707),
-                "B2": (707, 500),
-                "B3": (500, 353),
-                "B4": (353, 250),
-                "B5": (250, 176),
-
-                # ANSI Series (US standard)
-                "ANSI A": (279, 216),  # Letter size (11 x 8.5 inches)
-                "ANSI B": (432, 279),  # Tabloid/Ledger (17 x 11 inches)
-                "ANSI C": (559, 432),  # 22 x 17 inches
-                "ANSI D": (864, 559),  # 34 x 22 inches
-                "ANSI E": (1118, 864), # 44 x 34 inches
-
-                # ARCH Series (Architectural)
-                "ARCH A": (305, 229),  # 12 x 9 inches
-                "ARCH B": (457, 305),  # 18 x 12 inches
-                "ARCH C": (610, 457),  # 24 x 18 inches
-                "ARCH D": (914, 610),  # 36 x 24 inches
-                "ARCH E": (1219, 914), # 48 x 36 inches
-                "ARCH E1": (1067, 762),# 42 x 30 inches
-
-                # Common named sizes
-                "Letter": (279, 216),  # 11 x 8.5 inches (same as ANSI A)
-                "Legal": (356, 216),   # 14 x 8.5 inches
-                "Tabloid": (432, 279), # 17 x 11 inches (same as ANSI B)
-                "Ledger": (432, 279),  # 17 x 11 inches (same as ANSI B)
-            }
-
-            tolerance = 10  # mm
-            detected_size = "Use Sheet Size"
-
-            # Try to match with a known paper size
-            # Check in order: ISO A (most common), ANSI, ARCH, ISO B, then common sizes
-            for size_name, (std_width, std_height) in paper_sizes.items():
-                if (abs(width_mm - std_width) < tolerance and
-                    abs(height_mm - std_height) < tolerance):
-                    detected_size = size_name
-                    break
-
-            return (detected_size, orientation)
+            result = ("Use Sheet Size", "Landscape")
+            self._paper_size_cache[sheet_id] = result
+            return result
 
         except Exception as ex:
             logger.debug("Could not auto-detect paper size for sheet: {}".format(ex))
@@ -1053,8 +1111,15 @@ class ExportManagerWindow(forms.WPFWindow):
             self.sheet_set_filter.SelectedIndex = 0
 
     def load_sheets(self):
-        """Load all sheets from the document."""
+        """Load all sheets from the document.
+
+        Optimized with batch titleblock loading for faster startup.
+        """
         try:
+            # PERFORMANCE: Batch load all titleblock sizes ONCE before processing sheets
+            # This replaces O(n) queries with O(1) query
+            self._batch_load_titleblock_sizes()
+
             # Get all sheets
             sheets_collector = FilteredElementCollector(self.doc)\
                 .OfCategory(BuiltInCategory.OST_Sheets)\
@@ -1065,13 +1130,14 @@ class ExportManagerWindow(forms.WPFWindow):
             # Sort by sheet number
             sheets.sort(key=lambda x: x.SheetNumber)
 
-            # Create sheet items
-            self.all_sheets = [SheetItem(sheet, False) for sheet in sheets]
-
-            # Load paper sizes for each sheet
-            for sheet_item in self.all_sheets:
-                size, orientation = self.get_sheet_paper_size_and_orientation(sheet_item.Sheet)
+            # Create sheet items with paper sizes from cache (fast lookup)
+            self.all_sheets = []
+            for sheet in sheets:
+                sheet_item = SheetItem(sheet, False)
+                # Use cached titleblock size for fast paper size detection
+                size, orientation = self.get_sheet_paper_size_and_orientation(sheet)
                 sheet_item.Size = size
+                self.all_sheets.append(sheet_item)
 
             self.filtered_sheets = list(self.all_sheets)
 
