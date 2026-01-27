@@ -119,8 +119,10 @@ class ParameterSelectorDialog(Window):
         self.ui.MouseDown += self.header_drag
 
         # Initialize parameter collections
-        self.available_params = ObservableCollection[ParameterItem]()
-        self.selected_params = ObservableCollection[ParameterItem]()
+        # Use ObservableCollection[object] instead of ObservableCollection[ParameterItem]
+        # because ParameterItem is a Python class, not a .NET type
+        self.available_params = ObservableCollection[object]()
+        self.selected_params = ObservableCollection[object]()
 
         self.list_available.ItemsSource = self.available_params
         self.list_selected.ItemsSource = self.selected_params
