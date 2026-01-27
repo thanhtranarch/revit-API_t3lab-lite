@@ -2,7 +2,5 @@ title: T3Lab MCP
 layout:
   - Connect
   - Disconnect
-  - StatusConnected
-  - StatusError
-  - StatusNotStarting
+  - Status
   - Settings
