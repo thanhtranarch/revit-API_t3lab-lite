@@ -8,6 +8,7 @@ to build custom filename patterns.
 import os
 import sys
 import clr
+import json
 from collections import OrderedDict
 
 clr.AddReference('PresentationFramework')
@@ -29,6 +30,10 @@ from Autodesk.Revit.DB import (
 )
 
 
+# Cache file path for storing filename pattern settings
+CACHE_FILE_PATH = os.path.join(os.path.expanduser('~'), '.batchout_filename_cache.json')
+
+
 class ParameterItem:
     """Represents a parameter item that can be selected."""
 
@@ -43,6 +48,24 @@ class ParameterItem:
 
     def __repr__(self):
         return "ParameterItem({})".format(self.DisplayName)
+
+    def to_dict(self):
+        """Convert to dictionary for JSON serialization."""
+        return {
+            'Name': self.Name,
+            'DisplayName': self.DisplayName,
+            'IsBuiltIn': self.IsBuiltIn
+        }
+
+    @staticmethod
+    def from_dict(data):
+        """Create ParameterItem from dictionary."""
+        return ParameterItem(
+            data.get('Name', ''),
+            data.get('DisplayName', ''),
+            data.get('IsBuiltIn', False),
+            None  # BuiltInParameter cannot be serialized
+        )
 
 
 class ParameterSelectorDialog(Window):
@@ -129,6 +152,9 @@ class ParameterSelectorDialog(Window):
 
         # Load parameters
         self.load_parameters()
+
+        # Load cached configuration (restore previous user selections)
+        self.load_cached_config()
 
         # Update preview
         self.update_preview(None, None)
@@ -365,6 +391,8 @@ class ParameterSelectorDialog(Window):
         """OK button - build pattern and close dialog."""
         self.field_separator = self.txt_field_separator.Text if self.chk_field_separator.IsChecked else ''
         self.selected_result = self.build_pattern()
+        # Save configuration to cache for next time
+        self.save_cached_config()
         self.DialogResult = True
         self.Close()
 
@@ -410,6 +438,75 @@ class ParameterSelectorDialog(Window):
             return separator.join(pattern_parts)
         else:
             return ''.join(pattern_parts)
+
+    def save_cached_config(self):
+        """Save current configuration to cache file."""
+        try:
+            # Build list of selected parameter data
+            selected_data = []
+            for param in self.selected_params:
+                selected_data.append(param.to_dict())
+
+            config = {
+                'element_type': self.element_type,
+                'selected_params': selected_data,
+                'field_separator': self.txt_field_separator.Text,
+                'use_separator': self.chk_field_separator.IsChecked,
+                'include_project_params': self.chk_include_project_params.IsChecked
+            }
+
+            with open(CACHE_FILE_PATH, 'w') as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            # Silently ignore cache save errors
+            pass
+
+    def load_cached_config(self):
+        """Load cached configuration and restore selected parameters."""
+        try:
+            if not os.path.exists(CACHE_FILE_PATH):
+                return
+
+            with open(CACHE_FILE_PATH, 'r') as f:
+                config = json.load(f)
+
+            # Only restore if element type matches
+            if config.get('element_type') != self.element_type:
+                return
+
+            # Restore separator settings
+            if 'field_separator' in config:
+                self.txt_field_separator.Text = config['field_separator']
+            if 'use_separator' in config:
+                self.chk_field_separator.IsChecked = config['use_separator']
+            if 'include_project_params' in config:
+                self.chk_include_project_params.IsChecked = config['include_project_params']
+                # Reload parameters if project params setting changed
+                self.load_parameters()
+
+            # Restore selected parameters in order
+            selected_data = config.get('selected_params', [])
+            for param_data in selected_data:
+                param_name = param_data.get('Name', '')
+                param_display = param_data.get('DisplayName', '')
+
+                # Find in available params and move to selected
+                found = False
+                for available_param in list(self.available_params):
+                    if available_param.Name == param_name:
+                        self.available_params.Remove(available_param)
+                        self.selected_params.Add(available_param)
+                        found = True
+                        break
+
+                # If not found in available (custom field/separator), recreate it
+                if not found and (param_name.startswith('Custom_') or param_name.startswith('Separator_')):
+                    custom_param = ParameterItem(param_name, param_display, False)
+                    self.selected_params.Add(custom_param)
+
+        except Exception as e:
+            # Silently ignore cache load errors
+            pass
 
     @staticmethod
     def show_dialog(doc, element_type='sheet'):
