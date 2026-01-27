@@ -39,7 +39,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="3"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -71,7 +71,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
+                                CornerRadius="3"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -237,7 +237,7 @@
                     <TextBlock Grid.Row="0" Text="Select Sheets or Views to Export" Style="{StaticResource SectionHeader}"/>
 
                     <!-- Hint -->
-                    <Border BorderBrush="#3498DB" BorderThickness="1" Padding="10" Background="#E8F4F8" CornerRadius="4" Margin="0,5,0,10">
+                    <Border BorderBrush="#3498DB" BorderThickness="1" Padding="10" Background="#E8F4F8" CornerRadius="2" Margin="0,5,0,10">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="💡 Tip:" FontWeight="Bold" Foreground="#2980B9" Margin="0,0,5,0"/>
                             <TextBlock Text="Click on any row to select/deselect, or use checkboxes. Ctrl+Click and Shift+Click work too!" Foreground="#2C3E50"/>
@@ -318,7 +318,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <Border Grid.Row="0" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
+                        <Border Grid.Row="0" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="3">
                             <ListView x:Name="sheets_listview"
                                       SelectionMode="Extended"
                                       ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -369,27 +369,10 @@
                                             </GridViewColumn.Header>
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBox Grid.Column="0"
-                                                                 Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                 BorderThickness="0" Background="Transparent"
-                                                                 ToolTip="Custom filename (leave empty to use pattern)"
-                                                                 PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
-                                                        <Button Grid.Column="1"
-                                                                Content="Edit"
-                                                                Height="22"
-                                                                Padding="6,2"
-                                                                FontSize="10"
-                                                                Style="{StaticResource SecondaryButton}"
-                                                                Click="button_row_naming_pattern"
-                                                                Tag="{Binding}"
-                                                                ToolTip="Edit filename pattern for this row"
-                                                                Margin="5,0,0,0"/>
-                                                    </Grid>
+                                                    <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             BorderThickness="0" Background="Transparent"
+                                                             ToolTip="Custom filename (leave empty to use pattern)"
+                                                             PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
@@ -400,7 +383,7 @@
 
                         <!-- Selection Count Status Bar -->
                         <Border Grid.Row="1" Background="#F8F9FA" BorderBrush="#BDC3C7" BorderThickness="1"
-                                Padding="10,8" Margin="0,5,0,0" CornerRadius="4">
+                                Padding="10,8" Margin="0,5,0,0" CornerRadius="2">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -432,7 +415,7 @@
                         <!-- Export Formats -->
                         <StackPanel Grid.Row="0">
                             <TextBlock Text="Export Formats" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="3">
                                 <WrapPanel>
                                     <!-- PDF Format -->
                                     <StackPanel Margin="5">
@@ -515,7 +498,7 @@
                         <!-- PDF Options -->
                         <StackPanel Grid.Row="1" x:Name="pdf_options_panel" Margin="0,10,0,0">
                             <TextBlock Text="PDF Options" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="3">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -580,7 +563,7 @@
                         <!-- DWG/CAD Options -->
                         <StackPanel Grid.Row="2" x:Name="dwg_options_panel" Margin="0,10,0,0">
                             <TextBlock Text="DWG/CAD Export Options" Style="{StaticResource SectionHeader}"/>
-                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="3">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -638,7 +621,7 @@
                     <!-- Export Rules -->
                     <StackPanel Grid.Row="0">
                         <TextBlock Text="Export Rules" Style="{StaticResource SectionHeader}"/>
-                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="6">
+                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="3">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -686,7 +669,7 @@
                     </StackPanel>
 
                     <!-- Preview List -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="6">
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="3">
                         <ListView x:Name="export_preview_list"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListView.View>
