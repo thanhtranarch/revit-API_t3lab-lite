@@ -352,27 +352,30 @@
                                                         DisplayMemberBinding="{Binding Revision}"/>
                                         <GridViewColumn x:Name="col_size" Header="Size" Width="80"
                                                         DisplayMemberBinding="{Binding Size}"/>
-                                        <GridViewColumn Header="Custom Filename" Width="300">
+                                        <GridViewColumn Header="Custom Filename" Width="280">
                                             <GridViewColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             BorderThickness="0" Background="Transparent"
-                                                             ToolTip="Custom filename (leave empty to use pattern)"
-                                                             PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
-                                                </DataTemplate>
-                                            </GridViewColumn.CellTemplate>
-                                        </GridViewColumn>
-                                        <GridViewColumn Header="Naming" Width="80">
-                                            <GridViewColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <Button Content="Pattern"
-                                                            Height="24"
-                                                            Padding="8,4"
-                                                            FontSize="11"
-                                                            Style="{StaticResource SecondaryButton}"
-                                                            Click="button_row_naming_pattern"
-                                                            Tag="{Binding}"
-                                                            ToolTip="Set naming pattern for this row"/>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Grid.Column="0"
+                                                                 Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 BorderThickness="0" Background="Transparent"
+                                                                 ToolTip="Custom filename (leave empty to use pattern)"
+                                                                 PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
+                                                        <Button Grid.Column="1"
+                                                                Content="Edit"
+                                                                Height="22"
+                                                                Padding="6,2"
+                                                                FontSize="10"
+                                                                Style="{StaticResource SecondaryButton}"
+                                                                Click="button_row_naming_pattern"
+                                                                Tag="{Binding}"
+                                                                ToolTip="Edit filename pattern for this row"
+                                                                Margin="5,0,0,0"/>
+                                                    </Grid>
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
@@ -569,37 +572,15 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Filename Pattern -->
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Filename Pattern:" VerticalAlignment="Center" Margin="0,5"/>
-                                    <Grid Grid.Row="0" Grid.Column="1" Margin="5">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="dwg_filename_sample" Grid.Column="0" Height="28"
-                                                 Text="{}{SheetNumber}"
-                                                 IsReadOnly="True"
-                                                 Background="#FAFAFA"
-                                                 VerticalContentAlignment="Center"
-                                                 ToolTip="Sample filename based on current pattern"/>
-                                        <Button Grid.Column="1" x:Name="btn_edit_filename"
-                                                Content="Edit filename"
-                                                Style="{StaticResource SecondaryButton}"
-                                                Click="edit_filename_clicked"
-                                                Margin="5,0,0,0"
-                                                ToolTip="Edit filename pattern using parameters"/>
-                                    </Grid>
-
                                     <!-- AutoCAD Version -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="AutoCAD Version:" VerticalAlignment="Center" Margin="0,5"/>
-                                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="dwg_version" Height="28" Margin="5"
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="AutoCAD Version:" VerticalAlignment="Center" Margin="0,5"/>
+                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="dwg_version" Height="28" Margin="5"
                                               SelectedIndex="0">
                                         <ComboBoxItem Content="AutoCAD 2013"/>
                                         <ComboBoxItem Content="AutoCAD 2010"/>
@@ -607,15 +588,15 @@
                                     </ComboBox>
 
                                     <!-- Export Setup -->
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Export Setup:" VerticalAlignment="Center" Margin="0,5"/>
-                                    <ComboBox Grid.Row="2" Grid.Column="1" x:Name="cad_export_setup" Height="28" Margin="5"
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Export Setup:" VerticalAlignment="Center" Margin="0,5"/>
+                                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="cad_export_setup" Height="28" Margin="5"
                                               SelectedIndex="0">
                                         <ComboBoxItem Content="Use setup from file"/>
                                     </ComboBox>
 
                                     <!-- Additional CAD Options -->
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Additional Options:" VerticalAlignment="Top" Margin="0,10,0,5"/>
-                                    <StackPanel Grid.Row="3" Grid.Column="1" Margin="5,10,5,0">
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Additional Options:" VerticalAlignment="Top" Margin="0,10,0,5"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Margin="5,10,5,0">
                                         <CheckBox x:Name="cad_export_views_on_sheets" Content="Export views on sheets"
                                                   IsChecked="False" Margin="0,3"
                                                   ToolTip="Export views placed on sheets (default: OFF)"/>
