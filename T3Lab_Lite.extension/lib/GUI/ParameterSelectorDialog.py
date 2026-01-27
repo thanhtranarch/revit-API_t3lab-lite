@@ -64,14 +64,14 @@ class ParameterSelectorDialog(Window):
         self.field_separator = '-'
 
         # Set up window properties first
-        self.Title = "Custom Filename Parameters"
-        self.Width = 800
-        self.Height = 700
+        self.Title = "Edit Filename Pattern"
+        self.Width = 700
+        self.Height = 550
         self.WindowStartupLocation = WindowStartupLocation.CenterScreen
         self.WindowStyle = WindowStyle.None
         self.AllowsTransparency = True
         self.Background = System.Windows.Media.SolidColorBrush(
-            System.Windows.Media.Color.FromArgb(255, 8, 3, 38))
+            System.Windows.Media.Color.FromArgb(255, 250, 250, 250))
 
         # Load XAML
         xaml_file = os.path.join(os.path.dirname(__file__), 'ParameterSelector.xaml')
@@ -93,6 +93,7 @@ class ParameterSelectorDialog(Window):
         self.chk_include_project_params = self.ui.FindName('chk_include_project_params')
         self.txt_custom_field = self.ui.FindName('txt_custom_field')
         self.txt_custom_separator = self.ui.FindName('txt_custom_separator')
+        self.txt_preview = self.ui.FindName('txt_preview')
 
         # Set up event handlers
         self.ui.FindName('button_close').Click += self.button_close
@@ -100,16 +101,19 @@ class ParameterSelectorDialog(Window):
         self.ui.FindName('button_remove_parameter').Click += self.button_remove_parameter
         self.ui.FindName('button_move_up').Click += self.button_move_up
         self.ui.FindName('button_move_down').Click += self.button_move_down
+        self.ui.FindName('button_move_top').Click += self.button_move_top
+        self.ui.FindName('button_move_bottom').Click += self.button_move_bottom
         self.ui.FindName('button_refresh').Click += self.button_refresh
         self.ui.FindName('button_add_custom_field').Click += self.button_add_custom_field
         self.ui.FindName('button_add_custom_separator').Click += self.button_add_custom_separator
         self.ui.FindName('button_ok').Click += self.button_ok
-        self.ui.FindName('button_cancel').Click += self.button_cancel
-        self.ui.FindName('button_preview').Click += self.button_preview
 
         # Set up checkbox event handlers
         self.chk_include_project_params.Checked += self.toggle_project_params
         self.chk_include_project_params.Unchecked += self.toggle_project_params
+        self.chk_field_separator.Checked += self.update_preview
+        self.chk_field_separator.Unchecked += self.update_preview
+        self.txt_field_separator.TextChanged += self.update_preview
 
         # Set up drag handler for header
         self.ui.MouseDown += self.header_drag
@@ -123,6 +127,9 @@ class ParameterSelectorDialog(Window):
 
         # Load parameters
         self.load_parameters()
+
+        # Update preview
+        self.update_preview(None, None)
 
     def load_parameters(self):
         """Load all available parameters from sheets or views."""
@@ -172,8 +179,8 @@ class ParameterSelectorDialog(Window):
                 continue
 
         # Add standard date/time placeholders
-        all_params['Date'] = ParameterItem('Date', '{Date} - Current Date', False)
-        all_params['Time'] = ParameterItem('Time', '{Time} - Current Time', False)
+        all_params['Date'] = ParameterItem('Date', 'Date', False)
+        all_params['Time'] = ParameterItem('Time', 'Time', False)
 
         # Add to available list
         for param in all_params.values():
@@ -200,15 +207,15 @@ class ParameterSelectorDialog(Window):
     def _add_sheet_builtin_params(self, all_params):
         """Add sheet-specific built-in parameters."""
         sheet_params = [
-            (BuiltInParameter.SHEET_NUMBER, 'Sheet Number', '{SheetNumber}'),
-            (BuiltInParameter.SHEET_NAME, 'Sheet Name', '{SheetName}'),
-            (BuiltInParameter.SHEET_CURRENT_REVISION, 'Current Revision', '{Revision}'),
-            (BuiltInParameter.SHEET_CURRENT_REVISION_DATE, 'Revision Date', '{RevisionDate}'),
-            (BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION, 'Revision Description', '{RevisionDescription}'),
-            (BuiltInParameter.SHEET_DRAWN_BY, 'Drawn By', '{DrawnBy}'),
-            (BuiltInParameter.SHEET_CHECKED_BY, 'Checked By', '{CheckedBy}'),
-            (BuiltInParameter.SHEET_ISSUE_DATE, 'Issue Date', '{IssueDate}'),
-            (BuiltInParameter.SHEET_APPROVED_BY, 'Approved By', '{ApprovedBy}'),
+            (BuiltInParameter.SHEET_NUMBER, 'SheetNumber', 'Sheet Number'),
+            (BuiltInParameter.SHEET_NAME, 'SheetName', 'Sheet Name'),
+            (BuiltInParameter.SHEET_CURRENT_REVISION, 'Revision', 'Revision'),
+            (BuiltInParameter.SHEET_CURRENT_REVISION_DATE, 'RevisionDate', 'Revision Date'),
+            (BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION, 'RevisionDescription', 'Revision Description'),
+            (BuiltInParameter.SHEET_DRAWN_BY, 'DrawnBy', 'Drawn By'),
+            (BuiltInParameter.SHEET_CHECKED_BY, 'CheckedBy', 'Checked By'),
+            (BuiltInParameter.SHEET_ISSUE_DATE, 'IssueDate', 'Issue Date'),
+            (BuiltInParameter.SHEET_APPROVED_BY, 'ApprovedBy', 'Approved By'),
         ]
 
         for builtin_param, name, display_name in sheet_params:
@@ -217,12 +224,12 @@ class ParameterSelectorDialog(Window):
     def _add_view_builtin_params(self, all_params):
         """Add view-specific built-in parameters."""
         view_params = [
-            (BuiltInParameter.VIEW_NAME, 'View Name', '{ViewName}'),
-            (BuiltInParameter.VIEW_TYPE, 'View Type', '{ViewType}'),
-            (BuiltInParameter.VIEW_SCALE, 'View Scale', '{ViewScale}'),
-            (BuiltInParameter.VIEW_PHASE, 'Phase', '{Phase}'),
-            (BuiltInParameter.VIEW_LEVEL, 'Associated Level', '{Level}'),
-            (BuiltInParameter.VIEW_DISCIPLINE, 'Discipline', '{Discipline}'),
+            (BuiltInParameter.VIEW_NAME, 'ViewName', 'View Name'),
+            (BuiltInParameter.VIEW_TYPE, 'ViewType', 'View Type'),
+            (BuiltInParameter.VIEW_SCALE, 'ViewScale', 'View Scale'),
+            (BuiltInParameter.VIEW_PHASE, 'Phase', 'Phase'),
+            (BuiltInParameter.VIEW_LEVEL, 'Level', 'Associated Level'),
+            (BuiltInParameter.VIEW_DISCIPLINE, 'Discipline', 'Discipline'),
         ]
 
         for builtin_param, name, display_name in view_params:
@@ -231,11 +238,11 @@ class ParameterSelectorDialog(Window):
     def _add_project_info_params(self, all_params):
         """Add project information parameters."""
         project_params = [
-            ('ProjectNumber', '{ProjectNumber} - Project Number', False),
-            ('ProjectName', '{ProjectName} - Project Name', False),
-            ('ProjectAddress', '{ProjectAddress} - Project Address', False),
-            ('ClientName', '{ClientName} - Client Name', False),
-            ('ProjectStatus', '{ProjectStatus} - Project Status', False),
+            ('ProjectNumber', 'Project Number', False),
+            ('ProjectName', 'Project Name', False),
+            ('ProjectAddress', 'Project Address', False),
+            ('ClientName', 'Client Name', False),
+            ('ProjectStatus', 'Project Status', False),
         ]
 
         for name, display_name, _ in project_params:
@@ -251,6 +258,7 @@ class ParameterSelectorDialog(Window):
         for item in selected_items:
             self.selected_params.Add(item)
             self.available_params.Remove(item)
+        self.update_preview(sender, e)
 
     def button_remove_parameter(self, sender, e):
         """Remove selected parameters from selected list back to available."""
@@ -258,6 +266,7 @@ class ParameterSelectorDialog(Window):
         for item in selected_items:
             self.available_params.Add(item)
             self.selected_params.Remove(item)
+        self.update_preview(sender, e)
 
     def button_move_up(self, sender, e):
         """Move selected parameter up in the list."""
@@ -267,6 +276,7 @@ class ParameterSelectorDialog(Window):
             self.selected_params.RemoveAt(index)
             self.selected_params.Insert(index - 1, item)
             self.list_selected.SelectedIndex = index - 1
+        self.update_preview(sender, e)
 
     def button_move_down(self, sender, e):
         """Move selected parameter down in the list."""
@@ -276,6 +286,27 @@ class ParameterSelectorDialog(Window):
             self.selected_params.RemoveAt(index)
             self.selected_params.Insert(index + 1, item)
             self.list_selected.SelectedIndex = index + 1
+        self.update_preview(sender, e)
+
+    def button_move_top(self, sender, e):
+        """Move selected parameter to the top of the list."""
+        if self.list_selected.SelectedIndex > 0:
+            index = self.list_selected.SelectedIndex
+            item = self.selected_params[index]
+            self.selected_params.RemoveAt(index)
+            self.selected_params.Insert(0, item)
+            self.list_selected.SelectedIndex = 0
+        self.update_preview(sender, e)
+
+    def button_move_bottom(self, sender, e):
+        """Move selected parameter to the bottom of the list."""
+        if self.list_selected.SelectedIndex < len(self.selected_params) - 1:
+            index = self.list_selected.SelectedIndex
+            item = self.selected_params[index]
+            self.selected_params.RemoveAt(index)
+            self.selected_params.Add(item)
+            self.list_selected.SelectedIndex = len(self.selected_params) - 1
+        self.update_preview(sender, e)
 
     def button_refresh(self, sender, e):
         """Refresh the parameter list."""
@@ -300,11 +331,12 @@ class ParameterSelectorDialog(Window):
         if custom_field:
             custom_param = ParameterItem(
                 'Custom_{}'.format(custom_field),
-                '{{{}}}'.format(custom_field),
+                custom_field,
                 False
             )
             self.selected_params.Add(custom_param)
             self.txt_custom_field.Text = ''
+        self.update_preview(sender, e)
 
     def button_add_custom_separator(self, sender, e):
         """Add a custom separator to the selected parameters."""
@@ -317,14 +349,15 @@ class ParameterSelectorDialog(Window):
             )
             self.selected_params.Add(sep_param)
             self.txt_custom_separator.Text = ''
+        self.update_preview(sender, e)
 
-    def button_preview(self, sender, e):
-        """Preview the filename pattern with current parameters."""
+    def update_preview(self, sender, e):
+        """Update the preview text based on current selection."""
         pattern = self.build_pattern()
-        forms.alert(
-            "Filename Pattern:\n\n{}".format(pattern),
-            title="Preview Filename Pattern"
-        )
+        if pattern:
+            self.txt_preview.Text = "Preview: " + pattern
+        else:
+            self.txt_preview.Text = "Preview: (select parameters)"
 
     def button_ok(self, sender, e):
         """OK button - build pattern and close dialog."""
@@ -333,15 +366,11 @@ class ParameterSelectorDialog(Window):
         self.DialogResult = True
         self.Close()
 
-    def button_cancel(self, sender, e):
-        """Cancel button - close dialog without saving."""
+    def button_close(self, sender, e):
+        """Close button - same as cancel."""
         self.selected_result = None
         self.DialogResult = False
         self.Close()
-
-    def button_close(self, sender, e):
-        """Close button - same as cancel."""
-        self.button_cancel(sender, e)
 
     def header_drag(self, sender, e):
         """Allow dragging the window by its header."""
@@ -355,7 +384,7 @@ class ParameterSelectorDialog(Window):
         """Build filename pattern from selected parameters.
 
         Returns:
-            String pattern with placeholders like {SheetNumber}_{SheetName}
+            String pattern with placeholders like {SheetNumber}-{SheetName}
         """
         if len(self.selected_params) == 0:
             return ''
@@ -370,22 +399,15 @@ class ParameterSelectorDialog(Window):
             # If it's a custom field, add it as-is
             elif param.Name.startswith('Custom_'):
                 pattern_parts.append(param.DisplayName)
-            # For standard parameters, extract the placeholder name
+            # For standard parameters, create placeholder
             else:
-                # Extract placeholder from display name (e.g., "{SheetNumber} - Sheet Number" -> "{SheetNumber}")
-                display = param.DisplayName
-                if display.startswith('{') and '}' in display:
-                    placeholder = display.split('}')[0] + '}'
-                    pattern_parts.append(placeholder)
-                else:
-                    # If no placeholder format, create one from the name
-                    pattern_parts.append('{{{}}}'.format(param.Name))
+                pattern_parts.append('{{{}}}'.format(param.Name))
 
         # Join with separator
         if separator and self.chk_field_separator.IsChecked:
             return separator.join(pattern_parts)
         else:
-            return '_'.join(pattern_parts)
+            return ''.join(pattern_parts)
 
     @staticmethod
     def show_dialog(doc, element_type='sheet'):

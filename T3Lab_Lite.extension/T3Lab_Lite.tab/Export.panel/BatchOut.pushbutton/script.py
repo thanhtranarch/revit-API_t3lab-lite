@@ -294,8 +294,8 @@ class ExportProfile(object):
         self.SplitByFormat = False
         self.ReverseOrder = False
 
-        # Naming pattern
-        self.NamingPattern = "{SheetNumber}-{SheetName}"
+        # Naming pattern - default to SheetNumber only for DWG batch export
+        self.NamingPattern = "{SheetNumber}"
 
     def to_dict(self):
         """Convert profile to dictionary for JSON serialization."""
@@ -365,9 +365,10 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Initialize naming pattern (removed from UI, now using per-row pattern buttons)
             # Create a simple object to hold the pattern text for compatibility
+            # Default to SheetNumber only for DWG batch export
             class NamingPattern:
                 def __init__(self):
-                    self.Text = "{SheetNumber}-{SheetName}"
+                    self.Text = "{SheetNumber}"
             self.naming_pattern = NamingPattern()
 
             # Set window icon and title bar logo
@@ -1850,6 +1851,49 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Error opening custom parameters dialog: {}".format(ex))
             forms.alert("Error opening custom parameters dialog:\n{}".format(str(ex)))
+
+    def edit_filename_clicked(self, sender, e):
+        """Open the parameter selector dialog to edit filename pattern.
+
+        This is triggered by the 'Edit filename' button in DWG Options section.
+        After editing, the sample filename is displayed in the dwg_filename_sample TextBox.
+        """
+        try:
+            # Import the parameter selector dialog
+            sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+            from ParameterSelectorDialog import ParameterSelectorDialog
+
+            # Determine element type based on current selection mode
+            element_type = 'sheet' if self.selection_mode == 'sheets' else 'view'
+
+            # Show the parameter selector dialog
+            pattern = ParameterSelectorDialog.show_dialog(self.doc, element_type)
+
+            if pattern:
+                # Update the naming pattern
+                self.naming_pattern.Text = pattern
+
+                # Update the sample display in DWG Options
+                self.dwg_filename_sample.Text = pattern
+
+                # Auto-apply the pattern to ALL items
+                items_list = self.all_sheets if self.selection_mode == 'sheets' else self.all_views
+
+                # Apply the naming pattern to each item
+                for item in items_list:
+                    # Generate filename using the current naming pattern
+                    filename = self.get_export_filename(item)
+                    # Set it to the CustomFilename property
+                    item.CustomFilename = filename
+
+                # Refresh the ListView to show the updated CustomFilename values
+                self.sheets_listview.Items.Refresh()
+
+                self.status_text.Text = "Filename pattern updated: {}".format(pattern)
+
+        except Exception as ex:
+            logger.error("Error editing filename pattern: {}".format(ex))
+            forms.alert("Error editing filename pattern:\n{}".format(str(ex)))
 
     def button_row_naming_pattern(self, sender, e):
         """Open parameter selector dialog for a specific row.
