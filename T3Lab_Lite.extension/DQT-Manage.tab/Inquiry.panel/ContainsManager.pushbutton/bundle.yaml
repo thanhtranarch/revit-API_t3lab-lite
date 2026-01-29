@@ -1,0 +1,6 @@
+title: Contains Manager
+tooltip: Find elements in Rooms/Areas/Spaces and assign parameter values
+author: Dang Quoc Truong (DQT)
+min_revit_ver: 2020
+max_revit_ver: 2025
+context: doc-project
