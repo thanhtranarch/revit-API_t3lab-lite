@@ -35,8 +35,10 @@ from System.Windows import (
     Window, Thickness, GridLength, GridUnitType,
     HorizontalAlignment, VerticalAlignment, FontWeights,
     MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult,
-    WindowStartupLocation, WindowStyle, Visibility
+    WindowStartupLocation, WindowStyle, Visibility, WindowState
 )
+from System.Windows.Media.Imaging import BitmapImage
+from System import Uri, UriKind
 from System.Windows.Controls import (
     Grid, RowDefinition, ColumnDefinition, Border,
     StackPanel, TextBlock, TextBox, Button, ComboBox, ComboBoxItem,
@@ -62,7 +64,8 @@ app = doc.Application
 # CONSTANTS
 # =============================================================================
 SCRIPT_DIR = os.path.dirname(__file__)
-XAML_FILE = os.path.join(SCRIPT_DIR, 'ParaSync.xaml')
+EXTENSION_DIR = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
+XAML_FILE = os.path.join(EXTENSION_DIR, 'lib', 'GUI', 'ParaSync.xaml')
 PROFILE_DIR = os.path.join(os.path.expanduser('~'), '.parasync_profiles')
 CACHE_FILE = os.path.join(os.path.expanduser('~'), '.parasync_cache.json')
 
@@ -721,15 +724,19 @@ class ParaSyncWindow(Window):
         Window.__init__(self)
         self.Title = "ParaSync"
         self.Width = 1150
-        self.Height = 720
+        self.Height = 780
         self.WindowStartupLocation = WindowStartupLocation.CenterScreen
         self.WindowStyle = WindowStyle.None
         self.AllowsTransparency = True
         self.Background = SolidColorBrush(Colors.White)
+        self.ResizeMode = System.Windows.ResizeMode.CanResizeWithGrip
 
         self.profile_mgr = ProfileManager()
         self.data_collector = DataCollector()
         self.data_importer = DataImporter()
+
+        # Set window icon and title bar logo
+        self._load_logo()
 
         # Data stores for each tab
         self._mc_categories = []
@@ -753,8 +760,24 @@ class ParaSyncWindow(Window):
         self._wire_events()
         self._init_data()
 
+    def _load_logo(self):
+        """Load and set the T3Lab logo for window icon and title bar."""
+        try:
+            logo_path = os.path.join(EXTENSION_DIR, 'lib', 'GUI', 'T3Lab_logo.png')
+            if os.path.exists(logo_path):
+                bitmap = BitmapImage()
+                bitmap.BeginInit()
+                bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                bitmap.EndInit()
+                self.Icon = bitmap
+                self._logo_bitmap = bitmap
+            else:
+                self._logo_bitmap = None
+        except:
+            self._logo_bitmap = None
+
     def _load_xaml(self):
-        """Load and parse the XAML layout."""
+        """Load and parse the XAML layout from shared lib/GUI/ directory."""
         try:
             with open(XAML_FILE, 'r') as f:
                 xaml_content = f.read()
@@ -770,17 +793,27 @@ class ParaSyncWindow(Window):
         # Get all named controls
         self._get_controls()
 
+        # Set logo image in title bar
+        if self._logo_bitmap and self.logo_image:
+            self.logo_image.Source = self._logo_bitmap
+
     def _get_controls(self):
         """Get references to all named UI controls."""
         ui = self.ui
 
-        # Header
+        # Title bar (BatchOut style)
+        self.logo_image = ui.FindName('logo_image')
+        self.btn_profile = ui.FindName('btn_profile')
+        self.btn_minimize = ui.FindName('btn_minimize')
+        self.btn_maximize = ui.FindName('btn_maximize')
+        self.btn_close_window = ui.FindName('btn_close_window')
+
+        # Sub-header: Profile + Progress
         self.profile_combo = ui.FindName('profile_combo')
         self.btn_save_profile = ui.FindName('btn_save_profile')
         self.btn_delete_profile = ui.FindName('btn_delete_profile')
         self.progress_bar = ui.FindName('progress_bar')
         self.progress_text_ctrl = ui.FindName('progress_text')
-        self.btn_close_window = ui.FindName('btn_close_window')
 
         # Tabs
         self.main_tabs = ui.FindName('main_tabs')
@@ -878,9 +911,15 @@ class ParaSyncWindow(Window):
 
     def _wire_events(self):
         """Wire up all event handlers."""
-        # Window controls
+        # Window controls (BatchOut style)
         if self.btn_close_window:
             self.btn_close_window.Click += self._on_close
+        if self.btn_minimize:
+            self.btn_minimize.Click += self._on_minimize
+        if self.btn_maximize:
+            self.btn_maximize.Click += self._on_maximize
+        if self.btn_profile:
+            self.btn_profile.Click += self._on_profile_button
         self.ui.MouseDown += self._on_drag
 
         # Profile
@@ -1756,6 +1795,20 @@ class ParaSyncWindow(Window):
     # =========================================================================
     def _on_close(self, sender, args):
         self.Close()
+
+    def _on_minimize(self, sender, args):
+        self.WindowState = WindowState.Minimized
+
+    def _on_maximize(self, sender, args):
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+        else:
+            self.WindowState = WindowState.Maximized
+
+    def _on_profile_button(self, sender, args):
+        """Toggle profile controls visibility or focus profile combo."""
+        if self.profile_combo:
+            self.profile_combo.IsDropDownOpen = True
 
     def _on_drag(self, sender, args):
         try:
