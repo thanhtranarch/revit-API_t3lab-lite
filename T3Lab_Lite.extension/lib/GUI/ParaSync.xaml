@@ -105,49 +105,144 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Padding" Value="12,6"/>
         </Style>
+
+        <!-- Window Control Button Style (BatchOut style) -->
+        <Style x:Key="WindowControlButton" TargetType="Button">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#ECF0F1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Close Button Style (Red on hover, BatchOut style) -->
+        <Style x:Key="CloseButton" TargetType="Button">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E74C3C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Grid.Resources>
 
     <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <!-- Row 0: Header -->
-    <Border Grid.Row="0" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1" Padding="12,8">
+    <!-- Row 0: Custom Title Bar (BatchOut style) -->
+    <Grid Grid.Row="0" Background="White" Height="80">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Logo and Title -->
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="15,0,0,0" VerticalAlignment="Center">
+            <Image x:Name="logo_image" Width="80" Height="80" Margin="0,0,15,0"/>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="ParaSync" FontSize="22" FontWeight="Bold"
+                          Foreground="#2C3E50" Margin="0,0,0,5"/>
+                <Separator Height="2" Background="#BDC3C7" Margin="0,3,0,5"/>
+                <TextBlock Text="Export/Import parameter data to Excel - SheetLink style"
+                          FontSize="11" Foreground="#7F8C8D" FontStyle="Italic"/>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Window Control Buttons -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0">
+            <!-- Profile Button -->
+            <Button x:Name="btn_profile"
+                    Style="{StaticResource WindowControlButton}"
+                    ToolTip="Profiles">
+                <TextBlock Text="&#x1F464;" FontSize="18" Foreground="#7F8C8D"/>
+            </Button>
+
+            <!-- Minimize Button -->
+            <Button x:Name="btn_minimize"
+                    Style="{StaticResource WindowControlButton}"
+                    ToolTip="Minimize">
+                <TextBlock Text="&#x2014;" FontSize="14" FontWeight="Bold" Foreground="#7F8C8D" Margin="0,-8,0,0"/>
+            </Button>
+
+            <!-- Maximize/Restore Button -->
+            <Button x:Name="btn_maximize"
+                    Style="{StaticResource WindowControlButton}"
+                    ToolTip="Maximize">
+                <Border BorderBrush="#7F8C8D" BorderThickness="2" Width="14" Height="14"/>
+            </Button>
+
+            <!-- Close Button -->
+            <Button x:Name="btn_close_window"
+                    Style="{StaticResource CloseButton}"
+                    ToolTip="Close">
+                <TextBlock x:Name="close_text" Text="&#x2715;" FontSize="18" FontWeight="Bold" Foreground="#7F8C8D"/>
+            </Button>
+        </StackPanel>
+    </Grid>
+
+    <!-- Row 1: Sub-header with Profile + Progress -->
+    <Border Grid.Row="1" Background="#F8F9FA" BorderBrush="#E0E0E0" BorderThickness="0,1,0,1" Padding="15,6">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+
+            <!-- Profile Controls -->
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="ParaSync" FontSize="16" FontWeight="Bold" Foreground="#333" VerticalAlignment="Center"/>
-                <TextBlock Text=" v1.0" FontSize="11" Foreground="#888" VerticalAlignment="Center" Margin="0,2,0,0"/>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
-                <TextBlock Text="Profile" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#555"/>
+                <TextBlock Text="Profile" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#555" FontSize="12"/>
                 <ComboBox x:Name="profile_combo" Width="160" Height="26" VerticalContentAlignment="Center"/>
                 <Button x:Name="btn_save_profile" Content="&#x1F4BE;" Width="28" Height="26" Margin="4,0,0,0"
                         Style="{StaticResource SmallButton}" ToolTip="Save Profile"/>
                 <Button x:Name="btn_delete_profile" Content="&#x1F5D1;" Width="28" Height="26" Margin="2,0,0,0"
                         Style="{StaticResource SmallButton}" ToolTip="Delete Profile"/>
             </StackPanel>
-            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
-                <TextBlock Text="Completed" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#555"/>
+
+            <!-- Progress -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Completed" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#555" FontSize="12"/>
                 <ProgressBar x:Name="progress_bar" Width="100" Height="16" Value="0" Minimum="0" Maximum="100"/>
-                <TextBlock x:Name="progress_text" Text="0%" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="#555"/>
+                <TextBlock x:Name="progress_text" Text="0%" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="#555" FontSize="12"/>
             </StackPanel>
-            <Button x:Name="btn_close_window" Grid.Column="4" Content="X" Width="28" Height="28"
-                    Style="{StaticResource SmallButton}" ToolTip="Close"/>
         </Grid>
     </Border>
 
-    <!-- Row 1: Tab Control -->
-    <TabControl x:Name="main_tabs" Grid.Row="1" Margin="0">
+    <!-- Row 2: Tab Control -->
+    <TabControl x:Name="main_tabs" Grid.Row="2" Margin="0">
 
         <!-- MODEL CATEGORIES TAB -->
         <TabItem Header="Model Categories" Style="{StaticResource TabStyle}">
@@ -651,8 +746,8 @@
         </TabItem>
     </TabControl>
 
-    <!-- Row 2: Bottom options -->
-    <Border Grid.Row="2" Background="#F5F5F5" BorderBrush="#D0D0D0" BorderThickness="0,1,0,0" Padding="10,6">
+    <!-- Row 3: Bottom options -->
+    <Border Grid.Row="3" Background="#F5F5F5" BorderBrush="#D0D0D0" BorderThickness="0,1,0,0" Padding="10,6">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -698,8 +793,8 @@
         </Grid>
     </Border>
 
-    <!-- Row 3: Status bar + Action buttons -->
-    <Border Grid.Row="3" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,1,0,0" Padding="10,8">
+    <!-- Row 4: Status bar + Action buttons -->
+    <Border Grid.Row="4" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,1,0,0" Padding="10,8">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
