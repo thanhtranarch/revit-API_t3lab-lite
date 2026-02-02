@@ -4,6 +4,7 @@ layout:
   - UpperDimText
   - DimText
   - Workset
+  - ProjectName
   - NWC Export
   - LoadFamily
   - LoadFamily(Cloud)
