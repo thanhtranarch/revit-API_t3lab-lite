@@ -52,7 +52,7 @@ from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventAr
 from pyrevit import revit, DB, UI, forms, script
 from Autodesk.Revit.DB import (
     Transaction, FilteredElementCollector, BuiltInCategory,
-    ViewSheet, ViewSet, DWGExportOptions, DWFExportOptions,
+    ViewSheet, ViewSet, ViewSheetSet, DWGExportOptions, DWFExportOptions,
     ExportDWGSettings, ACADVersion, PDFExportOptions,
     ImageExportOptions, ImageFileType, ImageResolution,
     PropOverrideMode, View, ViewPlan, ViewSection, View3D,
@@ -1459,54 +1459,11 @@ class ExportManagerWindow(forms.WPFWindow):
         """Get names of all saved ViewSheetSets from the document.
 
         ViewSheetSets are created in Revit's Print dialog and contain saved sets of sheets.
+        Uses FilteredElementCollector for reliable access without touching PrintManager state.
         """
         try:
-            # Get PrintManager from the document
-            print_manager = self.doc.PrintManager
-            view_sheet_setting = print_manager.ViewSheetSetting
-
-            # Save current state
-            original_print_range = None
-            original_set_name = None
-            current_set = None
-
-            try:
-                current_set = view_sheet_setting.CurrentViewSheetSet
-                if current_set:
-                    original_print_range = current_set.PrintRange
-                    try:
-                        original_set_name = current_set.Name
-                    except:
-                        pass
-            except:
-                pass
-
-            # Temporarily set to Select mode to access SavedViewSheetSetNames
-            # This is required by Revit API - the property is only accessible when print range is set
-            try:
-                if current_set:
-                    current_set.PrintRange = DB.PrintRange.Select
-            except Exception as range_ex:
-                logger.debug("Could not set print range: {}".format(range_ex))
-
-            # Get saved view sheet set names (wrap in try-catch as it may fail if no sets exist)
-            saved_settings = []
-            try:
-                saved_settings = view_sheet_setting.SavedViewSheetSetNames
-            except Exception as saved_ex:
-                logger.debug("Could not get saved sheet set names: {}".format(saved_ex))
-                # This is normal if no sheet sets have been saved yet
-                return []
-
-            # Restore original print range
-            if original_print_range is not None and current_set:
-                try:
-                    current_set.PrintRange = original_print_range
-                except:
-                    pass
-
-            return list(saved_settings) if saved_settings else []
-
+            collector = FilteredElementCollector(self.doc).OfClass(ViewSheetSet)
+            return [print_set.Name for print_set in collector]
         except Exception as ex:
             logger.debug("Error getting sheet set names: {}".format(ex))
             return []
@@ -1519,39 +1476,14 @@ class ExportManagerWindow(forms.WPFWindow):
 
         Returns:
             List of ElementIds for sheets in the set
+        Uses FilteredElementCollector for reliable access without touching PrintManager state.
         """
         try:
-            # Get PrintManager from the document
-            print_manager = self.doc.PrintManager
-            view_sheet_setting = print_manager.ViewSheetSetting
-
-            # Temporarily load the set to get its sheets
-            # Save current state if exists
-            current_set_name = None
-            try:
-                if view_sheet_setting.CurrentViewSheetSet:
-                    current_set_name = view_sheet_setting.CurrentViewSheetSet.Name
-            except:
-                pass
-
-            # Load the requested set
-            loaded_set = view_sheet_setting.LoadSavedViewSheetSet(set_name)
-
-            # Get all view IDs from the set
-            sheet_ids = []
-            if loaded_set and loaded_set.Views:
-                for view_id in loaded_set.Views:
-                    sheet_ids.append(view_id)
-
-            # Restore previous set if needed
-            if current_set_name and current_set_name != set_name:
-                try:
-                    view_sheet_setting.LoadSavedViewSheetSet(current_set_name)
-                except:
-                    pass
-
-            return sheet_ids
-
+            collector = FilteredElementCollector(self.doc).OfClass(ViewSheetSet)
+            for print_set in collector:
+                if print_set.Name == set_name:
+                    return [v.Id for v in print_set.Views]
+            return []
         except Exception as ex:
             logger.error("Error getting sheets from set '{}': {}".format(set_name, ex))
             return []
