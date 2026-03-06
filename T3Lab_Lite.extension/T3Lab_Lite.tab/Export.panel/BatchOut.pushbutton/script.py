@@ -1634,7 +1634,7 @@ class ExportManagerWindow(forms.WPFWindow):
         self.apply_filters()
 
     def filter_by_sheet_set(self, sender, e):
-        """Filter sheets by selected View/Sheet Set."""
+        """Filter sheets by selected View/Sheet Set and auto-select matching sheets."""
         try:
             # Check if controls are initialized
             if not hasattr(self, 'sheet_set_filter'):
@@ -1663,9 +1663,22 @@ class ExportManagerWindow(forms.WPFWindow):
             # Apply the sheet set filter along with other filters
             self.apply_filters(sheet_set_ids=sheet_ids)
 
+            # Auto-select sheets that belong to the selected set
+            selected_count = 0
+            for sheet_item in self.all_sheets:
+                if sheet_item.Sheet.Id in sheet_ids:
+                    sheet_item.IsSelected = True
+                    selected_count += 1
+                else:
+                    sheet_item.IsSelected = False
+
+            # Refresh ListView to reflect updated checkboxes
+            self.sheets_listview.Items.Refresh()
+            self.update_selection_count()
+
             # Update status
-            self.status_text.Text = "Showing sheets from set '{}': {} sheets".format(
-                set_name, len([s for s in self.filtered_sheets if s.Sheet.Id in sheet_ids]))
+            self.status_text.Text = "Loaded set '{}': {} sheets selected".format(
+                set_name, selected_count)
 
         except Exception as ex:
             logger.error("Error filtering by sheet set: {}".format(ex))
