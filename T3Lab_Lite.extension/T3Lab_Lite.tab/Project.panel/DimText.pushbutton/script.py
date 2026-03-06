@@ -70,7 +70,7 @@ with Transaction(doc, "Adjust DimentionsText") as t:
     # below = "M&E SPACE"
     # below = "CANOPY TO SLAB EDGE"
     # below = "CLEAR"
-    below = "CANOPY TO FACADE LINE"
+    below = "CEILING HEIGHT"
     overide = ""
     sub_z=0
     
