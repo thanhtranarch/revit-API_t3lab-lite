@@ -1557,6 +1557,106 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("Error saving View/Sheet Set: {}".format(ex))
             forms.alert("Error saving View/Sheet Set:\n{}".format(str(ex)), title="Error")
 
+    def chatbox_send_clicked(self, sender, e):
+        """Handle chatbox Apply button click."""
+        self.process_chat_command()
+
+    def chatbox_input_keydown(self, sender, e):
+        """Handle Enter key press in the chatbox input field."""
+        from System.Windows.Input import Key
+        if e.Key == Key.Return or e.Key == Key.Enter:
+            self.process_chat_command()
+
+    def process_chat_command(self):
+        """Parse a natural-language command from the chatbox and act on the sheet list.
+
+        Supported commands (case-insensitive):
+          select all              – select every visible item
+          deselect all / clear    – deselect every visible item
+          select <keyword>        – select items whose number or name contains <keyword>
+          deselect <keyword>      – deselect items whose number or name contains <keyword>
+          filter <keyword>        – populate the search box with <keyword>
+          show <keyword>          – same as filter
+          reset / show all        – clear the search box
+          <anything else>         – treated as a search/filter keyword
+        """
+        try:
+            if not hasattr(self, 'chatbox_input'):
+                return
+            raw = self.chatbox_input.Text.strip()
+            if not raw:
+                return
+            cmd = raw.lower()
+
+            # Choose the active item list based on current mode
+            if self.selection_mode == "sheets":
+                items = self.filtered_sheets
+                total_label = "sheets"
+            else:
+                items = self.filtered_views
+                total_label = "views"
+
+            if cmd in ("select all", "all", "select all sheets", "select all views"):
+                for item in items:
+                    item.IsSelected = True
+                self.sheets_listview.Items.Refresh()
+                self.update_selection_count()
+                self.status_text.Text = "Selected all {} {}".format(len(items), total_label)
+
+            elif cmd in ("deselect all", "clear all", "clear", "none",
+                         "deselect all sheets", "deselect all views"):
+                for item in items:
+                    item.IsSelected = False
+                self.sheets_listview.Items.Refresh()
+                self.update_selection_count()
+                self.status_text.Text = "Deselected all {} {}".format(len(items), total_label)
+
+            elif cmd.startswith("select "):
+                keyword = cmd[7:].strip()
+                count = 0
+                for item in items:
+                    label = (item.SheetNumber + " " + item.SheetName).lower()
+                    if keyword in label:
+                        item.IsSelected = True
+                        count += 1
+                self.sheets_listview.Items.Refresh()
+                self.update_selection_count()
+                self.status_text.Text = "Selected {} {} matching '{}'".format(
+                    count, total_label, keyword)
+
+            elif cmd.startswith("deselect "):
+                keyword = cmd[9:].strip()
+                count = 0
+                for item in items:
+                    label = (item.SheetNumber + " " + item.SheetName).lower()
+                    if keyword in label:
+                        item.IsSelected = False
+                        count += 1
+                self.sheets_listview.Items.Refresh()
+                self.update_selection_count()
+                self.status_text.Text = "Deselected {} {} matching '{}'".format(
+                    count, total_label, keyword)
+
+            elif cmd.startswith("filter ") or cmd.startswith("show "):
+                keyword = raw.split(" ", 1)[1].strip()
+                self.search_textbox.Text = keyword
+                # TextChanged fires apply_filters automatically
+
+            elif cmd in ("reset", "clear filter", "show all"):
+                self.search_textbox.Text = ""
+                self.status_text.Text = "Filter cleared – showing all {}".format(total_label)
+
+            else:
+                # Fall back: treat as a search/filter term
+                self.search_textbox.Text = raw
+                self.status_text.Text = "Filtering by '{}'".format(raw)
+
+            # Clear the input after processing
+            self.chatbox_input.Text = ""
+
+        except Exception as ex:
+            logger.error("Error processing chat command: {}".format(ex))
+
     def search_sheets(self, sender, e):
         """Filter sheets by search text."""
         self.apply_filters()
