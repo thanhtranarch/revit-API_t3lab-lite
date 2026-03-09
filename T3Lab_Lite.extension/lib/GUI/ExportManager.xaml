@@ -311,6 +311,55 @@
                         </Grid>
                     </Grid>
 
+                    <!-- Chat Assistant Box -->
+                    <Border Grid.Row="2" BorderBrush="#C8D6E5" BorderThickness="1"
+                            Background="#EEF2F9" CornerRadius="4" Margin="0,5,0,5" Padding="10,8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,5">
+                                <TextBlock Text="&#x1F4AC;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Sheet Selection Assistant"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#2C3E50" VerticalAlignment="Center"/>
+                                <TextBlock Text="  —  type a command to quickly select sheets"
+                                           FontSize="11" Foreground="#7F8C8D"
+                                           FontStyle="Italic" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Examples hint -->
+                            <TextBlock Grid.Row="1"
+                                       Text="Examples:  select all  |  deselect all  |  select A1  |  deselect floor  |  filter roof"
+                                       FontSize="10" Foreground="#95A5A6" Margin="0,0,0,5"/>
+
+                            <!-- Input row -->
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox x:Name="chatbox_input" Grid.Column="0" Height="28"
+                                         VerticalContentAlignment="Center" Padding="6,0"
+                                         BorderBrush="#ADB9C9" BorderThickness="1"
+                                         Background="White"
+                                         ToolTip="Type a command, e.g.: select all | deselect all | select A1 | filter roof"
+                                         KeyDown="chatbox_input_keydown"/>
+
+                                <Button Grid.Column="1" x:Name="chatbox_send_button"
+                                        Content="Apply" Height="28" Margin="6,0,0,0"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="chatbox_send_clicked"
+                                        ToolTip="Apply the command (or press Enter)"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
                     <!-- Sheets List with Selection Status -->
                     <Grid Grid.Row="3">
                         <Grid.RowDefinitions>
