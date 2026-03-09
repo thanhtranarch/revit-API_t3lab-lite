@@ -16,7 +16,8 @@ import clr
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('System')
-from System.Windows import Visibility, WindowState
+import System.Windows
+from System.Windows import Visibility, WindowState, GridLength
 from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind, Action
 from System.Threading import Thread, ThreadStart
@@ -279,9 +280,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Show user message in chat
             self._append_user_message(raw)
 
-            # Hide previous status
-            self.status_panel.Visibility = Visibility.Collapsed
-
             if HAS_NLP and has_api_key():
                 # Async NLP path
                 self.send_button.IsEnabled = False
@@ -365,27 +363,61 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Chat UI helpers ──────────────────────────────────────────────────────
 
+    def _make_avatar(self, letter, from_rgb_start, from_rgb_end):
+        """Create a circular avatar Border with initials."""
+        from System.Windows.Controls import Border, TextBlock
+        from System.Windows import Thickness, CornerRadius
+        from System.Windows.Media import SolidColorBrush, Color, LinearGradientBrush, GradientStop
+        from System.Windows import HorizontalAlignment, VerticalAlignment
+
+        grad = LinearGradientBrush()
+        grad.StartPoint = System.Windows.Point(0, 0)
+        grad.EndPoint = System.Windows.Point(1, 1)
+        gs1 = GradientStop()
+        gs1.Color = Color.FromRgb(*from_rgb_start)
+        gs1.Offset = 0.0
+        gs2 = GradientStop()
+        gs2.Color = Color.FromRgb(*from_rgb_end)
+        gs2.Offset = 1.0
+        grad.GradientStops.Add(gs1)
+        grad.GradientStops.Add(gs2)
+
+        av = Border()
+        av.Width = 32
+        av.Height = 32
+        av.CornerRadius = CornerRadius(16)
+        av.Background = grad
+        av.Margin = Thickness(0, 2, 8, 0)
+        av.VerticalAlignment = VerticalAlignment.Top
+
+        lbl = TextBlock()
+        lbl.Text = letter
+        lbl.FontSize = 11
+        lbl.FontWeight = System.Windows.FontWeights.Bold
+        lbl.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
+        lbl.HorizontalAlignment = HorizontalAlignment.Center
+        lbl.VerticalAlignment = VerticalAlignment.Center
+        av.Child = lbl
+        return av
+
     def _append_user_message(self, text):
-        """Add a user bubble to the chat history."""
+        """Add a right-aligned user bubble to the chat history."""
         try:
-            from System.Windows.Controls import Border, TextBlock, StackPanel
-            from System.Windows import Thickness, CornerRadius, FontWeights, TextWrapping
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
+            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength, HorizontalAlignment
             from System.Windows.Media import SolidColorBrush, Color
 
-            panel = StackPanel()
-            panel.Margin = Thickness(40, 0, 0, 8)
-
-            label = TextBlock()
-            label.Text = u"Bạn"
-            label.FontSize = 10
-            label.FontWeight = FontWeights.SemiBold
-            label.Foreground = SolidColorBrush(Color.FromRgb(52, 152, 219))
-            label.Margin = Thickness(0, 0, 0, 2)
+            row = Grid()
+            row.Margin = Thickness(48, 0, 0, 10)
+            col0 = ColumnDefinition()
+            col0.Width = GridLength(1, System.Windows.GridUnitType.Star)
+            row.ColumnDefinitions.Add(col0)
 
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(52, 152, 219))
-            bubble.CornerRadius = CornerRadius(6)
-            bubble.Padding = Thickness(10, 7, 10, 7)
+            bubble.Background = SolidColorBrush(Color.FromRgb(37, 99, 235))  # #2563EB
+            bubble.CornerRadius = CornerRadius(12, 4, 12, 12)
+            bubble.Padding = Thickness(12, 8, 12, 8)
+            bubble.HorizontalAlignment = HorizontalAlignment.Right
 
             msg_text = TextBlock()
             msg_text.Text = text
@@ -394,44 +426,52 @@ class T3LabAssistantWindow(forms.WPFWindow):
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 
-            panel.Children.Add(label)
-            panel.Children.Add(bubble)
-            self.chat_history_panel.Children.Add(panel)
+            Grid.SetColumn(bubble, 0)
+            row.Children.Add(bubble)
+            self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("Error adding user message: {}".format(ex))
 
     def _append_bot_message(self, text):
-        """Add a bot bubble to the chat history."""
+        """Add a left-aligned bot bubble with avatar to the chat history."""
         try:
-            from System.Windows.Controls import Border, TextBlock, StackPanel
-            from System.Windows import Thickness, CornerRadius, TextWrapping
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
+            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
             from System.Windows.Media import SolidColorBrush, Color
 
-            panel = StackPanel()
-            panel.Margin = Thickness(0, 0, 40, 8)
+            row = Grid()
+            row.Margin = Thickness(0, 0, 48, 10)
+            col_av = ColumnDefinition()
+            col_av.Width = GridLength.Auto
+            col_msg = ColumnDefinition()
+            col_msg.Width = GridLength(1, System.Windows.GridUnitType.Star)
+            row.ColumnDefinitions.Add(col_av)
+            row.ColumnDefinitions.Add(col_msg)
 
-            label = TextBlock()
-            label.Text = u"T3Lab Assistant"
-            label.FontSize = 10
-            label.Foreground = SolidColorBrush(Color.FromRgb(41, 128, 185))
-            label.Margin = Thickness(0, 0, 0, 2)
+            # Avatar
+            av = self._make_avatar("T3", (37, 99, 235), (56, 189, 248))
+            Grid.SetColumn(av, 0)
+            row.Children.Add(av)
 
+            # Bubble
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(238, 244, 251))
-            bubble.CornerRadius = CornerRadius(6)
-            bubble.Padding = Thickness(10, 7, 10, 7)
+            bubble.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            bubble.CornerRadius = CornerRadius(4, 12, 12, 12)
+            bubble.Padding = Thickness(12, 8, 12, 8)
+            bubble.BorderBrush = SolidColorBrush(Color.FromRgb(229, 231, 235))
+            bubble.BorderThickness = Thickness(1)
 
             msg_text = TextBlock()
             msg_text.Text = text
             msg_text.FontSize = 12
-            msg_text.Foreground = SolidColorBrush(Color.FromRgb(44, 62, 80))
+            msg_text.Foreground = SolidColorBrush(Color.FromRgb(55, 65, 81))
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 
-            panel.Children.Add(label)
-            panel.Children.Add(bubble)
-            self.chat_history_panel.Children.Add(panel)
+            Grid.SetColumn(bubble, 1)
+            row.Children.Add(bubble)
+            self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("Error adding bot message: {}".format(ex))
