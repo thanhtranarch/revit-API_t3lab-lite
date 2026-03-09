@@ -20,7 +20,7 @@ import System.Windows
 from System.Windows import Visibility, WindowState, GridLength
 from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind, Action
-from System.Threading import Thread, ThreadStart
+from System.Threading import Thread, ThreadStart, ApartmentState
 
 from pyrevit import revit, forms, script
 
@@ -510,6 +510,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                 t = Thread(ThreadStart(do_nlp))
                 t.IsBackground = True
+                t.SetApartmentState(ApartmentState.STA)
                 t.Start()
             else:
                 # ── Synchronous keyword fallback ──────────────────────────────
@@ -573,6 +574,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             t = Thread(ThreadStart(do_export))
             t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
             t.Start()
             return
 
