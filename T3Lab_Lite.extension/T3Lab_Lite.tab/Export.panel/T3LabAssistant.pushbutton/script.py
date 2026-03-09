@@ -37,7 +37,9 @@ if lib_dir not in sys.path:
 # ─── NLP module ───────────────────────────────────────────────────────────────
 try:
     from t3lab_assistant import (parse_command, has_api_key, keyword_parse,
-                                  learn_pattern, find_learned_match)
+                                  learn_pattern, find_learned_match,
+                                  has_local_llm, parse_command_local,
+                                  get_local_model_name)
     HAS_NLP = True
 except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
@@ -45,6 +47,9 @@ except Exception as e:
     # stubs so the rest of the code doesn't need guards
     def learn_pattern(*a, **kw): pass
     def find_learned_match(*a, **kw): return None
+    def has_local_llm(*a, **kw): return False
+    def parse_command_local(*a, **kw): return None
+    def get_local_model_name(*a, **kw): return None
 
 # ─── BatchOut executor (configure + direct export) ────────────────────────────
 try:
@@ -303,8 +308,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
-        # Update AI badge
-        self._update_ai_badge()
+        # Update AI badge (run async so Ollama probe doesn't delay window open)
+        def _probe_and_update():
+            import time; time.sleep(0.4)   # let window render first
+            self.Dispatcher.Invoke(Action(self._update_ai_badge))
+
+        _t = Thread(ThreadStart(_probe_and_update))
+        _t.IsBackground = True
+        _t.SetApartmentState(ApartmentState.STA)
+        _t.Start()
 
     # ─── Window controls ──────────────────────────────────────────────────────
 
@@ -317,10 +329,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ─── AI badge ─────────────────────────────────────────────────────────────
 
     def _update_ai_badge(self):
+        """Show badge: LOCAL (Ollama) > AI (Claude) > hidden."""
         try:
-            if HAS_NLP and has_api_key():
+            from System.Windows.Media import SolidColorBrush, Color
+            if HAS_NLP and has_local_llm():
+                model = get_local_model_name() or "LOCAL"
+                # Show model's short name: "qwen2.5:0.5b" → "qwen0.5b"
+                short = model.replace("qwen2.5", "qwen").replace("llama3.2", "llama").replace("phi3", "phi")
                 self.ai_status_badge.Visibility = Visibility.Visible
+                self.ai_status_badge.Background = SolidColorBrush(
+                    Color.FromRgb(39, 174, 96))   # #27AE60 green
+                self.ai_status_text.Text = "LOCAL"
+                self.ai_status_badge.ToolTip = u"Local LLM: {}".format(model)
+            elif HAS_NLP and has_api_key():
+                self.ai_status_badge.Visibility = Visibility.Visible
+                self.ai_status_badge.Background = SolidColorBrush(
+                    Color.FromRgb(52, 152, 219))  # #3498DB blue
                 self.ai_status_text.Text = "AI"
+                self.ai_status_badge.ToolTip = "Claude AI"
             else:
                 self.ai_status_badge.Visibility = Visibility.Collapsed
         except Exception:
@@ -471,39 +497,60 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Lock UI
             self._set_busy(True)
 
-            # ── Check learned patterns first (fastest path, no API) ────────────
+            # ── 1. Learned patterns (instant, no service needed) ──────────────
             if HAS_NLP:
                 learned = find_learned_match(raw)
                 if learned:
                     self._execute_result(learned)
                     return
 
-            if HAS_NLP and has_api_key():
-                # ── Async NLP path ────────────────────────────────────────────
-                captured = raw
-                history  = list(self._conversation_history[:-1])  # exclude the message we just added
+            captured = raw
+            history  = list(self._conversation_history[:-1])
+
+            use_local  = HAS_NLP and has_local_llm()
+            use_claude = HAS_NLP and has_api_key()
+
+            if use_local or use_claude:
+                # ── 2/3. Async LLM path (Ollama first, Claude fallback) ────────
+                self._show_typing_indicator()
 
                 def do_nlp():
-                    result = parse_command(captured, history)
+                    result = None
+
+                    # ── Priority 1: Local Ollama LLM ──────────────────────────
+                    if use_local:
+                        try:
+                            result = parse_command_local(captured, history)
+                        except Exception as le:
+                            logger.debug("local_llm error: {}".format(le))
+
+                    # ── Priority 2: Claude API (if local failed / not running) ─
+                    if (result is None or result.get("intent") in (None, "unknown")) \
+                            and use_claude:
+                        try:
+                            result = parse_command(captured, history)
+                        except Exception as ce:
+                            logger.debug("claude api error: {}".format(ce))
 
                     def finish():
                         try:
+                            self._hide_typing_indicator()
                             if result and result.get("intent") not in (None, "unknown"):
                                 self._execute_result(result)
                             else:
-                                # Fallback to keyword matching
+                                # ── Priority 3: keyword fallback ──────────────
                                 fb = keyword_parse(captured)
                                 if fb:
                                     self._execute_result(fb)
                                 else:
-                                    msg = (result or {}).get("params", {}).get("message") or \
-                                          (u"Không hiểu lệnh. Thử: 'mở batchout', 'xuất pdf G sheet'..."
+                                    msg = (u"Không hiểu lệnh. Thử: 'mở batchout', 'xuất pdf G sheet'..."
                                            if _is_viet_text(captured) else
                                            "I didn't understand. Try: 'open batchout', 'export pdf G sheets'...")
                                     self._append_bot_message(msg)
                                     self._set_busy(False)
                         except Exception as finish_ex:
                             logger.error("finish error: {}".format(finish_ex))
+                            self._hide_typing_indicator()
                             self._set_busy(False)
 
                     self.Dispatcher.Invoke(Action(finish))
@@ -513,14 +560,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 t.SetApartmentState(ApartmentState.STA)
                 t.Start()
             else:
-                # ── Synchronous keyword fallback ──────────────────────────────
+                # ── 4. Synchronous keyword fallback (no LLM available) ────────
                 fb = keyword_parse(raw)
                 if fb:
                     self._execute_result(fb)
                 else:
                     self._append_bot_message(
                         u"Không hiểu lệnh.\n"
-                        u"Ví dụ: 'mở batchout', 'xuất pdf G sheet', 'parasync'"
+                        u"Ví dụ: 'mở batchout', 'xuất pdf G sheet', 'parasync'\n"
+                        u"Tip: cài Ollama + kéo model để dùng AI không giới hạn!"
                     )
                     self._set_busy(False)
 
