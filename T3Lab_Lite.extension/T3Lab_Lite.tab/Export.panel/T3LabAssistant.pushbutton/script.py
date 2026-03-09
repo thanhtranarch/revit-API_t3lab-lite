@@ -16,7 +16,8 @@ import clr
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('System')
-from System.Windows import Visibility, WindowState
+import System.Windows
+from System.Windows import Visibility, WindowState, GridLength
 from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind, Action
 from System.Threading import Thread, ThreadStart
@@ -40,6 +41,14 @@ try:
 except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
     HAS_NLP = False
+
+# ─── BatchOut executor (configure + direct export) ────────────────────────────
+try:
+    from batchout_executor import configure_batchout_window, direct_export
+    HAS_EXECUTOR = True
+except Exception as e:
+    logger.warning("Could not import batchout_executor: {}".format(e))
+    HAS_EXECUTOR = False
 
 # ─── Tool launchers ───────────────────────────────────────────────────────────
 # Each function opens the corresponding T3Lab tool.
@@ -72,18 +81,77 @@ def _load_script(name, script_path):
     return None
 
 
+def _load_batchout_mod():
+    """Load the BatchOut script module, raising RuntimeError on failure."""
+    script_path = _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
+    mod = _load_script('batchout_script', script_path)
+    if mod is None:
+        raise RuntimeError("Could not load BatchOut module from: {}".format(script_path))
+    return mod
+
+
 def launch_batchout():
-    """Open the BatchOut export dialog."""
+    """Open the BatchOut export dialog (no pre-configuration)."""
     try:
-        script_path = _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
-        mod = _load_script('batchout_script', script_path)
-        if mod is None:
-            raise RuntimeError("Could not load BatchOut module from: {}".format(script_path))
+        mod = _load_batchout_mod()
         window = mod.ExportManagerWindow()
         window.ShowDialog()
         return True
     except Exception as ex:
         logger.error("Error launching BatchOut: {}".format(ex))
+        return False
+
+
+def launch_batchout_configured(config, progress_cb=None):
+    """Open BatchOut pre-configured: sheets selected, format set, tab = Create.
+
+    Args:
+        config: dict with keys format, filter (from batchout_executor / NLP).
+        progress_cb: optional callable(str) for status messages.
+    Returns:
+        bool success
+    """
+    try:
+        mod = _load_batchout_mod()
+        window = mod.ExportManagerWindow()
+
+        if HAS_EXECUTOR:
+            configure_batchout_window(window, config)
+            fmt    = (config.get('format') or 'pdf').upper()
+            filt   = config.get('filter') or ''
+            filt_s = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+            if progress_cb:
+                progress_cb(u"BatchOut đã chọn{}, format {} — nhấn Export để xuất.".format(
+                    filt_s, fmt))
+
+        window.ShowDialog()
+        return True
+    except Exception as ex:
+        logger.error("Error launching configured BatchOut: {}".format(ex))
+        if progress_cb:
+            progress_cb(u"Lỗi: {}".format(ex))
+        return False
+
+
+def launch_export_direct(config, progress_cb=None):
+    """Export sheets directly without showing BatchOut UI.
+
+    Args:
+        config: dict with format, filter, folder (optional).
+        progress_cb: optional callable(str) for chat progress updates.
+    Returns:
+        bool success
+    """
+    try:
+        if not HAS_EXECUTOR:
+            raise RuntimeError("batchout_executor not available")
+        mod = _load_batchout_mod()
+        ok, count, msg = direct_export(mod, config, progress_cb)
+        return ok
+    except Exception as ex:
+        logger.error("Error in direct export: {}".format(ex))
+        if progress_cb:
+            progress_cb(u"Lỗi xuất file: {}".format(ex))
         return False
 
 
@@ -279,9 +347,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Show user message in chat
             self._append_user_message(raw)
 
-            # Hide previous status
-            self.status_panel.Visibility = Visibility.Collapsed
-
             if HAS_NLP and has_api_key():
                 # Async NLP path
                 self.send_button.IsEnabled = False
@@ -320,7 +385,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     self._execute_result(fb)
                 else:
                     self._append_bot_message(
-                        u"Không hiểu lệnh. Thử: 'mở batchout', 'parasync', 'load family'..."
+                        u"Không hiểu lệnh.\n"
+                        u"Ví dụ:\n"
+                        u"• 'xuất pdf toàn bộ G sheet'\n"
+                        u"• 'export all A sheets DWG'\n"
+                        u"• 'mở batchout G sheet pdf'\n"
+                        u"• 'parasync'  •  'load family'"
                     )
 
         except Exception as ex:
@@ -330,25 +400,43 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     def _execute_result(self, result):
         """Execute the action described by a parsed result dict."""
-        intent = result.get("intent", "unknown")
+        intent  = result.get("intent", "unknown")
         message = result.get("message", "")
+        params  = result.get("params", {})
 
+        # ── Help ──────────────────────────────────────────────────────────────
         if intent == "help":
-            answer = result.get("params", {}).get("answer", message)
+            answer = params.get("answer", message)
             self._append_bot_message(answer or message)
             return
 
+        # ── Export directly (no UI) ───────────────────────────────────────────
+        if intent == "export_direct":
+            self._append_bot_message(message or u"Đang xuất file...")
+            ok = launch_export_direct(params, self._append_bot_message)
+            if not ok and not params:
+                self._append_bot_message(u"Xuất thất bại. Xem console để biết lỗi.")
+            return
+
+        # ── Open BatchOut pre-configured ─────────────────────────────────────
+        if intent == "open_batchout_configured":
+            self._append_bot_message(message or u"Đang mở BatchOut đã cấu hình...")
+            ok = launch_batchout_configured(params, self._append_bot_message)
+            if not ok:
+                self._append_bot_message(u"Không thể mở BatchOut. Xem console.")
+            return
+
+        # ── Simple tool launchers ─────────────────────────────────────────────
         if intent in TOOL_LAUNCHERS:
-            confirmation = message or u"Đang mở công cụ..."
-            self._append_bot_message(confirmation)
-            # Run launcher synchronously on the UI thread so WPF dialogs work
+            self._append_bot_message(message or u"Đang mở công cụ...")
             ok = TOOL_LAUNCHERS[intent]()
             if not ok:
                 self._append_bot_message(u"Không thể mở công cụ. Xem console để biết lỗi.")
-        elif intent == "unknown":
-            self._append_bot_message(
-                result.get("params", {}).get("message", u"Lệnh không rõ.")
-            )
+            return
+
+        # ── Unknown ───────────────────────────────────────────────────────────
+        if intent == "unknown":
+            self._append_bot_message(params.get("message", u"Lệnh không rõ."))
         else:
             self._append_bot_message(message or u"Đã xử lý lệnh.")
 
@@ -365,27 +453,61 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Chat UI helpers ──────────────────────────────────────────────────────
 
+    def _make_avatar(self, letter, from_rgb_start, from_rgb_end):
+        """Create a circular avatar Border with initials."""
+        from System.Windows.Controls import Border, TextBlock
+        from System.Windows import Thickness, CornerRadius
+        from System.Windows.Media import SolidColorBrush, Color, LinearGradientBrush, GradientStop
+        from System.Windows import HorizontalAlignment, VerticalAlignment
+
+        grad = LinearGradientBrush()
+        grad.StartPoint = System.Windows.Point(0, 0)
+        grad.EndPoint = System.Windows.Point(1, 1)
+        gs1 = GradientStop()
+        gs1.Color = Color.FromRgb(*from_rgb_start)
+        gs1.Offset = 0.0
+        gs2 = GradientStop()
+        gs2.Color = Color.FromRgb(*from_rgb_end)
+        gs2.Offset = 1.0
+        grad.GradientStops.Add(gs1)
+        grad.GradientStops.Add(gs2)
+
+        av = Border()
+        av.Width = 32
+        av.Height = 32
+        av.CornerRadius = CornerRadius(16)
+        av.Background = grad
+        av.Margin = Thickness(0, 2, 8, 0)
+        av.VerticalAlignment = VerticalAlignment.Top
+
+        lbl = TextBlock()
+        lbl.Text = letter
+        lbl.FontSize = 11
+        lbl.FontWeight = System.Windows.FontWeights.Bold
+        lbl.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
+        lbl.HorizontalAlignment = HorizontalAlignment.Center
+        lbl.VerticalAlignment = VerticalAlignment.Center
+        av.Child = lbl
+        return av
+
     def _append_user_message(self, text):
-        """Add a user bubble to the chat history."""
+        """Add a right-aligned user bubble to the chat history."""
         try:
-            from System.Windows.Controls import Border, TextBlock, StackPanel
-            from System.Windows import Thickness, CornerRadius, FontWeights, TextWrapping
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
+            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength, HorizontalAlignment
             from System.Windows.Media import SolidColorBrush, Color
 
-            panel = StackPanel()
-            panel.Margin = Thickness(40, 0, 0, 8)
-
-            label = TextBlock()
-            label.Text = u"Bạn"
-            label.FontSize = 10
-            label.FontWeight = FontWeights.SemiBold
-            label.Foreground = SolidColorBrush(Color.FromRgb(52, 152, 219))
-            label.Margin = Thickness(0, 0, 0, 2)
+            row = Grid()
+            row.Margin = Thickness(48, 0, 0, 10)
+            col0 = ColumnDefinition()
+            col0.Width = GridLength(1, System.Windows.GridUnitType.Star)
+            row.ColumnDefinitions.Add(col0)
 
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(52, 152, 219))
-            bubble.CornerRadius = CornerRadius(6)
-            bubble.Padding = Thickness(10, 7, 10, 7)
+            bubble.Background = SolidColorBrush(Color.FromRgb(37, 99, 235))  # #2563EB
+            bubble.CornerRadius = CornerRadius(12, 4, 12, 12)
+            bubble.Padding = Thickness(12, 8, 12, 8)
+            bubble.HorizontalAlignment = HorizontalAlignment.Right
 
             msg_text = TextBlock()
             msg_text.Text = text
@@ -394,44 +516,52 @@ class T3LabAssistantWindow(forms.WPFWindow):
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 
-            panel.Children.Add(label)
-            panel.Children.Add(bubble)
-            self.chat_history_panel.Children.Add(panel)
+            Grid.SetColumn(bubble, 0)
+            row.Children.Add(bubble)
+            self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("Error adding user message: {}".format(ex))
 
     def _append_bot_message(self, text):
-        """Add a bot bubble to the chat history."""
+        """Add a left-aligned bot bubble with avatar to the chat history."""
         try:
-            from System.Windows.Controls import Border, TextBlock, StackPanel
-            from System.Windows import Thickness, CornerRadius, TextWrapping
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
+            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
             from System.Windows.Media import SolidColorBrush, Color
 
-            panel = StackPanel()
-            panel.Margin = Thickness(0, 0, 40, 8)
+            row = Grid()
+            row.Margin = Thickness(0, 0, 48, 10)
+            col_av = ColumnDefinition()
+            col_av.Width = GridLength.Auto
+            col_msg = ColumnDefinition()
+            col_msg.Width = GridLength(1, System.Windows.GridUnitType.Star)
+            row.ColumnDefinitions.Add(col_av)
+            row.ColumnDefinitions.Add(col_msg)
 
-            label = TextBlock()
-            label.Text = u"T3Lab Assistant"
-            label.FontSize = 10
-            label.Foreground = SolidColorBrush(Color.FromRgb(41, 128, 185))
-            label.Margin = Thickness(0, 0, 0, 2)
+            # Avatar
+            av = self._make_avatar("T3", (37, 99, 235), (56, 189, 248))
+            Grid.SetColumn(av, 0)
+            row.Children.Add(av)
 
+            # Bubble
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(238, 244, 251))
-            bubble.CornerRadius = CornerRadius(6)
-            bubble.Padding = Thickness(10, 7, 10, 7)
+            bubble.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            bubble.CornerRadius = CornerRadius(4, 12, 12, 12)
+            bubble.Padding = Thickness(12, 8, 12, 8)
+            bubble.BorderBrush = SolidColorBrush(Color.FromRgb(229, 231, 235))
+            bubble.BorderThickness = Thickness(1)
 
             msg_text = TextBlock()
             msg_text.Text = text
             msg_text.FontSize = 12
-            msg_text.Foreground = SolidColorBrush(Color.FromRgb(44, 62, 80))
+            msg_text.Foreground = SolidColorBrush(Color.FromRgb(55, 65, 81))
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 
-            panel.Children.Add(label)
-            panel.Children.Add(bubble)
-            self.chat_history_panel.Children.Add(panel)
+            Grid.SetColumn(bubble, 1)
+            row.Children.Add(bubble)
+            self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("Error adding bot message: {}".format(ex))

@@ -31,7 +31,25 @@ You are T3Lab Assistant, an AI helper built into Autodesk Revit's T3Lab plugin.
 Your job is to parse a user's free-form command and map it to one of the T3Lab tool actions below.
 
 AVAILABLE INTENTS (choose exactly one):
-  open_batchout       – open the BatchOut batch export dialog. params: {}
+
+  ── Export (smart) ────────────────────────────────────────────────────────────
+  export_direct           – export sheets directly WITHOUT opening any UI.
+    params: {
+      "format": "pdf"|"dwg"|"dwf"|"dgn"|"ifc"|"nwd"|"img",
+      "filter": "<UPPERCASE sheet-number prefix e.g. G, A, S, or empty string for all>",
+      "combine": false
+    }
+
+  open_batchout_configured – open BatchOut pre-configured (sheets selected, format set,
+                             navigate to Create tab ready to export).
+    params: {
+      "format": "pdf"|"dwg"|"dwf"|"dgn"|"ifc"|"nwd"|"img",
+      "filter": "<UPPERCASE sheet-number prefix e.g. G, A, S, or empty string for all>"
+    }
+
+  open_batchout           – open BatchOut with no pre-configuration. params: {}
+
+  ── Other tools ───────────────────────────────────────────────────────────────
   open_parasync       – open the ParaSync parameter sync tool. params: {}
   open_loadfamily     – open the Load Family dialog. params: {}
   open_loadfamily_cloud – open the Load Family (Cloud) dialog. params: {}
@@ -44,34 +62,58 @@ AVAILABLE INTENTS (choose exactly one):
   help                – answer a question about T3Lab tools. params: {"answer": "<concise answer>"}
   unknown             – command is unclear. params: {"message": "<brief explanation why>"}
 
-RULES:
-- Accept commands in Vietnamese, English, or mixed.
-- "batch", "batchout", "xuất sheet", "export sheet", "xuất hàng loạt" → open_batchout
-- "parasync", "đồng bộ", "sync param", "parameter sync" → open_parasync
-- "load family", "tải family", "nạp family" → open_loadfamily
-- "load family cloud", "tải family cloud" → open_loadfamily_cloud
-- "project name", "tên project", "đặt tên" → open_projectname
-- "workset", "quản lý workset" → open_workset
-- "dim text", "dimtext", "sửa dimension", "edit dim" → open_dimtext
-- "upper dim", "upperdimtext" → open_upperdimtext
-- "reset override", "xóa override", "bỏ override" → open_resetoverrides
-- "grids", "lưới", "trục" → open_grids
+EXPORT RULES:
+- If the user says "xuất/export + [format] + [filter] + sheet/tờ" WITHOUT "mở"/"open" → export_direct
+- If the user says "mở batchout" + filter/format details → open_batchout_configured
+- If the user says "mở batchout" with NO details → open_batchout
+- Extract the sheet prefix letter (A, G, S, M, E, P...) from patterns like "G sheet", "tờ G", "G-sheet", "sheet G"
+- "toàn bộ", "tất cả", "all sheets", "hết" → filter = "" (all sheets)
+- Default format is "pdf" when only sheets are mentioned without explicit format
+
+EXPORT EXAMPLES:
+  "xuất pdf toàn bộ G sheet"   → export_direct  filter="G"  format="pdf"
+  "export pdf all G sheets"    → export_direct  filter="G"  format="pdf"
+  "xuất tất cả sheet ra pdf"   → export_direct  filter=""   format="pdf"
+  "export all sheets DWG"      → export_direct  filter=""   format="dwg"
+  "xuất sheet A ra DWG"        → export_direct  filter="A"  format="dwg"
+  "mở batchout G sheet pdf"    → open_batchout_configured  filter="G"  format="pdf"
+  "open batchout select A sheets" → open_batchout_configured filter="A" format="pdf"
+  "mở batchout"                → open_batchout
+
+OTHER RULES:
+- "parasync", "đồng bộ", "sync param" → open_parasync
+- "load family", "tải family" → open_loadfamily
+- "load family cloud" → open_loadfamily_cloud
+- "project name", "tên project" → open_projectname
+- "workset" → open_workset
+- "dim text", "dimtext" → open_dimtext
+- "upper dim" → open_upperdimtext
+- "reset override" → open_resetoverrides
+- "grids", "lưới" → open_grids
 - Questions about tools → help
 
 RESPONSE FORMAT (JSON only, no markdown, no extra text):
 {
   "intent": "<intent_name>",
   "params": { ... },
-  "message": "<friendly short confirmation in the SAME language as the user's input>"
+  "message": "<friendly short confirmation in the SAME language as user input>"
 }
 
-Examples:
-  "mở batchout"         → {"intent":"open_batchout","params":{},"message":"Đang mở BatchOut..."}
-  "xuất sheet PDF"      → {"intent":"open_batchout","params":{},"message":"Mở BatchOut để xuất PDF"}
-  "parasync"            → {"intent":"open_parasync","params":{},"message":"Đang mở ParaSync..."}
-  "load family"         → {"intent":"open_loadfamily","params":{},"message":"Đang mở Load Family..."}
-  "open batchout"       → {"intent":"open_batchout","params":{},"message":"Opening BatchOut..."}
-  "what is parasync?"   → {"intent":"help","params":{"answer":"ParaSync syncs parameters across linked models in your project."},"message":"ParaSync syncs parameters across linked models."}
+RESPONSE EXAMPLES:
+  "xuất pdf toàn bộ G sheet"
+    → {"intent":"export_direct","params":{"format":"pdf","filter":"G","combine":false},"message":"Đang xuất tất cả G sheet sang PDF..."}
+
+  "export all A sheets to DWG"
+    → {"intent":"export_direct","params":{"format":"dwg","filter":"A","combine":false},"message":"Exporting all A sheets to DWG..."}
+
+  "mở batchout chọn G sheet pdf"
+    → {"intent":"open_batchout_configured","params":{"format":"pdf","filter":"G"},"message":"Mở BatchOut với G sheet đã chọn và PDF đã bật..."}
+
+  "mở batchout"
+    → {"intent":"open_batchout","params":{},"message":"Đang mở BatchOut..."}
+
+  "parasync"
+    → {"intent":"open_parasync","params":{},"message":"Đang mở ParaSync..."}
 """
 
 
@@ -107,25 +149,19 @@ def _extract_json(text):
 def parse_command(user_input):
     """Call Claude API to parse a natural-language command.
 
-    Args:
-        user_input: The raw text the user typed.
-
-    Returns:
-        dict with keys {intent, params, message} on success, or None on failure.
+    Returns dict with {intent, params, message} or None on failure.
     """
     if not HAS_HTTP:
         return None
-
     api_key = _get_api_key()
     if not api_key:
         return None
 
     try:
         url = "https://api.anthropic.com/v1/messages"
-
         body_data = {
             "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 300,
+            "max_tokens": 400,
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_input}],
         }
@@ -143,7 +179,6 @@ def parse_command(user_input):
 
         api_result = json.loads(response_text)
         content_text = api_result["content"][0]["text"].strip()
-
         return _extract_json(content_text)
 
     except Exception:
@@ -163,78 +198,129 @@ def keyword_parse(raw):
     Returns dict with {intent, params, message} or None.
     """
     cmd = raw.lower().strip()
+    viet = _is_viet(cmd)
 
-    # BatchOut
-    if any(k in cmd for k in ["batchout", "batch out", "xuat sheet", "xuất sheet",
-                                "export sheet", "xuat hang loat", "xuất hàng loạt",
-                                "xuat pdf", "export pdf", "bat xuat"]):
+    # ── Export commands (detect before generic batchout) ──────────────────────
+    export_kws = [
+        "xuat", "xuất", "export", "in ra", "in ", "print"
+    ]
+    is_export_cmd = any(k in cmd for k in export_kws)
+
+    open_kws = ["mo ", "mở ", "open ", "launch "]
+    is_open_cmd = any(k in cmd for k in open_kws) or "batchout" in cmd and not is_export_cmd
+
+    if is_export_cmd and not is_open_cmd:
+        # Direct export
+        params = _parse_export_params(raw, cmd)
+        filt = params['filter']
+        fmt  = params['format'].upper()
+        filt_label = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+        if viet:
+            msg = u"Đang xuất{} sang {}...".format(filt_label, fmt)
+        else:
+            msg = u"Exporting{} to {}...".format(filt_label, fmt)
+        return {"intent": "export_direct", "params": params, "message": msg}
+
+    if is_open_cmd and "batchout" in cmd:
+        # Check if has filter/format details → configured
+        params = _parse_export_params(raw, cmd)
+        if params.get('filter') or params.get('format') != 'pdf':
+            filt = params['filter']
+            filt_label = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+            if viet:
+                msg = u"Mở BatchOut với{} đã chọn...".format(filt_label)
+            else:
+                msg = u"Opening BatchOut pre-configured{}...".format(filt_label)
+            return {"intent": "open_batchout_configured", "params": params, "message": msg}
+
+    # ── Generic batchout ──────────────────────────────────────────────────────
+    if any(k in cmd for k in ["batchout", "batch out"]):
         return {"intent": "open_batchout", "params": {},
-                "message": "Đang mở BatchOut..." if _is_viet(cmd) else "Opening BatchOut..."}
+                "message": u"Đang mở BatchOut..." if viet else "Opening BatchOut..."}
 
-    # ParaSync
+    # ── Other tools ───────────────────────────────────────────────────────────
     if any(k in cmd for k in ["parasync", "para sync", "dong bo", "đồng bộ",
-                                "sync param", "parameter sync"]):
+                               "sync param", "parameter sync"]):
         return {"intent": "open_parasync", "params": {},
-                "message": "Đang mở ParaSync..." if _is_viet(cmd) else "Opening ParaSync..."}
+                "message": u"Đang mở ParaSync..." if viet else "Opening ParaSync..."}
 
-    # Load Family Cloud
-    if any(k in cmd for k in ["load family cloud", "tai family cloud", "tải family cloud",
-                                "nap family cloud"]):
+    if any(k in cmd for k in ["load family cloud", "tai family cloud", "tải family cloud"]):
         return {"intent": "open_loadfamily_cloud", "params": {},
-                "message": "Đang mở Load Family (Cloud)..." if _is_viet(cmd) else "Opening Load Family (Cloud)..."}
+                "message": u"Đang mở Load Family (Cloud)..." if viet else "Opening Load Family (Cloud)..."}
 
-    # Load Family
-    if any(k in cmd for k in ["load family", "tai family", "tải family",
-                                "nap family", "nạp family"]):
+    if any(k in cmd for k in ["load family", "tai family", "tải family", "nap family"]):
         return {"intent": "open_loadfamily", "params": {},
-                "message": "Đang mở Load Family..." if _is_viet(cmd) else "Opening Load Family..."}
+                "message": u"Đang mở Load Family..." if viet else "Opening Load Family..."}
 
-    # Project Name
-    if any(k in cmd for k in ["project name", "ten project", "tên project",
-                                "dat ten", "đặt tên"]):
+    if any(k in cmd for k in ["project name", "ten project", "tên project", "dat ten"]):
         return {"intent": "open_projectname", "params": {},
-                "message": "Đang mở Project Name..." if _is_viet(cmd) else "Opening Project Name..."}
+                "message": u"Đang mở Project Name..." if viet else "Opening Project Name..."}
 
-    # Workset
-    if any(k in cmd for k in ["workset", "quan ly workset", "quản lý workset"]):
+    if any(k in cmd for k in ["workset", "quan ly workset"]):
         return {"intent": "open_workset", "params": {},
-                "message": "Đang mở Workset..." if _is_viet(cmd) else "Opening Workset..."}
+                "message": u"Đang mở Workset..." if viet else "Opening Workset..."}
 
-    # Upper Dim Text
-    if any(k in cmd for k in ["upper dim", "upperdimtext", "upper dimension"]):
+    if any(k in cmd for k in ["upper dim", "upperdimtext"]):
         return {"intent": "open_upperdimtext", "params": {},
-                "message": "Đang mở Upper Dim Text..." if _is_viet(cmd) else "Opening Upper Dim Text..."}
+                "message": u"Đang mở Upper Dim Text..." if viet else "Opening Upper Dim Text..."}
 
-    # Dim Text
-    if any(k in cmd for k in ["dim text", "dimtext", "sua dimension", "sửa dimension",
-                                "edit dim"]):
+    if any(k in cmd for k in ["dim text", "dimtext", "sua dimension", "edit dim"]):
         return {"intent": "open_dimtext", "params": {},
-                "message": "Đang mở Dim Text..." if _is_viet(cmd) else "Opening Dim Text..."}
+                "message": u"Đang mở Dim Text..." if viet else "Opening Dim Text..."}
 
-    # Reset Overrides
-    if any(k in cmd for k in ["reset override", "xoa override", "xóa override",
-                                "bo override", "bỏ override", "reset graphic"]):
+    if any(k in cmd for k in ["reset override", "xoa override", "bo override", "reset graphic"]):
         return {"intent": "open_resetoverrides", "params": {},
-                "message": "Đang mở Reset Overrides..." if _is_viet(cmd) else "Opening Reset Overrides..."}
+                "message": u"Đang mở Reset Overrides..." if viet else "Opening Reset Overrides..."}
 
-    # Grids
-    if any(k in cmd for k in ["grids", "luoi", "lưới", "truc", "trục", "grid tool"]):
+    if any(k in cmd for k in ["grids", "luoi", "lưới", "truc", "grid tool"]):
         return {"intent": "open_grids", "params": {},
-                "message": "Đang mở Grids..." if _is_viet(cmd) else "Opening Grids..."}
+                "message": u"Đang mở Grids..." if viet else "Opening Grids..."}
 
     return None
 
 
+# ─── Export param extraction ──────────────────────────────────────────────────
+
+def _parse_export_params(raw, cmd=None):
+    """Extract format and filter from a raw export command string."""
+    if cmd is None:
+        cmd = raw.lower()
+
+    # Detect format
+    fmt = 'pdf'  # default
+    for f in ['dwg', 'dwf', 'dgn', 'ifc', 'nwd', 'img', 'image', 'pdf']:
+        if f in cmd:
+            fmt = f
+            break
+
+    # Detect sheet prefix filter
+    # Pattern: uppercase letter + "sheet"/"tờ"/"bản vẽ" in original text
+    m = re.search(r'\b([A-Z])\s*[-–]?\s*(?:sheet|tờ|bản\s*vẽ)', raw, re.IGNORECASE)
+    if m:
+        return {'format': fmt, 'filter': m.group(1).upper(), 'combine': False}
+
+    # "sheet" + uppercase letter
+    m = re.search(r'(?:sheet|tờ)\s+([A-Z])\b', raw, re.IGNORECASE)
+    if m:
+        return {'format': fmt, 'filter': m.group(1).upper(), 'combine': False}
+
+    # Standalone uppercase word that is NOT a format keyword
+    _ignore = {'PDF', 'DWG', 'DWF', 'DGN', 'IFC', 'NWD', 'IMG'}
+    for token in raw.split():
+        if re.match(r'^[A-Z]$', token) and token not in _ignore:
+            return {'format': fmt, 'filter': token, 'combine': False}
+
+    # "toàn bộ" / "tất cả" / "all" → no filter
+    return {'format': fmt, 'filter': '', 'combine': False}
+
+
+# ─── Language heuristic ───────────────────────────────────────────────────────
+
 def _is_viet(text):
-    """Heuristic: return True if text appears to be Vietnamese."""
-    viet_chars = u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹ"
-    viet_words = ["cua", "cua", "toi", "ban", "mo", "dung", "xuat", "chon",
-                  "tat", "bat", "tab", "sheet", "sang", "loc", "bo", "them"]
-    low = text.lower()
-    for c in low:
+    """Return True if text appears to be Vietnamese."""
+    viet_chars = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
+                  u"ụủứừửữựỳỵỷỹ")
+    for c in text.lower():
         if c in viet_chars:
-            return True
-    for w in viet_words:
-        if w in low.split():
             return True
     return False
