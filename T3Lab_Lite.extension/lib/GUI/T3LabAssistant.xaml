@@ -225,7 +225,7 @@
                 Padding="14,10,14,10">
             <StackPanel>
                 <TextBlock Text="CÔNG CỤ NHANH" FontSize="9.5" FontWeight="Bold"
-                           Foreground="#9CA3AF" LetterSpacing="1" Margin="0,0,0,8"/>
+                           Foreground="#9CA3AF" Margin="0,0,0,8"/>
                 <WrapPanel>
                     <Button x:Name="btn_batchout" Style="{StaticResource ChipBtn}"
                             Click="tool_batchout_clicked"
