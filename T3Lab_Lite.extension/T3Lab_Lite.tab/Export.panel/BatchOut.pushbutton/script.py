@@ -46,8 +46,9 @@ clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows import Visibility, WindowState
 from System.Windows.Media.Imaging import BitmapImage
-from System import Uri, UriKind
+from System import Uri, UriKind, Action
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
+from System.Threading import Thread, ThreadStart
 
 from pyrevit import revit, DB, UI, forms, script
 from Autodesk.Revit.DB import (
@@ -73,6 +74,13 @@ try:
     HAS_API_LEARNER = True
 except:
     HAS_API_LEARNER = False
+
+# Import NLP assistant (uses Claude API for natural language understanding)
+try:
+    from batch_out_assistant import parse_command, has_api_key
+    HAS_NLP = True
+except:
+    HAS_NLP = False
 
 # Try to import IFC export
 try:
@@ -434,6 +442,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Update button text based on current tab
             self.update_navigation_buttons()
+
+            # Show AI badge if Claude API key is configured
+            self._update_ai_badge()
 
         except Exception as ex:
             logger.error("Error initializing BatchOut window: {}".format(ex))
@@ -1557,8 +1568,32 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("Error saving View/Sheet Set: {}".format(ex))
             forms.alert("Error saving View/Sheet Set:\n{}".format(str(ex)), title="Error")
 
+    # ─── Assistant: AI badge ──────────────────────────────────────────────────
+
+    def _update_ai_badge(self):
+        """Show/hide the AI status badge based on whether a Claude API key is set."""
+        try:
+            if not hasattr(self, 'ai_status_badge'):
+                return
+            if HAS_NLP and has_api_key():
+                self.ai_status_badge.Visibility = Visibility.Visible
+                self.ai_status_text.Text = "AI"
+                self.assistant_mode_label.Text = (
+                    "  \u2014  n\u1eadp l\u1ec7nh b\u1eb1ng ng\u00f4n ng\u1eef t\u1ef1 nhi\u00ean"
+                    " (Ti\u1ebfng Vi\u1ec7t ho\u1eb7c English \u00b7 AI \u0111ang ho\u1ea1t \u0111\u1ed9ng)"
+                )
+            else:
+                self.ai_status_badge.Visibility = Visibility.Collapsed
+                self.assistant_mode_label.Text = (
+                    "  \u2014  nh\u1eadp l\u1ec7nh \u0111\u1ec3 ch\u1ecdn sheet, \u0111\u1ecbnh d\u1ea1ng xu\u1ea5t, ho\u1eb7c \u0111i\u1ec1u h\u01b0\u1edbng tab"
+                )
+        except Exception as ex:
+            logger.debug("Could not update AI badge: {}".format(ex))
+
+    # ─── Assistant: entry points ──────────────────────────────────────────────
+
     def chatbox_send_clicked(self, sender, e):
-        """Handle chatbox Apply button click."""
+        """Handle chatbox Send button click."""
         self.process_chat_command()
 
     def chatbox_input_keydown(self, sender, e):
@@ -1568,119 +1603,266 @@ class ExportManagerWindow(forms.WPFWindow):
             self.process_chat_command()
 
     def process_chat_command(self):
-        """Parse a natural-language command from the chatbox.
-
-        Supported commands (case-insensitive):
-
-        Tab navigation:
-          go selection / tab 1        – switch to Selection tab
-          go format / tab 2           – switch to Format tab
-          go create / tab 3           – switch to Create tab
-
-        Export format:
-          enable pdf / export pdf     – enable PDF export
-          disable pdf / no pdf        – disable PDF export
-          enable dwg / export dwg     – enable DWG export
-          disable dwg / no dwg        – disable DWG export
-          export all / enable all     – enable all available formats
-          export none / disable all   – disable all formats
-
-        Sheet / View selection:
-          select all                  – select every visible item
-          deselect all / clear        – deselect every visible item
-          select <keyword>            – select items matching <keyword>
-          deselect <keyword>          – deselect items matching <keyword>
-          filter <keyword>            – populate the search box with <keyword>
-          show <keyword>              – same as filter
-          reset / show all            – clear the search box
-          <anything else>             – treated as a search/filter keyword
-        """
+        """Dispatch the user's text to the NLP assistant (async) or keyword fallback."""
         try:
             if not hasattr(self, 'chatbox_input'):
                 return
             raw = self.chatbox_input.Text.strip()
             if not raw:
                 return
-            cmd = raw.lower()
 
-            # Choose the active item list based on current mode
-            if self.selection_mode == "sheets":
-                items = self.filtered_sheets
-                total_label = "sheets"
+            # Clear input immediately so user can type the next command
+            self.chatbox_input.Text = ""
+
+            # Hide previous response
+            if hasattr(self, 'assistant_response_panel'):
+                self.assistant_response_panel.Visibility = Visibility.Collapsed
+
+            # Build context for AI
+            mode = self.selection_mode
+            visible_items = self.filtered_sheets if mode == "sheets" else self.filtered_views
+            selected_count = sum(1 for it in visible_items if it.IsSelected)
+            context = "mode={}, visible={}, selected={}".format(
+                mode, len(visible_items), selected_count)
+
+            if HAS_NLP and has_api_key():
+                # ── Async AI path ───────────────────────────────────────────
+                self.status_text.Text = "Đang xử lý..."
+                self.chatbox_send_button.IsEnabled = False
+
+                captured_raw = raw
+                captured_context = context
+
+                def do_nlp():
+                    result = parse_command(captured_raw, captured_context)
+
+                    def finish():
+                        try:
+                            self.chatbox_send_button.IsEnabled = True
+                            if result and result.get("intent") != "unknown":
+                                self._apply_nlp_result(result)
+                            else:
+                                # NLP failed or unknown → fallback
+                                self._apply_keyword_command(captured_raw)
+                                if result and result.get("intent") == "unknown":
+                                    msg = result.get("params", {}).get("message", "")
+                                    if msg:
+                                        self.status_text.Text = msg
+                        except Exception as finish_ex:
+                            logger.error("finish() error: {}".format(finish_ex))
+
+                    self.Dispatcher.Invoke(Action(finish))
+
+                t = Thread(ThreadStart(do_nlp))
+                t.IsBackground = True
+                t.Start()
             else:
-                items = self.filtered_views
-                total_label = "views"
+                # ── Synchronous keyword-matching fallback ───────────────────
+                self._apply_keyword_command(raw)
 
-            # ── Tab navigation ──────────────────────────────────────────────
+        except Exception as ex:
+            logger.error("Error in process_chat_command: {}".format(ex))
+
+    # ─── Assistant: NLP result executor ──────────────────────────────────────
+
+    def _show_response(self, message):
+        """Display the AI response message in the panel and status bar."""
+        try:
+            if message:
+                self.status_text.Text = message
+                if hasattr(self, 'assistant_response_text'):
+                    self.assistant_response_text.Text = message
+                    self.assistant_response_panel.Visibility = Visibility.Visible
+        except Exception:
+            pass
+
+    def _apply_nlp_result(self, result):
+        """Execute the action described by the NLP-parsed result dict."""
+        try:
+            intent = result.get("intent", "unknown")
+            params = result.get("params", {})
+            message = result.get("message", "")
+
+            mode = self.selection_mode
+            items = self.filtered_sheets if mode == "sheets" else self.filtered_views
+            total_label = "sheets" if mode == "sheets" else "views"
+
+            if intent == "select_sheets":
+                keyword = params.get("keyword", "all")
+                if keyword == "all":
+                    for item in items:
+                        item.IsSelected = True
+                    self.sheets_listview.Items.Refresh()
+                    self.update_selection_count()
+                    if not message:
+                        message = "Selected all {} {}".format(len(items), total_label)
+                else:
+                    kw = keyword.lower()
+                    count = 0
+                    for item in items:
+                        if kw in (item.SheetNumber + " " + item.SheetName).lower():
+                            item.IsSelected = True
+                            count += 1
+                    self.sheets_listview.Items.Refresh()
+                    self.update_selection_count()
+                    if not message:
+                        message = "Selected {} {} matching '{}'".format(count, total_label, keyword)
+
+            elif intent == "deselect_sheets":
+                keyword = params.get("keyword", "all")
+                if keyword == "all":
+                    for item in items:
+                        item.IsSelected = False
+                    self.sheets_listview.Items.Refresh()
+                    self.update_selection_count()
+                    if not message:
+                        message = "Deselected all {} {}".format(len(items), total_label)
+                else:
+                    kw = keyword.lower()
+                    count = 0
+                    for item in items:
+                        if kw in (item.SheetNumber + " " + item.SheetName).lower():
+                            item.IsSelected = False
+                            count += 1
+                    self.sheets_listview.Items.Refresh()
+                    self.update_selection_count()
+                    if not message:
+                        message = "Deselected {} {} matching '{}'".format(count, total_label, keyword)
+
+            elif intent == "filter_sheets":
+                keyword = params.get("keyword", "")
+                self.search_textbox.Text = keyword
+
+            elif intent == "clear_filter":
+                self.search_textbox.Text = ""
+
+            elif intent == "enable_format":
+                fmt = params.get("format", "").lower()
+                self._set_format(fmt, True)
+                if not message:
+                    message = "Enabled {}".format(fmt.upper())
+
+            elif intent == "disable_format":
+                fmt = params.get("format", "").lower()
+                self._set_format(fmt, False)
+                if not message:
+                    message = "Disabled {}".format(fmt.upper())
+
+            elif intent == "navigate_tab":
+                tab = params.get("tab", "").lower()
+                tab_map = {"selection": 0, "format": 1, "create": 2}
+                if tab in tab_map:
+                    self.main_tabs.SelectedIndex = tab_map[tab]
+
+            self._show_response(message)
+
+        except Exception as ex:
+            logger.error("Error applying NLP result: {}".format(ex))
+
+    def _set_format(self, fmt, enabled):
+        """Enable or disable an export format checkbox."""
+        fmt_map = {
+            "pdf": "export_pdf",
+            "dwg": "export_dwg",
+            "dwf": "export_dwf",
+            "dgn": "export_dgn",
+            "img": "export_img",
+            "image": "export_img",
+            "png": "export_img",
+        }
+        if fmt == "all":
+            for attr in fmt_map.values():
+                ctrl = getattr(self, attr, None)
+                if ctrl and ctrl.IsEnabled:
+                    ctrl.IsChecked = enabled
+        elif fmt in fmt_map:
+            ctrl = getattr(self, fmt_map[fmt], None)
+            if ctrl:
+                ctrl.IsChecked = enabled
+
+    # ─── Assistant: keyword fallback ─────────────────────────────────────────
+
+    def _apply_keyword_command(self, raw):
+        """Keyword-based command parser — used when AI is not available or returns unknown."""
+        try:
+            cmd = raw.lower().strip()
+            mode = self.selection_mode
+            items = self.filtered_sheets if mode == "sheets" else self.filtered_views
+            total_label = "sheets" if mode == "sheets" else "views"
+
+            # Tab navigation
             if cmd in ("go selection", "selection tab", "tab selection",
-                       "tab 1", "go to selection", "selection"):
+                       "tab 1", "go to selection"):
                 self.main_tabs.SelectedIndex = 0
                 self.status_text.Text = "Switched to Selection tab"
 
             elif cmd in ("go format", "format tab", "tab format",
-                         "tab 2", "go to format", "format"):
+                         "tab 2", "go to format"):
                 self.main_tabs.SelectedIndex = 1
                 self.status_text.Text = "Switched to Format tab"
 
             elif cmd in ("go create", "create tab", "tab create",
-                         "tab 3", "go to create", "create"):
+                         "tab 3", "go to create"):
                 self.main_tabs.SelectedIndex = 2
                 self.status_text.Text = "Switched to Create tab"
 
-            # ── Export format commands ──────────────────────────────────────
-            elif cmd in ("export all", "all formats", "enable all", "enable all formats"):
-                self.export_pdf.IsChecked = True
-                self.export_dwg.IsChecked = True
+            # Export format: enable
+            elif cmd in ("export all", "all formats", "enable all", "enable all formats",
+                         "bat tat ca", "bat tat ca dinh dang"):
+                self._set_format("all", True)
                 self.status_text.Text = "Enabled all available export formats"
 
-            elif cmd in ("export none", "no formats", "disable all",
-                         "disable all formats", "clear formats"):
-                self.export_pdf.IsChecked = False
-                self.export_dwg.IsChecked = False
+            elif cmd in ("export none", "no formats", "disable all", "disable all formats",
+                         "tat tat ca", "tat tat ca dinh dang"):
+                self._set_format("all", False)
                 self.status_text.Text = "Disabled all export formats"
 
-            elif cmd in ("enable pdf", "export pdf", "pdf on", "use pdf", "pdf"):
-                self.export_pdf.IsChecked = True
+            elif any(cmd in variants for variants in [
+                ("enable pdf", "export pdf", "pdf on", "use pdf", "pdf", "bat pdf", "xuat pdf"),
+            ]):
+                self._set_format("pdf", True)
                 self.status_text.Text = "PDF export enabled"
 
-            elif cmd in ("disable pdf", "no pdf", "pdf off", "remove pdf"):
-                self.export_pdf.IsChecked = False
+            elif cmd in ("disable pdf", "no pdf", "pdf off", "remove pdf", "tat pdf", "khong pdf"):
+                self._set_format("pdf", False)
                 self.status_text.Text = "PDF export disabled"
 
-            elif cmd in ("enable dwg", "export dwg", "dwg on", "use dwg", "dwg"):
-                self.export_dwg.IsChecked = True
+            elif cmd in ("enable dwg", "export dwg", "dwg on", "use dwg", "dwg", "bat dwg", "xuat dwg"):
+                self._set_format("dwg", True)
                 self.status_text.Text = "DWG export enabled"
 
-            elif cmd in ("disable dwg", "no dwg", "dwg off", "remove dwg"):
-                self.export_dwg.IsChecked = False
+            elif cmd in ("disable dwg", "no dwg", "dwg off", "remove dwg", "tat dwg", "khong dwg"):
+                self._set_format("dwg", False)
                 self.status_text.Text = "DWG export disabled"
 
-            elif cmd in ("enable dwf", "export dwf", "dwf on", "dwf"):
-                self.export_dwf.IsChecked = True
+            elif cmd in ("enable dwf", "export dwf", "dwf on", "dwf", "bat dwf"):
+                self._set_format("dwf", True)
                 self.status_text.Text = "DWF export enabled"
 
-            elif cmd in ("disable dwf", "no dwf", "dwf off"):
-                self.export_dwf.IsChecked = False
+            elif cmd in ("disable dwf", "no dwf", "dwf off", "tat dwf"):
+                self._set_format("dwf", False)
                 self.status_text.Text = "DWF export disabled"
 
-            elif cmd in ("enable dgn", "export dgn", "dgn on", "dgn"):
-                self.export_dgn.IsChecked = True
+            elif cmd in ("enable dgn", "export dgn", "dgn on", "dgn", "bat dgn"):
+                self._set_format("dgn", True)
                 self.status_text.Text = "DGN export enabled"
 
-            elif cmd in ("disable dgn", "no dgn", "dgn off"):
-                self.export_dgn.IsChecked = False
+            elif cmd in ("disable dgn", "no dgn", "dgn off", "tat dgn"):
+                self._set_format("dgn", False)
                 self.status_text.Text = "DGN export disabled"
 
-            elif cmd in ("enable img", "export img", "img on", "image on", "img", "image"):
-                self.export_img.IsChecked = True
+            elif cmd in ("enable img", "export img", "img on", "image on", "img", "image",
+                         "bat img", "bat hinh"):
+                self._set_format("img", True)
                 self.status_text.Text = "Image export enabled"
 
-            elif cmd in ("disable img", "no img", "img off", "image off", "no image"):
-                self.export_img.IsChecked = False
+            elif cmd in ("disable img", "no img", "img off", "image off", "tat img", "tat hinh"):
+                self._set_format("img", False)
                 self.status_text.Text = "Image export disabled"
 
-            # ── Sheet / View selection ──────────────────────────────────────
-            elif cmd in ("select all", "all", "select all sheets", "select all views"):
+            # Sheet / View selection
+            elif cmd in ("select all", "all", "select all sheets", "select all views",
+                         "chon tat ca", "chon het"):
                 for item in items:
                     item.IsSelected = True
                 self.sheets_listview.Items.Refresh()
@@ -1688,15 +1870,16 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.status_text.Text = "Selected all {} {}".format(len(items), total_label)
 
             elif cmd in ("deselect all", "clear all", "clear", "none",
-                         "deselect all sheets", "deselect all views"):
+                         "deselect all sheets", "deselect all views",
+                         "bo chon tat ca", "bo chon het"):
                 for item in items:
                     item.IsSelected = False
                 self.sheets_listview.Items.Refresh()
                 self.update_selection_count()
                 self.status_text.Text = "Deselected all {} {}".format(len(items), total_label)
 
-            elif cmd.startswith("select "):
-                keyword = cmd[7:].strip()
+            elif cmd.startswith("select ") or cmd.startswith("chon "):
+                keyword = cmd.split(" ", 1)[1].strip()
                 count = 0
                 for item in items:
                     label = (item.SheetNumber + " " + item.SheetName).lower()
@@ -1708,8 +1891,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.status_text.Text = "Selected {} {} matching '{}'".format(
                     count, total_label, keyword)
 
-            elif cmd.startswith("deselect "):
-                keyword = cmd[9:].strip()
+            elif cmd.startswith("deselect ") or cmd.startswith("bo chon "):
+                keyword = cmd.split(" ", 1)[1].strip()
                 count = 0
                 for item in items:
                     label = (item.SheetNumber + " " + item.SheetName).lower()
@@ -1721,25 +1904,21 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.status_text.Text = "Deselected {} {} matching '{}'".format(
                     count, total_label, keyword)
 
-            elif cmd.startswith("filter ") or cmd.startswith("show "):
+            elif cmd.startswith("filter ") or cmd.startswith("show ") or cmd.startswith("loc "):
                 keyword = raw.split(" ", 1)[1].strip()
                 self.search_textbox.Text = keyword
-                # TextChanged fires apply_filters automatically
 
-            elif cmd in ("reset", "clear filter", "show all"):
+            elif cmd in ("reset", "clear filter", "show all", "xoa loc", "bo loc"):
                 self.search_textbox.Text = ""
-                self.status_text.Text = "Filter cleared – showing all {}".format(total_label)
+                self.status_text.Text = "Filter cleared"
 
             else:
-                # Fall back: treat as a search/filter term
+                # Last resort: treat as search keyword
                 self.search_textbox.Text = raw
                 self.status_text.Text = "Filtering by '{}'".format(raw)
 
-            # Clear the input after processing
-            self.chatbox_input.Text = ""
-
         except Exception as ex:
-            logger.error("Error processing chat command: {}".format(ex))
+            logger.error("Error in keyword command: {}".format(ex))
 
     def search_sheets(self, sender, e):
         """Filter sheets by search text."""

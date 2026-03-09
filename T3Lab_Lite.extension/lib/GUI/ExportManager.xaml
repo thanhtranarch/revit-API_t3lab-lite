@@ -740,22 +740,38 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
-                    <TextBlock Text="&#x1F4AC;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="BatchOut Assistant"
-                               FontSize="12" FontWeight="SemiBold"
-                               Foreground="#2C3E50" VerticalAlignment="Center"/>
-                    <TextBlock Text="  —  select sheets, set export formats, or navigate tabs from anywhere"
-                               FontSize="11" Foreground="#7F8C8D"
-                               FontStyle="Italic" VerticalAlignment="Center"/>
-                </StackPanel>
+                <Grid Grid.Row="0" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="&#x1F4AC;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="BatchOut Assistant"
+                                   FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#2C3E50" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="assistant_mode_label"
+                                   Text="  —  nhập lệnh bằng ngôn ngữ tự nhiên (Tiếng Việt hoặc English)"
+                                   FontSize="11" Foreground="#7F8C8D"
+                                   FontStyle="Italic" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <!-- AI status badge -->
+                    <Border Grid.Column="1" x:Name="ai_status_badge"
+                            Background="#E8F8F0" BorderBrush="#27AE60" BorderThickness="1"
+                            CornerRadius="8" Padding="8,2" Visibility="Collapsed">
+                        <TextBlock x:Name="ai_status_text" Text="AI" FontSize="10"
+                                   FontWeight="Bold" Foreground="#27AE60"/>
+                    </Border>
+                </Grid>
 
-                <!-- Examples hint -->
+                <!-- Hint row -->
                 <TextBlock Grid.Row="1"
-                           Text="Examples:  select all  |  select A1  |  deselect floor  |  filter roof  |  enable pdf  |  export dwg  |  disable pdf  |  go format  |  go create  |  reset"
+                           x:Name="assistant_hint_text"
+                           Text="Ví dụ:  chọn tất cả  |  chọn sheet A1  |  bỏ chọn tầng 1  |  lọc roof  |  bật PDF  |  tắt DWG  |  sang tab Format  |  xóa lọc"
                            FontSize="10" Foreground="#95A5A6" Margin="0,0,0,5"/>
 
                 <!-- Input row -->
@@ -769,15 +785,29 @@
                              VerticalContentAlignment="Center" Padding="6,0"
                              BorderBrush="#ADB9C9" BorderThickness="1"
                              Background="White"
-                             ToolTip="Type a command: select/deselect sheets, enable/disable formats (pdf, dwg...), navigate tabs (go format, go create)"
+                             ToolTip="Nhập lệnh bằng tiếng Việt hoặc English. AI sẽ hiểu ý định và thực hiện."
                              KeyDown="chatbox_input_keydown"/>
 
                     <Button Grid.Column="1" x:Name="chatbox_send_button"
-                            Content="Apply" Height="28" Margin="6,0,0,0"
+                            Content="Gửi" Height="28" Margin="6,0,0,0"
                             Style="{StaticResource SecondaryButton}"
                             Click="chatbox_send_clicked"
-                            ToolTip="Apply the command (or press Enter)"/>
+                            ToolTip="Gửi lệnh (hoặc nhấn Enter)"/>
                 </Grid>
+
+                <!-- AI Response area (shown after command is processed) -->
+                <Border Grid.Row="3" x:Name="assistant_response_panel"
+                        Visibility="Collapsed"
+                        Background="White" BorderBrush="#ADB9C9" BorderThickness="1"
+                        CornerRadius="3" Padding="8,5" Margin="0,6,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#x21B3;" FontSize="11" Foreground="#7F8C8D"
+                                   Margin="0,0,6,0" VerticalAlignment="Top"/>
+                        <TextBlock x:Name="assistant_response_text"
+                                   FontSize="11" Foreground="#2C3E50"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
