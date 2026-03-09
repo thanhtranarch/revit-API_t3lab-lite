@@ -1568,17 +1568,32 @@ class ExportManagerWindow(forms.WPFWindow):
             self.process_chat_command()
 
     def process_chat_command(self):
-        """Parse a natural-language command from the chatbox and act on the sheet list.
+        """Parse a natural-language command from the chatbox.
 
         Supported commands (case-insensitive):
-          select all              – select every visible item
-          deselect all / clear    – deselect every visible item
-          select <keyword>        – select items whose number or name contains <keyword>
-          deselect <keyword>      – deselect items whose number or name contains <keyword>
-          filter <keyword>        – populate the search box with <keyword>
-          show <keyword>          – same as filter
-          reset / show all        – clear the search box
-          <anything else>         – treated as a search/filter keyword
+
+        Tab navigation:
+          go selection / tab 1        – switch to Selection tab
+          go format / tab 2           – switch to Format tab
+          go create / tab 3           – switch to Create tab
+
+        Export format:
+          enable pdf / export pdf     – enable PDF export
+          disable pdf / no pdf        – disable PDF export
+          enable dwg / export dwg     – enable DWG export
+          disable dwg / no dwg        – disable DWG export
+          export all / enable all     – enable all available formats
+          export none / disable all   – disable all formats
+
+        Sheet / View selection:
+          select all                  – select every visible item
+          deselect all / clear        – deselect every visible item
+          select <keyword>            – select items matching <keyword>
+          deselect <keyword>          – deselect items matching <keyword>
+          filter <keyword>            – populate the search box with <keyword>
+          show <keyword>              – same as filter
+          reset / show all            – clear the search box
+          <anything else>             – treated as a search/filter keyword
         """
         try:
             if not hasattr(self, 'chatbox_input'):
@@ -1596,7 +1611,76 @@ class ExportManagerWindow(forms.WPFWindow):
                 items = self.filtered_views
                 total_label = "views"
 
-            if cmd in ("select all", "all", "select all sheets", "select all views"):
+            # ── Tab navigation ──────────────────────────────────────────────
+            if cmd in ("go selection", "selection tab", "tab selection",
+                       "tab 1", "go to selection", "selection"):
+                self.main_tabs.SelectedIndex = 0
+                self.status_text.Text = "Switched to Selection tab"
+
+            elif cmd in ("go format", "format tab", "tab format",
+                         "tab 2", "go to format", "format"):
+                self.main_tabs.SelectedIndex = 1
+                self.status_text.Text = "Switched to Format tab"
+
+            elif cmd in ("go create", "create tab", "tab create",
+                         "tab 3", "go to create", "create"):
+                self.main_tabs.SelectedIndex = 2
+                self.status_text.Text = "Switched to Create tab"
+
+            # ── Export format commands ──────────────────────────────────────
+            elif cmd in ("export all", "all formats", "enable all", "enable all formats"):
+                self.export_pdf.IsChecked = True
+                self.export_dwg.IsChecked = True
+                self.status_text.Text = "Enabled all available export formats"
+
+            elif cmd in ("export none", "no formats", "disable all",
+                         "disable all formats", "clear formats"):
+                self.export_pdf.IsChecked = False
+                self.export_dwg.IsChecked = False
+                self.status_text.Text = "Disabled all export formats"
+
+            elif cmd in ("enable pdf", "export pdf", "pdf on", "use pdf", "pdf"):
+                self.export_pdf.IsChecked = True
+                self.status_text.Text = "PDF export enabled"
+
+            elif cmd in ("disable pdf", "no pdf", "pdf off", "remove pdf"):
+                self.export_pdf.IsChecked = False
+                self.status_text.Text = "PDF export disabled"
+
+            elif cmd in ("enable dwg", "export dwg", "dwg on", "use dwg", "dwg"):
+                self.export_dwg.IsChecked = True
+                self.status_text.Text = "DWG export enabled"
+
+            elif cmd in ("disable dwg", "no dwg", "dwg off", "remove dwg"):
+                self.export_dwg.IsChecked = False
+                self.status_text.Text = "DWG export disabled"
+
+            elif cmd in ("enable dwf", "export dwf", "dwf on", "dwf"):
+                self.export_dwf.IsChecked = True
+                self.status_text.Text = "DWF export enabled"
+
+            elif cmd in ("disable dwf", "no dwf", "dwf off"):
+                self.export_dwf.IsChecked = False
+                self.status_text.Text = "DWF export disabled"
+
+            elif cmd in ("enable dgn", "export dgn", "dgn on", "dgn"):
+                self.export_dgn.IsChecked = True
+                self.status_text.Text = "DGN export enabled"
+
+            elif cmd in ("disable dgn", "no dgn", "dgn off"):
+                self.export_dgn.IsChecked = False
+                self.status_text.Text = "DGN export disabled"
+
+            elif cmd in ("enable img", "export img", "img on", "image on", "img", "image"):
+                self.export_img.IsChecked = True
+                self.status_text.Text = "Image export enabled"
+
+            elif cmd in ("disable img", "no img", "img off", "image off", "no image"):
+                self.export_img.IsChecked = False
+                self.status_text.Text = "Image export disabled"
+
+            # ── Sheet / View selection ──────────────────────────────────────
+            elif cmd in ("select all", "all", "select all sheets", "select all views"):
                 for item in items:
                     item.IsSelected = True
                 self.sheets_listview.Items.Refresh()
