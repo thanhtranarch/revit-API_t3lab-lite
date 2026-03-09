@@ -36,11 +36,15 @@ if lib_dir not in sys.path:
 
 # ─── NLP module ───────────────────────────────────────────────────────────────
 try:
-    from t3lab_assistant import parse_command, has_api_key, keyword_parse
+    from t3lab_assistant import (parse_command, has_api_key, keyword_parse,
+                                  learn_pattern, find_learned_match)
     HAS_NLP = True
 except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
     HAS_NLP = False
+    # stubs so the rest of the code doesn't need guards
+    def learn_pattern(*a, **kw): pass
+    def find_learned_match(*a, **kw): return None
 
 # ─── BatchOut executor (configure + direct export) ────────────────────────────
 try:
@@ -248,6 +252,12 @@ def launch_resetoverrides():
 
 
 # Map intent → launcher function
+def _is_viet_text(text):
+    viet_chars = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
+                  u"ụủứừửữựỳỵỷỹ")
+    return any(c in viet_chars for c in text.lower())
+
+
 TOOL_LAUNCHERS = {
     "open_batchout":         launch_batchout,
     "open_parasync":         launch_parasync,
@@ -266,11 +276,21 @@ TOOL_LAUNCHERS = {
 class T3LabAssistantWindow(forms.WPFWindow):
     """Standalone T3Lab Assistant chatbox window."""
 
+    # ── Quick-button names (for bulk enable/disable) ──────────────────────────
+    _QUICK_BTNS = ['btn_batchout', 'btn_parasync', 'btn_loadfamily',
+                   'btn_projectname', 'btn_workset', 'btn_dimtext']
+
     def __init__(self):
         xaml_path = os.path.join(lib_dir, 'GUI', 'T3LabAssistant.xaml')
         forms.WPFWindow.__init__(self, xaml_path)
 
-        # Set logo
+        # ── Session state ─────────────────────────────────────────────────────
+        self._busy             = False          # concurrency guard
+        self._typing_row       = None           # reference to typing indicator element
+        self._conversation_history = []         # [{role, content}, ...] multi-turn context
+        self._last_raw         = ''             # last user input (for learning)
+
+        # ── Logo ──────────────────────────────────────────────────────────────
         try:
             logo_path = os.path.join(lib_dir, 'GUI', 'T3Lab_logo.png')
             if os.path.exists(logo_path):
@@ -306,10 +326,101 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
+    # ─── Session guard & UI state ─────────────────────────────────────────────
+
+    def _set_busy(self, busy):
+        """Lock/unlock the whole input area. Call from UI thread only."""
+        self._busy = busy
+        try:
+            self.send_button.IsEnabled = not busy
+            self.chat_input.IsEnabled  = not busy
+        except Exception:
+            pass
+        for btn_name in self._QUICK_BTNS:
+            try:
+                getattr(self, btn_name).IsEnabled = not busy
+            except Exception:
+                pass
+        if busy:
+            self._show_typing_indicator()
+        else:
+            self._hide_typing_indicator()
+
+    def _show_typing_indicator(self):
+        """Add an animated '● ● ●' bubble to the chat."""
+        try:
+            if self._typing_row is not None:
+                return  # already shown
+            self._typing_row = self._make_typing_row()
+            self.chat_history_panel.Children.Add(self._typing_row)
+            self._scroll_to_bottom()
+        except Exception:
+            pass
+
+    def _hide_typing_indicator(self):
+        """Remove the typing indicator bubble."""
+        try:
+            if self._typing_row is not None:
+                self.chat_history_panel.Children.Remove(self._typing_row)
+                self._typing_row = None
+        except Exception:
+            pass
+
+    def _make_typing_row(self):
+        """Build the '● ● ●' typing indicator WPF element."""
+        from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
+        from System.Windows import Thickness, CornerRadius, GridLength, HorizontalAlignment
+        from System.Windows.Media import SolidColorBrush, Color
+
+        row = Grid()
+        row.Margin = Thickness(0, 0, 60, 6)
+
+        col_av = ColumnDefinition()
+        col_av.Width = GridLength.Auto
+        col_msg = ColumnDefinition()
+        col_msg.Width = GridLength(1, System.Windows.GridUnitType.Star)
+        row.ColumnDefinitions.Add(col_av)
+        row.ColumnDefinitions.Add(col_msg)
+
+        av = self._make_avatar("T3")
+        Grid.SetColumn(av, 0)
+        row.Children.Add(av)
+
+        bubble = Border()
+        bubble.Background      = SolidColorBrush(Color.FromRgb(255, 255, 255))
+        bubble.CornerRadius    = CornerRadius(3, 8, 8, 8)
+        bubble.Padding         = Thickness(14, 10, 14, 10)
+        bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))  # #BDC3C7
+        bubble.BorderThickness = Thickness(1)
+        bubble.HorizontalAlignment = HorizontalAlignment.Left
+
+        dots = TextBlock()
+        dots.Text      = u"● ● ●"
+        dots.FontSize  = 10
+        dots.Foreground = SolidColorBrush(Color.FromRgb(127, 140, 141))  # #7F8C8D
+
+        bubble.Child = dots
+        Grid.SetColumn(bubble, 1)
+        row.Children.Add(bubble)
+        return row
+
+    def _safe_append_bot(self, msg):
+        """Thread-safe bot message append (can be called from background threads)."""
+        try:
+            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(msg)))
+        except Exception:
+            pass
+
+    def _add_to_history(self, role, content):
+        """Add a message to conversation history (keep last 16 messages = 8 exchanges)."""
+        self._conversation_history.append({"role": role, "content": content})
+        if len(self._conversation_history) > 16:
+            self._conversation_history = self._conversation_history[-16:]
+
     # ─── Quick tool buttons ───────────────────────────────────────────────────
 
     def tool_batchout_clicked(self, sender, e):
-        self._run_tool("open_batchout", "Đang mở BatchOut...")
+        self._run_tool("open_batchout", u"Đang mở BatchOut...")
 
     def tool_parasync_clicked(self, sender, e):
         self._run_tool("open_parasync", "Đang mở ParaSync...")
@@ -342,36 +453,58 @@ class T3LabAssistantWindow(forms.WPFWindow):
             raw = self.chat_input.Text.strip()
             if not raw:
                 return
-            self.chat_input.Text = ""
 
-            # Show user message in chat
+            # ── Concurrency guard ─────────────────────────────────────────────
+            if self._busy:
+                self._append_bot_message(
+                    u"⏳ Đang xử lý lệnh trước, vui lòng chờ một chút..."
+                )
+                return
+
+            self.chat_input.Text = ""
+            self._last_raw = raw
+
+            # Show user message in chat + add to history
             self._append_user_message(raw)
+            self._add_to_history("user", raw)
+
+            # Lock UI
+            self._set_busy(True)
+
+            # ── Check learned patterns first (fastest path, no API) ────────────
+            if HAS_NLP:
+                learned = find_learned_match(raw)
+                if learned:
+                    self._execute_result(learned)
+                    return
 
             if HAS_NLP and has_api_key():
-                # Async NLP path
-                self.send_button.IsEnabled = False
+                # ── Async NLP path ────────────────────────────────────────────
                 captured = raw
+                history  = list(self._conversation_history[:-1])  # exclude the message we just added
 
                 def do_nlp():
-                    result = parse_command(captured)
+                    result = parse_command(captured, history)
 
                     def finish():
                         try:
-                            self.send_button.IsEnabled = True
                             if result and result.get("intent") not in (None, "unknown"):
                                 self._execute_result(result)
                             else:
-                                # Fallback to keywords
+                                # Fallback to keyword matching
                                 fb = keyword_parse(captured)
                                 if fb:
                                     self._execute_result(fb)
                                 else:
-                                    msg = (result or {}).get("params", {}).get("message", "")
-                                    if not msg:
-                                        msg = u"Không hiểu lệnh. Thử: 'mở batchout', 'parasync', 'load family'..."
+                                    msg = (result or {}).get("params", {}).get("message") or \
+                                          (u"Không hiểu lệnh. Thử: 'mở batchout', 'xuất pdf G sheet'..."
+                                           if _is_viet_text(captured) else
+                                           "I didn't understand. Try: 'open batchout', 'export pdf G sheets'...")
                                     self._append_bot_message(msg)
+                                    self._set_busy(False)
                         except Exception as finish_ex:
                             logger.error("finish error: {}".format(finish_ex))
+                            self._set_busy(False)
 
                     self.Dispatcher.Invoke(Action(finish))
 
@@ -379,110 +512,135 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 t.IsBackground = True
                 t.Start()
             else:
-                # Synchronous keyword fallback
+                # ── Synchronous keyword fallback ──────────────────────────────
                 fb = keyword_parse(raw)
                 if fb:
                     self._execute_result(fb)
                 else:
                     self._append_bot_message(
                         u"Không hiểu lệnh.\n"
-                        u"Ví dụ:\n"
-                        u"• 'xuất pdf toàn bộ G sheet'\n"
-                        u"• 'export all A sheets DWG'\n"
-                        u"• 'mở batchout G sheet pdf'\n"
-                        u"• 'parasync'  •  'load family'"
+                        u"Ví dụ: 'mở batchout', 'xuất pdf G sheet', 'parasync'"
                     )
+                    self._set_busy(False)
 
         except Exception as ex:
             logger.error("Error in _process_input: {}".format(ex))
+            self._set_busy(False)
 
     # ─── Execute intent ────────────────────────────────────────────────────────
 
     def _execute_result(self, result):
-        """Execute the action described by a parsed result dict."""
+        """Execute the action described by a parsed result dict.
+
+        Responsibilities:
+        - Display bot message
+        - Add bot reply to conversation history
+        - Learn successful patterns
+        - Release busy state when done (including after background exports)
+        """
         intent  = result.get("intent", "unknown")
         message = result.get("message", "")
         params  = result.get("params", {})
+        raw     = self._last_raw
 
-        # ── Help ──────────────────────────────────────────────────────────────
-        if intent == "help":
-            answer = params.get("answer", message)
-            self._append_bot_message(answer or message)
+        def _bot(msg):
+            """Show message and record in conversation history."""
+            self._append_bot_message(msg)
+            self._add_to_history("assistant", msg)
+
+        def _learn(msg=''):
+            """Record successful command→intent mapping."""
+            learn_pattern(raw, intent, params, msg)
+
+        # ── Conversation (no action needed) ──────────────────────────────────
+        if intent in ("help", "chat", "greet"):
+            reply = params.get("answer", message) if intent == "help" else message
+            _bot(reply or u"Có thể giúp gì thêm không?")
+            self._set_busy(False)
             return
 
-        # ── Export directly (no UI) ───────────────────────────────────────────
+        # ── Export directly — runs on background thread ───────────────────────
         if intent == "export_direct":
-            self._append_bot_message(message or u"Đang xuất file...")
-            ok = launch_export_direct(params, self._append_bot_message)
-            if not ok and not params:
-                self._append_bot_message(u"Xuất thất bại. Xem console để biết lỗi.")
+            confirm = message or u"Đang xuất file, vui lòng chờ..."
+            _bot(confirm)
+            _learn(confirm)
+
+            def do_export():
+                ok = launch_export_direct(params, self._safe_append_bot)
+                if not ok:
+                    self._safe_append_bot(u"Xuất thất bại. Xem console để biết lỗi.")
+                self.Dispatcher.Invoke(Action(lambda: self._set_busy(False)))
+
+            t = Thread(ThreadStart(do_export))
+            t.IsBackground = True
+            t.Start()
             return
 
-        # ── Open BatchOut pre-configured ─────────────────────────────────────
+        # ── Open BatchOut pre-configured ──────────────────────────────────────
         if intent == "open_batchout_configured":
-            self._append_bot_message(message or u"Đang mở BatchOut đã cấu hình...")
-            ok = launch_batchout_configured(params, self._append_bot_message)
+            confirm = message or u"Đang mở BatchOut đã cấu hình..."
+            _bot(confirm)
+            _learn(confirm)
+            ok = launch_batchout_configured(params, self._safe_append_bot)
             if not ok:
                 self._append_bot_message(u"Không thể mở BatchOut. Xem console.")
+            self._set_busy(False)
             return
 
         # ── Simple tool launchers ─────────────────────────────────────────────
         if intent in TOOL_LAUNCHERS:
-            self._append_bot_message(message or u"Đang mở công cụ...")
+            confirm = message or u"Đang mở công cụ..."
+            _bot(confirm)
+            _learn(confirm)
             ok = TOOL_LAUNCHERS[intent]()
             if not ok:
-                self._append_bot_message(u"Không thể mở công cụ. Xem console để biết lỗi.")
+                self._append_bot_message(u"Không thể mở công cụ. Xem console.")
+            self._set_busy(False)
             return
 
-        # ── Unknown ───────────────────────────────────────────────────────────
+        # ── Unknown / fallthrough ─────────────────────────────────────────────
         if intent == "unknown":
-            self._append_bot_message(params.get("message", u"Lệnh không rõ."))
+            _bot(params.get("message", u"Lệnh không rõ. Thử: 'mở batchout', 'xuất pdf G sheet'..."))
         else:
-            self._append_bot_message(message or u"Đã xử lý lệnh.")
+            _bot(message or u"Đã thực hiện.")
+        self._set_busy(False)
 
     def _run_tool(self, intent, default_msg):
-        """Helper: show confirmation message and run a tool launcher on the UI thread."""
-        self._append_bot_message(default_msg)
-        launcher = TOOL_LAUNCHERS.get(intent)
-        if not launcher:
+        """Helper for quick-button clicks: guard, show message, run launcher."""
+        if self._busy:
+            self._append_bot_message(u"⏳ Đang xử lý lệnh trước, vui lòng chờ...")
             return
-        # Run synchronously on UI thread — WPF dialogs require the UI thread
-        ok = launcher()
-        if not ok:
-            self._append_bot_message(u"Không thể mở công cụ. Xem console để biết lỗi.")
+        self._set_busy(True)
+        self._last_raw = default_msg
+        self._append_bot_message(default_msg)
+        self._add_to_history("assistant", default_msg)
+        launcher = TOOL_LAUNCHERS.get(intent)
+        if launcher:
+            ok = launcher()
+            if not ok:
+                self._append_bot_message(u"Không thể mở công cụ. Xem console.")
+        self._set_busy(False)
 
     # ─── Chat UI helpers ──────────────────────────────────────────────────────
 
-    def _make_avatar(self, letter, from_rgb_start, from_rgb_end):
-        """Create a circular avatar Border with initials."""
+    def _make_avatar(self, letter, _unused_start=None, _unused_end=None):
+        """Create a circular avatar Border with initials (BatchOut blue #3498DB)."""
         from System.Windows.Controls import Border, TextBlock
         from System.Windows import Thickness, CornerRadius
-        from System.Windows.Media import SolidColorBrush, Color, LinearGradientBrush, GradientStop
+        from System.Windows.Media import SolidColorBrush, Color
         from System.Windows import HorizontalAlignment, VerticalAlignment
 
-        grad = LinearGradientBrush()
-        grad.StartPoint = System.Windows.Point(0, 0)
-        grad.EndPoint = System.Windows.Point(1, 1)
-        gs1 = GradientStop()
-        gs1.Color = Color.FromRgb(*from_rgb_start)
-        gs1.Offset = 0.0
-        gs2 = GradientStop()
-        gs2.Color = Color.FromRgb(*from_rgb_end)
-        gs2.Offset = 1.0
-        grad.GradientStops.Add(gs1)
-        grad.GradientStops.Add(gs2)
-
         av = Border()
-        av.Width = 32
-        av.Height = 32
-        av.CornerRadius = CornerRadius(16)
-        av.Background = grad
-        av.Margin = Thickness(0, 2, 8, 0)
+        av.Width = 36
+        av.Height = 36
+        av.CornerRadius = CornerRadius(18)
+        av.Background = SolidColorBrush(Color.FromRgb(52, 152, 219))   # #3498DB
+        av.Margin = Thickness(0, 2, 10, 0)
         av.VerticalAlignment = VerticalAlignment.Top
 
         lbl = TextBlock()
         lbl.Text = letter
-        lbl.FontSize = 11
+        lbl.FontSize = 12
         lbl.FontWeight = System.Windows.FontWeights.Bold
         lbl.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
         lbl.HorizontalAlignment = HorizontalAlignment.Center
@@ -491,28 +649,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
         return av
 
     def _append_user_message(self, text):
-        """Add a right-aligned user bubble to the chat history."""
+        """Add a right-aligned user bubble (BatchOut #3498DB)."""
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength, HorizontalAlignment
             from System.Windows.Media import SolidColorBrush, Color
 
             row = Grid()
-            row.Margin = Thickness(48, 0, 0, 10)
+            row.Margin = Thickness(60, 0, 0, 10)
             col0 = ColumnDefinition()
             col0.Width = GridLength(1, System.Windows.GridUnitType.Star)
             row.ColumnDefinitions.Add(col0)
 
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(37, 99, 235))  # #2563EB
-            bubble.CornerRadius = CornerRadius(12, 4, 12, 12)
-            bubble.Padding = Thickness(12, 8, 12, 8)
+            bubble.Background   = SolidColorBrush(Color.FromRgb(52, 152, 219))   # #3498DB
+            bubble.CornerRadius = CornerRadius(8, 3, 8, 8)
+            bubble.Padding      = Thickness(12, 8, 12, 8)
             bubble.HorizontalAlignment = HorizontalAlignment.Right
 
             msg_text = TextBlock()
-            msg_text.Text = text
-            msg_text.FontSize = 12
-            msg_text.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            msg_text.Text        = text
+            msg_text.FontSize    = 13
+            msg_text.Foreground  = SolidColorBrush(Color.FromRgb(255, 255, 255))
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 
@@ -524,14 +682,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("Error adding user message: {}".format(ex))
 
     def _append_bot_message(self, text):
-        """Add a left-aligned bot bubble with avatar to the chat history."""
+        """Add a left-aligned bot bubble with avatar (BatchOut color scheme)."""
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
             from System.Windows.Media import SolidColorBrush, Color
 
             row = Grid()
-            row.Margin = Thickness(0, 0, 48, 10)
+            row.Margin = Thickness(0, 0, 60, 10)
             col_av = ColumnDefinition()
             col_av.Width = GridLength.Auto
             col_msg = ColumnDefinition()
@@ -540,22 +698,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             row.ColumnDefinitions.Add(col_msg)
 
             # Avatar
-            av = self._make_avatar("T3", (37, 99, 235), (56, 189, 248))
+            av = self._make_avatar("T3")
             Grid.SetColumn(av, 0)
             row.Children.Add(av)
 
-            # Bubble
+            # Bubble — white with BatchOut border
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
-            bubble.CornerRadius = CornerRadius(4, 12, 12, 12)
-            bubble.Padding = Thickness(12, 8, 12, 8)
-            bubble.BorderBrush = SolidColorBrush(Color.FromRgb(229, 231, 235))
+            bubble.Background     = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            bubble.CornerRadius   = CornerRadius(3, 8, 8, 8)
+            bubble.Padding        = Thickness(14, 10, 14, 10)
+            bubble.BorderBrush    = SolidColorBrush(Color.FromRgb(189, 195, 199))  # #BDC3C7
             bubble.BorderThickness = Thickness(1)
 
             msg_text = TextBlock()
-            msg_text.Text = text
-            msg_text.FontSize = 12
-            msg_text.Foreground = SolidColorBrush(Color.FromRgb(55, 65, 81))
+            msg_text.Text        = text
+            msg_text.FontSize    = 13
+            msg_text.Foreground  = SolidColorBrush(Color.FromRgb(44, 62, 80))     # #2C3E50
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 

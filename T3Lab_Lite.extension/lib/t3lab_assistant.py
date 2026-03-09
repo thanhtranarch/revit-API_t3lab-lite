@@ -5,7 +5,11 @@ Uses Claude API to understand natural-language commands and map them
 to T3Lab tool actions. Falls back to keyword matching when API is
 not configured.
 
-Supports Tiếng Việt, English, or mixed input.
+Features:
+- Multi-turn conversation history (natural back-and-forth)
+- Self-learning: saves successful patterns to learned_patterns.json
+- Keyword fallback with learned-pattern priority
+- Supports Vietnamese, English, or mixed input
 """
 from __future__ import unicode_literals
 
@@ -27,94 +31,205 @@ except Exception:
 # ─── System prompt ────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """\
-You are T3Lab Assistant, an AI helper built into Autodesk Revit's T3Lab plugin.
-Your job is to parse a user's free-form command and map it to one of the T3Lab tool actions below.
+You are T3Lab Assistant, a friendly AI helper built into Autodesk Revit's T3Lab plugin.
+You help users both with T3Lab tool commands AND with casual conversation.
 
-AVAILABLE INTENTS (choose exactly one):
+AVAILABLE TOOL INTENTS:
 
   ── Export (smart) ────────────────────────────────────────────────────────────
   export_direct           – export sheets directly WITHOUT opening any UI.
     params: {
       "format": "pdf"|"dwg"|"dwf"|"dgn"|"ifc"|"nwd"|"img",
-      "filter": "<UPPERCASE sheet-number prefix e.g. G, A, S, or empty string for all>",
+      "filter": "<UPPERCASE sheet prefix e.g. G, A, S — or empty for all>",
       "combine": false
     }
 
-  open_batchout_configured – open BatchOut pre-configured (sheets selected, format set,
-                             navigate to Create tab ready to export).
-    params: {
-      "format": "pdf"|"dwg"|"dwf"|"dgn"|"ifc"|"nwd"|"img",
-      "filter": "<UPPERCASE sheet-number prefix e.g. G, A, S, or empty string for all>"
-    }
+  open_batchout_configured – open BatchOut pre-configured (sheets selected, format set, Create tab).
+    params: { "format": "pdf"|"dwg"|..., "filter": "<prefix or empty>" }
 
   open_batchout           – open BatchOut with no pre-configuration. params: {}
 
   ── Other tools ───────────────────────────────────────────────────────────────
-  open_parasync       – open the ParaSync parameter sync tool. params: {}
-  open_loadfamily     – open the Load Family dialog. params: {}
-  open_loadfamily_cloud – open the Load Family (Cloud) dialog. params: {}
-  open_projectname    – open the Project Name tool. params: {}
-  open_workset        – open the Workset manager. params: {}
-  open_dimtext        – open the Dim Text tool (edit dimension text). params: {}
-  open_upperdimtext   – open the Upper Dim Text tool. params: {}
-  open_resetoverrides – open the Reset Overrides tool. params: {}
-  open_grids          – open the Grids tool. params: {}
-  help                – answer a question about T3Lab tools. params: {"answer": "<concise answer>"}
-  unknown             – command is unclear. params: {"message": "<brief explanation why>"}
+  open_parasync       params: {}
+  open_loadfamily     params: {}
+  open_loadfamily_cloud params: {}
+  open_projectname    params: {}
+  open_workset        params: {}
+  open_dimtext        params: {}
+  open_upperdimtext   params: {}
+  open_resetoverrides params: {}
+  open_grids          params: {}
+
+  ── Conversation ──────────────────────────────────────────────────────────────
+  help   – answer a question about T3Lab tools.
+    params: {"answer": "<concise answer>"}
+
+  greet  – respond to a greeting (chào, hello, hi, xin chào, hey...).
+    params: {}
+    message: a warm, short greeting
+
+  chat   – respond naturally to anything that is NOT a tool command
+    (questions about Revit, small talk, thanks, follow-ups, etc.)
+    params: {}
+    message: a helpful, conversational reply in the SAME language as user input
 
 EXPORT RULES:
-- If the user says "xuất/export + [format] + [filter] + sheet/tờ" WITHOUT "mở"/"open" → export_direct
-- If the user says "mở batchout" + filter/format details → open_batchout_configured
-- If the user says "mở batchout" with NO details → open_batchout
-- Extract the sheet prefix letter (A, G, S, M, E, P...) from patterns like "G sheet", "tờ G", "G-sheet", "sheet G"
-- "toàn bộ", "tất cả", "all sheets", "hết" → filter = "" (all sheets)
-- Default format is "pdf" when only sheets are mentioned without explicit format
+- "xuất/export + format + filter + sheet" WITHOUT "mở/open" → export_direct
+- "mở batchout + filter/format" → open_batchout_configured
+- "mở batchout" alone → open_batchout
+- Extract sheet prefix: "G sheet"→G, "tờ G"→G, "A sheet"→A etc.
+- "toàn bộ"/"tất cả"/"all" → filter = "" (all sheets), default format = pdf
 
-EXPORT EXAMPLES:
-  "xuất pdf toàn bộ G sheet"   → export_direct  filter="G"  format="pdf"
-  "export pdf all G sheets"    → export_direct  filter="G"  format="pdf"
-  "xuất tất cả sheet ra pdf"   → export_direct  filter=""   format="pdf"
-  "export all sheets DWG"      → export_direct  filter=""   format="dwg"
-  "xuất sheet A ra DWG"        → export_direct  filter="A"  format="dwg"
-  "mở batchout G sheet pdf"    → open_batchout_configured  filter="G"  format="pdf"
-  "open batchout select A sheets" → open_batchout_configured filter="A" format="pdf"
-  "mở batchout"                → open_batchout
-
-OTHER RULES:
-- "parasync", "đồng bộ", "sync param" → open_parasync
-- "load family", "tải family" → open_loadfamily
-- "load family cloud" → open_loadfamily_cloud
-- "project name", "tên project" → open_projectname
-- "workset" → open_workset
-- "dim text", "dimtext" → open_dimtext
-- "upper dim" → open_upperdimtext
-- "reset override" → open_resetoverrides
-- "grids", "lưới" → open_grids
-- Questions about tools → help
+CONVERSATION RULES:
+- Use conversation history to understand follow-up questions.
+  e.g., user asks "batchout là gì?" then "nó xuất được những gì?" → use context.
+- Be concise, friendly, professional. Reply in the same language as the user.
+- If unsure between tool and chat → prefer tool if there is a clear keyword.
 
 RESPONSE FORMAT (JSON only, no markdown, no extra text):
 {
   "intent": "<intent_name>",
   "params": { ... },
-  "message": "<friendly short confirmation in the SAME language as user input>"
+  "message": "<friendly short message in user's language>"
 }
 
-RESPONSE EXAMPLES:
-  "xuất pdf toàn bộ G sheet"
-    → {"intent":"export_direct","params":{"format":"pdf","filter":"G","combine":false},"message":"Đang xuất tất cả G sheet sang PDF..."}
-
-  "export all A sheets to DWG"
-    → {"intent":"export_direct","params":{"format":"dwg","filter":"A","combine":false},"message":"Exporting all A sheets to DWG..."}
-
-  "mở batchout chọn G sheet pdf"
-    → {"intent":"open_batchout_configured","params":{"format":"pdf","filter":"G"},"message":"Mở BatchOut với G sheet đã chọn và PDF đã bật..."}
-
-  "mở batchout"
-    → {"intent":"open_batchout","params":{},"message":"Đang mở BatchOut..."}
-
-  "parasync"
-    → {"intent":"open_parasync","params":{},"message":"Đang mở ParaSync..."}
+EXAMPLES:
+  "chào bạn"  → {"intent":"greet","params":{},"message":"Xin chào! Tôi là T3Lab Assistant. Cần giúp gì không?"}
+  "hello"     → {"intent":"greet","params":{},"message":"Hello! I'm T3Lab Assistant. How can I help?"}
+  "cảm ơn"    → {"intent":"chat","params":{},"message":"Không có gì! Nếu cần gì cứ hỏi nhé 😊"}
+  "batchout làm gì?" → {"intent":"help","params":{"answer":"BatchOut giúp xuất hàng loạt sheets sang PDF, DWG, DWF... với nhiều tùy chọn nâng cao."},"message":"BatchOut là công cụ xuất sheets hàng loạt."}
+  "xuất pdf toàn bộ G sheet" → {"intent":"export_direct","params":{"format":"pdf","filter":"G","combine":false},"message":"Đang xuất tất cả G sheet sang PDF..."}
+  "mở batchout G sheet pdf"  → {"intent":"open_batchout_configured","params":{"format":"pdf","filter":"G"},"message":"Mở BatchOut với G sheet đã chọn..."}
+  "mở batchout"              → {"intent":"open_batchout","params":{},"message":"Đang mở BatchOut..."}
+  "parasync"                 → {"intent":"open_parasync","params":{},"message":"Đang mở ParaSync..."}
 """
+
+
+# ─── Learned patterns ─────────────────────────────────────────────────────────
+
+def _patterns_file():
+    lib_dir = os.path.dirname(os.path.abspath(__file__))
+    config_dir = os.path.join(lib_dir, 'config')
+    if not os.path.exists(config_dir):
+        try:
+            os.makedirs(config_dir)
+        except Exception:
+            pass
+    return os.path.join(config_dir, 'learned_patterns.json')
+
+
+def load_learned_patterns():
+    """Load learned patterns from disk. Returns dict {key: data}."""
+    try:
+        path = _patterns_file()
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                data = json.load(f)
+            return data.get('patterns', {})
+    except Exception:
+        pass
+    return {}
+
+
+def save_learned_patterns(patterns):
+    """Persist learned patterns to disk."""
+    try:
+        path = _patterns_file()
+        with open(path, 'w') as f:
+            json.dump({'patterns': patterns}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def learn_pattern(raw, intent, params, message=''):
+    """Record a successful command→intent mapping.
+
+    Only learns tool intents (not greet/chat/help).
+    """
+    _skip = {'help', 'chat', 'greet', 'unknown', None}
+    if intent in _skip:
+        return
+    try:
+        key = _normalize_key(raw)
+        if not key or len(key.split()) < 1:
+            return
+        patterns = load_learned_patterns()
+        if key in patterns:
+            patterns[key]['hits'] = patterns[key].get('hits', 0) + 1
+            patterns[key]['last_raw'] = raw
+        else:
+            patterns[key] = {
+                'intent': intent,
+                'params': params or {},
+                'hits': 1,
+                'last_raw': raw,
+                'last_message': message,
+            }
+        # Keep only top 200 patterns (prune least-used)
+        if len(patterns) > 200:
+            sorted_keys = sorted(patterns.keys(), key=lambda k: patterns[k].get('hits', 0))
+            for k in sorted_keys[:50]:
+                del patterns[k]
+        save_learned_patterns(patterns)
+    except Exception:
+        pass
+
+
+def find_learned_match(raw):
+    """Check learned patterns for a fuzzy match.
+
+    Returns result dict {intent, params, message} or None.
+    Uses Jaccard similarity on normalized word sets (threshold 0.65).
+    """
+    try:
+        patterns = load_learned_patterns()
+        if not patterns:
+            return None
+        key = _normalize_key(raw)
+        key_words = set(key.split()) if key else set()
+        if not key_words:
+            return None
+
+        best_score = 0.0
+        best_data  = None
+
+        for stored_key, data in patterns.items():
+            stored_words = set(stored_key.split()) if stored_key else set()
+            if not stored_words:
+                continue
+            inter = len(key_words & stored_words)
+            union = len(key_words | stored_words)
+            score = inter / union if union else 0.0
+            if score > best_score:
+                best_score = score
+                best_data  = data
+
+        if best_score >= 0.65 and best_data:
+            return {
+                'intent':  best_data['intent'],
+                'params':  best_data.get('params', {}),
+                'message': best_data.get('last_message', ''),
+                '_learned': True,
+            }
+    except Exception:
+        pass
+    return None
+
+
+def _normalize_key(text):
+    """Normalize to a lookup key: lowercase, no diacritics, meaningful words sorted."""
+    try:
+        # Remove Vietnamese diacritics via unicode normalization
+        import unicodedata
+        nfd = unicodedata.normalize('NFD', text)
+        ascii_text = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+    except Exception:
+        ascii_text = text
+    # Lowercase, keep alphanumeric
+    cleaned = re.sub(r'[^a-zA-Z0-9\s]', ' ', ascii_text.lower())
+    # Keep words longer than 2 chars, sort for order-independence
+    words = sorted(w for w in cleaned.split() if len(w) > 2)
+    return ' '.join(words)
 
 
 # ─── API helpers ──────────────────────────────────────────────────────────────
@@ -146,10 +261,15 @@ def _extract_json(text):
     return None
 
 
-def parse_command(user_input):
+def parse_command(user_input, history=None):
     """Call Claude API to parse a natural-language command.
 
-    Returns dict with {intent, params, message} or None on failure.
+    Args:
+        user_input: The raw text the user typed.
+        history: optional list of previous {"role", "content"} dicts (max 8 exchanges).
+
+    Returns:
+        dict with keys {intent, params, message} on success, or None on failure.
     """
     if not HAS_HTTP:
         return None
@@ -159,11 +279,19 @@ def parse_command(user_input):
 
     try:
         url = "https://api.anthropic.com/v1/messages"
+
+        # Build messages with history for multi-turn context
+        messages = []
+        if history:
+            # Include last 8 exchanges (16 messages) to keep tokens low
+            messages.extend(history[-16:])
+        messages.append({"role": "user", "content": user_input})
+
         body_data = {
             "model": "claude-haiku-4-5-20251001",
             "max_tokens": 400,
             "system": SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": user_input}],
+            "messages": messages,
         }
         body_json = json.dumps(body_data, ensure_ascii=False)
         body_bytes = Encoding.UTF8.GetBytes(body_json)
@@ -195,56 +323,73 @@ def has_api_key():
 def keyword_parse(raw):
     """Keyword-based fallback parser.
 
-    Returns dict with {intent, params, message} or None.
+    Checks learned patterns first (priority), then hardcoded keywords.
+    Returns dict {intent, params, message} or None.
     """
     cmd = raw.lower().strip()
     viet = _is_viet(cmd)
 
-    # ── Export commands (detect before generic batchout) ──────────────────────
-    export_kws = [
-        "xuat", "xuất", "export", "in ra", "in ", "print"
-    ]
-    is_export_cmd = any(k in cmd for k in export_kws)
+    # ── Learned patterns (highest priority) ──────────────────────────────────
+    learned = find_learned_match(raw)
+    if learned:
+        # Generate a fresh message so it sounds natural
+        intent = learned['intent']
+        if intent in _TOOL_LABELS:
+            label = _TOOL_LABELS[intent]
+            learned['message'] = (u"Đang mở {}...".format(label) if viet
+                                  else u"Opening {}...".format(label))
+        return learned
 
-    open_kws = ["mo ", "mở ", "open ", "launch "]
-    is_open_cmd = any(k in cmd for k in open_kws) or "batchout" in cmd and not is_export_cmd
-
-    if is_export_cmd and not is_open_cmd:
-        # Direct export
-        params = _parse_export_params(raw, cmd)
-        filt = params['filter']
-        fmt  = params['format'].upper()
-        filt_label = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+    # ── Greetings ─────────────────────────────────────────────────────────────
+    greet_kws = ['chao', 'chào', 'hello', 'hi ', 'hey ', 'xin chao', 'good morning',
+                 'good afternoon', 'howdy']
+    if any(k in cmd for k in greet_kws) or cmd.strip() in ('hi', 'hello', 'hey'):
         if viet:
-            msg = u"Đang xuất{} sang {}...".format(filt_label, fmt)
+            msg = u"Xin chào! Tôi là T3Lab Assistant. Cần giúp gì không?"
         else:
-            msg = u"Exporting{} to {}...".format(filt_label, fmt)
+            msg = u"Hello! I'm T3Lab Assistant. How can I help?"
+        return {"intent": "greet", "params": {}, "message": msg}
+
+    # ── Thanks ────────────────────────────────────────────────────────────────
+    if any(k in cmd for k in ['cam on', 'cảm ơn', 'thank', 'thanks', 'cảm ơn bạn']):
+        msg = (u"Không có gì! Cần gì cứ hỏi nhé." if viet
+               else u"You're welcome! Let me know if you need anything.")
+        return {"intent": "chat", "params": {}, "message": msg}
+
+    # ── Export commands ───────────────────────────────────────────────────────
+    export_kws = ['xuat', 'xuất', 'export', 'in ra', 'print']
+    is_export = any(k in cmd for k in export_kws)
+    is_open   = any(k in cmd for k in ['mo ', 'mở ', 'open ', 'launch '])
+
+    if is_export and not is_open:
+        params = _parse_export_params(raw, cmd)
+        filt  = params['filter']
+        fmt   = params['format'].upper()
+        filt_label = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+        msg = (u"Đang xuất{} sang {}...".format(filt_label, fmt) if viet
+               else u"Exporting{} to {}...".format(filt_label, fmt))
         return {"intent": "export_direct", "params": params, "message": msg}
 
-    if is_open_cmd and "batchout" in cmd:
-        # Check if has filter/format details → configured
+    if is_open and "batchout" in cmd:
         params = _parse_export_params(raw, cmd)
-        if params.get('filter') or params.get('format') != 'pdf':
-            filt = params['filter']
-            filt_label = u" {} sheet".format(filt) if filt else u" tất cả sheet"
-            if viet:
-                msg = u"Mở BatchOut với{} đã chọn...".format(filt_label)
-            else:
-                msg = u"Opening BatchOut pre-configured{}...".format(filt_label)
+        if params.get('filter') or params.get('format', 'pdf') != 'pdf':
+            filt  = params['filter']
+            label = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+            msg = (u"Mở BatchOut với{} đã chọn...".format(label) if viet
+                   else u"Opening BatchOut pre-configured{}...".format(label))
             return {"intent": "open_batchout_configured", "params": params, "message": msg}
 
-    # ── Generic batchout ──────────────────────────────────────────────────────
+    # ── Tool keywords ─────────────────────────────────────────────────────────
     if any(k in cmd for k in ["batchout", "batch out"]):
         return {"intent": "open_batchout", "params": {},
                 "message": u"Đang mở BatchOut..." if viet else "Opening BatchOut..."}
 
-    # ── Other tools ───────────────────────────────────────────────────────────
     if any(k in cmd for k in ["parasync", "para sync", "dong bo", "đồng bộ",
                                "sync param", "parameter sync"]):
         return {"intent": "open_parasync", "params": {},
                 "message": u"Đang mở ParaSync..." if viet else "Opening ParaSync..."}
 
-    if any(k in cmd for k in ["load family cloud", "tai family cloud", "tải family cloud"]):
+    if any(k in cmd for k in ["load family cloud", "tai family cloud"]):
         return {"intent": "open_loadfamily_cloud", "params": {},
                 "message": u"Đang mở Load Family (Cloud)..." if viet else "Opening Load Family (Cloud)..."}
 
@@ -279,6 +424,22 @@ def keyword_parse(raw):
     return None
 
 
+# ─── Tool labels for auto-generated messages ─────────────────────────────────
+
+_TOOL_LABELS = {
+    'open_batchout':          'BatchOut',
+    'open_parasync':          'ParaSync',
+    'open_loadfamily':        'Load Family',
+    'open_loadfamily_cloud':  'Load Family (Cloud)',
+    'open_projectname':       'Project Name',
+    'open_workset':           'Workset',
+    'open_dimtext':           'Dim Text',
+    'open_upperdimtext':      'Upper Dim Text',
+    'open_resetoverrides':    'Reset Overrides',
+    'open_grids':             'Grids',
+}
+
+
 # ─── Export param extraction ──────────────────────────────────────────────────
 
 def _parse_export_params(raw, cmd=None):
@@ -286,38 +447,31 @@ def _parse_export_params(raw, cmd=None):
     if cmd is None:
         cmd = raw.lower()
 
-    # Detect format
-    fmt = 'pdf'  # default
+    fmt = 'pdf'
     for f in ['dwg', 'dwf', 'dgn', 'ifc', 'nwd', 'img', 'image', 'pdf']:
         if f in cmd:
             fmt = f
             break
 
-    # Detect sheet prefix filter
-    # Pattern: uppercase letter + "sheet"/"tờ"/"bản vẽ" in original text
     m = re.search(r'\b([A-Z])\s*[-–]?\s*(?:sheet|tờ|bản\s*vẽ)', raw, re.IGNORECASE)
     if m:
         return {'format': fmt, 'filter': m.group(1).upper(), 'combine': False}
 
-    # "sheet" + uppercase letter
     m = re.search(r'(?:sheet|tờ)\s+([A-Z])\b', raw, re.IGNORECASE)
     if m:
         return {'format': fmt, 'filter': m.group(1).upper(), 'combine': False}
 
-    # Standalone uppercase word that is NOT a format keyword
     _ignore = {'PDF', 'DWG', 'DWF', 'DGN', 'IFC', 'NWD', 'IMG'}
     for token in raw.split():
         if re.match(r'^[A-Z]$', token) and token not in _ignore:
             return {'format': fmt, 'filter': token, 'combine': False}
 
-    # "toàn bộ" / "tất cả" / "all" → no filter
     return {'format': fmt, 'filter': '', 'combine': False}
 
 
 # ─── Language heuristic ───────────────────────────────────────────────────────
 
 def _is_viet(text):
-    """Return True if text appears to be Vietnamese."""
     viet_chars = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
                   u"ụủứừửữựỳỵỷỹ")
     for c in text.lower():
