@@ -162,12 +162,13 @@
                                    Foreground="#2C3E50"/>
                         <TextBlock Text=" Assistant" FontSize="22" FontWeight="Bold"
                                    Foreground="#3498DB"/>
-                        <!-- AI badge -->
+                        <!-- AI / LOCAL badge -->
                         <Border x:Name="ai_status_badge"
                                 Background="#27AE60" CornerRadius="3"
-                                Padding="5,1" Margin="8,2,0,0"
-                                Visibility="Collapsed" VerticalAlignment="Center">
-                            <TextBlock x:Name="ai_status_text" Text="AI"
+                                Padding="6,2" Margin="8,2,0,0"
+                                Visibility="Collapsed" VerticalAlignment="Center"
+                                ToolTip="AI engine status">
+                            <TextBlock x:Name="ai_status_text" Text="LOCAL"
                                        FontSize="9" FontWeight="Bold" Foreground="White"/>
                         </Border>
                     </StackPanel>

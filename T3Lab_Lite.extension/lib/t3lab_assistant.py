@@ -469,6 +469,61 @@ def _parse_export_params(raw, cmd=None):
     return {'format': fmt, 'filter': '', 'combine': False}
 
 
+# ─── Local LLM (Ollama) integration ──────────────────────────────────────────
+
+_local_llm = None
+_HAS_LOCAL_LLM = False
+
+def _get_local_llm():
+    """Lazy-import local_llm module."""
+    global _local_llm, _HAS_LOCAL_LLM
+    if _local_llm is not None:
+        return _local_llm
+    try:
+        import local_llm as _mod
+        _local_llm = _mod
+        _HAS_LOCAL_LLM = True
+    except Exception:
+        _HAS_LOCAL_LLM = False
+    return _local_llm
+
+
+def has_local_llm():
+    """Return True if Ollama is running AND has at least one model installed."""
+    mod = _get_local_llm()
+    if not mod:
+        return False
+    try:
+        return bool(mod.get_best_model()) and mod.is_running()
+    except Exception:
+        return False
+
+
+def get_local_model_name():
+    """Return the name of the best available Ollama model, or None."""
+    mod = _get_local_llm()
+    if not mod:
+        return None
+    try:
+        return mod.get_best_model()
+    except Exception:
+        return None
+
+
+def parse_command_local(user_input, history=None):
+    """Parse user_input using local Ollama LLM.
+
+    Returns dict {intent, params, message} or None.
+    """
+    mod = _get_local_llm()
+    if not mod:
+        return None
+    try:
+        return mod.parse_command(user_input, history=history)
+    except Exception:
+        return None
+
+
 # ─── Language heuristic ───────────────────────────────────────────────────────
 
 def _is_viet(text):
