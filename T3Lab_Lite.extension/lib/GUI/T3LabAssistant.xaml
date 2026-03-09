@@ -1,0 +1,272 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="T3Lab Assistant"
+        Width="520" Height="640"
+        MinWidth="420" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        ShowInTaskbar="True"
+        Background="White">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="60"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#3498DB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2980B9"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#BDC3C7"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ToolButton" TargetType="Button">
+            <Setter Property="Background" Value="#F0F4F8"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#D5DDE8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="3,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E1EAF5"/>
+                    <Setter Property="BorderBrush" Value="#ADB9C9"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="WindowControlButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E8F0F8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CloseButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E74C3C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title Bar -->
+        <Grid Grid.Row="0" Background="White" Height="60">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Logo and Title -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <Image x:Name="logo_image" Width="40" Height="40" Margin="0,0,10,0"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="T3Lab Assistant" FontSize="16" FontWeight="Bold"
+                               Foreground="#2C3E50"/>
+                    <TextBlock Text="Chatbox AI cho T3Lab Tools" FontSize="10"
+                               Foreground="#7F8C8D" FontStyle="Italic"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- AI Badge + Window Controls -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                        Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                <Border x:Name="ai_status_badge"
+                        Background="#E8F8F0" BorderBrush="#27AE60" BorderThickness="1"
+                        CornerRadius="8" Padding="8,3" Margin="0,0,8,0"
+                        Visibility="Collapsed" VerticalAlignment="Center">
+                    <TextBlock x:Name="ai_status_text" Text="AI" FontSize="10"
+                               FontWeight="Bold" Foreground="#27AE60"/>
+                </Border>
+                <Button x:Name="btn_minimize" Style="{StaticResource WindowControlButton}"
+                        ToolTip="Minimize" Click="minimize_clicked">
+                    <TextBlock Text="—" FontSize="14" FontWeight="Bold" Foreground="#7F8C8D" Margin="0,-8,0,0"/>
+                </Button>
+                <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                        ToolTip="Close" Click="close_clicked">
+                    <TextBlock Text="✕" FontSize="14" FontWeight="Bold" Foreground="#7F8C8D">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1" Margin="14,6,14,14">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Quick Tool Buttons -->
+            <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E1EAF5" BorderThickness="1"
+                    CornerRadius="6" Padding="8,6" Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="Công cụ nhanh" FontSize="10" FontWeight="SemiBold"
+                               Foreground="#7F8C8D" Margin="0,0,0,5"/>
+                    <WrapPanel>
+                        <Button x:Name="btn_batchout" Style="{StaticResource ToolButton}"
+                                Content="&#x1F4E4; BatchOut" Click="tool_batchout_clicked"
+                                ToolTip="Mở BatchOut để xuất sheet hàng loạt"/>
+                        <Button x:Name="btn_parasync" Style="{StaticResource ToolButton}"
+                                Content="&#x1F504; ParaSync" Click="tool_parasync_clicked"
+                                ToolTip="Đồng bộ parameters giữa các model"/>
+                        <Button x:Name="btn_loadfamily" Style="{StaticResource ToolButton}"
+                                Content="&#x1F4C2; Load Family" Click="tool_loadfamily_clicked"
+                                ToolTip="Load family vào project"/>
+                        <Button x:Name="btn_projectname" Style="{StaticResource ToolButton}"
+                                Content="&#x1F3F7; Project Name" Click="tool_projectname_clicked"
+                                ToolTip="Đặt tên project"/>
+                        <Button x:Name="btn_workset" Style="{StaticResource ToolButton}"
+                                Content="&#x1F5C2; Workset" Click="tool_workset_clicked"
+                                ToolTip="Quản lý worksets"/>
+                        <Button x:Name="btn_dimtext" Style="{StaticResource ToolButton}"
+                                Content="&#x1F4CF; Dim Text" Click="tool_dimtext_clicked"
+                                ToolTip="Sửa text trong dimensions"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Chat History -->
+            <Border Grid.Row="1" BorderBrush="#E1EAF5" BorderThickness="1"
+                    CornerRadius="6" Margin="0,0,0,8" Background="White">
+                <ScrollViewer x:Name="chat_scroll" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Padding="8">
+                    <StackPanel x:Name="chat_history_panel">
+                        <!-- Welcome message -->
+                        <Border Background="#EEF4FB" CornerRadius="6" Padding="10,8" Margin="0,0,40,8">
+                            <StackPanel>
+                                <TextBlock Text="T3Lab Assistant" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="#2980B9" Margin="0,0,0,3"/>
+                                <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="#2C3E50"
+                                           Text="Xin chào! Tôi là T3Lab Assistant. Tôi có thể giúp bạn:&#x0A;&#x2022; Mở BatchOut và xuất sheet&#x0A;&#x2022; Chạy ParaSync, LoadFamily, và các công cụ khác&#x0A;&#x2022; Trả lời câu hỏi về T3Lab&#x0A;&#x0A;Nhập lệnh bằng Tiếng Việt hoặc English."/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- AI response panel (shown below history) -->
+            <Border Grid.Row="2" x:Name="status_panel"
+                    Background="#FFF9E6" BorderBrush="#F0C040" BorderThickness="1"
+                    CornerRadius="4" Padding="8,5" Margin="0,0,0,6"
+                    Visibility="Collapsed">
+                <TextBlock x:Name="status_text" FontSize="11" Foreground="#856404"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- Input row -->
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="chat_input" Grid.Column="0" Height="34"
+                         VerticalContentAlignment="Center" Padding="8,0"
+                         BorderBrush="#ADB9C9" BorderThickness="1"
+                         Background="White" FontSize="13"
+                         ToolTip="Nhập lệnh bằng Tiếng Việt hoặc English (Enter để gửi)"
+                         KeyDown="input_keydown"/>
+
+                <Button Grid.Column="1" x:Name="send_button"
+                        Content="Gửi" Height="34" Margin="6,0,0,0"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="send_clicked"
+                        ToolTip="Gửi lệnh (hoặc nhấn Enter)"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

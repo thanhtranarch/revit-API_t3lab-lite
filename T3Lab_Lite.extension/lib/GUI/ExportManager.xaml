@@ -219,7 +219,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Tab Control -->
@@ -732,87 +731,8 @@
             </TabItem>
         </TabControl>
 
-        <!-- BatchOut Assistant (fixed panel, visible across all tabs) -->
-        <Border Grid.Row="1" BorderBrush="#C8D6E5" BorderThickness="1"
-                Background="#EEF2F9" CornerRadius="4" Margin="0,8,0,4" Padding="10,8">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <!-- Header -->
-                <Grid Grid.Row="0" Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <TextBlock Text="&#x1F4AC;" FontSize="13" Margin="0,0,5,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="BatchOut Assistant"
-                                   FontSize="12" FontWeight="SemiBold"
-                                   Foreground="#2C3E50" VerticalAlignment="Center"/>
-                        <TextBlock x:Name="assistant_mode_label"
-                                   Text="  —  nhập lệnh bằng ngôn ngữ tự nhiên (Tiếng Việt hoặc English)"
-                                   FontSize="11" Foreground="#7F8C8D"
-                                   FontStyle="Italic" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <!-- AI status badge -->
-                    <Border Grid.Column="1" x:Name="ai_status_badge"
-                            Background="#E8F8F0" BorderBrush="#27AE60" BorderThickness="1"
-                            CornerRadius="8" Padding="8,2" Visibility="Collapsed">
-                        <TextBlock x:Name="ai_status_text" Text="AI" FontSize="10"
-                                   FontWeight="Bold" Foreground="#27AE60"/>
-                    </Border>
-                </Grid>
-
-                <!-- Hint row -->
-                <TextBlock Grid.Row="1"
-                           x:Name="assistant_hint_text"
-                           Text="Ví dụ:  chọn tất cả  |  chọn sheet A1  |  bỏ chọn tầng 1  |  lọc roof  |  bật PDF  |  tắt DWG  |  sang tab Format  |  xóa lọc"
-                           FontSize="10" Foreground="#95A5A6" Margin="0,0,0,5"/>
-
-                <!-- Input row -->
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <TextBox x:Name="chatbox_input" Grid.Column="0" Height="28"
-                             VerticalContentAlignment="Center" Padding="6,0"
-                             BorderBrush="#ADB9C9" BorderThickness="1"
-                             Background="White"
-                             ToolTip="Nhập lệnh bằng tiếng Việt hoặc English. AI sẽ hiểu ý định và thực hiện."
-                             KeyDown="chatbox_input_keydown"/>
-
-                    <Button Grid.Column="1" x:Name="chatbox_send_button"
-                            Content="Gửi" Height="28" Margin="6,0,0,0"
-                            Style="{StaticResource SecondaryButton}"
-                            Click="chatbox_send_clicked"
-                            ToolTip="Gửi lệnh (hoặc nhấn Enter)"/>
-                </Grid>
-
-                <!-- AI Response area (shown after command is processed) -->
-                <Border Grid.Row="3" x:Name="assistant_response_panel"
-                        Visibility="Collapsed"
-                        Background="White" BorderBrush="#ADB9C9" BorderThickness="1"
-                        CornerRadius="3" Padding="8,5" Margin="0,6,0,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#x21B3;" FontSize="11" Foreground="#7F8C8D"
-                                   Margin="0,0,6,0" VerticalAlignment="Top"/>
-                        <TextBlock x:Name="assistant_response_text"
-                                   FontSize="11" Foreground="#2C3E50"
-                                   TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </Border>
-
         <!-- Action Buttons -->
-        <Grid Grid.Row="2" Margin="0,15,0,0">
+        <Grid Grid.Row="1" Margin="0,15,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
