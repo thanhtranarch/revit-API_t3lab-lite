@@ -42,6 +42,14 @@ except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
     HAS_NLP = False
 
+# ─── BatchOut executor (configure + direct export) ────────────────────────────
+try:
+    from batchout_executor import configure_batchout_window, direct_export
+    HAS_EXECUTOR = True
+except Exception as e:
+    logger.warning("Could not import batchout_executor: {}".format(e))
+    HAS_EXECUTOR = False
+
 # ─── Tool launchers ───────────────────────────────────────────────────────────
 # Each function opens the corresponding T3Lab tool.
 
@@ -73,18 +81,77 @@ def _load_script(name, script_path):
     return None
 
 
+def _load_batchout_mod():
+    """Load the BatchOut script module, raising RuntimeError on failure."""
+    script_path = _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
+    mod = _load_script('batchout_script', script_path)
+    if mod is None:
+        raise RuntimeError("Could not load BatchOut module from: {}".format(script_path))
+    return mod
+
+
 def launch_batchout():
-    """Open the BatchOut export dialog."""
+    """Open the BatchOut export dialog (no pre-configuration)."""
     try:
-        script_path = _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
-        mod = _load_script('batchout_script', script_path)
-        if mod is None:
-            raise RuntimeError("Could not load BatchOut module from: {}".format(script_path))
+        mod = _load_batchout_mod()
         window = mod.ExportManagerWindow()
         window.ShowDialog()
         return True
     except Exception as ex:
         logger.error("Error launching BatchOut: {}".format(ex))
+        return False
+
+
+def launch_batchout_configured(config, progress_cb=None):
+    """Open BatchOut pre-configured: sheets selected, format set, tab = Create.
+
+    Args:
+        config: dict with keys format, filter (from batchout_executor / NLP).
+        progress_cb: optional callable(str) for status messages.
+    Returns:
+        bool success
+    """
+    try:
+        mod = _load_batchout_mod()
+        window = mod.ExportManagerWindow()
+
+        if HAS_EXECUTOR:
+            configure_batchout_window(window, config)
+            fmt    = (config.get('format') or 'pdf').upper()
+            filt   = config.get('filter') or ''
+            filt_s = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+            if progress_cb:
+                progress_cb(u"BatchOut đã chọn{}, format {} — nhấn Export để xuất.".format(
+                    filt_s, fmt))
+
+        window.ShowDialog()
+        return True
+    except Exception as ex:
+        logger.error("Error launching configured BatchOut: {}".format(ex))
+        if progress_cb:
+            progress_cb(u"Lỗi: {}".format(ex))
+        return False
+
+
+def launch_export_direct(config, progress_cb=None):
+    """Export sheets directly without showing BatchOut UI.
+
+    Args:
+        config: dict with format, filter, folder (optional).
+        progress_cb: optional callable(str) for chat progress updates.
+    Returns:
+        bool success
+    """
+    try:
+        if not HAS_EXECUTOR:
+            raise RuntimeError("batchout_executor not available")
+        mod = _load_batchout_mod()
+        ok, count, msg = direct_export(mod, config, progress_cb)
+        return ok
+    except Exception as ex:
+        logger.error("Error in direct export: {}".format(ex))
+        if progress_cb:
+            progress_cb(u"Lỗi xuất file: {}".format(ex))
         return False
 
 
@@ -318,7 +385,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     self._execute_result(fb)
                 else:
                     self._append_bot_message(
-                        u"Không hiểu lệnh. Thử: 'mở batchout', 'parasync', 'load family'..."
+                        u"Không hiểu lệnh.\n"
+                        u"Ví dụ:\n"
+                        u"• 'xuất pdf toàn bộ G sheet'\n"
+                        u"• 'export all A sheets DWG'\n"
+                        u"• 'mở batchout G sheet pdf'\n"
+                        u"• 'parasync'  •  'load family'"
                     )
 
         except Exception as ex:
@@ -328,25 +400,43 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     def _execute_result(self, result):
         """Execute the action described by a parsed result dict."""
-        intent = result.get("intent", "unknown")
+        intent  = result.get("intent", "unknown")
         message = result.get("message", "")
+        params  = result.get("params", {})
 
+        # ── Help ──────────────────────────────────────────────────────────────
         if intent == "help":
-            answer = result.get("params", {}).get("answer", message)
+            answer = params.get("answer", message)
             self._append_bot_message(answer or message)
             return
 
+        # ── Export directly (no UI) ───────────────────────────────────────────
+        if intent == "export_direct":
+            self._append_bot_message(message or u"Đang xuất file...")
+            ok = launch_export_direct(params, self._append_bot_message)
+            if not ok and not params:
+                self._append_bot_message(u"Xuất thất bại. Xem console để biết lỗi.")
+            return
+
+        # ── Open BatchOut pre-configured ─────────────────────────────────────
+        if intent == "open_batchout_configured":
+            self._append_bot_message(message or u"Đang mở BatchOut đã cấu hình...")
+            ok = launch_batchout_configured(params, self._append_bot_message)
+            if not ok:
+                self._append_bot_message(u"Không thể mở BatchOut. Xem console.")
+            return
+
+        # ── Simple tool launchers ─────────────────────────────────────────────
         if intent in TOOL_LAUNCHERS:
-            confirmation = message or u"Đang mở công cụ..."
-            self._append_bot_message(confirmation)
-            # Run launcher synchronously on the UI thread so WPF dialogs work
+            self._append_bot_message(message or u"Đang mở công cụ...")
             ok = TOOL_LAUNCHERS[intent]()
             if not ok:
                 self._append_bot_message(u"Không thể mở công cụ. Xem console để biết lỗi.")
-        elif intent == "unknown":
-            self._append_bot_message(
-                result.get("params", {}).get("message", u"Lệnh không rõ.")
-            )
+            return
+
+        # ── Unknown ───────────────────────────────────────────────────────────
+        if intent == "unknown":
+            self._append_bot_message(params.get("message", u"Lệnh không rõ."))
         else:
             self._append_bot_message(message or u"Đã xử lý lệnh.")
 

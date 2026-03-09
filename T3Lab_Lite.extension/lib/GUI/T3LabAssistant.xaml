@@ -322,9 +322,19 @@
                                     BorderBrush="#BAE6FD" BorderThickness="1">
                                 <StackPanel>
                                     <TextBlock FontSize="10" Foreground="#0369A1" FontWeight="SemiBold"
-                                               Margin="0,0,0,3" Text="Ví dụ lệnh:"/>
+                                               Margin="0,0,0,4" Text="Ví dụ lệnh:"/>
+                                    <TextBlock FontSize="11" Foreground="#0369A1" FontWeight="SemiBold"
+                                               Margin="0,0,0,2" Text="Xuất trực tiếp (không mở UI):"/>
                                     <TextBlock FontSize="11" Foreground="#0284C7" TextWrapping="Wrap"
-                                               Text="&#x2022;  mở batchout  &#x2022;  xuất sheet PDF  &#x2022;  parasync&#x0A;&#x2022;  load family  &#x2022;  workset  &#x2022;  dim text"/>
+                                               Text="&#x2022;  xuất pdf toàn bộ G sheet&#x0A;&#x2022;  export all A sheets to DWG"/>
+                                    <TextBlock FontSize="11" Foreground="#0369A1" FontWeight="SemiBold"
+                                               Margin="0,6,0,2" Text="Mở BatchOut đã cấu hình sẵn:"/>
+                                    <TextBlock FontSize="11" Foreground="#0284C7" TextWrapping="Wrap"
+                                               Text="&#x2022;  mở batchout G sheet pdf&#x0A;&#x2022;  open batchout select A sheets"/>
+                                    <TextBlock FontSize="11" Foreground="#0369A1" FontWeight="SemiBold"
+                                               Margin="0,6,0,2" Text="Công cụ khác:"/>
+                                    <TextBlock FontSize="11" Foreground="#0284C7" TextWrapping="Wrap"
+                                               Text="&#x2022;  parasync  &#x2022;  load family  &#x2022;  workset"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
