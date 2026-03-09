@@ -373,7 +373,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         from System.Windows.Media import SolidColorBrush, Color
 
         row = Grid()
-        row.Margin = Thickness(0, 0, 48, 6)
+        row.Margin = Thickness(0, 0, 60, 6)
 
         col_av = ColumnDefinition()
         col_av.Width = GridLength.Auto
@@ -382,22 +382,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
         row.ColumnDefinitions.Add(col_av)
         row.ColumnDefinitions.Add(col_msg)
 
-        av = self._make_avatar("T3", (37, 99, 235), (56, 189, 248))
+        av = self._make_avatar("T3")
         Grid.SetColumn(av, 0)
         row.Children.Add(av)
 
         bubble = Border()
-        bubble.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
-        bubble.CornerRadius = CornerRadius(4, 12, 12, 12)
-        bubble.Padding = Thickness(14, 10, 14, 10)
-        bubble.BorderBrush = SolidColorBrush(Color.FromRgb(229, 231, 235))
+        bubble.Background      = SolidColorBrush(Color.FromRgb(255, 255, 255))
+        bubble.CornerRadius    = CornerRadius(3, 8, 8, 8)
+        bubble.Padding         = Thickness(14, 10, 14, 10)
+        bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))  # #BDC3C7
         bubble.BorderThickness = Thickness(1)
         bubble.HorizontalAlignment = HorizontalAlignment.Left
 
         dots = TextBlock()
-        dots.Text = u"● ● ●"
-        dots.FontSize = 10
-        dots.Foreground = SolidColorBrush(Color.FromRgb(156, 163, 175))
+        dots.Text      = u"● ● ●"
+        dots.FontSize  = 10
+        dots.Foreground = SolidColorBrush(Color.FromRgb(127, 140, 141))  # #7F8C8D
 
         bubble.Child = dots
         Grid.SetColumn(bubble, 1)
@@ -623,36 +623,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Chat UI helpers ──────────────────────────────────────────────────────
 
-    def _make_avatar(self, letter, from_rgb_start, from_rgb_end):
-        """Create a circular avatar Border with initials."""
+    def _make_avatar(self, letter, _unused_start=None, _unused_end=None):
+        """Create a circular avatar Border with initials (BatchOut blue #3498DB)."""
         from System.Windows.Controls import Border, TextBlock
         from System.Windows import Thickness, CornerRadius
-        from System.Windows.Media import SolidColorBrush, Color, LinearGradientBrush, GradientStop
+        from System.Windows.Media import SolidColorBrush, Color
         from System.Windows import HorizontalAlignment, VerticalAlignment
 
-        grad = LinearGradientBrush()
-        grad.StartPoint = System.Windows.Point(0, 0)
-        grad.EndPoint = System.Windows.Point(1, 1)
-        gs1 = GradientStop()
-        gs1.Color = Color.FromRgb(*from_rgb_start)
-        gs1.Offset = 0.0
-        gs2 = GradientStop()
-        gs2.Color = Color.FromRgb(*from_rgb_end)
-        gs2.Offset = 1.0
-        grad.GradientStops.Add(gs1)
-        grad.GradientStops.Add(gs2)
-
         av = Border()
-        av.Width = 32
-        av.Height = 32
-        av.CornerRadius = CornerRadius(16)
-        av.Background = grad
-        av.Margin = Thickness(0, 2, 8, 0)
+        av.Width = 36
+        av.Height = 36
+        av.CornerRadius = CornerRadius(18)
+        av.Background = SolidColorBrush(Color.FromRgb(52, 152, 219))   # #3498DB
+        av.Margin = Thickness(0, 2, 10, 0)
         av.VerticalAlignment = VerticalAlignment.Top
 
         lbl = TextBlock()
         lbl.Text = letter
-        lbl.FontSize = 11
+        lbl.FontSize = 12
         lbl.FontWeight = System.Windows.FontWeights.Bold
         lbl.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
         lbl.HorizontalAlignment = HorizontalAlignment.Center
@@ -661,28 +649,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
         return av
 
     def _append_user_message(self, text):
-        """Add a right-aligned user bubble to the chat history."""
+        """Add a right-aligned user bubble (BatchOut #3498DB)."""
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength, HorizontalAlignment
             from System.Windows.Media import SolidColorBrush, Color
 
             row = Grid()
-            row.Margin = Thickness(48, 0, 0, 10)
+            row.Margin = Thickness(60, 0, 0, 10)
             col0 = ColumnDefinition()
             col0.Width = GridLength(1, System.Windows.GridUnitType.Star)
             row.ColumnDefinitions.Add(col0)
 
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(37, 99, 235))  # #2563EB
-            bubble.CornerRadius = CornerRadius(12, 4, 12, 12)
-            bubble.Padding = Thickness(12, 8, 12, 8)
+            bubble.Background   = SolidColorBrush(Color.FromRgb(52, 152, 219))   # #3498DB
+            bubble.CornerRadius = CornerRadius(8, 3, 8, 8)
+            bubble.Padding      = Thickness(12, 8, 12, 8)
             bubble.HorizontalAlignment = HorizontalAlignment.Right
 
             msg_text = TextBlock()
-            msg_text.Text = text
-            msg_text.FontSize = 12
-            msg_text.Foreground = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            msg_text.Text        = text
+            msg_text.FontSize    = 13
+            msg_text.Foreground  = SolidColorBrush(Color.FromRgb(255, 255, 255))
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 
@@ -694,14 +682,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("Error adding user message: {}".format(ex))
 
     def _append_bot_message(self, text):
-        """Add a left-aligned bot bubble with avatar to the chat history."""
+        """Add a left-aligned bot bubble with avatar (BatchOut color scheme)."""
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
             from System.Windows.Media import SolidColorBrush, Color
 
             row = Grid()
-            row.Margin = Thickness(0, 0, 48, 10)
+            row.Margin = Thickness(0, 0, 60, 10)
             col_av = ColumnDefinition()
             col_av.Width = GridLength.Auto
             col_msg = ColumnDefinition()
@@ -710,22 +698,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             row.ColumnDefinitions.Add(col_msg)
 
             # Avatar
-            av = self._make_avatar("T3", (37, 99, 235), (56, 189, 248))
+            av = self._make_avatar("T3")
             Grid.SetColumn(av, 0)
             row.Children.Add(av)
 
-            # Bubble
+            # Bubble — white with BatchOut border
             bubble = Border()
-            bubble.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
-            bubble.CornerRadius = CornerRadius(4, 12, 12, 12)
-            bubble.Padding = Thickness(12, 8, 12, 8)
-            bubble.BorderBrush = SolidColorBrush(Color.FromRgb(229, 231, 235))
+            bubble.Background     = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            bubble.CornerRadius   = CornerRadius(3, 8, 8, 8)
+            bubble.Padding        = Thickness(14, 10, 14, 10)
+            bubble.BorderBrush    = SolidColorBrush(Color.FromRgb(189, 195, 199))  # #BDC3C7
             bubble.BorderThickness = Thickness(1)
 
             msg_text = TextBlock()
-            msg_text.Text = text
-            msg_text.FontSize = 12
-            msg_text.Foreground = SolidColorBrush(Color.FromRgb(55, 65, 81))
+            msg_text.Text        = text
+            msg_text.FontSize    = 13
+            msg_text.Foreground  = SolidColorBrush(Color.FromRgb(44, 62, 80))     # #2C3E50
             msg_text.TextWrapping = TextWrapping.Wrap
             bubble.Child = msg_text
 
