@@ -46,20 +46,39 @@ except Exception as e:
 
 def _get_tool_script_dir(panel, pushbutton):
     """Return the path to a pushbutton script.py given panel and pushbutton names."""
-    tab_dir = os.path.dirname(os.path.dirname(__file__))  # T3Lab_Lite.tab
+    # __file__ = .../T3Lab_Lite.tab/Export.panel/T3LabAssistant.pushbutton/script.py
+    # dirname x1 = T3LabAssistant.pushbutton/
+    # dirname x2 = Export.panel/
+    # dirname x3 = T3Lab_Lite.tab/
+    tab_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     return os.path.join(tab_dir, panel, pushbutton, 'script.py')
+
+
+def _load_script(name, script_path):
+    """Load a tool script as a module. Works in both CPython and IronPython."""
+    try:
+        import imp
+        return imp.load_source(name, script_path)
+    except ImportError:
+        pass
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(name, script_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        pass
+    return None
 
 
 def launch_batchout():
     """Open the BatchOut export dialog."""
     try:
         script_path = _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
-        if script_path not in sys.path:
-            sys.path.insert(0, os.path.dirname(script_path))
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("batchout_script", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = _load_script('batchout_script', script_path)
+        if mod is None:
+            raise RuntimeError("Could not load BatchOut module from: {}".format(script_path))
         window = mod.ExportManagerWindow()
         window.ShowDialog()
         return True
@@ -72,10 +91,9 @@ def launch_parasync():
     """Open the ParaSync parameter sync tool."""
     try:
         script_path = _get_tool_script_dir('Project.panel', 'ParaSync.pushbutton')
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("parasync_script", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = _load_script('parasync_script', script_path)
+        if mod is None:
+            raise RuntimeError("Could not load ParaSync module from: {}".format(script_path))
         window = mod.ParaSyncWindow()
         window.ShowDialog()
         return True
@@ -110,11 +128,8 @@ def launch_projectname():
     """Open the Project Name tool."""
     try:
         script_path = _get_tool_script_dir('Project.panel', 'ProjectName.pushbutton')
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("projectname_script", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return True
+        mod = _load_script('projectname_script', script_path)
+        return mod is not None
     except Exception as ex:
         logger.error("Error launching ProjectName: {}".format(ex))
         return False
@@ -124,53 +139,41 @@ def launch_workset():
     """Open the Workset manager."""
     try:
         script_path = _get_tool_script_dir('Project.panel', 'Workset.pushbutton')
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("workset_script", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return True
+        mod = _load_script('workset_script', script_path)
+        return mod is not None
     except Exception as ex:
         logger.error("Error launching Workset: {}".format(ex))
         return False
 
 
 def launch_dimtext():
-    """Open the Dim Text tool."""
+    """Run the Dim Text tool on current selection."""
     try:
         script_path = _get_tool_script_dir('Project.panel', 'DimText.pushbutton')
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("dimtext_script", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return True
+        mod = _load_script('dimtext_script', script_path)
+        return mod is not None
     except Exception as ex:
         logger.error("Error launching DimText: {}".format(ex))
         return False
 
 
 def launch_upperdimtext():
-    """Open the Upper Dim Text tool."""
+    """Run the Upper Dim Text tool on current selection."""
     try:
         script_path = _get_tool_script_dir('Project.panel', 'UpperDimText.pushbutton')
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("upperdimtext_script", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return True
+        mod = _load_script('upperdimtext_script', script_path)
+        return mod is not None
     except Exception as ex:
         logger.error("Error launching UpperDimText: {}".format(ex))
         return False
 
 
 def launch_resetoverrides():
-    """Run the Reset Overrides tool."""
+    """Run the Reset Overrides tool on the active view."""
     try:
         script_path = _get_tool_script_dir('Graphic.panel', 'Reset Overrides.pushbutton')
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("resetoverrides_script", script_path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return True
+        mod = _load_script('resetoverrides_script', script_path)
+        return mod is not None
     except Exception as ex:
         logger.error("Error launching Reset Overrides: {}".format(ex))
         return False
@@ -338,21 +341,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if intent in TOOL_LAUNCHERS:
             confirmation = message or u"Đang mở công cụ..."
             self._append_bot_message(confirmation)
-            # Run the tool launcher (may open a blocking dialog)
-            launcher = TOOL_LAUNCHERS[intent]
-
-            def run_tool():
-                ok = launcher()
-                def update():
-                    if not ok:
-                        self._append_bot_message(
-                            u"Không thể mở công cụ. Xem console để biết lỗi."
-                        )
-                self.Dispatcher.Invoke(Action(update))
-
-            t = Thread(ThreadStart(run_tool))
-            t.IsBackground = True
-            t.Start()
+            # Run launcher synchronously on the UI thread so WPF dialogs work
+            ok = TOOL_LAUNCHERS[intent]()
+            if not ok:
+                self._append_bot_message(u"Không thể mở công cụ. Xem console để biết lỗi.")
         elif intent == "unknown":
             self._append_bot_message(
                 result.get("params", {}).get("message", u"Lệnh không rõ.")
@@ -361,24 +353,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._append_bot_message(message or u"Đã xử lý lệnh.")
 
     def _run_tool(self, intent, default_msg):
-        """Helper: show confirmation message and run a tool launcher."""
+        """Helper: show confirmation message and run a tool launcher on the UI thread."""
         self._append_bot_message(default_msg)
         launcher = TOOL_LAUNCHERS.get(intent)
         if not launcher:
             return
-
-        def run():
-            ok = launcher()
-            def update():
-                if not ok:
-                    self._append_bot_message(
-                        u"Không thể mở công cụ. Xem console để biết lỗi."
-                    )
-            self.Dispatcher.Invoke(Action(update))
-
-        t = Thread(ThreadStart(run))
-        t.IsBackground = True
-        t.Start()
+        # Run synchronously on UI thread — WPF dialogs require the UI thread
+        ok = launcher()
+        if not ok:
+            self._append_bot_message(u"Không thể mở công cụ. Xem console để biết lỗi.")
 
     # ─── Chat UI helpers ──────────────────────────────────────────────────────
 
