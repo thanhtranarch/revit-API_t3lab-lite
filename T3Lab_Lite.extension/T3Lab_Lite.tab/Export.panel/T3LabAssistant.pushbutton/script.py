@@ -39,17 +39,17 @@ try:
     from t3lab_assistant import (parse_command, has_api_key, keyword_parse,
                                   learn_pattern, find_learned_match,
                                   has_local_llm, parse_command_local,
-                                  get_local_model_name)
+                                  get_local_model_name, parse_command_nlu)
     HAS_NLP = True
 except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
     HAS_NLP = False
-    # stubs so the rest of the code doesn't need guards
     def learn_pattern(*a, **kw): pass
     def find_learned_match(*a, **kw): return None
     def has_local_llm(*a, **kw): return False
     def parse_command_local(*a, **kw): return None
     def get_local_model_name(*a, **kw): return None
+    def parse_command_nlu(*a, **kw): return None
 
 # ─── BatchOut executor (configure + direct export) ────────────────────────────
 try:
@@ -510,21 +510,35 @@ class T3LabAssistantWindow(forms.WPFWindow):
             use_local  = HAS_NLP and has_local_llm()
             use_claude = HAS_NLP and has_api_key()
 
+            # ── 2. Built-in NLU (always available, no service needed) ─────────
+            # Try synchronously first — it's instant (pure Python, no I/O).
+            if HAS_NLP:
+                nlu_result = parse_command_nlu(captured, history)
+                if nlu_result and nlu_result.get("intent") not in (None, "unknown"):
+                    # NLU succeeded → execute immediately
+                    # But if Ollama or Claude is also available, let them handle
+                    # open-ended "chat" / "help" intents for richer responses.
+                    if nlu_result["intent"] not in ("chat", "help") \
+                            or not (use_local or use_claude):
+                        self._execute_result(nlu_result)
+                        return
+
             if use_local or use_claude:
-                # ── 2/3. Async LLM path (Ollama first, Claude fallback) ────────
+                # ── 3/4. Async LLM path for chat/help or NLU miss ─────────────
                 self._show_typing_indicator()
+                nlu_hint = nlu_result if HAS_NLP else None   # pass NLU result as hint
 
                 def do_nlp():
                     result = None
 
-                    # ── Priority 1: Local Ollama LLM ──────────────────────────
+                    # ── Priority A: Local Ollama LLM ──────────────────────────
                     if use_local:
                         try:
                             result = parse_command_local(captured, history)
                         except Exception as le:
                             logger.debug("local_llm error: {}".format(le))
 
-                    # ── Priority 2: Claude API (if local failed / not running) ─
+                    # ── Priority B: Claude API ─────────────────────────────────
                     if (result is None or result.get("intent") in (None, "unknown")) \
                             and use_claude:
                         try:
@@ -537,8 +551,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self._hide_typing_indicator()
                             if result and result.get("intent") not in (None, "unknown"):
                                 self._execute_result(result)
+                            elif nlu_hint and nlu_hint.get("intent") not in (None, "unknown"):
+                                # Fall back to the NLU result we computed earlier
+                                self._execute_result(nlu_hint)
                             else:
-                                # ── Priority 3: keyword fallback ──────────────
                                 fb = keyword_parse(captured)
                                 if fb:
                                     self._execute_result(fb)
@@ -560,15 +576,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 t.SetApartmentState(ApartmentState.STA)
                 t.Start()
             else:
-                # ── 4. Synchronous keyword fallback (no LLM available) ────────
+                # ── 5. Keyword fallback if NLU also missed ────────────────────
                 fb = keyword_parse(raw)
                 if fb:
                     self._execute_result(fb)
                 else:
                     self._append_bot_message(
                         u"Không hiểu lệnh.\n"
-                        u"Ví dụ: 'mở batchout', 'xuất pdf G sheet', 'parasync'\n"
-                        u"Tip: cài Ollama + kéo model để dùng AI không giới hạn!"
+                        u"Ví dụ: 'mở batchout', 'xuất pdf G sheet', 'parasync'"
                     )
                     self._set_busy(False)
 
