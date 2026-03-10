@@ -9,8 +9,11 @@ __title__ = "T3Lab\nAssistant"
 __author__ = "T3Lab"
 __version__ = "1.0.0"
 
+import json
 import os
 import sys
+import re
+import datetime
 
 import clr
 clr.AddReference('PresentationFramework')
@@ -276,6 +279,72 @@ TOOL_LAUNCHERS = {
 }
 
 
+# ─── Chat history persistence ─────────────────────────────────────────────────
+
+def _get_doc_key():
+    """Return a filesystem-safe key for the current Revit document."""
+    try:
+        title = revit.doc.Title or "untitled"
+        # Strip chars that are invalid in filenames
+        safe = re.sub(r'[\\/:*?"<>|]', '_', title)
+        return safe[:80]   # cap at 80 chars
+    except Exception:
+        return "default"
+
+
+def _history_file(doc_key):
+    """Return path to the JSON history file for doc_key."""
+    config_dir = os.path.join(lib_dir, 'config', 'chat_history')
+    if not os.path.exists(config_dir):
+        try:
+            os.makedirs(config_dir)
+        except Exception:
+            pass
+    return os.path.join(config_dir, '{}.json'.format(doc_key))
+
+
+def save_chat_history(doc_key, messages):
+    """Persist the last N messages to disk for this document.
+
+    Args:
+        doc_key  : identifier returned by _get_doc_key()
+        messages : list of {role, content, ts} dicts
+    """
+    try:
+        path = _history_file(doc_key)
+        # Keep only the last 60 messages
+        to_save = messages[-60:]
+        with open(path, 'w') as f:
+            json.dump({"doc_key": doc_key, "messages": to_save}, f,
+                      ensure_ascii=False, indent=2)
+    except Exception as ex:
+        logger.debug("Could not save chat history: {}".format(ex))
+
+
+def load_chat_history(doc_key):
+    """Load saved messages for doc_key.  Returns [] if none / error."""
+    try:
+        path = _history_file(doc_key)
+        if not os.path.exists(path):
+            return []
+        with open(path, 'r') as f:
+            data = json.load(f)
+        return data.get("messages", [])
+    except Exception as ex:
+        logger.debug("Could not load chat history: {}".format(ex))
+        return []
+
+
+def clear_chat_history(doc_key):
+    """Delete the saved history file for doc_key."""
+    try:
+        path = _history_file(doc_key)
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception as ex:
+        logger.debug("Could not clear chat history: {}".format(ex))
+
+
 # ─── WPF Window ───────────────────────────────────────────────────────────────
 
 class T3LabAssistantWindow(forms.WPFWindow):
@@ -294,6 +363,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
         self._last_raw         = ''             # last user input (for learning)
+        self._doc_key          = _get_doc_key() # document identifier for history
+        self._persisted_msgs   = []             # flat list with timestamps, for save/load
 
         # ── Logo ──────────────────────────────────────────────────────────────
         try:
@@ -307,6 +378,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.Icon = bmp
         except Exception:
             pass
+
+        # ── Restore conversation from previous session ─────────────────────────
+        self._restore_history()
 
         # Update AI badge (run async so Ollama probe doesn't delay window open)
         def _probe_and_update():
@@ -325,6 +399,69 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     def close_clicked(self, sender, e):
         self.Close()
+
+    # ─── History persistence ───────────────────────────────────────────────────
+
+    def _restore_history(self):
+        """Load saved conversation from disk and replay bubbles + context."""
+        try:
+            saved = load_chat_history(self._doc_key)
+            if not saved:
+                return
+
+            # Replay the last 30 messages (15 exchanges) as bubbles
+            for msg in saved[-30:]:
+                role    = msg.get("role", "")
+                content = msg.get("content", "")
+                if not content:
+                    continue
+                if role == "user":
+                    self._append_user_message(content)
+                elif role == "assistant":
+                    self._append_bot_message(content)
+                # Re-populate NLP context (last 16 messages = 8 exchanges)
+                self._conversation_history.append(
+                    {"role": role, "content": content}
+                )
+
+            self._persisted_msgs = list(saved)
+
+            # Show a separator so user knows this is a restored session
+            self._append_bot_message(
+                u"── Đã khôi phục cuộc trò chuyện trước ──\n"
+                u"Nhấn ↺ để bắt đầu cuộc hội thoại mới."
+            )
+        except Exception as ex:
+            logger.debug("Could not restore history: {}".format(ex))
+
+    def _persist_message(self, role, content):
+        """Append one message to the in-memory list and save to disk."""
+        try:
+            ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self._persisted_msgs.append(
+                {"role": role, "content": content, "ts": ts}
+            )
+            save_chat_history(self._doc_key, self._persisted_msgs)
+        except Exception as ex:
+            logger.debug("Could not persist message: {}".format(ex))
+
+    def reset_chat_clicked(self, sender, e):
+        """Clear the chat history for this document and reset the UI."""
+        try:
+            # Remove all chat bubbles
+            self.chat_history_panel.Children.Clear()
+            # Clear in-memory state
+            self._conversation_history = []
+            self._persisted_msgs = []
+            # Delete saved file
+            clear_chat_history(self._doc_key)
+            # Show fresh welcome message
+            self._append_bot_message(
+                u"Cuộc trò chuyện đã được làm mới! 👋\n"
+                u"Tôi có thể giúp gì cho bạn?"
+            )
+        except Exception as ex:
+            logger.debug("reset_chat error: {}".format(ex))
 
     # ─── AI badge ─────────────────────────────────────────────────────────────
 
@@ -438,10 +575,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
     def _add_to_history(self, role, content):
-        """Add a message to conversation history (keep last 16 messages = 8 exchanges)."""
+        """Add a message to conversation history and persist to disk."""
         self._conversation_history.append({"role": role, "content": content})
         if len(self._conversation_history) > 16:
             self._conversation_history = self._conversation_history[-16:]
+        # Persist to disk so it survives window close/reopen
+        self._persist_message(role, content)
 
     # ─── Quick tool buttons ───────────────────────────────────────────────────
 
