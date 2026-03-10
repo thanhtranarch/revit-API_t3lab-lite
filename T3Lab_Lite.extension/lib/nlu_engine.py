@@ -95,7 +95,20 @@ _ABBREVS = [
     ("bo override",     "resetoverrides"),
     # Grids
     ("luoi truc",       "grids"),
-    # Export verbs (unify to "export")
+    # Export verbs — Vietnamese "in" = print/export
+    # Specific bigrams first so they're matched before the general case
+    ("in pdf",          "export pdf"),
+    ("in dwg",          "export dwg"),
+    ("in dwf",          "export dwf"),
+    ("in dgn",          "export dgn"),
+    ("in ifc",          "export ifc"),
+    ("in nwd",          "export nwd"),
+    ("in img",          "export img"),
+    ("in sheet",        "export sheet"),
+    ("in to ",          "export sheet "),  # "in tờ …"
+    ("in het",          "export all"),     # "in hết" = print all
+    ("in toan bo",      "export all"),
+    ("in tat ca",       "export all"),
     ("in ra",           "export"),
     ("xuat ra",         "export"),
     ("xuat",            "export"),
@@ -135,7 +148,8 @@ _STOPWORDS = {
     "va", "de", "cho", "cai", "len", "ra", "vao", "di",
     "toi", "ban", "minh", "ho", "no", "cua", "voi", "trong",
     "la", "duoc", "co", "khong", "nhe", "nha", "nao", "gi",
-    "a", "o", "the", "an", "in", "to", "for", "of", "at",
+    "a", "o", "the", "an", "to", "for", "of", "at",
+    # NOTE: "in" is intentionally EXCLUDED — it means "print/export" in Vietnamese
     "me", "my", "i", "you", "it", "is", "are", "was", "be",
     "and", "or", "not", "on", "up",
 }
@@ -169,11 +183,17 @@ _TRIGGERS = {
         ("export",             15),
         ("export sheet",       20),
         ("export all",         20),
+        ("export pdf",         20),  # bigram from "in pdf" expansion
+        ("export dwg",         20),
         ("pdf",                 5),
         ("dwg",                 5),
         ("dwf",                 5),
         ("all sheet",          10),
         ("print",               8),
+        # "in" as Vietnamese print verb (after stopword fix, it survives tokenisation)
+        ("in",                 10),
+        # "sheet" alone contributes a small boost when present with other cues
+        ("sheet",               4),
     ],
 
     "open_batchout_configured": [
@@ -271,6 +291,21 @@ _TRIGGERS = {
         ("ok",                  8),
         ("oke",                 8),
         ("got it",             15),
+        # Additional Vietnamese conversational acknowledgements
+        ("ok roi",             22),
+        ("oke roi",            22),
+        ("ra roi",             20),
+        ("hieu roi",           22),
+        ("biet roi",           22),
+        ("duoc roi",           20),
+        ("tuyet",              18),
+        ("tot lam",            18),
+        ("chay roi",           20),
+        ("xong roi",           20),
+        ("ngon",               15),
+        ("perfect",            18),
+        ("great",              15),
+        ("nice",               12),
     ],
 
     "help": [
@@ -284,6 +319,19 @@ _TRIGGERS = {
         ("explain",            15),
         ("giai thich",         20),
         ("help",               10),
+        # "bạn là ai / bạn có thể làm gì / tool này làm gì"
+        ("ban la ai",          25),
+        ("ban co the",         18),
+        ("tool nay",           15),
+        ("lam duoc gi",        22),
+        ("dung duoc gi",       22),
+        ("tinh nang",          18),
+        ("chuc nang",          18),
+        ("su dung",            15),
+        ("cach su dung",       22),
+        ("huong dan su dung",  25),
+        ("ho tro",             18),
+        ("ho tro gi",          22),
     ],
 }
 
@@ -475,6 +523,18 @@ def _disambiguate(scores, unigrams, bigrams, slots):
             scores.get("open_batchout_configured", 0) + 5
         )
 
+    # ── Boost export_direct when a sheet-filter letter is present ────────────
+    # "in G sheet" → "in"(10)+"sheet"(4)=14 which is just below threshold.
+    # If the slot extractor found a filter letter AND there's any export/print
+    # word, force export_direct to at least meet its threshold.
+    _export_words = {"export", "in", "print", "pdf", "dwg", "dwf", "dgn",
+                     "ifc", "nwd", "img", "sheet"}
+    if slots.get("filter") and (_export_words & (unigrams | bigrams)):
+        scores["export_direct"] = max(
+            scores.get("export_direct", 0),
+            _THRESHOLDS["export_direct"]
+        )
+
     # ── Pick winner ──────────────────────────────────────────────────────────
     if not scores:
         return None
@@ -602,7 +662,28 @@ def classify(user_input, history=None):
 
     # ── Disambiguate ─────────────────────────────────────────────────────────
     best = _disambiguate(dict(scores), unigrams, bigrams, slots)
+
+    # ── Soft fallback for conversational input that scored nothing ────────────
+    # If classification failed but the input looks conversational (no tool
+    # keywords), return a gentle "I don't understand" as a chat response rather
+    # than None, so the UI can show something helpful instead of silently failing.
     if best is None:
+        _tool_words = {
+            "batchout", "parasync", "loadfamily", "projectname",
+            "workset", "dimtext", "upperdimtext", "resetoverrides", "grids",
+            "export", "open", "in", "print",
+        }
+        if not (unigrams & _tool_words):
+            # Purely conversational / unknown
+            if viet:
+                msg = (u"Xin lỗi, tôi chưa hiểu ý bạn. Bạn có thể thử:\n"
+                       u"• 'mở batchout' / 'xuất pdf G sheet'\n"
+                       u"• 'parasync', 'load family', 'workset'...")
+            else:
+                msg = ("Sorry, I didn't understand. You can try:\n"
+                       "• 'open batchout' / 'export pdf G sheet'\n"
+                       "• 'parasync', 'load family', 'workset'...")
+            return {"intent": "chat", "params": {}, "message": msg, "_nlu": True}
         return None
 
     # ── Build result ─────────────────────────────────────────────────────────

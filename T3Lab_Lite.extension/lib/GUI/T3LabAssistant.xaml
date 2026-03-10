@@ -182,6 +182,14 @@
             <StackPanel Grid.Column="2" Orientation="Horizontal"
                         VerticalAlignment="Top" Margin="0,0,5,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button x:Name="btn_reset_chat"
+                        Style="{StaticResource WindowControlButton}"
+                        ToolTip="Làm mới / Reset cuộc trò chuyện"
+                        Click="reset_chat_clicked"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="↺" FontSize="16" FontWeight="Bold"
+                               Foreground="#7F8C8D" ToolTip="Reset chat"/>
+                </Button>
                 <Button x:Name="btn_minimize"
                         Style="{StaticResource WindowControlButton}"
                         ToolTip="Minimize" Click="minimize_clicked">
