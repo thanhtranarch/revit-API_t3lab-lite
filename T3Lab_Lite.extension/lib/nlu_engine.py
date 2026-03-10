@@ -49,6 +49,7 @@ def _norm(text):
 # loop so "batch out" doesn't eat "batch" before "batch out" is matched.
 
 _ABBREVS = [
+    # ── Tool name normalisations ───────────────────────────────────────────────
     # BatchOut
     ("batch out",       "batchout"),
     ("batcho",          "batchout"),
@@ -57,26 +58,33 @@ _ABBREVS = [
     # ParaSync
     ("para sync",       "parasync"),
     ("dong bo tham so", "parasync"),
+    ("dong bo thong so","parasync"),
     ("dong bo",         "parasync"),
     ("sync param",      "parasync"),
+    ("parameter sync",  "parasync"),
     (" ps ",            " parasync "),
     # Load Family Cloud
     ("load fam cloud",  "loadfamilycloud"),
     ("tai family cloud","loadfamilycloud"),
     ("load cloud",      "loadfamilycloud"),
+    (" lfc ",           " loadfamilycloud "),
     # Load Family
     ("load fam",        "loadfamily"),
     ("tai family",      "loadfamily"),
     ("nap family",      "loadfamily"),
+    ("keo family",      "loadfamily"),
+    ("import family",   "loadfamily"),
     (" lf ",            " loadfamily "),
     # Project Name
     ("project name",    "projectname"),
     ("ten project",     "projectname"),
-    ("dat ten",         "projectname"),
     ("ten du an",       "projectname"),
+    ("dat ten project", "projectname"),
+    ("thay ten",        "projectname"),
     (" pn ",            " projectname "),
     # Workset
     ("quan ly workset", "workset"),
+    ("manage workset",  "workset"),
     (" ws ",            " workset "),
     # Upper Dim Text
     ("upper dim text",  "upperdimtext"),
@@ -84,19 +92,52 @@ _ABBREVS = [
     (" udt ",           " upperdimtext "),
     # Dim Text
     ("dim text",        "dimtext"),
+    ("dimension text",  "dimtext"),
     ("kich thuoc",      "dimtext"),
     ("sua dim",         "dimtext"),
+    ("chinh dim",       "dimtext"),
     ("edit dim",        "dimtext"),
+    ("edit dimension",  "dimtext"),
     (" dt ",            " dimtext "),
     # Reset Overrides
     ("reset graphic override","resetoverrides"),
+    ("reset graphic",   "resetoverrides"),
     ("reset override",  "resetoverrides"),
     ("xoa override",    "resetoverrides"),
     ("bo override",     "resetoverrides"),
+    ("xoa do ghi de",   "resetoverrides"),
     # Grids
     ("luoi truc",       "grids"),
-    # Export verbs — Vietnamese "in" = print/export
-    # Specific bigrams first so they're matched before the general case
+    ("quan ly luoi",    "grids"),
+    ("manage grid",     "grids"),
+
+    # ── Intent-prefixed command patterns ──────────────────────────────────────
+    # "muốn / cần / hãy / nhờ / làm ơn" before a verb → just keep the verb
+    ("muon xuat",       "export"),
+    ("muon in ",        "export "),
+    ("muon mo ",        "open "),
+    ("muon bat ",       "open "),
+    ("muon chay ",      "open "),
+    ("can xuat",        "export"),
+    ("can in ",         "export "),
+    ("can mo ",         "open "),
+    ("hay xuat",        "export"),
+    ("hay mo ",         "open "),
+    ("lam on xuat",     "export"),
+    ("lam on mo ",      "open "),
+    ("lam on in ",      "export "),
+    ("nho xuat",        "export"),
+    ("nho mo ",         "open "),
+    ("nho in ",         "export "),
+    ("giup toi xuat",   "export"),
+    ("giup toi mo ",    "open "),
+    ("cho toi xuat",    "export"),
+    ("cho toi mo ",     "open "),
+    ("thu mo ",         "open "),
+    ("thu xuat",        "export"),
+
+    # ── Export verbs ──────────────────────────────────────────────────────────
+    # Specific bigrams first (highest priority)
     ("in pdf",          "export pdf"),
     ("in dwg",          "export dwg"),
     ("in dwf",          "export dwf"),
@@ -106,28 +147,98 @@ _ABBREVS = [
     ("in img",          "export img"),
     ("in sheet",        "export sheet"),
     ("in to ",          "export sheet "),  # "in tờ …"
-    ("in het",          "export all"),     # "in hết" = print all
+    ("in het",          "export all"),
     ("in toan bo",      "export all"),
     ("in tat ca",       "export all"),
     ("in ra",           "export"),
     ("xuat ra",         "export"),
     ("xuat",            "export"),
-    # Open verbs (unify to "open")
+    # Extra export synonyms
+    ("ket xuat",        "export"),          # formal "render/export"
+    ("save as pdf",     "export pdf"),
+    ("save as dwg",     "export dwg"),
+    ("convert to pdf",  "export pdf"),
+    ("convert to dwg",  "export dwg"),
+    ("chuyen sang pdf", "export pdf"),
+    ("chuyen sang dwg", "export dwg"),
+    ("luu thanh pdf",   "export pdf"),
+    ("luu thanh dwg",   "export dwg"),
+    ("xuat sang pdf",   "export pdf"),
+    ("xuat sang dwg",   "export dwg"),
+    ("out pdf",         "export pdf"),
+    ("out dwg",         "export dwg"),
+
+    # ── Open verbs ────────────────────────────────────────────────────────────
     ("mo len",          "open"),
     ("bat len",         "open"),
     ("chay len",        "open"),
     ("khoi dong",       "open"),
-    # "all / every sheet"
+    ("khoi chay",       "open"),
+
+    # ── Quantity / scope ──────────────────────────────────────────────────────
     ("tat ca sheet",    "all sheet"),
     ("toan bo sheet",   "all sheet"),
     ("all sheets",      "all sheet"),
     ("every sheet",     "all sheet"),
+    ("all sheet",       "all sheet"),
     ("toan bo",         "all"),
     ("tat ca",          "all"),
-    # Formats
+    ("het sheets",      "all sheet"),
+    ("het tat ca",      "all"),
+    ("toan phan",       "all"),
+
+    # ── Format synonyms ───────────────────────────────────────────────────────
     ("hinh anh",        "img"),
     ("image",           "img"),
-    # Vietnamese "open" (without trailing space — catch end of string too)
+    ("picture",         "img"),
+
+    # ── Greeting shortcuts ────────────────────────────────────────────────────
+    ("chao buoi sang",  "chao"),
+    ("chao buoi chieu", "chao"),
+    ("chao buoi toi",   "chao"),
+    ("good morning",    "chao"),
+    ("good afternoon",  "chao"),
+    ("good evening",    "chao"),
+    ("good night",      "chao"),
+    ("xin chao",        "chao"),
+    ("alo",             "chao"),
+    ("a lo",            "chao"),
+    ("hi ban",          "chao"),
+    ("hey ban",         "chao"),
+    ("chao ban",        "chao"),
+
+    # ── Thanks shortcuts ──────────────────────────────────────────────────────
+    ("cam on nhieu",    "cam on"),
+    ("cam on ban nhieu","cam on"),
+    ("cam on ban rat nhieu", "cam on"),
+    ("rat cam on",      "cam on"),
+    ("tran trong",      "cam on"),
+    ("biet on",         "cam on"),
+    ("thank you so much","cam on"),
+    ("thanks a lot",    "cam on"),
+    ("thanks so much",  "cam on"),
+    ("thank u",         "cam on"),
+    (" tks ",           " cam on "),
+    (" thks ",          " cam on "),
+    (" thx ",           " cam on "),
+    (" ty ",            " cam on "),
+
+    # ── Acknowledgement shortcuts ─────────────────────────────────────────────
+    ("ok roi",          "ok roi"),    # keep for trigger matching
+    ("oke roi",         "ok roi"),
+    ("duoc roi",        "ok roi"),
+    ("chay roi",        "ok roi"),
+    ("xong roi",        "ok roi"),
+    ("hieu roi",        "hieu roi"),
+    ("biet roi",        "hieu roi"),
+    ("ra roi",          "hieu roi"),
+    ("toi hieu",        "hieu roi"),
+    ("ro rang",         "hieu roi"),
+    ("dung roi",        "dung roi"),
+    ("chinh xac",       "dung roi"),
+    ("hop ly",          "dung roi"),
+
+    # ── Vietnamese "open" at word boundary ───────────────────────────────────
     ("mo ",             "open "),
     ("mo\n",            "open\n"),
 ]
@@ -145,13 +256,24 @@ def _expand(text):
 # ─── Tokeniser ────────────────────────────────────────────────────────────────
 
 _STOPWORDS = {
+    # ── Vietnamese function / filler words ────────────────────────────────────
     "va", "de", "cho", "cai", "len", "ra", "vao", "di",
     "toi", "ban", "minh", "ho", "no", "cua", "voi", "trong",
     "la", "duoc", "co", "khong", "nhe", "nha", "nao", "gi",
-    "a", "o", "the", "an", "to", "for", "of", "at",
+    "a", "o", "roi", "se", "da", "dang", "rat", "khi",
+    "neu", "sau", "truoc", "thi", "ma", "vay", "ay", "oi",
+    "rang", "vi", "kia", "nhau", "hon",
+    "mot", "hai", "ba", "bon", "nam",        # numbers (sheet count)
+    "muon", "can", "hay", "thu", "giup",     # intent-prefix words (stripped by ABBREVS)
+    "lam", "nho",                             # politeness words
     # NOTE: "in" is intentionally EXCLUDED — it means "print/export" in Vietnamese
+    # ── English function words ─────────────────────────────────────────────────
+    "the", "an", "to", "for", "of", "at",
     "me", "my", "i", "you", "it", "is", "are", "was", "be",
-    "and", "or", "not", "on", "up",
+    "and", "or", "not", "on", "up", "do", "as", "so",
+    "can", "will", "would", "could", "should",
+    "with", "from", "by", "all", "any", "some",
+    "please", "just", "now", "here",
 }
 
 
@@ -275,63 +397,163 @@ _TRIGGERS = {
     ],
 
     "greet": [
+        # Core greeting words (survive after diacritic strip)
         ("chao",               25),
         ("hello",              25),
-        ("xin chao",           30),
-        ("hey",                15),
+        ("hey",                18),
         ("hi",                 20),
-        ("howdy",              15),
-        ("good morning",       20),
+        ("howdy",              18),
+        ("alo",                25),    # phone-style "alo" (mapped via ABBREVS)
+        # Bigrams / phrases (matched after ABBREVS expand "xin chao" → "chao")
+        ("chao ban",           28),
+        ("hi ban",             25),
+        ("hey ban",            25),
+        ("good morning",       20),    # also handled by ABBREVS
+        ("morning",            12),
+        ("chao buoi",          25),
+        # Farewell (treat as greet-class conversational)
+        ("tam biet",           22),
+        ("bye",                20),
+        ("bai",                18),
+        ("see you",            20),
+        ("hen gap",            22),
+        ("hen gap lai",        25),
+        ("good bye",           22),
+        ("goodbye",            22),
+        ("tam biet ban",       25),
     ],
 
     "chat": [
+        # ── Thanks ────────────────────────────────────────────────────────────
         ("cam on",             25),
         ("thank",              20),
         ("thanks",             20),
+        # ── Simple affirmations ───────────────────────────────────────────────
         ("ok",                  8),
         ("oke",                 8),
-        ("got it",             15),
-        # Additional Vietnamese conversational acknowledgements
-        ("ok roi",             22),
-        ("oke roi",            22),
-        ("ra roi",             20),
-        ("hieu roi",           22),
-        ("biet roi",           22),
-        ("duoc roi",           20),
-        ("tuyet",              18),
-        ("tot lam",            18),
-        ("chay roi",           20),
-        ("xong roi",           20),
-        ("ngon",               15),
-        ("perfect",            18),
-        ("great",              15),
-        ("nice",               12),
+        ("ok roi",             22),    # mapped from oke roi / duoc roi / xong roi
+        ("hieu roi",           22),    # mapped from biet roi / ra roi / toi hieu
+        ("dung roi",           22),    # mapped from chinh xac / hop ly
+        ("got it",             18),
+        ("vang",               20),    # yes (polite Vietnamese)
+        ("yep",                15),
+        ("yeah",               15),
+        ("alright",            18),
+        ("sure",               15),
+        ("noted",              20),
+        ("understood",         20),
+        ("copy",               15),
+        ("roger",              15),
+        # ── Positive reactions ────────────────────────────────────────────────
+        ("tuyet",              20),
+        ("tuyet voi",          22),
+        ("tot lam",            20),
+        ("hay qua",            20),
+        ("ngon",               18),
+        ("xin",                12),    # (only bigram use: "xin loi", "xin chao" filtered elsewhere)
+        ("perfect",            20),
+        ("great",              18),
+        ("nice",               15),
+        ("awesome",            18),
+        ("wow",                15),
+        ("uu viet",            18),    # excellent
+        # ── State / emotion ───────────────────────────────────────────────────
+        ("ban khoe",           22),    # how are you
+        ("khoe khong",         22),
+        ("ban oi",             15),
+        ("met qua",            20),
+        ("buon qua",           20),
+        ("chan qua",           18),
+        ("stress qua",         18),
+        ("kho qua",            18),
+        ("sao vay",            18),
+        ("sao the",            18),
+        ("tai sao",            15),
+        # ── Complaints / errors ───────────────────────────────────────────────
+        ("loi roi",            20),
+        ("bi loi",             20),
+        ("gap loi",            20),
+        ("khong chay duoc",    22),
+        ("sao khong chay",     22),
+        ("bi hong",            20),
+        ("khong hoat dong",    22),
+        ("sao vay ban",        22),
+        ("help me",            15),
+        # ── Polite filler that doesn't map elsewhere ──────────────────────────
+        ("xin loi",            20),    # sorry/excuse me
+        ("sorry",              15),
+        ("pardon",             12),
     ],
 
     "help": [
+        # ── "What is X?" ──────────────────────────────────────────────────────
         ("la gi",              25),
+        ("la cai gi",          25),
+        ("nghia la gi",        25),
         ("what is",            25),
-        ("how to",             20),
-        ("lam gi",             20),
+        ("what are",           22),
+        ("what does",          22),
+        ("batchout la gi",     30),
+        ("parasync la gi",     28),
+        ("loadfamily la gi",   28),
+        # ── "How to do X?" ────────────────────────────────────────────────────
+        ("lam gi",             22),
         ("lam nhu the nao",    25),
-        ("huong dan",          20),
-        ("guide",              15),
-        ("explain",            15),
-        ("giai thich",         20),
-        ("help",               10),
-        # "bạn là ai / bạn có thể làm gì / tool này làm gì"
+        ("lam the nao",        25),
+        ("lam sao",            22),
+        ("lam sao de",         25),
+        ("bang cach nao",      25),
+        ("cach nao",           20),
+        ("how to",             22),
+        ("how do",             20),
+        ("how does",           20),
+        ("how can",            18),
+        ("xuat bang cach nao", 28),
+        ("lam sao de xuat",    28),
+        ("lam sao de mo",      28),
+        # ── "What can you do?" ────────────────────────────────────────────────
+        ("lam duoc gi",        25),
+        ("dung duoc gi",       25),
+        ("ho tro gi",          25),
+        ("co tinh nang gi",    25),
+        ("ban co the",         20),
+        ("ban biet lam gi",    25),
+        ("ban giup duoc gi",   25),
+        ("ban lam gi",         22),
         ("ban la ai",          25),
-        ("ban co the",         18),
-        ("tool nay",           15),
-        ("lam duoc gi",        22),
-        ("dung duoc gi",       22),
-        ("tinh nang",          18),
-        ("chuc nang",          18),
+        ("ban ten gi",         25),
+        ("may la ai",          22),    # informal "who are you"
+        ("tool nay",           18),
+        # ── "Help/guide me" ───────────────────────────────────────────────────
+        ("huong dan",          22),
+        ("chi dan",            22),
+        ("chi toi",            20),
+        ("chi cach",           22),
+        ("chi cho toi",        25),
+        ("giai thich",         22),
+        ("explain",            20),
+        ("guide",              18),
+        ("huong dan su dung",  28),
+        ("cach su dung",       25),
+        ("cach dung",          22),
+        ("muon biet",          20),
+        ("can biet",           20),
+        ("cho toi biet",       25),
+        ("noi cho toi",        22),
+        ("tell me",            18),
+        ("giup toi voi",       22),
+        ("giup voi",           18),
+        # ── Features / documentation ──────────────────────────────────────────
+        ("tinh nang",          20),
+        ("chuc nang",          20),
         ("su dung",            15),
-        ("cach su dung",       22),
-        ("huong dan su dung",  25),
         ("ho tro",             18),
-        ("ho tro gi",          22),
+        ("khai niem",          18),
+        ("mo ta",              15),
+        ("tai lieu",           18),
+        ("document",           12),
+        ("help",               12),
+        ("info",               12),
     ],
 }
 
@@ -561,9 +783,14 @@ _MESSAGES_VI = {
     "open_upperdimtext":      u"Đang mở Upper Dim Text...",
     "open_resetoverrides":    u"Đang mở Reset Overrides...",
     "open_grids":             u"Đang mở Grids...",
-    "greet":                  u"Xin chào! Tôi là T3Lab Assistant. Cần giúp gì không?",
-    "chat":                   u"Không có gì! Cần gì cứ hỏi nhé.",
-    "help":                   u"Bạn có thể hỏi tôi về BatchOut, ParaSync, LoadFamily và các công cụ T3Lab khác.",
+    "greet":  u"Xin chào! Tôi là T3Lab Assistant 👋\nBạn muốn làm gì hôm nay?",
+    "farewell": u"Tạm biệt! Gặp lại bạn sau nhé 👋",
+    "chat":   u"Không có gì! Cần gì cứ hỏi tôi nhé.",
+    "help":   (u"Tôi có thể giúp bạn:\n"
+               u"• Xuất sheet: 'xuất pdf G sheet', 'in tất cả sang dwg'\n"
+               u"• Mở tool: 'mở batchout', 'parasync', 'load family'\n"
+               u"• Cấu hình nhanh: 'mở batchout G sheet pdf'\n"
+               u"Gõ tên tool hoặc mô tả điều bạn muốn làm!"),
 }
 
 _MESSAGES_EN = {
@@ -578,9 +805,14 @@ _MESSAGES_EN = {
     "open_upperdimtext":      "Opening Upper Dim Text...",
     "open_resetoverrides":    "Opening Reset Overrides...",
     "open_grids":             "Opening Grids...",
-    "greet":                  "Hello! I'm T3Lab Assistant. How can I help?",
-    "chat":                   "You're welcome! Let me know if you need anything.",
-    "help":                   "Ask me about BatchOut, ParaSync, LoadFamily and other T3Lab tools.",
+    "greet":   "Hello! I'm T3Lab Assistant 👋\nWhat would you like to do today?",
+    "farewell": "Goodbye! See you later 👋",
+    "chat":    "You're welcome! Let me know if you need anything.",
+    "help":    ("I can help you:\n"
+                "• Export sheets: 'export pdf G sheet', 'print all to dwg'\n"
+                "• Open tools: 'open batchout', 'parasync', 'load family'\n"
+                "• Quick config: 'open batchout G sheet pdf'\n"
+                "Type a tool name or describe what you want to do!"),
 }
 
 
@@ -590,8 +822,10 @@ def _is_viet(raw):
     return any(c in viet_chars for c in raw.lower())
 
 
-def _build_message(intent, slots, viet):
+def _build_message(intent, slots, viet, raw_input=""):
     """Build a friendly message for the given intent and extracted slots."""
+    normed_raw = _norm(raw_input)
+
     if intent == "export_direct":
         fmt  = slots.get("format", "pdf").upper()
         filt = slots.get("filter", "")
@@ -607,10 +841,42 @@ def _build_message(intent, slots, viet):
         filt = slots.get("filter", "")
         if viet:
             part = u" {} sheet".format(filt) if filt else u""
-            return u"Mở BatchOut{}  ({})...".format(part, fmt)
+            return u"Mở BatchOut{} ({})...".format(part, fmt)
         else:
             part = " {} sheet".format(filt) if filt else ""
             return "Opening BatchOut{} ({})...".format(part, fmt)
+
+    # ── Contextual chat responses ─────────────────────────────────────────────
+    if intent == "chat":
+        # Farewell
+        farewell_kws = ["tam biet", "bye", "bai ", "see you", "hen gap", "goodbye"]
+        if any(k in normed_raw for k in farewell_kws):
+            return (_MESSAGES_VI if viet else _MESSAGES_EN).get("farewell",
+                    u"Tạm biệt! 👋" if viet else "Goodbye! 👋")
+        # Error/complaint
+        error_kws = ["loi", "bi hong", "khong chay", "khong hoat dong", "error",
+                     "broken", "not working"]
+        if any(k in normed_raw for k in error_kws):
+            if viet:
+                return (u"Xin lỗi bạn gặp vấn đề! Bạn có thể thử:\n"
+                        u"• Đóng và mở lại tool\n"
+                        u"• Kiểm tra Revit console để xem lỗi chi tiết")
+            return ("Sorry you're having issues! You can try:\n"
+                    "• Close and reopen the tool\n"
+                    "• Check the Revit console for error details")
+        # Positive reaction
+        positive_kws = ["tuyet", "tot", "ngon", "perfect", "great", "awesome", "nice"]
+        if any(k in normed_raw for k in positive_kws):
+            return u"Cảm ơn bạn! 😊 Cần gì cứ hỏi nhé." if viet else "Thank you! 😊 Let me know if you need anything."
+        # Thanks
+        thanks_kws = ["cam on", "thank", "tks", "thks", "ty"]
+        if any(k in normed_raw for k in thanks_kws):
+            return u"Không có gì! Cần gì cứ hỏi tôi nhé." if viet else "You're welcome! Let me know if you need anything."
+        # State question
+        state_kws = ["khoe", "met", "buon", "chan", "sao vay", "stress"]
+        if any(k in normed_raw for k in state_kws):
+            return (u"Cảm ơn bạn hỏi thăm! Tôi ổn 😊 Bạn cần tôi giúp gì không?"
+                    if viet else "Thanks for asking! I'm fine 😊 How can I help?")
 
     if viet:
         return _MESSAGES_VI.get(intent, u"Đang xử lý...")
@@ -693,5 +959,5 @@ def classify(user_input, history=None):
     elif best == "open_batchout":
         params = {}
 
-    message = _build_message(best, slots, viet)
+    message = _build_message(best, slots, viet, raw_input=user_input)
     return {"intent": best, "params": params, "message": message, "_nlu": True}
