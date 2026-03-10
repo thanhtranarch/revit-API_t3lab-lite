@@ -469,6 +469,37 @@ def _parse_export_params(raw, cmd=None):
     return {'format': fmt, 'filter': '', 'combine': False}
 
 
+# ─── Built-in NLU engine ──────────────────────────────────────────────────────
+
+_nlu = None
+
+def _get_nlu():
+    """Lazy-import nlu_engine (always bundled with the tool)."""
+    global _nlu
+    if _nlu is not None:
+        return _nlu
+    try:
+        import nlu_engine as _mod
+        _nlu = _mod
+    except Exception:
+        pass
+    return _nlu
+
+
+def parse_command_nlu(user_input, history=None):
+    """Parse user_input using the built-in NLU engine (no external service).
+
+    Always available offline.  Returns dict {intent, params, message} or None.
+    """
+    mod = _get_nlu()
+    if not mod:
+        return None
+    try:
+        return mod.classify(user_input, history=history)
+    except Exception:
+        return None
+
+
 # ─── Local LLM (Ollama) integration ──────────────────────────────────────────
 
 _local_llm = None
