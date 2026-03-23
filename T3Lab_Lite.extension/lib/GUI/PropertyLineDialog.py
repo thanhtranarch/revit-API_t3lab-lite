@@ -809,8 +809,8 @@ class PropertyLineDialog(forms.WPFWindow):
                 )
 
         t = threading.Thread(target=search_thread)
-        t.IsBackground = True
-        t.Start()
+        t.daemon = True
+        t.start()
 
     def _on_search_complete(self, parcels):
         self.btn_search.IsEnabled = True
@@ -911,8 +911,8 @@ class PropertyLineDialog(forms.WPFWindow):
                 )
 
         t = threading.Thread(target=zoning_thread)
-        t.IsBackground = True
-        t.Start()
+        t.daemon = True
+        t.start()
 
     def _on_zoning_complete(self, zoning):
         self.btn_fetch_zoning.IsEnabled = True
