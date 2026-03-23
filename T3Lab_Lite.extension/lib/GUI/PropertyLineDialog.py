@@ -733,13 +733,15 @@ class ParcelItem(object):
         self.state           = data["state"]
 
 
-class PropertyLineDialog(Window):
+class PropertyLineDialog(forms.WPFWindow):
     """Main WPF dialog for Property Line Tool."""
 
     def __init__(self):
-        # Load XAML
+        # Build absolute path so forms.WPFWindow finds the XAML regardless of
+        # which script calls this class (avoids the IronPython absolute-URI bug
+        # that occurs with Application.LoadComponent + file:// URIs)
         xaml_path = os.path.join(os.path.dirname(__file__), "PropertyLine.xaml")
-        Application.LoadComponent(self, Uri(xaml_path))
+        forms.WPFWindow.__init__(self, xaml_path)
 
         self._selected_parcel = None
         self._parcels = []
