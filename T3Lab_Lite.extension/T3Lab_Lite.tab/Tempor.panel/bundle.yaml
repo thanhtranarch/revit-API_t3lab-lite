@@ -1,1 +1,5 @@
 layout:
+  - PropertyLine
+  - Coordinate Exporter
+  - DrillingPointCoordination
+  - Hanger Location
