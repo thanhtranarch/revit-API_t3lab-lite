@@ -217,10 +217,11 @@ def search_parcels(api_key, address, limit=10):
     Returns list of parcel dicts with keys:
         id, display_address, parcel_id, area_sqft, geometry, county, state
     """
-    url = "{}{}/search?text={}&limit={}".format(
+    encoded = urllib2.quote(address) if HAS_URLLIB2 else urllib.parse.quote(address)
+    url = "{}{}?text={}&limit={}".format(
         LIGHTBOX_BASE,
         LIGHTBOX_PARCELS_ENDPOINT,
-        urllib2.quote(address) if HAS_URLLIB2 else urllib.parse.quote(address),
+        encoded,
         limit
     )
 
@@ -229,13 +230,15 @@ def search_parcels(api_key, address, limit=10):
         "Accept": "application/json",
     }
 
+    logger.debug("Lightbox search URL: {}".format(url))
     status, body = http_get(url, headers)
 
     if isinstance(body, bytes):
         body = body.decode('utf-8', errors='replace')
 
     if status != 200:
-        raise ValueError("Lightbox API error {}: {}".format(status, body[:300]))
+        raise ValueError("Lightbox API error {} (URL: {}): {}".format(
+            status, url, body[:300]))
 
     data = json.loads(body)
 
