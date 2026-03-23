@@ -33,7 +33,7 @@ clr.AddReference("WindowsBase")
 import System
 from System import Uri, Action
 from System.Collections.ObjectModel import ObservableCollection
-from System.Windows import Window, Visibility
+from System.Windows import Window, Visibility, Application
 from System.Windows.Input import Key
 from System.Windows.Media import SolidColorBrush, Color
 from System.Windows.Threading import Dispatcher, DispatcherPriority
@@ -51,9 +51,6 @@ try:
     HAS_URLLIB3 = True
 except ImportError:
     HAS_URLLIB3 = False
-
-# WPF loading
-import wpf
 
 # pyRevit
 from pyrevit import revit, DB, forms, script
@@ -540,7 +537,7 @@ class PropertyLineDialog(Window):
     def __init__(self):
         # Load XAML
         xaml_path = os.path.join(os.path.dirname(__file__), "PropertyLine.xaml")
-        wpf.LoadComponent(self, xaml_path)
+        Application.LoadComponent(self, Uri(xaml_path))
 
         self._selected_parcel = None
         self._parcels = []
