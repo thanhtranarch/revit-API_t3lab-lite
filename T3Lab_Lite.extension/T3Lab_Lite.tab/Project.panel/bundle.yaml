@@ -1,4 +1,5 @@
 layout:
+  - PropertyLine
   - Dimension
   - TextNote
   - UpperDimText
