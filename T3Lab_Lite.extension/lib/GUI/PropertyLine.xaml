@@ -1,8 +1,8 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Property Line Tool - Lightbox API"
-        Width="680" Height="780"
-        MinWidth="600" MinHeight="680"
+        Width="680" Height="900"
+        MinWidth="600" MinHeight="780"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E2E"
         Foreground="White"
@@ -321,6 +321,75 @@
                             <TextBlock x:Name="txt_detail_state" Foreground="White" Margin="0,0,0,10"/>
                         </StackPanel>
                     </Grid>
+                </GroupBox>
+
+                <!-- SETBACK LINES SECTION -->
+                <GroupBox x:Name="grp_setback"
+                          Header=" Setback Lines"
+                          Visibility="Collapsed">
+                    <StackPanel>
+
+                        <!-- Fetch button + status -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="txt_zoning_status"
+                                       Grid.Column="0"
+                                       Text="Click 'Fetch Zoning' to auto-fill setback values from the Lightbox API."
+                                       Foreground="#888"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="Wrap"/>
+                            <Button x:Name="btn_fetch_zoning"
+                                    Grid.Column="1"
+                                    Content="Fetch Zoning"
+                                    MinWidth="110"
+                                    Margin="10,0,0,0"
+                                    Style="{StaticResource SecondaryBtn}"
+                                    Click="btn_fetch_zoning_Click"/>
+                        </Grid>
+
+                        <!-- Three setback fields -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Front Setback (ft)" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="txt_setback_front"
+                                         Text=""
+                                         Style="{StaticResource InputField}"
+                                         ToolTip="Setback from front property line (street side)"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                <TextBlock Text="Rear Setback (ft)" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="txt_setback_rear"
+                                         Text=""
+                                         Style="{StaticResource InputField}"
+                                         ToolTip="Setback from rear property line"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Side Setback (ft)" Style="{StaticResource FieldLabel}"/>
+                                <TextBox x:Name="txt_setback_side"
+                                         Text=""
+                                         Style="{StaticResource InputField}"
+                                         ToolTip="Setback from each side property line"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Draw checkbox -->
+                        <CheckBox x:Name="chk_draw_setback"
+                                  Content="Draw setback envelope when creating property lines"
+                                  Foreground="White"
+                                  VerticalAlignment="Center"/>
+                        <TextBlock Text="Draws an inset polygon (minimum setback) as Model Lines — representing the buildable area."
+                                   Foreground="#666" FontSize="10" FontStyle="Italic"
+                                   Margin="20,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
                 </GroupBox>
 
                 <!-- CREATE OPTIONS -->

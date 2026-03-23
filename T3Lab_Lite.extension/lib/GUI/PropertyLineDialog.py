@@ -72,6 +72,9 @@ LIGHTBOX_PARCELS_ENDPOINT = "/v1/parcels/us"
 # Earth radius in feet (for coordinate conversion)
 EARTH_RADIUS_FT = 20902231.0
 
+# Zoning / setback endpoint  (appended as: LIGHTBOX_BASE + LIGHTBOX_PARCELS_ENDPOINT + "/{id}/zoning")
+LIGHTBOX_ZONING_PATH = "/zoning"
+
 
 # ╔═╗╔═╗╔╗╔╔═╗╦╔═╗
 # ║  ║ ║║║║╠╣ ║║ ╦
@@ -338,6 +341,205 @@ def get_polygon_coords(geometry):
     return []
 
 
+# ╔═╗╔═╗╔╦╗╔╗ ╔═╗╔═╗╦╔═  ╔═╗╔═╗╦
+# ╚═╗║╣  ║ ╠╩╗╠═╣║  ╠╩╗  ╠═╣╠═╝║
+# ╚═╝╚═╝ ╩ ╚═╝╩ ╩╚═╝╩ ╩  ╩ ╩╩  ╩ SETBACK / ZONING
+# ==================================================
+
+def get_zoning_data(api_key, parcel_id):
+    """
+    Query Lightbox zoning endpoint for a parcel.
+
+    GET /v1/parcels/us/{parcel_id}/zoning
+    Header: x-api-key
+
+    Returns dict:  {"front_ft": float|None, "rear_ft": float|None, "side_ft": float|None}
+    Raises ValueError on non-200 response.
+    """
+    url = "{}{}/{}/zoning".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, parcel_id)
+    headers = {"x-api-key": api_key, "Accept": "application/json"}
+
+    status, body = http_get(url, headers)
+    if isinstance(body, bytes):
+        body = body.decode("utf-8", errors="replace")
+    if status != 200:
+        raise ValueError("Zoning API error {}: {}".format(status, body[:200]))
+
+    return _parse_zoning(json.loads(body))
+
+
+def _parse_zoning(data):
+    """
+    Parse Lightbox zoning response into a clean setback dict (feet).
+    Handles nested and flat structures.
+    """
+    zone = (data.get("zoning") or
+            data.get("data") or
+            data.get("attributes") or
+            data)
+    if isinstance(zone, list):
+        zone = zone[0] if zone else {}
+
+    def _to_ft(val):
+        if val is None:
+            return None
+        try:
+            v = float(val)
+            return v if 0 < v <= 500 else None
+        except (TypeError, ValueError):
+            return None
+
+    front = _to_ft(zone.get("frontSetback") or zone.get("front_setback") or
+                   zone.get("front") or zone.get("setback_front"))
+    rear  = _to_ft(zone.get("rearSetback")  or zone.get("rear_setback")  or
+                   zone.get("rear")  or zone.get("setback_rear"))
+    side  = _to_ft(zone.get("sideSetback")  or zone.get("side_setback")  or
+                   zone.get("side")  or zone.get("setback_side") or
+                   zone.get("sideYardSetback"))
+
+    return {"front_ft": front, "rear_ft": rear, "side_ft": side}
+
+
+# ── polygon math (pure Python, no shapely) ───────────────────────────────────
+
+def _polygon_signed_area_2d(pts):
+    """Signed shoelace area. Positive → CCW."""
+    n = len(pts)
+    a = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        a += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]
+    return a / 2.0
+
+
+def _line_intersect_2d(p1, p2, p3, p4):
+    """Intersection of infinite lines through (p1,p2) and (p3,p4). Returns None if parallel."""
+    x1, y1 = p1;  x2, y2 = p2
+    x3, y3 = p3;  x4, y4 = p4
+    denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if abs(denom) < 1e-10:
+        return None
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+    return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+
+
+def inset_polygon_2d(pts, distance):
+    """
+    Shrink a polygon inward by `distance` feet.
+
+    pts      – open list of (x, y) in Revit feet  (do NOT repeat first point)
+    distance – positive offset distance in feet
+
+    Returns a new open list of (x, y) with the same vertex count.
+    Raises ValueError if the polygon would collapse (setback too large).
+    """
+    n = len(pts)
+    if n < 3:
+        raise ValueError("Need at least 3 vertices for polygon inset")
+
+    # Normalise winding to CCW so that left-of-edge = interior
+    if _polygon_signed_area_2d(pts) < 0:
+        pts = list(reversed(pts))
+
+    # Build one offset edge per polygon edge
+    offset_edges = []
+    for i in range(n):
+        p1 = pts[i]
+        p2 = pts[(i + 1) % n]
+        dx = p2[0] - p1[0]
+        dy = p2[1] - p1[1]
+        length = math.sqrt(dx * dx + dy * dy)
+        if length < 1e-10:
+            continue
+        # Inward (left) unit normal for CCW polygon: (-dy/L, +dx/L)
+        nx, ny = -dy / length, dx / length
+        offset_edges.append(
+            ((p1[0] + nx * distance, p1[1] + ny * distance),
+             (p2[0] + nx * distance, p2[1] + ny * distance))
+        )
+
+    if len(offset_edges) < 3:
+        raise ValueError("Too few valid edges for polygon inset")
+
+    # New vertices = intersection of consecutive offset edges
+    m = len(offset_edges)
+    result = []
+    for i in range(m):
+        e1 = offset_edges[i]
+        e2 = offset_edges[(i + 1) % m]
+        pt = _line_intersect_2d(e1[0], e1[1], e2[0], e2[1])
+        result.append(pt if pt is not None else e1[1])
+
+    # Sanity-check: inset area must be at least 1 % of original
+    orig_area  = abs(_polygon_signed_area_2d(pts))
+    inset_area = abs(_polygon_signed_area_2d(result))
+    if orig_area > 0 and inset_area < orig_area * 0.01:
+        raise ValueError(
+            "Setback distance ({:.1f} ft) is too large: polygon collapsed".format(distance)
+        )
+
+    return result
+
+
+def create_setback_lines_in_revit(doc, coordinates, setback_ft,
+                                   elevation_ft=0.0,
+                                   origin_mode="Project Base Point"):
+    """
+    Draw a setback envelope as Model Lines by insetting the parcel boundary.
+
+    Parameters:
+        doc          - Revit Document
+        coordinates  - list of [lon, lat] from GeoJSON outer ring
+        setback_ft   - inset distance in feet (must be > 0)
+        elevation_ft - Z elevation in feet
+        origin_mode  - "Project Base Point" | "Survey Point" | "World Origin (0,0,0)"
+
+    Returns the number of line segments created.
+    """
+    if setback_ft <= 0:
+        raise ValueError("Setback distance must be greater than zero")
+
+    # Convert GeoJSON → feet, relative to polygon centroid
+    centroid_lat, centroid_lon = compute_centroid(coordinates)
+    pts_2d = []
+    for c in coordinates:
+        lon, lat = c[0], c[1]
+        x_ft, y_ft = latlon_to_feet(lat, lon, centroid_lat, centroid_lon)
+        pts_2d.append((x_ft, y_ft))
+
+    # Drop closing duplicate if present
+    if (len(pts_2d) > 1 and
+            abs(pts_2d[0][0] - pts_2d[-1][0]) < 0.001 and
+            abs(pts_2d[0][1] - pts_2d[-1][1]) < 0.001):
+        pts_2d = pts_2d[:-1]
+
+    # Inset the polygon
+    inset_2d = inset_polygon_2d(pts_2d, setback_ft)
+
+    # Determine insertion origin (same logic as property lines)
+    if origin_mode == "Survey Point":
+        offset = get_survey_point(doc)
+    elif origin_mode == "Project Base Point":
+        offset = get_project_base_point(doc)
+    else:
+        offset = DB.XYZ(0, 0, 0)
+
+    # Convert to Revit XYZ and close the loop
+    revit_pts = [
+        DB.XYZ(p[0] + offset.X, p[1] + offset.Y, elevation_ft + offset.Z)
+        for p in inset_2d
+    ]
+    revit_pts.append(revit_pts[0])
+
+    count = 0
+    with DB.Transaction(doc, "Create Setback Envelope") as t:
+        t.Start()
+        count = _create_model_lines_from_pts(doc, revit_pts, elevation_ft + offset.Z)
+        t.Commit()
+
+    return count
+
+
 # ╦═╗╔═╗╦  ╦╦╔╦╗  ╔═╗╦═╗╔═╗╔═╗╔╦╗╦╔═╗╔╗╔
 # ╠╦╝║╣ ╚╗╔╝║ ║   ║  ╠╦╝║╣ ╠═╣ ║ ║║ ║║║║
 # ╩╚═╚═╝ ╚╝ ╩ ╩   ╚═╝╩╚═╚═╝╩ ╩ ╩ ╩╚═╝╝╚╝ REVIT CREATION
@@ -541,6 +743,7 @@ class PropertyLineDialog(Window):
 
         self._selected_parcel = None
         self._parcels = []
+        self._zoning_data = None
 
         # Load saved API key
         config = load_config()
@@ -638,11 +841,21 @@ class PropertyLineDialog(Window):
             self._selected_parcel = None
             self.btn_create.IsEnabled = False
             self.grp_parcel_details.Visibility = Visibility.Collapsed
+            self.grp_setback.Visibility = Visibility.Collapsed
             return
 
         self._selected_parcel = item
+        self._zoning_data = None
         self._show_parcel_details(item)
         self.btn_create.IsEnabled = True
+
+        # Reset setback section for the newly selected parcel
+        self.txt_setback_front.Text = ""
+        self.txt_setback_rear.Text  = ""
+        self.txt_setback_side.Text  = ""
+        self.txt_zoning_status.Text = "Click 'Fetch Zoning' to auto-fill setback values from the Lightbox API."
+        self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(136, 136, 136))
+        self.grp_setback.Visibility = Visibility.Visible
 
     def _show_parcel_details(self, item):
         self.grp_parcel_details.Visibility = Visibility.Visible
@@ -662,6 +875,85 @@ class PropertyLineDialog(Window):
         # Vertex count
         coords = get_polygon_coords(item.geometry)
         self.txt_detail_vertices.Text = "{} vertices".format(len(coords))
+
+    # ───────────────────────────────────── ZONING / SETBACK
+
+    def btn_fetch_zoning_Click(self, sender, e):
+        if not self._selected_parcel:
+            return
+
+        api_key = self.txt_api_key.Text.strip()
+        if not api_key:
+            self.txt_zoning_status.Text = "No API key configured."
+            self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 107, 107))
+            return
+
+        self.txt_zoning_status.Text = "Fetching zoning data..."
+        self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 197, 61))
+        self.btn_fetch_zoning.IsEnabled = False
+
+        parcel_id = self._selected_parcel.id
+
+        def zoning_thread():
+            try:
+                zoning = get_zoning_data(api_key, parcel_id)
+                self.Dispatcher.Invoke(
+                    DispatcherPriority.Normal,
+                    Action(lambda: self._on_zoning_complete(zoning))
+                )
+            except Exception as ex:
+                err = str(ex)
+                self.Dispatcher.Invoke(
+                    DispatcherPriority.Normal,
+                    Action(lambda: self._on_zoning_error(err))
+                )
+
+        t = threading.Thread(target=zoning_thread)
+        t.IsBackground = True
+        t.Start()
+
+    def _on_zoning_complete(self, zoning):
+        self.btn_fetch_zoning.IsEnabled = True
+        self._zoning_data = zoning
+
+        parts = []
+        if zoning.get("front_ft") is not None:
+            self.txt_setback_front.Text = "{:.1f}".format(zoning["front_ft"])
+            parts.append("F:{:.0f}ft".format(zoning["front_ft"]))
+        if zoning.get("rear_ft") is not None:
+            self.txt_setback_rear.Text = "{:.1f}".format(zoning["rear_ft"])
+            parts.append("R:{:.0f}ft".format(zoning["rear_ft"]))
+        if zoning.get("side_ft") is not None:
+            self.txt_setback_side.Text = "{:.1f}".format(zoning["side_ft"])
+            parts.append("S:{:.0f}ft".format(zoning["side_ft"]))
+
+        if parts:
+            self.txt_zoning_status.Text = "Zoning loaded: {}".format(" | ".join(parts))
+            self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(78, 201, 176))
+        else:
+            self.txt_zoning_status.Text = "No setback data found in zoning response. Enter values manually."
+            self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 197, 61))
+
+    def _on_zoning_error(self, error_msg):
+        self.btn_fetch_zoning.IsEnabled = True
+        self.txt_zoning_status.Text = "Zoning fetch failed: {}".format(error_msg)
+        self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 107, 107))
+        logger.warning("Zoning API error: {}".format(error_msg))
+
+    def _get_min_setback(self):
+        """Return the smallest positive value among the three setback fields, or None."""
+        values = []
+        for txt in (self.txt_setback_front, self.txt_setback_rear, self.txt_setback_side):
+            raw = txt.Text.strip()
+            if not raw:
+                continue
+            try:
+                v = float(raw)
+                if v > 0:
+                    values.append(v)
+            except ValueError:
+                pass
+        return min(values) if values else None
 
     def btn_create_Click(self, sender, e):
         if not self._selected_parcel:
@@ -692,6 +984,16 @@ class PropertyLineDialog(Window):
             self._set_status("Invalid geometry: not enough coordinates.", error=True)
             return
 
+        # Check if setback envelope was requested
+        draw_setback = bool(self.chk_draw_setback.IsChecked)
+        setback_ft = self._get_min_setback() if draw_setback else None
+        if draw_setback and not setback_ft:
+            self._set_status(
+                "Draw Setback is checked but no setback values are set. "
+                "Enter values manually or click Fetch Zoning.", error=True
+            )
+            return
+
         self._set_status("Creating property lines in Revit...", busy=True)
         self.btn_create.IsEnabled = False
 
@@ -699,13 +1001,35 @@ class PropertyLineDialog(Window):
             count = create_property_lines_in_revit(
                 doc, coords, elevation_ft, line_cat, origin_mode
             )
-            self._set_status(
-                "Done! Created {} property line segment(s) for: {}".format(
-                    count, self._selected_parcel.display_address
-                ),
-                success=True
-            )
             logger.info("Property lines created: {} segments".format(count))
+
+            setback_count = 0
+            if draw_setback and setback_ft:
+                try:
+                    setback_count = create_setback_lines_in_revit(
+                        doc, coords, setback_ft, elevation_ft, origin_mode
+                    )
+                    logger.info("Setback envelope created: {} segments ({} ft)".format(
+                        setback_count, setback_ft))
+                except Exception as sb_ex:
+                    logger.warning("Setback creation failed: {}".format(sb_ex))
+                    self._set_status(
+                        "Property lines created ({} segs) but setback failed: {}".format(
+                            count, sb_ex), error=True
+                    )
+                    return
+
+            if setback_count:
+                msg = ("Done! {} property line seg(s) + {} setback seg(s) "
+                       "({:.1f} ft inset) for: {}".format(
+                           count, setback_count, setback_ft,
+                           self._selected_parcel.display_address))
+            else:
+                msg = "Done! Created {} property line segment(s) for: {}".format(
+                    count, self._selected_parcel.display_address)
+
+            self._set_status(msg, success=True)
+
         except Exception as ex:
             self._set_status("Error creating lines: {}".format(ex), error=True)
             logger.error("Property line creation failed: {}".format(traceback.format_exc()))
