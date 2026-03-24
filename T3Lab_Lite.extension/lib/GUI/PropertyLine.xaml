@@ -331,7 +331,7 @@
                             <TextBlock x:Name="txt_detail_flood" Foreground="#CCC" Margin="0,0,0,10"/>
                         </StackPanel>
 
-                        <!-- Full-width bottom row: Legal Description + Land Use -->
+                        <!-- Full-width bottom row: Legal Description + Land Use + Map button -->
                         <StackPanel Grid.Column="0" Grid.ColumnSpan="2" Margin="0,130,0,0">
                             <TextBlock Text="Legal Description" Style="{StaticResource FieldLabel}"/>
                             <TextBlock x:Name="txt_detail_legal"
@@ -339,7 +339,14 @@
                                        TextWrapping="Wrap" FontSize="11"/>
 
                             <TextBlock Text="Land Use" Style="{StaticResource FieldLabel}"/>
-                            <TextBlock x:Name="txt_detail_land_use" Foreground="#CCC" Margin="0,0,0,0"/>
+                            <TextBlock x:Name="txt_detail_land_use" Foreground="#CCC" Margin="0,0,0,12"/>
+
+                            <Button x:Name="btn_download_map"
+                                    Content="🗺  Download Parcel Map (OpenStreetMap)"
+                                    HorizontalAlignment="Left"
+                                    Style="{StaticResource PrimaryBtn}"
+                                    Click="btn_download_map_Click"
+                                    ToolTip="Fetches OSM map tiles, overlays the parcel boundary in red, and opens the PNG."/>
                         </StackPanel>
                     </Grid>
                 </GroupBox>

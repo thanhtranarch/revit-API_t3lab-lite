@@ -29,8 +29,13 @@ clr.AddReference("System")
 clr.AddReference("PresentationFramework")
 clr.AddReference("PresentationCore")
 clr.AddReference("WindowsBase")
+clr.AddReference("System.Drawing")   # bitmap / graphics for parcel map
 
 import System
+import System.IO as IO
+import System.Drawing as Drawing
+import System.Drawing.Imaging as Imaging
+import System.Diagnostics as Diagnostics
 from System import Uri, Action
 from System.Collections.ObjectModel import ObservableCollection
 from System.Windows import Window, Visibility, Application
@@ -638,6 +643,166 @@ def get_polygon_coords(geometry):
     return []
 
 
+# ╔═╗╔═╗╦═╗╔═╗╔═╗╦    ╔╦╗╔═╗╔═╗
+# ╠═╝╠═╣╠╦╝║  ║╣ ║    ║║║╠═╣╠═╝
+# ╩  ╩ ╩╩╚═╚═╝╚═╝╩═╝  ╩ ╩╩ ╩╩   PARCEL MAP
+# ==================================================
+
+# OSM tile server — free, no API key, requires User-Agent header
+_OSM_TILE_URL   = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+_OSM_USER_AGENT = "T3Lab-PropertyLine-Tool/1.0 (pyRevit add-in; contact t3lab)"
+_TILE_SIZE      = 256   # pixels per OSM tile
+
+
+def _latlon_to_tile_float(lat, lon, zoom):
+    """Return fractional OSM tile (x, y) for the given lat/lon at *zoom*."""
+    n   = 2.0 ** zoom
+    tx  = (lon + 180.0) / 360.0 * n
+    lat_r = math.radians(lat)
+    ty  = (1.0 - math.log(math.tan(lat_r) + 1.0 / math.cos(lat_r)) / math.pi) / 2.0 * n
+    return tx, ty
+
+
+def _choose_zoom(area_sqft):
+    """Pick an OSM zoom level appropriate for the parcel area."""
+    if   area_sqft <   5_000: return 20
+    elif area_sqft <  20_000: return 19
+    elif area_sqft < 100_000: return 18
+    elif area_sqft < 500_000: return 17
+    else:                     return 16
+
+
+def generate_parcel_map(coordinates, output_path, area_sqft=0):
+    """
+    Build a PNG file showing the parcel boundary overlaid on an OpenStreetMap
+    base map.
+
+    Parameters
+    ----------
+    coordinates : list of [lon, lat]
+        Outer-ring polygon from the Lightbox API / parcel data.
+    output_path : str
+        Full path where the .png should be written.
+    area_sqft : float
+        Used to select an appropriate zoom level.
+
+    Returns
+    -------
+    str
+        *output_path* on success.  Raises on failure.
+    """
+    if not coordinates or len(coordinates) < 3:
+        raise ValueError("Need at least 3 coordinate pairs to draw a parcel map")
+
+    lats = [c[1] for c in coordinates]
+    lons = [c[0] for c in coordinates]
+
+    zoom = _choose_zoom(area_sqft)
+
+    # ── Compute the tile bounding box with 1-tile padding ────────────────────
+    tx_min_f, ty_min_f = _latlon_to_tile_float(max(lats), min(lons), zoom)
+    tx_max_f, ty_max_f = _latlon_to_tile_float(min(lats), max(lons), zoom)
+
+    PAD = 1
+    tx0 = int(tx_min_f) - PAD
+    ty0 = int(ty_min_f) - PAD
+    tx1 = int(tx_max_f) + PAD + 1
+    ty1 = int(ty_max_f) + PAD + 1
+
+    # Cap at 5×5 so the image stays reasonable
+    if tx1 - tx0 > 5:
+        ctr = int((tx_min_f + tx_max_f) / 2)
+        tx0, tx1 = ctr - 2, ctr + 3
+    if ty1 - ty0 > 5:
+        ctr = int((ty_min_f + ty_max_f) / 2)
+        ty0, ty1 = ctr - 2, ctr + 3
+
+    n_cols = tx1 - tx0
+    n_rows = ty1 - ty0
+    canvas_w = n_cols * _TILE_SIZE
+    canvas_h = n_rows * _TILE_SIZE
+
+    canvas = Drawing.Bitmap(canvas_w, canvas_h)
+    g      = Drawing.Graphics.FromImage(canvas)
+    g.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias
+    g.Clear(Drawing.Color.FromArgb(220, 220, 220))   # fallback colour
+
+    # ── Fetch and blit OSM tiles ─────────────────────────────────────────────
+    # Trust the OSM server cert (Revit environment may lack root CA store)
+    try:
+        import System.Net as Net
+        Net.ServicePointManager.ServerCertificateValidationCallback = \
+            System.Net.Security.RemoteCertificateValidationCallback(lambda *a: True)
+    except Exception:
+        pass
+
+    headers = {"User-Agent": _OSM_USER_AGENT}
+    for tx in range(tx0, tx1):
+        for ty in range(ty0, ty1):
+            url = "https://tile.openstreetmap.org/{}/{}/{}.png".format(zoom, tx, ty)
+            try:
+                status, body = http_get(url, headers)
+                if status == 200 and body:
+                    raw = body if isinstance(body, (bytes, bytearray)) else body.encode('latin-1')
+                    ms = IO.MemoryStream(System.Array[System.Byte](bytearray(raw)))
+                    tile_bmp = Drawing.Bitmap.FromStream(ms)
+                    g.DrawImage(tile_bmp,
+                                (tx - tx0) * _TILE_SIZE,
+                                (ty - ty0) * _TILE_SIZE)
+                    tile_bmp.Dispose()
+            except Exception as ex:
+                logger.debug("Tile {}/{}/{} skipped: {}".format(zoom, tx, ty, ex))
+
+    # ── Helper: lat/lon → canvas pixel ───────────────────────────────────────
+    def _to_px(lat, lon):
+        tf_x, tf_y = _latlon_to_tile_float(lat, lon, zoom)
+        px = int((tf_x - tx0) * _TILE_SIZE)
+        py = int((tf_y - ty0) * _TILE_SIZE)
+        return Drawing.Point(px, py)
+
+    pts = [_to_px(c[1], c[0]) for c in coordinates]
+    # Remove closing duplicate
+    if pts and pts[0].X == pts[-1].X and pts[0].Y == pts[-1].Y:
+        pts = pts[:-1]
+
+    if len(pts) >= 3:
+        pts_arr = System.Array[Drawing.Point](pts)
+
+        # Semi-transparent red fill
+        fill = Drawing.SolidBrush(Drawing.Color.FromArgb(70, 220, 30, 30))
+        g.FillPolygon(fill, pts_arr)
+        fill.Dispose()
+
+        # Bold red outline
+        pen = Drawing.Pen(Drawing.Color.FromArgb(230, 200, 0, 0), 3)
+        g.DrawPolygon(pen, pts_arr)
+        pen.Dispose()
+
+        # Yellow centroid dot
+        cx = sum(p.X for p in pts) // len(pts)
+        cy = sum(p.Y for p in pts) // len(pts)
+        dot_brush = Drawing.SolidBrush(Drawing.Color.Yellow)
+        g.FillEllipse(dot_brush, cx - 6, cy - 6, 12, 12)
+        dot_brush.Dispose()
+
+    # ── Attribution label (OSM requires it) ──────────────────────────────────
+    try:
+        font  = Drawing.Font("Arial", 9)
+        brush = Drawing.SolidBrush(Drawing.Color.FromArgb(180, 0, 0, 0))
+        label = u"© OpenStreetMap contributors"
+        g.DrawString(label, font, brush,
+                     Drawing.PointF(4, canvas_h - 18))
+        font.Dispose()
+        brush.Dispose()
+    except Exception:
+        pass
+
+    g.Dispose()
+    canvas.Save(output_path, Imaging.ImageFormat.Png)
+    canvas.Dispose()
+    return output_path
+
+
 # ╔═╗╔═╗╔╦╗╔╗ ╔═╗╔═╗╦╔═  ╔═╗╔═╗╦
 # ╚═╗║╣  ║ ╠╩╗╠═╣║  ╠╩╗  ╠═╣╠═╝║
 # ╚═╝╚═╝ ╩ ╚═╝╩ ╩╚═╝╩ ╩  ╩ ╩╩  ╩ SETBACK / ZONING
@@ -1214,6 +1379,57 @@ class PropertyLineDialog(forms.WPFWindow):
             self._set_status("Project Data copied to clipboard.", success=True)
         except Exception as ex:
             self._set_status("Copy failed: {}".format(ex), error=True)
+
+    # ───────────────────────────────────── PARCEL MAP
+
+    def btn_download_map_Click(self, sender, e):
+        if not self._selected_parcel:
+            return
+
+        coords = get_polygon_coords(self._selected_parcel.geometry)
+        if not coords:
+            self._set_status("No geometry available for this parcel.", error=True)
+            return
+
+        self._set_status("Downloading parcel map tiles...", busy=True)
+        self.btn_download_map.IsEnabled = False
+
+        area     = self._selected_parcel.area_sqft_raw or 0
+        safe_apn = self._selected_parcel.parcel_id.replace("/", "_").replace("\\", "_")
+
+        def map_thread():
+            try:
+                import tempfile
+                out = os.path.join(tempfile.gettempdir(),
+                                   "parcel_map_{}.png".format(safe_apn))
+                generate_parcel_map(coords, out, area_sqft=area)
+                self.Dispatcher.Invoke(
+                    DispatcherPriority.Normal,
+                    Action(lambda: self._on_map_complete(out))
+                )
+            except Exception as ex:
+                err = str(ex)
+                self.Dispatcher.Invoke(
+                    DispatcherPriority.Normal,
+                    Action(lambda: self._on_map_error(err))
+                )
+
+        t = threading.Thread(target=map_thread)
+        t.daemon = True
+        t.start()
+
+    def _on_map_complete(self, path):
+        self.btn_download_map.IsEnabled = True
+        self._set_status(u"Parcel map saved: {}".format(path), success=True)
+        try:
+            Diagnostics.Process.Start(path)   # open in default image viewer
+        except Exception:
+            pass
+
+    def _on_map_error(self, error_msg):
+        self.btn_download_map.IsEnabled = True
+        self._set_status("Map generation failed: {}".format(error_msg), error=True)
+        logger.error("Parcel map error: {}".format(error_msg))
 
     def _get_min_setback(self):
         """Return the smallest positive value among the three setback fields, or None."""
