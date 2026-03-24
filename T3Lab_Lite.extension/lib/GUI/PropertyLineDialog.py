@@ -66,15 +66,16 @@ logger = script.get_logger()
 CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".t3lab")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "property_line_config.json")
 
-# Lightbox API
-LIGHTBOX_BASE = "https://api.lightboxre.com"
-LIGHTBOX_PARCELS_ENDPOINT = "/v1/parcels/us"
+# Lightbox API  (base URL includes version prefix per the OpenAPI spec)
+LIGHTBOX_BASE              = "https://api.lightboxre.com"
+LIGHTBOX_API_VERSION       = "/v1"
+# Address-based parcel search  →  GET /v1/parcels/address?text={address}
+LIGHTBOX_ADDRESS_ENDPOINT  = "/v1/parcels/address"
+# ID/FIPS-based access  →  GET /v1/parcels/us/{id}
+LIGHTBOX_PARCELS_ENDPOINT  = "/v1/parcels/us"
 
 # Earth radius in feet (for coordinate conversion)
 EARTH_RADIUS_FT = 20902231.0
-
-# Zoning / setback endpoint  (appended as: LIGHTBOX_BASE + LIGHTBOX_PARCELS_ENDPOINT + "/{id}/zoning")
-LIGHTBOX_ZONING_PATH = "/zoning"
 
 
 # ╔═╗╔═╗╔╗╔╔═╗╦╔═╗
@@ -170,6 +171,45 @@ def format_area(sqft):
     return "{:,.0f} sqft".format(sqft)
 
 
+def parse_wkt_polygon(wkt):
+    """
+    Parse a WKT geometry string and return the outer-ring coordinate list
+    as [[lon, lat], ...].
+
+    Supports POLYGON (...) and MULTIPOLYGON (...).
+    Returns [] if the geometry cannot be parsed or is not a polygon.
+    """
+    if not wkt:
+        return []
+    wkt = wkt.strip()
+    upper = wkt.upper()
+
+    try:
+        if upper.startswith("MULTIPOLYGON"):
+            # MULTIPOLYGON (((lon lat,...)),((lon lat,...)))
+            # Grab the first ring of the first polygon
+            start = wkt.index("(((") + 3
+            end   = wkt.index(")))", start)
+            ring_str = wkt[start:end]
+        elif upper.startswith("POLYGON"):
+            # POLYGON ((lon lat,...))
+            start = wkt.index("((") + 2
+            end   = wkt.index("))", start)
+            ring_str = wkt[start:end]
+        else:
+            return []
+
+        coords = []
+        for pair in ring_str.split(","):
+            parts = pair.strip().split()
+            if len(parts) >= 2:
+                coords.append([float(parts[0]), float(parts[1])])
+        return coords
+
+    except (ValueError, IndexError):
+        return []
+
+
 # ╔═╗╔═╗╦  ╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
 # ╚═╗║╣ ║  ║╣ ║ ║║ ║║║║╚═╗
 # ╚═╝╚═╝╩═╝╚═╝╩ ╩╚═╝╝╚╝╚═╝ LIGHTBOX API
@@ -253,72 +293,214 @@ def search_parcels(api_key, address, limit=10):
     Header: x-api-key
     Returns list of parcel dicts: id, display_address, parcel_id,
                                    area_sqft, geometry, county, state
+    Raises ValueError on API error.
     """
-    headers = {
-        "x-api-key": api_key,
-        "Accept": "application/json",
-    }
+    headers = {"x-api-key": api_key, "Accept": "application/json"}
 
-    # Build candidate URLs — keep comma literal (safe=',') because some
-    # API gateways reject %2C in free-text search parameters.
-    enc      = _url_quote(address, safe=',')
-    enc_full = _url_quote(address, safe='')
+    # ── Auto-correct the address before sending ──────────────────────────────
+    corrected, was_changed = normalize_address(address)
+    if was_changed:
+        logger.info("Address normalised: '{}' → '{}'".format(address, corrected))
 
-    candidates = [
-        # Correct Lightbox endpoint (returned 400 when request was wrong,
-        # meaning the route exists — unlike base path which gives 500 RouteFailed)
-        "{}{}?text={}&limit={}".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, enc, limit),
-        # Same but fully-encoded address (in case comma causes issues)
-        "{}{}?text={}&limit={}".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, enc_full, limit),
-        # Some Lightbox tiers expose /search sub-path
-        "{}{}/search?text={}&limit={}".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, enc, limit),
-    ]
+    # Per the OpenAPI spec the Address endpoint only accepts `text` (no limit).
+    # Endpoint: GET /v1/parcels/address?text={address}
+    enc = _url_quote(corrected, safe=',')
+    url = "{}{}?text={}".format(LIGHTBOX_BASE, LIGHTBOX_ADDRESS_ENDPOINT, enc)
 
-    last_status, last_body, last_url = None, "", ""
+    logger.debug("Lightbox search URL: {}".format(url))
+    try:
+        status, body = http_get(url, headers)
+    except Exception as ex:
+        raise ValueError("Network error contacting Lightbox API: {}".format(ex))
 
-    for url in candidates:
-        logger.debug("Lightbox search attempt: {}".format(url))
-        try:
-            status, body = http_get(url, headers)
-        except Exception as ex:
-            logger.warning("HTTP error on {}: {}".format(url, ex))
-            continue
+    if isinstance(body, bytes):
+        body = body.decode('utf-8', errors='replace')
 
-        if isinstance(body, bytes):
-            body = body.decode('utf-8', errors='replace')
+    if status == 200:
+        parcels = _parse_search_response(body, url)
+        # Attach normalisation hint so caller can surface it in the UI
+        if was_changed:
+            for p in parcels:
+                p["_corrected_from"] = address
+        return parcels
 
-        if status == 200:
-            logger.debug("Lightbox 200 OK from: {}".format(url))
-            return _parse_search_response(body, url)
-
-        last_status, last_body, last_url = status, body, url
-        logger.warning("Lightbox {} on {}: {}".format(status, url, body[:200]))
-
-        # Don't try further if we hit auth/rate-limit errors
-        if status in (401, 403, 429):
-            break
-
+    # ── Non-200: build an informative error ──────────────────────────────────
+    hint = ""
+    if status == 400:
+        hint = (" Tip: include full address with state + ZIP, "
+                "e.g. '20521 Paisley Ln, Huntington Beach, CA 92646'.")
+    elif status in (401, 403):
+        hint = " Check that your API key is valid and has Parcels access."
+    elif status == 429:
+        hint = " Rate limit hit — wait a moment and try again."
     raise ValueError(
-        "Lightbox API error {} (URL: {}): {}".format(last_status, last_url, last_body[:300])
+        "Lightbox API error {} (URL: {}): {}{}".format(
+            status, url, body[:300], hint)
     )
 
 
+# ── Address normalisation / AI fuzzy correction ──────────────────────────────
+
+_STATE_MAP = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+    "california": "CA", "colorado": "CO", "connecticut": "CT",
+    "delaware": "DE", "florida": "FL", "georgia": "GA", "hawaii": "HI",
+    "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA",
+    "kansas": "KS", "kentucky": "KY", "louisiana": "LA", "maine": "ME",
+    "maryland": "MD", "massachusetts": "MA", "michigan": "MI",
+    "minnesota": "MN", "mississippi": "MS", "missouri": "MO",
+    "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM",
+    "new york": "NY", "north carolina": "NC", "north dakota": "ND",
+    "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+    "south dakota": "SD", "tennessee": "TN", "texas": "TX",
+    "utah": "UT", "vermont": "VT", "virginia": "VA",
+    "washington": "WA", "west virginia": "WV", "wisconsin": "WI",
+    "wyoming": "WY", "district of columbia": "DC",
+}
+_STATE_CODES = set(_STATE_MAP.values())
+
+_STREET_TYPES = {
+    "st": "St", "str": "St", "street": "St",
+    "ave": "Ave", "av": "Ave", "avenue": "Ave",
+    "blvd": "Blvd", "boulevard": "Blvd",
+    "rd": "Rd", "road": "Rd",
+    "dr": "Dr", "drive": "Dr",
+    "ln": "Ln", "lane": "Ln",
+    "ct": "Ct", "court": "Ct",
+    "pl": "Pl", "place": "Pl",
+    "cir": "Cir", "circle": "Cir",
+    "way": "Way",
+    "ter": "Ter", "terrace": "Ter",
+    "pkwy": "Pkwy", "parkway": "Pkwy",
+    "hwy": "Hwy", "highway": "Hwy",
+    "trl": "Trl", "trail": "Trl",
+    "fwy": "Fwy", "freeway": "Fwy",
+    "expy": "Expy", "expressway": "Expy",
+}
+
+
+def _levenshtein(a, b):
+    """Edit distance between two strings (pure Python)."""
+    if a == b: return 0
+    if not a:  return len(b)
+    if not b:  return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        curr = [i + 1]
+        for j, cb in enumerate(b):
+            curr.append(min(prev[j + 1] + 1,
+                            curr[j]      + 1,
+                            prev[j]      + (0 if ca == cb else 1)))
+        prev = curr
+    return prev[-1]
+
+
+def normalize_address(raw):
+    """
+    Normalise a US address string using fuzzy correction:
+      1. Collapse whitespace
+      2. Expand full state names → 2-letter codes (fuzzy match ≤ 2 edits)
+      3. Normalise street-type abbreviations (fuzzy match ≤ 1 edit)
+      4. Correct common 2-word state names (e.g. 'New Yark' → 'NY')
+
+    Returns (normalised_address, was_changed).
+    """
+    text = " ".join(raw.split())
+    original = text
+
+    parts = [p.strip() for p in text.split(",")]
+    new_parts = []
+
+    for part in parts:
+        words = part.split()
+        new_words = []
+        i = 0
+        while i < len(words):
+            w  = words[i]
+            wl = w.lower()
+
+            # ── Two-word state match (e.g. "New York", "New Yark") ─────────
+            if i + 1 < len(words):
+                two_raw  = wl + " " + words[i + 1].lower()
+                # Exact
+                if two_raw in _STATE_MAP:
+                    new_words.append(_STATE_MAP[two_raw])
+                    i += 2
+                    continue
+                # Fuzzy: try all two-word state keys
+                best_key, best_d = None, 3
+                for key in _STATE_MAP:
+                    if " " not in key:
+                        continue
+                    d = _levenshtein(two_raw, key)
+                    if d < best_d:
+                        best_d, best_key = d, key
+                if best_key is not None:
+                    new_words.append(_STATE_MAP[best_key])
+                    i += 2
+                    continue
+
+            # ── Already a valid 2-letter state code ────────────────────────
+            if w.upper() in _STATE_CODES:
+                new_words.append(w.upper())
+                i += 1
+                continue
+
+            # ── Single-word state name (fuzzy ≤ 2 edits, min length 4) ────
+            if len(wl) >= 4:
+                best_key, best_d = None, 3
+                for key in _STATE_MAP:
+                    if " " in key:
+                        continue
+                    d = _levenshtein(wl, key)
+                    if d < best_d:
+                        best_d, best_key = d, key
+                if best_key is not None:
+                    new_words.append(_STATE_MAP[best_key])
+                    i += 1
+                    continue
+
+            # ── Street-type exact match ────────────────────────────────────
+            if wl in _STREET_TYPES:
+                new_words.append(_STREET_TYPES[wl])
+                i += 1
+                continue
+
+            # ── Street-type fuzzy (≤ 1 edit only) ─────────────────────────
+            if 2 <= len(wl) <= 9:
+                best_k, best_d = None, 2
+                for k in _STREET_TYPES:
+                    d = _levenshtein(wl, k)
+                    if d < best_d:
+                        best_d, best_k = d, k
+                if best_k is not None:
+                    new_words.append(_STREET_TYPES[best_k])
+                    i += 1
+                    continue
+
+            new_words.append(w)
+            i += 1
+
+        new_parts.append(" ".join(new_words))
+
+    result = ", ".join(new_parts)
+    return result, result != original
+
+
 def _parse_search_response(body, url=""):
-    """Parse a 200 Lightbox search response body → list of parcel dicts."""
+    """
+    Parse a 200 response from GET /v1/parcels/address.
+    Schema: { "parcels": [...], "$ref": "...", "$metadata": {...} }
+    """
     try:
         data = json.loads(body)
     except Exception as ex:
         raise ValueError("Invalid JSON from Lightbox ({}): {}".format(url, ex))
 
-    # Lightbox may wrap results under several key names
-    raw_list = (data.get("parcels") or
-                data.get("data") or
-                data.get("results") or
-                data.get("items") or
-                [])
-
-    # If the response itself is a list, use it directly
-    if isinstance(data, list):
+    raw_list = data.get("parcels", [])
+    if not raw_list and isinstance(data, list):
         raw_list = data
 
     parcels = []
@@ -329,67 +511,66 @@ def _parse_search_response(body, url=""):
                 parcels.append(parcel)
         except Exception as ex:
             logger.warning("Skipping parcel parse error: {}".format(ex))
-
     return parcels
 
 
 def _parse_parcel(item):
-    """Parse a raw Lightbox parcel response item into a clean dict."""
-    # Lightbox response shape (v1):
-    # {
-    #   "id": "...",
-    #   "attributes": {
-    #     "parcelId": "...",
-    #     "address": { "oneLine": "...", ... },
-    #     "areaAcres": 0.25,
-    #     "countyName": "...",
-    #     "stateFips": "06",
-    #     "stateCode": "CA"
-    #   },
-    #   "geometry": {
-    #     "type": "Polygon" | "MultiPolygon",
-    #     "coordinates": [[[lon, lat], ...]]
-    #   }
-    # }
-    attrs = item.get("attributes", item)  # handle both wrapped and flat
+    """
+    Parse one parcel from the Lightbox /v1/parcels/address response.
 
-    # Try multiple field names used across API versions
-    parcel_id = (attrs.get("parcelId") or
-                 attrs.get("parcelnumb") or
-                 attrs.get("parcel_id") or
-                 item.get("id", "N/A"))
+    Key fields (from OpenAPI spec):
+      item.id                              → LightBox ID
+      item.parcelApn                       → APN
+      item.fips                            → FIPS code
+      item.location.streetAddress          → street
+      item.location.locality               → city
+      item.location.regionCode             → state (2-letter)
+      item.location.postalCode             → ZIP
+      item.location.geometry.wkt           → WKT polygon string
+      item.county                          → county name
+      item.derived.calculatedLotArea       → area (sqm by default)
+      item.$metadata.units.area            → "sqm" or "sqft"
+    """
+    item_id   = item.get("id", "")
+    parcel_apn = item.get("parcelApn", item_id or "N/A")
 
-    address_raw = attrs.get("address", {})
-    if isinstance(address_raw, dict):
-        display_address = (address_raw.get("oneLine") or
-                           address_raw.get("line1", "") + ", " +
-                           address_raw.get("city", ""))
+    # Address parts
+    location = item.get("location") or {}
+    street   = location.get("streetAddress", "")
+    city     = location.get("locality", "")
+    state    = location.get("regionCode", "")
+    zipcode  = location.get("postalCode", "")
+    display_parts = [p for p in [street, city, state, zipcode] if p]
+    display_address = ", ".join(display_parts) if display_parts else "Unknown"
+
+    # WKT geometry → internal dict with pre-parsed coords
+    loc_geom = location.get("geometry") or {}
+    wkt      = loc_geom.get("wkt", "")
+    coords   = parse_wkt_polygon(wkt)
+    if not coords:
+        return None   # no valid polygon → skip this result
+
+    geometry = {"type": "Polygon", "coordinates": [coords]}
+
+    # Area
+    derived  = item.get("derived") or {}
+    area_raw = derived.get("calculatedLotArea")
+    metadata = item.get("$metadata") or {}
+    units    = (metadata.get("units") or {}).get("area", "sqm")
+    if area_raw:
+        try:
+            area_sqft = float(area_raw) * (10.7639 if units == "sqm" else 1.0)
+        except (TypeError, ValueError):
+            area_sqft = compute_area_sqft(coords)
     else:
-        display_address = str(address_raw)
+        area_sqft = compute_area_sqft(coords)
 
-    if not display_address.strip():
-        display_address = attrs.get("siteAddress", attrs.get("address1", "Unknown"))
-
-    area_acres = (attrs.get("areaAcres") or
-                  attrs.get("area_ac") or
-                  attrs.get("calc_acreage") or 0.0)
-    try:
-        area_acres = float(area_acres)
-    except (TypeError, ValueError):
-        area_acres = 0.0
-    area_sqft = area_acres * 43560.0
-
-    geometry = item.get("geometry") or attrs.get("geometry")
-    if not geometry:
-        return None
-
-    county = attrs.get("countyName", attrs.get("county", ""))
-    state = attrs.get("stateCode", attrs.get("state2", ""))
+    county = item.get("county", "")
 
     return {
-        "id":              item.get("id", parcel_id),
-        "parcel_id":       parcel_id,
-        "display_address": display_address.strip(", "),
+        "id":              item_id or parcel_apn,
+        "parcel_id":       parcel_apn,
+        "display_address": display_address,
         "area_sqft":       "{:,.0f}".format(area_sqft) if area_sqft else "N/A",
         "area_sqft_raw":   area_sqft,
         "geometry":        geometry,
@@ -400,18 +581,15 @@ def _parse_parcel(item):
 
 def get_polygon_coords(geometry):
     """
-    Extract the outer ring coordinates from a GeoJSON Polygon or MultiPolygon.
-    Returns list of [lon, lat] pairs.
+    Extract outer-ring [lon, lat] pairs from our internal geometry dict.
+    Supports both Polygon and MultiPolygon types.
     """
     geo_type = geometry.get("type", "")
-    coords = geometry.get("coordinates", [])
+    coords   = geometry.get("coordinates", [])
 
     if geo_type == "Polygon":
-        # coords = [ [[lon,lat],...], [[hole...]] ]
         return coords[0] if coords else []
     elif geo_type == "MultiPolygon":
-        # coords = [ [[[lon,lat],...]], ... ]
-        # Return the ring with the most points (largest polygon)
         best = []
         for poly in coords:
             if poly and len(poly[0]) > len(best):
@@ -895,7 +1073,7 @@ class PropertyLineDialog(forms.WPFWindow):
         self._parcels = parcels
 
         if not parcels:
-            self._set_status("No parcels found for this address. Try a more specific address.")
+            self._set_status("No parcels found. Try a more specific address (include state + ZIP).")
             self.lv_parcels.Visibility = Visibility.Collapsed
             self.border_no_results.Visibility = Visibility.Visible
             return
@@ -908,7 +1086,14 @@ class PropertyLineDialog(forms.WPFWindow):
         self.lv_parcels.Visibility = Visibility.Visible
         self.border_no_results.Visibility = Visibility.Collapsed
 
-        self._set_status("Found {} parcel(s). Select one to continue.".format(len(parcels)))
+        # Surface auto-correction hint if address was normalised
+        corrected_from = parcels[0].get("_corrected_from") if parcels else None
+        if corrected_from:
+            msg = (u"Found {} parcel(s). \u2728 Address auto-corrected: '{}' \u2192 '{}'".format(
+                len(parcels), corrected_from, self.txt_address.Text))
+        else:
+            msg = "Found {} parcel(s). Select one to continue.".format(len(parcels))
+        self._set_status(msg)
 
     def _on_search_error(self, error_msg):
         self.btn_search.IsEnabled = True
