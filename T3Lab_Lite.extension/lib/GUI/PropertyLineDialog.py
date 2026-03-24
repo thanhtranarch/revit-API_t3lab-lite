@@ -567,15 +567,55 @@ def _parse_parcel(item):
 
     county = item.get("county", "")
 
+    # ── Assessment / legal / zoning ──────────────────────────────────────────
+    assessment = item.get("assessment") or {}
+
+    # Zoning code  (e.g. "R-L", "R1")
+    zoning_code = ""
+    zoning_obj  = assessment.get("zoning") or {}
+    if isinstance(zoning_obj, dict):
+        zoning_code = zoning_obj.get("assessment", "")
+    elif isinstance(zoning_obj, str):
+        zoning_code = zoning_obj
+
+    # Legal description  (e.g. "N-TRACT 6756, BLOCK: LOT 60")
+    legal_description = (assessment.get("legalDescription") or
+                         assessment.get("legal_description") or
+                         assessment.get("legalDesc") or "")
+
+    # Flood zone  (e.g. "X", "AE")
+    flood_zone = (assessment.get("floodZone") or
+                  assessment.get("flood_zone") or
+                  item.get("floodZone") or "")
+
+    # Land use code  (e.g. "RESIDENTIAL", "SFR")
+    land_use = (item.get("landUse") or
+                assessment.get("landUseCode") or
+                assessment.get("landUse") or "")
+
+    # Lot dimensions (some tiers return width / depth)
+    lot_width = ""
+    lot_depth = ""
+    lot_dims  = assessment.get("lotDimensions") or assessment.get("lot") or {}
+    if isinstance(lot_dims, dict):
+        lot_width = str(lot_dims.get("width") or "")
+        lot_depth = str(lot_dims.get("depth") or "")
+
     return {
-        "id":              item_id or parcel_apn,
-        "parcel_id":       parcel_apn,
-        "display_address": display_address,
-        "area_sqft":       "{:,.0f}".format(area_sqft) if area_sqft else "N/A",
-        "area_sqft_raw":   area_sqft,
-        "geometry":        geometry,
-        "county":          county,
-        "state":           state,
+        "id":               item_id or parcel_apn,
+        "parcel_id":        parcel_apn,
+        "display_address":  display_address,
+        "area_sqft":        "{:,.0f}".format(area_sqft) if area_sqft else "N/A",
+        "area_sqft_raw":    area_sqft,
+        "geometry":         geometry,
+        "county":           county,
+        "state":            state,
+        "zoning_code":      zoning_code,
+        "legal_description": legal_description,
+        "flood_zone":       flood_zone,
+        "land_use":         land_use,
+        "lot_width":        lot_width,
+        "lot_depth":        lot_depth,
     }
 
 
@@ -603,58 +643,19 @@ def get_polygon_coords(geometry):
 # ╚═╝╚═╝ ╩ ╚═╝╩ ╩╚═╝╩ ╩  ╩ ╩╩  ╩ SETBACK / ZONING
 # ==================================================
 
-def get_zoning_data(api_key, parcel_id):
+def get_zoning_from_parcel(parcel_item):
     """
-    Query Lightbox zoning endpoint for a parcel.
+    Extract zoning code from an already-fetched ParcelItem.
 
-    GET /v1/parcels/us/{parcel_id}/zoning
-    Header: x-api-key
+    The basic Lightbox tier embeds the municipal zoning code in the parcel
+    response under assessment.zoning.assessment.  No separate API call is
+    needed (and /v1/parcels/us/{id}/zoning is not available on basic tier).
 
-    Returns dict:  {"front_ft": float|None, "rear_ft": float|None, "side_ft": float|None}
-    Raises ValueError on non-200 response.
+    Returns dict: {"zoning_code": str}
+    Setback distances (front/rear/side) are NOT provided by the basic API
+    and must be entered manually by the user.
     """
-    url = "{}{}/{}/zoning".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, parcel_id)
-    headers = {"x-api-key": api_key, "Accept": "application/json"}
-
-    status, body = http_get(url, headers)
-    if isinstance(body, bytes):
-        body = body.decode("utf-8", errors="replace")
-    if status != 200:
-        raise ValueError("Zoning API error {}: {}".format(status, body[:200]))
-
-    return _parse_zoning(json.loads(body))
-
-
-def _parse_zoning(data):
-    """
-    Parse Lightbox zoning response into a clean setback dict (feet).
-    Handles nested and flat structures.
-    """
-    zone = (data.get("zoning") or
-            data.get("data") or
-            data.get("attributes") or
-            data)
-    if isinstance(zone, list):
-        zone = zone[0] if zone else {}
-
-    def _to_ft(val):
-        if val is None:
-            return None
-        try:
-            v = float(val)
-            return v if 0 < v <= 500 else None
-        except (TypeError, ValueError):
-            return None
-
-    front = _to_ft(zone.get("frontSetback") or zone.get("front_setback") or
-                   zone.get("front") or zone.get("setback_front"))
-    rear  = _to_ft(zone.get("rearSetback")  or zone.get("rear_setback")  or
-                   zone.get("rear")  or zone.get("setback_rear"))
-    side  = _to_ft(zone.get("sideSetback")  or zone.get("side_setback")  or
-                   zone.get("side")  or zone.get("setback_side") or
-                   zone.get("sideYardSetback"))
-
-    return {"front_ft": front, "rear_ft": rear, "side_ft": side}
+    return {"zoning_code": parcel_item.zoning_code or ""}
 
 
 # ── polygon math (pure Python, no shapely) ───────────────────────────────────
@@ -988,6 +989,12 @@ class ParcelItem(object):
         self.geometry        = data["geometry"]
         self.county          = data["county"]
         self.state           = data["state"]
+        self.zoning_code      = data.get("zoning_code", "")
+        self.legal_description = data.get("legal_description", "")
+        self.flood_zone        = data.get("flood_zone", "")
+        self.land_use          = data.get("land_use", "")
+        self.lot_width         = data.get("lot_width", "")
+        self.lot_depth         = data.get("lot_depth", "")
 
 
 class PropertyLineDialog(forms.WPFWindow):
@@ -1125,85 +1132,88 @@ class PropertyLineDialog(forms.WPFWindow):
     def _show_parcel_details(self, item):
         self.grp_parcel_details.Visibility = Visibility.Visible
 
-        self.txt_detail_id.Text = item.parcel_id or "N/A"
+        self.txt_detail_id.Text      = item.parcel_id or "N/A"
         self.txt_detail_address.Text = item.display_address or "N/A"
-        self.txt_detail_county.Text = item.county or "N/A"
-        self.txt_detail_state.Text = item.state or "N/A"
+        self.txt_detail_county.Text  = item.county or "N/A"
+        self.txt_detail_state.Text   = item.state or "N/A"
 
-        # Area
         raw = item.area_sqft_raw
-        if raw and raw > 0:
-            self.txt_detail_area.Text = format_area(raw)
-        else:
-            self.txt_detail_area.Text = "N/A"
+        self.txt_detail_area.Text = format_area(raw) if raw and raw > 0 else "N/A"
 
-        # Vertex count
         coords = get_polygon_coords(item.geometry)
         self.txt_detail_vertices.Text = "{} vertices".format(len(coords))
+
+        # Extended fields
+        self.txt_detail_zoning.Text       = item.zoning_code       or "N/A"
+        self.txt_detail_legal.Text        = item.legal_description  or "N/A"
+        self.txt_detail_flood.Text        = ("FEMA Zone " + item.flood_zone
+                                             if item.flood_zone else "N/A")
+        self.txt_detail_land_use.Text     = item.land_use           or "N/A"
+
+        # Refresh project-data preview
+        self._refresh_project_data(item)
+
+    def _refresh_project_data(self, item):
+        """Rebuild the formatted Project Data text block."""
+        loc_parts = [p for p in [item.display_address.split(",")[1].strip()
+                                  if "," in item.display_address else "",
+                                  item.state] if p]
+        jurisdiction = item.display_address  # full address as jurisdiction
+
+        lines = [
+            ("JURISDICTION HAVING AUTHORITY", jurisdiction),
+            ("LEGAL DESCRIPTION",             item.legal_description or "—"),
+            ("ASSESSORS PARCEL NO. (APN)",    item.parcel_id or "—"),
+            ("IN FLOOD ZONE (FEMA)",          ("Zone " + item.flood_zone)
+                                              if item.flood_zone else "—"),
+            ("ZONING",                        item.zoning_code or "—"),
+            ("LOT AREA",                      format_area(item.area_sqft_raw)
+                                              if item.area_sqft_raw else "—"),
+            ("LAND USE",                      item.land_use or "—"),
+        ]
+
+        max_key = max(len(k) for k, _ in lines)
+        text_lines = []
+        for key, val in lines:
+            text_lines.append("{:<{w}}  {}".format(key + ":", val, w=max_key + 1))
+
+        self.txt_project_data.Text = "\n".join(text_lines)
+        self.grp_project_data.Visibility = Visibility.Visible
 
     # ───────────────────────────────────── ZONING / SETBACK
 
     def btn_fetch_zoning_Click(self, sender, e):
+        """
+        Read zoning code from the already-fetched parcel data (no API call).
+        The basic Lightbox tier embeds the municipal zoning code in the parcel
+        response; a separate /zoning endpoint is not available at this tier.
+        Setback distances must be entered manually.
+        """
         if not self._selected_parcel:
             return
 
-        api_key = self.txt_api_key.Text.strip()
-        if not api_key:
-            self.txt_zoning_status.Text = "No API key configured."
-            self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 107, 107))
-            return
-
-        self.txt_zoning_status.Text = "Fetching zoning data..."
-        self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 197, 61))
-        self.btn_fetch_zoning.IsEnabled = False
-
-        parcel_id = self._selected_parcel.id
-
-        def zoning_thread():
-            try:
-                zoning = get_zoning_data(api_key, parcel_id)
-                self.Dispatcher.Invoke(
-                    DispatcherPriority.Normal,
-                    Action(lambda: self._on_zoning_complete(zoning))
-                )
-            except Exception as ex:
-                err = str(ex)
-                self.Dispatcher.Invoke(
-                    DispatcherPriority.Normal,
-                    Action(lambda: self._on_zoning_error(err))
-                )
-
-        t = threading.Thread(target=zoning_thread)
-        t.daemon = True
-        t.start()
-
-    def _on_zoning_complete(self, zoning):
-        self.btn_fetch_zoning.IsEnabled = True
-        self._zoning_data = zoning
-
-        parts = []
-        if zoning.get("front_ft") is not None:
-            self.txt_setback_front.Text = "{:.1f}".format(zoning["front_ft"])
-            parts.append("F:{:.0f}ft".format(zoning["front_ft"]))
-        if zoning.get("rear_ft") is not None:
-            self.txt_setback_rear.Text = "{:.1f}".format(zoning["rear_ft"])
-            parts.append("R:{:.0f}ft".format(zoning["rear_ft"]))
-        if zoning.get("side_ft") is not None:
-            self.txt_setback_side.Text = "{:.1f}".format(zoning["side_ft"])
-            parts.append("S:{:.0f}ft".format(zoning["side_ft"]))
-
-        if parts:
-            self.txt_zoning_status.Text = "Zoning loaded: {}".format(" | ".join(parts))
+        code = self._selected_parcel.zoning_code
+        if code:
+            self.txt_zoning_status.Text = (
+                u"Zoning code from parcel data: {}. "
+                u"Enter setback distances manually from your local zoning ordinance.".format(code)
+            )
             self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(78, 201, 176))
         else:
-            self.txt_zoning_status.Text = "No setback data found in zoning response. Enter values manually."
+            self.txt_zoning_status.Text = (
+                u"No zoning code in parcel data. "
+                u"Enter setback values manually from your local zoning ordinance."
+            )
             self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 197, 61))
 
-    def _on_zoning_error(self, error_msg):
-        self.btn_fetch_zoning.IsEnabled = True
-        self.txt_zoning_status.Text = "Zoning fetch failed: {}".format(error_msg)
-        self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 107, 107))
-        logger.warning("Zoning API error: {}".format(error_msg))
+    def btn_copy_project_data_Click(self, sender, e):
+        """Copy the formatted Project Data block to the Windows clipboard."""
+        try:
+            from System.Windows import Clipboard
+            Clipboard.SetText(self.txt_project_data.Text)
+            self._set_status("Project Data copied to clipboard.", success=True)
+        except Exception as ex:
+            self._set_status("Copy failed: {}".format(ex), error=True)
 
     def _get_min_setback(self):
         """Return the smallest positive value among the three setback fields, or None."""
