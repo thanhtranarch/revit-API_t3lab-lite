@@ -45,9 +45,10 @@ try:
 except ImportError:
     HAS_URLLIB2 = False
 
+# CPython / IronPython 3 HTTP
 try:
-    import urllib
     import urllib.request as urllib_request
+    import urllib.parse as urllib_parse
     HAS_URLLIB3 = True
 except ImportError:
     HAS_URLLIB3 = False
@@ -174,10 +175,37 @@ def format_area(sqft):
 # ╚═╝╚═╝╩═╝╚═╝╩ ╩╚═╝╝╚╝╚═╝ LIGHTBOX API
 # ==================================================
 
+def _url_quote(text, safe=''):
+    """
+    URL-encode *text*, compatible with both IronPython 2.x (urllib2.quote)
+    and CPython / IronPython 3.x (urllib.parse.quote).
+    Falls back to a manual encoder if neither is available.
+    """
+    if HAS_URLLIB2:
+        try:
+            if isinstance(text, unicode):          # IronPython 2 unicode type
+                text = text.encode('utf-8')
+        except NameError:
+            pass
+        return urllib2.quote(text, safe=safe)
+    if HAS_URLLIB3:
+        return urllib_parse.quote(text, safe=safe)
+    # Last-resort manual percent-encoding
+    safe_set = set(safe)
+    result = []
+    for ch in text:
+        if ch.isalnum() or ch in '-_.~' or ch in safe_set:
+            result.append(ch)
+        else:
+            result.append('%{:02X}'.format(ord(ch)))
+    return ''.join(result)
+
+
 def http_get(url, headers=None):
     """
-    Perform a GET request using urllib2 (IronPython) or urllib.request (CPython).
-    Returns (status_code, response_text) or raises an exception.
+    Perform a GET request.
+    Returns (status_code, response_body_str).
+    Non-2xx responses are returned as (code, body) — NOT raised.
     """
     headers = headers or {}
 
@@ -186,67 +214,115 @@ def http_get(url, headers=None):
         for k, v in headers.items():
             req.add_header(k, v)
         try:
-            response = urllib2.urlopen(req, timeout=15)
-            return response.getcode(), response.read()
+            resp = urllib2.urlopen(req, timeout=15)
+            body = resp.read()
+            return resp.getcode(), body
         except urllib2.HTTPError as e:
-            return e.code, e.read()
+            try:
+                body = e.read()
+            except Exception:
+                body = b""
+            return e.code, body
         except Exception as ex:
-            raise ex
-
-    elif HAS_URLLIB3:
-        req = urllib_request.Request(url, headers=headers)
-        try:
-            with urllib_request.urlopen(req, timeout=15) as response:
-                return response.status, response.read().decode('utf-8')
-        except Exception as e:
-            if hasattr(e, 'code'):
-                return e.code, str(e)
             raise
 
-    else:
-        raise RuntimeError("No HTTP library available (urllib2 / urllib.request)")
+    if HAS_URLLIB3:
+        req = urllib_request.Request(url, headers=headers)
+        try:
+            with urllib_request.urlopen(req, timeout=15) as resp:
+                return resp.status, resp.read()
+        except Exception as e:
+            if hasattr(e, 'code'):
+                try:
+                    body = e.read()
+                except Exception:
+                    body = b""
+                return e.code, body
+            raise
+
+    raise RuntimeError("No HTTP library available (urllib2 / urllib.request)")
 
 
 def search_parcels(api_key, address, limit=10):
     """
-    Query Lightbox parcels API.
+    Query Lightbox parcels API for a US address.
 
-    GET /v1/parcels/us?text={address}&limit={limit}
-    Header: x-api-key: {api_key}
+    Tries the /search endpoint first (correct Lightbox route), then falls
+    back to the base path in case the API version changes.
 
-    Returns list of parcel dicts with keys:
-        id, display_address, parcel_id, area_sqft, geometry, county, state
+    Header: x-api-key
+    Returns list of parcel dicts: id, display_address, parcel_id,
+                                   area_sqft, geometry, county, state
     """
-    encoded = urllib2.quote(address) if HAS_URLLIB2 else urllib.parse.quote(address)
-    url = "{}{}?text={}&limit={}".format(
-        LIGHTBOX_BASE,
-        LIGHTBOX_PARCELS_ENDPOINT,
-        encoded,
-        limit
-    )
-
     headers = {
         "x-api-key": api_key,
         "Accept": "application/json",
     }
 
-    logger.debug("Lightbox search URL: {}".format(url))
-    status, body = http_get(url, headers)
+    # Build candidate URLs — keep comma literal (safe=',') because some
+    # API gateways reject %2C in free-text search parameters.
+    enc      = _url_quote(address, safe=',')
+    enc_full = _url_quote(address, safe='')
 
-    if isinstance(body, bytes):
-        body = body.decode('utf-8', errors='replace')
+    candidates = [
+        # Correct Lightbox endpoint (returned 400 when request was wrong,
+        # meaning the route exists — unlike base path which gives 500 RouteFailed)
+        "{}{}?text={}&limit={}".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, enc, limit),
+        # Same but fully-encoded address (in case comma causes issues)
+        "{}{}?text={}&limit={}".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, enc_full, limit),
+        # Some Lightbox tiers expose /search sub-path
+        "{}{}/search?text={}&limit={}".format(LIGHTBOX_BASE, LIGHTBOX_PARCELS_ENDPOINT, enc, limit),
+    ]
 
-    if status != 200:
-        raise ValueError("Lightbox API error {} (URL: {}): {}".format(
-            status, url, body[:300]))
+    last_status, last_body, last_url = None, "", ""
 
-    data = json.loads(body)
+    for url in candidates:
+        logger.debug("Lightbox search attempt: {}".format(url))
+        try:
+            status, body = http_get(url, headers)
+        except Exception as ex:
+            logger.warning("HTTP error on {}: {}".format(url, ex))
+            continue
+
+        if isinstance(body, bytes):
+            body = body.decode('utf-8', errors='replace')
+
+        if status == 200:
+            logger.debug("Lightbox 200 OK from: {}".format(url))
+            return _parse_search_response(body, url)
+
+        last_status, last_body, last_url = status, body, url
+        logger.warning("Lightbox {} on {}: {}".format(status, url, body[:200]))
+
+        # Don't try further if we hit auth/rate-limit errors
+        if status in (401, 403, 429):
+            break
+
+    raise ValueError(
+        "Lightbox API error {} (URL: {}): {}".format(last_status, last_url, last_body[:300])
+    )
+
+
+def _parse_search_response(body, url=""):
+    """Parse a 200 Lightbox search response body → list of parcel dicts."""
+    try:
+        data = json.loads(body)
+    except Exception as ex:
+        raise ValueError("Invalid JSON from Lightbox ({}): {}".format(url, ex))
+
+    # Lightbox may wrap results under several key names
+    raw_list = (data.get("parcels") or
+                data.get("data") or
+                data.get("results") or
+                data.get("items") or
+                [])
+
+    # If the response itself is a list, use it directly
+    if isinstance(data, list):
+        raw_list = data
 
     parcels = []
-    # Lightbox returns { "parcels": [...] } or similar structure
-    items = data.get("parcels", data.get("results", data.get("data", [])))
-
-    for item in items:
+    for item in raw_list:
         try:
             parcel = _parse_parcel(item)
             if parcel:
@@ -761,9 +837,8 @@ class PropertyLineDialog(forms.WPFWindow):
 
     def header_drag(self, sender, e):
         from System.Windows.Input import MouseButtonState
-        from System.Windows.Window import DragMove
         if e.LeftButton == MouseButtonState.Pressed:
-            DragMove(self)
+            self.DragMove()
 
     def btn_close_Click(self, sender, e):
         self.Close()
