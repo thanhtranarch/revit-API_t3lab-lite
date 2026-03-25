@@ -1,0 +1,26 @@
+{
+  "tools": {
+    "DrillingPointCoordination.pushbutton": {
+      "panel": "Tempor.panel", 
+      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Tempor.panel\\DrillingPointCoordination.pushbutton\\script.py", 
+      "button": "DrillingPointCoordination.pushbutton", 
+      "keywords": [
+        "drillingpointcoordination"
+      ], 
+      "title": "DrillingPointCoordination", 
+      "intent": "open_drillingpointcoordination"
+    }, 
+    "StopMCP.pushbutton": {
+      "panel": "AI Connection.panel", 
+      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\AI Connection.panel\\StopMCP.pushbutton\\script.py", 
+      "button": "StopMCP.pushbutton", 
+      "keywords": [
+        "disconnect", 
+        "stopmcp"
+      ], 
+      "title": "Disconnect", 
+      "intent": "open_stopmcp"
+    }
+  }, 
+  "version": 1
+}
