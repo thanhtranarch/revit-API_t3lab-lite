@@ -1190,6 +1190,10 @@ class PropertyLineDialog(forms.WPFWindow):
         if e.LeftButton == MouseButtonState.Pressed:
             self.DragMove()
 
+    def btn_minimize_Click(self, sender, e):
+        import System.Windows
+        self.WindowState = System.Windows.WindowState.Minimized
+
     def btn_close_Click(self, sender, e):
         self.Close()
 

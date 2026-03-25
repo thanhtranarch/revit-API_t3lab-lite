@@ -12,8 +12,8 @@
     HorizontalAlignment="Center"
     ShowInTaskbar="True"
     WindowStyle="None"
-    AllowsTransparency="True"
-    Background="#080326">
+    FontFamily="Segoe UI"
+    Background="White">
 
     <Window.Resources>
         <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -21,18 +21,18 @@
                     xmlns:local="clr-namespace:Common.WPF_styles">
 
             <!-->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>[COLOURS]-->
-            <SolidColorBrush x:Key="header_background"  Color="#0f0f2d" />
+            <SolidColorBrush x:Key="header_background"  Color="White" />
 
-            <SolidColorBrush x:Key="text_white"         Color="#E5E4E2" />
-            <SolidColorBrush x:Key="text_gray"          Color="Gray" />
-            <SolidColorBrush x:Key="text_magenta"       Color="#EE82EE" />
+            <SolidColorBrush x:Key="text_white"         Color="#2C3E50" />
+            <SolidColorBrush x:Key="text_gray"          Color="#7F8C8D" />
+            <SolidColorBrush x:Key="text_magenta"       Color="#7F8C8D" />
 
             <SolidColorBrush x:Key="button_fg_normal"   Color="White" />
-            <SolidColorBrush x:Key="button_bg_normal"   Color="#39385D" />
-            <SolidColorBrush x:Key="button_bg_hover"    Color="#FF4C70" />
+            <SolidColorBrush x:Key="button_bg_normal"   Color="#3498DB" />
+            <SolidColorBrush x:Key="button_bg_hover"    Color="#2980B9" />
 
-            <SolidColorBrush x:Key="border_magenta"     Color="#EE82EE" />
-            <SolidColorBrush x:Key="border_blue"     Color="DodgerBlue" />
+            <SolidColorBrush x:Key="border_magenta"     Color="#BDC3C7" />
+            <SolidColorBrush x:Key="border_blue"        Color="#3498DB" />
 
             <SolidColorBrush x:Key="uncheckbox_checked_colour"     Color="Gray" />
             <SolidColorBrush x:Key="checkbox_checked_colour"     Color="#EE82EE" />
@@ -494,14 +494,6 @@
 
     <!--MAIN-->
     <Grid>
-        <Grid.Background>
-            <LinearGradientBrush StartPoint="0,1" EndPoint="1,0">
-                <GradientStop Color= "#33FC467B" Offset="0" />
-                <GradientStop Color="#333F5EFB" Offset="1" />
-            </LinearGradientBrush>
-        </Grid.Background>
-
-
         <Grid.RowDefinitions>
 
             <RowDefinition Height="25"/>
@@ -513,57 +505,27 @@
             <ColumnDefinition></ColumnDefinition>
         </Grid.ColumnDefinitions>
 
-        <!--HEADER START-->
-        <Grid   MouseDown="header_drag"
-                Background="{StaticResource header_background}"
-                Grid.ColumnSpan="2">
-            <!--HEADER GRID-->
+        <!--HEADER START (BatchOut style)-->
+        <Grid MouseDown="header_drag" Background="#F8F9FA"
+              BorderBrush="#BDC3C7" BorderThickness="0,0,0,1"
+              Grid.ColumnSpan="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="75"/>
-                <ColumnDefinition/>
-                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-
-            <!--LOGO-->
-            <DockPanel  Grid.Column="0"
-                        Grid.ColumnSpan="2"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Left">
-
-                <Image Width="20" Height="20" Margin="5,0,5,0"
-                       Source="../Resources/T3Lab_logo.png" />
-
-                <TextBlock Margin="0,0,0,0">
-                    <Hyperlink
-                        RequestNavigate="Hyperlink_RequestNavigate"
-                        NavigateUri="https://www.t3lab.vn"
-                        FontSize="14px"
-                        FontWeight="Heavy"
-                        Foreground="{StaticResource text_white}">
-                        T3Lab
-                    </Hyperlink>
-                </TextBlock>
-            </DockPanel>
-
-            <!--__TITLE__-->
-            <TextBlock x:Name="main_title"
-                Text="__title__"
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Foreground="{StaticResource text_white}"
-                />
-
-            <!--CLOSE-->
-            <Button
-                Content="Close"
-                Grid.Column="2"
-                Width="60" Height="20"
-                FontSize="10"
-                Click="button_close"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Right"
-                    />
+            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                        Margin="10,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="🏠" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock x:Name="main_title" Text="Create From Rooms"
+                           FontWeight="SemiBold" Foreground="#2C3E50"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button Content="✕" Grid.Column="1"
+                    Width="30" Height="28" FontSize="11"
+                    Click="button_close"
+                    Background="Transparent" BorderThickness="0"
+                    Foreground="#7F8C8D" Cursor="Hand"
+                    VerticalAlignment="Center" Margin="0,0,4,0"/>
         </Grid>
         <!--HEADER END-->
 
@@ -662,7 +624,7 @@
 
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <CheckBox  Background="#EE82EE" Foreground="{StaticResource text_white}" IsChecked="{Binding IsChecked}"  Checked="UIe_ItemChecked" >
+                        <CheckBox  Background="#7F8C8D" Foreground="{StaticResource text_white}" IsChecked="{Binding IsChecked}"  Checked="UIe_ItemChecked" >
                             <TextBlock Text="{Binding Name}"/>
                         </CheckBox>
                     </DataTemplate>
@@ -708,47 +670,14 @@
         <!--LISTBOX END-->
 
         <!--FOOTER START-->
-        <Grid Grid.Row="3" Background="{StaticResource header_background}">
-            <!--FOOTER GRID-->
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
-
-            <!--IMAGE-->
-            <TextBlock>
-                <Hyperlink  NavigateUri="https://www.t3lab.vn" RequestNavigate="Hyperlink_RequestNavigate">
-                               <Image  Height="20"   Margin="1"  HorizontalAlignment="Left"   VerticalAlignment="Top"
-                                   Source="../Resources/T3Lab_logo.png" />
-                </Hyperlink>
-            </TextBlock>
-
-
-
-            <!--VERSION-->
-            <TextBlock x:Name="footer_version"
-              Text="Version: 1.0"
-              Grid.Column="1"
-              VerticalAlignment="Center"
-              HorizontalAlignment="Center"
-              Foreground="{StaticResource text_gray}"
-    />
-
-            <!--Support-->
-            <TextBlock  Grid.Column="2"
-              VerticalAlignment="Center"
-              HorizontalAlignment="Right"
-              Margin="0,0,10,0">
-              <Hyperlink
-                  RequestNavigate="Hyperlink_RequestNavigate"
-                  NavigateUri="https://www.t3lab.vn"
-                  FontWeight="Medium"
-                  Foreground="{StaticResource button_bg_hover}">
-                  T3Lab
-              </Hyperlink>
-            </TextBlock>
-        </Grid>
+        <Border Grid.Row="3" Background="#F8F9FA"
+                BorderBrush="#BDC3C7" BorderThickness="0,1,0,0">
+            <TextBlock Text="© Copyright by T3Lab"
+                       FontSize="10" Foreground="#AAAAAA"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Padding="0,6"/>
+        </Border>
         <!--FOOTER END-->
     </Grid>
 </Window>

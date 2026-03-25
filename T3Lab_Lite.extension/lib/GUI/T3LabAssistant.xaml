@@ -330,6 +330,7 @@
         <Border Grid.Row="5" Background="White"
                 BorderBrush="#BDC3C7" BorderThickness="0,1,0,0"
                 Padding="15,10">
+            <StackPanel>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -367,6 +368,12 @@
                     </StackPanel>
                 </Button>
             </Grid>
+            <!-- Copyright -->
+            <TextBlock Text="© Copyright by T3Lab"
+                       FontSize="10" Foreground="#BDC3C7"
+                       HorizontalAlignment="Center"
+                       Margin="0,6,0,0"/>
+            </StackPanel>
         </Border>
 
     </Grid>

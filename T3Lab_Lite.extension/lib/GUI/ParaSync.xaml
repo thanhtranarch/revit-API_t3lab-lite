@@ -795,6 +795,7 @@
 
     <!-- Row 4: Status bar + Action buttons -->
     <Border Grid.Row="4" Background="White" BorderBrush="#D0D0D0" BorderThickness="0,1,0,0" Padding="10,8">
+        <StackPanel>
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -822,5 +823,11 @@
                     Style="{StaticResource ActionButton}"
                     Background="#8BC34A"/>
         </Grid>
+        <!-- Copyright -->
+        <TextBlock Text="© Copyright by T3Lab"
+                   FontSize="10" Foreground="#AAAAAA"
+                   HorizontalAlignment="Center"
+                   Margin="0,6,0,0"/>
+        </StackPanel>
     </Border>
 </Grid>
