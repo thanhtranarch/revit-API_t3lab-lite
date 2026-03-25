@@ -1091,31 +1091,13 @@ def create_property_lines_in_revit(doc, coordinates, elevation_ft=0.0,
 
 
 def _create_native_property_lines(doc, pts):
-    """Create Revit PropertyLine elements (site category).
+    """Draw property boundary as Model Lines.
 
-    Attempts the native DB.PropertyLine.Create API first; if the method is not
-    available in this Revit version (2024+ changed the signature) it silently
-    falls back to ModelLines.
+    Note: Autodesk.Revit.DB.PropertyLine has no public Create() factory method
+    in any Revit API version (confirmed through 2026, tracked as CF-1612).
+    The only supported workflow is to create Model Lines and then use Revit's
+    'Pick Lines' tool to convert them to PropertyLine elements interactively.
     """
-    # Probe for the static Create method before calling it — avoids the
-    # "'type' object has no attribute 'Create'" crash on newer Revit builds.
-    pl_create = getattr(DB.PropertyLine, 'Create', None) if hasattr(DB, 'PropertyLine') else None
-
-    if pl_create is not None:
-        try:
-            curve_loop = DB.CurveLoop()
-            for i in range(len(pts) - 1):
-                start = pts[i]
-                end   = pts[i + 1]
-                if start.DistanceTo(end) < 0.001:
-                    continue
-                curve_loop.Append(DB.Line.CreateBound(start, end))
-            pl_create(doc, curve_loop)
-            return 1
-        except Exception as ex:
-            logger.debug("PropertyLine.Create unavailable, using ModelLine: {}".format(ex))
-
-    # Fallback: draw as Model Lines
     return _create_model_lines_from_pts(doc, pts, pts[0].Z)
 
 
@@ -1544,7 +1526,7 @@ class PropertyLineDialog(forms.WPFWindow):
 
         # ComboBox selected item text
         line_cat_item = self.cmb_line_type.SelectedItem
-        line_cat = line_cat_item.Content if line_cat_item else "Property Lines"
+        line_cat = line_cat_item.Content if line_cat_item else "Model Lines"
 
         origin_item = self.cmb_origin.SelectedItem
         origin_mode = origin_item.Content if origin_item else "Project Base Point"

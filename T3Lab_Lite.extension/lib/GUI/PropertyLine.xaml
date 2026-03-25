@@ -505,9 +505,9 @@
                                       Background="White"
                                       Foreground="#2C3E50"
                                       BorderBrush="#BDC3C7"
-                                      Padding="6,5">
-                                <ComboBoxItem Content="Property Lines" IsSelected="True"/>
-                                <ComboBoxItem Content="Model Lines"/>
+                                      Padding="6,5"
+                                      ToolTip="Note: Revit API does not support direct PropertyLine creation. All options create Model/Detail lines; use Revit's Pick Lines to convert to native PropertyLine.">
+                                <ComboBoxItem Content="Model Lines" IsSelected="True"/>
                                 <ComboBoxItem Content="Detail Lines"/>
                             </ComboBox>
                         </StackPanel>
