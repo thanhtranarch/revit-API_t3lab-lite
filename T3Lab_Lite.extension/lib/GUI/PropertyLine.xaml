@@ -376,13 +376,17 @@
                           Header=" Selected Parcel Details"
                           Visibility="Collapsed">
                     <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
                         <!-- Left column -->
-                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,10,0">
                             <TextBlock Text="Parcel ID (APN)" Style="{StaticResource FieldLabel}"/>
                             <TextBlock x:Name="txt_detail_id" Foreground="#2C3E50" Margin="0,0,0,10" TextWrapping="Wrap"/>
 
@@ -397,7 +401,7 @@
                         </StackPanel>
 
                         <!-- Right column -->
-                        <StackPanel Grid.Column="1">
+                        <StackPanel Grid.Row="0" Grid.Column="1">
                             <TextBlock Text="Area" Style="{StaticResource FieldLabel}"/>
                             <TextBlock x:Name="txt_detail_area" Foreground="#27AE60" FontWeight="SemiBold" Margin="0,0,0,10"/>
 
@@ -412,7 +416,7 @@
                         </StackPanel>
 
                         <!-- Full-width bottom: Legal + Land Use + Map button -->
-                        <StackPanel Grid.Column="0" Grid.ColumnSpan="2" Margin="0,130,0,0">
+                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,8,0,0">
                             <TextBlock Text="Legal Description" Style="{StaticResource FieldLabel}"/>
                             <TextBlock x:Name="txt_detail_legal"
                                        Foreground="#2C3E50" Margin="0,0,0,10"
