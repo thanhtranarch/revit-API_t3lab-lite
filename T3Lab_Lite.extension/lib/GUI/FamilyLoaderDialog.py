@@ -78,6 +78,9 @@ else:
 # Temp folder for downloaded families
 TEMP_FAMILIES_DIR = os.path.join(tempfile.gettempdir(), "t3lab_cloud_families")
 
+# Thumbnail cache folder
+THUMBNAIL_CACHE_DIR = os.path.join(os.path.expanduser("~"), ".t3lab", "thumbnails")
+
 # ╦ ╦╔═╗╦  ╔═╗╔═╗╦═╗  ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
 # ╠═╣║╣ ║  ╠═╝║╣ ╠╦╝  ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
 # ╩ ╩╚═╝╩═╝╩  ╚═╝╩╚═  ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝
@@ -257,6 +260,64 @@ def download_family_file(download_url, save_path):
         logger.error(traceback.format_exc())
         return False
 
+def _get_thumbnail_cache_path(rfa_path):
+    """Return a deterministic cache file path for a .rfa file based on mtime+size."""
+    try:
+        import re as _re
+        stat = os.stat(rfa_path)
+        fname = os.path.splitext(os.path.basename(rfa_path))[0]
+        key = "{}_{}_{}.jpg".format(fname, int(stat.st_mtime), stat.st_size)
+        key = _re.sub(r'[^a-zA-Z0-9_\-.]', '_', key)
+        return os.path.join(THUMBNAIL_CACHE_DIR, key)
+    except Exception:
+        return None
+
+
+def _extract_rfa_preview(rfa_path):
+    """
+    Scan a .rfa (OLE compound document) for embedded JPEG thumbnails.
+    Returns the largest JPEG byte string found (>2 KB), or None.
+    """
+    try:
+        with open(rfa_path, 'rb') as f:
+            data = f.read()
+        candidates = []
+        pos = 0
+        while True:
+            idx = data.find(b'\xff\xd8\xff', pos)
+            if idx < 0:
+                break
+            end = data.find(b'\xff\xd9', idx + 3)
+            if end > 0:
+                jpeg_bytes = data[idx:end + 2]
+                if len(jpeg_bytes) > 2048:
+                    candidates.append(jpeg_bytes)
+            pos = idx + 3
+        if candidates:
+            return max(candidates, key=len)
+    except Exception:
+        pass
+    return None
+
+
+def _bytes_to_bitmap(jpeg_bytes):
+    """Load raw JPEG bytes into a frozen WPF BitmapImage (thread-safe)."""
+    try:
+        from System.IO import MemoryStream
+        stream = MemoryStream(jpeg_bytes)
+        bitmap = BitmapImage()
+        bitmap.BeginInit()
+        bitmap.StreamSource = stream
+        bitmap.DecodePixelWidth = 90
+        bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad
+        bitmap.EndInit()
+        bitmap.Freeze()
+        stream.Close()
+        return bitmap
+    except Exception:
+        return None
+
+
 # ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
 # ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
 # ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
@@ -289,6 +350,7 @@ class FamilyItem(INotifyPropertyChanged):
         self._is_checked = False
         self._is_disposed = False
         self._property_changed_handlers = []
+        self._thumbnail = None  # backing field for Thumbnail property
         self.Name = name
         self.FullPath = full_path
         self.Category = category
@@ -312,6 +374,15 @@ class FamilyItem(INotifyPropertyChanged):
             # Silently ignore thumbnail loading errors
             logger.debug("Failed to load thumbnail {}: {}".format(thumbnail_path, ex))
         return None
+
+    @property
+    def Thumbnail(self):
+        return self._thumbnail
+
+    @Thumbnail.setter
+    def Thumbnail(self, value):
+        self._thumbnail = value
+        self.OnPropertyChanged("Thumbnail")
 
     @property
     def IsChecked(self):
@@ -596,6 +667,7 @@ class FamilyLoaderWindow(Window):
                 self._cancel_requested = False  # Flag for cancellation
                 self._scan_thread = None  # Background scan thread
                 self._seen_family_names = {}  # Track duplicate family names
+                self._thumb_cancel = False  # Flag to cancel thumbnail worker
 
                 logger.debug("DEBUG: Step 6e - Binding ItemsControl")
                 self.items_families.ItemsSource = self.filtered_families
@@ -1023,6 +1095,9 @@ class FamilyLoaderWindow(Window):
 
                 logger.info("Updating family display...")
                 self.update_family_display()
+
+                # Start background thumbnail loading
+                self._start_thumbnail_worker()
 
                 logger.info("=" * 80)
                 logger.info("FAMILY SCAN COMPLETED: {}".format(datetime.datetime.now()))
@@ -1502,6 +1577,66 @@ class FamilyLoaderWindow(Window):
             except Exception as alert_ex:
                 logger.error("DEBUG: Failed to show error alert: {}".format(alert_ex))
 
+    def _start_thumbnail_worker(self):
+        """Kick off a background thread that fills thumbnails progressively."""
+        self._thumb_cancel = False
+        families_snapshot = list(self.all_families)
+        t = threading.Thread(target=self._thumbnail_worker, args=(families_snapshot,))
+        t.daemon = True
+        t.start()
+
+    def _thumbnail_worker(self, families):
+        """Background: extract JPEG previews from .rfa files, update FamilyItems via Dispatcher."""
+        for family in families:
+            if self._thumb_cancel:
+                break
+            # Skip cloud families and those that already have a thumbnail
+            if family.IsCloud or family.Thumbnail is not None:
+                continue
+            try:
+                rfa_path = family.FullPath
+                cache_path = _get_thumbnail_cache_path(rfa_path)
+                jpeg_bytes = None
+
+                # Try cache first
+                if cache_path and os.path.exists(cache_path):
+                    try:
+                        with open(cache_path, 'rb') as cf:
+                            jpeg_bytes = cf.read()
+                    except Exception:
+                        jpeg_bytes = None
+
+                # Extract from file if not cached
+                if not jpeg_bytes:
+                    jpeg_bytes = _extract_rfa_preview(rfa_path)
+                    if jpeg_bytes and cache_path:
+                        try:
+                            if not os.path.exists(THUMBNAIL_CACHE_DIR):
+                                os.makedirs(THUMBNAIL_CACHE_DIR)
+                            with open(cache_path, 'wb') as cf:
+                                cf.write(jpeg_bytes)
+                        except Exception:
+                            pass
+
+                if jpeg_bytes:
+                    bitmap = _bytes_to_bitmap(jpeg_bytes)
+                    if bitmap:
+                        # Capture loop variables explicitly for closure
+                        def _make_setter(fam, bmp):
+                            return lambda: self._apply_thumbnail(fam, bmp)
+                        self.Dispatcher.Invoke(Action(_make_setter(family, bitmap)))
+
+            except Exception as ex:
+                logger.debug("Thumbnail error for {}: {}".format(family.Name, ex))
+
+    def _apply_thumbnail(self, family, bitmap):
+        """Set thumbnail on a FamilyItem (must be called on UI thread)."""
+        try:
+            if not family._is_disposed:
+                family.Thumbnail = bitmap
+        except Exception as ex:
+            logger.debug("Error applying thumbnail: {}".format(ex))
+
     def titlebar_minimize_clicked(self, sender, e):
         """Minimize the window from custom title bar"""
         try:
@@ -1541,6 +1676,7 @@ class FamilyLoaderWindow(Window):
         """Clean up resources to prevent memory leaks"""
         try:
             logger.info("Cleaning up Family Loader resources...")
+            self._thumb_cancel = True
 
             # Unsubscribe all PropertyChanged events
             for family in self.filtered_families:
