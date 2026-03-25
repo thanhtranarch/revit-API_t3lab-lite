@@ -2,14 +2,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="T3Lab Assistant"
         Width="560" Height="720"
-        MinWidth="480" MinHeight="560"
+        MinWidth="480" MinHeight="580"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
-        Background="White">
+        Background="White"
+        FontFamily="Segoe UI">
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="80"
+        <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
                       CornerRadius="8"
@@ -18,48 +19,38 @@
 
     <Window.Resources>
 
-        <!-- ── Section header label ── -->
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="FontSize"   Value="14"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Margin"     Value="0,10,0,5"/>
-            <Setter Property="Foreground" Value="#2C3E50"/>
-        </Style>
-
-        <!-- ── Primary (blue) button — matches BatchOut PrimaryButton ── -->
+        <!-- ── Primary (blue) button ── -->
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#3498DB"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="15,8"/>
-            <Setter Property="FontSize"        Value="14"/>
-            <Setter Property="FontWeight"      Value="Medium"/>
+            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
                                 CornerRadius="3"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#2980B9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#BDC3C7"/>
+                                <Setter Property="Cursor"     Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#2980B9"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#BDC3C7"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
-        <!-- ── Window control buttons — matches BatchOut WindowControlButton ── -->
+        <!-- ── Window control buttons ── -->
         <Style x:Key="WindowControlButton" TargetType="Button">
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
@@ -73,7 +64,7 @@
             </Style.Triggers>
         </Style>
 
-        <!-- ── Close button — red on hover ── -->
+        <!-- ── Close button (red on hover) ── -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
             <Setter Property="Template">
                 <Setter.Value>
@@ -91,11 +82,11 @@
             </Setter>
         </Style>
 
-        <!-- ── Quick-tool chip — secondary button style ── -->
+        <!-- ── Quick-tool chip button ── -->
         <Style x:Key="ChipBtn" TargetType="Button">
             <Setter Property="Background"      Value="#ECF0F1"/>
             <Setter Property="Foreground"      Value="#2C3E50"/>
-            <Setter Property="Padding"         Value="10,6"/>
+            <Setter Property="Padding"         Value="10,5"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#BDC3C7"/>
@@ -108,20 +99,23 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
+                                CornerRadius="12"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#D5DBDB"/>
+                                <Setter TargetName="bd" Property="Background"  Value="#3498DB"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#2980B9"/>
+                                <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#C8D0D0"/>
+                                <Setter TargetName="bd" Property="Background" Value="#2980B9"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="bd" Property="Background"   Value="#F5F5F5"/>
                                 <Setter TargetName="bd" Property="BorderBrush"  Value="#DCDCDC"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -129,11 +123,18 @@
             </Setter>
         </Style>
 
+        <!-- ── Discovered-tool chip (accent outline) ── -->
+        <Style x:Key="NewChipBtn" TargetType="Button" BasedOn="{StaticResource ChipBtn}">
+            <Setter Property="BorderBrush" Value="#27AE60"/>
+            <Setter Property="Foreground"  Value="#27AE60"/>
+            <Setter Property="Background"  Value="#F0FBF4"/>
+        </Style>
+
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="80"/>   <!-- Header             -->
+            <RowDefinition Height="64"/>   <!-- Header             -->
             <RowDefinition Height="1"/>    <!-- Separator          -->
             <RowDefinition Height="Auto"/> <!-- Quick tools        -->
             <RowDefinition Height="1"/>    <!-- Separator          -->
@@ -142,7 +143,7 @@
         </Grid.RowDefinitions>
 
         <!-- ═══════════════════════════════════════════════════════════
-             HEADER  (white, same layout as BatchOut)
+             HEADER — T3Lab badge + title, same style as PropertyLine
         ═══════════════════════════════════════════════════════════ -->
         <Grid Grid.Row="0" Background="White">
             <Grid.ColumnDefinitions>
@@ -151,75 +152,91 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Logo + Title -->
+            <!-- Logo + Title + Subtitle -->
             <StackPanel Grid.Column="0" Orientation="Horizontal"
-                        Margin="15,0,0,0" VerticalAlignment="Center"
+                        Margin="12,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Image x:Name="logo_image" Width="60" Height="60" Margin="0,0,15,0"/>
+                <Image x:Name="logo_image" Width="44" Height="44"
+                       Margin="0,0,12,0" VerticalAlignment="Center"/>
                 <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="T3Lab" FontSize="22" FontWeight="Bold"
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
+                                   Foreground="#3498DB" VerticalAlignment="Bottom"
+                                   Margin="0,0,6,1"/>
+                        <TextBlock Text="Assistant" FontSize="18" FontWeight="Bold"
                                    Foreground="#2C3E50"/>
-                        <TextBlock Text=" Assistant" FontSize="22" FontWeight="Bold"
-                                   Foreground="#3498DB"/>
-                        <!-- AI / LOCAL badge -->
+                        <!-- AI / LOCAL status badge -->
                         <Border x:Name="ai_status_badge"
-                                Background="#27AE60" CornerRadius="3"
-                                Padding="6,2" Margin="8,2,0,0"
-                                Visibility="Collapsed" VerticalAlignment="Center"
-                                ToolTip="AI engine status">
-                            <TextBlock x:Name="ai_status_text" Text="LOCAL"
+                                CornerRadius="3" Padding="5,2"
+                                Margin="8,2,0,0" VerticalAlignment="Center"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="ai_status_text"
                                        FontSize="9" FontWeight="Bold" Foreground="White"/>
                         </Border>
                     </StackPanel>
-                    <Separator Height="1" Background="#BDC3C7" Margin="0,4,0,4"/>
-                    <TextBlock Text="Chatbox AI cho T3Lab Tools"
-                               FontSize="11" Foreground="#7F8C8D" FontStyle="Italic"/>
+                    <Separator Height="1" Background="#BDC3C7" Margin="0,3,0,3"/>
+                    <TextBlock Text="Chatbox AI cho T3Lab Tools — Tiếng Việt &amp; English"
+                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
                 </StackPanel>
             </StackPanel>
 
-            <!-- Window controls -->
+            <!-- Window control buttons -->
             <StackPanel Grid.Column="2" Orientation="Horizontal"
                         VerticalAlignment="Top" Margin="0,0,5,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- Reset -->
                 <Button x:Name="btn_reset_chat"
                         Style="{StaticResource WindowControlButton}"
-                        ToolTip="Làm mới / Reset cuộc trò chuyện"
+                        ToolTip="Làm mới cuộc trò chuyện"
                         Click="reset_chat_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="↺" FontSize="16" FontWeight="Bold"
-                               Foreground="#7F8C8D" ToolTip="Reset chat"/>
+                    <TextBlock Text="↺" FontSize="15" FontWeight="Bold" Foreground="#7F8C8D"/>
                 </Button>
+                <!-- Minimize -->
                 <Button x:Name="btn_minimize"
                         Style="{StaticResource WindowControlButton}"
                         ToolTip="Minimize" Click="minimize_clicked">
                     <TextBlock Text="—" FontSize="14" FontWeight="Bold"
                                Foreground="#7F8C8D" Margin="0,-8,0,0"/>
                 </Button>
+                <!-- Close -->
                 <Button x:Name="btn_close"
                         Style="{StaticResource CloseButton}"
                         ToolTip="Close" Click="close_clicked">
-                    <TextBlock Text="✕" FontSize="13" Foreground="#7F8C8D"/>
+                    <TextBlock Text="✕" FontSize="13" Foreground="#7F8C8D">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Button>
             </StackPanel>
         </Grid>
 
         <!-- Header separator -->
-        <Border Grid.Row="1" Background="#BDC3C7"/>
+        <Border Grid.Row="1" Background="#E0E0E0"/>
 
         <!-- ═══════════════════════════════════════════════════════════
              QUICK TOOLS
         ═══════════════════════════════════════════════════════════ -->
-        <Border Grid.Row="2" Background="White" Padding="15,10,15,10">
+        <Border Grid.Row="2" Background="#FAFAFA" Padding="14,10,14,8">
             <StackPanel>
-                <TextBlock Text="CÔNG CỤ NHANH" FontSize="11" FontWeight="Bold"
-                           Foreground="#7F8C8D" Margin="0,0,0,8"/>
-                <WrapPanel>
+                <!-- Built-in tools label -->
+                <TextBlock Text="CÔNG CỤ NHANH" FontSize="10" FontWeight="Bold"
+                           Foreground="#95A5A6" Margin="0,0,0,7"
+                           LetterSpacing="1"/>
+                <!-- Built-in tool chips (always visible) -->
+                <WrapPanel x:Name="quick_tools_wrap">
                     <Button x:Name="btn_batchout" Style="{StaticResource ChipBtn}"
                             Click="tool_batchout_clicked"
                             ToolTip="Xuất sheet hàng loạt sang PDF, DWG, DWF...">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F4E4;" FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#x1F4E4;" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <TextBlock Text="BatchOut" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -227,7 +244,7 @@
                             Click="tool_parasync_clicked"
                             ToolTip="Đồng bộ parameters giữa các model">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F504;" FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#x1F504;" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <TextBlock Text="ParaSync" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -235,7 +252,7 @@
                             Click="tool_loadfamily_clicked"
                             ToolTip="Load family từ thư mục vào project">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F4C2;" FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#x1F4C2;" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Load Family" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -243,7 +260,7 @@
                             Click="tool_projectname_clicked"
                             ToolTip="Đặt tên project">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F3F7;" FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#x1F3F7;" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Project Name" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -251,7 +268,7 @@
                             Click="tool_workset_clicked"
                             ToolTip="Quản lý worksets">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F5C2;" FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#x1F5C2;" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Workset" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -259,16 +276,31 @@
                             Click="tool_dimtext_clicked"
                             ToolTip="Sửa text trong dimensions">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#x1F4CF;" FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#x1F4CF;" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
                             <TextBlock Text="Dim Text" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </WrapPanel>
+
+                <!-- ── Auto-discovered tools section (shown by Python when found) ── -->
+                <StackPanel x:Name="discovered_section" Visibility="Collapsed" Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <TextBlock Text="CÔNG CỤ MỚI PHÁT HIỆN" FontSize="10" FontWeight="Bold"
+                                   Foreground="#27AE60"/>
+                        <Border x:Name="new_tools_count_badge"
+                                Background="#27AE60" CornerRadius="8"
+                                Padding="5,1" Margin="6,0,0,0">
+                            <TextBlock x:Name="new_tools_count_text"
+                                       FontSize="9" FontWeight="Bold" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                    <WrapPanel x:Name="discovered_tools_wrap"/>
+                </StackPanel>
             </StackPanel>
         </Border>
 
         <!-- Quick-tools separator -->
-        <Border Grid.Row="3" Background="#BDC3C7"/>
+        <Border Grid.Row="3" Background="#E0E0E0"/>
 
         <!-- ═══════════════════════════════════════════════════════════
              CHAT AREA
@@ -276,47 +308,49 @@
         <ScrollViewer Grid.Row="4" x:Name="chat_scroll"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
-                      Background="#F8F9FA"
-                      Padding="15,12,15,8">
+                      Background="#F4F6F8"
+                      Padding="14,12,14,8">
             <StackPanel x:Name="chat_history_panel" Margin="0,0,0,4">
 
-                <!-- Welcome bubble -->
+                <!-- Welcome bubble (static, always shown) -->
                 <Grid Margin="0,0,60,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Avatar -->
-                    <Border Grid.Column="0" Width="36" Height="36"
-                            CornerRadius="18" Background="#3498DB"
+                    <!-- T3 Avatar -->
+                    <Border Grid.Column="0" Width="34" Height="34"
+                            CornerRadius="17" Background="#3498DB"
                             Margin="0,2,10,0" VerticalAlignment="Top">
-                        <TextBlock Text="T3" FontSize="12" FontWeight="Bold" Foreground="White"
+                        <TextBlock Text="T3" FontSize="11" FontWeight="Bold" Foreground="White"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
 
-                    <!-- Bubble -->
+                    <!-- Welcome message bubble -->
                     <Border Grid.Column="1" Background="White"
-                            CornerRadius="3,8,8,8"
+                            CornerRadius="3,10,10,10"
                             Padding="14,10"
-                            BorderBrush="#BDC3C7" BorderThickness="1">
+                            BorderBrush="#DFE6E9" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Text="T3Lab Assistant" FontSize="10" FontWeight="Bold"
                                        Foreground="#3498DB" Margin="0,0,0,5"/>
                             <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#2C3E50"
                                        LineHeight="20"
-                                       Text="Xin chào! Tôi là T3Lab Assistant. Tôi có thể giúp bạn:"/>
+                                       Text="Xin chào! Tôi là T3Lab Assistant. Tôi có thể:"/>
                             <StackPanel Margin="0,6,0,0">
-                                <TextBlock FontSize="12" Foreground="#7F8C8D"
-                                           Text="&#x2022;  Mở BatchOut và xuất sheet"/>
-                                <TextBlock FontSize="12" Foreground="#7F8C8D" Margin="0,3,0,0"
-                                           Text="&#x2022;  Chạy ParaSync, LoadFamily, và các công cụ khác"/>
-                                <TextBlock FontSize="12" Foreground="#7F8C8D" Margin="0,3,0,0"
-                                           Text="&#x2022;  Trả lời câu hỏi về T3Lab"/>
+                                <TextBlock FontSize="12" Foreground="#636E72"
+                                           Text="• Mở BatchOut và xuất sheet PDF/DWG/DWF..."/>
+                                <TextBlock FontSize="12" Foreground="#636E72" Margin="0,3,0,0"
+                                           Text="• Chạy ParaSync, Load Family, và các công cụ khác"/>
+                                <TextBlock FontSize="12" Foreground="#636E72" Margin="0,3,0,0"
+                                           Text="• Tự phát hiện và học công cụ mới trong extension"/>
+                                <TextBlock FontSize="12" Foreground="#636E72" Margin="0,3,0,0"
+                                           Text="• Trả lời câu hỏi về T3Lab và Revit"/>
                             </StackPanel>
                             <Separator Height="1" Background="#ECF0F1" Margin="0,8,0,6"/>
-                            <TextBlock FontSize="11" Foreground="#7F8C8D" FontStyle="Italic"
-                                       Text="Nhập lệnh bằng Tiếng Việt hoặc English."/>
+                            <TextBlock FontSize="11" Foreground="#95A5A6" FontStyle="Italic"
+                                       Text="Nhập lệnh bằng Tiếng Việt hoặc English — Enter để gửi."/>
                         </StackPanel>
                     </Border>
                 </Grid>
@@ -328,51 +362,53 @@
              INPUT BAR
         ═══════════════════════════════════════════════════════════ -->
         <Border Grid.Row="5" Background="White"
-                BorderBrush="#BDC3C7" BorderThickness="0,1,0,0"
-                Padding="15,10">
+                BorderBrush="#DFE6E9" BorderThickness="0,1,0,0"
+                Padding="14,10">
             <StackPanel>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <!-- Input field -->
-                <Border Grid.Column="0"
-                        BorderBrush="#BDC3C7" BorderThickness="1,1,0,1"
-                        CornerRadius="3,0,0,3" Background="White">
-                    <TextBox x:Name="chat_input"
-                             Height="36"
-                             VerticalContentAlignment="Center"
-                             Padding="10,0"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             FontSize="13"
-                             Foreground="#2C3E50"
-                             CaretBrush="#3498DB"
-                             ToolTip="Nhập lệnh Tiếng Việt hoặc English (Enter để gửi)"
-                             KeyDown="input_keydown"/>
-                </Border>
+                    <!-- Text input -->
+                    <Border Grid.Column="0"
+                            BorderBrush="#BDC3C7" BorderThickness="1,1,0,1"
+                            CornerRadius="20,0,0,20" Background="White">
+                        <TextBox x:Name="chat_input"
+                                 Height="38"
+                                 VerticalContentAlignment="Center"
+                                 Padding="14,0"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 FontSize="13"
+                                 Foreground="#2C3E50"
+                                 CaretBrush="#3498DB"
+                                 ToolTip="Nhập lệnh Tiếng Việt hoặc English (Enter để gửi)"
+                                 KeyDown="input_keydown"/>
+                    </Border>
 
-                <!-- Send button (PrimaryButton style) -->
-                <Button Grid.Column="1" x:Name="send_button"
-                        Height="36"
-                        Style="{StaticResource PrimaryButton}"
-                        Padding="18,0"
-                        Click="send_clicked"
-                        ToolTip="Gửi (Enter)">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Gửi" VerticalAlignment="Center" FontSize="13"/>
-                        <TextBlock Text=" &#x27A4;" FontSize="11" VerticalAlignment="Center"
-                                   Margin="3,0,0,0"/>
-                    </StackPanel>
-                </Button>
-            </Grid>
-            <!-- Copyright -->
-            <TextBlock Text="© Copyright by T3Lab"
-                       FontSize="10" Foreground="#BDC3C7"
-                       HorizontalAlignment="Center"
-                       Margin="0,6,0,0"/>
+                    <!-- Send button -->
+                    <Button Grid.Column="1" x:Name="send_button"
+                            Height="38"
+                            Style="{StaticResource PrimaryButton}"
+                            Padding="18,0"
+                            Click="send_clicked"
+                            ToolTip="Gửi (Enter)">
+                        <Border CornerRadius="0,20,20,0" Background="Transparent">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Gửi" VerticalAlignment="Center" FontSize="13"/>
+                                <TextBlock Text=" ➤" FontSize="11" VerticalAlignment="Center"
+                                           Margin="2,0,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Button>
+                </Grid>
+                <!-- Copyright -->
+                <TextBlock Text="© Copyright by T3Lab"
+                           FontSize="10" Foreground="#BDC3C7"
+                           HorizontalAlignment="Center"
+                           Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
 

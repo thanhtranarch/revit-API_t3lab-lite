@@ -104,6 +104,39 @@ EXAMPLES:
   "parasync"                 → {"intent":"open_parasync","params":{},"message":"Đang mở ParaSync..."}
 """
 
+# ─── Dynamic system prompt (injected with auto-discovered tools) ───────────────
+
+_EXTRA_TOOLS_SECTION = ''   # set by inject_discovered_tools()
+
+
+def inject_discovered_tools(tools):
+    """
+    Called by the Assistant window after tool discovery.
+    Stores extra intent lines so parse_command() includes them in the prompt.
+
+    Args:
+        tools: list of tool dicts from tool_discovery.get_registered_tools()
+    """
+    global _EXTRA_TOOLS_SECTION
+    if not tools:
+        _EXTRA_TOOLS_SECTION = ''
+        return
+    lines = ['  ── Auto-discovered tools (do not ignore these) ──────────────────────────────']
+    for t in tools:
+        lines.append('  {}   params: {{}}   (opens "{}")'.format(t['intent'], t['title']))
+    _EXTRA_TOOLS_SECTION = '\n'.join(lines)
+
+
+def _build_system_prompt():
+    """Return SYSTEM_PROMPT with auto-discovered tool section injected if available."""
+    if not _EXTRA_TOOLS_SECTION:
+        return SYSTEM_PROMPT
+    # Inject before the Conversation section
+    marker = '  ── Conversation ──'
+    if marker in SYSTEM_PROMPT:
+        return SYSTEM_PROMPT.replace(marker, _EXTRA_TOOLS_SECTION + '\n\n' + marker)
+    return SYSTEM_PROMPT + '\n' + _EXTRA_TOOLS_SECTION
+
 
 # ─── Learned patterns ─────────────────────────────────────────────────────────
 
@@ -290,7 +323,7 @@ def parse_command(user_input, history=None):
         body_data = {
             "model": "claude-haiku-4-5-20251001",
             "max_tokens": 400,
-            "system": SYSTEM_PROMPT,
+            "system": _build_system_prompt(),
             "messages": messages,
         }
         body_json = json.dumps(body_data, ensure_ascii=False)
@@ -420,6 +453,22 @@ def keyword_parse(raw):
     if any(k in cmd for k in ["grids", "luoi", "lưới", "truc", "grid tool"]):
         return {"intent": "open_grids", "params": {},
                 "message": u"Đang mở Grids..." if viet else "Opening Grids..."}
+
+    # ── Auto-discovered tools (from tool_registry.json) ───────────────────────
+    try:
+        from tool_discovery import get_registered_tools
+        for tool in get_registered_tools():
+            for kw in tool.get('keywords', []):
+                if kw and len(kw) > 2 and kw in cmd:
+                    label = tool.get('title', tool['intent'])
+                    return {
+                        'intent':  tool['intent'],
+                        'params':  {},
+                        'message': (u"Đang mở {}...".format(label) if viet
+                                    else u"Opening {}...".format(label)),
+                    }
+    except Exception:
+        pass
 
     return None
 
