@@ -42,7 +42,8 @@ try:
     from t3lab_assistant import (parse_command, has_api_key, keyword_parse,
                                   learn_pattern, find_learned_match,
                                   has_local_llm, parse_command_local,
-                                  get_local_model_name, parse_command_nlu)
+                                  get_local_model_name, parse_command_nlu,
+                                  inject_discovered_tools)
     HAS_NLP = True
 except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
@@ -53,6 +54,19 @@ except Exception as e:
     def parse_command_local(*a, **kw): return None
     def get_local_model_name(*a, **kw): return None
     def parse_command_nlu(*a, **kw): return None
+    def inject_discovered_tools(*a, **kw): pass
+
+# ─── Tool discovery module ────────────────────────────────────────────────────
+try:
+    from tool_discovery import (discover_new_tools, get_registered_tools,
+                                 make_generic_launcher)
+    HAS_DISCOVERY = True
+except Exception as e:
+    logger.warning("Could not import tool_discovery: {}".format(e))
+    HAS_DISCOVERY = False
+    def discover_new_tools(): return []
+    def get_registered_tools(): return []
+    def make_generic_launcher(script_path, title): return lambda: False
 
 # ─── BatchOut executor (configure + direct export) ────────────────────────────
 try:
@@ -279,6 +293,29 @@ TOOL_LAUNCHERS = {
 }
 
 
+def _register_discovered_launchers(tools):
+    """
+    For each auto-discovered tool, add a generic launcher to TOOL_LAUNCHERS
+    and update the NLP module's system prompt.
+
+    Args:
+        tools: list of tool dicts from discover_new_tools() / get_registered_tools()
+    """
+    for tool in tools:
+        intent = tool.get('intent')
+        if not intent or intent in TOOL_LAUNCHERS:
+            continue
+        launcher = make_generic_launcher(tool['script_path'], tool['title'])
+        TOOL_LAUNCHERS[intent] = launcher
+
+    # Inject all registered tools (new + old) into the NLP system prompt
+    if HAS_NLP:
+        try:
+            inject_discovered_tools(get_registered_tools())
+        except Exception:
+            pass
+
+
 # ─── Chat history persistence ─────────────────────────────────────────────────
 
 def _get_doc_key():
@@ -353,6 +390,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ── Quick-button names (for bulk enable/disable) ──────────────────────────
     _QUICK_BTNS = ['btn_batchout', 'btn_parasync', 'btn_loadfamily',
                    'btn_projectname', 'btn_workset', 'btn_dimtext']
+    # Dynamic buttons added by _bootstrap_discovered_tools
+    _DYNAMIC_BTNS = []   # list of Button WPF objects (not names)
 
     def __init__(self):
         xaml_path = os.path.join(lib_dir, 'GUI', 'T3LabAssistant.xaml')
@@ -382,9 +421,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Restore conversation from previous session ─────────────────────────
         self._restore_history()
 
+        # ── Tool discovery (background, then inject chips into UI) ─────────────
+        def _discover_and_update():
+            import time; time.sleep(0.3)
+            self.Dispatcher.Invoke(Action(self._bootstrap_discovered_tools))
+
+        _dt = Thread(ThreadStart(_discover_and_update))
+        _dt.IsBackground = True
+        _dt.SetApartmentState(ApartmentState.STA)
+        _dt.Start()
+
         # Update AI badge (run async so Ollama probe doesn't delay window open)
         def _probe_and_update():
-            import time; time.sleep(0.4)   # let window render first
+            import time; time.sleep(0.5)   # let window render first
             self.Dispatcher.Invoke(Action(self._update_ai_badge))
 
         _t = Thread(ThreadStart(_probe_and_update))
@@ -399,6 +448,116 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     def close_clicked(self, sender, e):
         self.Close()
+
+    # ─── Tool discovery bootstrap ──────────────────────────────────────────────
+
+    def _bootstrap_discovered_tools(self):
+        """
+        Run on startup (UI thread):
+          1. Discover new tools → register launchers → update NLP prompt.
+          2. Render chip buttons for ALL registered tools (new + existing).
+          3. Show the "CÔNG CỤ MỚI" section if anything is found.
+          4. Post a chat notification for truly NEW tools.
+        Must be called from the UI thread (via Dispatcher.Invoke).
+        """
+        try:
+            if not HAS_DISCOVERY:
+                return
+
+            # ── Discover (writes registry) ────────────────────────────────────
+            new_tools = discover_new_tools()
+
+            # ── Register launchers + inject into NLP ─────────────────────────
+            _register_discovered_launchers(new_tools)
+
+            # ── Render all registered tools in discovered_tools_wrap ─────────
+            all_tools = get_registered_tools()
+            if not all_tools:
+                return
+
+            # Also register launchers for tools already in registry from previous runs
+            _register_discovered_launchers(all_tools)
+
+            try:
+                self.discovered_tools_wrap.Children.Clear()
+                for tool in all_tools:
+                    btn = self._create_tool_chip(tool)
+                    self.discovered_tools_wrap.Children.Add(btn)
+                    self._DYNAMIC_BTNS.append(btn)
+
+                # Show the section
+                self.discovered_section.Visibility = Visibility.Visible
+
+                # Update badge count
+                self.new_tools_count_text.Text = str(len(all_tools))
+            except Exception as ui_ex:
+                logger.debug("UI chip error: {}".format(ui_ex))
+
+            # ── Chat notification for NEW tools only ──────────────────────────
+            if new_tools:
+                names = u', '.join(t['title'] for t in new_tools[:5])
+                if len(new_tools) > 5:
+                    names += u'...'
+                self._append_bot_message(
+                    u"🔍 Phát hiện {} công cụ mới: {}.\n"
+                    u"Tôi đã tự học và có thể mở chúng bằng lệnh tự nhiên.".format(
+                        len(new_tools), names)
+                )
+        except Exception as ex:
+            logger.debug("_bootstrap_discovered_tools error: {}".format(ex))
+
+    def _create_tool_chip(self, tool):
+        """Build a WPF Button chip for an auto-discovered tool."""
+        from System.Windows.Controls import Button, StackPanel, TextBlock
+        from System.Windows import Thickness
+        from System.Windows.Media import SolidColorBrush, Color
+
+        intent = tool['intent']
+        title  = tool['title']
+
+        btn = Button()
+        btn.Cursor   = System.Windows.Input.Cursors.Hand
+        btn.Margin   = Thickness(0, 0, 6, 6)
+        btn.Padding  = Thickness(10, 5, 10, 5)
+        btn.FontSize = 12
+
+        # Style: green border (new tool)
+        from System.Windows import CornerRadius
+        from System.Windows.Controls import Border, ContentPresenter
+        # Use the NewChipBtn style via FindResource
+        try:
+            btn.Style = self.FindResource('NewChipBtn')
+        except Exception:
+            btn.Background = SolidColorBrush(Color.FromRgb(240, 251, 244))
+            btn.BorderBrush = SolidColorBrush(Color.FromRgb(39, 174, 96))
+            btn.Foreground  = SolidColorBrush(Color.FromRgb(39, 174, 96))
+
+        sp = StackPanel()
+        sp.Orientation = System.Windows.Controls.Orientation.Horizontal
+
+        icon = TextBlock()
+        icon.Text    = u"✦"
+        icon.FontSize = 10
+        icon.Margin   = Thickness(0, 0, 5, 0)
+        icon.VerticalAlignment = System.Windows.VerticalAlignment.Center
+        sp.Children.Add(icon)
+
+        lbl = TextBlock()
+        lbl.Text = title
+        lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
+        sp.Children.Add(lbl)
+
+        btn.Content  = sp
+        btn.ToolTip  = u"Mở {} (auto-discovered)".format(title)
+
+        # Capture intent in closure
+        _intent = intent
+
+        def _on_click(s, e, _i=_intent, _t=title):
+            self._run_tool(_i, u"Đang mở {}...".format(_t))
+
+        btn.Click += _on_click
+        return btn
 
     # ─── History persistence ───────────────────────────────────────────────────
 
@@ -502,6 +661,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         for btn_name in self._QUICK_BTNS:
             try:
                 getattr(self, btn_name).IsEnabled = not busy
+            except Exception:
+                pass
+        for btn in self._DYNAMIC_BTNS:
+            try:
+                btn.IsEnabled = not busy
             except Exception:
                 pass
         if busy:
