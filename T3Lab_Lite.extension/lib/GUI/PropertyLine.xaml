@@ -316,6 +316,11 @@
                                     Style="{StaticResource PrimaryBtn}"
                                     Click="btn_search_Click"/>
                         </Grid>
+                        <!-- Inline address validation warning -->
+                        <TextBlock x:Name="txt_address_warning"
+                                   Foreground="#E67E22" FontSize="11"
+                                   Margin="0,4,0,4" TextWrapping="Wrap"
+                                   Visibility="Collapsed"/>
                         <TextBlock Text="Examples: 350 Fifth Ave, New York NY | 1600 Pennsylvania Ave NW, Washington DC"
                                    Foreground="#7F8C8D" FontSize="10" FontStyle="Italic"/>
                     </StackPanel>
@@ -440,7 +445,7 @@
                           Header=" Project Data"
                           Visibility="Collapsed">
                     <StackPanel>
-                        <TextBlock Text="Auto-generated from parcel data. Enter setbacks, construction type, and stories manually."
+                        <TextBlock Text="Auto-generated from parcel data."
                                    Foreground="#7F8C8D" FontSize="10" FontStyle="Italic"
                                    Margin="0,0,0,8" TextWrapping="Wrap"/>
                         <Border Background="#F8F9FA" CornerRadius="3" Padding="10"
@@ -460,69 +465,16 @@
                     </StackPanel>
                 </GroupBox>
 
-                <!-- ─── SETBACK LINES ─── -->
+                <!-- ─── SETBACK LINES (shown only when API returns setback data) ─── -->
                 <GroupBox x:Name="grp_setback"
-                          Header=" Setback Lines"
+                          Header=" Setback Information"
                           Visibility="Collapsed">
                     <StackPanel>
-
-                        <!-- Zoning status + Read button -->
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="txt_zoning_status"
-                                       Grid.Column="0"
-                                       Text="Click 'Read Zoning' to load the zoning code from parcel data. Enter setback distances manually."
-                                       Foreground="#7F8C8D"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"
-                                       TextWrapping="Wrap"/>
-                            <Button x:Name="btn_fetch_zoning"
-                                    Grid.Column="1"
-                                    Content="Read Zoning"
-                                    MinWidth="110"
-                                    Margin="10,0,0,0"
-                                    Style="{StaticResource SecondaryBtn}"
-                                    Click="btn_fetch_zoning_Click"/>
-                        </Grid>
-
-                        <!-- Front / Rear / Side setback fields -->
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Front Setback (ft)" Style="{StaticResource FieldLabel}"/>
-                                <TextBox x:Name="txt_setback_front" Text=""
-                                         Style="{StaticResource InputField}"
-                                         ToolTip="Setback from front property line (street side)"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                <TextBlock Text="Rear Setback (ft)" Style="{StaticResource FieldLabel}"/>
-                                <TextBox x:Name="txt_setback_rear" Text=""
-                                         Style="{StaticResource InputField}"
-                                         ToolTip="Setback from rear property line"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Side Setback (ft)" Style="{StaticResource FieldLabel}"/>
-                                <TextBox x:Name="txt_setback_side" Text=""
-                                         Style="{StaticResource InputField}"
-                                         ToolTip="Setback from each side property line"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Draw checkbox -->
-                        <CheckBox x:Name="chk_draw_setback"
-                                  Content="Draw setback envelope when creating property lines"
-                                  Foreground="#2C3E50"
-                                  VerticalAlignment="Center"/>
-                        <TextBlock Text="Draws an inset polygon (minimum setback) as Model Lines — representing the buildable area."
-                                   Foreground="#7F8C8D" FontSize="10" FontStyle="Italic"
-                                   Margin="20,4,0,0" TextWrapping="Wrap"/>
+                        <TextBlock Text="Setback distances from parcel data (read-only):"
+                                   Style="{StaticResource FieldLabel}" Margin="0,0,0,6"/>
+                        <TextBlock x:Name="txt_setback_info"
+                                   Foreground="#2C3E50" FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </GroupBox>
 

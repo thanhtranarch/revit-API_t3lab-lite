@@ -626,6 +626,18 @@ def _parse_parcel(item):
         lot_width = str(lot_dims.get("width") or "")
         lot_depth = str(lot_dims.get("depth") or "")
 
+    # Setback data from API (read-only; various field name conventions)
+    setbacks = {}
+    sb_obj = (assessment.get("setbacks") or assessment.get("setback") or
+              item.get("setbacks") or item.get("setback") or {})
+    if isinstance(sb_obj, dict):
+        for key, label in (("front", "Front"), ("rear", "Rear"), ("side", "Side"),
+                           ("frontSetback", "Front"), ("rearSetback", "Rear"),
+                           ("sideSetback", "Side"), ("left", "Left"), ("right", "Right")):
+            val = sb_obj.get(key)
+            if val is not None and str(val).strip():
+                setbacks[label] = _coerce_str(val)
+
     return {
         "id":               item_id or parcel_apn,
         "parcel_id":        parcel_apn,
@@ -641,6 +653,7 @@ def _parse_parcel(item):
         "land_use":         land_use,
         "lot_width":        lot_width,
         "lot_depth":        lot_depth,
+        "setbacks":         setbacks,
     }
 
 
@@ -1078,30 +1091,32 @@ def create_property_lines_in_revit(doc, coordinates, elevation_ft=0.0,
 
 
 def _create_native_property_lines(doc, pts):
-    """Create Revit PropertyLine elements (site category)."""
-    count = 0
-    try:
-        curve_loop = DB.CurveLoop()
-        for i in range(len(pts) - 1):
-            start = pts[i]
-            end = pts[i + 1]
-            if start.DistanceTo(end) < 0.001:
-                continue
-            line = DB.Line.CreateBound(start, end)
-            curve_loop.Append(line)
+    """Create Revit PropertyLine elements (site category).
 
-        # PropertyLine.Create requires a CurveLoop and a site topo/level
-        # Try the simplest overload first
-        if hasattr(DB, 'PropertyLine'):
-            prop_line = DB.PropertyLine.Create(doc, curve_loop)
-            count = 1
-        else:
-            # Fallback to model lines if PropertyLine not available
-            count = _create_model_lines_from_pts(doc, pts, pts[0].Z)
-    except Exception as ex:
-        logger.warning("PropertyLine creation failed, falling back to ModelLine: {}".format(ex))
-        count = _create_model_lines_from_pts(doc, pts, pts[0].Z)
-    return count
+    Attempts the native DB.PropertyLine.Create API first; if the method is not
+    available in this Revit version (2024+ changed the signature) it silently
+    falls back to ModelLines.
+    """
+    # Probe for the static Create method before calling it — avoids the
+    # "'type' object has no attribute 'Create'" crash on newer Revit builds.
+    pl_create = getattr(DB.PropertyLine, 'Create', None) if hasattr(DB, 'PropertyLine') else None
+
+    if pl_create is not None:
+        try:
+            curve_loop = DB.CurveLoop()
+            for i in range(len(pts) - 1):
+                start = pts[i]
+                end   = pts[i + 1]
+                if start.DistanceTo(end) < 0.001:
+                    continue
+                curve_loop.Append(DB.Line.CreateBound(start, end))
+            pl_create(doc, curve_loop)
+            return 1
+        except Exception as ex:
+            logger.debug("PropertyLine.Create unavailable, using ModelLine: {}".format(ex))
+
+    # Fallback: draw as Model Lines
+    return _create_model_lines_from_pts(doc, pts, pts[0].Z)
 
 
 def _create_model_lines(doc, pts, elevation_ft):
@@ -1174,12 +1189,13 @@ class ParcelItem(object):
         self.geometry        = data["geometry"]
         self.county          = data["county"]
         self.state           = data["state"]
-        self.zoning_code      = data.get("zoning_code", "")
+        self.zoning_code       = data.get("zoning_code", "")
         self.legal_description = data.get("legal_description", "")
         self.flood_zone        = data.get("flood_zone", "")
         self.land_use          = data.get("land_use", "")
         self.lot_width         = data.get("lot_width", "")
         self.lot_depth         = data.get("lot_depth", "")
+        self.setbacks          = data.get("setbacks", {})
 
 
 class PropertyLineDialog(forms.WPFWindow):
@@ -1234,8 +1250,14 @@ class PropertyLineDialog(forms.WPFWindow):
     def btn_search_Click(self, sender, e):
         address = self.txt_address.Text.strip()
         if not address:
-            self._set_status("Please enter an address to search.", error=True)
+            self._show_address_warning("Please enter a US property address.")
             return
+        if len(address) < 8 or not any(ch.isdigit() for ch in address):
+            self._show_address_warning(
+                u"Address looks incomplete — include street number, city and state. "
+                u"Example: 123 Main St, Los Angeles CA 90001")
+            return
+        self._hide_address_warning()
 
         api_key = self.txt_api_key.Text.strip()
         if not api_key:
@@ -1266,6 +1288,7 @@ class PropertyLineDialog(forms.WPFWindow):
 
     def _on_search_complete(self, parcels):
         self.btn_search.IsEnabled = True
+        self._hide_address_warning()
         self._parcels = parcels
 
         if not parcels:
@@ -1291,10 +1314,29 @@ class PropertyLineDialog(forms.WPFWindow):
             msg = "Found {} parcel(s). Select one to continue.".format(len(parcels))
         self._set_status(msg)
 
+    def _show_address_warning(self, msg):
+        self.txt_address_warning.Text = u"⚠  " + msg
+        self.txt_address_warning.Visibility = Visibility.Visible
+
+    def _hide_address_warning(self):
+        self.txt_address_warning.Visibility = Visibility.Collapsed
+
     def _on_search_error(self, error_msg):
         self.btn_search.IsEnabled = True
-        self._set_status("Search error: {}".format(error_msg), error=True)
-        logger.error("Lightbox API search error: {}".format(error_msg))
+        # Suppress raw network / connection errors from the status bar;
+        # log them and show a friendly neutral message instead.
+        err_lower = error_msg.lower()
+        is_network = any(k in err_lower for k in (
+            "connection", "connect", "timeout", "network", "socket",
+            "ssl", "certificate", "unreachable", "refused", "reset",
+            "httperror", "urlerror", "ioerror", "errno"))
+        if is_network:
+            logger.warning("Lightbox API network error: {}".format(error_msg))
+            self._set_status(
+                u"Could not reach the Lightbox API — check your internet connection and try again.")
+        else:
+            self._set_status("Search error: {}".format(error_msg), error=True)
+            logger.error("Lightbox API search error: {}".format(error_msg))
 
     def lv_parcels_SelectionChanged(self, sender, e):
         item = self.lv_parcels.SelectedItem
@@ -1310,13 +1352,12 @@ class PropertyLineDialog(forms.WPFWindow):
         self._show_parcel_details(item)
         self.btn_create.IsEnabled = True
 
-        # Reset setback section for the newly selected parcel
-        self.txt_setback_front.Text = ""
-        self.txt_setback_rear.Text  = ""
-        self.txt_setback_side.Text  = ""
-        self.txt_zoning_status.Text = "Click 'Fetch Zoning' to auto-fill setback values from the Lightbox API."
-        self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(136, 136, 136))
-        self.grp_setback.Visibility = Visibility.Visible
+        # Show setback group only when API data is present
+        if item.setbacks:
+            self._populate_setback_display(item.setbacks)
+            self.grp_setback.Visibility = Visibility.Visible
+        else:
+            self.grp_setback.Visibility = Visibility.Collapsed
 
     def _show_parcel_details(self, item):
         self.grp_parcel_details.Visibility = Visibility.Visible
@@ -1371,29 +1412,14 @@ class PropertyLineDialog(forms.WPFWindow):
 
     # ───────────────────────────────────── ZONING / SETBACK
 
-    def btn_fetch_zoning_Click(self, sender, e):
-        """
-        Read zoning code from the already-fetched parcel data (no API call).
-        The basic Lightbox tier embeds the municipal zoning code in the parcel
-        response; a separate /zoning endpoint is not available at this tier.
-        Setback distances must be entered manually.
-        """
-        if not self._selected_parcel:
-            return
+    def _populate_setback_display(self, setbacks):
+        """Fill the read-only setback TextBlock from the API dict."""
+        lines = [u"{}: {} ft".format(k, v) for k, v in sorted(setbacks.items())]
+        self.txt_setback_info.Text = u"  |  ".join(lines) if lines else u"No setback data"
 
-        code = self._selected_parcel.zoning_code
-        if code:
-            self.txt_zoning_status.Text = (
-                u"Zoning code from parcel data: {}. "
-                u"Enter setback distances manually from your local zoning ordinance.".format(code)
-            )
-            self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(78, 201, 176))
-        else:
-            self.txt_zoning_status.Text = (
-                u"No zoning code in parcel data. "
-                u"Enter setback values manually from your local zoning ordinance."
-            )
-            self.txt_zoning_status.Foreground = SolidColorBrush(Color.FromRgb(255, 197, 61))
+    def btn_fetch_zoning_Click(self, sender, e):
+        """Kept for XAML compatibility; the button is no longer shown."""
+        pass
 
     def btn_copy_project_data_Click(self, sender, e):
         """Copy the formatted Project Data block to the Windows clipboard."""
@@ -1514,16 +1540,6 @@ class PropertyLineDialog(forms.WPFWindow):
             self._set_status("Invalid geometry: not enough coordinates.", error=True)
             return
 
-        # Check if setback envelope was requested
-        draw_setback = bool(self.chk_draw_setback.IsChecked)
-        setback_ft = self._get_min_setback() if draw_setback else None
-        if draw_setback and not setback_ft:
-            self._set_status(
-                "Draw Setback is checked but no setback values are set. "
-                "Enter values manually or click Fetch Zoning.", error=True
-            )
-            return
-
         self._set_status("Creating property lines in Revit...", busy=True)
         self.btn_create.IsEnabled = False
 
@@ -1533,31 +1549,8 @@ class PropertyLineDialog(forms.WPFWindow):
             )
             logger.info("Property lines created: {} segments".format(count))
 
-            setback_count = 0
-            if draw_setback and setback_ft:
-                try:
-                    setback_count = create_setback_lines_in_revit(
-                        doc, coords, setback_ft, elevation_ft, origin_mode
-                    )
-                    logger.info("Setback envelope created: {} segments ({} ft)".format(
-                        setback_count, setback_ft))
-                except Exception as sb_ex:
-                    logger.warning("Setback creation failed: {}".format(sb_ex))
-                    self._set_status(
-                        "Property lines created ({} segs) but setback failed: {}".format(
-                            count, sb_ex), error=True
-                    )
-                    return
-
-            if setback_count:
-                msg = ("Done! {} property line seg(s) + {} setback seg(s) "
-                       "({:.1f} ft inset) for: {}".format(
-                           count, setback_count, setback_ft,
-                           self._selected_parcel.display_address))
-            else:
-                msg = "Done! Created {} property line segment(s) for: {}".format(
-                    count, self._selected_parcel.display_address)
-
+            msg = "Done! Created {} property line segment(s) for: {}".format(
+                count, self._selected_parcel.display_address)
             self._set_status(msg, success=True)
 
         except Exception as ex:
