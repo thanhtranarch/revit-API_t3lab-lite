@@ -301,10 +301,14 @@ def _extract_rfa_preview(rfa_path):
 
 
 def _bytes_to_bitmap(jpeg_bytes):
-    """Load raw JPEG bytes into a frozen WPF BitmapImage (thread-safe)."""
+    """Load raw JPEG bytes into a frozen WPF BitmapImage (thread-safe).
+    Uses Array[Byte] to avoid IronPython str/bytes → MemoryStream conversion issues."""
     try:
         from System.IO import MemoryStream
-        stream = MemoryStream(jpeg_bytes)
+        from System import Array, Byte
+        # IronPython: convert Python str/bytes to .NET byte[] explicitly
+        net_bytes = Array[Byte](bytearray(jpeg_bytes))
+        stream = MemoryStream(net_bytes)
         bitmap = BitmapImage()
         bitmap.BeginInit()
         bitmap.StreamSource = stream
@@ -314,7 +318,8 @@ def _bytes_to_bitmap(jpeg_bytes):
         bitmap.Freeze()
         stream.Close()
         return bitmap
-    except Exception:
+    except Exception as ex:
+        logger.debug("_bytes_to_bitmap error: {}".format(ex))
         return None
 
 
@@ -447,9 +452,9 @@ class FamilyLoaderWindow(Window):
             # Set Window properties
             logger.debug("DEBUG: Step 2 - Setting window properties")
             self.Title = "Load Autodesk Family"
-            self.Height = 734
+            self.Height = 650
             self.Width = 1000
-            self.MinHeight = 534
+            self.MinHeight = 480
             self.MinWidth = 800
             self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
             self.Background = System.Windows.Media.SolidColorBrush(

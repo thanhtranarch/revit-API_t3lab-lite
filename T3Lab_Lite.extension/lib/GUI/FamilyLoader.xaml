@@ -255,10 +255,13 @@
                                     DockPanel.Dock="Right">
                             <Button x:Name="btn_select_all"
                                     Content="Select All"
+                                    Style="{StaticResource FolderButtonStyle}"
                                     Margin="5,0"
                                     Padding="8,4"/>
                             <Button x:Name="btn_select_none"
                                     Content="Select None"
+                                    Style="{StaticResource FolderButtonStyle}"
+                                    Background="#7F8C8D"
                                     Padding="8,4"/>
                         </StackPanel>
                     </DockPanel>
@@ -296,16 +299,21 @@
                                         <CheckBox x:Name="chk_family"
                                                   IsChecked="{Binding IsChecked}"
                                                   HorizontalAlignment="Left"
-                                                  Margin="0,0,0,5"/>
-                                        <Image Source="{Binding Thumbnail}"
-                                               Height="90"
-                                               Stretch="Uniform"
-                                               Margin="0,5"/>
+                                                  Margin="0,0,0,4"/>
+                                        <!-- Thumbnail area with grey placeholder -->
+                                        <Border Height="90" Background="#F0F0F0"
+                                                BorderBrush="#E0E0E0" BorderThickness="1"
+                                                Margin="0,2">
+                                            <Image Source="{Binding Thumbnail}"
+                                                   Stretch="Uniform"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                        </Border>
                                         <TextBlock Text="{Binding Name}"
                                                    TextAlignment="Center"
                                                    TextWrapping="Wrap"
                                                    FontSize="11"
-                                                   Height="40"
+                                                   MaxHeight="40"
                                                    ToolTip="{Binding FullPath}"/>
                                     </StackPanel>
                                 </Border>
