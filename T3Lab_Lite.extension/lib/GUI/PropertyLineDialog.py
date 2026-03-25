@@ -1415,17 +1415,32 @@ class PropertyLineDialog(forms.WPFWindow):
             self._set_status("No geometry available for this parcel.", error=True)
             return
 
+        # ── Ask the user where to save ────────────────────────────────────────
+        safe_apn = self._selected_parcel.parcel_id.replace("/", "_").replace("\\", "_")
+        default_name = "parcel_map_{}.png".format(safe_apn)
+
+        try:
+            from Microsoft.Win32 import SaveFileDialog
+            dlg = SaveFileDialog()
+            dlg.Title      = "Save Parcel Map"
+            dlg.FileName   = default_name
+            dlg.DefaultExt = ".png"
+            dlg.Filter     = "PNG Image (*.png)|*.png|All Files (*.*)|*.*"
+            if dlg.ShowDialog() is not True:
+                return                          # user cancelled
+            out = dlg.FileName
+        except Exception:
+            # Fallback: temp folder (e.g. SaveFileDialog unavailable)
+            import tempfile
+            out = os.path.join(tempfile.gettempdir(), default_name)
+
         self._set_status("Downloading parcel map tiles...", busy=True)
         self.btn_download_map.IsEnabled = False
 
-        area     = self._selected_parcel.area_sqft_raw or 0
-        safe_apn = self._selected_parcel.parcel_id.replace("/", "_").replace("\\", "_")
+        area = self._selected_parcel.area_sqft_raw or 0
 
         def map_thread():
             try:
-                import tempfile
-                out = os.path.join(tempfile.gettempdir(),
-                                   "parcel_map_{}.png".format(safe_apn))
                 generate_parcel_map(coords, out, area_sqft=area)
                 self.Dispatcher.Invoke(
                     DispatcherPriority.Normal,
