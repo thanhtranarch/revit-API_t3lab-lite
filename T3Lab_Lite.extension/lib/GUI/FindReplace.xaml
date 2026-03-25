@@ -5,13 +5,14 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Title="Views: Find and Replace"
-    Height="210" Width="350"
+    Height="240" Width="380"
     WindowStartupLocation="CenterScreen"
     HorizontalAlignment="Center"
     ShowInTaskbar="True"
     WindowStyle="None"
     ResizeMode="NoResize"
-    Background="#181735">
+    Background="White"
+    FontFamily="Segoe UI">
 
 
 
@@ -25,54 +26,27 @@
             <ColumnDefinition></ColumnDefinition>
         </Grid.ColumnDefinitions>
 
-        <!--HEADER START-->
-        <Grid   MouseDown="header_drag"
-                Background="{StaticResource header_background}"
-                Grid.ColumnSpan="2">
-            <!--HEADER GRID-->
+        <!--HEADER START (BatchOut style)-->
+        <Grid MouseDown="header_drag" Background="#F8F9FA"
+              BorderBrush="#BDC3C7" BorderThickness="0,0,0,1"
+              Grid.ColumnSpan="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="75"/>
-                <ColumnDefinition/>
-                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-
-            <!--LOGO-->
-            <DockPanel  Grid.Column="0"
-                        Grid.ColumnSpan="2"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Left">
-
-                <Image Width="20" Height="20" Margin="5,0,5,0"
-                       Source="Resources/T3Lab_logo.png" />
-
-                <TextBlock Margin="0,0,0,0">
-                    <Hyperlink
-                        RequestNavigate="Hyperlink_RequestNavigate"
-                        NavigateUri="https://www.t3lab.vn"
-                        FontSize="14px"
-                        FontWeight="Heavy"
-                        Foreground="{StaticResource text_white}">
-                        T3Lab
-                    </Hyperlink>
-                </TextBlock>
-            </DockPanel>
-
-            <!--__TITLE__-->
-            <TextBlock x:Name="main_title"
-                Text="__title__"
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Foreground="{StaticResource text_white}"/>
-
-            <!--CLOSE-->
-            <Button Content="Close"
-                    Grid.Column="2"
-                    Width="60" Height="20"
-                    FontSize="10"
+            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                        Margin="10,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="✏️" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock x:Name="main_title" Text="Find and Replace"
+                           FontWeight="SemiBold" Foreground="#2C3E50"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button Content="✕" Grid.Column="1"
+                    Width="30" Height="25" FontSize="11"
                     Click="button_close"
-                    VerticalAlignment="Center"
-                    HorizontalAlignment="Right"/>
+                    Background="Transparent" BorderThickness="0"
+                    Foreground="#7F8C8D" Cursor="Hand"
+                    VerticalAlignment="Center" Margin="0,0,4,0"/>
         </Grid>
         <!--HEADER END-->
 
@@ -93,11 +67,12 @@
                                     Margin="5" >
                     <Label x:Name="UI_label"
                         Content="ViewName"
-                           Margin="0, -25,0,0 "
-                           Foreground="{StaticResource text_magenta}"/>
-                    <Border  Height="110"
-                          BorderBrush="{DynamicResource border_magenta}"
-                         BorderThickness="1,1,1,1" CornerRadius="10" HorizontalAlignment="Stretch" Width="Auto">
+                           Margin="0,-25,0,0"
+                           Foreground="#7F8C8D"/>
+                    <Border Height="130"
+                            BorderBrush="#BDC3C7"
+                            BorderThickness="1" CornerRadius="4"
+                            HorizontalAlignment="Stretch" Width="Auto">
 
 
 
@@ -110,15 +85,15 @@
                             <DockPanel  HorizontalAlignment="Left"
                                         Margin="2">
                                 <TextBlock Text="Find:"
-                                            Foreground="{StaticResource text_white}"
+                                            Foreground="#2C3E50"
                                             Width="60"/>
 
                                 <TextBox x:Name="input_find"
                                          Width="200"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"
-                                         Background="{StaticResource header_background}"
-                                         Foreground="{StaticResource text_white}"/>
+                                         Background="White"
+                                         Foreground="#2C3E50"/>
                             </DockPanel>
 
                             <!--REPLACE-->
@@ -126,7 +101,7 @@
                                        Margin="2">
 
                                 <TextBlock  Text="Replace:"
-                                            Foreground="{StaticResource text_white}"
+                                            Foreground="#2C3E50"
                                             Width="60"/>
 
                                 <TextBox x:Name="input_replace"
@@ -134,37 +109,37 @@
                                             HorizontalAlignment="Center"
                                             VerticalAlignment="Center"
                                             Background="{StaticResource header_background}"
-                                            Foreground="{StaticResource text_white}"/>
+                                            Foreground="#2C3E50"/>
                             </DockPanel>
 
                             <!--PREFIX-->
                             <DockPanel HorizontalAlignment="Left"
                                         Margin="2">
                                 <TextBlock Text="Prefix:"
-                                           Foreground="{StaticResource text_white}"
+                                           Foreground="#2C3E50"
                                            Width="60"/>
 
                                 <TextBox x:Name="input_prefix"
                                          Width="200"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"
-                                         Background="{StaticResource header_background}"
-                                         Foreground="{StaticResource text_white}"/>
+                                         Background="White"
+                                         Foreground="#2C3E50"/>
                             </DockPanel>
 
                             <!--SUFFIX-->
                             <DockPanel HorizontalAlignment="Left"
                                         Margin="2">
                                 <TextBlock Text="Suffix:"
-                                           Foreground="{StaticResource text_white}"
+                                           Foreground="#2C3E50"
                                            Width="60"/>
 
                                 <TextBox x:Name="input_suffix"
                                          Width="200"
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"
-                                         Background="{StaticResource header_background}"
-                                         Foreground="{StaticResource text_white}"/>
+                                         Background="White"
+                                         Foreground="#2C3E50"/>
                             </DockPanel>
 
                         </StackPanel>
@@ -176,6 +151,11 @@
                             Margin="0,10,0,0"
                             Width="75"
                             Height="25"/>
+                    <!-- Copyright -->
+                    <TextBlock Text="© Copyright by T3Lab"
+                               FontSize="9" Foreground="#AAAAAA"
+                               HorizontalAlignment="Center"
+                               Margin="0,6,0,0"/>
                 </StackPanel>
             </Grid>
         </StackPanel>

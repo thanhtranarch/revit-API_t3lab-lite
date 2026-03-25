@@ -12,81 +12,42 @@
     HorizontalAlignment="Center"
     ShowInTaskbar="True"
     WindowStyle="None"
-    AllowsTransparency="True"
-    Background="#080326">
+    Background="White"
+    FontFamily="Segoe UI">
 
     <!--MAIN-->
-    <Grid>
-        <Grid.Background>
-            <LinearGradientBrush StartPoint="0,1" EndPoint="1,0">
-                <GradientStop Color= "#33FC467B" Offset="0" />
-                <GradientStop Color="#333F5EFB" Offset="1" />
-            </LinearGradientBrush>
-        </Grid.Background>
-
-
+    <Grid Background="White">
         <Grid.RowDefinitions>
-
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="30"/>
             <RowDefinition Height="45"/>
             <RowDefinition/>
-            <RowDefinition Height="25"/>
+            <RowDefinition Height="36"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition></ColumnDefinition>
         </Grid.ColumnDefinitions>
 
-        <!--HEADER START-->
-        <Grid   MouseDown="header_drag"
-                Background="{StaticResource header_background}"
-                Grid.ColumnSpan="2">
-            <!--HEADER GRID-->
+        <!--HEADER START (BatchOut style)-->
+        <Grid MouseDown="header_drag" Background="#F8F9FA"
+              BorderBrush="#BDC3C7" BorderThickness="0,0,0,1"
+              Grid.ColumnSpan="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="75"/>
-                <ColumnDefinition/>
-                <ColumnDefinition Width="60"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-
-            <!--LOGO-->
-            <DockPanel  Grid.Column="0"
-                        Grid.ColumnSpan="2"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Left">
-
-                <Image Width="20" Height="20" Margin="5,0,5,0"
-                       Source="Resources/T3Lab_logo.png" />
-
-                <TextBlock Margin="0,0,0,0">
-                    <Hyperlink
-                        RequestNavigate="Hyperlink_RequestNavigate"
-                        NavigateUri="https://www.t3lab.vn"
-                        FontSize="14px"
-                        FontWeight="Heavy"
-                        Foreground="{StaticResource text_white}">
-                        T3Lab
-                    </Hyperlink>
-                </TextBlock>
-            </DockPanel>
-
-            <!--__TITLE__-->
-            <TextBlock x:Name="main_title"
-                Text="__title__"
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Foreground="{StaticResource text_white}"
-                />
-
-            <!--CLOSE-->
-            <Button
-                Content="Close"
-                Grid.Column="2"
-                Width="60" Height="20"
-                FontSize="10"
-                Click="button_close"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Right"
-                    />
+            <StackPanel Grid.Column="0" Orientation="Horizontal"
+                        Margin="10,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="🔤" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock x:Name="main_title" Text="Select"
+                           FontWeight="SemiBold" Foreground="#2C3E50"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+            <Button Content="✕" Grid.Column="1"
+                    Width="30" Height="28" FontSize="11"
+                    Click="button_close"
+                    Background="Transparent" BorderThickness="0"
+                    Foreground="#7F8C8D" Cursor="Hand"
+                    VerticalAlignment="Center" Margin="0,0,4,0"/>
         </Grid>
         <!--HEADER END-->
 
@@ -96,15 +57,15 @@
         <DockPanel Grid.Row="1">
             <Label  Content="🔍"
                     VerticalAlignment="Top" Height="26"
-                    Foreground="{StaticResource text_magenta}"
+                    Foreground="#7F8C8D"
                     Margin="5,5,5,5"/>
 
             <TextBox x:Name="textbox_filter"
                     Text=""
                      Height="22" VerticalAlignment="Top"
-                     Foreground="{StaticResource text_magenta}" Background="{StaticResource header_background}"
+                     Foreground="#7F8C8D" Background="White"
                      Margin="0,8,10,5" FontSize="14"
-                     BorderBrush="{StaticResource border_magenta}"
+                     BorderBrush="#BDC3C7"
                      TextChanged="text_filter_updated">
 
                 <TextBox.Style>
@@ -128,15 +89,15 @@
             <Separator Background="{StaticResource border_magenta}"/>
 
             <Label x:Name="text_label"  Content="Select Elements:"
-                           Foreground="{StaticResource text_magenta}"/>
+                           Foreground="#7F8C8D"/>
 
             <ListBox x:Name="main_ListBox"
                          Height="350" Grid.Row="0"
-                         Background="{StaticResource header_background}"
+                         Background="White"
                          SelectionMode="Single"
                          ScrollViewer.VerticalScrollBarVisibility="Visible"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         BorderBrush="{StaticResource border_magenta}"
+                         BorderBrush="#BDC3C7"
                          >
 
                 <ListBox.Resources>
@@ -186,7 +147,7 @@
 
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <CheckBox  Background="#EE82EE" Foreground="{StaticResource text_white}" IsChecked="{Binding IsChecked}"  Checked="UIe_ItemChecked" >
+                        <CheckBox  Background="#EE82EE" Foreground="#2C3E50" IsChecked="{Binding IsChecked}"  Checked="UIe_ItemChecked" >
                             <TextBlock Text="{Binding Name}"/>
                         </CheckBox>
                     </DataTemplate>
@@ -227,47 +188,13 @@
         <!--LISTBOX END-->
 
         <!--FOOTER START-->
-        <Grid Grid.Row="3" Background="{StaticResource header_background}">
-            <!--FOOTER GRID-->
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
-
-            <!--IMAGE-->
-            <TextBlock>
-                <Hyperlink  NavigateUri="https://www.t3lab.vn" RequestNavigate="Hyperlink_RequestNavigate">
-                               <Image  Height="20"   Margin="1"  HorizontalAlignment="Left"   VerticalAlignment="Top"
-                                   Source="Resources/T3Lab_logo.png" />
-                </Hyperlink>
-            </TextBlock>
-
-
-
-            <!--VERSION-->
-            <TextBlock x:Name="footer_version"
-              Text="Version: 1.0"
-              Grid.Column="1"
-              VerticalAlignment="Center"
-              HorizontalAlignment="Center"
-              Foreground="{StaticResource text_gray}"
-    />
-
-            <!--Support-->
-            <TextBlock  Grid.Column="2"
-              VerticalAlignment="Center"
-              HorizontalAlignment="Right"
-              Margin="0,0,10,0">
-              <Hyperlink
-                  RequestNavigate="Hyperlink_RequestNavigate"
-                  NavigateUri="https://www.t3lab.vn"
-                  FontWeight="Medium"
-                  Foreground="{StaticResource button_bg_hover}">
-                  T3Lab
-              </Hyperlink>
-            </TextBlock>
-        </Grid>
+        <Border Grid.Row="3" Background="#F8F9FA"
+                BorderBrush="#BDC3C7" BorderThickness="0,1,0,0">
+            <TextBlock Text="© Copyright by T3Lab"
+                       FontSize="10" Foreground="#AAAAAA"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+        </Border>
         <!--FOOTER END-->
     </Grid>
 </Window>
