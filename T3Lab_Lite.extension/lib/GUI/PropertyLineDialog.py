@@ -665,10 +665,10 @@ def _latlon_to_tile_float(lat, lon, zoom):
 
 def _choose_zoom(area_sqft):
     """Pick an OSM zoom level appropriate for the parcel area."""
-    if   area_sqft <   5_000: return 20
-    elif area_sqft <  20_000: return 19
-    elif area_sqft < 100_000: return 18
-    elif area_sqft < 500_000: return 17
+    if   area_sqft <   5000: return 20
+    elif area_sqft <  20000: return 19
+    elif area_sqft < 100000: return 18
+    elif area_sqft < 500000: return 17
     else:                     return 16
 
 
