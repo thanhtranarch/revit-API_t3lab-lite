@@ -519,6 +519,21 @@ def _parse_search_response(body, url=""):
     return parcels
 
 
+def _coerce_str(val):
+    """Return a plain string from an API value that may be a dict, list, or scalar."""
+    if val is None:
+        return ""
+    if isinstance(val, dict):
+        for key in ("description", "label", "name", "value", "code", "assessment", "type"):
+            if val.get(key):
+                return str(val[key])
+        return str(val)
+    if isinstance(val, (list, tuple)):
+        parts = [_coerce_str(v) for v in val if v]
+        return ", ".join(parts)
+    return str(val)
+
+
 def _parse_parcel(item):
     """
     Parse one parcel from the Lightbox /v1/parcels/address response.
@@ -576,27 +591,32 @@ def _parse_parcel(item):
     assessment = item.get("assessment") or {}
 
     # Zoning code  (e.g. "R-L", "R1")
-    zoning_code = ""
-    zoning_obj  = assessment.get("zoning") or {}
+    zoning_obj = assessment.get("zoning") or {}
     if isinstance(zoning_obj, dict):
-        zoning_code = zoning_obj.get("assessment", "")
-    elif isinstance(zoning_obj, str):
-        zoning_code = zoning_obj
+        zoning_code = _coerce_str(zoning_obj.get("assessment") or
+                                  zoning_obj.get("code") or
+                                  zoning_obj.get("label") or
+                                  zoning_obj.get("value") or "")
+    else:
+        zoning_code = _coerce_str(zoning_obj)
 
     # Legal description  (e.g. "N-TRACT 6756, BLOCK: LOT 60")
-    legal_description = (assessment.get("legalDescription") or
-                         assessment.get("legal_description") or
-                         assessment.get("legalDesc") or "")
+    legal_description = _coerce_str(
+        assessment.get("legalDescription") or
+        assessment.get("legal_description") or
+        assessment.get("legalDesc") or "")
 
     # Flood zone  (e.g. "X", "AE")
-    flood_zone = (assessment.get("floodZone") or
-                  assessment.get("flood_zone") or
-                  item.get("floodZone") or "")
+    flood_zone = _coerce_str(
+        assessment.get("floodZone") or
+        assessment.get("flood_zone") or
+        item.get("floodZone") or "")
 
     # Land use code  (e.g. "RESIDENTIAL", "SFR")
-    land_use = (item.get("landUse") or
-                assessment.get("landUseCode") or
-                assessment.get("landUse") or "")
+    land_use = _coerce_str(
+        item.get("landUse") or
+        assessment.get("landUseCode") or
+        assessment.get("landUse") or "")
 
     # Lot dimensions (some tiers return width / depth)
     lot_width = ""
