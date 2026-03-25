@@ -39,6 +39,7 @@ from System.Windows.Media.Imaging import BitmapImage
 from System.Windows.Controls import TreeViewItem
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows.Threading import Dispatcher
+from System.Windows.Shell import WindowChrome
 
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
@@ -287,6 +288,7 @@ class FamilyItem(INotifyPropertyChanged):
     def __init__(self, name, full_path, category, thumbnail_path=None, is_cloud=False, download_url=None):
         self._is_checked = False
         self._is_disposed = False
+        self._property_changed_handlers = []
         self.Name = name
         self.FullPath = full_path
         self.Category = category
@@ -321,10 +323,25 @@ class FamilyItem(INotifyPropertyChanged):
             self._is_checked = value
             self.OnPropertyChanged("IsChecked")
 
+    def add_PropertyChanged(self, handler):
+        """Add PropertyChanged event handler"""
+        if handler not in self._property_changed_handlers:
+            self._property_changed_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        """Remove PropertyChanged event handler"""
+        if handler in self._property_changed_handlers:
+            self._property_changed_handlers.remove(handler)
+
     def OnPropertyChanged(self, propertyName):
+        """Raise PropertyChanged event"""
         try:
-            if not self._is_disposed and self.PropertyChanged is not None:
-                self.PropertyChanged(self, PropertyChangedEventArgs(propertyName))
+            if not self._is_disposed:
+                for handler in self._property_changed_handlers:
+                    try:
+                        handler(self, PropertyChangedEventArgs(propertyName))
+                    except Exception as ex:
+                        logger.debug("Error calling PropertyChanged handler: {}".format(ex))
         except Exception as ex:
             # Silently ignore PropertyChanged errors
             logger.debug("Error in OnPropertyChanged: {}".format(ex))
@@ -336,13 +353,10 @@ class FamilyItem(INotifyPropertyChanged):
                 # Clear thumbnail reference
                 self.Thumbnail = None
                 # Clear event handlers
-                self.PropertyChanged = None
+                self._property_changed_handlers = []
                 self._is_disposed = True
         except Exception as ex:
             logger.debug("Error disposing FamilyItem: {}".format(ex))
-
-    # INotifyPropertyChanged implementation
-    PropertyChanged = None
 
 
 class FamilyLoaderWindow(Window):
@@ -362,11 +376,28 @@ class FamilyLoaderWindow(Window):
             # Set Window properties
             logger.debug("DEBUG: Step 2 - Setting window properties")
             self.Title = "Load Autodesk Family"
-            self.Height = 700
+            self.Height = 734
             self.Width = 1000
-            self.MinHeight = 500
+            self.MinHeight = 534
             self.MinWidth = 800
             self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
+            self.Background = System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(255, 255, 255))
+
+            # Custom window chrome (no OS title bar, like PropertyLine / BatchOut)
+            try:
+                self.WindowStyle = getattr(System.Windows.WindowStyle, 'None')
+                chrome = WindowChrome()
+                chrome.CaptionHeight = 64
+                chrome.ResizeBorderThickness = System.Windows.Thickness(5)
+                chrome.GlassFrameThickness = System.Windows.Thickness(0)
+                chrome.CornerRadius = System.Windows.CornerRadius(8)
+                chrome.UseAeroCaptionButtons = False
+                WindowChrome.SetWindowChrome(self, chrome)
+                logger.debug("DEBUG: Step 2 - WindowChrome applied")
+            except Exception as chrome_ex:
+                logger.debug("DEBUG: Step 2 - WindowChrome skipped: {}".format(chrome_ex))
+
             logger.debug("DEBUG: Step 2 - COMPLETED")
 
             # Load XAML
@@ -468,6 +499,13 @@ class FamilyLoaderWindow(Window):
                 if not self.radio_cloud:
                     raise Exception("radio_cloud not found in XAML")
 
+                # Title bar controls (optional, no error if missing)
+                logger.debug("DEBUG: Step 4n - Finding title bar controls")
+                self.logo_image = self.ui.FindName('logo_image')
+                self.btn_minimize_fl = self.ui.FindName('btn_minimize_fl')
+                self.btn_close_x_fl = self.ui.FindName('btn_close_x_fl')
+                self.title_bar_grid = self.ui.FindName('title_bar_grid')
+
                 logger.debug("DEBUG: Step 4 - COMPLETED - All controls found")
             except Exception as ctrl_ex:
                 logger.error("DEBUG: ERROR in Step 4 - Finding controls: {}".format(str(ctrl_ex)))
@@ -508,12 +546,36 @@ class FamilyLoaderWindow(Window):
                 logger.debug("DEBUG: Step 5j - window.Loaded")
                 self.Loaded += self.window_loaded
 
+                # Title bar buttons
+                if self.btn_minimize_fl:
+                    self.btn_minimize_fl.Click += self.titlebar_minimize_clicked
+                if self.btn_close_x_fl:
+                    self.btn_close_x_fl.Click += self.cancel_clicked
+                if self.title_bar_grid:
+                    self.title_bar_grid.MouseLeftButtonDown += self.titlebar_drag
+
                 logger.debug("DEBUG: Step 5 - COMPLETED")
             except Exception as event_ex:
                 logger.error("DEBUG: ERROR in Step 5 - Wiring event handlers: {}".format(str(event_ex)))
                 logger.error("DEBUG: Full traceback:\n{}".format(traceback.format_exc()))
                 forms.alert("Error wiring event handlers:\n{}".format(str(event_ex)), exitscript=True)
                 raise
+
+            # Load logo
+            try:
+                from System import UriKind
+                logo_path = os.path.join(os.path.dirname(__file__), 'T3Lab_logo.png')
+                if os.path.exists(logo_path):
+                    bitmap = BitmapImage()
+                    bitmap.BeginInit()
+                    bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                    bitmap.EndInit()
+                    self.Icon = bitmap
+                    if self.logo_image:
+                        self.logo_image.Source = bitmap
+                    logger.debug("DEBUG: Logo loaded")
+            except Exception as logo_ex:
+                logger.debug("DEBUG: Logo load skipped: {}".format(logo_ex))
 
             # Initialize variables
             logger.debug("DEBUG: Step 6 - Initializing variables")
@@ -1439,6 +1501,21 @@ class FamilyLoaderWindow(Window):
                 forms.alert("Critical error loading families:\n{}".format(str(ex)[:200]), exitscript=False)
             except Exception as alert_ex:
                 logger.error("DEBUG: Failed to show error alert: {}".format(alert_ex))
+
+    def titlebar_minimize_clicked(self, sender, e):
+        """Minimize the window from custom title bar"""
+        try:
+            self.WindowState = System.Windows.WindowState.Minimized
+        except Exception as ex:
+            logger.debug("Error minimizing: {}".format(ex))
+
+    def titlebar_drag(self, sender, e):
+        """Allow dragging the window by the custom title bar"""
+        try:
+            if e.ButtonState == System.Windows.Input.MouseButtonState.Pressed:
+                self.DragMove()
+        except Exception as ex:
+            logger.debug("Error in DragMove: {}".format(ex))
 
     def cancel_clicked(self, sender, e):
         """Cancel and close dialog (or cancel scan if in progress)"""
