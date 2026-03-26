@@ -81,6 +81,9 @@ TEMP_FAMILIES_DIR = os.path.join(tempfile.gettempdir(), "t3lab_cloud_families")
 # Thumbnail cache folder
 THUMBNAIL_CACHE_DIR = os.path.join(os.path.expanduser("~"), ".t3lab", "thumbnails")
 
+# Number of families to push to the UI per scan batch (progressive display)
+SCAN_BATCH_SIZE = 20
+
 # ╦ ╦╔═╗╦  ╔═╗╔═╗╦═╗  ╔═╗╦ ╦╔╗╔╔═╗╔╦╗╦╔═╗╔╗╔╔═╗
 # ╠═╣║╣ ║  ╠═╝║╣ ╠╦╝  ╠╣ ║ ║║║║║   ║ ║║ ║║║║╚═╗
 # ╩ ╩╚═╝╩═╝╩  ╚═╝╩╚═  ╚  ╚═╝╝╚╝╚═╝ ╩ ╩╚═╝╝╚╝╚═╝
@@ -923,8 +926,14 @@ class FamilyLoaderWindow(Window):
             logger.warning("No current folder set for scanning")
             return
 
+        # Cancel any running thumbnail worker before clearing data
+        self._thumb_cancel = True
+
         # Reset cancellation flag
         self._cancel_requested = False
+
+        # Clear previous results immediately so the UI feels responsive
+        self._clear_families_ui()
 
         # Disable UI controls during scan
         self.btn_select_folder.IsEnabled = False
@@ -941,17 +950,38 @@ class FamilyLoaderWindow(Window):
         self._scan_thread.daemon = True
         self._scan_thread.start()
 
+    def _clear_families_ui(self):
+        """Clear all families from the UI and internal lists (call on UI thread)."""
+        try:
+            for old_family in list(self.all_families):
+                try:
+                    old_family.PropertyChanged -= self.on_family_property_changed
+                except Exception:
+                    pass
+                if hasattr(old_family, 'Dispose'):
+                    old_family.Dispose()
+            self.all_families = []
+            self.filtered_families.Clear()
+            self.category_structure = {}
+            self.tree_categories.Items.Clear()
+            self.txt_result_count.Text = "0 families found"
+            self.txt_selected_count.Text = "0 families selected"
+            self.btn_load.IsEnabled = False
+        except Exception as ex:
+            logger.debug("Error clearing families UI: {}".format(ex))
+
     def _scan_families_worker(self):
-        """Background worker for scanning families"""
+        """Background worker for scanning families — pushes results to UI progressively."""
         start_time = time.time()
         scan_errors = 0
         permission_errors = 0
         validation_errors = 0
         timeout_seconds = 300  # 5 minutes timeout
 
-        temp_families = []
         temp_category_structure = {}
         temp_seen_names = {}
+        pending_batch = []   # accumulate families before pushing to UI
+        total_found = 0
 
         try:
             logger.info("Walking through directory structure...")
@@ -961,13 +991,13 @@ class FamilyLoaderWindow(Window):
                 # Check for cancellation
                 if self._cancel_requested:
                     logger.info("Scan cancelled by user")
-                    self._scan_complete([], {}, cancelled=True)
+                    self._scan_complete(None, temp_category_structure, cancelled=True)
                     return
 
                 # Check for timeout
                 if time.time() - start_time > timeout_seconds:
                     logger.error("Scan timeout after {} seconds".format(timeout_seconds))
-                    self._scan_complete([], {}, timeout=True)
+                    self._scan_complete(None, temp_category_structure, timeout=True)
                     return
 
                 # Test directory accessibility
@@ -976,15 +1006,18 @@ class FamilyLoaderWindow(Window):
                 except (PermissionError, OSError) as access_ex:
                     logger.warning("Skipping inaccessible folder {}: {}".format(root, access_ex))
                     permission_errors += 1
-                    dirs[:] = []  # Don't descend into this directory
+                    dirs[:] = []
                     continue
 
                 # Process files
                 for file in files:
-                    # Check cancellation
                     if self._cancel_requested:
                         logger.info("Scan cancelled by user")
-                        self._scan_complete([], {}, cancelled=True)
+                        # Push remaining batch before stopping
+                        if pending_batch:
+                            self._push_family_batch(list(pending_batch))
+                            pending_batch = []
+                        self._scan_complete(None, temp_category_structure, cancelled=True)
                         return
 
                     if file.lower().endswith('.rfa'):
@@ -1004,7 +1037,6 @@ class FamilyLoaderWindow(Window):
                             # Create family name with duplicate detection
                             family_name = os.path.splitext(file)[0]
                             if family_name in temp_seen_names:
-                                # Append folder name to disambiguate
                                 logger.warning("Duplicate family name: {} in {} and {}".format(
                                     family_name,
                                     temp_seen_names[family_name],
@@ -1015,34 +1047,34 @@ class FamilyLoaderWindow(Window):
                             else:
                                 temp_seen_names[family_name] = full_path
 
-                            # Create family item
+                            # Create family item (no thumbnail yet — shown as placeholder)
                             family_item = FamilyItem(family_name, full_path, category)
-                            temp_families.append(family_item)
+                            pending_batch.append(family_item)
+                            total_found += 1
 
                             # Add to category structure
                             if category not in temp_category_structure:
                                 temp_category_structure[category] = []
                             temp_category_structure[category].append(family_item)
 
-                            # Update progress every 50 families
-                            if len(temp_families) % 50 == 0:
-                                logger.info("Scanned {} families so far...".format(len(temp_families)))
-                                # Update UI progress on main thread
-                                self._update_scan_progress(len(temp_families))
+                            # Push batch to UI immediately so names appear right away
+                            if len(pending_batch) >= SCAN_BATCH_SIZE:
+                                self._push_family_batch(list(pending_batch))
+                                pending_batch = []
 
                         except Exception as item_ex:
                             scan_errors += 1
                             logger.warning("Failed to process family {}: {}".format(file, item_ex))
                             logger.debug(traceback.format_exc())
-                            # Continue scanning other families
 
-            # Calculate duration
+            # Push any remaining families
+            if pending_batch:
+                self._push_family_batch(list(pending_batch))
+
             duration = time.time() - start_time
-
             logger.info("Directory walk completed in {:.2f} seconds".format(duration))
             logger.info("Found {} families in {} categories".format(
-                len(temp_families),
-                len(temp_category_structure)
+                total_found, len(temp_category_structure)
             ))
 
             if scan_errors > 0:
@@ -1052,13 +1084,42 @@ class FamilyLoaderWindow(Window):
             if validation_errors > 0:
                 logger.warning("Skipped {} invalid .rfa files".format(validation_errors))
 
-            # Complete scan on UI thread
-            self._scan_complete(temp_families, temp_category_structure)
+            # Finalize: update category tree, re-enable UI, start thumbnail worker
+            # Pass None for families — all_families was already built incrementally
+            self._scan_complete(None, temp_category_structure)
 
         except Exception as ex:
             logger.error("Critical error in scan worker: {}".format(ex))
             logger.error(traceback.format_exc())
-            self._scan_complete([], {}, error=str(ex))
+            self._scan_complete(None, temp_category_structure, error=str(ex))
+
+    def _push_family_batch(self, batch):
+        """Dispatch a batch of FamilyItems to the UI thread for immediate display."""
+        try:
+            if self.Dispatcher:
+                self.Dispatcher.Invoke(
+                    Action(lambda: self._push_family_batch_ui(batch))
+                )
+        except Exception as ex:
+            logger.debug("Error pushing family batch: {}".format(ex))
+
+    def _push_family_batch_ui(self, batch):
+        """Add a batch of FamilyItems to the live display (UI thread)."""
+        try:
+            for family in batch:
+                self.all_families.append(family)
+                try:
+                    family.PropertyChanged += self.on_family_property_changed
+                except Exception:
+                    pass
+                self.filtered_families.Add(family)
+            count = len(self.filtered_families)
+            self.txt_result_count.Text = "{} families found...".format(count)
+            self.txt_current_folder.Text = "{} (Scanning... {} found)".format(
+                self.current_folder, count
+            )
+        except Exception as ex:
+            logger.debug("Error in _push_family_batch_ui: {}".format(ex))
 
     def _update_scan_progress(self, count):
         """Update scan progress on UI thread"""
@@ -1090,20 +1151,27 @@ class FamilyLoaderWindow(Window):
             logger.error("Error invoking scan complete: {}".format(ex))
 
     def _scan_complete_ui(self, families, category_structure, error=None, cancelled=False, timeout=False):
-        """Complete scan and update UI (called on UI thread)"""
-        try:
-            # Clean up old families to prevent memory leaks
-            for old_family in self.all_families:
-                if hasattr(old_family, 'Dispose'):
-                    old_family.Dispose()
+        """Complete scan and update UI (called on UI thread).
 
-            # Update data
-            self.all_families = families
-            self.category_structure = category_structure
+        families=None  → incremental local scan: all_families was built progressively,
+                         just update category_structure + finalize UI.
+        families=[...] → bulk mode (cloud load): replace all_families entirely.
+        """
+        try:
+            if families is not None:
+                # Bulk path (cloud): replace everything
+                for old_family in self.all_families:
+                    if hasattr(old_family, 'Dispose'):
+                        old_family.Dispose()
+                self.all_families = families
+                self.category_structure = category_structure
+            else:
+                # Incremental path: families were pushed to self.all_families already
+                self.category_structure = category_structure
 
             # Re-enable UI
             if self.radio_cloud.IsChecked:
-                self.txt_current_folder.Text = "Cloud (Vercel) - {} families loaded".format(len(families))
+                self.txt_current_folder.Text = "Cloud (Vercel) - {} families loaded".format(len(self.all_families))
             else:
                 self.btn_select_folder.IsEnabled = True
                 self.txt_current_folder.Text = self.current_folder
@@ -1111,22 +1179,31 @@ class FamilyLoaderWindow(Window):
             # Handle different completion states
             if error:
                 logger.error("Scan failed with error: {}".format(error))
+                self.txt_result_count.Text = "{} families found".format(len(self.all_families))
                 forms.alert("Error scanning folder: {}".format(error), exitscript=False)
             elif cancelled:
                 logger.info("Scan cancelled by user")
+                self.txt_result_count.Text = "{} families found (cancelled)".format(len(self.all_families))
                 forms.alert("Scan cancelled", exitscript=False)
             elif timeout:
                 logger.error("Scan timeout")
+                self.txt_result_count.Text = "{} families found (timeout)".format(len(self.all_families))
                 forms.alert("Scan timeout: Operation took too long (>5 minutes)", exitscript=False)
             else:
-                # Update UI with results
+                # Update category tree now that we have the complete structure
                 logger.info("Updating category tree...")
                 self.update_category_tree()
 
-                logger.info("Updating family display...")
-                self.update_family_display()
+                if families is not None:
+                    # Bulk path: need to populate display from scratch
+                    logger.info("Updating family display...")
+                    self.update_family_display()
+                else:
+                    # Incremental path: filtered_families already populated; just refresh count
+                    self.txt_result_count.Text = "{} families found".format(len(self.all_families))
 
-                # Start background thumbnail loading
+                # Start background thumbnail loading (Phase 2)
+                self._thumb_cancel = False
                 self._start_thumbnail_worker()
 
                 logger.info("=" * 80)
@@ -1608,7 +1685,7 @@ class FamilyLoaderWindow(Window):
                 logger.error("DEBUG: Failed to show error alert: {}".format(alert_ex))
 
     def _start_thumbnail_worker(self):
-        """Kick off a background thread that fills thumbnails progressively."""
+        """Kick off a background thread that fills thumbnails progressively (Phase 2)."""
         self._thumb_cancel = False
         families_snapshot = list(self.all_families)
         t = threading.Thread(target=self._thumbnail_worker, args=(families_snapshot,))
