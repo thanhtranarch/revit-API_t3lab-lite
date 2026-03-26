@@ -1,25 +1,52 @@
 {
   "tools": {
     "DrillingPointCoordination.pushbutton": {
-      "panel": "Tempor.panel", 
-      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Tempor.panel\\DrillingPointCoordination.pushbutton\\script.py", 
       "button": "DrillingPointCoordination.pushbutton", 
+      "panel": "Tempor.panel", 
+      "title": "DrillingPointCoordination", 
       "keywords": [
         "drillingpointcoordination"
       ], 
-      "title": "DrillingPointCoordination", 
-      "intent": "open_drillingpointcoordination"
+      "intent": "open_drillingpointcoordination", 
+      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Tempor.panel\\DrillingPointCoordination.pushbutton\\script.py"
+    }, 
+    "AnnotationManager.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\AnnotationManager.pushbutton\\script.py", 
+      "button": "AnnotationManager.pushbutton", 
+      "keywords": [
+        "annotation manager", 
+        "annotationmanager", 
+        "annotation", 
+        "manager"
+      ], 
+      "title": "Annotation Manager", 
+      "intent": "open_annotationmanager"
     }, 
     "StopMCP.pushbutton": {
-      "panel": "AI Connection.panel", 
-      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\AI Connection.panel\\StopMCP.pushbutton\\script.py", 
       "button": "StopMCP.pushbutton", 
+      "panel": "AI Connection.panel", 
+      "title": "Disconnect", 
       "keywords": [
         "disconnect", 
         "stopmcp"
       ], 
-      "title": "Disconnect", 
-      "intent": "open_stopmcp"
+      "intent": "open_stopmcp", 
+      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\AI Connection.panel\\StopMCP.pushbutton\\script.py"
+    }, 
+    "JSONToFamily.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\JSONToFamily.pushbutton\\script.py", 
+      "button": "JSONToFamily.pushbutton", 
+      "keywords": [
+        "json to family", 
+        "jsontofamily", 
+        "family", 
+        "json", 
+        "to"
+      ], 
+      "title": "JSON to Family", 
+      "intent": "open_jsontofamily"
     }
   }, 
   "version": 1
