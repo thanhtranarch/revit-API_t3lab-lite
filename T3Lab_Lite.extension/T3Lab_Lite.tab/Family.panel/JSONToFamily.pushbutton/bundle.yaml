@@ -1,0 +1,18 @@
+title: JSON to\nFamily
+tooltip: Generate parametric Revit families from a JSON schema
+description: |
+  JSON to Family converts a structured JSON schema into a fully parametric
+  Revit family inside a currently open Family Document.
+
+  Features:
+  - Creates parameters (Length, Material, YesNo) with instance/type control
+  - Generates reference planes and dimensional constraints
+  - Supports Extrusion, Sweep, Revolve, Blend, and Void geometry
+  - Binds material and visibility parameters to geometry
+  - Locks faces to reference planes for full parametric control
+  - All measurements in millimeters (metric)
+
+  Must be run inside an open Revit Family Document.
+
+author: Jonathan Bourne / T3Lab
+version: 1.0.0
