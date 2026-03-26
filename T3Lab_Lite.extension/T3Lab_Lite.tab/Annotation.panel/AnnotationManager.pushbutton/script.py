@@ -13,12 +13,15 @@ Author: T3Lab (Tran Tien Thanh)
 __title__  = "Annotation\nManager"
 __author__ = "T3Lab"
 
+import os
 import re
 import clr
 clr.AddReference('PresentationCore')
 clr.AddReference('PresentationFramework')
 
-from System.Windows import Visibility
+from System.Windows import Visibility, WindowState
+from System.Windows.Media.Imaging import BitmapImage
+from System import Uri, UriKind
 from Autodesk.Revit.DB import *
 from pyrevit import revit, forms, script
 
@@ -138,243 +141,16 @@ def _txt_name(tt, origin):
     return "_".join(parts)
 
 
+
 # ============================================================
-# XAML
+# XAML PATH
 # ============================================================
-XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Annotation Manager - T3Lab"
-        Width="700" Height="640"
-        WindowStartupLocation="CenterScreen"
-        Background="White">
-  <Window.Resources>
-    <Style x:Key="ModeOn" TargetType="Button">
-      <Setter Property="Background"   Value="#3498DB"/>
-      <Setter Property="Foreground"   Value="White"/>
-      <Setter Property="FontWeight"   Value="Bold"/>
-      <Setter Property="FontSize"     Value="13"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding"      Value="22,9"/>
-      <Setter Property="Cursor"       Value="Hand"/>
-    </Style>
-    <Style x:Key="ModeOff" TargetType="Button">
-      <Setter Property="Background"   Value="#ECF0F1"/>
-      <Setter Property="Foreground"   Value="#7F8C8D"/>
-      <Setter Property="FontWeight"   Value="Normal"/>
-      <Setter Property="FontSize"     Value="13"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding"      Value="22,9"/>
-      <Setter Property="Cursor"       Value="Hand"/>
-    </Style>
-    <Style x:Key="BtnBlue" TargetType="Button">
-      <Setter Property="Background"   Value="#3498DB"/>
-      <Setter Property="Foreground"   Value="White"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding"      Value="12,6"/>
-      <Setter Property="FontSize"     Value="12"/>
-      <Setter Property="Cursor"       Value="Hand"/>
-    </Style>
-    <Style x:Key="BtnRed" TargetType="Button">
-      <Setter Property="Background"   Value="#E74C3C"/>
-      <Setter Property="Foreground"   Value="White"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding"      Value="12,6"/>
-      <Setter Property="FontSize"     Value="12"/>
-      <Setter Property="Cursor"       Value="Hand"/>
-    </Style>
-    <Style x:Key="BtnOrange" TargetType="Button">
-      <Setter Property="Background"   Value="#E67E22"/>
-      <Setter Property="Foreground"   Value="White"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding"      Value="12,6"/>
-      <Setter Property="FontSize"     Value="12"/>
-      <Setter Property="Cursor"       Value="Hand"/>
-    </Style>
-    <Style x:Key="BtnGray" TargetType="Button">
-      <Setter Property="Background"   Value="#ECF0F1"/>
-      <Setter Property="Foreground"   Value="#2C3E50"/>
-      <Setter Property="BorderBrush"  Value="#BDC3C7"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding"      Value="10,5"/>
-      <Setter Property="FontSize"     Value="12"/>
-      <Setter Property="Cursor"       Value="Hand"/>
-    </Style>
-  </Window.Resources>
-
-  <Grid Margin="16">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-
-    <!-- Header -->
-    <StackPanel Grid.Row="0" Margin="0,0,0,10">
-      <TextBlock Text="Annotation Manager" FontSize="20" FontWeight="Bold" Foreground="#2C3E50"/>
-      <TextBlock x:Name="lbl_subtitle"
-                 Text="Dimension: Find · Remove · Rename Types"
-                 FontSize="11" Foreground="#7F8C8D" Margin="0,2,0,0"/>
-      <Separator Margin="0,8,0,0"/>
-    </StackPanel>
-
-    <!-- Mode toggle -->
-    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
-      <Button x:Name="btn_dim"  Content="📐  Dimension"  Style="{StaticResource ModeOn}"
-              Click="switch_dim"/>
-      <Button x:Name="btn_txt"  Content="📝  Text Note"  Style="{StaticResource ModeOff}"
-              Margin="5,0,0,0" Click="switch_txt"/>
-    </StackPanel>
-
-    <!-- ═══════════════ DIMENSION PANEL ═══════════════ -->
-    <Grid x:Name="pnl_dim" Grid.Row="2">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-      </Grid.RowDefinitions>
-
-      <!-- Search row -->
-      <Grid Grid.Row="0" Margin="0,0,0,6">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto"/>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="Auto"/>
-          <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="Type name:" VerticalAlignment="Center"
-                   FontWeight="Medium" Margin="0,0,8,0"/>
-        <TextBox  x:Name="dim_kw"  Grid.Column="1" Height="30"
-                  VerticalContentAlignment="Center" Padding="6,0"
-                  BorderBrush="#BDC3C7" FontFamily="Consolas"/>
-        <Button   Grid.Column="2" Content="Search" Height="30" Margin="6,0,0,0"
-                  Style="{StaticResource BtnBlue}" Click="dim_search"/>
-        <TextBlock x:Name="dim_count" Grid.Column="3"
-                   VerticalAlignment="Center" Margin="10,0,0,0"
-                   FontSize="11" Foreground="#7F8C8D"/>
-      </Grid>
-
-      <!-- Result list -->
-      <Border Grid.Row="1" BorderBrush="#BDC3C7" BorderThickness="1">
-        <ListBox x:Name="lb_dim" SelectionMode="Extended"
-                 FontFamily="Consolas" FontSize="11"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-      </Border>
-
-      <!-- Action buttons -->
-      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,8">
-        <Button Content="Jump to View"    Style="{StaticResource BtnBlue}"
-                Margin="0,0,6,0" Click="dim_jump"/>
-        <Button Content="Delete Selected" Style="{StaticResource BtnRed}"
-                Margin="0,0,6,0" Click="dim_delete"/>
-        <Button Content="Select All"      Style="{StaticResource BtnGray}"
-                Margin="0,0,6,0" Click="dim_select_all"/>
-        <Button Content="Clear"           Style="{StaticResource BtnGray}"
-                Click="dim_clear_sel"/>
-      </StackPanel>
-
-      <!-- Rename section -->
-      <Border Grid.Row="3" Background="#F8F9FA" BorderBrush="#D5DBDB" BorderThickness="1" Padding="10,8">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <TextBlock Text="Auto-Rename All Dimension Types" FontWeight="Bold" Foreground="#2C3E50"/>
-            <TextBlock FontSize="10" Foreground="#7F8C8D" TextWrapping="Wrap"
-                       Text="Generates: LB_[discipline]_[size]_[font]_[bg]_[color]_[prefix]_[indicators]"/>
-          </StackPanel>
-          <Button Grid.Column="1" Content="Rename All" Width="100"
-                  Style="{StaticResource BtnOrange}" Click="dim_rename_all" VerticalAlignment="Center"/>
-        </Grid>
-      </Border>
-    </Grid>
-
-    <!-- ═══════════════ TEXTNOTE PANEL ═══════════════ -->
-    <Grid x:Name="pnl_txt" Grid.Row="2" Visibility="Collapsed">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-      </Grid.RowDefinitions>
-
-      <!-- Sub-mode -->
-      <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-        <RadioButton x:Name="rb_notes" Content="Find Notes  (search by text content)"
-                     IsChecked="True" Margin="0,0,20,0" FontSize="12"
-                     Checked="txt_submode"/>
-        <RadioButton x:Name="rb_types" Content="Find Types  (search by type name)"
-                     FontSize="12" Checked="txt_submode"/>
-      </StackPanel>
-
-      <!-- Search row -->
-      <Grid Grid.Row="1" Margin="0,0,0,6">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto"/>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="Auto"/>
-          <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <TextBlock x:Name="txt_lbl" Grid.Column="0" Text="Content:"
-                   VerticalAlignment="Center" FontWeight="Medium" Margin="0,0,8,0"/>
-        <TextBox  x:Name="txt_kw" Grid.Column="1" Height="30"
-                  VerticalContentAlignment="Center" Padding="6,0"
-                  BorderBrush="#BDC3C7" FontFamily="Consolas"/>
-        <Button   Grid.Column="2" Content="Search" Height="30" Margin="6,0,0,0"
-                  Style="{StaticResource BtnBlue}" Click="txt_search"/>
-        <TextBlock x:Name="txt_count" Grid.Column="3"
-                   VerticalAlignment="Center" Margin="10,0,0,0"
-                   FontSize="11" Foreground="#7F8C8D"/>
-      </Grid>
-
-      <!-- Result list -->
-      <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1">
-        <ListBox x:Name="lb_txt" SelectionMode="Extended"
-                 FontFamily="Consolas" FontSize="11"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-      </Border>
-
-      <!-- Action buttons -->
-      <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,8">
-        <Button x:Name="btn_txt_jump" Content="Jump to View" Style="{StaticResource BtnBlue}"
-                Margin="0,0,6,0" Click="txt_jump"/>
-        <Button Content="Delete Selected" Style="{StaticResource BtnRed}"
-                Margin="0,0,6,0" Click="txt_delete"/>
-        <Button Content="Select All"      Style="{StaticResource BtnGray}"
-                Margin="0,0,6,0" Click="txt_select_all"/>
-        <Button Content="Clear"           Style="{StaticResource BtnGray}"
-                Click="txt_clear_sel"/>
-      </StackPanel>
-
-      <!-- Rename section -->
-      <Border Grid.Row="4" Background="#F8F9FA" BorderBrush="#D5DBDB" BorderThickness="1" Padding="10,8">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0">
-            <TextBlock Text="Auto-Rename All Text Note Types" FontWeight="Bold" Foreground="#2C3E50"/>
-            <TextBlock FontSize="10" Foreground="#7F8C8D" TextWrapping="Wrap"
-                       Text="Generates: LB_[discipline]_[size]_[font]_[bg]_[factor]_[color]_[border]_[B/U/I]"/>
-          </StackPanel>
-          <Button Grid.Column="1" Content="Rename All" Width="100"
-                  Style="{StaticResource BtnOrange}" Click="txt_rename_all" VerticalAlignment="Center"/>
-        </Grid>
-      </Border>
-    </Grid>
-
-    <!-- Status bar -->
-    <TextBlock x:Name="status" Grid.Row="3" Margin="0,8,0,0"
-               FontSize="11" Foreground="#7F8C8D" Text="Ready."/>
-  </Grid>
-</Window>
-"""
+_GUI_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+    'lib', 'GUI'
+)
+_XAML_PATH = os.path.join(_GUI_DIR, 'AnnotationManager.xaml')
+_LOGO_PATH = os.path.join(_GUI_DIR, 'T3Lab_logo.png')
 
 
 # ============================================================
@@ -383,19 +159,28 @@ XAML = """
 class AnnotationManagerWindow(forms.WPFWindow):
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, XAML, literal_string=True)
-        self._mode     = "dim"    # "dim" | "txt"
+        forms.WPFWindow.__init__(self, _XAML_PATH)
         self._submode  = "notes"  # "notes" | "types"
         # Parallel item stores: index matches ListBox row
-        self._dim_items  = []   # list of DimResultItem
-        self._txt_items  = []   # list of TextNoteItem or TextNoteTypeItem
+        self._dim_items  = []
+        self._txt_items  = []
+
+        # Load logo
+        try:
+            bitmap = BitmapImage()
+            bitmap.BeginInit()
+            bitmap.UriSource = Uri(_LOGO_PATH, UriKind.Absolute)
+            bitmap.EndInit()
+            self.Icon = bitmap
+            self.logo_image.Source = bitmap
+        except Exception:
+            pass
 
     # ── helpers ────────────────────────────────────────────────
     def _status(self, msg):
         self.status.Text = msg
 
     def _lb_selected_indices(self, lb):
-        """Return list of indices of selected rows in a ListBox."""
         selected = []
         for i in range(lb.Items.Count):
             lbi = lb.ItemContainerGenerator.ContainerFromIndex(i)
@@ -403,24 +188,20 @@ class AnnotationManagerWindow(forms.WPFWindow):
                 selected.append(i)
         return selected
 
-    # ── Mode switching ──────────────────────────────────────────
-    def switch_dim(self, sender, args):
-        self._mode = "dim"
-        self.pnl_dim.Visibility = Visibility.Visible
-        self.pnl_txt.Visibility = Visibility.Collapsed
-        self.btn_dim.Style = self.FindResource("ModeOn")
-        self.btn_txt.Style = self.FindResource("ModeOff")
-        self.lbl_subtitle.Text = "Dimension: Find · Remove · Rename Types"
-        self._status("Dimension mode.")
+    # ── Window controls ─────────────────────────────────────────
+    def minimize_button_clicked(self, sender, args):
+        self.WindowState = WindowState.Minimized
 
-    def switch_txt(self, sender, args):
-        self._mode = "txt"
-        self.pnl_dim.Visibility = Visibility.Collapsed
-        self.pnl_txt.Visibility = Visibility.Visible
-        self.btn_dim.Style = self.FindResource("ModeOff")
-        self.btn_txt.Style = self.FindResource("ModeOn")
-        self.lbl_subtitle.Text = "Text Note: Find Notes · Find Types · Rename Types"
-        self._status("Text Note mode.")
+    def maximize_button_clicked(self, sender, args):
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+            self.btn_maximize.ToolTip = "Maximize"
+        else:
+            self.WindowState = WindowState.Maximized
+            self.btn_maximize.ToolTip = "Restore"
+
+    def close_button_clicked(self, sender, args):
+        self.Close()
 
     # ── TextNote sub-mode ───────────────────────────────────────
     def txt_submode(self, sender, args):
