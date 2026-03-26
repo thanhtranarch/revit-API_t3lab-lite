@@ -1,19 +1,16 @@
 # -*- coding: utf-8 -*-
-
 """
-Rename Dimmension
-Auto rename Dimension Types
-LB_<discipline>_<textsize>_<textfont>_<textbackground>_<color>_<dimsuffix>
+Rename Dim
 
---------------------------------------------------------
+Rename dimension types using find and replace.
+
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
---------------------------------------------------------
 """
-__title__ = "Ren Dim"
-__author__ = "Tran Tien Thanh"
-__version__ = 'Version: 3.0'
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Rename Dim"
 
 # IMPORT LIBRARIES
 # ==================================================

@@ -1,35 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Property Line Tool
-Create US property boundary lines in Revit from Lightbox RE parcel API data.
+Property Line
 
-Usage:
-1. Enter your Lightbox API key and save it
-2. Type a US property address and click Search
-3. Select a parcel from the results
-4. Configure elevation and line type
-5. Click "Create Property Lines in Revit"
+Create and manage property lines from survey data.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
-__title__ = "Property\nLine"
-__author__ = "T3Lab"
-__doc__ = """Property Line Tool - Powered by Lightbox RE API
 
-Create accurate US property boundary lines directly in Revit by
-searching for any US address. The tool retrieves official parcel
-data (GeoJSON boundaries) from the Lightbox RE API and converts
-geographic coordinates (WGS84) into Revit internal feet.
-
-Features:
-  - Address-based parcel search (Lightbox RE API)
-  - Automatic WGS84 -> Revit feet coordinate conversion
-  - Native PropertyLine, ModelLine, or DetailLine output
-  - Placement relative to Project Base Point, Survey Point, or World Origin
-  - API key stored locally in ~/.t3lab/property_line_config.json
-
-Requirements:
-  - Lightbox RE API key (https://lightboxre.com)
-  - Active Revit document
-"""
+__author__  = "Tran Tien Thanh"
+__title__   = "Property Line"
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗

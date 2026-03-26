@@ -1,3 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+Filtered Element Collector Snippets
+
+Code snippets for FilteredElementCollector usage.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Filtered Element Collector Snippets"
+
 #>>>>>>>>>> IMPORTS
 from Autodesk.Revit.DB import *
 

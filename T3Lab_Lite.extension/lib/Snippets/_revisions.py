@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+"""
+Revisions Snippets
+
+Code snippets for managing Revit revisions and revision clouds.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Revisions Snippets"
+
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
 # ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS

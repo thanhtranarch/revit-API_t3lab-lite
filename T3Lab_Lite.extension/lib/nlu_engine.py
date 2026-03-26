@@ -1,27 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Built-in NLU (Natural Language Understanding) engine for T3Lab Assistant.
-
-Fully self-contained — no external services, APIs, models, or downloads.
-Works offline in IronPython 2.7+, CPython 3.x, and standard pyRevit.
-
-Algorithm
----------
-1. Preprocess : strip diacritics → lowercase → expand abbreviations/synonyms
-2. Tokenise   : unigrams + bigrams from the normalised text
-3. Classify   : weighted feature scoring per intent; pick max above threshold
-4. Disambiguate: rule-based tie-breaking (export vs open_batchout_configured)
-5. Slot extract: format, filter-prefix, combine flag
-6. Context    : pronoun / reference resolution from conversation history
-7. Respond    : build a friendly, language-matched message
-
-Supported intents
------------------
-  export_direct · open_batchout_configured · open_batchout
-  open_parasync · open_loadfamily · open_loadfamily_cloud
-  open_projectname · open_workset · open_dimtext · open_upperdimtext
-  open_resetoverrides · open_grids
-  greet · chat · help
 """
+NLU Engine
+
+Natural Language Understanding engine for parsing Revit commands.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "NLU Engine"
+
 from __future__ import unicode_literals, division
 
 import re

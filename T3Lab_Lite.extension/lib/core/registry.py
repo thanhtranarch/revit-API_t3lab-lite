@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-T3LabAI Command Registry
-Manages available commands and their statistics
+Tool Registry
+
+Registry for managing and looking up available T3Lab tools.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Tool Registry"
 
 
 class T3LabAIRegistry:

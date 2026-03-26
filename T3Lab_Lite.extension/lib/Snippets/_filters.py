@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+"""
+Filters Snippets
+
+Code snippets for Revit element filter classes.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Filters Snippets"
+
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
 # ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS

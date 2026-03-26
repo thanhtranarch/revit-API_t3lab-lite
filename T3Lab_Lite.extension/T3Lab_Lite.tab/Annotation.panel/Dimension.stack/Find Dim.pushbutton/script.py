@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Find View of Dimension
-Search Dimensions placed in model by name and jump to their View
+Find Dim
 
---------------------------------------------------------
+Find and select dimensions by type or value in the active view.
+
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
---------------------------------------------------------
 """
-__title__ = "Find Dim"
-__author__ = "Tran Tien Thanh"
-__version__ = 'Version: 1.4'
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Find Dim"
 
 # IMPORT LIBRARIES
 # ==================================================

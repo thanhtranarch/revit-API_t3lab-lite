@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-UpperText
+Upper Dim Text
 
-Adjust Dimension Text with Enhanced Control
+Convert dimension text overrides to uppercase.
 
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
@@ -10,7 +10,7 @@ Linkedin: linkedin.com/in/sunarch7899/
 """
 
 __author__  = "Tran Tien Thanh"
-__title__   = "Upper Text"
+__title__   = "Upper Dim Text"
 
 # IMPORT LIBRARIES
 # ==================================================

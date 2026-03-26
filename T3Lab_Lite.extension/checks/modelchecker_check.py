@@ -1,4 +1,17 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
+"""
+Model Checker
+
+Comprehensive model quality check with color-coded reporting.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Model Checker"
+
 #pylint: disable=import-error,invalid-name,broad-except,superfluous-parens
 import datetime
 

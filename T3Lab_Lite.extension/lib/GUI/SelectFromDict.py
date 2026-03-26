@@ -1,4 +1,16 @@
 # -*- coding: utf-8 -*-
+"""
+Select From Dict Dialog
+
+GUI dialog for selecting items from a dictionary.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Select From Dict Dialog"
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗

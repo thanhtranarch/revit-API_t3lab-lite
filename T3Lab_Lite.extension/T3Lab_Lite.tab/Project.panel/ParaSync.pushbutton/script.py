@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-ParaSync - Revit Parameter Data Sync Tool
-Export/Import Revit model parameter data to/from Excel.
-Full SheetLink-style functionality: Model Categories, Annotation Categories,
-Elements, Schedules, Spatial, Preview/Edit.
+Para Sync
+
+Synchronize parameter values between selected elements.
 
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__title__ = "ParaSync"
-__author__ = "Tran Tien Thanh"
-__doc__ = "Export/Import parameter data to Excel - SheetLink style"
+__author__  = "Tran Tien Thanh"
+__title__   = "Para Sync"
 
 # =============================================================================
 # IMPORTS

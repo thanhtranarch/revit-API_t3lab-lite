@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
-__title__ = "Select Similar Family Instances in Model"
-__author__ = "Erik Frits"
+"""
+Select Similar Family
+
+Select all elements of the same family type as the selection.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Select Similar Family"
 __doc__ = """Version = 1.0
 Date    = 22.08.2022
 _____________________________________________________________________

@@ -1,4 +1,17 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
+"""
+Reference Planes Check
+
+List and validate all reference planes in the model.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Reference Planes Check"
+
 #pylint: disable=import-error,invalid-name,broad-except,superfluous-parens
 import datetime
 

@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-T3LabAI Settings Management
-Handles configuration for MCP server and providers
+Settings
+
+Configuration settings manager for T3Lab AI integration.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Settings"
 
 import os
 import json

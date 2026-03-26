@@ -1,3 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+Reset Overrides
+
+Reset all graphic overrides on selected elements in the active view.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Reset Overrides"
+
 from pyrevit import revit, DB
 
 view = revit.active_view

@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 Workset
-    
-Assign Workset to Project
-and Remove Unused Workset
+
+Manage and assign worksets to selected elements.
 
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 """
-__author__ = "Tran Tien Thanh"
-__title__ = "Workset"
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Workset"
 
 # IMPORT LIBRARIES
 # ==================================================

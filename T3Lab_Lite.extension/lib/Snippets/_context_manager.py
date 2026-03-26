@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+"""
+Context Manager Snippets
+
+Code snippets for Revit transaction context managers.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Context Manager Snippets"
+
 from Autodesk.Revit.DB import Transaction
 import contextlib
 import traceback

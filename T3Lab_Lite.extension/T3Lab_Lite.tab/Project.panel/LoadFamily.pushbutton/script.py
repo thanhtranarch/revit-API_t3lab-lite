@@ -1,19 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Load Family Tool
-Load Revit families from folders with category organization
-"""
-__title__ = "Load Family"
-__author__ = "T3Lab"
-__doc__ = """Load Revit families from folders with category organization.
+Load Family
 
-Features:
-- Select folder to browse families
-- Categories organized by folder structure
-- Search functionality for quick filtering
-- Preview family thumbnails
-- Batch loading of multiple families
+Load Revit families from local disk or cloud library.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Load Family"
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗

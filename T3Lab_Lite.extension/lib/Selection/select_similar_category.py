@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
-__title__ = "Select similar categories"
-__author__ = "Erik Frits"
+"""
+Select Similar Category
+
+Select all elements in the same category as the selection.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Select Similar Category"
 
 
 

@@ -1,22 +1,17 @@
 # -*- coding: utf-8 -*-
-"""BatchOut executor utilities for T3Lab Assistant.
-
-Provides two capabilities:
-  1. configure_batchout_window(window, config)
-       Pre-configures an ExportManagerWindow (select sheets, set format, navigate tab)
-       so the user sees it ready-to-export.
-
-  2. direct_export(batchout_mod, config, progress_cb)
-       Runs the export entirely without showing the BatchOut UI.
-       Creates a hidden ExportManagerWindow, configures it, calls export_to_*,
-       then closes it.
-
-Config dict keys:
-    format   (str)  : 'pdf' | 'dwg' | 'dwf' | 'dgn' | 'ifc' | 'nwd' | 'img'
-    filter   (str)  : sheet-number prefix/keyword to filter, e.g. 'G'.  '' = all.
-    combine  (bool) : combine into single PDF (PDF only, default False)
-    folder   (str)  : output folder path, default ~/Documents/Revit Exports
 """
+Batch Out Executor
+
+Executes batch export operations for sheets in various formats.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Batch Out Executor"
+
 from __future__ import unicode_literals
 
 import os

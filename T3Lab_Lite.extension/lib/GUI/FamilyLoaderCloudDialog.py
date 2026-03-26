@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 Family Loader Cloud Dialog
-Load Revit families from Vercel cloud API
-Cloud-only version with bypass token support
+
+GUI dialog for loading families from cloud library.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
-__title__ = "Family Loader (Cloud)"
-__author__ = "T3Lab"
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Family Loader Cloud Dialog"
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗

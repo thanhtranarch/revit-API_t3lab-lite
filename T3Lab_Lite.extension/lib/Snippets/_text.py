@@ -1,3 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+Text Snippets
+
+Code snippets for text note operations in Revit.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Text Snippets"
+
 
 def get_text_in_brackets(text, symbol_start, symbol_end):
     """Function to get contents between 2 symbols.

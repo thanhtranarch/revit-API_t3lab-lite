@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-Button State Management for AI Connection Panel
-Handles visual state updates for connection buttons
+Button State
+
+Manages the visual state of T3Lab toolbar buttons.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Button State"
 
 import os
 

@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
-__title__ = "Get sheet from View"
-__author__ = "Erik Frits"
+"""
+Filter Examples Snippets
+
+Example code snippets for Revit element filtering.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Filter Examples Snippets"
 
 #>>>>>>>>>> IMPORTS
 import clr, os
