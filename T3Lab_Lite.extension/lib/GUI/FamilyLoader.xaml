@@ -256,8 +256,10 @@
                                  FontSize="11.5"/>
                     <RadioButton x:Name="radio_cloud" Content="Cloud (Vercel)"
                                  GroupName="DataSource"
+                                 IsEnabled="False"
                                  VerticalAlignment="Center" Margin="0,0,6,0"
-                                 FontSize="11.5"/>
+                                 FontSize="11.5"
+                                 ToolTip="Cloud feature is currently disabled"/>
                 </StackPanel>
                 <!-- Folder button + path on the left -->
                 <Button x:Name="btn_select_folder"
