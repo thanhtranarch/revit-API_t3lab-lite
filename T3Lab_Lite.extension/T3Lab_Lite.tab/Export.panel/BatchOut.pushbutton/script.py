@@ -25,6 +25,7 @@ from collections import defaultdict
 clr.AddReference('System.Windows.Forms')
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
+clr.AddReference('WindowsBase')
 clr.AddReference('System')
 from System.Windows.Forms import FolderBrowserDialog, DialogResult
 from System.Windows import Visibility, WindowState
