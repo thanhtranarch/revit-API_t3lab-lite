@@ -32,6 +32,7 @@ from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind, Action
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System.Threading import Thread, ThreadStart
+from System.Windows.Threading import DispatcherPriority
 
 from pyrevit import revit, DB, UI, forms, script
 from Autodesk.Revit.DB import (
@@ -81,49 +82,55 @@ REVIT_VERSION = int(revit.doc.Application.VersionNumber)  # e.g., 2023, 2024, 20
 
 class SheetItem(forms.Reactive):
     """Represents a sheet item in the list - optimized for performance."""
-    def __init__(self, sheet, is_selected=False):
+    def __init__(self, sheet, is_selected=False, lazy=False):
         self.Sheet = sheet
         self.IsSelected = is_selected
         self.SheetNumber = sheet.SheetNumber
         self.SheetName = sheet.Name
         self.Status = "Ready"
         self.Progress = 0
-        self.Size = "-"  # Will be loaded by load_sheets() after initialization
+        self.Size = "-"
+        self.Revision = ""
+        self.RevisionDate = ""
+        self.RevisionDescription = ""
+        self.DrawnBy = ""
+        self.CheckedBy = ""
+        self.CustomFilename = ""
 
-        # Get sheet revision info (fast parameter access)
+        if not lazy:
+            self._load_revision_params()
+
+    def _load_revision_params(self):
+        """Load revision and metadata parameters. Called deferred for fast startup."""
         try:
-            rev_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION)
+            rev_param = self.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION)
             self.Revision = rev_param.AsString() if rev_param else ""
         except:
             self.Revision = ""
 
         try:
-            rev_date_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE)
+            rev_date_param = self.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DATE)
             self.RevisionDate = rev_date_param.AsString() if rev_date_param else ""
         except:
             self.RevisionDate = ""
 
         try:
-            rev_desc_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION)
+            rev_desc_param = self.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CURRENT_REVISION_DESCRIPTION)
             self.RevisionDescription = rev_desc_param.AsString() if rev_desc_param else ""
         except:
             self.RevisionDescription = ""
 
-        # Get drawn by and checked by (fast parameter access)
         try:
-            drawn_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY)
+            drawn_param = self.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_DRAWN_BY)
             self.DrawnBy = drawn_param.AsString() if drawn_param else ""
         except:
             self.DrawnBy = ""
 
         try:
-            checked_param = sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY)
+            checked_param = self.Sheet.get_Parameter(DB.BuiltInParameter.SHEET_CHECKED_BY)
             self.CheckedBy = checked_param.AsString() if checked_param else ""
         except:
             self.CheckedBy = ""
-
-        # Custom filename (defaults to naming pattern)
-        self.CustomFilename = ""
 
     def __repr__(self):
         return "{} - {}".format(self.SheetNumber, self.SheetName)
@@ -1097,46 +1104,54 @@ class ExportManagerWindow(forms.WPFWindow):
             self.sheet_set_filter.SelectedIndex = 0
 
     def load_sheets(self):
-        """Load all sheets from the document.
-
-        Optimized with batch titleblock loading for faster startup.
-        """
+        """Load all sheets - Phase 1: instant display of names, Phase 2: deferred extra data."""
         try:
-            # PERFORMANCE: Batch load all titleblock sizes ONCE before processing sheets
-            # This replaces O(n) queries with O(1) query
-            self._batch_load_titleblock_sizes()
-
-            # Get all sheets
+            # Phase 1: collect sheet elements (single fast query) + display names immediately
             sheets_collector = FilteredElementCollector(self.doc)\
                 .OfCategory(BuiltInCategory.OST_Sheets)\
                 .WhereElementIsNotElementType()
 
             sheets = [s for s in sheets_collector if isinstance(s, ViewSheet)]
-
-            # Sort by sheet number
             sheets.sort(key=lambda x: x.SheetNumber)
 
-            # Create sheet items with paper sizes from cache (fast lookup)
-            self.all_sheets = []
-            for sheet in sheets:
-                sheet_item = SheetItem(sheet, False)
-                # Use cached titleblock size for fast paper size detection
-                size, orientation = self.get_sheet_paper_size_and_orientation(sheet)
-                sheet_item.Size = size
-                self.all_sheets.append(sheet_item)
-
+            # Create minimal SheetItems (lazy=True skips all parameter accesses)
+            self.all_sheets = [SheetItem(sheet, False, lazy=True) for sheet in sheets]
             self.filtered_sheets = list(self.all_sheets)
 
-            # Update ListView
+            # Show sheet names immediately
             self.update_sheets_list()
-
-            # Update status with version info
             self.status_text.Text = "Loaded {} sheets | Revit {}".format(
                 len(self.all_sheets), REVIT_VERSION)
+
+            # Phase 2: schedule deferred loading of revision info + paper sizes
+            # Runs after window renders so user sees sheet names without delay
+            self.Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                Action(self._load_extra_sheet_data)
+            )
 
         except Exception as ex:
             logger.error("Error loading sheets: {}".format(ex))
             forms.alert("Error loading sheets: {}".format(ex), exitscript=True)
+
+    def _load_extra_sheet_data(self):
+        """Phase 2: load revision info + paper sizes after window is visible."""
+        try:
+            # Single batch query for all titleblock sizes
+            self._batch_load_titleblock_sizes()
+
+            # Load revision params + paper size for each sheet
+            for sheet_item in self.all_sheets:
+                sheet_item._load_revision_params()
+                size, _ = self.get_sheet_paper_size_and_orientation(sheet_item.Sheet)
+                sheet_item.Size = size
+
+            # Refresh ListView to show updated columns
+            if hasattr(self, 'sheets_listview') and self.sheets_listview:
+                self.sheets_listview.Items.Refresh()
+
+        except Exception as ex:
+            logger.debug("Error loading extra sheet data: {}".format(ex))
 
     def load_views(self):
         """Load all views from the document."""
