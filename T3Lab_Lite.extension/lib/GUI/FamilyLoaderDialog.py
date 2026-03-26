@@ -275,39 +275,58 @@ def _get_thumbnail_cache_path(rfa_path):
 
 def _extract_rfa_preview(rfa_path):
     """
-    Scan a .rfa (OLE compound document) for embedded JPEG thumbnails.
-    Returns the largest JPEG byte string found (>2 KB), or None.
+    Scan a .rfa (OLE compound document) for embedded image thumbnails.
+    Supports JPEG and PNG. Returns the largest image bytes found (>1 KB), or None.
     """
     try:
         with open(rfa_path, 'rb') as f:
             data = f.read()
         candidates = []
+
+        # --- JPEG scan: FF D8 FF ... FF D9 ---
         pos = 0
         while True:
-            idx = data.find(b'\xff\xd8\xff', pos)
+            idx = data.find('\xff\xd8\xff', pos)
             if idx < 0:
                 break
-            end = data.find(b'\xff\xd9', idx + 3)
+            end = data.find('\xff\xd9', idx + 3)
             if end > 0:
-                jpeg_bytes = data[idx:end + 2]
-                if len(jpeg_bytes) > 2048:
-                    candidates.append(jpeg_bytes)
+                chunk = data[idx:end + 2]
+                if len(chunk) > 1024:
+                    candidates.append(chunk)
             pos = idx + 3
+
+        # --- PNG scan: 89 50 4E 47 ... 49 45 4E 44 AE 42 60 82 ---
+        PNG_SIG  = '\x89PNG\r\n\x1a\n'
+        PNG_IEND = 'IEND\xae\x42\x60\x82'
+        pos = 0
+        while True:
+            idx = data.find(PNG_SIG, pos)
+            if idx < 0:
+                break
+            end = data.find(PNG_IEND, idx + 8)
+            if end > 0:
+                chunk = data[idx:end + 8]
+                if len(chunk) > 1024:
+                    candidates.append(chunk)
+            pos = idx + 8
+
         if candidates:
             return max(candidates, key=len)
-    except Exception:
-        pass
+    except Exception as ex:
+        logger.debug("_extract_rfa_preview error for {}: {}".format(rfa_path, ex))
     return None
 
 
-def _bytes_to_bitmap(jpeg_bytes):
-    """Load raw JPEG bytes into a frozen WPF BitmapImage (thread-safe).
-    Uses Array[Byte] to avoid IronPython str/bytes → MemoryStream conversion issues."""
+def _bytes_to_bitmap(raw_bytes):
+    """Load raw image bytes (JPEG or PNG) into a frozen WPF BitmapImage (thread-safe).
+    Uses ISO-8859-1 encoding to reliably convert IronPython str → .NET byte[]."""
     try:
         from System.IO import MemoryStream
-        from System import Array, Byte
-        # IronPython: convert Python str/bytes to .NET byte[] explicitly
-        net_bytes = Array[Byte](bytearray(jpeg_bytes))
+        from System.Text import Encoding
+        # ISO-8859-1 maps each byte 0x00-0xFF to the same Unicode code point,
+        # so it round-trips binary data without loss in IronPython 2.x.
+        net_bytes = Encoding.GetEncoding('iso-8859-1').GetBytes(raw_bytes)
         stream = MemoryStream(net_bytes)
         bitmap = BitmapImage()
         bitmap.BeginInit()
@@ -1591,7 +1610,8 @@ class FamilyLoaderWindow(Window):
         t.start()
 
     def _thumbnail_worker(self, families):
-        """Background: extract JPEG previews from .rfa files, update FamilyItems via Dispatcher."""
+        """Background: extract image previews from .rfa files, update FamilyItems via Dispatcher."""
+        batch = 0
         for family in families:
             if self._thumb_cancel:
                 break
@@ -1601,35 +1621,38 @@ class FamilyLoaderWindow(Window):
             try:
                 rfa_path = family.FullPath
                 cache_path = _get_thumbnail_cache_path(rfa_path)
-                jpeg_bytes = None
+                img_bytes = None
 
                 # Try cache first
                 if cache_path and os.path.exists(cache_path):
                     try:
                         with open(cache_path, 'rb') as cf:
-                            jpeg_bytes = cf.read()
+                            img_bytes = cf.read()
                     except Exception:
-                        jpeg_bytes = None
+                        img_bytes = None
 
                 # Extract from file if not cached
-                if not jpeg_bytes:
-                    jpeg_bytes = _extract_rfa_preview(rfa_path)
-                    if jpeg_bytes and cache_path:
+                if not img_bytes:
+                    img_bytes = _extract_rfa_preview(rfa_path)
+                    if img_bytes and cache_path:
                         try:
                             if not os.path.exists(THUMBNAIL_CACHE_DIR):
                                 os.makedirs(THUMBNAIL_CACHE_DIR)
                             with open(cache_path, 'wb') as cf:
-                                cf.write(jpeg_bytes)
+                                cf.write(img_bytes)
                         except Exception:
                             pass
 
-                if jpeg_bytes:
-                    bitmap = _bytes_to_bitmap(jpeg_bytes)
+                if img_bytes:
+                    bitmap = _bytes_to_bitmap(img_bytes)
                     if bitmap:
-                        # Capture loop variables explicitly for closure
                         def _make_setter(fam, bmp):
                             return lambda: self._apply_thumbnail(fam, bmp)
                         self.Dispatcher.Invoke(Action(_make_setter(family, bitmap)))
+                        batch += 1
+                        # Yield every 10 thumbnails so the UI thread stays responsive
+                        if batch % 10 == 0:
+                            time.sleep(0.05)
 
             except Exception as ex:
                 logger.debug("Thumbnail error for {}: {}".format(family.Name, ex))
