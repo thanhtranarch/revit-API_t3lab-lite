@@ -9,10 +9,10 @@ Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 """
 
+from __future__ import unicode_literals, division
+
 __author__  = "Tran Tien Thanh"
 __title__   = "NLU Engine"
-
-from __future__ import unicode_literals, division
 
 import re
 import unicodedata
