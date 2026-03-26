@@ -2,84 +2,149 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Grid.Resources>
-        <!-- Styles -->
-        <Style TargetType="Button" x:Key="FolderButtonStyle">
-            <Setter Property="Background" Value="#3498DB"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#2980B9"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
-        <Style TargetType="Button" x:Key="ActionButtonStyle">
-            <Setter Property="MinWidth" Value="100"/>
-            <Setter Property="Padding" Value="15,8"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#2980B9"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#BDC3C7"/>
-                                <Setter Property="Foreground" Value="#7F8C8D"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="WindowControlButton" TargetType="Button">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="32"/>
+        <!-- Window control button (minimize) -->
+        <Style x:Key="WinMinBtn" TargetType="Button">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" CornerRadius="19"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#EFEFEF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Window control button (close) -->
+        <Style x:Key="WinCloseBtn" TargetType="Button">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" CornerRadius="19"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#FFECEC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Folder / small action button -->
+        <Style x:Key="SmallBtn" TargetType="Button">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Background" Value="#3498DB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" CornerRadius="5"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2980B9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#C8D6DF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Secondary small button (Select None / grey) -->
+        <Style x:Key="SmallBtnGrey" TargetType="Button" BasedOn="{StaticResource SmallBtn}">
+            <Setter Property="Background" Value="#6C757D"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#ECF0F1"/>
+                    <Setter Property="Background" Value="#565E64"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
+        <!-- Primary Load button -->
+        <Style x:Key="LoadBtn" TargetType="Button">
+            <Setter Property="Width" Value="130"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#2980B9"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border x:Name="bd" CornerRadius="6"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#E74C3C"/>
+                                <Setter TargetName="bd" Property="Background" Value="#1A6FA3"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#B0C4CF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cancel button -->
+        <Style x:Key="CancelBtn" TargetType="Button">
+            <Setter Property="Width" Value="110"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" CornerRadius="6"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="#CED4DA" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#F0F2F4"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -89,187 +154,175 @@
 
         <Style TargetType="TreeViewItem">
             <Setter Property="IsExpanded" Value="True"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="3,2"/>
         </Style>
+
     </Grid.Resources>
 
+    <!-- ════════════════════════════════════════════════ -->
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="64"/>   <!-- Title bar -->
-            <RowDefinition Height="Auto"/> <!-- Folder selection bar -->
-            <RowDefinition Height="Auto"/> <!-- Search bar -->
-            <RowDefinition Height="*"/>    <!-- Main content -->
-            <RowDefinition Height="Auto"/> <!-- Action buttons -->
+            <RowDefinition Height="58"/>   <!-- 0 Title bar -->
+            <RowDefinition Height="50"/>   <!-- 1 Search bar -->
+            <RowDefinition Height="44"/>   <!-- 2 Folder / source bar -->
+            <RowDefinition Height="*"/>    <!-- 3 Main content -->
+            <RowDefinition Height="62"/>   <!-- 4 Footer -->
         </Grid.RowDefinitions>
 
-        <!-- ══════ TITLE BAR ══════ -->
-        <Grid Grid.Row="0" x:Name="title_bar_grid" Background="White">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <!-- ══ ROW 0 — TITLE BAR ══════════════════════ -->
+        <Border Grid.Row="0" x:Name="title_bar_grid"
+                Background="White"
+                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- T3Lab logo + Title + Subtitle -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal"
-                        Margin="12,0,0,0" VerticalAlignment="Center"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <Image x:Name="logo_image" Width="44" Height="44" Margin="0,0,12,0"
-                       VerticalAlignment="Center"/>
-                <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                                   Foreground="#3498DB" VerticalAlignment="Bottom" Margin="0,0,6,1"/>
-                        <TextBlock Text="Load Family" FontSize="18" FontWeight="Bold"
-                                   Foreground="#2C3E50"/>
+                <!-- Logo + Title + Subtitle -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Image x:Name="logo_image" Width="38" Height="38" Margin="0,0,10,0"
+                           VerticalAlignment="Center"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="T3Lab" FontSize="10" FontWeight="Bold"
+                                       Foreground="#3498DB" VerticalAlignment="Bottom"
+                                       Margin="0,0,5,1"/>
+                            <TextBlock Text="Load Family" FontSize="16" FontWeight="Bold"
+                                       Foreground="#1F2937"/>
+                        </StackPanel>
+                        <TextBlock Text="Load Revit families from local folders or cloud"
+                                   FontSize="9.5" Foreground="#9CA3AF" FontStyle="Italic"/>
                     </StackPanel>
-                    <Separator Height="1" Background="#BDC3C7" Margin="0,3,0,3"/>
-                    <TextBlock Text="Load Revit families from local folders or cloud"
-                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
                 </StackPanel>
-            </StackPanel>
 
-            <!-- Window control buttons -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal"
-                        VerticalAlignment="Top" Margin="0,0,5,0"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <!-- Minimize -->
-                <Button x:Name="btn_minimize_fl"
-                        Style="{StaticResource WindowControlButton}"
-                        ToolTip="Minimize">
-                    <TextBlock Text="—" FontSize="14" FontWeight="Bold"
-                               Foreground="#7F8C8D" Margin="0,-8,0,0"/>
-                </Button>
-                <!-- Close -->
-                <Button x:Name="btn_close_x_fl"
-                        Style="{StaticResource CloseButton}"
-                        ToolTip="Close">
-                    <TextBlock Text="✕" FontSize="16" FontWeight="Bold" Foreground="#7F8C8D">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Button>
-            </StackPanel>
-        </Grid>
-
-        <!-- ══════ FOLDER SELECTION BAR ══════ -->
-        <Border Grid.Row="1" Background="#F0F0F0" Padding="10" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0">
-                    <TextBlock Text="Source:"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0"
-                               FontWeight="SemiBold"/>
-                    <RadioButton x:Name="radio_local"
-                                 Content="Local"
-                                 GroupName="DataSource"
-                                 IsChecked="True"
-                                 VerticalAlignment="Center"
-                                 Margin="0,0,15,0"/>
-                    <RadioButton x:Name="radio_cloud"
-                                 Content="Cloud (Vercel)"
-                                 GroupName="DataSource"
-                                 VerticalAlignment="Center"
-                                 Margin="0,0,10,0"/>
+                <!-- Window control buttons
+                     CaptionHeight=0 in Python means these are in normal client area
+                     and receive mouse events without IsHitTestVisibleInChrome -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                            VerticalAlignment="Center" Margin="0,0,6,0">
+                    <Button x:Name="btn_minimize_fl"
+                            Style="{StaticResource WinMinBtn}"
+                            ToolTip="Minimize">
+                        <TextBlock Text="&#8212;" FontSize="12" Foreground="#6B7280"
+                                   Margin="0,-1,0,0"/>
+                    </Button>
+                    <Button x:Name="btn_close_x_fl"
+                            Style="{StaticResource WinCloseBtn}"
+                            ToolTip="Close">
+                        <!-- X drawn as a Path so it scales cleanly -->
+                        <Path Stroke="#6B7280" StrokeThickness="1.6"
+                              Data="M2,2 L10,10 M10,2 L2,10"
+                              Width="12" Height="12" Stretch="None"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
                 </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ══ ROW 1 — SEARCH BAR ════════════════════ -->
+        <Border Grid.Row="1" Background="White" Padding="14,7"
+                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+            <Border BorderBrush="#D1D5DB" BorderThickness="1" CornerRadius="8"
+                    Background="White">
+                <DockPanel>
+                    <!-- magnifier icon (Unicode circle + line) -->
+                    <TextBlock DockPanel.Dock="Left"
+                               Text="&#9740;" FontSize="16" Foreground="#9CA3AF"
+                               VerticalAlignment="Center" Margin="10,0,2,0"/>
+                    <TextBox x:Name="txt_search"
+                             BorderThickness="0" Background="Transparent"
+                             VerticalContentAlignment="Center"
+                             FontSize="13" Foreground="#374151"
+                             Padding="6,0,8,0" Height="34"/>
+                </DockPanel>
+            </Border>
+        </Border>
+
+        <!-- ══ ROW 2 — FOLDER / SOURCE BAR ══════════ -->
+        <Border Grid.Row="2" Background="#F9FAFB" Padding="12,0"
+                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+            <DockPanel VerticalAlignment="Center">
+                <!-- Source radio buttons on the right -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <TextBlock Text="Source:" VerticalAlignment="Center"
+                               Margin="0,0,8,0" FontSize="11.5" Foreground="#6B7280"/>
+                    <RadioButton x:Name="radio_local" Content="Local"
+                                 GroupName="DataSource" IsChecked="True"
+                                 VerticalAlignment="Center" Margin="0,0,12,0"
+                                 FontSize="11.5"/>
+                    <RadioButton x:Name="radio_cloud" Content="Cloud (Vercel)"
+                                 GroupName="DataSource"
+                                 VerticalAlignment="Center" Margin="0,0,6,0"
+                                 FontSize="11.5"/>
+                </StackPanel>
+                <!-- Folder button + path on the left -->
                 <Button x:Name="btn_select_folder"
                         Content="Update Folder"
-                        DockPanel.Dock="Left"
-                        Style="{StaticResource FolderButtonStyle}"/>
+                        Style="{StaticResource SmallBtn}"
+                        DockPanel.Dock="Left"/>
                 <TextBlock x:Name="txt_current_folder"
                            Text="No folder selected"
                            VerticalAlignment="Center"
-                           Margin="15,0,0,0"
-                           FontStyle="Italic"
-                           Foreground="#666666"/>
+                           Margin="10,0,0,0" FontSize="11.5"
+                           Foreground="#6B7280"
+                           TextTrimming="CharacterEllipsis"/>
             </DockPanel>
         </Border>
 
-        <!-- ══════ SEARCH BAR ══════ -->
-        <Border Grid.Row="2" Padding="10" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
-            <DockPanel>
-                <TextBlock Text="🔍"
-                           DockPanel.Dock="Left"
-                           VerticalAlignment="Center"
-                           FontSize="16"
-                           Margin="5,0,10,0"/>
-                <TextBox x:Name="txt_search"
-                         Height="32"
-                         VerticalContentAlignment="Center">
-                    <TextBox.Style>
-                        <Style TargetType="TextBox">
-                            <Setter Property="Background" Value="White"/>
-                            <Setter Property="Padding" Value="8,5"/>
-                            <Setter Property="BorderBrush" Value="#D0D0D0"/>
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
-            </DockPanel>
-        </Border>
-
-        <!-- ══════ MAIN CONTENT ══════ -->
+        <!-- ══ ROW 3 — MAIN CONTENT ═════════════════ -->
         <DockPanel Grid.Row="3">
-            <!-- Category Tree on Left -->
-            <Border DockPanel.Dock="Left"
-                    Width="250"
-                    BorderBrush="#D0D0D0"
-                    BorderThickness="0,0,1,0"
+
+            <!-- Left: Category tree (slim) -->
+            <Border DockPanel.Dock="Left" Width="190"
+                    BorderBrush="#E5E7EB" BorderThickness="0,0,1,0"
                     Background="#FAFAFA">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="Categories"
-                               FontWeight="Bold"
-                               FontSize="14"
-                               Padding="10"
-                               Background="#E8E8E8"/>
+                    <Border DockPanel.Dock="Top" Background="#F3F4F6"
+                            Padding="12,6" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                        <TextBlock Text="Categories" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#374151"/>
+                    </Border>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <TreeView x:Name="tree_categories"
-                                  Padding="5"
-                                  BorderThickness="0"
-                                  Background="Transparent">
-                        </TreeView>
+                                  BorderThickness="0" Background="Transparent"
+                                  Padding="4"/>
                     </ScrollViewer>
                 </DockPanel>
             </Border>
 
-            <!-- Family Grid on Right -->
+            <!-- Right: Grid area -->
             <DockPanel>
-                <Border DockPanel.Dock="Top"
-                        Background="#E8E8E8"
-                        Padding="10"
-                        BorderBrush="#D0D0D0"
-                        BorderThickness="0,0,0,1">
+                <!-- Sub-header: count + select buttons -->
+                <Border DockPanel.Dock="Top" Padding="12,6"
+                        Background="#F9FAFB"
+                        BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
                     <DockPanel>
                         <TextBlock x:Name="txt_result_count"
                                    Text="0 families found"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center"/>
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Right"
-                                    DockPanel.Dock="Right">
+                                   VerticalAlignment="Center"
+                                   FontSize="12" FontWeight="SemiBold"
+                                   Foreground="#374151"/>
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"
+                                    HorizontalAlignment="Right">
                             <Button x:Name="btn_select_all"
                                     Content="Select All"
-                                    Style="{StaticResource FolderButtonStyle}"
-                                    Margin="5,0"
-                                    Padding="8,4"/>
+                                    Style="{StaticResource SmallBtn}"
+                                    Margin="0,0,6,0"/>
                             <Button x:Name="btn_select_none"
                                     Content="Select None"
-                                    Style="{StaticResource FolderButtonStyle}"
-                                    Background="#7F8C8D"
-                                    Padding="8,4"/>
+                                    Style="{StaticResource SmallBtnGrey}"/>
                         </StackPanel>
                     </DockPanel>
                 </Border>
 
+                <!-- Family cards — reference-style layout -->
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Auto"
-                              Padding="10">
+                              Padding="10,10,10,6">
                     <ItemsControl x:Name="items_families">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -278,45 +331,50 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="#D0D0D0"
-                                        BorderThickness="1"
-                                        Padding="8"
-                                        Margin="5"
-                                        Width="140"
-                                        Height="180"
-                                        Background="White">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="BorderBrush" Value="#3498DB"/>
-                                                    <Setter Property="BorderThickness" Value="2"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <StackPanel>
-                                        <CheckBox x:Name="chk_family"
-                                                  IsChecked="{Binding IsChecked}"
-                                                  HorizontalAlignment="Left"
-                                                  Margin="0,0,0,4"/>
-                                        <!-- Thumbnail area with grey placeholder -->
-                                        <Border Height="90" Background="#F0F0F0"
-                                                BorderBrush="#E0E0E0" BorderThickness="1"
-                                                Margin="0,2">
+                                <!-- Per-card container: card border + name below -->
+                                <StackPanel Width="155" Margin="5,5,5,2">
+
+                                    <!-- Card — reference style: rounded border, thumbnail fills it -->
+                                    <Border Height="148" CornerRadius="8" Cursor="Hand">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                                <Setter Property="BorderBrush" Value="#D1D5DB"/>
+                                                <Setter Property="Background" Value="White"/>
+                                                <Style.Triggers>
+                                                    <!-- Blue border + slightly thicker when selected -->
+                                                    <DataTrigger Binding="{Binding IsChecked}" Value="True">
+                                                        <Setter Property="BorderBrush" Value="#3498DB"/>
+                                                        <Setter Property="BorderThickness" Value="2"/>
+                                                        <Setter Property="Background" Value="#F0F8FF"/>
+                                                    </DataTrigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="BorderBrush" Value="#93C5FD"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid>
+                                            <!-- Grey background so empty thumbnail area looks clean -->
+                                            <Border Background="#F8F9FA" CornerRadius="7" Margin="1"/>
+                                            <!-- Thumbnail image -->
                                             <Image Source="{Binding Thumbnail}"
-                                                   Stretch="Uniform"
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"/>
-                                        </Border>
-                                        <TextBlock Text="{Binding Name}"
-                                                   TextAlignment="Center"
-                                                   TextWrapping="Wrap"
-                                                   FontSize="11"
-                                                   MaxHeight="40"
-                                                   ToolTip="{Binding FullPath}"/>
-                                    </StackPanel>
-                                </Border>
+                                                   Stretch="Uniform" Margin="10"/>
+                                            <!-- Checkbox overlay — top left -->
+                                            <CheckBox IsChecked="{Binding IsChecked}"
+                                                      VerticalAlignment="Top"
+                                                      HorizontalAlignment="Left"
+                                                      Margin="7,7,0,0"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Name below the card border (like reference image) -->
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="11" Foreground="#374151"
+                                               TextWrapping="Wrap" MaxHeight="34"
+                                               Margin="3,4,3,0"
+                                               ToolTip="{Binding FullPath}"/>
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -324,41 +382,35 @@
             </DockPanel>
         </DockPanel>
 
-        <!-- ══════ ACTION BUTTONS ══════ -->
-        <Border Grid.Row="4"
-                Background="#F0F0F0"
-                Padding="15"
-                BorderBrush="#D0D0D0"
-                BorderThickness="0,1,0,0">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <!-- ══ ROW 4 — FOOTER ═══════════════════════ -->
+        <Border Grid.Row="4" Background="White"
+                BorderBrush="#E5E7EB" BorderThickness="0,1,0,0"
+                Padding="16,10">
+            <DockPanel VerticalAlignment="Center">
+                <!-- Copyright left -->
+                <TextBlock DockPanel.Dock="Left"
+                           Text="&#169; Copyright by T3Lab"
+                           VerticalAlignment="Center"
+                           FontSize="10" Foreground="#9CA3AF"/>
+                <!-- Buttons right -->
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right">
                     <TextBlock x:Name="txt_selected_count"
                                Text="0 families selected"
                                VerticalAlignment="Center"
-                               Margin="0,0,20,0"
-                               FontWeight="SemiBold"/>
+                               Margin="0,0,18,0"
+                               FontSize="12" Foreground="#6B7280"/>
                     <Button x:Name="btn_load"
                             Content="Load"
-                            Style="{StaticResource ActionButtonStyle}"
-                            Background="#3498DB"
-                            Foreground="White"
-                            Margin="5,0"
+                            Style="{StaticResource LoadBtn}"
+                            Margin="0,0,10,0"
                             IsEnabled="False"/>
                     <Button x:Name="btn_cancel"
                             Content="Cancel"
-                            Style="{StaticResource ActionButtonStyle}"
-                            Background="#ECF0F1"
-                            Foreground="#2C3E50"
-                            BorderBrush="#BDC3C7"
-                            BorderThickness="1"
-                            Margin="5,0"/>
+                            Style="{StaticResource CancelBtn}"/>
                 </StackPanel>
-                <!-- Copyright -->
-                <TextBlock Text="&#169; Copyright by T3Lab"
-                           FontSize="10" Foreground="#AAAAAA"
-                           HorizontalAlignment="Center"
-                           Margin="0,6,0,0"/>
-            </StackPanel>
+            </DockPanel>
         </Border>
+
     </Grid>
 </Grid>

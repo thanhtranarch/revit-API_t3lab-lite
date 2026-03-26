@@ -471,19 +471,25 @@ class FamilyLoaderWindow(Window):
             # Set Window properties
             logger.debug("DEBUG: Step 2 - Setting window properties")
             self.Title = "Load Autodesk Family"
-            self.Height = 650
-            self.Width = 1000
-            self.MinHeight = 480
-            self.MinWidth = 800
+            self.Height = 680
+            self.Width = 960
+            self.MinHeight = 500
+            self.MinWidth = 760
             self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
             self.Background = System.Windows.Media.SolidColorBrush(
                 System.Windows.Media.Color.FromRgb(255, 255, 255))
 
-            # Custom window chrome (no OS title bar, like PropertyLine / BatchOut)
+            # Custom window chrome (no OS title bar)
+            # ROOT CAUSE FIX: CaptionHeight=0 so the entire window is client area.
+            # With CaptionHeight>0, Windows intercepts mouse events in the caption
+            # zone for drag-to-move, and child buttons only receive clicks if
+            # WindowChrome.IsHitTestVisibleInChrome is set DIRECTLY on each button
+            # (NOT inherited from parent containers). Setting CaptionHeight=0 avoids
+            # this entirely. Window dragging is handled via DragMove() in Python.
             try:
                 self.WindowStyle = getattr(System.Windows.WindowStyle, 'None')
                 chrome = WindowChrome()
-                chrome.CaptionHeight = 64
+                chrome.CaptionHeight = 0
                 chrome.ResizeBorderThickness = System.Windows.Thickness(5)
                 chrome.GlassFrameThickness = System.Windows.Thickness(0)
                 chrome.CornerRadius = System.Windows.CornerRadius(8)
