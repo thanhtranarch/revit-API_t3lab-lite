@@ -354,7 +354,7 @@
                             Margin="5,0"/>
                 </StackPanel>
                 <!-- Copyright -->
-                <TextBlock Text="© Copyright by T3Lab"
+                <TextBlock Text="&#169; Copyright by T3Lab"
                            FontSize="10" Foreground="#AAAAAA"
                            HorizontalAlignment="Center"
                            Margin="0,6,0,0"/>
