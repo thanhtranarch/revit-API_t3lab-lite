@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 Property Line Dialog
-Create US property lines in Revit from Lightbox RE parcel API data.
 
-Flow:
-1. User enters a US address
-2. Tool queries Lightbox API for parcel boundary (GeoJSON polygon)
-3. Coordinates are converted from WGS84 lat/lon to Revit feet
-4. Property lines are drawn as ModelLines in the active Revit document
+GUI dialog for creating and editing property lines.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
-__title__ = "Property Line Tool"
-__author__ = "T3Lab"
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Property Line Dialog"
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗

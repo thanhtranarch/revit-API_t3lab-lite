@@ -1,3 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+Sheets Snippets
+
+Code snippets for working with Revit sheets.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Sheets Snippets"
+
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import UIDocument
 default_uidoc = __revit__.ActiveUIDocument

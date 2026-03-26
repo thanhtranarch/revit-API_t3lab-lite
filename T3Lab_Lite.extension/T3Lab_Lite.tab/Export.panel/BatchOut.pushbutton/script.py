@@ -1,33 +1,16 @@
 # -*- coding: utf-8 -*-
-"""BatchOut - Batch export sheets to multiple formats.
+"""
+Batch Out
 
-Enhanced version inspired by DiRoots ProSheets with tabbed interface.
+Batch export sheets to PDF, DWG, DWF and other formats.
 
-Features:
-- Tabbed interface (Selection, Format, Create)
-- Export to DWG, PDF, DWF, DGN, NWD, IFC, and Image formats
-- Customizable naming patterns with multiple placeholders
-- Advanced PDF export options (paper size, orientation, hide elements)
-- Combined PDF export option
-- Sheet filtering by size
-- Custom filename per sheet
-- Progress tracking with cancellation support
-- File organization options (same folder or split by format)
-
-Version Compatibility:
-- Supports Revit 2022, 2023, 2024, 2025, and 2026
-- Uses version-aware API calls for optimal compatibility
-- Automatically detects Revit version and applies appropriate API signatures
-- Handles API differences between versions gracefully with fallback logic
-
-API Version Notes:
-- Revit 2022-2026: Document.Export() uses ICollection<ElementId> for DWG/PDF
-- Revit 2022-2026: DWGExportOptions.PropOverrides expects PropOverrideMode enum
-- Revit 2022-2026: PDFExportOptions signature requires separate folder and filename
-- Revit 2025+: Built on .NET 8 (backward compatible with same API)
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__title__ = "Batch\nOut"
+__author__  = "Tran Tien Thanh"
+__title__   = "Batch Out"
 __author__ = "T3Lab"
 __version__ = "1.0.0"
 

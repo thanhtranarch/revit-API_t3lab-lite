@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-Vercel Serverless Function - Family Data API
-Provides Revit family metadata for cloud-based family loading
+Families API
+
+Vercel serverless API endpoint for Revit family data.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Families API"
 
 from http.server import BaseHTTPRequestHandler
 import json

@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-Status Connected Indicator
-Shows that the server is connected (non-clickable status indicator)
+Start MCP
+
+Start the MCP server for AI-assisted Revit automation.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Start MCP"
 
 from pyrevit import script, forms
 import sys
@@ -14,10 +23,6 @@ if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
 
 from core.server import get_t3labai_server
-
-__title__ = 'Connected'
-__author__ = 'T3LabAI Team'
-__doc__ = 'Status indicator - Server is connected'
 
 if __name__ == '__main__':
     # This is a status indicator, just show current status when clicked

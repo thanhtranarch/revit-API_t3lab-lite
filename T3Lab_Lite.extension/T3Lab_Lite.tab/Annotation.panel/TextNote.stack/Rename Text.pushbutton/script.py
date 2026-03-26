@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Rename TextNoteType
-Auto rename TextNote Types:
-LB_<discipline>_<textsize>_<textfont>_<textbackground>_<textfactor>_<textcolor>[_Border][_B][_U][_I]
+Rename Text
 
---------------------------------------------------------
+Rename text note types using find and replace.
+
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
---------------------------------------------------------
 """
-__title__ = "Ren TextType"
-__author__ = "Tran Tien Thanh"
-__version__ = 'Version: 1.3'
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Rename Text"
 
 # IMPORT LIBRARIES
 # ==================================================

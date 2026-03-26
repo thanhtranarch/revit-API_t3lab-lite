@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-"""T3Lab Assistant NLP module.
-
-Uses Claude API to understand natural-language commands and map them
-to T3Lab tool actions. Falls back to keyword matching when API is
-not configured.
-
-Features:
-- Multi-turn conversation history (natural back-and-forth)
-- Self-learning: saves successful patterns to learned_patterns.json
-- Keyword fallback with learned-pattern priority
-- Supports Vietnamese, English, or mixed input
 """
+T3Lab Assistant
+
+Main AI assistant implementation for T3Lab Revit automation.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "T3Lab Assistant"
+
 from __future__ import unicode_literals
 
 import json

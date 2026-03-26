@@ -1,4 +1,17 @@
-# -*- coding: UTF-8 -*-
+# -*- coding: utf-8 -*-
+"""
+Schedules Not On Sheet
+
+Identify schedules that are not placed on any sheet.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Schedules Not On Sheet"
+
 #pylint: disable=import-error,invalid-name,broad-except,superfluous-parens
 import datetime
 

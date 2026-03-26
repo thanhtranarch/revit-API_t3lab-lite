@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-T3LabAI MCP Server Management
-Handles server lifecycle and connection management for Claude MCP
+MCP Server
+
+Local MCP server implementation for AI-to-Revit communication.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "MCP Server"
 
 import threading
 import json

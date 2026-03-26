@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Delete TextNoteType by Name
-Search TextNoteTypes by name, select from list, and delete selected ones
+Remove Text
 
---------------------------------------------------------
+Remove selected or filtered text notes from the active view.
+
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
---------------------------------------------------------
 """
-__title__ = "Del TextType"
-__author__ = "Tran Tien Thanh"
-__version__ = 'Version: 1.0'
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Remove Text"
 
 # IMPORT LIBRARIES
 # ==================================================

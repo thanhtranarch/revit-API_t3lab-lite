@@ -1,11 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Local LLM integration via Ollama for T3Lab Assistant.
+"""
+Local LLM
 
-Connects to a locally-running Ollama server (http://localhost:11434)
-so T3Lab Assistant works completely offline with no API key and no
-rate limits.
+Ollama integration for local LLM inference without API keys.
 
-Quick start
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Local LLM"
+
+"""Quick start
 -----------
 1. Install Ollama:  https://ollama.ai
 2. Pull a model:

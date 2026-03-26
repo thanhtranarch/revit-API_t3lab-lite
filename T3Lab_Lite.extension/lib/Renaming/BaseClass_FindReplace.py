@@ -1,4 +1,16 @@
 # -*- coding: utf-8 -*-
+"""
+Base Class Find Replace
+
+Base class providing find and replace functionality for Revit elements.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Base Class Find Replace"
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗

@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-Status Error Indicator
-Shows that there is a connection error (non-clickable status indicator)
+Stop MCP
+
+Stop the running MCP server.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Stop MCP"
 
 from pyrevit import script, forms
 import sys
@@ -15,10 +24,6 @@ if lib_path not in sys.path:
 
 from core.server import get_t3labai_server
 from ui.button_state import get_last_error
-
-__title__ = 'Error'
-__author__ = 'T3LabAI Team'
-__doc__ = 'Status indicator - Connection error'
 
 if __name__ == '__main__':
     # This is a status indicator, show error info when clicked

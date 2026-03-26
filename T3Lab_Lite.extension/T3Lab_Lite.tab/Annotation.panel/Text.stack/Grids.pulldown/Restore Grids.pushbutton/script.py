@@ -1,27 +1,16 @@
+# -*- coding: utf-8 -*-
 """
 Restore Grids
 
-Restore the view dependant properties of the saved grids
-Only single segment (i.e. non-split) grids are supported yet
-Grid leaders are added as needed, but there is no API to restore them
+Restore selected grid heads and tails to their saved positions.
 
-Only saved grids will be restored. If there are preselected grids, 
-  only they will be restored.
-Handy to fine-tune separate parts of the drawing
-
-
-
-TESTED REVIT API: 2020
-
-@ejs-ejs
-This script is part of PyRevitPlus: Extensions for PyRevit
-github.com/ejs-ejs | @ejs-ejs
-
---------------------------------------------------------
-RevitPythonWrapper: revitpythonwrapper.readthedocs.io
-pyRevit: github.com/eirannejad/pyRevit
-
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Restore Grids"
 
 import os
 import pickle

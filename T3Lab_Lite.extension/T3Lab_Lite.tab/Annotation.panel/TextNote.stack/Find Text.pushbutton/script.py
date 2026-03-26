@@ -1,17 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Find View of TextNote
-Search TextNotes placed in model by name and jump to their View
+Find Text
 
---------------------------------------------------------
+Find and select text notes by content in the active view.
+
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
---------------------------------------------------------
 """
-__title__ = "Find Text"
-__author__ = "Tran Tien Thanh"
-__version__ = 'Version: 1.0'
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Find Text"
 
 # IMPORT LIBRARIES
 # ==================================================

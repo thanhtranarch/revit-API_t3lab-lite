@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""API Learner - Self-learning module for Revit API compatibility.
-
-This module automatically learns Revit API signatures and compatibility
-from online documentation and caches them for offline usage.
-
-Features:
-- Auto-detect Revit version and fetch corresponding API docs
-- Learn API signatures from revitapidocs.com
-- Cache API information for offline usage
-- Smart fallback when documentation is unavailable
-- Auto-update support for new Revit versions
 """
+API Learner
+
+Self-learning system for Revit API compatibility and smart export adapters.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "API Learner"
 
 import os
 import json

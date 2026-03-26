@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""T3Lab Assistant - Standalone AI chatbox for T3Lab tools.
+"""
+T3Lab Assistant
 
-Provides a floating chatbox window that understands natural-language commands
-(Tiếng Việt or English) and quickly opens any T3Lab tool.
+Open the T3Lab AI assistant for natural language Revit commands.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__title__ = "T3Lab\nAssistant"
-__author__ = "T3Lab"
-__version__ = "1.0.0"
+__author__  = "Tran Tien Thanh"
+__title__   = "T3Lab Assistant"
 
 import json
 import os

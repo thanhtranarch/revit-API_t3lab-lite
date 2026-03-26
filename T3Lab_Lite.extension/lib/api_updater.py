@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""API Updater - Auto-update module that checks for Revit API updates weekly.
-
-This module automatically checks revitapidocs.com every Friday for API updates
-and downloads new API signatures for compatibility.
-
-Features:
-- Weekly auto-check on Fridays (when revitapidocs.com updates)
-- Download and parse API documentation
-- Detect new Revit versions
-- Update cached API information
-- Notify users of important API changes
 """
+API Updater
+
+Auto-checks for Revit API updates and notifies users of changes.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "API Updater"
 
 import os
 import json

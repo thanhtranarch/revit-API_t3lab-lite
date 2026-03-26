@@ -1,21 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-T3Lab Tool Discovery — auto-register new pushbutton tools with the Assistant.
+Tool Discovery
 
-How it works
-────────────
-Every time the T3Lab Assistant starts it calls discover_new_tools().
-That function scans the T3Lab_Lite.tab directory for *.pushbutton folders
-that are NOT yet tracked in tool_registry.json.  For each new button it:
+Auto-registers and discovers T3Lab pushbutton tools.
 
-  1. Reads __title__ from the script.
-  2. Derives a unique intent name  (e.g. "open_propertyline").
-  3. Generates keyword hints for the NLU / keyword-fallback parser.
-  4. Writes the entry to tool_registry.json so it is not re-processed.
-
-Callers can then use get_registered_tools() to iterate all auto-registered
-tools and inject them into TOOL_LAUNCHERS + the chat-UI quick-button strip.
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Tool Discovery"
+
 from __future__ import unicode_literals
 
 import os

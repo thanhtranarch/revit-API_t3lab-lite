@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
-"""BatchOut Natural Language Assistant.
-
-Uses Claude API for natural language command parsing in any language.
-Falls back to keyword matching gracefully when API is not configured.
-
-API key is read from T3LabAI settings (AI Connection panel → Configure API Key → Claude).
 """
+Batch Out Assistant
+
+Natural language command parser for batch export operations.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Batch Out Assistant"
 from __future__ import unicode_literals
 
 import json

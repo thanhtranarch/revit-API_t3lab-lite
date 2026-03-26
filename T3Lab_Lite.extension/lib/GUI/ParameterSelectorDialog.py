@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Parameter Selector Dialog for Custom Filenames.
-
-This dialog allows users to select from all available sheet/view parameters
-to build custom filename patterns.
 """
+Parameter Selector Dialog
+
+GUI dialog for selecting Revit parameters.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Parameter Selector Dialog"
 
 import os
 import sys

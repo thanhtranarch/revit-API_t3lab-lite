@@ -1,24 +1,16 @@
+# -*- coding: utf-8 -*-
 """
 Save Grids
 
-Save the view dependant properties - 
-endpoint locations, grid heads and leaders
-of the selected building grids for re-use
+Save current grid head and tail positions for later restoration.
 
-Non-grid elements will be skipped with dialog,
- so it's advisable to apply filtering beforehead
-
-TESTED REVIT API: 2020
-
-@ejs-ejs
-This script is part of PyRevitPlus: Extensions for PyRevit
-github.com/ejs-ejs | @ejs-ejs
-
---------------------------------------------------------
-RevitPythonWrapper: revitpythonwrapper.readthedocs.io
-pyRevit: github.com/eirannejad/pyRevit
-
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Save Grids"
 
 import os
 import pickle

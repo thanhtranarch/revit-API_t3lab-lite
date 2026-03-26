@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
-__title__ = "Super Select"
-__author__ = "Erik Frits"
-__helpurl__ = "https://erikfrits.com/blog/super-select-multiple-elements-in-viewmodel/"
+"""
+Super Select
+
+Advanced selection utilities for filtering and selecting Revit elements.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+"""
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Super Select"
 __doc__ = """Version = 1.2
 Date    = 08.02.2021
 _____________________________________________________________________

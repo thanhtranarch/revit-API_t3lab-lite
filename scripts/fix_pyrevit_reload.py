@@ -1,11 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-pyRevit Reload Fix - Automated Patcher (Python version)
-This script patches the pyRevit core to fix the assembly file locking issue
+Fix PyRevit Reload
 
-Usage:
-    python fix_pyrevit_reload.py
-    python fix_pyrevit_reload.py --whatif
+Patches pyRevit assembly locking issue to enable smooth reloading.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "Fix PyRevit Reload"
 
 import os
 import sys

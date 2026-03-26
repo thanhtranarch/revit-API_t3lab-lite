@@ -1,7 +1,16 @@
+# -*- coding: utf-8 -*-
 """
-Settings Button for T3LabAI MCP
-Opens the configuration dialog for API keys and modules
+AI Settings
+
+Configure T3Lab AI connection settings and API keys.
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
+
+__author__  = "Tran Tien Thanh"
+__title__   = "AI Settings"
 
 from pyrevit import script
 import sys
@@ -14,10 +23,6 @@ if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
 
 from ui.settings_dialog import show_settings_dialog
-
-__title__ = 'Settings'
-__author__ = 'T3LabAI Team'
-__doc__ = 'Configure MCP API keys and modules'
 
 if __name__ == '__main__':
     show_settings_dialog()
