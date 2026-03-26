@@ -35,7 +35,7 @@ import sys
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
-from System.Windows import WindowState
+from System.Windows import WindowState, Clipboard
 from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind
 
@@ -139,6 +139,34 @@ xaml_layout = """
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#D5DBDB"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CopyButton" TargetType="Button">
+            <Setter Property="Background" Value="#27AE60"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1E8449"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -275,6 +303,11 @@ xaml_layout = """
 
             <!-- Footer Buttons -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                <Button x:Name="copy_prompt_btn" Content="Copy Prompt"
+                        Width="130" Height="36"
+                        Margin="0,0,10,0"
+                        Style="{StaticResource CopyButton}"
+                        Click="copy_prompt_clicked"/>
                 <Button x:Name="cancel_btn" Content="Cancel"
                         Width="100" Height="36"
                         Margin="0,0,10,0"
@@ -314,6 +347,20 @@ class JsonInputDialog(forms.WPFWindow):
 
     def cancel_clicked(self, sender, args):
         self.Close()
+
+    def copy_prompt_clicked(self, sender, e):
+        try:
+            script_dir = os.path.dirname(__file__)
+            prompt_path = os.path.join(script_dir, "SYSTEM PROMPT.md")
+            if not os.path.exists(prompt_path):
+                forms.alert("SYSTEM PROMPT.md not found.", title="Copy Prompt")
+                return
+            with open(prompt_path, "r") as f:
+                content = f.read()
+            Clipboard.SetText(content)
+            forms.alert("System Prompt copied to clipboard!", title="Copy Prompt")
+        except Exception as ex:
+            forms.alert("Failed to copy prompt:\n\n{}".format(ex), title="Copy Prompt Error")
 
     def help_button_clicked(self, sender, e):
         forms.alert(
