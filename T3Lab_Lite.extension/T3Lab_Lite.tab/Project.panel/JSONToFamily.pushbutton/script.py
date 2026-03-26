@@ -30,9 +30,19 @@ __author__ = "T3Lab"
 import json
 import clr
 import os
+import sys
+
+clr.AddReference('PresentationFramework')
+clr.AddReference('PresentationCore')
+clr.AddReference('WindowsBase')
+from System.Windows import WindowState
+from System.Windows.Media.Imaging import BitmapImage
+from System import Uri, UriKind
 
 from Autodesk.Revit.DB import *
 from pyrevit import revit, forms, script
+
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 doc = revit.doc
 
@@ -49,47 +59,233 @@ SCL = (1.0 / 304.8) if IS_METRIC else 1.0
 xaml_layout = """
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="JSON to Family - T3Lab" Height="560" Width="660"
-        WindowStartupLocation="CenterScreen" ShowInTaskbar="False"
-        Background="#F5F5F5">
-    <Grid Margin="12">
+        Title="JSON to Family - T3Lab"
+        Width="700" Height="600"
+        MinWidth="560" MinHeight="460"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        ShowInTaskbar="True"
+        Background="White">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,10,0,5"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#3498DB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2980B9"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#BDC3C7"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#ECF0F1"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#BDC3C7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D5DBDB"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="WindowControlButton" TargetType="Button">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#ECF0F1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E74C3C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Margin="0,0,0,10">
-            <TextBlock Text="JSON to Family" FontSize="18" FontWeight="Bold" Foreground="#2C3E50"/>
-            <TextBlock FontSize="11" Foreground="#7F8C8D" Margin="0,2,0,0">
-                <Run>Supports: </Run>
-                <Run FontWeight="SemiBold">Extrusion · Sweep · Revolve · Blend · SweptBlend · ModelText · Voids</Run>
-            </TextBlock>
-            <Separator Margin="0,8,0,0"/>
-        </StackPanel>
+        <!-- Custom Title Bar -->
+        <Grid Grid.Row="0" Background="White" Height="64">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-        <TextBox x:Name="json_tb" Grid.Row="1"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 VerticalScrollBarVisibility="Auto"
-                 HorizontalScrollBarVisibility="Auto"
-                 FontFamily="Consolas"
-                 FontSize="12"
-                 Background="White"
-                 BorderBrush="#BDC3C7"
-                 BorderThickness="1"
-                 Padding="8"
-                 Text="Paste your JSON schema here..."/>
+            <!-- Logo and Title -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <Image x:Name="logo_image" Width="44" Height="44" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
+                                   Foreground="#3498DB" VerticalAlignment="Bottom" Margin="0,0,6,1"/>
+                        <TextBlock Text="JSON to Family" FontSize="18" FontWeight="Bold"
+                                   Foreground="#2C3E50"/>
+                    </StackPanel>
+                    <Separator Height="1" Background="#BDC3C7" Margin="0,3,0,3"/>
+                    <TextBlock Text="Supports: Extrusion · Sweep · Revolve · Blend · SweptBlend · ModelText · Voids"
+                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+                </StackPanel>
+            </StackPanel>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button x:Name="cancel_btn" Content="Cancel" Width="90" Height="34"
-                    Margin="0,0,8,0" Click="cancel_clicked"
-                    Background="#ECF0F1" BorderBrush="#BDC3C7"/>
-            <Button x:Name="create_btn" Content="Create Family" Width="120" Height="34"
-                    Click="create_clicked"
-                    Background="#3498DB" Foreground="White" BorderThickness="0"
-                    FontWeight="Bold"/>
-        </StackPanel>
+            <!-- Window Control Buttons -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- Help Button -->
+                <Button x:Name="btn_help"
+                        Style="{StaticResource WindowControlButton}"
+                        ToolTip="Help"
+                        Click="help_button_clicked">
+                    <TextBlock Text="?" FontSize="18" FontWeight="Bold" Foreground="#7F8C8D"/>
+                </Button>
+
+                <!-- Minimize Button -->
+                <Button x:Name="btn_minimize"
+                        Style="{StaticResource WindowControlButton}"
+                        ToolTip="Minimize"
+                        Click="minimize_button_clicked">
+                    <TextBlock Text="&#x2014;" FontSize="14" FontWeight="Bold" Foreground="#7F8C8D" Margin="0,-8,0,0"/>
+                </Button>
+
+                <!-- Maximize/Restore Button -->
+                <Button x:Name="btn_maximize"
+                        Style="{StaticResource WindowControlButton}"
+                        ToolTip="Maximize"
+                        Click="maximize_button_clicked">
+                    <Border BorderBrush="#7F8C8D" BorderThickness="2" Width="14" Height="14"/>
+                </Button>
+
+                <!-- Close Button -->
+                <Button x:Name="btn_close"
+                        Style="{StaticResource CloseButton}"
+                        ToolTip="Close"
+                        Click="close_button_clicked">
+                    <TextBlock Text="&#x2715;" FontSize="18" FontWeight="Bold" Foreground="#7F8C8D">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1" Margin="20,10,20,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- JSON Input -->
+            <TextBox x:Name="json_tb" Grid.Row="0"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     FontFamily="Consolas"
+                     FontSize="12"
+                     Background="White"
+                     BorderBrush="#BDC3C7"
+                     BorderThickness="1"
+                     Padding="10"
+                     Text="Paste your JSON schema here..."/>
+
+            <!-- Footer Buttons -->
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                <Button x:Name="cancel_btn" Content="Cancel"
+                        Width="100" Height="36"
+                        Margin="0,0,10,0"
+                        Style="{StaticResource SecondaryButton}"
+                        Click="cancel_clicked"/>
+                <Button x:Name="create_btn" Content="Create Family"
+                        Width="140" Height="36"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="create_clicked"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>
 """
@@ -99,11 +295,48 @@ class JsonInputDialog(forms.WPFWindow):
         forms.WPFWindow.__init__(self, xaml_layout, literal_string=True)
         self.json_data = None
 
+        # Load logo
+        try:
+            logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
+            if os.path.exists(logo_path):
+                bitmap = BitmapImage()
+                bitmap.BeginInit()
+                bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                bitmap.EndInit()
+                self.Icon = bitmap
+                self.logo_image.Source = bitmap
+        except Exception:
+            pass
+
     def create_clicked(self, sender, args):
         self.json_data = self.json_tb.Text
         self.Close()
 
     def cancel_clicked(self, sender, args):
+        self.Close()
+
+    def help_button_clicked(self, sender, e):
+        forms.alert(
+            "JSON to Family - T3Lab\n\n"
+            "Paste a JSON schema to generate a parametric Revit family.\n\n"
+            "Supported geometry types:\n"
+            "  Extrusion, Sweep, Revolve, Blend, SweptBlend, ModelText, Voids\n\n"
+            "Run this tool inside an open Family Document (.rfa).",
+            title="JSON to Family Help"
+        )
+
+    def minimize_button_clicked(self, sender, e):
+        self.WindowState = WindowState.Minimized
+
+    def maximize_button_clicked(self, sender, e):
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+            self.btn_maximize.ToolTip = "Maximize"
+        else:
+            self.WindowState = WindowState.Maximized
+            self.btn_maximize.ToolTip = "Restore"
+
+    def close_button_clicked(self, sender, e):
         self.Close()
 
 
