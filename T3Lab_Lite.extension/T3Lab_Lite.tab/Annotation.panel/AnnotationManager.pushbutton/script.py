@@ -28,8 +28,9 @@ from System.Data import DataTable
 from Autodesk.Revit.DB import *
 from pyrevit import revit, forms, script
 
-doc   = revit.doc
-uidoc = revit.uidoc
+doc    = revit.doc
+uidoc  = revit.uidoc
+logger = script.get_logger()
 
 # ============================================================
 # SHARED COLOR TABLE
@@ -558,5 +559,6 @@ class AnnotationManagerWindow(forms.WPFWindow):
 # ENTRY POINT
 # ============================================================
 if __name__ == "__main__":
+    logger.info("Annotation Manager started")
     win = AnnotationManagerWindow()
     win.show_dialog()

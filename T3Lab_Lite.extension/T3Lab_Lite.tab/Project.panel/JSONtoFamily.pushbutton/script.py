@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Parametric Revit Family Generator (Metric Edition)
---------------------------------------------------
+JSON to Family
+
+Parametric Revit Family Generator (Metric Edition).
 Parses a JSON schema to generate parametric Revit Families (Furniture, Casework, etc.).
 
 SUPPORTED GEOMETRY TYPES:
@@ -22,11 +23,17 @@ KNOWN LIMITATIONS:
   - ModelText: requires an existing ModelTextType in the family template.
 
 Credits: Based on JSONToFamily by Jonathan Bourne (manicooller/jonotools)
+
+Author: T3Lab
 """
 
-__title__ = "JSONtoFamily"
-__author__ = "T3Lab"
+from __future__ import unicode_literals
 
+__title__   = "JSON to Family"
+__author__  = "T3Lab"
+__version__ = "1.0.0"
+
+# IMPORTS
 import json
 import clr
 import os
@@ -43,8 +50,11 @@ from Autodesk.Revit.DB import *
 from pyrevit import revit, forms, script
 
 extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+lib_dir       = os.path.join(extension_dir, 'lib')
 
-doc = revit.doc
+doc    = revit.doc
+logger = script.get_logger()
+output = script.get_output()
 
 # =========================================================================
 # METRIC CONVERSION
@@ -56,281 +66,19 @@ SCL = (1.0 / 304.8) if IS_METRIC else 1.0
 # =========================================================================
 # UI DIALOG
 # =========================================================================
-xaml_layout = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="JSON to Family - T3Lab"
-        Width="700" Height="600"
-        MinWidth="560" MinHeight="460"
-        WindowStartupLocation="CenterScreen"
-        ResizeMode="CanResizeWithGrip"
-        ShowInTaskbar="True"
-        Background="White">
 
-    <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="64"
-                      ResizeBorderThickness="5"
-                      GlassFrameThickness="0"
-                      CornerRadius="8"
-                      UseAeroCaptionButtons="False"/>
-    </WindowChrome.WindowChrome>
+_XAML_PATH = os.path.join(lib_dir, 'GUI', 'JSONtoFamily.xaml')
 
-    <Window.Resources>
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Margin" Value="0,10,0,5"/>
-            <Setter Property="Foreground" Value="#2C3E50"/>
-        </Style>
-
-        <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background" Value="#3498DB"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="15,8"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#2980B9"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#BDC3C7"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background" Value="#ECF0F1"/>
-            <Setter Property="Foreground" Value="#2C3E50"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush" Value="#BDC3C7"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D5DBDB"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="CopyButton" TargetType="Button">
-            <Setter Property="Background" Value="#27AE60"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="15,8"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1E8449"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="WindowControlButton" TargetType="Button">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#ECF0F1"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#E74C3C"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
-
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-
-        <!-- Custom Title Bar -->
-        <Grid Grid.Row="0" Background="White" Height="64">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Logo and Title -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <Image x:Name="logo_image" Width="44" Height="44" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                                   Foreground="#3498DB" VerticalAlignment="Bottom" Margin="0,0,6,1"/>
-                        <TextBlock Text="JSON to Family" FontSize="18" FontWeight="Bold"
-                                   Foreground="#2C3E50"/>
-                    </StackPanel>
-                    <Separator Height="1" Background="#BDC3C7" Margin="0,3,0,3"/>
-                    <TextBlock Text="Supports: Extrusion · Sweep · Revolve · Blend · SweptBlend · ModelText · Voids"
-                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
-                </StackPanel>
-            </StackPanel>
-
-            <!-- Window Control Buttons -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <!-- Help Button -->
-                <Button x:Name="btn_help"
-                        Style="{StaticResource WindowControlButton}"
-                        ToolTip="Help"
-                        Click="help_button_clicked">
-                    <TextBlock Text="?" FontSize="18" FontWeight="Bold" Foreground="#7F8C8D"/>
-                </Button>
-
-                <!-- Minimize Button -->
-                <Button x:Name="btn_minimize"
-                        Style="{StaticResource WindowControlButton}"
-                        ToolTip="Minimize"
-                        Click="minimize_button_clicked">
-                    <TextBlock Text="&#x2014;" FontSize="14" FontWeight="Bold" Foreground="#7F8C8D" Margin="0,-8,0,0"/>
-                </Button>
-
-                <!-- Maximize/Restore Button -->
-                <Button x:Name="btn_maximize"
-                        Style="{StaticResource WindowControlButton}"
-                        ToolTip="Maximize"
-                        Click="maximize_button_clicked">
-                    <Border BorderBrush="#7F8C8D" BorderThickness="2" Width="14" Height="14"/>
-                </Button>
-
-                <!-- Close Button -->
-                <Button x:Name="btn_close"
-                        Style="{StaticResource CloseButton}"
-                        ToolTip="Close"
-                        Click="close_button_clicked">
-                    <TextBlock Text="&#x2715;" FontSize="18" FontWeight="Bold" Foreground="#7F8C8D">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
-                </Button>
-            </StackPanel>
-        </Grid>
-
-        <!-- Main Content -->
-        <Grid Grid.Row="1" Margin="20,10,20,20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <!-- JSON Input -->
-            <TextBox x:Name="json_tb" Grid.Row="0"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto"
-                     HorizontalScrollBarVisibility="Auto"
-                     FontFamily="Consolas"
-                     FontSize="12"
-                     Background="White"
-                     BorderBrush="#BDC3C7"
-                     BorderThickness="1"
-                     Padding="10"
-                     Text="Paste your JSON schema here..."/>
-
-            <!-- Footer Buttons -->
-            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                <Button x:Name="copy_prompt_btn" Content="Copy Prompt"
-                        Width="130" Height="36"
-                        Margin="0,0,10,0"
-                        Style="{StaticResource CopyButton}"
-                        Click="copy_prompt_clicked"/>
-                <Button x:Name="cancel_btn" Content="Cancel"
-                        Width="100" Height="36"
-                        Margin="0,0,10,0"
-                        Style="{StaticResource SecondaryButton}"
-                        Click="cancel_clicked"/>
-                <Button x:Name="create_btn" Content="Create Family"
-                        Width="140" Height="36"
-                        Style="{StaticResource PrimaryButton}"
-                        Click="create_clicked"/>
-            </StackPanel>
-        </Grid>
-    </Grid>
-</Window>
-"""
 
 class JsonInputDialog(forms.WPFWindow):
     def __init__(self):
-        forms.WPFWindow.__init__(self, xaml_layout, literal_string=True)
+        forms.WPFWindow.__init__(self, _XAML_PATH)
         self.json_data = None
+        logger.debug("JSONtoFamily dialog initialised from: {}".format(_XAML_PATH))
 
         # Load logo
         try:
-            logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
+            logo_path = os.path.join(lib_dir, 'GUI', 'T3Lab_logo.png')
             if os.path.exists(logo_path):
                 bitmap = BitmapImage()
                 bitmap.BeginInit()
@@ -522,7 +270,7 @@ def generate_family_from_json(schema):
                 new_dim = doc.FamilyCreate.NewDimension(view, dim_line, ref_array)
                 new_dim.FamilyLabel = param_dict[dim_data["parameter"]]
             except Exception as e:
-                print("Could not dimension '{}': {}".format(dim_data["parameter"], e))
+                logger.warning("Could not dimension '{}': {}".format(dim_data["parameter"], e))
 
         # --- STEP 4: GEOMETRY ---
         created_geometries = {}
@@ -631,7 +379,7 @@ def generate_family_from_json(schema):
             elif geom_type == "SweptBlend":
                 path_segs = geom_data.get("path", [])
                 if not path_segs:
-                    print("SweptBlend '{}': no path segments provided.".format(geom_data.get("id", "?")))
+                    logger.warning("SweptBlend '{}': no path segments provided.".format(geom_data.get("id", "?")))
                 else:
                     path_curve = create_curve_from_json(path_segs[0], sp_plane=sp_plane)
 
@@ -643,7 +391,7 @@ def generate_family_from_json(schema):
                             is_solid, path_curve, sketch_plane, profile_start, profile_end
                         )
                     except Exception as e:
-                        print("SweptBlend creation failed: {}".format(e))
+                        logger.error("SweptBlend creation failed: {}".format(e))
 
             # ----------------------------------------------------------------
             # MODEL TEXT  (chữ nổi 3D)
@@ -670,14 +418,14 @@ def generate_family_from_json(schema):
 
                 text_type_id = get_model_text_type(geom_data.get("text_type"))
                 if text_type_id is None:
-                    print("ModelText '{}': no ModelTextType found; skipping.".format(text_str))
+                    logger.warning("ModelText '{}': no ModelTextType found; skipping.".format(text_str))
                 else:
                     try:
                         created_geom = doc.FamilyCreate.NewModelText(
                             text_str, text_type_id, sketch_plane, position, h_align, depth
                         )
                     except Exception as e:
-                        print("ModelText creation failed for '{}': {}".format(text_str, e))
+                        logger.error("ModelText creation failed for '{}': {}".format(text_str, e))
 
             # ----------------------------------------------------------------
             # BIND MATERIAL & VISIBILITY PARAMETERS
@@ -753,14 +501,17 @@ def generate_family_from_json(schema):
                     if result:
                         current_target = result
                 except Exception as e:
-                    print("Failed to cut '{}': {}".format(solid_id, e))
+                    logger.error("Failed to cut '{}': {}".format(solid_id, e))
 
 
 # =========================================================================
 # EXECUTION
 # =========================================================================
 if __name__ == "__main__":
+    logger.info("JSON to Family script started")
+
     if not doc.IsFamilyDocument:
+        logger.warning("Script launched outside a Family Document – aborting")
         forms.alert(
             "This script must be run inside a Family Document (.rfa).\n\nOpen a Revit family file first.",
             title="Family Document Required",
@@ -772,12 +523,18 @@ if __name__ == "__main__":
 
     if dialog.json_data and dialog.json_data.strip() and dialog.json_data != "Paste your JSON schema here...":
         try:
+            logger.info("Parsing JSON schema…")
             parsed_schema = json.loads(dialog.json_data)
+            logger.info("Generating family from schema…")
             generate_family_from_json(parsed_schema)
+            logger.info("Family generation completed successfully")
             forms.alert("Parametric family generated successfully!", title="Success")
         except ValueError as e:
+            logger.error("Invalid JSON: {}".format(e))
             forms.alert("Invalid JSON:\n\n{}".format(e), title="JSON Error", exitscript=True)
         except Exception as e:
+            logger.error("Error generating family: {}".format(e))
             forms.alert("Error generating family:\n\n{}".format(e), title="Generation Error", exitscript=True)
     else:
+        logger.info("Dialog cancelled or no JSON provided")
         script.exit()

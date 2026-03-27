@@ -16,12 +16,14 @@ __title__   = "Dim Text"
 # ==================================================
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *
+from pyrevit import script
 
 # DEFINE VARIABLES
 # ==================================================
 uidoc   = __revit__.ActiveUIDocument
 doc     = __revit__.ActiveUIDocument.Document
 active_view_id = uidoc.ActiveView.Id
+logger  = script.get_logger()
 
 
 # CLASS/FUNCTIONS
@@ -54,6 +56,7 @@ def setvalue(dim,prefix, sufix, above, below, sub_z, overide):
                 
 # MAIN SCRIPT
 # ==================================================
+logger.info("Dim Text script started")
 with Transaction(doc, "Adjust DimentionsText") as t:
     t.Start()
     count = 0
@@ -81,6 +84,7 @@ with Transaction(doc, "Adjust DimentionsText") as t:
         # turnoff_leader(dim)
         setvalue(dim,prefix, sufix, above, below, sub_z, overide)
         count += 1
+    logger.info("Updated {} dimension(s)".format(count))
     if count > 0:
         TaskDialog.Show("Text in Dimension", "Done!")
     t.Commit()
