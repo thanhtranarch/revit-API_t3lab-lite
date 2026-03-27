@@ -563,7 +563,7 @@ _TOOL_LABELS = {
     'open_loadfamily':        'Load Family',
     'open_loadfamily_cloud':  'Load Family (Cloud)',
     'open_projectname':       'Project Name',
-    'open_workset':           'Workset',
+    'open_workset':           'Workset Mgmt',
     'open_dimtext':           'Dim Text',
     'open_upperdimtext':      'Upper Dim Text',
     'open_resetoverrides':    'Reset Overrides',

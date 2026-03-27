@@ -1,20 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Workset
+Workset Management
 
-Manage and assign worksets to selected elements.
+Manage worksets in Revit projects.
+- Click        : Create worksets or manage the workset list
+- Shift+Click  : Quick remove unused worksets (select from checklist)
 
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__author__  = "Tran Tien Thanh"
-__title__   = "Workset"
+__author__ = "Tran Tien Thanh"
+__title__  = "Workset\nMgmt"
 
 # IMPORT LIBRARIES
 # ==================================================
-from Autodesk.Revit.DB import Workset, WorksetTable, Transaction, FilteredWorksetCollector, WorksetKind, DeleteWorksetSettings, DeleteWorksetOption, WorksharingSaveAsOptions, SaveAsOptions, WorksharingUtils
+from Autodesk.Revit.DB import (
+    Workset, WorksetTable, Transaction,
+    FilteredWorksetCollector, WorksetKind,
+    DeleteWorksetSettings, DeleteWorksetOption,
+    WorksharingSaveAsOptions, SaveAsOptions,
+)
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import forms, script
 import os
@@ -24,10 +31,13 @@ logger = script.get_logger()
 # DEFINE VARIABLES
 # ==================================================
 uidoc = __revit__.ActiveUIDocument
-doc = __revit__.ActiveUIDocument.Document
+doc   = __revit__.ActiveUIDocument.Document
 
-# Base workset list
-base_workset_list = [
+SCRIPT_DIR        = os.path.dirname(__file__)
+WORKSET_LIST_FILE = os.path.join(SCRIPT_DIR, "workset_list.txt")
+
+# Hardcoded fallback list (used if workset_list.txt is missing/empty)
+DEFAULT_WORKSET_LIST = [
     "01_Shared Levels and Grids_CORE_OFF",
     "01_Shared Levels and Grids_PH_OFF",
     "01_Shared Levels and Grids_RA_OFF",
@@ -83,98 +93,104 @@ base_workset_list = [
     "ARC_WallExterior",
     "ARC_WallFinish",
     "ARC_WallInterior",
-    "Workset1"
+    "Workset1",
 ]
 
-# Function to get dynamic workset list based on filename
-def get_workset_list():
-    """
-    Get workset list based on file name.
-    If filename contains 'CORE', add 'ARC_TRELLIS' to the list.
-    """
-    workset_list = base_workset_list[:]  # Create a copy of base list
-    
-    try:
-        # Get the document file path
-        file_path = doc.PathName
-        if file_path:
-            # Extract filename without extension and convert to uppercase
-            filename = os.path.splitext(os.path.basename(file_path))[0].upper()
-            logger.debug("Current filename (uppercase): {}".format(filename))
-            
-            # Check if filename contains 'CORE' (both in uppercase)
-            if '_MD_CR_ZZ_' in filename:
-                workset_list.append("ARC_TRELLIS")
-                workset_list.append("ARC_Staircase")
-                logger.info("Filename contains 'CORE' - Added 'ARC_TRELLIS' to workset list")
-            else:
-                logger.info("Filename doesn't contain 'CORE' - Using standard workset list")
-        else:
-            logger.info("Document not saved yet - Using standard workset list")
-            
-    except Exception as e:
-        logger.error("Error checking filename: {}".format(e))
-        logger.info("Using standard workset list")
-    
-    return workset_list
+# WORKSET LIST FILE HELPERS
+# ==================================================
 
-# CLASS/FUNCTIONS
+def load_workset_list():
+    """Load workset list from workset_list.txt, falling back to defaults."""
+    if os.path.isfile(WORKSET_LIST_FILE):
+        with open(WORKSET_LIST_FILE, "r") as f:
+            names = [
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
+        if names:
+            print("Loaded {} worksets from: {}".format(len(names), WORKSET_LIST_FILE))
+            return names
+    print("workset_list.txt not found or empty - using defaults")
+    return list(DEFAULT_WORKSET_LIST)
+
+
+def save_workset_list(names):
+    """Save workset list to workset_list.txt (overwrites)."""
+    with open(WORKSET_LIST_FILE, "w") as f:
+        f.write("# Workset List for T3Lab Lite\n")
+        f.write("# One workset name per line. Lines starting with '#' are comments.\n\n")
+        for name in names:
+            f.write(name + "\n")
+    print("Saved {} worksets to: {}".format(len(names), WORKSET_LIST_FILE))
+
+
+def import_from_txt(filepath):
+    """Read workset names from any txt file (one per line, # = comment)."""
+    with open(filepath, "r") as f:
+        names = [
+            line.strip()
+            for line in f
+            if line.strip() and not line.strip().startswith("#")
+        ]
+    return names
+
+
+# REVIT HELPERS
 # ==================================================
 
 def lcs(str1, str2):
-    """Find longest common subsequence between two strings"""
+    """Longest common subsequence between two strings."""
     m, n = len(str1), len(str2)
     dp = [[0] * (n + 1) for _ in range(m + 1)]
-
     for i in range(1, m + 1):
         for j in range(1, n + 1):
             if str1[i - 1] == str2[j - 1]:
                 dp[i][j] = dp[i - 1][j - 1] + 1
             else:
                 dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
-
-    lcs_str = ""
+    result = ""
     i, j = m, n
     while i > 0 and j > 0:
         if str1[i - 1] == str2[j - 1]:
-            lcs_str = str1[i - 1] + lcs_str
+            result = str1[i - 1] + result
             i -= 1
             j -= 1
         elif dp[i - 1][j] >= dp[i][j - 1]:
             i -= 1
         else:
             j -= 1
+    return result
 
-    return lcs_str
 
-def find_best_match(target_str, string_list):
-    """Find best matching string from list using LCS algorithm"""
-    max_lcs = ""
-    best_match = None
-    for s in string_list:
-        current_lcs = lcs(target_str, s)
-        if len(current_lcs) > len(max_lcs):
-            max_lcs = current_lcs
-            best_match = s
-    return best_match
+def find_best_match(target, candidates):
+    """Return the candidate with the longest common subsequence to target."""
+    best, best_len = None, 0
+    for c in candidates:
+        length = len(lcs(target, c))
+        if length > best_len:
+            best_len = length
+            best = c
+    return best
+
 
 def enable_worksharing():
-    """Enable worksharing with default worksets"""
+    """Enable worksharing; returns True on success."""
+    t = Transaction(doc, "Enable Worksharing")
+    t.Start()
     try:
-        t = Transaction(doc, "Enable Worksharing")
-        t.Start()
         doc.EnableWorksharing("_SHARED LEVELS & GRIDS", "_ARCHITECT")
         t.Commit()
-        logger.info("Worksharing enabled successfully")
+        print("Worksharing enabled")
         return True
     except Exception as e:
-        logger.error("Failed to enable worksharing: {}".format(e))
-        if t.HasStarted():
-            t.RollBack()
+        t.RollBack()
+        print("Failed to enable worksharing: {}".format(e))
         return False
-        
+
+
 def create_worksets(workset_names, existing_names):
-    """Create worksets that don't already exist"""
+    """Create worksets that don't already exist; returns list of created names."""
     created = []
     for name in workset_names:
         if name not in existing_names:
@@ -184,123 +200,164 @@ def create_worksets(workset_names, existing_names):
                 Workset.Create(doc, name)
                 t.Commit()
                 created.append(name)
-                logger.info("Created workset: '{}'".format(name))
+                print("Created: '{}'".format(name))
             except Exception as e:
                 t.RollBack()
-                logger.error("Failed to create workset '{}': {}".format(name, e))
+                print("Failed '{}': {}".format(name, e))
     return created
 
-def check_editable_worksets(worksets):
-    """Check if worksets are editable and report status"""
-    non_editable = []
-    for ws in worksets:
-        try:
-            if not ws.IsEditable:
-                non_editable.append(ws.Name)
-                logger.warning("Workset '{}' is not editable.".format(ws.Name))
-        except Exception as e:
-            logger.error("Error checking workset '{}': {}".format(ws.Name, e))
-    
-    if non_editable:
-        forms.alert("Non-editable worksets found:\n{}".format("\n".join(non_editable)))
-        return False
-    return True
 
-def create_central():
-    """Create central file from current document"""
-    file_name = forms.save_file()
-    if file_name:
-        file_name_without_extension = file_name.rsplit(".", 1)[0]
-        central_file_path = file_name_without_extension + ".rvt"
-        try:
-            options = WorksharingSaveAsOptions()
-            options.SaveAsCentral = True
-            saveas_option = SaveAsOptions()
-            saveas_option.MaximumBackups = 10
-            saveas_option.OverwriteExistingFile = True
-            saveas_option.SetWorksharingOptions(options)
-            doc.SaveAs(central_file_path, saveas_option)
-            TaskDialog.Show("Central Created", "Central File was created at:\n{}".format(central_file_path))
-        except Exception as e:
-            logger.error("Failed to create Central File: {}".format(e))
-            TaskDialog.Show("Error", "Failed to create Central File:\n{}".format(e))
-    else:
-        TaskDialog.Show("Cancelled", "Please set path to create central file")
+def remove_workset(ws_delete_name, ws_move_name, all_worksets):
+    """Delete a workset and move its elements to another workset."""
+    ws_delete = next((ws for ws in all_worksets if ws.Name == ws_delete_name), None)
+    ws_move   = next((ws for ws in all_worksets if ws.Name == ws_move_name), None)
 
-def can_delete_workset(ws_delete, ws_move):
-    """Check if workset can be deleted by moving elements to another workset"""
-    delete_settings = DeleteWorksetSettings(DeleteWorksetOption.MoveElementsToWorkset, ws_move.Id)
-    return WorksetTable.CanDeleteWorkset(doc, ws_delete.Id, delete_settings)
-
-def remove_workset(ws_delete_name, ws_move_name, worksets):
-    """Remove workset and move its elements to another workset"""
-    ws_delete = next((ws for ws in worksets if ws.Name == ws_delete_name), None)
-    ws_move = next((ws for ws in worksets if ws.Name == ws_move_name), None)
-    
     if not ws_delete or not ws_move:
-        forms.alert("Workset '{}' or '{}' not found.".format(ws_delete_name, ws_move_name))
+        print("Workset '{}' or '{}' not found".format(ws_delete_name, ws_move_name))
         return False
 
     t = Transaction(doc, "Delete Workset: {}".format(ws_delete_name))
     t.Start()
     try:
-        delete_settings = DeleteWorksetSettings(DeleteWorksetOption.MoveElementsToWorkset, ws_move.Id)
-        WorksetTable.DeleteWorkset(doc, ws_delete.Id, delete_settings)
+        settings = DeleteWorksetSettings(
+            DeleteWorksetOption.MoveElementsToWorkset, ws_move.Id
+        )
+        WorksetTable.DeleteWorkset(doc, ws_delete.Id, settings)
         t.Commit()
-        logger.info("Deleted '{}' and moved content to '{}'.".format(ws_delete_name, ws_move_name))
+        print("Deleted '{}' -> moved to '{}'".format(ws_delete_name, ws_move_name))
         return True
     except Exception as e:
         t.RollBack()
-        logger.error("Failed to delete workset '{}': {}".format(ws_delete_name, e))
-        forms.alert("Failed to delete workset '{}': {}".format(ws_delete_name, e))
+        print("Failed to delete '{}': {}".format(ws_delete_name, e))
+        forms.alert("Failed to delete '{}':\n{}".format(ws_delete_name, e))
         return False
+
 
 # MAIN SCRIPT
 # ==================================================
 
-# Get dynamic workset list based on filename
-workset_list = get_workset_list()
+# Load standard workset list
+workset_list = load_workset_list()
 
-worksets = FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
-existing_workset_names = [ws.Name for ws in FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset)]
+# Add filename-specific worksets (CORE files)
+try:
+    fp = doc.PathName
+    if fp:
+        fname = os.path.splitext(os.path.basename(fp))[0].upper()
+        if "_MD_CR_ZZ_" in fname:
+            for extra in ["ARC_TRELLIS", "ARC_Staircase"]:
+                if extra not in workset_list:
+                    workset_list.append(extra)
+            print("CORE file detected - added ARC_TRELLIS, ARC_Staircase")
+except Exception as e:
+    print("Error checking filename: {}".format(e))
 
+# Collect current worksets from document
+existing_worksets = list(
+    FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
+)
+existing_names = [ws.Name for ws in existing_worksets]
+
+# --------------------------------------------------
+# SHIFT+CLICK  →  Quick remove unused worksets
+# --------------------------------------------------
 if __shiftclick__:
-    # Delete unused worksets mode
-    logger.info("Running in delete mode (Shift+Click)")
-    
-    if not check_editable_worksets(worksets):
-        forms.alert("Some worksets are not editable. Please make them editable first!")
-    else:
-        deleted_count = 0
-        for ws in worksets:
-            try:
-                if ws.Name not in workset_list:
-                    best_match = find_best_match(ws.Name, workset_list)
-                    if best_match and remove_workset(ws.Name, best_match, worksets):
-                        deleted_count += 1
-            except Exception as e:
-                logger.error("Error processing workset '{}': {}".format(ws.Name, e))
-        
-        if deleted_count > 0:
-            TaskDialog.Show("Cleanup Complete", "Removed {} unused worksets.".format(deleted_count))
+    unused = [ws for ws in existing_worksets if ws.Name not in workset_list]
+
+    if not unused:
+        TaskDialog.Show("Workset Management", "No unused worksets found.")
+        script.exit()
+
+    # Let user pick which ones to remove
+    selected_names = forms.SelectFromList.show(
+        sorted([ws.Name for ws in unused]),
+        title="Remove Unused Worksets",
+        button_name="Remove Selected",
+        multiselect=True,
+    )
+
+    if not selected_names:
+        script.exit()
+
+    # For each selected workset, find the best destination in the remaining list
+    keep_names = [n for n in existing_names if n not in selected_names]
+    deleted = 0
+    for name in selected_names:
+        dest = find_best_match(name, keep_names)
+        if dest:
+            # Refresh workset objects after each deletion
+            current_worksets = list(
+                FilteredWorksetCollector(doc)
+                .OfKind(WorksetKind.UserWorkset)
+                .ToWorksets()
+            )
+            if remove_workset(name, dest, current_worksets):
+                deleted += 1
         else:
-            TaskDialog.Show("Cleanup Complete", "No unused worksets found to remove.")
+            print("No destination workset found for '{}', skipping".format(name))
+
+    TaskDialog.Show(
+        "Workset Management",
+        "Removed {} of {} selected worksets.".format(deleted, len(selected_names)),
+    )
+
+# --------------------------------------------------
+# NORMAL CLICK  →  Create / manage workset list
+# --------------------------------------------------
 else:
-    # Create worksets mode
-    logger.info("Running in create mode")
-    
-    # Enable worksharing if not already enabled
-    if not doc.IsWorkshared:
-        if not enable_worksharing():
-            forms.alert("Failed to enable worksharing. Cannot proceed.")
-        else:
+    action = forms.CommandSwitchWindow.show(
+        [
+            "Create Worksets",
+            "Update List from TXT",
+            "Reset to Default List",
+        ],
+        message="Workset Management\n({} worksets in current list)".format(
+            len(workset_list)
+        ),
+    )
+
+    if action == "Create Worksets":
+        # Enable worksharing if needed
+        if not doc.IsWorkshared:
+            if not enable_worksharing():
+                forms.alert("Failed to enable worksharing. Cannot proceed.")
+                script.exit()
             TaskDialog.Show("Worksharing", "Worksharing has been enabled.")
-    
-    # Create missing worksets
-    created_worksets = create_worksets(workset_list, existing_workset_names)
-    
-    if created_worksets:
-        TaskDialog.Show("Worksets Created", "Created {} worksets:\n\n{}".format(
-            len(created_worksets), "\n".join(created_worksets)))
-    else:
-        TaskDialog.Show("Worksets", "All worksets already exist.")
+
+        created = create_worksets(workset_list, existing_names)
+        if created:
+            TaskDialog.Show(
+                "Worksets Created",
+                "Created {} workset(s):\n\n{}".format(
+                    len(created), "\n".join(created)
+                ),
+            )
+        else:
+            TaskDialog.Show("Worksets", "All worksets in the list already exist.")
+
+    elif action == "Update List from TXT":
+        filepath = forms.pick_file(file_ext="txt")
+        if filepath:
+            try:
+                new_list = import_from_txt(filepath)
+                if not new_list:
+                    forms.alert("No workset names found in the selected file.")
+                else:
+                    save_workset_list(new_list)
+                    TaskDialog.Show(
+                        "List Updated",
+                        "Workset list updated with {} entries.\n\nSaved to:\n{}".format(
+                            len(new_list), WORKSET_LIST_FILE
+                        ),
+                    )
+            except Exception as e:
+                forms.alert("Failed to import file:\n{}".format(e))
+
+    elif action == "Reset to Default List":
+        save_workset_list(DEFAULT_WORKSET_LIST)
+        TaskDialog.Show(
+            "List Reset",
+            "Workset list reset to {} default entries.\n\nFile:\n{}".format(
+                len(DEFAULT_WORKSET_LIST), WORKSET_LIST_FILE
+            ),
+        )
