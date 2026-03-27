@@ -11,7 +11,7 @@ Unified tool combining Dimension and Text Note management:
 Author: T3Lab (Tran Tien Thanh)
 """
 
-__title__  = "Annotation\nManager"
+__title__  = "Annotation"
 __author__ = "T3Lab"
 
 import os

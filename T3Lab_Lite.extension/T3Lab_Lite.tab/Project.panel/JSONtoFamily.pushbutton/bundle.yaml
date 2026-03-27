@@ -1,4 +1,4 @@
-title: JSON to\nFamily
+title: JSON to Family
 tooltip: Generate parametric Revit families from a JSON schema
 description: |
   JSON to Family converts a structured JSON schema into a fully parametric
@@ -14,5 +14,5 @@ description: |
 
   Must be run inside an open Revit Family Document.
 
-author: Jonathan Bourne / T3Lab
+author: T3Lab
 version: 1.0.0

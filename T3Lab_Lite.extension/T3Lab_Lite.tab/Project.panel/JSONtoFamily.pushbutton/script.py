@@ -24,7 +24,7 @@ KNOWN LIMITATIONS:
 Credits: Based on JSONToFamily by Jonathan Bourne (manicooller/jonotools)
 """
 
-__title__ = "JSON to\nFamily"
+__title__ = "JSONtoFamily"
 __author__ = "T3Lab"
 
 import json
