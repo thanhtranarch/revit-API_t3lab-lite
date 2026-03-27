@@ -18,6 +18,7 @@ import json
 import re
 import os
 import sys
+import unicodedata
 
 try:
     import clr
@@ -253,8 +254,6 @@ def find_learned_match(raw):
 def _normalize_key(text):
     """Normalize to a lookup key: lowercase, no diacritics, meaningful words sorted."""
     try:
-        # Remove Vietnamese diacritics via unicode normalization
-        import unicodedata
         nfd = unicodedata.normalize('NFD', text)
         ascii_text = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
     except Exception:
@@ -331,13 +330,19 @@ def parse_command(user_input, history=None):
         body_bytes = Encoding.UTF8.GetBytes(body_json)
 
         client = WebClient()
-        client.Encoding = Encoding.UTF8
-        client.Headers.Add("Content-Type", "application/json; charset=utf-8")
-        client.Headers.Add("x-api-key", api_key)
-        client.Headers.Add("anthropic-version", "2023-06-01")
+        try:
+            client.Encoding = Encoding.UTF8
+            client.Headers.Add("Content-Type", "application/json; charset=utf-8")
+            client.Headers.Add("x-api-key", api_key)
+            client.Headers.Add("anthropic-version", "2023-06-01")
 
-        response_bytes = client.UploadData(url, "POST", body_bytes)
-        response_text = Encoding.UTF8.GetString(response_bytes)
+            response_bytes = client.UploadData(url, "POST", body_bytes)
+            response_text = Encoding.UTF8.GetString(response_bytes)
+        finally:
+            try:
+                client.Dispose()
+            except Exception:
+                pass
 
         api_result = json.loads(response_text)
         content_text = api_result["content"][0]["text"].strip()
