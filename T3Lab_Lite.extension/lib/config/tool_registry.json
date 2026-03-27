@@ -1,28 +1,5 @@
 {
   "tools": {
-    "DrillingPointCoordination.pushbutton": {
-      "button": "DrillingPointCoordination.pushbutton", 
-      "panel": "Tempor.panel", 
-      "title": "DrillingPointCoordination", 
-      "keywords": [
-        "drillingpointcoordination"
-      ], 
-      "intent": "open_drillingpointcoordination", 
-      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Tempor.panel\\DrillingPointCoordination.pushbutton\\script.py"
-    }, 
-    "AnnotationManager.pushbutton": {
-      "panel": "Annotation.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\AnnotationManager.pushbutton\\script.py", 
-      "button": "AnnotationManager.pushbutton", 
-      "keywords": [
-        "annotation manager", 
-        "annotationmanager", 
-        "annotation", 
-        "manager"
-      ], 
-      "title": "Annotation Manager", 
-      "intent": "open_annotationmanager"
-    }, 
     "StopMCP.pushbutton": {
       "button": "StopMCP.pushbutton", 
       "panel": "AI Connection.panel", 
@@ -34,10 +11,20 @@
       "intent": "open_stopmcp", 
       "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\AI Connection.panel\\StopMCP.pushbutton\\script.py"
     }, 
-    "JSONToFamily.pushbutton": {
+    "JSONtoFamily.pushbutton": {
       "panel": "Project.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\JSONToFamily.pushbutton\\script.py", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\JSONtoFamily.pushbutton\\script.py", 
+      "button": "JSONtoFamily.pushbutton", 
+      "keywords": [
+        "jsontofamily"
+      ], 
+      "title": "JSONtoFamily", 
+      "intent": "open_jsontofamily"
+    }, 
+    "JSONToFamily.pushbutton": {
       "button": "JSONToFamily.pushbutton", 
+      "panel": "Project.panel", 
+      "title": "JSON to Family", 
       "keywords": [
         "json to family", 
         "jsontofamily", 
@@ -45,8 +32,41 @@
         "json", 
         "to"
       ], 
-      "title": "JSON to Family", 
-      "intent": "open_jsontofamily"
+      "intent": "open_jsontofamily", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\JSONToFamily.pushbutton\\script.py"
+    }, 
+    "DrillingPointCoordination.pushbutton": {
+      "button": "DrillingPointCoordination.pushbutton", 
+      "panel": "Tempor.panel", 
+      "title": "DrillingPointCoordination", 
+      "keywords": [
+        "drillingpointcoordination"
+      ], 
+      "intent": "open_drillingpointcoordination", 
+      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Tempor.panel\\DrillingPointCoordination.pushbutton\\script.py"
+    }, 
+    "AnnotationManager.pushbutton": {
+      "button": "AnnotationManager.pushbutton", 
+      "panel": "Annotation.panel", 
+      "title": "Annotation Manager", 
+      "keywords": [
+        "annotation manager", 
+        "annotationmanager", 
+        "annotation", 
+        "manager"
+      ], 
+      "intent": "open_annotationmanager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\AnnotationManager.pushbutton\\script.py"
+    }, 
+    "DWGtoFamily.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\DWGtoFamily.pushbutton\\script.py", 
+      "button": "DWGtoFamily.pushbutton", 
+      "keywords": [
+        "dwgtofamily"
+      ], 
+      "title": "DWGtoFamily", 
+      "intent": "open_dwgtofamily"
     }
   }, 
   "version": 1

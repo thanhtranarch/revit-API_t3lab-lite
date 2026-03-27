@@ -26,6 +26,8 @@ from Autodesk.Revit.UI import TaskDialog
 from pyrevit import forms, script
 import os
 
+logger = script.get_logger()
+
 # DEFINE VARIABLES
 # ==================================================
 uidoc = __revit__.ActiveUIDocument
