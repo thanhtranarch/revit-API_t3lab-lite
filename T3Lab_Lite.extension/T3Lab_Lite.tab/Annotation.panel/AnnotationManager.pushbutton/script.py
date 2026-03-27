@@ -2,9 +2,10 @@
 """
 Annotation Manager
 ------------------
-Unified tool combining Dimension and Text Note management:
-  - Find elements by keyword → jump to view
-  - Delete selected instances / types
+Unified table showing all Dimensions and Text Notes.
+  - Filter by category / kind / keyword
+  - Double-click Name cell to rename inline
+  - Jump to view, delete selected rows
   - Auto-rename all types based on their properties
 
 Author: T3Lab (Tran Tien Thanh)
@@ -18,10 +19,13 @@ import re
 import clr
 clr.AddReference('PresentationCore')
 clr.AddReference('PresentationFramework')
+clr.AddReference('System.Data')
 
 from System.Windows import Visibility, WindowState
 from System.Windows.Media.Imaging import BitmapImage
+from System.Windows.Input import Key
 from System import Uri, UriKind
+from System.Data import DataTable
 from Autodesk.Revit.DB import *
 from pyrevit import revit, forms, script
 
@@ -141,7 +145,6 @@ def _txt_name(tt, origin):
     return "_".join(parts)
 
 
-
 # ============================================================
 # XAML PATH
 # ============================================================
@@ -160,10 +163,18 @@ class AnnotationManagerWindow(forms.WPFWindow):
 
     def __init__(self):
         forms.WPFWindow.__init__(self, _XAML_PATH)
-        self._submode  = "notes"  # "notes" | "types"
-        # Parallel item stores: index matches ListBox row
-        self._dim_items  = []
-        self._txt_items  = []
+
+        # ── DataTable: columns _id, _cat, Category, Kind, Name, Details ──
+        self._dt = DataTable()
+        for col in ["_id", "_cat", "Category", "Kind", "Name", "Details"]:
+            self._dt.Columns.Add(col)
+        self.dg_ann.ItemsSource = self._dt.DefaultView
+
+        # Map: element-id string → Revit element
+        self._elem_map = {}
+
+        # Wire cell-edit event for inline rename
+        self.dg_ann.CellEditEnding += self.on_cell_edit_ending
 
         # Load logo
         try:
@@ -176,19 +187,26 @@ class AnnotationManagerWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    # ── helpers ────────────────────────────────────────────────
+        # Load all data immediately
+        self.load_all()
+
+    # ── helpers ─────────────────────────────────────────────────────────
+
     def _status(self, msg):
         self.status.Text = msg
 
-    def _lb_selected_indices(self, lb):
-        selected = []
-        for i in range(lb.Items.Count):
-            lbi = lb.ItemContainerGenerator.ContainerFromIndex(i)
-            if lbi and lbi.IsSelected:
-                selected.append(i)
-        return selected
+    def _add_row(self, elem_id, cat_code, category, kind, name, details):
+        row = self._dt.NewRow()
+        row["_id"]      = elem_id
+        row["_cat"]     = cat_code
+        row["Category"] = category
+        row["Kind"]     = kind
+        row["Name"]     = name
+        row["Details"]  = details
+        self._dt.Rows.Add(row)
 
-    # ── Window controls ─────────────────────────────────────────
+    # ── Window controls ──────────────────────────────────────────────────
+
     def minimize_button_clicked(self, sender, args):
         self.WindowState = WindowState.Minimized
 
@@ -203,86 +221,257 @@ class AnnotationManagerWindow(forms.WPFWindow):
     def close_button_clicked(self, sender, args):
         self.Close()
 
-    # ── TextNote sub-mode ───────────────────────────────────────
-    def txt_submode(self, sender, args):
-        if self.rb_notes.IsChecked:
-            self._submode = "notes"
-            self.txt_lbl.Text       = "Content:"
-            self.btn_txt_jump.IsEnabled = True
+    # ── Data loading ─────────────────────────────────────────────────────
+
+    def load_all(self, sender=None, args=None):
+        self._dt.Clear()
+        self._elem_map = {}
+
+        # ── Dimension types ──────────────────────────────────────────────
+        dim_types = list(
+            FilteredElementCollector(doc).OfClass(DimensionType)
+            .WhereElementIsElementType().ToElements()
+        )
+        dim_insts = list(
+            FilteredElementCollector(doc).OfClass(Dimension)
+            .WhereElementIsNotElementType().ToElements()
+        )
+
+        # Count instances per dimension type
+        dim_type_cnt = {}
+        for d in dim_insts:
+            tid = str(d.GetTypeId())
+            dim_type_cnt[tid] = dim_type_cnt.get(tid, 0) + 1
+
+        for dt in dim_types:
+            name = dt.Name or "<unnamed>"
+            cnt  = dim_type_cnt.get(str(dt.Id), 0)
+            self._add_row(str(dt.Id), "DimType", "Dimension", "Type",
+                          name, "{} instance(s)".format(cnt))
+            self._elem_map[str(dt.Id)] = dt
+
+        # ── Dimension instances ──────────────────────────────────────────
+        for d in dim_insts:
+            view      = doc.GetElement(d.OwnerViewId)
+            view_name = view.Name if view else "?"
+            self._add_row(str(d.Id), "DimInst", "Dimension", "Instance",
+                          d.Name or "<no type>", view_name)
+            self._elem_map[str(d.Id)] = d
+
+        # ── Text Note types ──────────────────────────────────────────────
+        txt_types = list(
+            FilteredElementCollector(doc).OfClass(TextNoteType)
+            .WhereElementIsElementType().ToElements()
+        )
+        txt_insts = list(
+            FilteredElementCollector(doc).OfClass(TextNote)
+            .WhereElementIsNotElementType().ToElements()
+        )
+
+        txt_type_cnt = {}
+        for tn in txt_insts:
+            tid = str(tn.GetTypeId())
+            txt_type_cnt[tid] = txt_type_cnt.get(tid, 0) + 1
+
+        for tt in txt_types:
+            p    = tt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+            name = p.AsString() if p else "<unnamed>"
+            cnt  = txt_type_cnt.get(str(tt.Id), 0)
+            self._add_row(str(tt.Id), "TxtType", "Text Note", "Type",
+                          name, "{} instance(s)".format(cnt))
+            self._elem_map[str(tt.Id)] = tt
+
+        # ── Text Note instances ──────────────────────────────────────────
+        for tn in txt_insts:
+            view      = doc.GetElement(tn.ViewId)
+            view_name = view.Name if view else "?"
+            preview   = (tn.Text or "")[:60].replace("\n", " ").replace("\r", "")
+            self._add_row(str(tn.Id), "TxtInst", "Text Note", "Instance",
+                          preview, view_name)
+            self._elem_map[str(tn.Id)] = tn
+
+        # Reset filter and update count
+        self.dg_ann.ItemsSource.RowFilter = ""
+        total = len(self._elem_map)
+        self.count_lbl.Text = "{} items".format(total)
+        self._status("Loaded {} annotation items.".format(total))
+
+    # ── Search / filter ──────────────────────────────────────────────────
+
+    def do_search(self, sender, args):
+        cat_idx  = self.cb_cat.SelectedIndex   # 0=All, 1=Dimension, 2=Text Note
+        kind_idx = self.cb_kind.SelectedIndex  # 0=All, 1=Instance, 2=Type
+        kw       = self.kw_search.Text.strip()
+
+        filters = []
+        if cat_idx == 1:
+            filters.append("Category = 'Dimension'")
+        elif cat_idx == 2:
+            filters.append("Category = 'Text Note'")
+
+        if kind_idx == 1:
+            filters.append("Kind = 'Instance'")
+        elif kind_idx == 2:
+            filters.append("Kind = 'Type'")
+
+        if kw:
+            safe_kw = kw.replace("'", "''")
+            filters.append("Name LIKE '%{}%'".format(safe_kw))
+
+        row_filter = " AND ".join(filters) if filters else ""
+        try:
+            self.dg_ann.ItemsSource.RowFilter = row_filter
+        except Exception as e:
+            self._status("Filter error: {}".format(e))
+            return
+
+        visible = len(self.dg_ann.Items)
+        self.count_lbl.Text = "{} items".format(visible)
+        self._status("Showing {} of {} items.".format(visible, len(self._elem_map)))
+
+    def search_on_enter(self, sender, args):
+        if args.Key == Key.Enter:
+            self.do_search(None, None)
+
+    # ── Inline rename (CellEditEnding) ───────────────────────────────────
+
+    def on_cell_edit_ending(self, sender, args):
+        # Only handle the Name column on Commit
+        if str(args.Column.Header) != "Name":
+            return
+        if str(args.EditAction) != "Commit":
+            return
+
+        tb       = args.EditingElement        # TextBox
+        new_name = tb.Text.strip()
+        if not new_name:
+            args.Cancel = True
+            return
+
+        row      = args.Row.Item              # DataRowView
+        elem_id  = str(row["_id"])
+        cat_code = str(row["_cat"])
+        old_name = str(row["Name"])
+
+        if new_name == old_name:
+            return
+
+        elem = self._elem_map.get(elem_id)
+        if not elem:
+            return
+
+        # Dimension instances don't have a user-editable name
+        if cat_code == "DimInst":
+            args.Cancel = True
+            self._status("Dimension instances cannot be renamed directly — rename the Type instead.")
+            return
+
+        t = Transaction(doc, "Rename Annotation")
+        t.Start()
+        try:
+            if cat_code in ("DimType", "TxtType"):
+                elem.Name = new_name
+            elif cat_code == "TxtInst":
+                elem.Text = new_name
+            t.Commit()
+            self._status(u"Renamed: '{}' \u2192 '{}'.".format(old_name[:40], new_name[:40]))
+        except Exception as e:
+            t.RollBack()
+            args.Cancel = True
+            self._status("Rename failed: {}".format(e))
+
+    # ── Jump to View ─────────────────────────────────────────────────────
+
+    def do_jump(self, sender, args):
+        selected = list(self.dg_ann.SelectedItems)
+        if not selected:
+            self._status("Select a row first.")
+            return
+
+        row      = selected[0]
+        elem_id  = str(row["_id"])
+        cat_code = str(row["_cat"])
+        elem     = self._elem_map.get(elem_id)
+        if not elem:
+            return
+
+        if cat_code == "DimInst":
+            view = doc.GetElement(elem.OwnerViewId)
+        elif cat_code == "TxtInst":
+            view = doc.GetElement(elem.ViewId)
         else:
-            self._submode = "types"
-            self.txt_lbl.Text       = "Type name:"
-            self.btn_txt_jump.IsEnabled = False
-        self.lb_txt.Items.Clear()
-        self._txt_items = []
-        self.txt_count.Text = ""
-        self._status("Sub-mode: {}.".format("Find Notes" if self._submode == "notes" else "Find Types"))
-
-    # ── DIMENSION operations ────────────────────────────────────
-
-    def dim_search(self, sender, args):
-        kw = self.dim_kw.Text.strip().lower()
-        if not kw:
-            self._status("Enter a keyword.")
+            self._status("Jump to View is only available for instances (not types).")
             return
-        dims = FilteredElementCollector(doc).OfClass(Dimension)\
-               .WhereElementIsNotElementType().ToElements()
-        self._dim_items = []
-        self.lb_dim.Items.Clear()
-        for d in dims:
-            if kw in (d.Name or "").lower():
-                view = doc.GetElement(d.OwnerViewId)
-                if view:
-                    label = "{}  |  {}".format(d.Name or "<unnamed>", view.Name)
-                    self._dim_items.append(d)
-                    self.lb_dim.Items.Add(label)
-        n = len(self._dim_items)
-        self.dim_count.Text = "{} found".format(n)
-        self._status("Found {} dimension(s) matching '{}'.".format(n, kw))
 
-    def dim_jump(self, sender, args):
-        idxs = self._lb_selected_indices(self.lb_dim)
-        if not idxs:
-            self._status("Select a dimension first.")
-            return
-        d = self._dim_items[idxs[0]]
-        view = doc.GetElement(d.OwnerViewId)
         if view:
             uidoc.ActiveView = view
-            uidoc.ShowElements(d.Id)
-            self._status("Jumped to view '{}' — dimension '{}'.".format(view.Name, d.Name or ""))
+            uidoc.ShowElements(elem.Id)
+            self._status("Jumped to view '{}' — '{}'.".format(
+                view.Name, str(row["Name"])[:50]))
 
-    def dim_delete(self, sender, args):
-        idxs = self._lb_selected_indices(self.lb_dim)
-        if not idxs:
+    # ── Delete selected ──────────────────────────────────────────────────
+
+    def do_delete(self, sender, args):
+        selected = list(self.dg_ann.SelectedItems)
+        if not selected:
             self._status("Nothing selected.")
             return
-        t = Transaction(doc, "Delete Selected Dimensions")
+
+        from pyrevit import forms as pf
+        if not pf.alert(
+            "Delete {} selected item(s)?\n\nDeleting a Type also removes all its instances.".format(len(selected)),
+            title="Confirm Delete", yes=True, no=True
+        ):
+            return
+
+        delete_ids = [str(r["_id"]) for r in selected]
+
+        t = Transaction(doc, "Delete Selected Annotations")
         t.Start()
-        for i in sorted(idxs, reverse=True):
-            try:
-                doc.Delete(self._dim_items[i].Id)
-            except Exception as e:
-                self._status("Error deleting: {}".format(e))
+        deleted = 0
+        errors  = 0
+        ok_ids  = []
+        for elem_id in delete_ids:
+            elem = self._elem_map.get(elem_id)
+            if elem:
+                try:
+                    doc.Delete(elem.Id)
+                    ok_ids.append(elem_id)
+                    deleted += 1
+                except Exception:
+                    errors += 1
         t.Commit()
-        # remove from list (reverse order to keep indices valid)
-        for i in sorted(idxs, reverse=True):
-            self.lb_dim.Items.RemoveAt(i)
-            del self._dim_items[i]
-        n = len(idxs)
-        self.dim_count.Text = "{} found".format(len(self._dim_items))
-        self._status("Deleted {} dimension(s).".format(n))
 
-    def dim_select_all(self, sender, args):
-        self.lb_dim.SelectAll()
+        # Remove deleted rows from DataTable
+        ok_set        = set(ok_ids)
+        rows_to_del   = list(r for r in self._dt.Rows if str(r["_id"]) in ok_set)
+        for r in rows_to_del:
+            self._dt.Rows.Remove(r)
+        for eid in ok_ids:
+            self._elem_map.pop(eid, None)
 
-    def dim_clear_sel(self, sender, args):
-        self.lb_dim.UnselectAll()
+        msg = "Deleted {} item(s).".format(deleted)
+        if errors:
+            msg += "  ({} could not be deleted — may be in use.)".format(errors)
+        self.count_lbl.Text = "{} items".format(len(self.dg_ann.Items))
+        self._status(msg)
+
+    # ── Selection helpers ────────────────────────────────────────────────
+
+    def do_select_all(self, sender, args):
+        self.dg_ann.SelectAll()
+
+    def do_clear(self, sender, args):
+        self.dg_ann.UnselectAll()
+
+    # ── Auto-rename all types ────────────────────────────────────────────
 
     def dim_rename_all(self, sender, args):
         from pyrevit import forms as pf
-        if not pf.alert("Auto-rename ALL DimensionTypes in this document?\nThis cannot be undone.",
-                        title="Confirm Rename", yes=True, no=True):
+        if not pf.alert(
+            "Auto-rename ALL DimensionTypes in this document?\nThis cannot be undone.",
+            title="Confirm Rename", yes=True, no=True
+        ):
             return
         t = Transaction(doc, "Rename Dimension Types")
         t.Start()
@@ -294,98 +483,19 @@ class AnnotationManagerWindow(forms.WPFWindow):
                     origin = dt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString()
                     dt.Name = _dim_name(dt, origin)
                     count += 1
-                except Exception as e:
+                except Exception:
                     pass
         finally:
             t.Commit()
-        self._status("Renamed {} DimensionType(s).".format(count))
-
-    # ── TEXTNOTE operations ─────────────────────────────────────
-
-    def txt_search(self, sender, args):
-        kw = self.txt_kw.Text.strip().lower()
-        if not kw:
-            self._status("Enter a keyword.")
-            return
-        self._txt_items = []
-        self.lb_txt.Items.Clear()
-
-        if self._submode == "notes":
-            notes = FilteredElementCollector(doc).OfClass(TextNote)\
-                    .WhereElementIsNotElementType().ToElements()
-            for tn in notes:
-                if kw in (tn.Text or "").lower():
-                    view = doc.GetElement(tn.ViewId)
-                    if view:
-                        preview = (tn.Text or "")[:60].replace("\n", " ").replace("\r", "")
-                        label = "{}  |  {}".format(preview, view.Name)
-                        self._txt_items.append(tn)
-                        self.lb_txt.Items.Add(label)
-        else:  # types
-            types = FilteredElementCollector(doc).OfClass(TextNoteType)\
-                    .WhereElementIsElementType().ToElements()
-            for tt in types:
-                name = tt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString() or ""
-                if kw in name.lower():
-                    label = "{}  [ID: {}]".format(name, tt.Id)
-                    self._txt_items.append(tt)
-                    self.lb_txt.Items.Add(label)
-
-        n = len(self._txt_items)
-        self.txt_count.Text = "{} found".format(n)
-        self._status("Found {} {}.".format(n, "note(s)" if self._submode == "notes" else "type(s)"))
-
-    def txt_jump(self, sender, args):
-        if self._submode != "notes":
-            self._status("Jump to View is only available in Find Notes mode.")
-            return
-        idxs = self._lb_selected_indices(self.lb_txt)
-        if not idxs:
-            self._status("Select a text note first.")
-            return
-        tn = self._txt_items[idxs[0]]
-        view = doc.GetElement(tn.ViewId)
-        if view:
-            uidoc.ActiveView = view
-            uidoc.ShowElements(tn.Id)
-            preview = (tn.Text or "")[:40].replace("\n", " ")
-            self._status("Jumped to view '{}' — note: '{}'.".format(view.Name, preview))
-
-    def txt_delete(self, sender, args):
-        idxs = self._lb_selected_indices(self.lb_txt)
-        if not idxs:
-            self._status("Nothing selected.")
-            return
-        label = "note instance(s)" if self._submode == "notes" else "TextNoteType(s)"
-        t = Transaction(doc, "Delete Selected Text {}".format(label))
-        t.Start()
-        errors = 0
-        for i in sorted(idxs, reverse=True):
-            try:
-                doc.Delete(self._txt_items[i].Id)
-            except Exception:
-                errors += 1
-        t.Commit()
-        for i in sorted(idxs, reverse=True):
-            self.lb_txt.Items.RemoveAt(i)
-            del self._txt_items[i]
-        n = len(idxs)
-        self.txt_count.Text = "{} found".format(len(self._txt_items))
-        msg = "Deleted {} {}.".format(n - errors, label)
-        if errors:
-            msg += "  ({} could not be deleted — may be in use.)".format(errors)
-        self._status(msg)
-
-    def txt_select_all(self, sender, args):
-        self.lb_txt.SelectAll()
-
-    def txt_clear_sel(self, sender, args):
-        self.lb_txt.UnselectAll()
+        self._status("Renamed {} DimensionType(s).  Reloading table…".format(count))
+        self.load_all()
 
     def txt_rename_all(self, sender, args):
         from pyrevit import forms as pf
-        if not pf.alert("Auto-rename ALL TextNoteTypes in this document?\nThis cannot be undone.",
-                        title="Confirm Rename", yes=True, no=True):
+        if not pf.alert(
+            "Auto-rename ALL TextNoteTypes in this document?\nThis cannot be undone.",
+            title="Confirm Rename", yes=True, no=True
+        ):
             return
         t = Transaction(doc, "Rename TextNote Types")
         t.Start()
@@ -401,7 +511,8 @@ class AnnotationManagerWindow(forms.WPFWindow):
                     pass
         finally:
             t.Commit()
-        self._status("Renamed {} TextNoteType(s).".format(count))
+        self._status("Renamed {} TextNoteType(s).  Reloading table…".format(count))
+        self.load_all()
 
 
 # ============================================================
