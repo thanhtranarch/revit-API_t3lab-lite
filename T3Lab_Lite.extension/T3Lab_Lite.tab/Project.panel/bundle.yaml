@@ -1,12 +1,1 @@
 layout:
-  - PropertyLine
-  - Dimension
-  - TextNote
-  - UpperDimText
-  - DimText
-  - Workset
-  - ProjectName
-  - NWC Export
-  - LoadFamily
-  - LoadFamily(Cloud)
-  - JSONToFamily
