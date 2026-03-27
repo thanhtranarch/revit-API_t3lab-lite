@@ -16,12 +16,14 @@ __title__   = "Upper Dim Text"
 # ==================================================
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *
+from pyrevit import script
 
 # DEFINE VARIABLES
 # ==================================================
 uidoc   = __revit__.ActiveUIDocument
 doc     = __revit__.ActiveUIDocument.Document
 active_view_id = uidoc.ActiveView.Id
+logger  = script.get_logger()
 
 # TEXT CONFIGURATION - Easy to modify
 # ==================================================
@@ -42,7 +44,7 @@ def turn_off_leader(dim):
                 para.Set(0)
                 return True
     except Exception as e:
-        print("Error turning off leader: {}".format(str(e)))
+        logger.error("Error turning off leader: {}".format(str(e)))
         return False
 
 def convert_text_to_uppercase(text):
@@ -92,7 +94,7 @@ def update_dimension_text_to_uppercase(dim):
                     segment.ValueOverride = convert_text_to_uppercase(current_override)
         return True
     except Exception as e:
-        print("Error updating dimension {}: {}".format(dim.Id, str(e)))
+        logger.error("Error updating dimension {}: {}".format(dim.Id, str(e)))
         return False
 
 def get_all_dimensions_in_project():
@@ -125,6 +127,7 @@ def show_result_dialog(success_count, total_count, view_name=""):
 # ==================================================
 def main():
     """Main execution function"""
+    logger.info("Upper Dim Text script started")
     with Transaction(doc, "Convert Dimension Text to Uppercase") as transaction:
         transaction.Start()
         
@@ -152,8 +155,10 @@ def main():
                 success_count += 1
         
         # Show results
+        logger.info("Converted {}/{} dimensions to uppercase in view '{}'".format(
+            success_count, total_count, current_view_name))
         show_result_dialog(success_count, total_count, current_view_name)
-        
+
         # Commit transaction
         transaction.Commit()
 
