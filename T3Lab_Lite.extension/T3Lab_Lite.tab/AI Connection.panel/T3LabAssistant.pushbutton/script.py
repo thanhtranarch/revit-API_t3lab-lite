@@ -79,6 +79,24 @@ except Exception as e:
     logger.warning("Could not import batchout_executor: {}".format(e))
     HAS_EXECUTOR = False
 
+# ─── RAG processor (PDF / image attachments) ──────────────────────────────────
+try:
+    from rag_processor import (is_supported, is_image, is_pdf,
+                               build_text_context, build_vision_content_blocks,
+                               has_images, summarize_attachments, SUPPORTED_EXTS)
+    HAS_RAG = True
+except Exception as e:
+    logger.warning("Could not import rag_processor: {}".format(e))
+    HAS_RAG = False
+    def is_supported(p): return False
+    def is_image(p): return False
+    def is_pdf(p): return False
+    def build_text_context(files): return ''
+    def build_vision_content_blocks(text, files): return [{"type": "text", "text": text}]
+    def has_images(files): return False
+    def summarize_attachments(files): return ''
+    SUPPORTED_EXTS = set()
+
 # ─── Tool launchers ───────────────────────────────────────────────────────────
 # Each function opens the corresponding T3Lab tool.
 
@@ -390,9 +408,6 @@ def clear_chat_history(doc_key):
 class T3LabAssistantWindow(forms.WPFWindow):
     """Standalone T3Lab Assistant chatbox window."""
 
-    # ── Quick-button names (for bulk enable/disable) ──────────────────────────
-    _QUICK_BTNS = ['btn_batchout', 'btn_parasync', 'btn_loadfamily',
-                   'btn_projectname', 'btn_workset', 'btn_dimtext']
     # Dynamic buttons added by _bootstrap_discovered_tools
     _DYNAMIC_BTNS = []   # list of Button WPF objects (not names)
 
@@ -407,6 +422,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._last_raw         = ''             # last user input (for learning)
         self._doc_key          = _get_doc_key() # document identifier for history
         self._persisted_msgs   = []             # flat list with timestamps, for save/load
+        self._attached_files   = []             # list of file paths (images / PDFs)
 
         # ── Logo ──────────────────────────────────────────────────────────────
         try:
@@ -458,9 +474,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         """
         Run on startup (UI thread):
           1. Discover new tools → register launchers → update NLP prompt.
-          2. Render chip buttons for ALL registered tools (new + existing).
-          3. Show the "CÔNG CỤ MỚI" section if anything is found.
-          4. Post a chat notification for truly NEW tools.
+          2. Post a chat notification for truly NEW tools.
         Must be called from the UI thread (via Dispatcher.Invoke).
         """
         try:
@@ -473,28 +487,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # ── Register launchers + inject into NLP ─────────────────────────
             _register_discovered_launchers(new_tools)
 
-            # ── Render all registered tools in discovered_tools_wrap ─────────
-            all_tools = get_registered_tools()
-            if not all_tools:
-                return
-
             # Also register launchers for tools already in registry from previous runs
-            _register_discovered_launchers(all_tools)
-
-            try:
-                self.discovered_tools_wrap.Children.Clear()
-                for tool in all_tools:
-                    btn = self._create_tool_chip(tool)
-                    self.discovered_tools_wrap.Children.Add(btn)
-                    self._DYNAMIC_BTNS.append(btn)
-
-                # Show the section
-                self.discovered_section.Visibility = Visibility.Visible
-
-                # Update badge count
-                self.new_tools_count_text.Text = str(len(all_tools))
-            except Exception as ui_ex:
-                logger.debug("UI chip error: {}".format(ui_ex))
+            all_tools = get_registered_tools()
+            if all_tools:
+                _register_discovered_launchers(all_tools)
 
             # ── Chat notification for NEW tools only ──────────────────────────
             if new_tools:
@@ -508,59 +504,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 )
         except Exception as ex:
             logger.debug("_bootstrap_discovered_tools error: {}".format(ex))
-
-    def _create_tool_chip(self, tool):
-        """Build a WPF Button chip for an auto-discovered tool."""
-        from System.Windows.Controls import Button, StackPanel, TextBlock
-        from System.Windows import Thickness
-        from System.Windows.Media import SolidColorBrush, Color
-
-        intent = tool['intent']
-        title  = tool['title']
-
-        btn = Button()
-        btn.Cursor   = System.Windows.Input.Cursors.Hand
-        btn.Margin   = Thickness(0, 0, 6, 6)
-        btn.Padding  = Thickness(10, 5, 10, 5)
-        btn.FontSize = 12
-
-        # Style: green border (new tool)
-        from System.Windows import CornerRadius
-        from System.Windows.Controls import Border, ContentPresenter
-        # Use the NewChipBtn style via FindResource
-        try:
-            btn.Style = self.FindResource('NewChipBtn')
-        except Exception:
-            btn.Background = SolidColorBrush(Color.FromRgb(240, 251, 244))
-            btn.BorderBrush = SolidColorBrush(Color.FromRgb(39, 174, 96))
-            btn.Foreground  = SolidColorBrush(Color.FromRgb(39, 174, 96))
-
-        sp = StackPanel()
-        sp.Orientation = System.Windows.Controls.Orientation.Horizontal
-
-        icon = TextBlock()
-        icon.Text    = u"✦"
-        icon.FontSize = 10
-        icon.Margin   = Thickness(0, 0, 5, 0)
-        icon.VerticalAlignment = System.Windows.VerticalAlignment.Center
-        sp.Children.Add(icon)
-
-        lbl = TextBlock()
-        lbl.Text = title
-        lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
-        sp.Children.Add(lbl)
-
-        btn.Content  = sp
-        btn.ToolTip  = u"Mở {} (auto-discovered)".format(title)
-
-        # Capture intent in closure
-        _intent = intent
-
-        def _on_click(s, e, _i=_intent, _t=title):
-            self._run_tool(_i, u"Đang mở {}...".format(_t))
-
-        btn.Click += _on_click
-        return btn
 
     # ─── History persistence ───────────────────────────────────────────────────
 
@@ -657,15 +600,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         """Lock/unlock the whole input area. Call from UI thread only."""
         self._busy = busy
         try:
-            self.send_button.IsEnabled = not busy
-            self.chat_input.IsEnabled  = not busy
+            self.send_button.IsEnabled  = not busy
+            self.chat_input.IsEnabled   = not busy
+            self.btn_attach.IsEnabled   = not busy
         except Exception:
             pass
-        for btn_name in self._QUICK_BTNS:
-            try:
-                getattr(self, btn_name).IsEnabled = not busy
-            except Exception:
-                pass
         for btn in self._DYNAMIC_BTNS:
             try:
                 btn.IsEnabled = not busy
@@ -749,25 +688,106 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # Persist to disk so it survives window close/reopen
         self._persist_message(role, content)
 
-    # ─── Quick tool buttons ───────────────────────────────────────────────────
+    # ─── File attachment ──────────────────────────────────────────────────────
 
-    def tool_batchout_clicked(self, sender, e):
-        self._run_tool("open_batchout", u"Đang mở BatchOut...")
+    def attach_clicked(self, sender, e):
+        """Open a file picker and add selected file to attachment list."""
+        try:
+            import clr
+            clr.AddReference('System.Windows.Forms')
+            from System.Windows.Forms import OpenFileDialog, DialogResult
 
-    def tool_parasync_clicked(self, sender, e):
-        self._run_tool("open_parasync", "Đang mở ParaSync...")
+            exts = "PDF và Hình ảnh|*.pdf;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp"
+            dlg = OpenFileDialog()
+            dlg.Title  = u"Chọn PDF hoặc hình ảnh để đính kèm"
+            dlg.Filter = exts
+            dlg.Multiselect = True
 
-    def tool_loadfamily_clicked(self, sender, e):
-        self._run_tool("open_loadfamily", "Đang mở Load Family...")
+            if dlg.ShowDialog() == DialogResult.OK:
+                for path in dlg.FileNames:
+                    if not HAS_RAG or is_supported(path):
+                        if path not in self._attached_files:
+                            self._attached_files.append(path)
+                            self._add_attachment_chip(path)
+                self._refresh_attachment_panel()
+        except Exception as ex:
+            logger.error("attach_clicked error: {}".format(ex))
 
-    def tool_projectname_clicked(self, sender, e):
-        self._run_tool("open_projectname", "Đang mở Project Name...")
+    def clear_attachments_clicked(self, sender, e):
+        """Remove all attachments."""
+        self._attached_files = []
+        try:
+            self.attachment_chips_panel.Children.Clear()
+            self._refresh_attachment_panel()
+        except Exception:
+            pass
 
-    def tool_workset_clicked(self, sender, e):
-        self._run_tool("open_workset", "Đang mở Workset...")
+    def _add_attachment_chip(self, file_path):
+        """Add a small chip label for an attached file."""
+        try:
+            from System.Windows.Controls import Button, StackPanel, TextBlock
+            from System.Windows import Thickness
+            import os as _os
 
-    def tool_dimtext_clicked(self, sender, e):
-        self._run_tool("open_dimtext", "Đang mở Dim Text...")
+            name = _os.path.basename(file_path)
+            ext  = _os.path.splitext(name)[1].lower()
+            icon = u"🖼️" if ext in ('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp') else u"📄"
+
+            btn = Button()
+            try:
+                btn.Style = self.FindResource('AttachChipBtn')
+            except Exception:
+                pass
+            btn.Margin = Thickness(0, 0, 4, 4)
+
+            sp = StackPanel()
+            sp.Orientation = System.Windows.Controls.Orientation.Horizontal
+
+            icon_lbl = TextBlock()
+            icon_lbl.Text = icon + u" "
+            icon_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
+            sp.Children.Add(icon_lbl)
+
+            name_lbl = TextBlock()
+            name_lbl.Text = name if len(name) <= 22 else name[:19] + u"..."
+            name_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
+            sp.Children.Add(name_lbl)
+
+            x_lbl = TextBlock()
+            x_lbl.Text = u"  ✕"
+            x_lbl.FontSize = 9
+            x_lbl.Foreground = System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(150, 150, 150))
+            x_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
+            sp.Children.Add(x_lbl)
+
+            btn.Content = sp
+            btn.ToolTip = file_path
+
+            _path = file_path
+
+            def _on_remove(s, ev, p=_path):
+                if p in self._attached_files:
+                    self._attached_files.remove(p)
+                try:
+                    self.attachment_chips_panel.Children.Remove(s)
+                except Exception:
+                    pass
+                self._refresh_attachment_panel()
+
+            btn.Click += _on_remove
+            self.attachment_chips_panel.Children.Add(btn)
+        except Exception as ex:
+            logger.debug("_add_attachment_chip error: {}".format(ex))
+
+    def _refresh_attachment_panel(self):
+        """Show or hide the attachment preview border depending on file list."""
+        try:
+            self.attachment_preview_border.Visibility = (
+                Visibility.Visible if self._attached_files else Visibility.Collapsed
+            )
+        except Exception:
+            pass
 
     # ─── Chat input ───────────────────────────────────────────────────────────
 
@@ -780,10 +800,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._process_input()
 
     def _process_input(self):
-        """Read input, dispatch to NLP or keyword fallback, execute result."""
+        """Read input (+ any attachments), dispatch to NLP or keyword fallback."""
         try:
             raw = self.chat_input.Text.strip()
-            if not raw:
+            attached = list(self._attached_files)   # snapshot
+
+            # Must have text OR attachments
+            if not raw and not attached:
                 return
 
             # ── Concurrency guard ─────────────────────────────────────────────
@@ -794,61 +817,90 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 return
 
             self.chat_input.Text = ""
-            self._last_raw = raw
+            self._last_raw = raw or u"[đính kèm tài liệu]"
 
-            # Show user message in chat + add to history
-            self._append_user_message(raw)
-            self._add_to_history("user", raw)
+            # ── Show user message in chat ──────────────────────────────────────
+            display_text = raw
+            if attached:
+                attach_label = u"\n📎 " + summarize_attachments(attached)
+                display_text = (raw + attach_label) if raw else attach_label.strip()
+            self._append_user_message(display_text)
+            self._add_to_history("user", display_text)
+
+            # ── Clear attachments from UI after sending ────────────────────────
+            if attached:
+                self._attached_files = []
+                try:
+                    self.attachment_chips_panel.Children.Clear()
+                    self._refresh_attachment_panel()
+                except Exception:
+                    pass
 
             # Lock UI
             self._set_busy(True)
 
-            # ── 1. Learned patterns (instant, no service needed) ──────────────
-            if HAS_NLP:
-                learned = find_learned_match(raw)
-                if learned:
-                    self._execute_result(learned)
-                    return
+            # ── If attachments present and no tool-like text, go straight to RAG ─
+            has_attach = bool(attached) and HAS_RAG
+            if has_attach and not raw:
+                # No text — summarise the documents
+                raw = u"Phân tích và tóm tắt nội dung tài liệu đính kèm."
 
+            # Build context-enriched prompt for NLP / Claude
+            # (PDF text is injected; images will be sent via vision API)
+            rag_context = ''
+            if has_attach:
+                rag_context = build_text_context(attached)
+
+            # For NLP routing we use only the raw text (no PDF dump)
             captured = raw
             history  = list(self._conversation_history[:-1])
 
             use_local  = HAS_NLP and has_local_llm()
             use_claude = HAS_NLP and has_api_key()
 
-            # ── 2. Built-in NLU (always available, no service needed) ─────────
-            # Try synchronously first — it's instant (pure Python, no I/O).
-            if HAS_NLP:
+            # ── 1. Learned patterns (skip if attachments present) ─────────────
+            if HAS_NLP and not has_attach:
+                learned = find_learned_match(raw)
+                if learned:
+                    self._execute_result(learned)
+                    return
+
+            # ── 2. Built-in NLU (skip for RAG / attachment queries) ───────────
+            nlu_result = None
+            if HAS_NLP and not has_attach:
                 nlu_result = parse_command_nlu(captured, history)
                 if nlu_result and nlu_result.get("intent") not in (None, "unknown"):
-                    # NLU succeeded → execute immediately
-                    # But if Ollama or Claude is also available, let them handle
-                    # open-ended "chat" / "help" intents for richer responses.
                     if nlu_result["intent"] not in ("chat", "help") \
                             or not (use_local or use_claude):
                         self._execute_result(nlu_result)
                         return
 
-            if use_local or use_claude:
-                # ── 3/4. Async LLM path for chat/help or NLU miss ─────────────
+            if use_local or use_claude or has_attach:
+                # ── 3/4. Async LLM path ────────────────────────────────────────
                 self._show_typing_indicator()
-                nlu_hint = nlu_result if HAS_NLP else None   # pass NLU result as hint
+                nlu_hint = nlu_result if (HAS_NLP and not has_attach) else None
 
                 def do_nlp():
                     result = None
 
-                    # ── Priority A: Local Ollama LLM ──────────────────────────
-                    if use_local:
+                    # ── Priority A: Local Ollama (text only, no vision) ────────
+                    if use_local and not has_images(attached):
                         try:
-                            result = parse_command_local(captured, history)
+                            query = (rag_context + u"\n\n" + captured) if rag_context else captured
+                            result = parse_command_local(query, history)
                         except Exception as le:
                             logger.debug("local_llm error: {}".format(le))
 
-                    # ── Priority B: Claude API ─────────────────────────────────
+                    # ── Priority B: Claude API (supports vision + RAG) ─────────
                     if (result is None or result.get("intent") in (None, "unknown")) \
                             and use_claude:
                         try:
-                            result = parse_command(captured, history)
+                            result = parse_command(
+                                captured,
+                                history,
+                                attached_files=attached if has_attach else None,
+                                rag_context=rag_context if rag_context else None,
+                            )
                         except Exception as ce:
                             logger.debug("claude api error: {}".format(ce))
 
@@ -858,9 +910,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             if result and result.get("intent") not in (None, "unknown"):
                                 self._execute_result(result)
                             elif nlu_hint and nlu_hint.get("intent") not in (None, "unknown"):
-                                # Fall back to the NLU result we computed earlier
                                 self._execute_result(nlu_hint)
                             else:
+                                if has_attach and not use_claude and not use_local:
+                                    # RAG available but no LLM — show extracted text
+                                    if rag_context:
+                                        self._append_bot_message(
+                                            u"📄 Nội dung tài liệu:\n\n" + rag_context[:2000]
+                                        )
+                                    else:
+                                        self._append_bot_message(
+                                            u"Không trích xuất được văn bản từ tài liệu. "
+                                            u"PDF có thể là dạng scan."
+                                        )
+                                    self._set_busy(False)
+                                    return
                                 fb = keyword_parse(captured)
                                 if fb:
                                     self._execute_result(fb)
@@ -882,7 +946,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 t.SetApartmentState(ApartmentState.STA)
                 t.Start()
             else:
-                # ── 5. Keyword fallback if NLU also missed ────────────────────
+                # ── 5. Keyword fallback ────────────────────────────────────────
                 fb = keyword_parse(raw)
                 if fb:
                     self._execute_result(fb)

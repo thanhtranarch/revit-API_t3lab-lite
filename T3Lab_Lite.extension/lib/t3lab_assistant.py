@@ -106,6 +106,22 @@ EXAMPLES:
   "parasync"                 → {"intent":"open_parasync","params":{},"message":"Đang mở ParaSync..."}
 """
 
+# ─── RAG system prompt prefix ─────────────────────────────────────────────────
+
+_RAG_SYSTEM_PREFIX = """\
+The user has attached one or more documents (PDF or images).
+When document content is provided in the conversation:
+1. Analyse the content carefully before responding.
+2. Answer questions about the document in the SAME language as the user.
+3. If the user asks to open a T3Lab tool, follow the normal tool intent rules.
+4. If the request is purely about document analysis, respond as a "chat" intent
+   with a detailed, helpful answer as the "message" field.
+5. For image attachments, describe or analyse what you see in the image.
+6. Keep answers concise unless the user asks for detail.
+
+"""
+
+
 # ─── Dynamic system prompt (injected with auto-discovered tools) ───────────────
 
 _EXTRA_TOOLS_SECTION = ''   # set by inject_discovered_tools()
@@ -294,12 +310,22 @@ def _extract_json(text):
     return None
 
 
-def parse_command(user_input, history=None):
+def parse_command(user_input, history=None, attached_files=None, rag_context=None):
     """Call Claude API to parse a natural-language command.
+
+    Supports multi-modal input:
+      - attached_files: list of file paths (images → vision; PDFs already in rag_context)
+      - rag_context: pre-extracted PDF text to prepend as context
+
+    When images are present, the user content becomes a list of content blocks
+    (text + image), triggering Claude's vision capability.
+    When only rag_context is present, it is prepended as a text block.
 
     Args:
         user_input: The raw text the user typed.
-        history: optional list of previous {"role", "content"} dicts (max 8 exchanges).
+        history: optional list of previous {"role", "content"} dicts.
+        attached_files: optional list of local file paths to attach.
+        rag_context: optional string of pre-extracted document text.
 
     Returns:
         dict with keys {intent, params, message} on success, or None on failure.
@@ -310,20 +336,59 @@ def parse_command(user_input, history=None):
     if not api_key:
         return None
 
+    # Lazy import rag_processor only if attachments are provided
+    has_vision_files = False
+    content_blocks = None
+
+    if attached_files or rag_context:
+        try:
+            lib_dir = os.path.dirname(os.path.abspath(__file__))
+            if lib_dir not in sys.path:
+                sys.path.insert(0, lib_dir)
+            from rag_processor import build_vision_content_blocks, has_images
+            files = attached_files or []
+            has_vision_files = has_images(files)
+            # build_vision_content_blocks prepends PDF text blocks + image blocks
+            content_blocks = build_vision_content_blocks(user_input, files)
+            # If rag_context provided but not yet in content_blocks, prepend it
+            if rag_context and not any(
+                    'PDF' in b.get('text', '') for b in content_blocks
+                    if b.get('type') == 'text'):
+                content_blocks.insert(0, {"type": "text", "text": rag_context})
+        except Exception:
+            content_blocks = None
+
     try:
         url = "https://api.anthropic.com/v1/messages"
 
         # Build messages with history for multi-turn context
         messages = []
         if history:
-            # Include last 8 exchanges (16 messages) to keep tokens low
             messages.extend(history[-16:])
-        messages.append({"role": "user", "content": user_input})
+
+        # User message content: multi-block if attachments, plain string otherwise
+        if content_blocks:
+            user_content = content_blocks
+        else:
+            user_content = user_input
+
+        messages.append({"role": "user", "content": user_content})
+
+        # Increase max_tokens for RAG/vision responses
+        max_tokens = 1200 if (attached_files or rag_context) else 400
+
+        # Use claude-sonnet for vision (haiku vision support may vary)
+        model = "claude-sonnet-4-6" if has_vision_files else "claude-haiku-4-5-20251001"
+
+        # When attachments are present, use a RAG-aware system prompt
+        system_prompt = _build_system_prompt()
+        if attached_files or rag_context:
+            system_prompt = _RAG_SYSTEM_PREFIX + system_prompt
 
         body_data = {
-            "model": "claude-haiku-4-5-20251001",
-            "max_tokens": 400,
-            "system": _build_system_prompt(),
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
             "messages": messages,
         }
         body_json = json.dumps(body_data, ensure_ascii=False)
@@ -346,7 +411,18 @@ def parse_command(user_input, history=None):
 
         api_result = json.loads(response_text)
         content_text = api_result["content"][0]["text"].strip()
-        return _extract_json(content_text)
+        result = _extract_json(content_text)
+
+        # If attachments were present and model returned free text (not JSON),
+        # wrap the response as a chat reply so the UI can display it.
+        if result is None and (attached_files or rag_context):
+            result = {
+                "intent": "chat",
+                "params": {},
+                "message": content_text,
+            }
+
+        return result
 
     except Exception:
         return None
