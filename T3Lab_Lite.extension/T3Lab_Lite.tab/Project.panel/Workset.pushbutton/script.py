@@ -16,8 +16,10 @@ __title__   = "Workset"
 # ==================================================
 from Autodesk.Revit.DB import Workset, WorksetTable, Transaction, FilteredWorksetCollector, WorksetKind, DeleteWorksetSettings, DeleteWorksetOption, WorksharingSaveAsOptions, SaveAsOptions, WorksharingUtils
 from Autodesk.Revit.UI import TaskDialog
-from pyrevit import forms
+from pyrevit import forms, script
 import os
+
+logger = script.get_logger()
 
 # DEFINE VARIABLES
 # ==================================================
@@ -98,21 +100,21 @@ def get_workset_list():
         if file_path:
             # Extract filename without extension and convert to uppercase
             filename = os.path.splitext(os.path.basename(file_path))[0].upper()
-            print("Current filename (uppercase): {}".format(filename))
+            logger.debug("Current filename (uppercase): {}".format(filename))
             
             # Check if filename contains 'CORE' (both in uppercase)
             if '_MD_CR_ZZ_' in filename:
                 workset_list.append("ARC_TRELLIS")
                 workset_list.append("ARC_Staircase")
-                print("Filename contains 'CORE' - Added 'ARC_TRELLIS' to workset list")
+                logger.info("Filename contains 'CORE' - Added 'ARC_TRELLIS' to workset list")
             else:
-                print("Filename doesn't contain 'CORE' - Using standard workset list")
+                logger.info("Filename doesn't contain 'CORE' - Using standard workset list")
         else:
-            print("Document not saved yet - Using standard workset list")
+            logger.info("Document not saved yet - Using standard workset list")
             
     except Exception as e:
-        print("Error checking filename: {}".format(e))
-        print("Using standard workset list")
+        logger.error("Error checking filename: {}".format(e))
+        logger.info("Using standard workset list")
     
     return workset_list
 
@@ -163,10 +165,10 @@ def enable_worksharing():
         t.Start()
         doc.EnableWorksharing("_SHARED LEVELS & GRIDS", "_ARCHITECT")
         t.Commit()
-        print("Worksharing enabled successfully")
+        logger.info("Worksharing enabled successfully")
         return True
     except Exception as e:
-        print("Failed to enable worksharing: {}".format(e))
+        logger.error("Failed to enable worksharing: {}".format(e))
         if t.HasStarted():
             t.RollBack()
         return False
@@ -182,10 +184,10 @@ def create_worksets(workset_names, existing_names):
                 Workset.Create(doc, name)
                 t.Commit()
                 created.append(name)
-                print("Created workset: '{}'".format(name))
+                logger.info("Created workset: '{}'".format(name))
             except Exception as e:
                 t.RollBack()
-                print("Failed to create workset '{}': {}".format(name, e))
+                logger.error("Failed to create workset '{}': {}".format(name, e))
     return created
 
 def check_editable_worksets(worksets):
@@ -195,9 +197,9 @@ def check_editable_worksets(worksets):
         try:
             if not ws.IsEditable:
                 non_editable.append(ws.Name)
-                print("Workset '{}' is not editable.".format(ws.Name))
+                logger.warning("Workset '{}' is not editable.".format(ws.Name))
         except Exception as e:
-            print("Error checking workset '{}': {}".format(ws.Name, e))
+            logger.error("Error checking workset '{}': {}".format(ws.Name, e))
     
     if non_editable:
         forms.alert("Non-editable worksets found:\n{}".format("\n".join(non_editable)))
@@ -220,7 +222,7 @@ def create_central():
             doc.SaveAs(central_file_path, saveas_option)
             TaskDialog.Show("Central Created", "Central File was created at:\n{}".format(central_file_path))
         except Exception as e:
-            print("Failed to create Central File: {}".format(e))
+            logger.error("Failed to create Central File: {}".format(e))
             TaskDialog.Show("Error", "Failed to create Central File:\n{}".format(e))
     else:
         TaskDialog.Show("Cancelled", "Please set path to create central file")
@@ -245,11 +247,11 @@ def remove_workset(ws_delete_name, ws_move_name, worksets):
         delete_settings = DeleteWorksetSettings(DeleteWorksetOption.MoveElementsToWorkset, ws_move.Id)
         WorksetTable.DeleteWorkset(doc, ws_delete.Id, delete_settings)
         t.Commit()
-        print("Deleted '{}' and moved content to '{}'.".format(ws_delete_name, ws_move_name))
+        logger.info("Deleted '{}' and moved content to '{}'.".format(ws_delete_name, ws_move_name))
         return True
     except Exception as e:
         t.RollBack()
-        print("Failed to delete workset '{}': {}".format(ws_delete_name, e))
+        logger.error("Failed to delete workset '{}': {}".format(ws_delete_name, e))
         forms.alert("Failed to delete workset '{}': {}".format(ws_delete_name, e))
         return False
 
@@ -264,7 +266,7 @@ existing_workset_names = [ws.Name for ws in FilteredWorksetCollector(doc).OfKind
 
 if __shiftclick__:
     # Delete unused worksets mode
-    print("Running in delete mode (Shift+Click)")
+    logger.info("Running in delete mode (Shift+Click)")
     
     if not check_editable_worksets(worksets):
         forms.alert("Some worksets are not editable. Please make them editable first!")
@@ -277,7 +279,7 @@ if __shiftclick__:
                     if best_match and remove_workset(ws.Name, best_match, worksets):
                         deleted_count += 1
             except Exception as e:
-                print("Error processing workset '{}': {}".format(ws.Name, e))
+                logger.error("Error processing workset '{}': {}".format(ws.Name, e))
         
         if deleted_count > 0:
             TaskDialog.Show("Cleanup Complete", "Removed {} unused worksets.".format(deleted_count))
@@ -285,7 +287,7 @@ if __shiftclick__:
             TaskDialog.Show("Cleanup Complete", "No unused worksets found to remove.")
 else:
     # Create worksets mode
-    print("Running in create mode")
+    logger.info("Running in create mode")
     
     # Enable worksharing if not already enabled
     if not doc.IsWorkshared:
