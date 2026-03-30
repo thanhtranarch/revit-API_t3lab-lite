@@ -1,0 +1,116 @@
+{
+  "rules": [
+    {
+      "enabled": true, 
+      "run_order": 1, 
+      "name": "Interior Walls", 
+      "description": "Non-structural interior walls", 
+      "category_filter": "Walls", 
+      "workset": "ARC_WallInterior"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 2, 
+      "name": "Floors", 
+      "description": "Floor slab elements", 
+      "category_filter": "Floors", 
+      "workset": "ARC_Floor"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 3, 
+      "name": "Ceilings", 
+      "description": "Ceiling elements", 
+      "category_filter": "Ceilings", 
+      "workset": "ARC_Ceiling"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 4, 
+      "name": "Doors", 
+      "description": "Door families", 
+      "category_filter": "Doors", 
+      "workset": "ARC_DoorAndWindow"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 5, 
+      "name": "Windows", 
+      "description": "Window families", 
+      "category_filter": "Windows", 
+      "workset": "ARC_DoorAndWindow"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 6, 
+      "name": "Furniture", 
+      "description": "Furniture elements", 
+      "category_filter": "Furniture", 
+      "workset": "ARC_Furniture"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 7, 
+      "name": "Stairs", 
+      "description": "Stair elements", 
+      "category_filter": "Stairs", 
+      "workset": "ARC_Ramp"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 8, 
+      "name": "Railings", 
+      "description": "Railing elements", 
+      "category_filter": "Railings", 
+      "workset": "ARC_Railing"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 9, 
+      "name": "Roofs", 
+      "description": "Roof elements", 
+      "category_filter": "Roofs", 
+      "workset": "ARC_ExteriorRoofAndCanopy"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 10, 
+      "name": "Rooms", 
+      "description": "Room elements", 
+      "category_filter": "Rooms", 
+      "workset": "ARC_AreaRoomSpace"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 11, 
+      "name": "Parking", 
+      "description": "Parking elements", 
+      "category_filter": "Parking", 
+      "workset": "ARC_ParkingLots"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 12, 
+      "name": "Planting", 
+      "description": "Planting and landscaping elements", 
+      "category_filter": "Planting", 
+      "workset": "ARC_PlantingSoil"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 13, 
+      "name": "Ramps", 
+      "description": "Ramp elements", 
+      "category_filter": "Ramps", 
+      "workset": "ARC_Ramp"
+    }, 
+    {
+      "enabled": true, 
+      "run_order": 14, 
+      "name": "Signage", 
+      "description": "Signage elements", 
+      "category_filter": "Signage", 
+      "workset": "ARC_Signage"
+    }
+  ]
+}
