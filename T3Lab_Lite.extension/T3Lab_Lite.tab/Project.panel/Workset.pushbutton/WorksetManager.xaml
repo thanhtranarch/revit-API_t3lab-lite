@@ -2,103 +2,290 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Workset Manager"
-    Height="640" Width="1000"
-    MinHeight="420" MinWidth="720"
+    Height="660" Width="1020"
+    MinHeight="440" MinWidth="740"
     WindowStartupLocation="CenterScreen"
+    ResizeMode="CanResizeWithGrip"
+    Background="White"
     Closing="window_closing">
 
-    <DockPanel LastChildFill="True">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
 
-        <!-- ====== HEADER ====== -->
-        <Border DockPanel.Dock="Top" Background="#2C3E50" Padding="14,10">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Workset Manager" Foreground="White"
-                           FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
-                <TextBlock x:Name="doc_name" Foreground="#95A5A6" FontSize="11"
-                           VerticalAlignment="Center" Margin="14,0,0,0"
-                           TextTrimming="CharacterEllipsis" MaxWidth="500"/>
+    <Window.Resources>
+
+        <!-- PRIMARY – blue, white text -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#3498DB"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Segoe UI"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2980B9"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#BDC3C7"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SECONDARY – light gray, dark text -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#ECF0F1"/>
+            <Setter Property="Foreground"      Value="#2C3E50"/>
+            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Segoe UI"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush"     Value="#BDC3C7"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D5DBDB"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DANGER – red (delete / destructive) -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#E74C3C"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#C0392B"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS – green (apply / confirm) -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#27AE60"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1E8449"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL – transparent, light on hover -->
+        <Style x:Key="WinCtrlButton" TargetType="Button">
+            <Setter Property="Width"           Value="40"/>
+            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#ECF0F1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- CLOSE BUTTON – red on hover -->
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E74C3C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64"/>   <!-- Title bar  -->
+            <RowDefinition Height="Auto"/> <!-- Toolbar    -->
+            <RowDefinition Height="*"/>    <!-- DataGrid   -->
+            <RowDefinition Height="Auto"/> <!-- Status bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ════════════════════════════════════════
+             TITLE BAR
+             ════════════════════════════════════════ -->
+        <Grid Grid.Row="0" Background="White">
+
+            <!-- Logo + T3Lab brand + tool name + subtitle -->
+            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <Image x:Name="logo_image" Width="40" Height="40" Margin="0,0,12,0"
+                       VerticalAlignment="Center"/>
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
+                                   Foreground="#3498DB" FontFamily="Segoe UI"
+                                   VerticalAlignment="Bottom" Margin="0,0,6,1"/>
+                        <TextBlock Text="Workset Manager" FontSize="17" FontWeight="Bold"
+                                   Foreground="#2C3E50" FontFamily="Segoe UI"/>
+                    </StackPanel>
+                    <Separator Height="1" Background="#BDC3C7" Margin="0,3,0,3"/>
+                    <TextBlock Text="Rule-based workset assignment for Revit projects"
+                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"
+                               FontFamily="Segoe UI"/>
+                </StackPanel>
             </StackPanel>
-        </Border>
 
-        <!-- ====== STATUS BAR ====== -->
-        <Border DockPanel.Dock="Bottom" Background="#F5F5F5"
-                BorderBrush="#DCDCDC" BorderThickness="0,1,0,0" Padding="10,5">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock x:Name="status_text" Text="Ready" FontSize="11"
-                           Foreground="#555" VerticalAlignment="Center"/>
-                <Rectangle Width="1" Fill="#CCC" Margin="12,2"/>
-                <TextBlock x:Name="workset_count" Text="" FontSize="11"
-                           Foreground="#888" VerticalAlignment="Center"/>
+            <!-- Document name + window controls -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <TextBlock x:Name="doc_name" Foreground="#95A5A6" FontSize="10"
+                           FontFamily="Segoe UI" VerticalAlignment="Center"
+                           Margin="0,14,8,0" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                        Click="minimize_button_clicked" ToolTip="Minimize"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="—" FontSize="13" FontWeight="Bold"
+                               Foreground="#7F8C8D" Margin="0,-6,0,0"/>
+                </Button>
+                <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                        Click="maximize_button_clicked" ToolTip="Maximize"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Border BorderBrush="#7F8C8D" BorderThickness="2" Width="13" Height="13"/>
+                </Button>
+                <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                        Click="close_button_clicked" ToolTip="Close"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="X" FontSize="12" FontWeight="Bold" Foreground="#7F8C8D">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver,
+                                        RelativeSource={RelativeSource AncestorType=Button}}"
+                                        Value="True">
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Button>
             </StackPanel>
-        </Border>
 
-        <!-- ====== TOOLBAR ====== -->
-        <Border DockPanel.Dock="Top" Background="White"
-                BorderBrush="#DCDCDC" BorderThickness="0,0,0,1" Padding="8,6">
+            <!-- Bottom divider -->
+            <Border Height="1" VerticalAlignment="Bottom" Background="#BDC3C7"/>
+        </Grid>
+
+        <!-- ════════════════════════════════════════
+             TOOLBAR
+             ════════════════════════════════════════ -->
+        <Border Grid.Row="1" Background="White"
+                BorderBrush="#BDC3C7" BorderThickness="0,0,0,1" Padding="12,8">
             <WrapPanel>
 
                 <!-- Rule CRUD -->
-                <Button x:Name="btn_add" Content="+ Add" Click="btn_add_click"
-                        Background="#2980B9" Foreground="White" BorderBrush="#2980B9"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
-                        ToolTip="Add a new rule"/>
-                <Button x:Name="btn_delete" Content="Delete" Click="btn_delete_click"
-                        Background="#C0392B" Foreground="White" BorderBrush="#C0392B"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <Button x:Name="btn_add" Content="+ Add" Style="{StaticResource PrimaryButton}"
+                        Margin="0,0,4,0" Click="btn_add_click"
+                        ToolTip="Add a new assignment rule"/>
+                <Button x:Name="btn_delete" Content="Delete" Style="{StaticResource DangerButton}"
+                        Margin="0,0,4,0" Click="btn_delete_click"
                         ToolTip="Delete selected rule(s)"/>
-                <Button x:Name="btn_duplicate" Content="Duplicate" Click="btn_duplicate_click"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <Button x:Name="btn_duplicate" Content="Duplicate" Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,4,0" Click="btn_duplicate_click"
                         ToolTip="Duplicate selected rule"/>
-                <Button x:Name="btn_move_up" Content="Up" Click="btn_move_up_click"
-                        Padding="8,5" Margin="2" Cursor="Hand" FontSize="12"
-                        ToolTip="Move selected rule up"/>
-                <Button x:Name="btn_move_down" Content="Down" Click="btn_move_down_click"
-                        Padding="8,5" Margin="2" Cursor="Hand" FontSize="12"
-                        ToolTip="Move selected rule down"/>
+                <Button x:Name="btn_move_up" Content="Up" Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,2,0" Click="btn_move_up_click"
+                        ToolTip="Move rule up in run order"/>
+                <Button x:Name="btn_move_down" Content="Down" Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,0,0" Click="btn_move_down_click"
+                        ToolTip="Move rule down in run order"/>
 
-                <Rectangle Width="1" Fill="#DCDCDC" Margin="8,2"/>
+                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,2"/>
 
-                <!-- Apply -->
-                <Button x:Name="btn_apply_view" Content="Apply to View" Click="btn_apply_view_click"
-                        Background="#27AE60" Foreground="White" BorderBrush="#27AE60"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <!-- Apply actions -->
+                <Button x:Name="btn_apply_view" Content="Apply to View" Style="{StaticResource SuccessButton}"
+                        Margin="0,0,4,0" Click="btn_apply_view_click"
                         ToolTip="Assign elements in the active view per enabled rules"/>
-                <Button x:Name="btn_apply_project" Content="Apply to Project" Click="btn_apply_project_click"
-                        Background="#1E8449" Foreground="White" BorderBrush="#1E8449"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <Button x:Name="btn_apply_project" Content="Apply to Project" Style="{StaticResource SuccessButton}"
+                        Background="#1E8449" Margin="0,0,0,0" Click="btn_apply_project_click"
                         ToolTip="Assign ALL project elements per enabled rules"/>
 
-                <Rectangle Width="1" Fill="#DCDCDC" Margin="8,2"/>
+                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,2"/>
 
-                <!-- Workset ops -->
-                <Button x:Name="btn_create_worksets" Content="Create Worksets" Click="btn_create_worksets_click"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <!-- Workset operations -->
+                <Button x:Name="btn_create_worksets" Content="Create Worksets"
+                        Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,4,0" Click="btn_create_worksets_click"
                         ToolTip="Create standard worksets from the workset list"/>
-                <Button x:Name="btn_remove_unused" Content="Remove Unused" Click="btn_remove_unused_click"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <Button x:Name="btn_remove_unused" Content="Remove Unused"
+                        Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,0,0" Click="btn_remove_unused_click"
                         ToolTip="Remove worksets not in the standard list"/>
 
-                <Rectangle Width="1" Fill="#DCDCDC" Margin="8,2"/>
+                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,2"/>
 
-                <!-- Import / Export / Reset / Save -->
-                <Button x:Name="btn_import" Content="Import" Click="btn_import_click"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <!-- Configuration exchange -->
+                <Button x:Name="btn_import" Content="Import" Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,4,0" Click="btn_import_click"
                         ToolTip="Import rules from a JSON file (replaces current rules)"/>
-                <Button x:Name="btn_export" Content="Export" Click="btn_export_click"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <Button x:Name="btn_export" Content="Export" Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,4,0" Click="btn_export_click"
                         ToolTip="Export current rules to a JSON file"/>
-                <Button x:Name="btn_reset" Content="Reset" Click="btn_reset_click"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <Button x:Name="btn_reset" Content="Reset" Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,4,0" Click="btn_reset_click"
                         ToolTip="Reset all rules to factory defaults"/>
-                <Button x:Name="btn_save" Content="Save" Click="btn_save_click"
-                        Background="#7F8C8D" Foreground="White" BorderBrush="#7F8C8D"
-                        Padding="10,5" Margin="2" Cursor="Hand" FontSize="12"
+                <Button x:Name="btn_save" Content="Save" Style="{StaticResource PrimaryButton}"
+                        Margin="0,0,0,0" Click="btn_save_click"
                         ToolTip="Save rules to disk"/>
             </WrapPanel>
         </Border>
 
-        <!-- ====== DATAGRID ====== -->
-        <DataGrid x:Name="rules_grid"
+        <!-- ════════════════════════════════════════
+             DATAGRID
+             ════════════════════════════════════════ -->
+        <DataGrid x:Name="rules_grid" Grid.Row="2"
+                  Margin="12,8,12,4"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
@@ -106,44 +293,62 @@
                   GridLinesVisibility="Horizontal"
                   AlternatingRowBackground="#FAFAFA"
                   Background="White"
-                  BorderThickness="0"
+                  BorderBrush="#BDC3C7"
+                  BorderThickness="1"
                   RowHeight="30"
                   HeadersVisibility="Column"
+                  FontFamily="Segoe UI"
+                  FontSize="12"
                   CellEditEnding="grid_cell_edit_ending">
 
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#34495E"/>
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                    <Setter Property="FontSize" Value="12"/>
-                    <Setter Property="Padding" Value="8,6"/>
-                    <Setter Property="BorderBrush" Value="#2C3E50"/>
-                    <Setter Property="BorderThickness" Value="0,0,1,0"/>
-                    <Setter Property="Height" Value="34"/>
+                    <Setter Property="Background"      Value="#ECF0F1"/>
+                    <Setter Property="Foreground"      Value="#2C3E50"/>
+                    <Setter Property="FontWeight"      Value="SemiBold"/>
+                    <Setter Property="FontSize"        Value="12"/>
+                    <Setter Property="FontFamily"      Value="Segoe UI"/>
+                    <Setter Property="Padding"         Value="8,6"/>
+                    <Setter Property="BorderBrush"     Value="#BDC3C7"/>
+                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                    <Setter Property="Height"          Value="34"/>
                 </Style>
             </DataGrid.ColumnHeaderStyle>
 
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#EBF5FB"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#D6EAF8"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+
             <DataGrid.Columns>
 
-                <!-- Run order -->
+                <!-- Run Order -->
                 <DataGridTextColumn Header="#" Binding="{Binding RunOrder}"
                                     Width="44" IsReadOnly="True">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="HorizontalAlignment" Value="Center"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Foreground" Value="#999"/>
-                            <Setter Property="FontSize" Value="11"/>
+                            <Setter Property="VerticalAlignment"   Value="Center"/>
+                            <Setter Property="Foreground"          Value="#95A5A6"/>
+                            <Setter Property="FontSize"            Value="11"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
 
-                <!-- Enabled checkbox -->
+                <!-- Enabled -->
                 <DataGridTemplateColumn Header="On" Width="46" CanUserResize="False">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay,
+                                                  UpdateSourceTrigger=PropertyChanged}"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -155,14 +360,14 @@
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding" Value="6,0"/>
-                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="Padding"           Value="6,0"/>
+                            <Setter Property="Foreground"        Value="#2C3E50"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                     <DataGridTextColumn.EditingElementStyle>
                         <Style TargetType="TextBox">
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="FontFamily" Value="Segoe UI"/>
+                            <Setter Property="Padding"    Value="4,2"/>
                         </Style>
                     </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>
@@ -173,15 +378,15 @@
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding" Value="6,0"/>
-                            <Setter Property="Foreground" Value="#666"/>
-                            <Setter Property="FontSize" Value="11"/>
+                            <Setter Property="Padding"           Value="6,0"/>
+                            <Setter Property="Foreground"        Value="#7F8C8D"/>
+                            <Setter Property="FontSize"          Value="11"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                     <DataGridTextColumn.EditingElementStyle>
                         <Style TargetType="TextBox">
-                            <Setter Property="FontSize" Value="11"/>
-                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="FontFamily" Value="Segoe UI"/>
+                            <Setter Property="Padding"    Value="4,2"/>
                         </Style>
                     </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>
@@ -192,14 +397,14 @@
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding" Value="6,0"/>
-                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="Padding"           Value="6,0"/>
+                            <Setter Property="Foreground"        Value="#2C3E50"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                     <DataGridTextColumn.EditingElementStyle>
                         <Style TargetType="TextBox">
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="FontFamily" Value="Segoe UI"/>
+                            <Setter Property="Padding"    Value="4,2"/>
                         </Style>
                     </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>
@@ -210,16 +415,15 @@
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding" Value="6,0"/>
-                            <Setter Property="FontWeight" Value="SemiBold"/>
-                            <Setter Property="Foreground" Value="#2C3E50"/>
-                            <Setter Property="FontSize" Value="12"/>
+                            <Setter Property="Padding"           Value="6,0"/>
+                            <Setter Property="Foreground"        Value="#2980B9"/>
+                            <Setter Property="FontWeight"        Value="SemiBold"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                     <DataGridTextColumn.EditingElementStyle>
                         <Style TargetType="TextBox">
-                            <Setter Property="FontSize" Value="12"/>
-                            <Setter Property="Padding" Value="4,2"/>
+                            <Setter Property="FontFamily" Value="Segoe UI"/>
+                            <Setter Property="Padding"    Value="4,2"/>
                         </Style>
                     </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>
@@ -227,5 +431,22 @@
             </DataGrid.Columns>
         </DataGrid>
 
-    </DockPanel>
+        <!-- ════════════════════════════════════════
+             STATUS BAR
+             ════════════════════════════════════════ -->
+        <Border Grid.Row="3" Background="#FAFAFA"
+                BorderBrush="#BDC3C7" BorderThickness="0,1,0,0" Padding="14,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="status_text" Text="Ready" FontSize="11"
+                           Foreground="#7F8C8D" VerticalAlignment="Center" FontFamily="Segoe UI"/>
+                <TextBlock x:Name="workset_count" Grid.Column="1" Text="" FontSize="11"
+                           Foreground="#BDC3C7" VerticalAlignment="Center" FontFamily="Segoe UI"/>
+            </Grid>
+        </Border>
+
+    </Grid>
 </Window>
