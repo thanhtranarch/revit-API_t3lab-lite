@@ -19,6 +19,7 @@ import re
 import clr
 clr.AddReference('PresentationCore')
 clr.AddReference('PresentationFramework')
+clr.AddReference('System')
 clr.AddReference('System.Data')
 
 from System.Windows import Visibility, WindowState

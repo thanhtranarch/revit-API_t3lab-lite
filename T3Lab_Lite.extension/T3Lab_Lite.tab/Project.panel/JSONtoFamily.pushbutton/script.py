@@ -42,6 +42,7 @@ import sys
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
+clr.AddReference('System')
 from System.Windows import WindowState, Clipboard
 from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind
