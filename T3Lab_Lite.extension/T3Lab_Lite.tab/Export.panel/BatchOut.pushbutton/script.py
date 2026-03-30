@@ -1105,7 +1105,7 @@ class ExportManagerWindow(forms.WPFWindow):
             self.sheet_set_filter.SelectedIndex = 0
 
     def load_sheets(self):
-        """Load all sheets - Phase 1: instant display of names, Phase 2: deferred extra data."""
+        """Load all sheets - Phase 1: instant display of names, Phase 2: progressive background load."""
         try:
             # Phase 1: collect sheet elements (single fast query) + display names immediately
             sheets_collector = FilteredElementCollector(self.doc)\
@@ -1124,35 +1124,80 @@ class ExportManagerWindow(forms.WPFWindow):
             self.status_text.Text = "Loaded {} sheets | Revit {}".format(
                 len(self.all_sheets), REVIT_VERSION)
 
-            # Phase 2: schedule deferred loading of revision info + paper sizes
+            # Phase 2: pre-load titleblocks first (one query), then schedule chunked loading
             # Runs after window renders so user sees sheet names without delay
+            self._lazy_load_index = 0
             self.Dispatcher.BeginInvoke(
                 DispatcherPriority.Background,
-                Action(self._load_extra_sheet_data)
+                Action(self._lazy_load_init)
             )
 
         except Exception as ex:
             logger.error("Error loading sheets: {}".format(ex))
             forms.alert("Error loading sheets: {}".format(ex), exitscript=True)
 
-    def _load_extra_sheet_data(self):
-        """Phase 2: load revision info + paper sizes after window is visible."""
+    def _lazy_load_init(self):
+        """Pre-load titleblock cache (one query) then kick off chunked sheet loading."""
         try:
-            # Single batch query for all titleblock sizes
             self._batch_load_titleblock_sizes()
+            self._lazy_load_index = 0
+            self.Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                Action(self._lazy_load_chunk)
+            )
+        except Exception as ex:
+            logger.debug("Error in lazy load init: {}".format(ex))
 
-            # Load revision params + paper size for each sheet
-            for sheet_item in self.all_sheets:
+    def _lazy_load_chunk(self):
+        """Load extra data for a small batch of sheets, then schedule the next batch.
+
+        By processing CHUNK_SIZE sheets per dispatcher slot the UI thread stays
+        responsive – users can scroll, select and interact while loading continues
+        in the background.
+        """
+        CHUNK_SIZE = 30  # sheets per dispatcher turn
+
+        try:
+            start = self._lazy_load_index
+            chunk = self.all_sheets[start:start + CHUNK_SIZE]
+
+            if not chunk:
+                # All done – final refresh and status update
+                if hasattr(self, 'sheets_listview') and self.sheets_listview:
+                    self.sheets_listview.Items.Refresh()
+                self.status_text.Text = "Ready | {} sheets | Revit {}".format(
+                    len(self.all_sheets), REVIT_VERSION)
+                return
+
+            for sheet_item in chunk:
                 sheet_item._load_revision_params()
                 size, _ = self.get_sheet_paper_size_and_orientation(sheet_item.Sheet)
                 sheet_item.Size = size
 
-            # Refresh ListView to show updated columns
+            self._lazy_load_index = start + len(chunk)
+
+            # Refresh the visible rows to show newly loaded data
             if hasattr(self, 'sheets_listview') and self.sheets_listview:
                 self.sheets_listview.Items.Refresh()
 
+            # Update status to show progress
+            total = len(self.all_sheets)
+            loaded = self._lazy_load_index
+            self.status_text.Text = "Loading sheet data... {}/{} | Revit {}".format(
+                loaded, total, REVIT_VERSION)
+
+            # Schedule the next chunk at Background priority so UI events are processed first
+            self.Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                Action(self._lazy_load_chunk)
+            )
+
         except Exception as ex:
-            logger.debug("Error loading extra sheet data: {}".format(ex))
+            logger.debug("Error loading sheet chunk: {}".format(ex))
+
+    def _load_extra_sheet_data(self):
+        """Legacy helper kept for compatibility – now delegates to chunked loader."""
+        self._lazy_load_init()
 
     def load_views(self):
         """Load all views from the document."""
