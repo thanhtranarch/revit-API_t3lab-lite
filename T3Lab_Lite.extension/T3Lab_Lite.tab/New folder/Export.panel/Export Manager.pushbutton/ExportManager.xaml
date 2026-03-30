@@ -1,0 +1,468 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export Manager - T3Lab"
+        Width="1000" Height="750"
+        MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <!-- Styles -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,10,0,5"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#3498DB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2980B9"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#BDC3C7"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#ECF0F1"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#BDC3C7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D5DBDB"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="FormatCheckBox" TargetType="CheckBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="TabItemStyle" TargetType="TabItem">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="20,10"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Export Manager" FontSize="20" FontWeight="Bold" Foreground="#2C3E50"/>
+            <TextBlock Text="Batch export sheets to multiple formats with advanced options"
+                       FontSize="12" Foreground="#7F8C8D" Margin="0,5,0,0"/>
+            <Separator Margin="0,10,0,0"/>
+        </StackPanel>
+
+        <!-- Tab Control -->
+        <TabControl Grid.Row="1" Margin="0,10,0,0" x:Name="main_tabs">
+
+            <!-- Selection Tab -->
+            <TabItem Header="Selection" Style="{StaticResource TabItemStyle}">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Select Sheets to Export" Style="{StaticResource SectionHeader}"/>
+
+                    <!-- Selection Controls -->
+                    <Grid Grid.Row="1" Margin="0,5">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Buttons Row -->
+                        <WrapPanel Grid.Row="0">
+                            <Button Content="Select All" Style="{StaticResource SecondaryButton}"
+                                    Click="select_all_sheets" Margin="0,0,5,0"/>
+                            <Button Content="Select None" Style="{StaticResource SecondaryButton}"
+                                    Click="select_none_sheets" Margin="0,0,5,0"/>
+                            <Button Content="Refresh" Style="{StaticResource SecondaryButton}"
+                                    Click="refresh_sheets" Margin="0,0,10,0"/>
+                        </WrapPanel>
+
+                        <!-- Search and Filter Row -->
+                        <Grid Grid.Row="1" Margin="0,10,0,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="150"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBox Grid.Column="1" x:Name="search_textbox" Height="28"
+                                     VerticalContentAlignment="Center"
+                                     TextChanged="search_sheets"/>
+
+                            <TextBlock Grid.Column="3" Text="Filter by Size:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <ComboBox Grid.Column="4" x:Name="size_filter" Height="28"
+                                      SelectionChanged="filter_by_size">
+                                <ComboBoxItem Content="All Sizes" IsSelected="True"/>
+                                <ComboBoxItem Content="A0"/>
+                                <ComboBoxItem Content="A1"/>
+                                <ComboBoxItem Content="A2"/>
+                                <ComboBoxItem Content="A3"/>
+                                <ComboBoxItem Content="A4"/>
+                            </ComboBox>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Sheets List -->
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5">
+                        <ListView x:Name="sheets_listview"
+                                  SelectionMode="Extended"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Width="40">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          HorizontalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="Sheet Number" Width="120"
+                                                    DisplayMemberBinding="{Binding SheetNumber}"/>
+                                    <GridViewColumn Header="Sheet Name" Width="300"
+                                                    DisplayMemberBinding="{Binding SheetName}"/>
+                                    <GridViewColumn Header="Revision" Width="80"
+                                                    DisplayMemberBinding="{Binding Revision}"/>
+                                    <GridViewColumn Header="Size" Width="80"
+                                                    DisplayMemberBinding="{Binding Size}"/>
+                                    <GridViewColumn Header="Custom Filename" Width="250">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         BorderThickness="0" Background="Transparent"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Format Tab -->
+            <TabItem Header="Format" Style="{StaticResource TabItemStyle}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Export Formats -->
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Export Formats" Style="{StaticResource SectionHeader}"/>
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                                <WrapPanel>
+                                    <CheckBox x:Name="export_pdf" Content="PDF"
+                                              Style="{StaticResource FormatCheckBox}" IsChecked="True"
+                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <CheckBox x:Name="export_dwg" Content="DWG (AutoCAD)"
+                                              Style="{StaticResource FormatCheckBox}"
+                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <CheckBox x:Name="export_dgn" Content="DGN (MicroStation)"
+                                              Style="{StaticResource FormatCheckBox}"
+                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <CheckBox x:Name="export_dwf" Content="DWF"
+                                              Style="{StaticResource FormatCheckBox}"
+                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <CheckBox x:Name="export_nwd" Content="NWC (Navisworks)"
+                                              Style="{StaticResource FormatCheckBox}"
+                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <CheckBox x:Name="export_ifc" Content="IFC"
+                                              Style="{StaticResource FormatCheckBox}"
+                                              Checked="format_changed" Unchecked="format_changed"/>
+                                    <CheckBox x:Name="export_img" Content="IMG (Image)"
+                                              Style="{StaticResource FormatCheckBox}"
+                                              Checked="format_changed" Unchecked="format_changed"/>
+                                </WrapPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- PDF Options -->
+                        <StackPanel Grid.Row="1" x:Name="pdf_options_panel" Margin="0,10,0,0">
+                            <TextBlock Text="PDF Options" Style="{StaticResource SectionHeader}"/>
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Paper Size -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Paper Size:" VerticalAlignment="Center" Margin="0,5"/>
+                                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="pdf_paper_size" Height="28" Margin="5"
+                                              SelectedIndex="0">
+                                        <ComboBoxItem Content="Use Sheet Size"/>
+                                        <ComboBoxItem Content="A0"/>
+                                        <ComboBoxItem Content="A1"/>
+                                        <ComboBoxItem Content="A2"/>
+                                        <ComboBoxItem Content="A3"/>
+                                        <ComboBoxItem Content="A4"/>
+                                    </ComboBox>
+
+                                    <!-- Orientation -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Orientation:" VerticalAlignment="Center" Margin="0,5"/>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="5">
+                                        <RadioButton x:Name="pdf_landscape" Content="Landscape" GroupName="orientation"
+                                                     IsChecked="True" Margin="0,0,20,0"/>
+                                        <RadioButton x:Name="pdf_portrait" Content="Portrait" GroupName="orientation"/>
+                                    </StackPanel>
+
+                                    <!-- Zoom -->
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Zoom:" VerticalAlignment="Center" Margin="0,5"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="5">
+                                        <RadioButton x:Name="pdf_fit_to_page" Content="Fit to Page" GroupName="zoom"
+                                                     IsChecked="True" Margin="0,0,20,0"/>
+                                        <RadioButton x:Name="pdf_zoom_custom" Content="Custom Zoom" GroupName="zoom"/>
+                                    </StackPanel>
+
+                                    <!-- Additional Options -->
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Options:" VerticalAlignment="Top" Margin="0,10,0,5"/>
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Margin="5,5,5,0">
+                                        <CheckBox x:Name="pdf_hide_ref_planes" Content="Hide ref/work planes" Margin="0,3"/>
+                                        <CheckBox x:Name="pdf_hide_scope_boxes" Content="Hide scope boxes" Margin="0,3"/>
+                                        <CheckBox x:Name="pdf_hide_crop_boundaries" Content="Hide crop boundaries" Margin="0,3"/>
+                                        <CheckBox x:Name="pdf_hide_unreferenced_tags" Content="Hide unreferenced view tags" Margin="0,3"/>
+                                        <CheckBox x:Name="pdf_view_links_blue" Content="View links in blue (Color prints only)" Margin="0,3"/>
+                                        <CheckBox x:Name="combine_pdf" Content="Combine all sheets into single PDF"
+                                                  FontWeight="Bold" Margin="0,10,0,3"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- DWG Options -->
+                        <StackPanel Grid.Row="2" x:Name="dwg_options_panel" Margin="0,10,0,0">
+                            <TextBlock Text="DWG Options" Style="{StaticResource SectionHeader}"/>
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBlock Grid.Column="0" Text="AutoCAD Version:" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Column="1" x:Name="dwg_version" Height="28" Margin="5"
+                                              SelectedIndex="0">
+                                        <ComboBoxItem Content="AutoCAD 2013"/>
+                                        <ComboBoxItem Content="AutoCAD 2010"/>
+                                        <ComboBoxItem Content="AutoCAD 2007"/>
+                                    </ComboBox>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- File Naming -->
+                        <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                            <TextBlock Text="File Naming" Style="{StaticResource SectionHeader}"/>
+                            <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="Naming Pattern:" FontWeight="Medium" Margin="0,0,0,5"/>
+                                        <TextBox x:Name="naming_pattern" Height="28"
+                                                 VerticalContentAlignment="Center"
+                                                 Text="{SheetNumber}-{SheetName}"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="1" Margin="0,10,0,0">
+                                        <TextBlock TextWrapping="Wrap" FontSize="10" Foreground="#7F8C8D">
+                                            <Run Text="Available placeholders:"/>
+                                            <LineBreak/>
+                                            <Run Text="• {SheetNumber}, {SheetName}, {Revision}, {RevisionDate}"/>
+                                            <LineBreak/>
+                                            <Run Text="• {DrawnBy}, {CheckedBy}, {ProjectNumber}, {ProjectName}"/>
+                                            <LineBreak/>
+                                            <Run Text="• {Date}, {Time}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Create Tab -->
+            <TabItem Header="Create" Style="{StaticResource TabItemStyle}">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Export Rules -->
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="Export Rules" Style="{StaticResource SectionHeader}"/>
+                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Output Folder -->
+                                <Grid Grid.Row="0" Margin="0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center" FontWeight="Medium"/>
+                                    <TextBox x:Name="output_folder" Grid.Column="1" Height="28"
+                                             VerticalContentAlignment="Center" Margin="5,0"
+                                             IsReadOnly="True" Background="White"/>
+                                    <Button Grid.Column="2" Content="Browse..."
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="browse_output_folder"/>
+                                </Grid>
+
+                                <!-- File Organization -->
+                                <StackPanel Grid.Row="1" Margin="0,15,0,0">
+                                    <TextBlock Text="File Organization:" FontWeight="Medium" Margin="0,0,0,5"/>
+                                    <RadioButton x:Name="save_same_folder" Content="Save all files in the same folder location"
+                                                 GroupName="organization" IsChecked="True" Margin="0,3"/>
+                                    <RadioButton x:Name="save_split_by_format" Content="Save and split files by file format"
+                                                 GroupName="organization" Margin="0,3"/>
+                                </StackPanel>
+
+                                <!-- Additional Options -->
+                                <StackPanel Grid.Row="2" Margin="0,15,0,0">
+                                    <CheckBox x:Name="reverse_order" Content="Reverse sheet order"
+                                              Checked="reverse_order_changed" Unchecked="reverse_order_changed"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Export Preview -->
+                    <StackPanel Grid.Row="1" Margin="0,15,0,0">
+                        <TextBlock Text="Export Preview" Style="{StaticResource SectionHeader}"/>
+                    </StackPanel>
+
+                    <!-- Preview List -->
+                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5">
+                        <ListView x:Name="export_preview_list"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Sheet Number" Width="120"
+                                                    DisplayMemberBinding="{Binding SheetNumber}"/>
+                                    <GridViewColumn Header="Sheet Name" Width="250"
+                                                    DisplayMemberBinding="{Binding SheetName}"/>
+                                    <GridViewColumn Header="Format" Width="100"
+                                                    DisplayMemberBinding="{Binding Format}"/>
+                                    <GridViewColumn Header="Size" Width="80"
+                                                    DisplayMemberBinding="{Binding Size}"/>
+                                    <GridViewColumn Header="Orientation" Width="100"
+                                                    DisplayMemberBinding="{Binding Orientation}"/>
+                                    <GridViewColumn Header="Progress" Width="200">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ProgressBar Value="{Binding Progress}" Height="20" Minimum="0" Maximum="100"/>
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </Border>
+
+                    <!-- Progress Info -->
+                    <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                        <TextBlock x:Name="progress_text" Text="Ready to export" FontSize="12" Foreground="#7F8C8D"/>
+                        <ProgressBar x:Name="overall_progress" Height="25" Minimum="0" Maximum="100" Value="0" Margin="0,5"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Action Buttons -->
+        <Grid Grid.Row="2" Margin="0,15,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock x:Name="status_text" Grid.Column="0"
+                       Text="Ready to export"
+                       VerticalAlignment="Center"
+                       Foreground="#7F8C8D"
+                       FontStyle="Italic"/>
+
+            <Button x:Name="back_button" Grid.Column="1"
+                    Content="Back"
+                    Style="{StaticResource SecondaryButton}"
+                    Click="go_back"
+                    Margin="0,0,10,0"
+                    Width="100"
+                    Visibility="Collapsed"/>
+
+            <Button x:Name="next_button" Grid.Column="2"
+                    Content="Next"
+                    Style="{StaticResource PrimaryButton}"
+                    Click="go_next"
+                    Margin="0,0,10,0"
+                    Width="120"/>
+
+            <Button Grid.Column="3" Content="Cancel"
+                    Style="{StaticResource SecondaryButton}"
+                    Click="cancel_export"
+                    Width="100"/>
+        </Grid>
+    </Grid>
+</Window>
