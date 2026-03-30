@@ -22,6 +22,7 @@ import clr
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
+clr.AddReference('System')
 
 from System.Windows import WindowState
 from System.Windows.Media.Imaging import BitmapImage
