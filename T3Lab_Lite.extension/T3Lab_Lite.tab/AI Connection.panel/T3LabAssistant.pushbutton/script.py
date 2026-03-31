@@ -100,14 +100,19 @@ except Exception as e:
 # ─── Tool launchers ───────────────────────────────────────────────────────────
 # Each function opens the corresponding T3Lab tool.
 
-def _get_tool_script_dir(panel, pushbutton):
-    """Return the path to a pushbutton script.py given panel and pushbutton names."""
-    # __file__ = .../T3Lab_Lite.tab/Export.panel/T3LabAssistant.pushbutton/script.py
+def _get_tool_script_dir(*parts):
+    """Return the path to a pushbutton script.py given path parts relative to the tab.
+
+    Usage:
+        _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
+        _get_tool_script_dir('Annotation.panel', 'Text.stack', 'DimText.pushbutton')
+    """
+    # __file__ = .../T3Lab_Lite.tab/AI Connection.panel/T3LabAssistant.pushbutton/script.py
     # dirname x1 = T3LabAssistant.pushbutton/
-    # dirname x2 = Export.panel/
+    # dirname x2 = AI Connection.panel/
     # dirname x3 = T3Lab_Lite.tab/
     tab_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    return os.path.join(tab_dir, panel, pushbutton, 'script.py')
+    return os.path.join(tab_dir, *parts + ('script.py',))
 
 
 def _load_script(name, script_path):
@@ -264,7 +269,7 @@ def launch_workset():
 def launch_dimtext():
     """Run the Dim Text tool on current selection."""
     try:
-        script_path = _get_tool_script_dir('Project.panel', 'DimText.pushbutton')
+        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'DimText.pushbutton')
         mod = _load_script('dimtext_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -275,7 +280,7 @@ def launch_dimtext():
 def launch_upperdimtext():
     """Run the Upper Dim Text tool on current selection."""
     try:
-        script_path = _get_tool_script_dir('Project.panel', 'UpperDimText.pushbutton')
+        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'UpperDimText.pushbutton')
         mod = _load_script('upperdimtext_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -286,7 +291,7 @@ def launch_upperdimtext():
 def launch_resetoverrides():
     """Run the Reset Overrides tool on the active view."""
     try:
-        script_path = _get_tool_script_dir('Graphic.panel', 'Reset Overrides.pushbutton')
+        script_path = _get_tool_script_dir('Annotation.panel', 'Reset Overrides.pushbutton')
         mod = _load_script('resetoverrides_script', script_path)
         return mod is not None
     except Exception as ex:

@@ -52,7 +52,8 @@ _SKIP_BUTTONS = {
 def scan_all_pushbuttons():
     """
     Walk T3Lab_Lite.tab and return a list of dicts for every *.pushbutton
-    that has a script.py.
+    that has a script.py, at any nesting depth (panel/pushbutton,
+    panel/stack/pushbutton, panel/pulldown/stack/pushbutton, etc.).
 
     Each dict: {button, panel, script_path, title}
     """
@@ -65,10 +66,11 @@ def scan_all_pushbuttons():
         panel_dir = os.path.join(_TAB_DIR, panel)
         if not os.path.isdir(panel_dir):
             continue
-        for btn in sorted(os.listdir(panel_dir)):
+        for root, dirs, files in os.walk(panel_dir):
+            btn = os.path.basename(root)
             if not btn.endswith('.pushbutton'):
                 continue
-            script = os.path.join(panel_dir, btn, 'script.py')
+            script = os.path.join(root, 'script.py')
             if not os.path.exists(script):
                 continue
             title = _read_title(script) or btn.replace('.pushbutton', '')
