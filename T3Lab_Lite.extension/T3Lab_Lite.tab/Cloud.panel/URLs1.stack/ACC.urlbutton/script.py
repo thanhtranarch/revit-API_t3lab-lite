@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__title__ = 'Go To ACC'
+__title__ = 'ACC'
 __author__  = 'Tay Othman, AIA'
 __doc__ = """This script will open the Autodesk Construction Cloud (ACC) website for the current project in the default web browser.
             Author: Tay Othman, AIA """
