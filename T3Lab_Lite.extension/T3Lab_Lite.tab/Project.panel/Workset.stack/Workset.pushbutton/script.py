@@ -12,7 +12,7 @@ Linkedin: linkedin.com/in/sunarch7899/
 """
 
 __author__ = "Tran Tien Thanh"
-__title__  = "Workset\nMgmt"
+__title__  = "Workset Management"
 
 import os
 import json
