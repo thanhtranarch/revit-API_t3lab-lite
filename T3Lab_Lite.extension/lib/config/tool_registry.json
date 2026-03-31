@@ -1,25 +1,103 @@
 {
   "tools": {
-    "StopMCP.pushbutton": {
-      "button": "StopMCP.pushbutton", 
-      "panel": "AI Connection.panel", 
-      "title": "Disconnect", 
+    "Split.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Split.pushbutton\\script.py", 
+      "button": "Split.pushbutton", 
       "keywords": [
-        "disconnect", 
-        "stopmcp"
+        "split"
       ], 
-      "intent": "open_stopmcp", 
-      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\AI Connection.panel\\StopMCP.pushbutton\\script.py"
+      "title": "Split", 
+      "intent": "open_split"
     }, 
     "JSONtoFamily.pushbutton": {
-      "panel": "Project.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\JSONtoFamily.pushbutton\\script.py", 
       "button": "JSONtoFamily.pushbutton", 
+      "panel": "Project.panel", 
+      "title": "JSONtoFamily", 
       "keywords": [
         "jsontofamily"
       ], 
-      "title": "JSONtoFamily", 
-      "intent": "open_jsontofamily"
+      "intent": "open_jsontofamily", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\JSONtoFamily.pushbutton\\script.py"
+    }, 
+    "Legend (Nonavailable).pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Legend elements list.pulldown\\Legend (Nonavailable).pushbutton\\script.py", 
+      "button": "Legend (Nonavailable).pushbutton", 
+      "keywords": [
+        "upper(viewname&titleblock)", 
+        "legend (nonavailable)", 
+        "nonavailable", 
+        "titleblock", 
+        "viewname", 
+        "legend", 
+        "upper"
+      ], 
+      "title": "Upper(ViewName&TitleBlock)", 
+      "intent": "open_legend_nonavailable"
+    }, 
+    "Distribute Viewsport.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Views.stack\\Distribute Viewsport.pushbutton\\script.py", 
+      "button": "Distribute Viewsport.pushbutton", 
+      "keywords": [
+        "distribute viewsport", 
+        "distribute", 
+        "viewsport"
+      ], 
+      "title": "Distribute Viewsport", 
+      "intent": "open_distribute_viewsport"
+    }, 
+    "WorksetView.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\WorksetView.pushbutton\\script.py", 
+      "button": "WorksetView.pushbutton", 
+      "keywords": [
+        "workset views", 
+        "worksetview", 
+        "workset", 
+        "views"
+      ], 
+      "title": "Workset Views", 
+      "intent": "open_worksetview"
+    }, 
+    "Align Grid.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Lab.pulldown\\Align Grid.pushbutton\\script.py", 
+      "button": "Align Grid.pushbutton", 
+      "keywords": [
+        "align grid", 
+        "align", 
+        "grid"
+      ], 
+      "title": "Align Grid", 
+      "intent": "open_align_grid"
+    }, 
+    "Distribute Vertically.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Distribute.stack\\Distribute Vertically.pushbutton\\script.py", 
+      "button": "Distribute Vertically.pushbutton", 
+      "keywords": [
+        "distribute vertically", 
+        "distribute", 
+        "vertically"
+      ], 
+      "title": "Vertically", 
+      "intent": "open_distribute_vertically"
+    }, 
+    "Floor Types.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Create.pulldown\\Floor Types.pushbutton\\script.py", 
+      "button": "Floor Types.pushbutton", 
+      "keywords": [
+        "floor types", 
+        "floor type", 
+        "floor", 
+        "types", 
+        "type"
+      ], 
+      "title": "Floor Type", 
+      "intent": "open_floor_types"
     }, 
     "JSONToFamily.pushbutton": {
       "button": "JSONToFamily.pushbutton", 
@@ -35,6 +113,154 @@
       "intent": "open_jsontofamily", 
       "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\JSONToFamily.pushbutton\\script.py"
     }, 
+    "Restore All Grids.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Text.stack\\Grids.pulldown\\Restore All Grids.pushbutton\\script.py", 
+      "button": "Restore All Grids.pushbutton", 
+      "keywords": [
+        "restore all grids", 
+        "restore", 
+        "grids", 
+        "all"
+      ], 
+      "title": "Restore All Grids", 
+      "intent": "open_restore_all_grids"
+    }, 
+    "Vertical Top.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Multi-Align.pulldown\\Vertical.stack\\Vertical Top.pushbutton\\script.py", 
+      "button": "Vertical Top.pushbutton", 
+      "keywords": [
+        "vertical top", 
+        "vertical", 
+        "top"
+      ], 
+      "title": "Vertical Top", 
+      "intent": "open_vertical_top"
+    }, 
+    "DWGtoFamily.pushbutton": {
+      "button": "DWGtoFamily.pushbutton", 
+      "panel": "Project.panel", 
+      "title": "DWGtoFamily", 
+      "keywords": [
+        "dwgtofamily"
+      ], 
+      "intent": "open_dwgtofamily", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\DWGtoFamily.pushbutton\\script.py"
+    }, 
+    "Batch Sheets.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Views.stack\\Batch Sheets.pushbutton\\script.py", 
+      "button": "Batch Sheets.pushbutton", 
+      "keywords": [
+        "batch sheets", 
+        "sheets", 
+        "batch"
+      ], 
+      "title": "Batch Sheets", 
+      "intent": "open_batch_sheets"
+    }, 
+    "Sweep-Legend&Schedule check.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Sweep-Legend&Schedule check.pushbutton\\script.py", 
+      "button": "Sweep-Legend&Schedule check.pushbutton", 
+      "keywords": [
+        "sweep-legend&schedule check", 
+        "remove view", 
+        "schedule", 
+        "legend", 
+        "remove", 
+        "sweep", 
+        "check", 
+        "view"
+      ], 
+      "title": "Remove View", 
+      "intent": "open_sweep_legend&schedule_check"
+    }, 
+    "Horizontal Right.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Multi-Align.pulldown\\Horizontal.stack\\Horizontal Right.pushbutton\\script.py", 
+      "button": "Horizontal Right.pushbutton", 
+      "keywords": [
+        "horizontal right", 
+        "horizontal", 
+        "right"
+      ], 
+      "title": "Horizontal Right", 
+      "intent": "open_horizontal_right"
+    }, 
+    "CAD to model.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Create.pulldown\\CAD to model.pushbutton\\script.py", 
+      "button": "CAD to model.pushbutton", 
+      "keywords": [
+        "cad to model", 
+        "model", 
+        "cad", 
+        "to"
+      ], 
+      "title": "CAD to model", 
+      "intent": "open_cad_to_model"
+    }, 
+    "Join.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Lab.pulldown\\Join.pushbutton\\script.py", 
+      "button": "Join.pushbutton", 
+      "keywords": [
+        "join"
+      ], 
+      "title": "Join", 
+      "intent": "open_join"
+    }, 
+    "Convert (Drafting to Legend).pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Schedule.pulldown\\Convert (Drafting to Legend).pushbutton\\script.py", 
+      "button": "Convert (Drafting to Legend).pushbutton", 
+      "keywords": [
+        "convert  (schedule to lengend)", 
+        "convert (drafting to legend)", 
+        "schedule", 
+        "drafting", 
+        "lengend", 
+        "convert", 
+        "legend", 
+        "to"
+      ], 
+      "title": "Convert  (Schedule to Lengend)", 
+      "intent": "open_convert_drafting_to_legend"
+    }, 
+    "Create Room Plan.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Create.stack\\Create Room Plan.pushbutton\\script.py", 
+      "button": "Create Room Plan.pushbutton", 
+      "keywords": [
+        "create plan views", 
+        "create room plan", 
+        "create", 
+        "views", 
+        "plan", 
+        "room"
+      ], 
+      "title": "Create Plan Views", 
+      "intent": "open_create_room_plan"
+    }, 
+    "Values to Filled Region .pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Areas.stack\\Values to Filled Region .pushbutton\\script.py", 
+      "button": "Values to Filled Region .pushbutton", 
+      "keywords": [
+        "values to filled region ", 
+        "opening assign values", 
+        "opening", 
+        "region", 
+        "values", 
+        "assign", 
+        "filled", 
+        "to"
+      ], 
+      "title": "Opening Assign Values", 
+      "intent": "open_values_to_filled_region"
+    }, 
     "DrillingPointCoordination.pushbutton": {
       "button": "DrillingPointCoordination.pushbutton", 
       "panel": "Tempor.panel", 
@@ -44,6 +270,307 @@
       ], 
       "intent": "open_drillingpointcoordination", 
       "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Tempor.panel\\DrillingPointCoordination.pushbutton\\script.py"
+    }, 
+    "Rename.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Text.stack\\Rename.pushbutton\\script.py", 
+      "button": "Rename.pushbutton", 
+      "keywords": [
+        "rename"
+      ], 
+      "title": "Rename", 
+      "intent": "open_rename"
+    }, 
+    "Intersection2D.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Intersection2D.pushbutton\\script.py", 
+      "button": "Intersection2D.pushbutton", 
+      "keywords": [
+        "intersection2d"
+      ], 
+      "title": "Intersection2D", 
+      "intent": "open_intersection2d"
+    }, 
+    "Room to Room.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Room.stack\\Room to Room.pushbutton\\script.py", 
+      "button": "Room to Room.pushbutton", 
+      "keywords": [
+        "room to room", 
+        "room", 
+        "to"
+      ], 
+      "title": "Room to room", 
+      "intent": "open_room_to_room"
+    }, 
+    "Keynotes.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Organizing data.stack\\Keynotes.pushbutton\\script.py", 
+      "button": "Keynotes.pushbutton", 
+      "keywords": [
+        "keynotes"
+      ], 
+      "title": "Keynotes", 
+      "intent": "open_keynotes"
+    }, 
+    "StopMCP.pushbutton": {
+      "button": "StopMCP.pushbutton", 
+      "panel": "AI Connection.panel", 
+      "title": "Disconnect", 
+      "keywords": [
+        "disconnect", 
+        "stopmcp"
+      ], 
+      "intent": "open_stopmcp", 
+      "script_path": "D:\\code_revit\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\AI Connection.panel\\StopMCP.pushbutton\\script.py"
+    }, 
+    "Restore Grids.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Text.stack\\Grids.pulldown\\Restore Grids.pushbutton\\script.py", 
+      "button": "Restore Grids.pushbutton", 
+      "keywords": [
+        "restore grids", 
+        "restore", 
+        "grids"
+      ], 
+      "title": "Restore Grids", 
+      "intent": "open_restore_grids"
+    }, 
+    "Legend (List types).pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Legend elements list.pulldown\\Legend (List types).pushbutton\\script.py", 
+      "button": "Legend (List types).pushbutton", 
+      "keywords": [
+        "legend (list types)", 
+        "types list", 
+        "legend", 
+        "types", 
+        "list"
+      ], 
+      "title": "Types List", 
+      "intent": "open_legend_list_types"
+    }, 
+    "ManageDocumentParameters.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Organizing data.stack\\ManageDocumentParameters.pushbutton\\script.py", 
+      "button": "ManageDocumentParameters.pushbutton", 
+      "keywords": [
+        "managedocumentparameters", 
+        "documentparameters"
+      ], 
+      "title": "DocumentParameters", 
+      "intent": "open_managedocumentparameters"
+    }, 
+    "Upper(ViewName&TitleBlock).pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Text.stack\\Upper(ViewName&TitleBlock).pushbutton\\script.py", 
+      "button": "Upper(ViewName&TitleBlock).pushbutton", 
+      "keywords": [
+        "upper(viewname&titleblock)", 
+        "titleblock", 
+        "viewname", 
+        "upper"
+      ], 
+      "title": "Upper(ViewName&TitleBlock)", 
+      "intent": "open_upper_viewname&titleblock"
+    }, 
+    "Modify TextNote.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Text.stack\\Modify TextNote.pushbutton\\script.py", 
+      "button": "Modify TextNote.pushbutton", 
+      "keywords": [
+        "adjust textnote (py)", 
+        "modify textnote", 
+        "textnote", 
+        "modify", 
+        "adjust", 
+        "py"
+      ], 
+      "title": "Adjust TextNote (py)", 
+      "intent": "open_modify_textnote"
+    }, 
+    "Vertical Center.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Multi-Align.pulldown\\Vertical.stack\\Vertical Center.pushbutton\\script.py", 
+      "button": "Vertical Center.pushbutton", 
+      "keywords": [
+        "vertical center", 
+        "vertical", 
+        "center"
+      ], 
+      "title": "Vertical Center", 
+      "intent": "open_vertical_center"
+    }, 
+    "Auto Tag Opening.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Areas.stack\\Auto Tag Opening.pushbutton\\script.py", 
+      "button": "Auto Tag Opening.pushbutton", 
+      "keywords": [
+        "tag area opening", 
+        "auto tag opening", 
+        "opening", 
+        "auto", 
+        "area", 
+        "tag"
+      ], 
+      "title": "Tag Area Opening", 
+      "intent": "open_auto_tag_opening"
+    }, 
+    "Calculator (Nonavailable).pushbutton": {
+      "panel": "Calculator.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Calculator.panel\\Calculator (Nonavailable).pushbutton\\script.py", 
+      "button": "Calculator (Nonavailable).pushbutton", 
+      "keywords": [
+        "calculator (nonavailable)", 
+        "calculator  (imperial)", 
+        "nonavailable", 
+        "calculator", 
+        "imperial"
+      ], 
+      "title": "Calculator  (Imperial)", 
+      "intent": "open_calculator_nonavailable"
+    }, 
+    "Load Family.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Family.stack\\Load Family.pushbutton\\script.py", 
+      "button": "Load Family.pushbutton", 
+      "keywords": [
+        "load family", 
+        "family", 
+        "load"
+      ], 
+      "title": "Load Family", 
+      "intent": "open_load_family"
+    }, 
+    "Wall Types.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Create.stack\\Wall Types.pushbutton\\script.py", 
+      "button": "Wall Types.pushbutton", 
+      "keywords": [
+        "wall types", 
+        "wall type", 
+        "types", 
+        "type", 
+        "wall"
+      ], 
+      "title": "Wall Type", 
+      "intent": "open_wall_types"
+    }, 
+    "Horizontal Center.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Multi-Align.pulldown\\Horizontal.stack\\Horizontal Center.pushbutton\\script.py", 
+      "button": "Horizontal Center.pushbutton", 
+      "keywords": [
+        "horizontal center", 
+        "horizontal", 
+        "center"
+      ], 
+      "title": "Horizontal Center", 
+      "intent": "open_horizontal_center"
+    }, 
+    "Distribute Horizontally.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Distribute.stack\\Distribute Horizontally.pushbutton\\script.py", 
+      "button": "Distribute Horizontally.pushbutton", 
+      "keywords": [
+        "distribute horizontally", 
+        "horizontally", 
+        "distribute"
+      ], 
+      "title": "Horizontally", 
+      "intent": "open_distribute_horizontally"
+    }, 
+    "Select.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Select.pushbutton\\script.py", 
+      "button": "Select.pushbutton", 
+      "keywords": [
+        "select"
+      ], 
+      "title": "Select", 
+      "intent": "open_select"
+    }, 
+    "ManageSharedParameter.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Organizing data.stack\\ManageSharedParameter.pushbutton\\script.py", 
+      "button": "ManageSharedParameter.pushbutton", 
+      "keywords": [
+        "managesharedparameter", 
+        "sharedparameters"
+      ], 
+      "title": "SharedParameters", 
+      "intent": "open_managesharedparameter"
+    }, 
+    "Rename Sheets.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Views.stack\\Rename Sheets.pushbutton\\script.py", 
+      "button": "Rename Sheets.pushbutton", 
+      "keywords": [
+        "rename sheets", 
+        "sheetgen", 
+        "rename", 
+        "sheets"
+      ], 
+      "title": "SheetGen", 
+      "intent": "open_rename_sheets"
+    }, 
+    "Upper TextNote.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Distribute.stack\\Upper TextNote.pushbutton\\script.py", 
+      "button": "Upper TextNote.pushbutton", 
+      "keywords": [
+        "upper textnote", 
+        "textnote", 
+        "upper"
+      ], 
+      "title": "UPPER", 
+      "intent": "open_upper_textnote"
+    }, 
+    "Central File.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\Central File.pushbutton\\script.py", 
+      "button": "Central File.pushbutton", 
+      "keywords": [
+        "central file", 
+        "central", 
+        "file"
+      ], 
+      "title": "Central File", 
+      "intent": "open_central_file"
+    }, 
+    "Renumber.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Lab.pulldown\\Renumber.pushbutton\\script.py", 
+      "button": "Renumber.pushbutton", 
+      "keywords": [
+        "renumber"
+      ], 
+      "title": "Renumber", 
+      "intent": "open_renumber"
+    }, 
+    "Vertical Bottom.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Multi-Align.pulldown\\Vertical.stack\\Vertical Bottom.pushbutton\\script.py", 
+      "button": "Vertical Bottom.pushbutton", 
+      "keywords": [
+        "vertical bottom", 
+        "vertical", 
+        "bottom"
+      ], 
+      "title": "Vertical Bottom", 
+      "intent": "open_vertical_bottom"
+    }, 
+    "Save Grids.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\Text.stack\\Grids.pulldown\\Save Grids.pushbutton\\script.py", 
+      "button": "Save Grids.pushbutton", 
+      "keywords": [
+        "save grids", 
+        "grids", 
+        "save"
+      ], 
+      "title": "Save Grids", 
+      "intent": "open_save_grids"
     }, 
     "AnnotationManager.pushbutton": {
       "button": "AnnotationManager.pushbutton", 
@@ -58,15 +585,141 @@
       "intent": "open_annotationmanager", 
       "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Annotation.panel\\AnnotationManager.pushbutton\\script.py"
     }, 
-    "DWGtoFamily.pushbutton": {
-      "panel": "Project.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Project.panel\\DWGtoFamily.pushbutton\\script.py", 
-      "button": "DWGtoFamily.pushbutton", 
+    "HideAnnotation Template.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Lab.pulldown\\HideAnnotation Template.pushbutton\\script.py", 
+      "button": "HideAnnotation Template.pushbutton", 
       "keywords": [
-        "dwgtofamily"
+        "hideannotation template", 
+        "hideannotation", 
+        "template"
       ], 
-      "title": "DWGtoFamily", 
-      "intent": "open_dwgtofamily"
+      "title": "HideAnnotation Template", 
+      "intent": "open_hideannotation_template"
+    }, 
+    "Remove Workset.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Remove Workset.pushbutton\\script.py", 
+      "button": "Remove Workset.pushbutton", 
+      "keywords": [
+        "remove workset", 
+        "workset", 
+        "remove"
+      ], 
+      "title": "Remove Workset", 
+      "intent": "open_remove_workset"
+    }, 
+    "Tile Counting.pushbutton": {
+      "panel": "Calculator.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Calculator.panel\\Tile Counting.pushbutton\\script.py", 
+      "button": "Tile Counting.pushbutton", 
+      "keywords": [
+        "tile counting", 
+        "counting", 
+        "tile"
+      ], 
+      "title": "Tile Counting", 
+      "intent": "open_tile_counting"
+    }, 
+    "Text on Dimension.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Room.stack\\Text on Dimension.pushbutton\\script.py", 
+      "button": "Text on Dimension.pushbutton", 
+      "keywords": [
+        "text in dimension", 
+        "text on dimension", 
+        "dimension", 
+        "text", 
+        "on", 
+        "in"
+      ], 
+      "title": "Text in Dimension", 
+      "intent": "open_text_on_dimension"
+    }, 
+    "Convert (Schedule to Legend).pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Schedule.pulldown\\Convert (Schedule to Legend).pushbutton\\script.py", 
+      "button": "Convert (Schedule to Legend).pushbutton", 
+      "keywords": [
+        "convert  (schedule to lengend)", 
+        "convert (schedule to legend)", 
+        "schedule", 
+        "lengend", 
+        "convert", 
+        "legend", 
+        "to"
+      ], 
+      "title": "Convert  (Schedule to Lengend)", 
+      "intent": "open_convert_schedule_to_legend"
+    }, 
+    "Room to Area.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Areas.stack\\Room to Area.pushbutton\\script.py", 
+      "button": "Room to Area.pushbutton", 
+      "keywords": [
+        "room to area", 
+        "room", 
+        "area", 
+        "to"
+      ], 
+      "title": "Room to Area", 
+      "intent": "open_room_to_area"
+    }, 
+    "Reset Linework.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Lab.pulldown\\Reset Linework.pushbutton\\script.py", 
+      "button": "Reset Linework.pushbutton", 
+      "keywords": [
+        "reset linework", 
+        "linework", 
+        "reset"
+      ], 
+      "title": "Reset Linework", 
+      "intent": "open_reset_linework"
+    }, 
+    "Horizontal Left.pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Multi-Align.pulldown\\Horizontal.stack\\Horizontal Left.pushbutton\\script.py", 
+      "button": "Horizontal Left.pushbutton", 
+      "keywords": [
+        "horizontal left", 
+        "horizontal", 
+        "left"
+      ], 
+      "title": "Horizontal Left", 
+      "intent": "open_horizontal_left"
+    }, 
+    "Legend (List FillesRegions).pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Legend elements list.pulldown\\Legend (List FillesRegions).pushbutton\\script.py", 
+      "button": "Legend (List FillesRegions).pushbutton", 
+      "keywords": [
+        "legend (list fillesregions)", 
+        "list filledregions", 
+        "filledregions", 
+        "fillesregions", 
+        "legend", 
+        "list"
+      ], 
+      "title": "List FilledRegions", 
+      "intent": "open_legend_list_fillesregions"
+    }, 
+    "Convert (Legend to Drafting).pushbutton": {
+      "panel": "Lab.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\revit-API_t3lab-lite\\revit-API_t3lab-lite\\T3Lab_Lite.extension\\T3Lab_Lite.tab\\Lab.panel\\Schedule.pulldown\\Convert (Legend to Drafting).pushbutton\\script.py", 
+      "button": "Convert (Legend to Drafting).pushbutton", 
+      "keywords": [
+        "convert  (schedule to lengend)", 
+        "convert (legend to drafting)", 
+        "schedule", 
+        "drafting", 
+        "lengend", 
+        "convert", 
+        "legend", 
+        "to"
+      ], 
+      "title": "Convert  (Schedule to Lengend)", 
+      "intent": "open_convert_legend_to_drafting"
     }
   }, 
   "version": 1
