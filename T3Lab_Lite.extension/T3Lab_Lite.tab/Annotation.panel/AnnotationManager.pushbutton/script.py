@@ -246,7 +246,7 @@ class AnnotationManagerWindow(forms.WPFWindow):
             notes = FilteredElementCollector(doc).OfClass(TextNote)\
                     .WhereElementIsNotElementType().ToElements()
             for tn in notes:
-                view = doc.GetElement(tn.ViewId)
+                view = doc.GetElement(tn.OwnerViewId)
                 if view:
                     preview = (tn.Text or "")[:60].replace("\n", " ").replace("\r", "")
                     self._dt_add(self._txt_dt, str(tn.Id), "TxtInst",
@@ -478,7 +478,7 @@ class AnnotationManagerWindow(forms.WPFWindow):
                     .WhereElementIsNotElementType().ToElements()
             for tn in notes:
                 if kw in (tn.Text or "").lower():
-                    view = doc.GetElement(tn.ViewId)
+                    view = doc.GetElement(tn.OwnerViewId)
                     if view:
                         preview = (tn.Text or "")[:60].replace("\n", " ").replace("\r", "")
                         self._dt_add(self._txt_dt, str(tn.Id), "TxtInst",
@@ -551,7 +551,7 @@ class AnnotationManagerWindow(forms.WPFWindow):
         tn      = self._txt_map.get(elem_id)
         if not tn:
             return
-        view = doc.GetElement(tn.ViewId)
+        view = doc.GetElement(tn.OwnerViewId)
         if view:
             uidoc.ActiveView = view
             uidoc.ShowElements(tn.Id)
