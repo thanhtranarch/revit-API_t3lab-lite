@@ -194,6 +194,10 @@ class AnnotationManagerWindow(forms.WPFWindow):
         except Exception:
             pass
 
+        # Auto-load all elements on startup
+        self._load_all_dims()
+        self._load_all_txts()
+
     # ── helpers ─────────────────────────────────────────────────────────
 
     def _status(self, msg):
@@ -206,6 +210,67 @@ class AnnotationManagerWindow(forms.WPFWindow):
         row["Name"]    = name
         row["Details"] = details
         dt.Rows.Add(row)
+
+    def _load_all_dims(self):
+        self._dim_dt.Clear()
+        self._dim_map = {}
+
+        if self._dim_submode == "instances":
+            dims = FilteredElementCollector(doc).OfClass(Dimension)\
+                   .WhereElementIsNotElementType().ToElements()
+            for d in dims:
+                view = doc.GetElement(d.OwnerViewId)
+                if view:
+                    self._dt_add(self._dim_dt, str(d.Id), "DimInst",
+                                 d.Name or "<unnamed>", view.Name)
+                    self._dim_map[str(d.Id)] = d
+        else:
+            types = FilteredElementCollector(doc).OfClass(DimensionType)\
+                    .WhereElementIsElementType().ToElements()
+            for dt in types:
+                name = dt.Name or ""
+                self._dt_add(self._dim_dt, str(dt.Id), "DimType",
+                             name or "<unnamed>", "Dimension Type")
+                self._dim_map[str(dt.Id)] = dt
+
+        n = len(self._dim_map)
+        self.dim_count.Text = "{} found".format(n)
+        kind = "dimension(s)" if self._dim_submode == "instances" else "type(s)"
+        self._status("Loaded {} {}.".format(n, kind))
+
+    def _load_all_txts(self):
+        self._txt_dt.Clear()
+        self._txt_map = {}
+
+        if self._txt_submode == "notes":
+            notes = FilteredElementCollector(doc).OfClass(TextNote)\
+                    .WhereElementIsNotElementType().ToElements()
+            for tn in notes:
+                view = doc.GetElement(tn.ViewId)
+                if view:
+                    preview = (tn.Text or "")[:60].replace("\n", " ").replace("\r", "")
+                    self._dt_add(self._txt_dt, str(tn.Id), "TxtInst",
+                                 preview, view.Name)
+                    self._txt_map[str(tn.Id)] = tn
+        else:
+            types = FilteredElementCollector(doc).OfClass(TextNoteType)\
+                    .WhereElementIsElementType().ToElements()
+            for tt in types:
+                name = tt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString() or ""
+                self._dt_add(self._txt_dt, str(tt.Id), "TxtType",
+                             name or "<unnamed>", "Text Note Type")
+                self._txt_map[str(tt.Id)] = tt
+
+        n = len(self._txt_map)
+        self.txt_count.Text = "{} found".format(n)
+        kind = "note(s)" if self._txt_submode == "notes" else "type(s)"
+        self._status("Loaded {} {}.".format(n, kind))
+
+    def dim_refresh(self, sender, args):
+        self._load_all_dims()
+
+    def txt_refresh(self, sender, args):
+        self._load_all_txts()
 
     def _remove_rows(self, dt, elem_map, ok_ids):
         ok_set = set(ok_ids)
@@ -236,18 +301,14 @@ class AnnotationManagerWindow(forms.WPFWindow):
     def dim_submode(self, sender, args):
         self._dim_submode = "instances" if self.rb_dim_inst.IsChecked else "types"
         self.btn_dim_jump.IsEnabled = (self._dim_submode == "instances")
-        self._dim_dt.Clear()
-        self._dim_map = {}
-        self.dim_count.Text = ""
-        self._status("Mode: {}.".format(
-            "Find Dimensions" if self._dim_submode == "instances" else "Find Types (double-click Name to rename)"))
+        self._load_all_dims()
 
     # ── DIMENSION operations ─────────────────────────────────────────────
 
     def dim_search(self, sender, args):
         kw = self.dim_kw.Text.strip().lower()
         if not kw:
-            self._status("Enter a keyword.")
+            self._load_all_dims()
             return
 
         self._dim_dt.Clear()
@@ -399,18 +460,14 @@ class AnnotationManagerWindow(forms.WPFWindow):
             self._txt_submode = "types"
             self.txt_lbl.Text = "Type name:"
             self.btn_txt_jump.IsEnabled = False
-        self._txt_dt.Clear()
-        self._txt_map = {}
-        self.txt_count.Text = ""
-        self._status("Sub-mode: {}.".format(
-            "Find Notes" if self._txt_submode == "notes" else "Find Types (double-click Name to rename)"))
+        self._load_all_txts()
 
     # ── TEXTNOTE operations ──────────────────────────────────────────────
 
     def txt_search(self, sender, args):
         kw = self.txt_kw.Text.strip().lower()
         if not kw:
-            self._status("Enter a keyword.")
+            self._load_all_txts()
             return
 
         self._txt_dt.Clear()

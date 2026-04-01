@@ -319,6 +319,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Type name:" VerticalAlignment="Center"
                                        FontWeight="Medium" Foreground="#2C3E50" Margin="0,0,8,0"/>
@@ -327,7 +328,9 @@
                                      BorderBrush="#BDC3C7" BorderThickness="1" FontFamily="Consolas"/>
                             <Button Grid.Column="2" Content="Search" Height="30" Margin="8,0,0,0"
                                     Style="{StaticResource PrimaryButton}" Click="dim_search"/>
-                            <TextBlock x:Name="dim_count" Grid.Column="3"
+                            <Button Grid.Column="3" Content="⟳ Refresh" Height="30" Margin="6,0,0,0"
+                                    Style="{StaticResource SecondaryButton}" Click="dim_refresh"/>
+                            <TextBlock x:Name="dim_count" Grid.Column="4"
                                        VerticalAlignment="Center" Margin="12,0,0,0"
                                        FontSize="11" Foreground="#7F8C8D"/>
                         </Grid>
@@ -456,6 +459,7 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock x:Name="txt_lbl" Grid.Column="0" Text="Content:"
                                        VerticalAlignment="Center" FontWeight="Medium"
@@ -465,7 +469,9 @@
                                      BorderBrush="#BDC3C7" BorderThickness="1" FontFamily="Consolas"/>
                             <Button Grid.Column="2" Content="Search" Height="30" Margin="8,0,0,0"
                                     Style="{StaticResource PrimaryButton}" Click="txt_search"/>
-                            <TextBlock x:Name="txt_count" Grid.Column="3"
+                            <Button Grid.Column="3" Content="⟳ Refresh" Height="30" Margin="6,0,0,0"
+                                    Style="{StaticResource SecondaryButton}" Click="txt_refresh"/>
+                            <TextBlock x:Name="txt_count" Grid.Column="4"
                                        VerticalAlignment="Center" Margin="12,0,0,0"
                                        FontSize="11" Foreground="#7F8C8D"/>
                         </Grid>
