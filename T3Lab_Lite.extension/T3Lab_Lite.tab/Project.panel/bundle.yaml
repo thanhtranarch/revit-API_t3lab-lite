@@ -1,11 +1,6 @@
 layout:
-  - Create
-  - Views
-  - Organizing data
-  - Central File
   - Workset
-  - WorksetView
-  - LoadFamily
-  - DWGtoFamily
-  - JSONtoFamily
-  - PropertyLine
+  - Organizing data
+  - Area
+  - Create
+  - FamilyWork 
