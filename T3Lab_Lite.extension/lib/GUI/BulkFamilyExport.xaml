@@ -232,7 +232,7 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#2980B9" Margin="0,0,5,0"/>
                 <TextBlock Foreground="#2C3E50" TextWrapping="Wrap"
-                           Text="Select an imported CAD file, choose a family category, then click 'Scan Blocks' to discover block references."/>
+                           Text="Select a CAD file and click 'Scan Blocks' to discover block references. Use 'Load to Project' to also load exported families into the current model."/>
             </StackPanel>
         </Border>
 
@@ -300,7 +300,16 @@
                     <Button Content="Deselect All" Style="{StaticResource SecondaryButton}"
                             Click="deselect_all_clicked"/>
                 </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <CheckBox x:Name="chk_load_to_project"
+                              Content="Load to Project"
+                              VerticalAlignment="Center"
+                              Margin="0,0,16,0"
+                              Foreground="#2C3E50"
+                              FontFamily="Segoe UI"
+                              FontSize="12"
+                              ToolTip="After export, load each family into the current Revit project"/>
                     <Button x:Name="btn_export" Content="Export Selected"
                             Style="{StaticResource SuccessButton}" Click="export_clicked"
                             Padding="20,8" FontSize="13" FontWeight="SemiBold"/>

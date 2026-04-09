@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Bulk Family Export
+Bulk Family Export  (merged with DWG to Family)
 
-Export CAD blocks from imported DWG/DXF files as individual Revit families.
-Select an imported CAD file, choose a family category, scan for blocks,
-and export each block as a separate .rfa family file.
+Export CAD blocks from imported DWG/DXF files as individual Revit families,
+with an option to load the exported families directly into the project.
+
+Parametric door/window families use reference planes + dimensions linked to
+Width/Height parameters, following the same pattern as the JSONtoFamily tool.
 
 Author: T3Lab
 """
@@ -13,7 +15,7 @@ from __future__ import unicode_literals
 
 __author__  = "T3Lab"
 __title__   = "Bulk Family\nExport"
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 # ─── Imports ──────────────────────────────────────────────────────────────────
 
@@ -38,7 +40,11 @@ from Autodesk.Revit.DB import (
     CurveArray, CurveArrArray,
     SketchPlane, SaveAsOptions,
     Transaction, ElementId,
+    View, ViewType, ReferencePlane, ReferenceArray,
+    PlanarFace, Solid,
 )
+
+from Utils.DWGFamilyHelpers import get_xy_bounds
 
 # ─── Revit context ────────────────────────────────────────────────────────────
 
@@ -261,7 +267,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         curves = collect_curves(geom)
         if curves:
             name = self._get_cad_name(import_inst)
-            
+
             level_name = ""
             try:
                 level_param = import_inst.get_Parameter(DB.BuiltInParameter.IMPORT_BASE_LEVEL)
@@ -275,7 +281,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                             level_name = level_elem.Name
             except Exception:
                 pass
-                
+
             return BlockItem(name, len(curves), 1, curves, layer_level=level_name)
         return None
 
@@ -344,7 +350,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
 
             layer = style_name(geo_inst)
             counter[0] += 1
-            
+
             block_name = ""
             try:
                 if hasattr(geo_inst, 'Symbol') and geo_inst.Symbol:
@@ -387,7 +393,8 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         items = []
         for data in sorted(found.values(), key=lambda d: d['name']):
             items.append(BlockItem(
-                data['name'], len(data['curves']), data['count'], data['curves'], layer_level=data.get('layer', "")))
+                data['name'], len(data['curves']), data['count'], data['curves'],
+                layer_level=data.get('layer', "")))
         return items
 
     # ── Folder picker ─────────────────────────────────────────────────────
@@ -429,7 +436,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             return
 
         category_name = CATEGORY_TEMPLATES[cat_idx][0]
-        
+
         disc_idx = self.discipline_combo.SelectedIndex
         if disc_idx < 0:
             forms.alert("Please select a discipline.")
@@ -443,13 +450,17 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     category_name))
             return
 
+        load_to_project = (self.chk_load_to_project.IsChecked == True)
+
         self._update_status("Exporting {} block(s)...".format(len(selected)))
         success, failed = 0, 0
 
         for item in selected:
             try:
                 self._update_status("Exporting: {}".format(item.BlockName))
-                ok = self._export_block(item, template_path, output_folder, discipline_name, category_name)
+                ok = self._export_block(
+                    item, template_path, output_folder,
+                    discipline_name, category_name, load_to_project)
                 if ok:
                     success += 1
                 else:
@@ -461,10 +472,12 @@ class BulkFamilyExportWindow(forms.WPFWindow):
 
         self._update_status(
             "Done: {} exported, {} failed".format(success, failed))
+
+        extra = "\nFamilies loaded to project." if load_to_project and success else ""
         forms.alert(
             "Export complete!\n\n"
             "Succeeded: {}\nFailed: {}\n\n"
-            "Output folder:\n{}".format(success, failed, output_folder))
+            "Output folder:\n{}{}".format(success, failed, output_folder, extra))
 
     # ── Template lookup ───────────────────────────────────────────────────
 
@@ -501,10 +514,145 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     return fp
         return None
 
+    # ── Parametric reference planes (JSONtoFamily approach) ───────────────
+
+    def _find_family_views(self, fam_doc):
+        """Return (plan_view, elev_view) from a family document, or (None, None)."""
+        plan_view = None
+        elev_view = None
+        for v in FilteredElementCollector(fam_doc).OfClass(View):
+            try:
+                if v.IsTemplate:
+                    continue
+                vt = v.ViewType
+                if vt == ViewType.FloorPlan and plan_view is None:
+                    plan_view = v
+                elif vt == ViewType.Elevation and elev_view is None:
+                    try:
+                        if abs(v.ViewDirection.Y) > 0.99:
+                            elev_view = v
+                    except Exception:
+                        pass
+                if plan_view and elev_view:
+                    break
+            except Exception:
+                continue
+        return plan_view, elev_view
+
+    def _create_parametric_refs(self, fam_doc, half_w, height,
+                                 plan_view, elev_view,
+                                 param_width_fp, param_height_fp):
+        """Create reference planes + dimensions linked to Width/Height parameters.
+
+        This mirrors the JSONtoFamily approach: reference planes are created at
+        the geometry edges, then dimensioned and labelled so that changing
+        Width/Height in the family drives the geometry.
+
+        All failures are silenced so a bad template view never breaks export.
+        """
+        rp_left = rp_right = rp_top = None
+
+        # ── Plan: Left / Right planes for Width ──
+        if plan_view is not None:
+            try:
+                rp_left = fam_doc.FamilyCreate.NewReferencePlane(
+                    XYZ(-half_w, -3, 0), XYZ(-half_w, 3, 0), XYZ.BasisZ, plan_view)
+                rp_left.Name = "Edge_Left"
+
+                rp_right = fam_doc.FamilyCreate.NewReferencePlane(
+                    XYZ(half_w, -3, 0), XYZ(half_w, 3, 0), XYZ.BasisZ, plan_view)
+                rp_right.Name = "Edge_Right"
+
+                if param_width_fp is not None:
+                    ref_arr = ReferenceArray()
+                    ref_arr.Append(rp_left.GetReference())
+                    ref_arr.Append(rp_right.GetReference())
+                    dim_line = Line.CreateBound(
+                        XYZ(-half_w * 1.5, 2, 0),
+                        XYZ(half_w * 1.5, 2, 0))
+                    dim = fam_doc.FamilyCreate.NewDimension(plan_view, dim_line, ref_arr)
+                    if dim:
+                        dim.FamilyLabel = param_width_fp
+            except Exception:
+                pass
+
+        # ── Elevation: Top plane for Height ──
+        if elev_view is not None:
+            try:
+                rp_top = fam_doc.FamilyCreate.NewReferencePlane(
+                    XYZ(-3, 0, height), XYZ(3, 0, height), XYZ.BasisY, elev_view)
+                rp_top.Name = "Top"
+
+                if param_height_fp is not None:
+                    # Find an existing Level / Ref-Level plane
+                    rp_level = None
+                    for rp in FilteredElementCollector(fam_doc).OfClass(ReferencePlane):
+                        try:
+                            n = rp.Name.lower()
+                            if any(k in n for k in ("level", "floor", "bottom", "ref level")):
+                                rp_level = rp
+                                break
+                        except Exception:
+                            continue
+
+                    if rp_level:
+                        ref_arr = ReferenceArray()
+                        ref_arr.Append(rp_level.GetReference())
+                        ref_arr.Append(rp_top.GetReference())
+                        dim_line = Line.CreateBound(
+                            XYZ(0, 0, -0.1),
+                            XYZ(0, 0, height + 0.1))
+                        dim = fam_doc.FamilyCreate.NewDimension(elev_view, dim_line, ref_arr)
+                        if dim:
+                            dim.FamilyLabel = param_height_fp
+            except Exception:
+                pass
+
+        return rp_left, rp_right, rp_top
+
+    def _lock_faces_to_planes(self, fam_doc, solid_elem,
+                               plan_view, elev_view,
+                               rp_left, rp_right, rp_top):
+        """Align + lock the extrusion side faces to the parametric reference planes."""
+        try:
+            geom_opt = Options()
+            geom_opt.ComputeReferences = True
+            geom_elem = solid_elem.get_Geometry(geom_opt)
+            for geom_obj in geom_elem:
+                if not isinstance(geom_obj, Solid):
+                    continue
+                for face in geom_obj.Faces:
+                    if not isinstance(face, PlanarFace):
+                        continue
+                    n = face.FaceNormal
+                    pairs = []
+                    if rp_right and plan_view and n.X > 0.99:
+                        pairs.append((rp_right, plan_view))
+                    elif rp_left and plan_view and n.X < -0.99:
+                        pairs.append((rp_left, plan_view))
+                    elif rp_top and elev_view and n.Z > 0.99:
+                        pairs.append((rp_top, elev_view))
+                    for rp, view in pairs:
+                        try:
+                            align = fam_doc.FamilyCreate.NewAlignment(
+                                view, rp.GetReference(), face.Reference)
+                            if align:
+                                align.IsLocked = True
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
     # ── Single-block export ───────────────────────────────────────────────
 
-    def _export_block(self, block_item, template_path, output_folder, discipline_name, category_name):
-        """Create a .rfa family from a block's curves and save it."""
+    def _export_block(self, block_item, template_path, output_folder,
+                      discipline_name, category_name, load_to_project=False):
+        """Create a .rfa family from a block's curves and save it.
+
+        For Door and Window categories the family is fully parametric:
+        reference planes are created at the geometry edges and dimensioned
+        with the Width / Height family parameters (JSONtoFamily technique).
+        """
         curves = block_item._curves
         if not curves:
             return False
@@ -512,43 +660,27 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         # Create a fresh family document
         fam_doc = app.NewFamilyDocument(template_path)
 
-        # Compute bounding box and centre
-        xs, ys = [], []
-        for c in curves:
-            try:
-                p0 = c.GetEndPoint(0)
-                p1 = c.GetEndPoint(1)
-                xs.extend([p0.X, p1.X])
-                ys.extend([p0.Y, p1.Y])
-            except Exception:
-                pass
+        # Bounding box via shared helper
+        min_x, max_x, min_y, max_y = get_xy_bounds(curves)
 
-        if not xs:
-            fam_doc.Close(False)
-            return False
-
-        is_door = "door" in category_name.lower()
+        is_door   = "door"   in category_name.lower()
+        is_window = "window" in category_name.lower()
         door_width = None
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-        
+
         if is_door:
-            frame_xs = []
-            frame_ys = []
+            frame_xs, frame_ys = [], []
             for curve in curves:
                 if isinstance(curve, Arc):
                     try:
-                        C = curve.Center
+                        C  = curve.Center
                         p0 = curve.GetEndPoint(0)
                         p1 = curve.GetEndPoint(1)
                         frame_xs.append(C.X)
                         frame_ys.append(C.Y)
                         if abs(p0.Y - C.Y) < abs(p1.Y - C.Y):
-                            frame_xs.append(p0.X)
-                            frame_ys.append(p0.Y)
+                            frame_xs.append(p0.X); frame_ys.append(p0.Y)
                         else:
-                            frame_xs.append(p1.X)
-                            frame_ys.append(p1.Y)
+                            frame_xs.append(p1.X); frame_ys.append(p1.Y)
                     except Exception:
                         pass
             if frame_xs:
@@ -564,8 +696,8 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         else:
             cx = (min_x + max_x) / 2.0
             cy = (min_y + max_y) / 2.0
-            
-        half_w = max((max_x - min_x) / 2.0, 0.01)   # avoid zero
+
+        half_w = max((max_x - min_x) / 2.0, 0.01)
         half_h = max((max_y - min_y) / 2.0, 0.01)
 
         t = Transaction(fam_doc, 'Create Block Geometry')
@@ -585,15 +717,17 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     fam_doc,
                     Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ.Zero))
 
-            from Autodesk.Revit.DB import FamilyElementVisibility, FamilyElementVisibilityType, GraphicsStyleType, Transform
+            from Autodesk.Revit.DB import (
+                FamilyElementVisibility, FamilyElementVisibilityType,
+                GraphicsStyleType, Transform, BuiltInParameter,
+            )
 
             THICKNESS = 0.1312
-            HEIGHT = 7.2178
+            HEIGHT    = 7.2178
             extrusion_depth = HEIGHT if is_door else 1.0
 
-            # Get SubCategories for Doors
-            swing_gs = None
-            frame_gs = None
+            # ── Door subcategories ──
+            swing_gs = frame_gs = None
             if is_door:
                 try:
                     fam_cat = fam_doc.OwnerFamily.FamilyCategory
@@ -601,7 +735,6 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                         if fam_cat.SubCategories.Contains(name):
                             return fam_cat.SubCategories.get_Item(name)
                         return fam_doc.Settings.Categories.NewSubcategory(fam_cat, name)
-                    
                     swing_subcat = get_or_create_subcat("Plan Swing")
                     frame_subcat = get_or_create_subcat("Frame/Mullion")
                     if swing_subcat:
@@ -611,30 +744,32 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 except Exception:
                     pass
 
-            # Setup Parameters via JSONtoFamily Binding Logic
-            param_height = None
-            param_material = None
+            # ── Family parameters ──
+            param_height_fp = param_width_fp = param_material = None
             try:
                 fam_mgr = fam_doc.FamilyManager
                 for param in fam_mgr.Parameters:
                     pname = param.Definition.Name.lower()
-                    if pname in ["height", "chiều cao"]:
+                    if pname in ("height", "chiều cao"):
                         fam_mgr.Set(param, extrusion_depth)
-                        param_height = param
-                    elif pname in ["width", "chiều rộng"]:
+                        param_height_fp = param
+                    elif pname in ("width", "chiều rộng"):
                         if door_width:
                             fam_mgr.Set(param, door_width)
-                    elif pname in ["depth", "chiều sâu", "length", "chiều dài"]:
+                        param_width_fp = param
+                    elif pname in ("depth", "chiều sâu", "length", "chiều dài"):
                         if not is_door and half_h * 2.0 > 0.01:
                             fam_mgr.Set(param, half_h * 2.0)
-                    elif pname in ["material", "vật liệu"]:
+                    elif pname in ("material", "vật liệu"):
                         param_material = param
             except Exception:
                 pass
 
-            # Generative logic
+            # ── Geometry ──
+            ext_box = None
+
             if not is_door:
-                # Bounding-rectangle extrusion for generic blocks
+                # Bounding-rectangle extrusion for non-door categories
                 c1 = XYZ(-half_w, -half_h, 0.0)
                 c2 = XYZ( half_w, -half_h, 0.0)
                 c3 = XYZ( half_w,  half_h, 0.0)
@@ -652,94 +787,125 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 ext_box = fam_doc.FamilyCreate.NewExtrusion(
                     True, profile, sketch_plane, extrusion_depth)
                 try:
-                    if param_height:
+                    if param_height_fp:
                         end_p = ext_box.get_Parameter(BuiltInParameter.EXTRUSION_END_PARAM)
                         if end_p:
-                            fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(end_p, param_height)
+                            fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
+                                end_p, param_height_fp)
                     if param_material:
                         mat_p = ext_box.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM)
                         if mat_p:
-                            fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(mat_p, param_material)
+                            fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
+                                mat_p, param_material)
                 except Exception:
                     pass
 
             top_sp = SketchPlane.Create(
                 fam_doc,
                 Plane.CreateByNormalAndOrigin(
-                    XYZ.BasisZ, XYZ(0.0, 0.0, extrusion_depth) if not is_door else XYZ.Zero))
+                    XYZ.BasisZ,
+                    XYZ(0.0, 0.0, extrusion_depth) if not is_door else XYZ.Zero))
 
+            panel_ext = None
             for curve in curves:
                 try:
                     if is_door:
                         translator = Transform.CreateTranslation(XYZ(-cx, -cy, 0.0))
                         new_c = curve.CreateTransformed(translator)
-                        
+
                         if isinstance(curve, Line):
                             sym_line = fam_doc.FamilyCreate.NewSymbolicCurve(new_c, sketch_plane)
                             if frame_gs:
                                 sym_line.Subcategory = frame_gs
-                                
+
                         elif isinstance(curve, Arc):
                             sym_arc = fam_doc.FamilyCreate.NewSymbolicCurve(new_c, sketch_plane)
                             if swing_gs:
                                 sym_arc.Subcategory = swing_gs
-                                
-                            # 3D Panel Extrusion: aim towards CLOSED position
+
+                            # 3D panel extrusion in the "closed" direction
                             ctr = curve.Center
-                            nc = ctr + XYZ(-cx, -cy, 0.0)
-                            
+                            nc  = ctr + XYZ(-cx, -cy, 0.0)
+
                             p0_orig = curve.GetEndPoint(0)
                             p1_orig = curve.GetEndPoint(1)
-                            if abs(p0_orig.Y - ctr.Y) < abs(p1_orig.Y - ctr.Y):
-                                p_closed_orig = p0_orig
-                            else:
-                                p_closed_orig = p1_orig
-                                
+                            p_closed_orig = (
+                                p0_orig if abs(p0_orig.Y - ctr.Y) < abs(p1_orig.Y - ctr.Y)
+                                else p1_orig)
                             np_closed = p_closed_orig + XYZ(-cx, -cy, 0.0)
-                            
-                            v_dir = (np_closed - nc).Normalize()
+
+                            v_dir   = (np_closed - nc).Normalize()
                             v_ortho = XYZ(-v_dir.Y, v_dir.X, 0.0)
-                            half_t = THICKNESS / 2.0
-                            
+                            half_t  = THICKNESS / 2.0
+
                             pt1 = nc + v_ortho * half_t
                             pt2 = nc - v_ortho * half_t
                             pt3 = pt2 + v_dir * curve.Radius
                             pt4 = pt1 + v_dir * curve.Radius
-                            
+
                             p_rect = CurveArray()
                             p_rect.Append(Line.CreateBound(pt1, pt2))
                             p_rect.Append(Line.CreateBound(pt2, pt3))
                             p_rect.Append(Line.CreateBound(pt3, pt4))
                             p_rect.Append(Line.CreateBound(pt4, pt1))
-                            
+
                             p_profile = CurveArrArray()
                             p_profile.Append(p_rect)
-                            
+
                             panel_ext = fam_doc.FamilyCreate.NewExtrusion(
                                 True, p_profile, sketch_plane, HEIGHT)
-                                
+
                             try:
-                                vis = FamilyElementVisibility(FamilyElementVisibilityType.Model)
+                                vis = FamilyElementVisibility(
+                                    FamilyElementVisibilityType.Model)
                                 vis.IsShownInTopBottom = False
                                 panel_ext.SetVisibility(vis)
-                                
-                                if param_height:
-                                    end_p = panel_ext.get_Parameter(BuiltInParameter.EXTRUSION_END_PARAM)
+
+                                if param_height_fp:
+                                    end_p = panel_ext.get_Parameter(
+                                        BuiltInParameter.EXTRUSION_END_PARAM)
                                     if end_p:
-                                        fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(end_p, param_height)
+                                        fam_doc.FamilyManager\
+                                            .AssociateElementParameterToFamilyParameter(
+                                                end_p, param_height_fp)
                                 if param_material:
-                                    mat_p = panel_ext.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM)
+                                    mat_p = panel_ext.get_Parameter(
+                                        BuiltInParameter.MATERIAL_ID_PARAM)
                                     if mat_p:
-                                        fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(mat_p, param_material)
+                                        fam_doc.FamilyManager\
+                                            .AssociateElementParameterToFamilyParameter(
+                                                mat_p, param_material)
                             except Exception:
                                 pass
-                                
+
                     else:
-                        translator = Transform.CreateTranslation(XYZ(-cx, -cy, extrusion_depth))
+                        translator = Transform.CreateTranslation(
+                            XYZ(-cx, -cy, extrusion_depth))
                         new_c = curve.CreateTransformed(translator)
                         fam_doc.FamilyCreate.NewModelCurve(new_c, top_sp)
                 except Exception:
                     pass
+
+            # ── Parametric reference planes + dimensions (JSONtoFamily approach) ──
+            # Applied to Door and Window so Width/Height params drive the geometry.
+            if is_door or is_window:
+                fam_doc.Regenerate()
+                plan_view, elev_view = self._find_family_views(fam_doc)
+                rp_left, rp_right, rp_top = self._create_parametric_refs(
+                    fam_doc,
+                    half_w if not is_door else (door_width / 2.0 if door_width else half_w),
+                    HEIGHT if is_door else extrusion_depth,
+                    plan_view, elev_view,
+                    param_width_fp, param_height_fp)
+
+                # Lock geometry faces to the new reference planes
+                fam_doc.Regenerate()
+                target_solid = panel_ext if is_door else ext_box
+                if target_solid and (rp_left or rp_right or rp_top):
+                    self._lock_faces_to_planes(
+                        fam_doc, target_solid,
+                        plan_view, elev_view,
+                        rp_left, rp_right, rp_top)
 
             t.Commit()
         except Exception:
@@ -750,14 +916,12 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             fam_doc.Close(False)
             raise
 
-        # Save .rfa to output folder
-        safe_cad_name = block_item.BlockName.strip()
-        if not safe_cad_name:
-            safe_cad_name = "Family"
-            
+        # ── Save .rfa to output folder ────────────────────────────────────
+
+        safe_cad_name = block_item.BlockName.strip() or "Family"
         base_name = "{} - {} - {}".format(discipline_name, category_name, safe_cad_name)
         base_name = re.sub(r'[\\/*?:"<>|]', "", base_name)
-        
+
         save_path = os.path.join(output_folder, "{}.rfa".format(base_name))
         counter = 1
         while os.path.exists(save_path):
@@ -772,6 +936,27 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             fam_doc.Close(False)
 
         logger.info("Exported: {}".format(save_path))
+
+        # ── Load to Project (absorbed from DWGtoFamily) ───────────────────
+
+        if load_to_project:
+            try:
+                t_load = Transaction(doc, 'Load Family - {}'.format(safe_cad_name))
+                t_load.Start()
+                try:
+                    doc.LoadFamily(save_path)
+                    t_load.Commit()
+                    logger.info("Loaded to project: {}".format(safe_cad_name))
+                except Exception:
+                    try:
+                        t_load.RollBack()
+                    except Exception:
+                        pass
+                    logger.warning("Could not load family to project: {}".format(save_path))
+            except Exception:
+                logger.warning("Load-to-project transaction failed: {}".format(
+                    traceback.format_exc()))
+
         return True
 
     # ── Window chrome handlers ────────────────────────────────────────────
