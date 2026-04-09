@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-DWG to Family
+DWG to Family  [SUPERSEDED]
 
-Convert a preselected DWG import into a Generic Model family with:
-- Detail lines from all DWG line instances
-- Solid extrusion from DWG outline boundary
-- Family instance placed at DWG center point
+This tool has been merged into Bulk Family Export (v2.0).
+Use Bulk Family Export with the "Load to Project" checkbox to replicate
+the same workflow — select the DWG from the list, scan, and export with
+"Load to Project" checked.
+
+This script is kept for backwards compatibility.
 
 Author: T3Lab
 """

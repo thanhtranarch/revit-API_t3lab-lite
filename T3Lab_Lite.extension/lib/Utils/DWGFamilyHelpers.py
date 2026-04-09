@@ -10,6 +10,9 @@ Provides:
     get_outline_boundary        - Pass-through that returns curves as the profile set
     create_generic_model_family - Build a Generic Model family (extrusion + model lines)
     save_and_load_family        - Save .rfa to a temp folder and load it into the project
+    get_xy_bounds               - Bounding-box (min_x, max_x, min_y, max_y) from curves
+    sanitize_name               - Convert a filename into a valid Revit family name
+    load_family_to_project      - Load a saved .rfa file into an open project document
 """
 
 import os
@@ -236,7 +239,7 @@ def _find_template(app, write_log):
     return None
 
 
-def _get_xy_bounds(curves):
+def get_xy_bounds(curves):
     """Return (min_x, max_x, min_y, max_y) from all curve endpoints."""
     xs, ys = [], []
     for curve in curves:
@@ -307,7 +310,7 @@ def create_generic_model_family(curves, outline_curves, app, write_log, write_er
     has_extrusion = False
 
     # ---- calculate centre offset (world coords → family origin) ----
-    min_x, max_x, min_y, max_y = _get_xy_bounds(curves)
+    min_x, max_x, min_y, max_y = get_xy_bounds(curves)
     cx = (min_x + max_x) / 2.0
     cy = (min_y + max_y) / 2.0
 
@@ -408,7 +411,7 @@ def create_generic_model_family(curves, outline_curves, app, write_log, write_er
 # save_and_load_family
 # ---------------------------------------------------------------------------
 
-def _sanitize_name(dwg_filename):
+def sanitize_name(dwg_filename):
     """Convert a DWG filename into a valid Revit family name.
 
     Rules applied (must match the existing log output):
@@ -433,7 +436,7 @@ def save_and_load_family(fam_doc, dwg_filename, doc, write_log, write_error):
     write_log("Saving and loading family document...")
     write_log("DWG source name: {}".format(dwg_filename))
 
-    family_name = _sanitize_name(dwg_filename)
+    family_name = sanitize_name(dwg_filename)
     write_log("Initial family name: {}".format(family_name))
     write_log("Final family name: {}".format(family_name))
 
