@@ -27,6 +27,7 @@ import clr
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
+clr.AddReference('System')
 
 from System.Windows import WindowState
 from System.Windows.Media.Imaging import BitmapImage
@@ -85,6 +86,28 @@ DISCIPLINES = [
 
 # ─── Data Model ───────────────────────────────────────────────────────────────
 
+_CAT_HINTS = [
+    ("Furniture",      ["chair", "table", "desk", "sofa", "bed", "cabinet"]),
+    ("Plumbing Fixture", ["wc", "toilet", "sink", "basin", "shower", "bath", "urinal"]),
+    ("Lighting Fixture", ["light", "lamp", "fixture", "luminaire"]),
+    ("Casework",       ["casework", "counter", "kitchen", "shelv"]),
+    ("Specialty Equipment", ["equip", "machine", "appliance"]),
+]
+
+
+def _suggest_category(name, arc_count, width_mm, depth_mm):
+    """Auto-suggest a Revit family category from block geometry + name heuristics."""
+    lname = name.lower()
+    for cat, keywords in _CAT_HINTS:
+        if any(k in lname for k in keywords):
+            return cat
+    if arc_count >= 1:
+        return "Door"
+    if arc_count == 0 and 0 < depth_mm < 350 and width_mm >= 400:
+        return "Window"
+    return "Generic Model"
+
+
 class BlockItem(object):
     """Represents a discovered CAD block for DataGrid binding."""
 
@@ -96,14 +119,32 @@ class BlockItem(object):
         self.LayerLevel    = layer_level
         self._curves       = curves          # internal use only
 
+        # ── Geometry detail properties (shown in DataGrid) ──
+        arc_count = sum(1 for c in curves if isinstance(c, Arc))
+        self.ArcCount = arc_count
+
+        try:
+            min_x, max_x, min_y, max_y = get_xy_bounds(curves)
+            w = (max_x - min_x) * 304.8   # feet → mm
+            d = (max_y - min_y) * 304.8
+            self.WidthMM = "{:.0f}".format(w)
+            self.DepthMM = "{:.0f}".format(d)
+        except Exception:
+            w, d = 0.0, 0.0
+            self.WidthMM = "-"
+            self.DepthMM = "-"
+
+        self.SuggestedCat = _suggest_category(name, arc_count, w, d)
+
 
 # ─── Main Window ──────────────────────────────────────────────────────────────
 
 class BulkFamilyExportWindow(forms.WPFWindow):
 
     def __init__(self):
+        # script.py → pushbutton → stack → panel → tab → extension (5 levels)
         ext_dir = os.path.dirname(os.path.dirname(os.path.dirname(
-            os.path.dirname(__file__))))
+            os.path.dirname(os.path.dirname(__file__)))))
         xaml_path = os.path.join(ext_dir, 'lib', 'GUI', 'BulkFamilyExport.xaml')
         forms.WPFWindow.__init__(self, xaml_path)
 
@@ -643,6 +684,85 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         except Exception:
             pass
 
+    # ── Window geometry (JSONtoFamily hollow-extrusion approach) ──────────
+
+    def _create_window_body(self, fam_doc, sketch_plane, half_w, half_depth, height,
+                            param_height_fp, param_material):
+        """Create proper window geometry using the JSONtoFamily inner-loop technique.
+
+        Frame  : hollow extrusion in plan (outer rect + inner rect as second loop).
+                 The inner loop punches a hole, exactly like JSONtoFamily 'inner_loops'.
+        Glass  : thin slab centred at Y=0, hidden in plan/ceiling views.
+
+        Returns (frame_ext, glass_ext); glass_ext may be None on failure.
+        """
+        from Autodesk.Revit.DB import (
+            FamilyElementVisibility, FamilyElementVisibilityType, BuiltInParameter,
+        )
+
+        FRAME_W = max(min(half_w * 0.12, 0.1312), 0.0492)   # 12 % of half-width, ~15-40 mm
+        half_d  = max(half_depth, 0.2461)                     # min ~75 mm (wall reveal)
+
+        # ── helper: closed rectangle as CurveArray in the Z=0 plane ──
+        def rect_loop(xmin, xmax, ymin, ymax):
+            arr = CurveArray()
+            pts = [XYZ(xmin, ymin, 0), XYZ(xmax, ymin, 0),
+                   XYZ(xmax, ymax, 0), XYZ(xmin, ymax, 0)]
+            for i in range(4):
+                arr.Append(Line.CreateBound(pts[i], pts[(i + 1) % 4]))
+            return arr
+
+        # Outer boundary
+        outer = rect_loop(-half_w,           half_w,           -half_d, half_d)
+        # Inner boundary → punches hole through frame (JSONtoFamily inner_loops pattern)
+        inner = rect_loop(-(half_w - FRAME_W), (half_w - FRAME_W),
+                          -(half_d - FRAME_W), (half_d - FRAME_W))
+
+        frame_profile = CurveArrArray()
+        frame_profile.Append(outer)
+        frame_profile.Append(inner)   # second loop = hollow centre
+
+        frame_ext = fam_doc.FamilyCreate.NewExtrusion(True, frame_profile, sketch_plane, height)
+
+        try:
+            if param_height_fp:
+                end_p = frame_ext.get_Parameter(BuiltInParameter.EXTRUSION_END_PARAM)
+                if end_p:
+                    fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
+                        end_p, param_height_fp)
+            if param_material:
+                mat_p = frame_ext.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM)
+                if mat_p:
+                    fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
+                        mat_p, param_material)
+        except Exception:
+            pass
+
+        # ── Glass pane: thin slab centred at depth mid-point ──
+        # Tiny Y extent (≈5 mm) in plan, extruded in Z from sill+FRAME_W to head-FRAME_W.
+        # Hidden in plan/ceiling views – model-only visibility (JSONtoFamily visible_param).
+        glass_ext = None
+        try:
+            iw    = half_w - FRAME_W
+            GLASS = 0.0082   # ≈2.5 mm half-thickness → 5 mm total pane
+
+            glass_rect = rect_loop(-iw, iw, -GLASS, GLASS)
+            glass_profile = CurveArrArray()
+            glass_profile.Append(glass_rect)
+
+            glass_height = max(height - FRAME_W * 2, FRAME_W)
+            glass_ext = fam_doc.FamilyCreate.NewExtrusion(
+                True, glass_profile, sketch_plane, glass_height)
+            glass_ext.StartOffset = FRAME_W
+
+            vis = FamilyElementVisibility(FamilyElementVisibilityType.Model)
+            vis.IsShownInTopBottom = False
+            glass_ext.SetVisibility(vis)
+        except Exception:
+            glass_ext = None
+
+        return frame_ext, glass_ext
+
     # ── Single-block export ───────────────────────────────────────────────
 
     def _export_block(self, block_item, template_path, output_folder,
@@ -722,9 +842,10 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 GraphicsStyleType, Transform, BuiltInParameter,
             )
 
-            THICKNESS = 0.1312
-            HEIGHT    = 7.2178
-            extrusion_depth = HEIGHT if is_door else 1.0
+            THICKNESS      = 0.1312
+            HEIGHT         = 7.2178   # ≈2195 mm – default door height
+            WINDOW_HEIGHT  = 4.9213   # ≈1500 mm – default window height
+            extrusion_depth = HEIGHT if is_door else (WINDOW_HEIGHT if is_window else 1.0)
 
             # ── Door subcategories ──
             swing_gs = frame_gs = None
@@ -768,8 +889,18 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             # ── Geometry ──
             ext_box = None
 
-            if not is_door:
-                # Bounding-rectangle extrusion for non-door categories
+            if is_window:
+                # Window: hollow frame + glass pane via JSONtoFamily inner-loop approach.
+                # _create_window_body() uses CurveArrArray with outer + inner loops so the
+                # centre is cut away (same as JSONtoFamily 'inner_loops' on an Extrusion).
+                window_frame_ext, _window_glass = self._create_window_body(
+                    fam_doc, sketch_plane,
+                    half_w, half_h, extrusion_depth,
+                    param_height_fp, param_material)
+                ext_box = window_frame_ext   # used below for face-locking
+
+            elif not is_door:
+                # Bounding-rectangle extrusion for other non-door categories
                 c1 = XYZ(-half_w, -half_h, 0.0)
                 c2 = XYZ( half_w, -half_h, 0.0)
                 c3 = XYZ( half_w,  half_h, 0.0)
@@ -878,7 +1009,8 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                             except Exception:
                                 pass
 
-                    else:
+                    elif not is_window:
+                        # Window geometry is handled by _create_window_body(); skip model curves.
                         translator = Transform.CreateTranslation(
                             XYZ(-cx, -cy, extrusion_depth))
                         new_c = curve.CreateTransformed(translator)
@@ -919,7 +1051,9 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         # ── Save .rfa to output folder ────────────────────────────────────
 
         safe_cad_name = block_item.BlockName.strip() or "Family"
-        base_name = "{} - {} - {}".format(discipline_name, category_name, safe_cad_name)
+        base_name = "T3Lab_{}_{}".format(
+            category_name.replace(" ", "_"),
+            safe_cad_name.replace(" ", "_"))
         base_name = re.sub(r'[\\/*?:"<>|]', "", base_name)
 
         save_path = os.path.join(output_folder, "{}.rfa".format(base_name))
