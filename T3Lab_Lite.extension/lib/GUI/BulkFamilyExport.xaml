@@ -185,6 +185,8 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="10"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="90"/>
@@ -192,28 +194,34 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- CAD File -->
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="CAD File:"
+                <!-- CAD Type -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="CAD Type:"
                            VerticalAlignment="Center" Foreground="#2C3E50" FontSize="12"/>
                 <ComboBox x:Name="cad_file_combo" Grid.Row="0" Grid.Column="1"
                           FontFamily="Segoe UI" FontSize="12" Padding="6,4" Margin="0,0,8,0"/>
                 <Button Content="Scan Blocks" Grid.Row="0" Grid.Column="2"
                         Style="{StaticResource PrimaryButton}" Click="scan_blocks_clicked"/>
 
-                <!-- Category -->
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Category:"
+                <!-- Discipline -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Discipline:"
                            VerticalAlignment="Center" Foreground="#2C3E50" FontSize="12"/>
-                <ComboBox x:Name="category_combo" Grid.Row="2" Grid.Column="1"
+                <ComboBox x:Name="discipline_combo" Grid.Row="2" Grid.Column="1"
+                          Grid.ColumnSpan="2" FontFamily="Segoe UI" FontSize="12" Padding="6,4"/>
+
+                <!-- Category -->
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Category:"
+                           VerticalAlignment="Center" Foreground="#2C3E50" FontSize="12"/>
+                <ComboBox x:Name="category_combo" Grid.Row="4" Grid.Column="1"
                           Grid.ColumnSpan="2" FontFamily="Segoe UI" FontSize="12" Padding="6,4"/>
 
                 <!-- Output Folder -->
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Output:"
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Output:"
                            VerticalAlignment="Center" Foreground="#2C3E50" FontSize="12"/>
-                <TextBox x:Name="output_path" Grid.Row="4" Grid.Column="1"
+                <TextBox x:Name="output_path" Grid.Row="6" Grid.Column="1"
                          IsReadOnly="True" FontFamily="Segoe UI" FontSize="12"
                          Padding="6,4" Margin="0,0,8,0" Background="#FAFAFA"
                          BorderBrush="#BDC3C7"/>
-                <Button Content="Browse..." Grid.Row="4" Grid.Column="2"
+                <Button Content="Browse..." Grid.Row="6" Grid.Column="2"
                         Style="{StaticResource SecondaryButton}" Click="browse_folder_clicked"/>
             </Grid>
         </Border>
@@ -273,6 +281,8 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Block Name" Binding="{Binding BlockName}"
                                     Width="*" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Layer/Level" Binding="{Binding LayerLevel}"
+                                    Width="120" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Curves" Binding="{Binding CurveCount}"
                                     Width="80" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Instances" Binding="{Binding InstanceCount}"
