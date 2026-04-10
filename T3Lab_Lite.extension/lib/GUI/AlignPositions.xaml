@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Align Positions"
         Width="780" Height="600"
@@ -11,7 +11,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="0"
+                      CornerRadius="8"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -154,7 +154,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- ═══ Row 0 : Title Bar ═══ -->
+        <!-- â•â•â• Row 0 : Title Bar â•â•â• -->
         <Grid Grid.Row="0" Background="White" Height="64">
             <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
@@ -191,7 +191,7 @@
             <Border Height="1" VerticalAlignment="Bottom" Background="#BDC3C7"/>
         </Grid>
 
-        <!-- ═══ Row 1 : Reference + Settings ═══ -->
+        <!-- â•â•â• Row 1 : Reference + Settings â•â•â• -->
         <StackPanel Grid.Row="1" Margin="20,4,20,0">
 
             <!-- Reference Element -->
@@ -215,18 +215,36 @@
             <!-- Settings -->
             <TextBlock Text="SETTINGS" Style="{StaticResource SectionHeader}"/>
             <Border BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="3" Padding="12,10">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Snap to:" VerticalAlignment="Center" Margin="0,0,12,0"
-                               Foreground="#2C3E50" FontSize="12" FontFamily="Segoe UI"/>
-                    <RadioButton x:Name="rb_snap5" Content=" 5 mm" IsChecked="True"
-                                 VerticalAlignment="Center" Margin="0,0,20,0"
-                                 FontFamily="Segoe UI" FontSize="12" Foreground="#2C3E50"
-                                 Checked="snap_changed"/>
-                    <RadioButton x:Name="rb_snap10" Content=" 10 mm"
-                                 VerticalAlignment="Center"
-                                 FontFamily="Segoe UI" FontSize="12" Foreground="#2C3E50"
-                                 Checked="snap_changed"/>
-                </StackPanel>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,8">
+                        <TextBlock Text="Units:" VerticalAlignment="Center" Width="70"
+                                   Foreground="#2C3E50" FontSize="12" FontFamily="Segoe UI"/>
+                        <RadioButton x:Name="rb_metric" Content=" Metric (mm)" IsChecked="True"
+                                     VerticalAlignment="Center" Margin="0,0,20,0" Checked="unit_changed"/>
+                        <RadioButton x:Name="rb_imperial" Content=" Imperial (inch)"
+                                     VerticalAlignment="Center" Checked="unit_changed"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Grid.Row="1">
+                        <TextBlock Text="Snap to:" VerticalAlignment="Center" Width="70"
+                                   Foreground="#2C3E50" FontSize="12" FontFamily="Segoe UI"/>
+                        <RadioButton x:Name="rb_snap1" Content=" 5 mm" IsChecked="True"
+                                     VerticalAlignment="Center" Margin="0,0,20,0"
+                                     FontFamily="Segoe UI" FontSize="12" Foreground="#2C3E50"
+                                     Checked="snap_changed"/>
+                        <RadioButton x:Name="rb_snap2" Content=" 10 mm"
+                                     VerticalAlignment="Center" Margin="0,0,20,0"
+                                     FontFamily="Segoe UI" FontSize="12" Foreground="#2C3E50"
+                                     Checked="snap_changed"/>
+                        <RadioButton x:Name="rb_snap3" Content=" 20 mm"
+                                     VerticalAlignment="Center"
+                                     FontFamily="Segoe UI" FontSize="12" Foreground="#2C3E50"
+                                     Checked="snap_changed"/>
+                    </StackPanel>
+                </Grid>
             </Border>
 
             <!-- Elements header row -->
@@ -236,17 +254,17 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button x:Name="btn_select" Content="Select Elements"
+                <Button x:Name="btn_select" Content="Refresh Elements"
                         Style="{StaticResource SecondaryButton}" Click="select_elements_clicked"
                         Margin="0,0,12,0"/>
                 <TextBlock x:Name="txt_element_count" Grid.Column="1"
-                           Text="No elements selected"
+                           Text="No elements collected"
                            VerticalAlignment="Center" Foreground="#7F8C8D"
                            FontSize="12" FontFamily="Segoe UI"/>
             </Grid>
         </StackPanel>
 
-        <!-- ═══ Row 2 : DataGrid (fills remaining space) ═══ -->
+        <!-- â•â•â• Row 2 : DataGrid (fills remaining space) â•â•â• -->
         <DataGrid x:Name="dg_elements" Grid.Row="2" Margin="20,0,20,0"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
@@ -293,16 +311,20 @@
                     Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
                 <DataGridTextColumn Header="ID"
                     Binding="{Binding ElementId}" Width="70" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Distance (mm)"
-                    Binding="{Binding Distance}" Width="100" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Rounded (mm)"
-                    Binding="{Binding Rounded}" Width="100" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Start Pt (X, Y)"
+                    Binding="{Binding StartPt}" Width="110" IsReadOnly="True"/>
+                <DataGridTextColumn Header="End Pt (X, Y)"
+                    Binding="{Binding EndPt}" Width="110" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Center Dist"
+                    Binding="{Binding LocDist}" Width="110" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Angle (Â°)"
+                    Binding="{Binding AngleStr}" Width="70" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Correction"
-                    Binding="{Binding Correction}" Width="80" IsReadOnly="True"/>
+                    Binding="{Binding Correction}" Width="120" IsReadOnly="True"/>
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- ═══ Row 3 : Info box + Apply ═══ -->
+        <!-- â•â•â• Row 3 : Info box + Apply â•â•â• -->
         <StackPanel Grid.Row="3" Margin="20,10,20,12">
             <!-- Info / Tip box -->
             <Border BorderBrush="#3498DB" BorderThickness="1" Background="#E8F4F8"
@@ -324,7 +346,7 @@
                     HorizontalAlignment="Right" Padding="24,8"/>
         </StackPanel>
 
-        <!-- ═══ Row 4 : Status Bar ═══ -->
+        <!-- â•â•â• Row 4 : Status Bar â•â•â• -->
         <Border Grid.Row="4" Background="#FAFAFA" BorderBrush="#BDC3C7"
                 BorderThickness="0,1,0,0" Padding="14,6">
             <TextBlock x:Name="status_text" FontSize="11" Foreground="#7F8C8D"
@@ -332,3 +354,4 @@
         </Border>
     </Grid>
 </Window>
+

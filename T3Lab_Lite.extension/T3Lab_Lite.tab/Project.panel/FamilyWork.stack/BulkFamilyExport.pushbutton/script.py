@@ -820,6 +820,13 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         half_w = max((max_x - min_x) / 2.0, 0.01)
         half_h = max((max_y - min_y) / 2.0, 0.01)
 
+        mode_2d_only = False
+        try:
+            if hasattr(self, 'rb_2d_lines') and self.rb_2d_lines.IsChecked:
+                mode_2d_only = True
+        except Exception:
+            pass
+
         t = Transaction(fam_doc, 'Create Block Geometry')
         t.Start()
         try:
@@ -837,207 +844,218 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     fam_doc,
                     Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ.Zero))
 
-            from Autodesk.Revit.DB import (
-                FamilyElementVisibility, FamilyElementVisibilityType,
-                GraphicsStyleType, Transform, BuiltInParameter,
-            )
-
-            THICKNESS      = 0.1312
-            HEIGHT         = 7.2178   # ≈2195 mm – default door height
-            WINDOW_HEIGHT  = 4.9213   # ≈1500 mm – default window height
-            extrusion_depth = HEIGHT if is_door else (WINDOW_HEIGHT if is_window else 1.0)
-
-            # ── Door subcategories ──
-            swing_gs = frame_gs = None
-            if is_door:
-                try:
-                    fam_cat = fam_doc.OwnerFamily.FamilyCategory
-                    def get_or_create_subcat(name):
-                        if fam_cat.SubCategories.Contains(name):
-                            return fam_cat.SubCategories.get_Item(name)
-                        return fam_doc.Settings.Categories.NewSubcategory(fam_cat, name)
-                    swing_subcat = get_or_create_subcat("Plan Swing")
-                    frame_subcat = get_or_create_subcat("Frame/Mullion")
-                    if swing_subcat:
-                        swing_gs = swing_subcat.GetGraphicsStyle(GraphicsStyleType.Projection)
-                    if frame_subcat:
-                        frame_gs = frame_subcat.GetGraphicsStyle(GraphicsStyleType.Projection)
-                except Exception:
-                    pass
-
-            # ── Family parameters ──
-            param_height_fp = param_width_fp = param_material = None
-            try:
-                fam_mgr = fam_doc.FamilyManager
-                for param in fam_mgr.Parameters:
-                    pname = param.Definition.Name.lower()
-                    if pname in ("height", "chiều cao"):
-                        fam_mgr.Set(param, extrusion_depth)
-                        param_height_fp = param
-                    elif pname in ("width", "chiều rộng"):
-                        if door_width:
-                            fam_mgr.Set(param, door_width)
-                        param_width_fp = param
-                    elif pname in ("depth", "chiều sâu", "length", "chiều dài"):
-                        if not is_door and half_h * 2.0 > 0.01:
-                            fam_mgr.Set(param, half_h * 2.0)
-                    elif pname in ("material", "vật liệu"):
-                        param_material = param
-            except Exception:
-                pass
-
-            # ── Geometry ──
-            ext_box = None
-
-            if is_window:
-                # Window: hollow frame + glass pane via JSONtoFamily inner-loop approach.
-                # _create_window_body() uses CurveArrArray with outer + inner loops so the
-                # centre is cut away (same as JSONtoFamily 'inner_loops' on an Extrusion).
-                window_frame_ext, _window_glass = self._create_window_body(
-                    fam_doc, sketch_plane,
-                    half_w, half_h, extrusion_depth,
-                    param_height_fp, param_material)
-                ext_box = window_frame_ext   # used below for face-locking
-
-            elif not is_door:
-                # Bounding-rectangle extrusion for other non-door categories
-                c1 = XYZ(-half_w, -half_h, 0.0)
-                c2 = XYZ( half_w, -half_h, 0.0)
-                c3 = XYZ( half_w,  half_h, 0.0)
-                c4 = XYZ(-half_w,  half_h, 0.0)
-
-                rect = CurveArray()
-                rect.Append(Line.CreateBound(c1, c2))
-                rect.Append(Line.CreateBound(c2, c3))
-                rect.Append(Line.CreateBound(c3, c4))
-                rect.Append(Line.CreateBound(c4, c1))
-
-                profile = CurveArrArray()
-                profile.Append(rect)
-
-                ext_box = fam_doc.FamilyCreate.NewExtrusion(
-                    True, profile, sketch_plane, extrusion_depth)
-                try:
-                    if param_height_fp:
-                        end_p = ext_box.get_Parameter(BuiltInParameter.EXTRUSION_END_PARAM)
-                        if end_p:
-                            fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
-                                end_p, param_height_fp)
-                    if param_material:
-                        mat_p = ext_box.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM)
-                        if mat_p:
-                            fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
-                                mat_p, param_material)
-                except Exception:
-                    pass
-
-            top_sp = SketchPlane.Create(
-                fam_doc,
-                Plane.CreateByNormalAndOrigin(
-                    XYZ.BasisZ,
-                    XYZ(0.0, 0.0, extrusion_depth) if not is_door else XYZ.Zero))
-
-            panel_ext = None
-            for curve in curves:
-                try:
-                    if is_door:
-                        translator = Transform.CreateTranslation(XYZ(-cx, -cy, 0.0))
+            from Autodesk.Revit.DB import Transform
+            
+            if mode_2d_only:
+                translator = Transform.CreateTranslation(XYZ(-cx, -cy, 0.0))
+                for curve in curves:
+                    try:
                         new_c = curve.CreateTransformed(translator)
+                        fam_doc.FamilyCreate.NewModelCurve(new_c, sketch_plane)
+                    except Exception:
+                        pass
+            else:
+                from Autodesk.Revit.DB import (
+                    FamilyElementVisibility, FamilyElementVisibilityType,
+                    GraphicsStyleType, BuiltInParameter,
+                )
 
-                        if isinstance(curve, Line):
-                            sym_line = fam_doc.FamilyCreate.NewSymbolicCurve(new_c, sketch_plane)
-                            if frame_gs:
-                                sym_line.Subcategory = frame_gs
+                THICKNESS      = 0.1312
+                HEIGHT         = 7.2178   # ≈2195 mm – default door height
+                WINDOW_HEIGHT  = 4.9213   # ≈1500 mm – default window height
+                extrusion_depth = HEIGHT if is_door else (WINDOW_HEIGHT if is_window else 1.0)
 
-                        elif isinstance(curve, Arc):
-                            sym_arc = fam_doc.FamilyCreate.NewSymbolicCurve(new_c, sketch_plane)
-                            if swing_gs:
-                                sym_arc.Subcategory = swing_gs
+                # ── Door subcategories ──
+                swing_gs = frame_gs = None
+                if is_door:
+                    try:
+                        fam_cat = fam_doc.OwnerFamily.FamilyCategory
+                        def get_or_create_subcat(name):
+                            if fam_cat.SubCategories.Contains(name):
+                                return fam_cat.SubCategories.get_Item(name)
+                            return fam_doc.Settings.Categories.NewSubcategory(fam_cat, name)
+                        swing_subcat = get_or_create_subcat("Plan Swing")
+                        frame_subcat = get_or_create_subcat("Frame/Mullion")
+                        if swing_subcat:
+                            swing_gs = swing_subcat.GetGraphicsStyle(GraphicsStyleType.Projection)
+                        if frame_subcat:
+                            frame_gs = frame_subcat.GetGraphicsStyle(GraphicsStyleType.Projection)
+                    except Exception:
+                        pass
 
-                            # 3D panel extrusion in the "closed" direction
-                            ctr = curve.Center
-                            nc  = ctr + XYZ(-cx, -cy, 0.0)
-
-                            p0_orig = curve.GetEndPoint(0)
-                            p1_orig = curve.GetEndPoint(1)
-                            p_closed_orig = (
-                                p0_orig if abs(p0_orig.Y - ctr.Y) < abs(p1_orig.Y - ctr.Y)
-                                else p1_orig)
-                            np_closed = p_closed_orig + XYZ(-cx, -cy, 0.0)
-
-                            v_dir   = (np_closed - nc).Normalize()
-                            v_ortho = XYZ(-v_dir.Y, v_dir.X, 0.0)
-                            half_t  = THICKNESS / 2.0
-
-                            pt1 = nc + v_ortho * half_t
-                            pt2 = nc - v_ortho * half_t
-                            pt3 = pt2 + v_dir * curve.Radius
-                            pt4 = pt1 + v_dir * curve.Radius
-
-                            p_rect = CurveArray()
-                            p_rect.Append(Line.CreateBound(pt1, pt2))
-                            p_rect.Append(Line.CreateBound(pt2, pt3))
-                            p_rect.Append(Line.CreateBound(pt3, pt4))
-                            p_rect.Append(Line.CreateBound(pt4, pt1))
-
-                            p_profile = CurveArrArray()
-                            p_profile.Append(p_rect)
-
-                            panel_ext = fam_doc.FamilyCreate.NewExtrusion(
-                                True, p_profile, sketch_plane, HEIGHT)
-
-                            try:
-                                vis = FamilyElementVisibility(
-                                    FamilyElementVisibilityType.Model)
-                                vis.IsShownInTopBottom = False
-                                panel_ext.SetVisibility(vis)
-
-                                if param_height_fp:
-                                    end_p = panel_ext.get_Parameter(
-                                        BuiltInParameter.EXTRUSION_END_PARAM)
-                                    if end_p:
-                                        fam_doc.FamilyManager\
-                                            .AssociateElementParameterToFamilyParameter(
-                                                end_p, param_height_fp)
-                                if param_material:
-                                    mat_p = panel_ext.get_Parameter(
-                                        BuiltInParameter.MATERIAL_ID_PARAM)
-                                    if mat_p:
-                                        fam_doc.FamilyManager\
-                                            .AssociateElementParameterToFamilyParameter(
-                                                mat_p, param_material)
-                            except Exception:
-                                pass
-
-                    elif not is_window:
-                        # Window geometry is handled by _create_window_body(); skip model curves.
-                        translator = Transform.CreateTranslation(
-                            XYZ(-cx, -cy, extrusion_depth))
-                        new_c = curve.CreateTransformed(translator)
-                        fam_doc.FamilyCreate.NewModelCurve(new_c, top_sp)
+                # ── Family parameters ──
+                param_height_fp = param_width_fp = param_material = None
+                try:
+                    fam_mgr = fam_doc.FamilyManager
+                    for param in fam_mgr.Parameters:
+                        pname = param.Definition.Name.lower()
+                        if pname in ("height", "chiều cao"):
+                            fam_mgr.Set(param, extrusion_depth)
+                            param_height_fp = param
+                        elif pname in ("width", "chiều rộng"):
+                            if door_width:
+                                fam_mgr.Set(param, door_width)
+                            param_width_fp = param
+                        elif pname in ("depth", "chiều sâu", "length", "chiều dài"):
+                            if not is_door and half_h * 2.0 > 0.01:
+                                fam_mgr.Set(param, half_h * 2.0)
+                        elif pname in ("material", "vật liệu"):
+                            param_material = param
                 except Exception:
                     pass
 
-            # ── Parametric reference planes + dimensions (JSONtoFamily approach) ──
-            # Applied to Door and Window so Width/Height params drive the geometry.
-            if is_door or is_window:
-                fam_doc.Regenerate()
-                plan_view, elev_view = self._find_family_views(fam_doc)
-                rp_left, rp_right, rp_top = self._create_parametric_refs(
+                # ── Geometry ──
+                ext_box = None
+
+                if is_window:
+                    # Window: hollow frame + glass pane via JSONtoFamily inner-loop approach.
+                    # _create_window_body() uses CurveArrArray with outer + inner loops so the
+                    # centre is cut away (same as JSONtoFamily 'inner_loops' on an Extrusion).
+                    window_frame_ext, _window_glass = self._create_window_body(
+                        fam_doc, sketch_plane,
+                        half_w, half_h, extrusion_depth,
+                        param_height_fp, param_material)
+                    ext_box = window_frame_ext   # used below for face-locking
+
+                elif not is_door:
+                    # Bounding-rectangle extrusion for other non-door categories
+                    c1 = XYZ(-half_w, -half_h, 0.0)
+                    c2 = XYZ( half_w, -half_h, 0.0)
+                    c3 = XYZ( half_w,  half_h, 0.0)
+                    c4 = XYZ(-half_w,  half_h, 0.0)
+
+                    rect = CurveArray()
+                    rect.Append(Line.CreateBound(c1, c2))
+                    rect.Append(Line.CreateBound(c2, c3))
+                    rect.Append(Line.CreateBound(c3, c4))
+                    rect.Append(Line.CreateBound(c4, c1))
+
+                    profile = CurveArrArray()
+                    profile.Append(rect)
+
+                    ext_box = fam_doc.FamilyCreate.NewExtrusion(
+                        True, profile, sketch_plane, extrusion_depth)
+                    try:
+                        if param_height_fp:
+                            end_p = ext_box.get_Parameter(BuiltInParameter.EXTRUSION_END_PARAM)
+                            if end_p:
+                                fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
+                                    end_p, param_height_fp)
+                        if param_material:
+                            mat_p = ext_box.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM)
+                            if mat_p:
+                                fam_doc.FamilyManager.AssociateElementParameterToFamilyParameter(
+                                    mat_p, param_material)
+                    except Exception:
+                        pass
+
+                top_sp = SketchPlane.Create(
                     fam_doc,
-                    half_w if not is_door else (door_width / 2.0 if door_width else half_w),
-                    HEIGHT if is_door else extrusion_depth,
-                    plan_view, elev_view,
-                    param_width_fp, param_height_fp)
+                    Plane.CreateByNormalAndOrigin(
+                        XYZ.BasisZ,
+                        XYZ(0.0, 0.0, extrusion_depth) if not is_door else XYZ.Zero))
 
-                # Lock geometry faces to the new reference planes
-                fam_doc.Regenerate()
-                target_solid = panel_ext if is_door else ext_box
-                if target_solid and (rp_left or rp_right or rp_top):
-                    self._lock_faces_to_planes(
-                        fam_doc, target_solid,
+                panel_ext = None
+                for curve in curves:
+                    try:
+                        if is_door:
+                            translator = Transform.CreateTranslation(XYZ(-cx, -cy, 0.0))
+                            new_c = curve.CreateTransformed(translator)
+
+                            if isinstance(curve, Line):
+                                sym_line = fam_doc.FamilyCreate.NewSymbolicCurve(new_c, sketch_plane)
+                                if frame_gs:
+                                    sym_line.Subcategory = frame_gs
+
+                            elif isinstance(curve, Arc):
+                                sym_arc = fam_doc.FamilyCreate.NewSymbolicCurve(new_c, sketch_plane)
+                                if swing_gs:
+                                    sym_arc.Subcategory = swing_gs
+
+                                # 3D panel extrusion in the "closed" direction
+                                ctr = curve.Center
+                                nc  = ctr + XYZ(-cx, -cy, 0.0)
+
+                                p0_orig = curve.GetEndPoint(0)
+                                p1_orig = curve.GetEndPoint(1)
+                                p_closed_orig = (
+                                    p0_orig if abs(p0_orig.Y - ctr.Y) < abs(p1_orig.Y - ctr.Y)
+                                    else p1_orig)
+                                np_closed = p_closed_orig + XYZ(-cx, -cy, 0.0)
+
+                                v_dir   = (np_closed - nc).Normalize()
+                                v_ortho = XYZ(-v_dir.Y, v_dir.X, 0.0)
+                                half_t  = THICKNESS / 2.0
+
+                                pt1 = nc + v_ortho * half_t
+                                pt2 = nc - v_ortho * half_t
+                                pt3 = pt2 + v_dir * curve.Radius
+                                pt4 = pt1 + v_dir * curve.Radius
+
+                                p_rect = CurveArray()
+                                p_rect.Append(Line.CreateBound(pt1, pt2))
+                                p_rect.Append(Line.CreateBound(pt2, pt3))
+                                p_rect.Append(Line.CreateBound(pt3, pt4))
+                                p_rect.Append(Line.CreateBound(pt4, pt1))
+
+                                p_profile = CurveArrArray()
+                                p_profile.Append(p_rect)
+
+                                panel_ext = fam_doc.FamilyCreate.NewExtrusion(
+                                    True, p_profile, sketch_plane, HEIGHT)
+
+                                try:
+                                    vis = FamilyElementVisibility(
+                                        FamilyElementVisibilityType.Model)
+                                    vis.IsShownInTopBottom = False
+                                    panel_ext.SetVisibility(vis)
+
+                                    if param_height_fp:
+                                        end_p = panel_ext.get_Parameter(
+                                            BuiltInParameter.EXTRUSION_END_PARAM)
+                                        if end_p:
+                                            fam_doc.FamilyManager\
+                                                .AssociateElementParameterToFamilyParameter(
+                                                    end_p, param_height_fp)
+                                    if param_material:
+                                        mat_p = panel_ext.get_Parameter(
+                                            BuiltInParameter.MATERIAL_ID_PARAM)
+                                        if mat_p:
+                                            fam_doc.FamilyManager\
+                                                .AssociateElementParameterToFamilyParameter(
+                                                    mat_p, param_material)
+                                except Exception:
+                                    pass
+
+                        elif not is_window:
+                            # Window geometry is handled by _create_window_body(); skip model curves.
+                            translator = Transform.CreateTranslation(
+                                XYZ(-cx, -cy, extrusion_depth))
+                            new_c = curve.CreateTransformed(translator)
+                            fam_doc.FamilyCreate.NewModelCurve(new_c, top_sp)
+                    except Exception:
+                        pass
+
+                # ── Parametric reference planes + dimensions (JSONtoFamily approach) ──
+                # Applied to Door and Window so Width/Height params drive the geometry.
+                if is_door or is_window:
+                    fam_doc.Regenerate()
+                    plan_view, elev_view = self._find_family_views(fam_doc)
+                    rp_left, rp_right, rp_top = self._create_parametric_refs(
+                        fam_doc,
+                        half_w if not is_door else (door_width / 2.0 if door_width else half_w),
+                        HEIGHT if is_door else extrusion_depth,
                         plan_view, elev_view,
-                        rp_left, rp_right, rp_top)
+                        param_width_fp, param_height_fp)
+
+                    # Lock geometry faces to the new reference planes
+                    fam_doc.Regenerate()
+                    target_solid = panel_ext if is_door else ext_box
+                    if target_solid and (rp_left or rp_right or rp_top):
+                        self._lock_faces_to_planes(
+                            fam_doc, target_solid,
+                            plan_view, elev_view,
+                            rp_left, rp_right, rp_top)
 
             t.Commit()
         except Exception:

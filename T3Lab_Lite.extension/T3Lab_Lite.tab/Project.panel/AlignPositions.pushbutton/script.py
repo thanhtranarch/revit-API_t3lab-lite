@@ -43,6 +43,8 @@ from Autodesk.Revit.DB import (
     BuiltInCategory,
     LocationPoint,
     LocationCurve,
+    FilteredElementCollector,
+    Line,
 )
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
 from Autodesk.Revit.Exceptions import OperationCanceledException
@@ -130,97 +132,31 @@ def project_onto_curve(point, curve):
     return None
 
 
-# ════════════════════════════════════════════════════════════════
-# CORRECTION CALCULATORS  (one per reference type)
-# ════════════════════════════════════════════════════════════════
-def _correction_for_grid(elem, elem_loc, curve, direction, snap_mm):
-    """Perpendicular distance from *elem_loc* to the Grid line."""
-    projected = project_onto_curve(elem_loc, curve)
-    if projected is None:
-        return None
-
-    # perpendicular unit vector (in XY plane)
-    perp = XYZ(-direction.Y, direction.X, 0)
-
-    signed_feet = (elem_loc - projected).DotProduct(perp)
-    signed_mm   = feet_to_mm(signed_feet)
-    rounded_mm  = round_to_snap(signed_mm, snap_mm)
-    corr_mm     = rounded_mm - signed_mm
-
-    if abs(corr_mm) < TOLERANCE_MM:
-        return None
-
-    corr_feet = mm_to_feet(corr_mm)
-    return dict(
-        element        = elem,
-        current_dist_mm = signed_mm,
-        rounded_dist_mm = rounded_mm,
-        correction_mm   = corr_mm,
-        move_vector     = XYZ(perp.X * corr_feet, perp.Y * corr_feet, 0),
-    )
-
-
-def _correction_for_wall(elem, elem_loc, curve, direction, half_w, snap_mm):
-    """Distance from *elem_loc* to the nearest wall face."""
-    projected = project_onto_curve(elem_loc, curve)
-    if projected is None:
-        return None
-
-    perp = XYZ(-direction.Y, direction.X, 0)
-    dist_to_cl = (elem_loc - projected).DotProduct(perp)  # centre-line
-
-    # Signed distance to nearest face
-    if dist_to_cl >= 0:
-        face_feet = dist_to_cl - half_w
+def get_element_orientation(element):
+    """Returns the primary X direction vector for an element. Only XY plane."""
+    vec = None
+    if isinstance(element, Grid):
+        vec = element.Curve.GetEndPoint(1) - element.Curve.GetEndPoint(0)
+    elif isinstance(element, Wall):
+        vec = element.Location.Curve.GetEndPoint(1) - element.Location.Curve.GetEndPoint(0)
+    elif isinstance(element, FamilyInstance):
+        vec = element.GetTransform().BasisX
     else:
-        face_feet = dist_to_cl + half_w
+        loc = element.Location
+        if isinstance(loc, LocationCurve):
+            vec = loc.Curve.GetEndPoint(1) - loc.Curve.GetEndPoint(0)
+        elif isinstance(loc, LocationPoint):
+            ang = loc.Rotation
+            vec = XYZ(math.cos(ang), math.sin(ang), 0)
 
-    face_mm    = feet_to_mm(face_feet)
-    rounded_mm = round_to_snap(face_mm, snap_mm)
-    corr_mm    = rounded_mm - face_mm
-
-    if abs(corr_mm) < TOLERANCE_MM:
-        return None
-
-    corr_feet = mm_to_feet(corr_mm)
-    return dict(
-        element        = elem,
-        current_dist_mm = face_mm,
-        rounded_dist_mm = rounded_mm,
-        correction_mm   = corr_mm,
-        move_vector     = XYZ(perp.X * corr_feet, perp.Y * corr_feet, 0),
-    )
+    if vec is not None:
+        v_xy = XYZ(vec.X, vec.Y, 0)
+        if v_xy.GetLength() > 1e-6:
+            return v_xy.Normalize()
+            
+    return XYZ.BasisX
 
 
-def _correction_for_column(elem, elem_loc, bb_min, bb_max, snap_mm):
-    """Distance from *elem_loc* to nearest column bounding-box face (X+Y)."""
-    # --- X axis: pick nearest face ---
-    dx_min = feet_to_mm(elem_loc.X - bb_min.X)
-    dx_max = feet_to_mm(elem_loc.X - bb_max.X)
-    dx = dx_min if abs(dx_min) <= abs(dx_max) else dx_max
-
-    rx = round_to_snap(dx, snap_mm)
-    cx = rx - dx
-
-    # --- Y axis: pick nearest face ---
-    dy_min = feet_to_mm(elem_loc.Y - bb_min.Y)
-    dy_max = feet_to_mm(elem_loc.Y - bb_max.Y)
-    dy = dy_min if abs(dy_min) <= abs(dy_max) else dy_max
-
-    ry = round_to_snap(dy, snap_mm)
-    cy = ry - dy
-
-    total = math.sqrt(cx * cx + cy * cy)
-    if total < TOLERANCE_MM:
-        return None
-
-    return dict(
-        element        = elem,
-        current_dist_mm = math.sqrt(dx * dx + dy * dy),
-        rounded_dist_mm = math.sqrt(rx * rx + ry * ry),
-        correction_mm   = total,
-        move_vector     = XYZ(mm_to_feet(cx), mm_to_feet(cy), 0),
-    )
 
 
 # ════════════════════════════════════════════════════════════════
@@ -252,8 +188,10 @@ class AlignPositionsWindow(forms.WPFWindow):
         self._dt.Columns.Add("Category")
         self._dt.Columns.Add("Name")
         self._dt.Columns.Add("ElementId")
-        self._dt.Columns.Add("Distance")
-        self._dt.Columns.Add("Rounded")
+        self._dt.Columns.Add("StartPt")
+        self._dt.Columns.Add("EndPt")
+        self._dt.Columns.Add("LocDist")
+        self._dt.Columns.Add("AngleStr")
         self._dt.Columns.Add("Correction")
         self.dg_elements.ItemsSource = self._dt.DefaultView
 
@@ -295,8 +233,20 @@ class AlignPositionsWindow(forms.WPFWindow):
     def _update_status(self, text):
         self.status_text.Text = text
 
-    def _snap_mm(self):
-        return 10.0 if self.rb_snap10.IsChecked else 5.0
+    def _snap_feet(self):
+        # Determine current snap logic
+        is_metric = getattr(self, 'rb_metric', None) and self.rb_metric.IsChecked
+        if is_metric:
+            if self.rb_snap1.IsChecked: return 5.0 / MM_PER_FOOT
+            if self.rb_snap2.IsChecked: return 10.0 / MM_PER_FOOT
+            if getattr(self, 'rb_snap3', None) and self.rb_snap3.IsChecked: return 20.0 / MM_PER_FOOT
+            return 5.0 / MM_PER_FOOT
+        else:
+            # Imperial => inches converted to feet
+            if self.rb_snap1.IsChecked: return (1.0/8.0) / 12.0
+            if self.rb_snap2.IsChecked: return (1.0/4.0) / 12.0
+            if getattr(self, 'rb_snap3', None) and self.rb_snap3.IsChecked: return (1.0/2.0) / 12.0
+            return (1.0/8.0) / 12.0
 
     # ── pick reference ───────────────────────────────────────
     def pick_reference_clicked(self, sender, e):
@@ -319,19 +269,12 @@ class AlignPositionsWindow(forms.WPFWindow):
 
         if isinstance(element, Grid):
             self._ref_type = "Grid"
-            curve = element.Curve
-            d = (curve.GetEndPoint(1) - curve.GetEndPoint(0)).Normalize()
-            self._ref_data = (curve, d)
             self.txt_ref_info.Text = "Grid: {}".format(element.Name)
             self.txt_ref_info.Foreground = \
                 SolidColorBrush(Color.FromRgb(44, 62, 80))
 
         elif isinstance(element, Wall):
             self._ref_type = "Wall"
-            curve = element.Location.Curve
-            d = (curve.GetEndPoint(1) - curve.GetEndPoint(0)).Normalize()
-            hw = element.Width / 2.0
-            self._ref_data = (curve, d, hw)
             w_mm = element.Width * MM_PER_FOOT
             self.txt_ref_info.Text = "Wall: Id {} (w={:.0f} mm)".format(
                 element.Id.IntegerValue, w_mm)
@@ -340,12 +283,14 @@ class AlignPositionsWindow(forms.WPFWindow):
 
         elif isinstance(element, FamilyInstance):
             self._ref_type = "Column"
-            bb = element.get_BoundingBox(None)
-            self._ref_data = (bb.Min, bb.Max)
             self.txt_ref_info.Text = "Column: {} (Id:{})".format(
                 element.Symbol.Family.Name, element.Id.IntegerValue)
             self.txt_ref_info.Foreground = \
                 SolidColorBrush(Color.FromRgb(44, 62, 80))
+
+        # Setup local coordinate vectors
+        self._ref_origin = get_element_location(element)
+        self._ref_dir = get_element_orientation(element)
 
         # Reset downstream state
         self.btn_select.IsEnabled = True
@@ -353,26 +298,51 @@ class AlignPositionsWindow(forms.WPFWindow):
         self._results = []
         self._selected_elements = []
         self.btn_apply.IsEnabled = False
-        self.txt_element_count.Text = "No elements selected"
-        self._update_status("Reference set - Select elements to analyze")
+        self.txt_element_count.Text = "Scanning elements..."
+        self._update_status("Reference set - Scanning for elements...")
+        
+        self._auto_find_elements()
 
     # ── select elements ──────────────────────────────────────
     def select_elements_clicked(self, sender, e):
-        self.Hide()
         try:
-            refs = uidoc.Selection.PickObjects(
-                ObjectType.Element,
-                "Select elements to snap (finish with Enter)",
-            )
-            elements = [doc.GetElement(r.ElementId) for r in refs]
-            self._analyze(elements)
-        except OperationCanceledException:
-            pass
+            self._auto_find_elements()
         except Exception as ex:
             logger.error(str(ex))
-        self.Show()
 
-    # ── snap-value changed ───────────────────────────────────
+    def _auto_find_elements(self):
+        walls = list(FilteredElementCollector(doc, doc.ActiveView.Id).OfClass(Wall).ToElements())
+        grids = list(FilteredElementCollector(doc, doc.ActiveView.Id).OfClass(Grid).ToElements())
+        
+        cols_arch = list(FilteredElementCollector(doc, doc.ActiveView.Id).OfCategory(BuiltInCategory.OST_Columns).WhereElementIsNotElementType().ToElements())
+        cols_str = list(FilteredElementCollector(doc, doc.ActiveView.Id).OfCategory(BuiltInCategory.OST_StructuralColumns).WhereElementIsNotElementType().ToElements())
+
+        elements = walls + grids + cols_arch + cols_str
+        self._analyze(elements)
+
+    # ── unit/snap value changed ──────────────────────────────
+    def unit_changed(self, sender, e):
+        if not hasattr(self, 'rb_metric') or not self.rb_metric:
+            return
+            
+        from System.Windows import Visibility
+        is_metric = self.rb_metric.IsChecked
+        if is_metric:
+            if hasattr(self, 'rb_snap1') and self.rb_snap1: self.rb_snap1.Content = " 5 mm"
+            if hasattr(self, 'rb_snap2') and self.rb_snap2: self.rb_snap2.Content = " 10 mm"
+            if hasattr(self, 'rb_snap3') and self.rb_snap3:
+                self.rb_snap3.Visibility = Visibility.Collapsed
+                if self.rb_snap3.IsChecked: self.rb_snap1.IsChecked = True
+        else:
+            if hasattr(self, 'rb_snap1') and self.rb_snap1: self.rb_snap1.Content = " 1/8 inch"
+            if hasattr(self, 'rb_snap2') and self.rb_snap2: self.rb_snap2.Content = " 1/4 inch"
+            if hasattr(self, 'rb_snap3') and self.rb_snap3:
+                self.rb_snap3.Content = " 1/2 inch"
+                self.rb_snap3.Visibility = Visibility.Visible
+
+        if getattr(self, '_selected_elements', None) and getattr(self, '_ref_element', None):
+            self._analyze(self._selected_elements)
+
     def snap_changed(self, sender, e):
         if self._selected_elements and self._ref_element:
             self._analyze(self._selected_elements)
@@ -382,53 +352,186 @@ class AlignPositionsWindow(forms.WPFWindow):
         self._selected_elements = list(elements)
         self._dt.Clear()
         self._results = []
-        snap = self._snap_mm()
+        snap_f = self._snap_feet()
         count = 0
 
         for elem in elements:
             if elem.Id == self._ref_element.Id:
                 continue
-            result = self._compute(elem, snap)
+            result = self._compute(elem, snap_f)
             if result is None:
                 continue
 
             self._results.append(result)
             row = self._dt.NewRow()
-            row["Apply"]     = True
-            row["Category"]  = elem.Category.Name if elem.Category else "N/A"
-            row["Name"]      = getattr(elem, 'Name', '') \
-                               or "Id:{}".format(elem.Id.IntegerValue)
-            row["ElementId"] = str(elem.Id.IntegerValue)
-            row["Distance"]  = "{:.1f}".format(result["current_dist_mm"])
-            row["Rounded"]   = "{:.0f}".format(result["rounded_dist_mm"])
-            row["Correction"] = "{:+.1f}".format(result["correction_mm"])
+            row["Apply"]      = True
+            row["Category"]   = elem.Category.Name if elem.Category else "N/A"
+            row["Name"]       = getattr(elem, 'Name', '') or "Id:{}".format(elem.Id.IntegerValue)
+            row["ElementId"]  = str(elem.Id.IntegerValue)
+            row["StartPt"]    = result.get("start_pt_str", "")
+            row["EndPt"]      = result.get("end_pt_str", "")
+            row["LocDist"]    = result["loc_str"]
+            row["AngleStr"]   = result["angle_str"]
+            row["Correction"] = result["corr_str"]
             self._dt.Rows.Add(row)
             count += 1
 
         self.btn_apply.IsEnabled = count > 0
         self.txt_element_count.Text = "{} element(s) need adjustment".format(count)
         self._update_status(
-            "{} selected, {} need correction (snap {} mm)".format(
-                len(elements), count, int(snap)))
+            "{} selected, {} need correction".format(len(elements), count))
 
-    def _compute(self, elem, snap_mm):
+    def _compute(self, elem, snap_feet):
         loc = get_element_location(elem)
-        if loc is None:
+        if loc is None or self._ref_origin is None:
             return None
 
-        if self._ref_type == "Grid":
-            curve, d = self._ref_data
-            return _correction_for_grid(elem, loc, curve, d, snap_mm)
+        target_dir = get_element_orientation(elem)
+        ref_x = self._ref_dir
+        ref_y = XYZ(-ref_x.Y, ref_x.X, 0)
 
-        if self._ref_type == "Wall":
-            curve, d, hw = self._ref_data
-            return _correction_for_wall(elem, loc, curve, d, hw, snap_mm)
+        is_curve_element = False
+        c = None
+        if isinstance(elem, Wall) and hasattr(elem.Location, "Curve"):
+            c = elem.Location.Curve
+            is_curve_element = c is not None and isinstance(c, Line)
+        elif isinstance(elem, Grid):
+            c = elem.Curve
+            is_curve_element = c is not None and isinstance(c, Line)
 
-        if self._ref_type == "Column":
-            bb_min, bb_max = self._ref_data
-            return _correction_for_column(elem, loc, bb_min, bb_max, snap_mm)
+        move_vector = None
+        rot_correction = 0.0
+        needs_move = False
+        needs_rot = False
+        new_curve = None
+        
+        diff_deg = 0.0
+        start_pt_str = ""
+        end_pt_str = ""
 
-        return None
+        # Format strings for UI using native settings
+        is_metric = getattr(self, 'rb_metric', None) and self.rb_metric.IsChecked
+        scale = MM_PER_FOOT if is_metric else 12.0
+        fmt = "{:.2f}" if is_metric else "{:.3f}"
+        fmt_corr = "{:+.2f}" if is_metric else "{:+.3f}"
+
+        if is_curve_element:
+            pt1 = c.GetEndPoint(0)
+            pt2 = c.GetEndPoint(1)
+
+            u1 = (pt1 - self._ref_origin).DotProduct(ref_x)
+            v1 = (pt1 - self._ref_origin).DotProduct(ref_y)
+            u2 = (pt2 - self._ref_origin).DotProduct(ref_x)
+            v2 = (pt2 - self._ref_origin).DotProduct(ref_y)
+
+            start_pt_str = (fmt + ", " + fmt).format(pt1.X * scale, pt1.Y * scale)
+            end_pt_str = (fmt + ", " + fmt).format(pt2.X * scale, pt2.Y * scale)
+
+            is_mostly_x = abs(u2 - u1) > abs(v2 - v1)
+
+            if is_mostly_x:
+                v_avg = (v1 + v2) / 2.0
+                v_snap = round(v_avg / snap_feet) * snap_feet
+                v1_snap, v2_snap = v_snap, v_snap
+                u1_snap = round(u1 / snap_feet) * snap_feet
+                u2_snap = round(u2 / snap_feet) * snap_feet
+            else:
+                u_avg = (u1 + u2) / 2.0
+                u_snap = round(u_avg / snap_feet) * snap_feet
+                u1_snap, u2_snap = u_snap, u_snap
+                v1_snap = round(v1 / snap_feet) * snap_feet
+                v2_snap = round(v2 / snap_feet) * snap_feet
+
+            new_pt1 = self._ref_origin + u1_snap * ref_x + v1_snap * ref_y + XYZ(0,0,pt1.Z - self._ref_origin.Z)
+            new_pt2 = self._ref_origin + u2_snap * ref_x + v2_snap * ref_y + XYZ(0,0,pt2.Z - self._ref_origin.Z)
+
+            if new_pt1.DistanceTo(new_pt2) > 0.0026:
+                if pt1.DistanceTo(new_pt1) > 0.001 or pt2.DistanceTo(new_pt2) > 0.001:
+                    new_curve = Line.CreateBound(new_pt1, new_pt2)
+                    needs_move = True
+                    
+                    # For grid fallback if needed
+                    mid_pt = (pt1 + pt2) / 2.0
+                    new_mid_pt = (new_pt1 + new_pt2) / 2.0
+                    move_vector = new_mid_pt - mid_pt
+                    
+                    tar_theta = math.atan2(target_dir.Y, target_dir.X)
+                    ref_theta = math.atan2(ref_x.Y, ref_x.X)
+                    diff_rad = tar_theta - ref_theta
+                    diff_deg = math.degrees(diff_rad) % 90
+                    if diff_deg > 45: diff_deg = 90 - diff_deg
+
+            dist_x_feet = (u1 + u2) / 2.0
+            dist_y_feet = (v1 + v2) / 2.0
+            cx_display = (u1_snap + u2_snap) / 2.0 - dist_x_feet
+            cy_display = (v1_snap + v2_snap) / 2.0 - dist_y_feet
+
+        else:
+            # 1. Angle correction
+            ref_theta = math.atan2(ref_x.Y, ref_x.X)
+            tar_theta = math.atan2(target_dir.Y, target_dir.X)
+            diff_rad = tar_theta - ref_theta
+            
+            snap_theta_rad = round(diff_rad / (math.pi/2)) * (math.pi/2)
+            rot_correction = snap_theta_rad - diff_rad
+            
+            diff_deg = math.degrees(diff_rad) % 90
+            if diff_deg > 45: diff_deg = 90 - diff_deg
+            
+            # 2. Local distance corrections
+            vx = loc.X - self._ref_origin.X
+            vy = loc.Y - self._ref_origin.Y
+            v = XYZ(vx, vy, 0)
+            
+            dist_x_feet = v.DotProduct(ref_x)
+            dist_y_feet = v.DotProduct(ref_y)
+            
+            snap_x_feet = round(dist_x_feet / snap_feet) * snap_feet
+            snap_y_feet = round(dist_y_feet / snap_feet) * snap_feet
+            
+            corr_x_feet = snap_x_feet - dist_x_feet
+            corr_y_feet = snap_y_feet - dist_y_feet
+            
+            move_vector = ref_x * corr_x_feet + ref_y * corr_y_feet
+                
+            if move_vector.GetLength() > 0.0026:
+                needs_move = True
+            
+            if isinstance(elem, FamilyInstance):
+                needs_rot = (abs(rot_correction) >= 0.001)
+
+            cx_display = corr_x_feet
+            cy_display = corr_y_feet
+
+            start_pt_str = (fmt + ", " + fmt).format(loc.X * scale, loc.Y * scale)
+            end_pt_str = "-"
+
+        if not needs_move and not needs_rot:
+            return None
+            
+        dx_display = dist_x_feet * scale
+        dy_display = dist_y_feet * scale
+        cxd = cx_display * scale
+        cyd = cy_display * scale
+        
+        loc_str = (fmt + ", " + fmt).format(dx_display, dy_display)
+        angle_str = "{:.1f}°".format(diff_deg)
+        corr_str = (fmt_corr + ", " + fmt_corr).format(cxd, cyd) if needs_move else "0, 0"
+        if needs_rot:
+            corr_str += " | ⟲"
+            
+        return {
+            "element": elem,
+            "origin": loc,
+            "loc_str": loc_str,
+            "angle_str": angle_str,
+            "corr_str": corr_str,
+            "move_vector": move_vector if needs_move else None,
+            "rot_correction": rot_correction if needs_rot else 0.0,
+            "new_curve": new_curve,
+            "start_pt_str": start_pt_str,
+            "end_pt_str": end_pt_str
+        }
 
     # ── apply ────────────────────────────────────────────────
     def apply_clicked(self, sender, e):
@@ -437,6 +540,8 @@ class AlignPositionsWindow(forms.WPFWindow):
 
         moved  = 0
         failed = 0
+        
+        self.Hide()
 
         t = Transaction(doc, "Align Positions")
         t.Start()
@@ -448,11 +553,29 @@ class AlignPositionsWindow(forms.WPFWindow):
                         continue
 
                 try:
-                    ElementTransformUtils.MoveElement(
-                        doc,
-                        result["element"].Id,
-                        result["move_vector"],
-                    )
+                    elem_id = result["element"].Id
+                    
+                    if result.get("new_curve") is not None:
+                        if isinstance(result["element"], Wall):
+                            result["element"].Location.Curve = result["new_curve"]
+                        elif isinstance(result["element"], Grid):
+                            import Autodesk.Revit.DB as DB
+                            try:
+                                result["element"].SetCurveInView(DB.DatumExtentType.Model, doc.ActiveView, result["new_curve"])
+                            except:
+                                if result["move_vector"] is not None:
+                                    ElementTransformUtils.MoveElement(doc, elem_id, result["move_vector"])
+                    else:
+                        if result["rot_correction"] != 0.0:
+                            axis = Line.CreateBound(result["origin"], result["origin"] + XYZ.BasisZ)
+                            ElementTransformUtils.RotateElement(doc, elem_id, axis, result["rot_correction"])
+                        
+                        if result["move_vector"] is not None:
+                            ElementTransformUtils.MoveElement(
+                                doc,
+                                elem_id,
+                                result["move_vector"],
+                            )
                     moved += 1
                 except Exception as ex:
                     logger.warning(
@@ -464,6 +587,7 @@ class AlignPositionsWindow(forms.WPFWindow):
         except Exception as ex:
             t.RollBack()
             self._update_status("Error: {}".format(ex))
+            self.Show()
             return
 
         msg = "Done! {} element(s) moved".format(moved)
@@ -477,6 +601,8 @@ class AlignPositionsWindow(forms.WPFWindow):
         self._selected_elements = []
         self.btn_apply.IsEnabled = False
         self.txt_element_count.Text = "{} element(s) moved".format(moved)
+        
+        self.Show()
 
 
 # ════════════════════════════════════════════════════════════════
