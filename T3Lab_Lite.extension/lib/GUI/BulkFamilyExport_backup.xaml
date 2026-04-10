@@ -151,7 +151,7 @@
                                    Foreground="#2C3E50" VerticalAlignment="Bottom"/>
                     </StackPanel>
                     <Separator Height="1" Background="#BDC3C7" Margin="0,3"/>
-                    <TextBlock Text="Export CAD blocks or generate parametric Door/Window families"
+                    <TextBlock Text="Export CAD blocks as individual Revit families"
                                FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
                 </StackPanel>
             </StackPanel>
@@ -244,7 +244,7 @@
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#2980B9" Margin="0,0,5,0"/>
                 <TextBlock Foreground="#2C3E50" TextWrapping="Wrap"
-                           Text="CAD Mode: Select a CAD file and click 'Scan Blocks'. Door Preset Mode: Select output folder, then click 'Door Presets' to generate 3D door families without any CAD file."/>
+                           Text="Select a CAD file and click 'Scan Blocks' to discover block references. Use 'Load to Project' to also load exported families into the current model."/>
             </StackPanel>
         </Border>
 
@@ -365,28 +365,6 @@
                               FontFamily="Segoe UI"
                               FontSize="12"
                               ToolTip="After export, load each family into the current Revit project"/>
-                    <Button x:Name="btn_door_presets" Content="&#x1F6AA; Door Presets"
-                            Click="door_presets_clicked"
-                            Padding="16,8" FontSize="13" FontWeight="SemiBold"
-                            Margin="0,0,8,0"
-                            ToolTip="Generate parametric door families from preset sizes (no CAD required)">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-                                <Setter Property="Background" Value="#E67E22"/>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#CA6F1E"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button x:Name="btn_door_presets" Content="&#x1F6AA; Door Presets"
-                            Style="{StaticResource PrimaryButton}" Click="door_presets_clicked"
-                            Padding="16,8" FontSize="13" FontWeight="SemiBold"
-                            Margin="0,0,8,0"
-                            Background="#E67E22"
-                            ToolTip="Generate parametric door families (no CAD required)"/>
                     <Button x:Name="btn_export" Content="Export Selected"
                             Style="{StaticResource SuccessButton}" Click="export_clicked"
                             Padding="20,8" FontSize="13" FontWeight="SemiBold"/>
