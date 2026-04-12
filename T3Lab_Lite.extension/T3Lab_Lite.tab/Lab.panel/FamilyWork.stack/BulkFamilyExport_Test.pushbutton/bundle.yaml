@@ -1,0 +1,9 @@
+# BulkFamilyExport pushbutton configuration
+
+title: Bulk Family Export - Test
+tooltip: Export CAD blocks from imported DWG/DXF files as individual Revit families
+description: |
+  Bulk Family Export scans an imported CAD file 
+
+author: T3Lab
+version: 0.0.2

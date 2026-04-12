@@ -1,0 +1,17 @@
+# BulkFamilyExport pushbutton configuration
+
+title: Bulk Family Export
+tooltip: Export CAD blocks from imported DWG/DXF files as individual Revit families
+description: |
+  Bulk Family Export scans an imported CAD file for block references
+  and exports each unique block as a separate .rfa family file.
+
+  Features:
+  - Scan imported DWG/DXF files for block definitions
+  - Choose target family category (Door, Window, Generic Model, etc.)
+  - Preview discovered blocks with curve counts
+  - Batch export selected blocks to a chosen output folder
+  - Automatic bounding-rectangle extrusion with model lines
+
+author: T3Lab
+version: 2.0.0
