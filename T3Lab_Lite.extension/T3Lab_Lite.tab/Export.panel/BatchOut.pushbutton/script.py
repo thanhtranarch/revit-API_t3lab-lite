@@ -39,7 +39,7 @@ from pyrevit import revit, DB, UI, forms, script
 from Autodesk.Revit.DB import (
     Transaction, FilteredElementCollector, BuiltInCategory,
     ViewSheet, ViewSet, ViewSheetSet, DWGExportOptions, DWFExportOptions,
-    ExportDWGSettings, ACADVersion, PDFExportOptions,
+    DGNExportOptions, ExportDWGSettings, ACADVersion, PDFExportOptions,
     ImageExportOptions, ImageFileType, ImageResolution,
     PropOverrideMode, View, ViewPlan, ViewSection, View3D,
     ViewSchedule, ViewDrafting, ViewType,
@@ -91,6 +91,7 @@ class SheetItem(forms.Reactive):
         self.Status = "Ready"
         self.Progress = 0
         self.Size = "-"
+        self.Orientation = "-"
         self.Revision = ""
         self.RevisionDate = ""
         self.RevisionDescription = ""
@@ -139,84 +140,74 @@ class SheetItem(forms.Reactive):
 
 class ViewItem(forms.Reactive):
     """Represents a view item in the list - optimized for performance."""
-    def __init__(self, view, is_selected=False):
+
+    _VIEW_TYPE_MAP = {
+        ViewType.FloorPlan: "Floor Plan",
+        ViewType.CeilingPlan: "Ceiling Plan",
+        ViewType.Elevation: "Elevation",
+        ViewType.Section: "Section",
+        ViewType.ThreeD: "3D View",
+        ViewType.Schedule: "Schedule",
+        ViewType.DraftingView: "Drafting",
+        ViewType.Legend: "Legend",
+        ViewType.EngineeringPlan: "Engineering",
+        ViewType.AreaPlan: "Area Plan",
+    }
+
+    def __init__(self, view, is_selected=False, lazy=False):
         self.View = view
         self.IsSelected = is_selected
         self.ViewName = view.Name
-        # Add aliases for compatibility with sheet ListView
-        self.SheetNumber = view.Name  # Use view name as "number"
-        self.SheetName = ""  # Will be filled with view type
+        self.SheetNumber = view.Name  # alias for column compatibility
+        self.SheetName = ""
 
-        # Determine view type
+        # ViewType is a direct property — fast, always load
         try:
-            view_type = view.ViewType
-            if view_type == ViewType.FloorPlan:
-                self.ViewType = "Floor Plan"
-            elif view_type == ViewType.CeilingPlan:
-                self.ViewType = "Ceiling Plan"
-            elif view_type == ViewType.Elevation:
-                self.ViewType = "Elevation"
-            elif view_type == ViewType.Section:
-                self.ViewType = "Section"
-            elif view_type == ViewType.ThreeD:
-                self.ViewType = "3D View"
-            elif view_type == ViewType.Schedule:
-                self.ViewType = "Schedule"
-            elif view_type == ViewType.DraftingView:
-                self.ViewType = "Drafting"
-            elif view_type == ViewType.Legend:
-                self.ViewType = "Legend"
-            elif view_type == ViewType.EngineeringPlan:
-                self.ViewType = "Engineering"
-            elif view_type == ViewType.AreaPlan:
-                self.ViewType = "Area Plan"
-            else:
-                self.ViewType = str(view_type)
+            self.ViewType = self._VIEW_TYPE_MAP.get(view.ViewType, str(view.ViewType))
         except:
             self.ViewType = "Unknown"
-
-        # Set SheetName to view type for compatibility
         self.SheetName = self.ViewType
 
-        # Get view scale
+        # Scale is a direct property — fast, always load
         try:
             self.Scale = "1:{}".format(view.Scale) if hasattr(view, 'Scale') and view.Scale else "-"
         except:
             self.Scale = "-"
 
-        # Get phase
-        try:
-            phase_param = view.get_Parameter(DB.BuiltInParameter.VIEW_PHASE)
-            if phase_param:
-                phase_id = phase_param.AsElementId()
-                if phase_id and phase_id != DB.ElementId.InvalidElementId:
-                    phase_elem = view.Document.GetElement(phase_id)
-                    self.Phase = phase_elem.Name if phase_elem else "-"
-                else:
-                    self.Phase = "-"
-            else:
-                self.Phase = "-"
-        except:
-            self.Phase = "-"
-
-        # Get view template
-        try:
-            template_id = view.ViewTemplateId
-            if template_id and template_id != DB.ElementId.InvalidElementId:
-                template = view.Document.GetElement(template_id)
-                self.ViewTemplate = template.Name if template else "-"
-            else:
-                self.ViewTemplate = "-"
-        except:
-            self.ViewTemplate = "-"
+        # Heavy lookups deferred when lazy=True
+        self.Phase = "-"
+        self.ViewTemplate = "-"
+        if not lazy:
+            self._load_extra_data()
 
         self.Status = "Ready"
         self.Progress = 0
         self.CustomFilename = ""
+        self.Size = self.Scale
+        self.Revision = self.Phase
+        self.Orientation = "-"
 
-        # Add more compatibility properties
-        self.Size = self.Scale  # Use scale as "size" for views
-        self.Revision = self.Phase  # Use phase for "revision" column in views mode
+    def _load_extra_data(self):
+        """Load Phase and ViewTemplate — deferred for startup performance."""
+        try:
+            phase_param = self.View.get_Parameter(DB.BuiltInParameter.VIEW_PHASE)
+            if phase_param:
+                phase_id = phase_param.AsElementId()
+                if phase_id and phase_id != DB.ElementId.InvalidElementId:
+                    phase_elem = self.View.Document.GetElement(phase_id)
+                    self.Phase = phase_elem.Name if phase_elem else "-"
+        except:
+            pass
+
+        try:
+            template_id = self.View.ViewTemplateId
+            if template_id and template_id != DB.ElementId.InvalidElementId:
+                template = self.View.Document.GetElement(template_id)
+                self.ViewTemplate = template.Name if template else "-"
+        except:
+            pass
+
+        self.Revision = self.Phase  # keep alias in sync
 
     def __repr__(self):
         return "{} ({})".format(self.ViewName, self.ViewType)
@@ -409,14 +400,14 @@ class ExportManagerWindow(forms.WPFWindow):
             # Load profiles
             self.load_profiles()
 
-            # Disable formats if not available
+            # Disable formats only if native libraries are not available
             if not HAS_NAVISWORKS:
                 self.export_nwd.IsEnabled = False
-                self.export_nwd.ToolTip = "Navisworks export not available in this Revit version"
+                self.export_nwd.ToolTip = "Navisworks export not available — NavisworksExportOptions missing in this Revit version"
 
             if not HAS_IFC:
                 self.export_ifc.IsEnabled = False
-                self.export_ifc.ToolTip = "IFC export not available in this Revit version"
+                self.export_ifc.ToolTip = "IFC export not available — IFCExportOptions missing in this Revit version"
 
             # Attach event handler for click-to-select functionality
             # This is done programmatically because EventSetters in Styles don't work with pyRevit
@@ -1062,47 +1053,149 @@ class ExportManagerWindow(forms.WPFWindow):
             self.cad_export_setup.SelectedIndex = 0
 
     def load_sheet_sets_for_filter(self):
-        """Load available ViewSheetSets from Print Settings for filtering."""
+        """Populate the multi-select sheet set dropdown with CheckBoxes."""
         try:
-            # Clear existing items (except default)
-            self.sheet_set_filter.Items.Clear()
+            from System.Windows.Controls import CheckBox
+            from System.Windows import Thickness
 
-            # Add default "All" option
-            from System.Windows.Controls import ComboBoxItem
-            default_item = ComboBoxItem()
-            default_item.Content = "All Sheets/Views"
-            default_item.Tag = None  # No filter
-            self.sheet_set_filter.Items.Add(default_item)
+            self.sheet_set_checklist.Children.Clear()
 
-            # Get saved sheet set names from Print Settings
+            # "All Sheets/Views" checkbox — checked by default
+            all_cb = CheckBox()
+            all_cb.Content = "All Sheets/Views"
+            all_cb.IsChecked = True
+            all_cb.Tag = None
+            all_cb.Margin = Thickness(4, 3, 4, 3)
+            all_cb.Checked += self._sheet_set_all_checked
+            self._sheet_set_all_checkbox = all_cb
+            self.sheet_set_checklist.Children.Add(all_cb)
+
+            # Individual set checkboxes
             saved_set_names = self.get_saved_sheet_set_names()
-
             if saved_set_names:
-                # Add each sheet set to the filter dropdown
-                for set_name in sorted(saved_set_names):
-                    item = ComboBoxItem()
-                    item.Content = set_name
-                    item.Tag = set_name  # Store the set name for later use
-                    self.sheet_set_filter.Items.Add(item)
-            else:
-                # Add "None" option if no sheet sets found
-                none_item = ComboBoxItem()
-                none_item.Content = "None (No saved Sheet Sets)"
-                none_item.Tag = None
-                none_item.IsEnabled = False
-                self.sheet_set_filter.Items.Add(none_item)
+                from System.Windows.Controls import Separator
+                sep = Separator()
+                sep.Margin = Thickness(0, 2, 0, 2)
+                self.sheet_set_checklist.Children.Add(sep)
 
-            # Select the first item (default "All")
-            self.sheet_set_filter.SelectedIndex = 0
+                for set_name in sorted(saved_set_names):
+                    cb = CheckBox()
+                    cb.Content = set_name
+                    cb.IsChecked = False
+                    cb.Tag = set_name
+                    cb.Margin = Thickness(4, 3, 4, 3)
+                    cb.Checked += self._sheet_set_item_changed
+                    cb.Unchecked += self._sheet_set_item_changed
+                    self.sheet_set_checklist.Children.Add(cb)
+            else:
+                from System.Windows.Controls import TextBlock as TB
+                from System.Windows.Media import SolidColorBrush, Color
+                hint = TB()
+                hint.Text = "(No saved Sheet Sets in this document)"
+                hint.Foreground = SolidColorBrush(Color.FromRgb(0x7F, 0x8C, 0x8D))
+                hint.Margin = Thickness(6, 4, 4, 4)
+                self.sheet_set_checklist.Children.Add(hint)
 
         except Exception as ex:
             logger.warning("Could not load sheet sets for filter: {}".format(ex))
-            # Add just the default if there's an error
-            from System.Windows.Controls import ComboBoxItem
-            default_item = ComboBoxItem()
-            default_item.Content = "All Sheets/Views"
-            self.sheet_set_filter.Items.Add(default_item)
-            self.sheet_set_filter.SelectedIndex = 0
+
+    def sheet_set_toggle_clicked(self, sender, e):
+        """Toggle the multi-select sheet set popup open/closed."""
+        try:
+            self.sheet_set_popup.IsOpen = not self.sheet_set_popup.IsOpen
+            # Keep toggle button appearance in sync with popup state
+            if not self.sheet_set_popup.IsOpen:
+                self.sheet_set_toggle.IsChecked = False
+        except Exception as ex:
+            logger.debug("Error toggling sheet set popup: {}".format(ex))
+
+    def _sheet_set_all_checked(self, sender, e):
+        """When 'All' is checked, uncheck every individual set and clear filter."""
+        try:
+            for child in self.sheet_set_checklist.Children:
+                if hasattr(child, 'Tag') and child.Tag is not None:
+                    child.IsChecked = False
+            self._update_sheet_set_label()
+            self.apply_filters()
+            self.update_selection_count()
+        except Exception as ex:
+            logger.debug("Error in sheet set all-checked: {}".format(ex))
+
+    def _sheet_set_item_changed(self, sender, e):
+        """When any individual set checkbox changes, update filter and label."""
+        try:
+            any_checked = any(
+                child.IsChecked
+                for child in self.sheet_set_checklist.Children
+                if hasattr(child, 'Tag') and child.Tag is not None
+            )
+            # Uncheck "All" silently if any individual set is checked
+            self._sheet_set_all_checkbox.Checked -= self._sheet_set_all_checked
+            self._sheet_set_all_checkbox.IsChecked = not any_checked
+            self._sheet_set_all_checkbox.Checked += self._sheet_set_all_checked
+
+            self._update_sheet_set_label()
+            self._apply_sheet_set_filter()
+        except Exception as ex:
+            logger.debug("Error in sheet set item changed: {}".format(ex))
+
+    def _update_sheet_set_label(self):
+        """Update the toggle button text to reflect current selection."""
+        try:
+            checked = [
+                child.Content
+                for child in self.sheet_set_checklist.Children
+                if hasattr(child, 'Tag') and child.Tag is not None and child.IsChecked
+            ]
+            if not checked:
+                self.sheet_set_label.Text = "All Sheets/Views"
+            elif len(checked) == 1:
+                self.sheet_set_label.Text = checked[0]
+            else:
+                self.sheet_set_label.Text = "{} sets selected".format(len(checked))
+        except Exception as ex:
+            logger.debug("Error updating sheet set label: {}".format(ex))
+
+    def _apply_sheet_set_filter(self):
+        """Union sheet IDs from all checked sets and apply filter + auto-select."""
+        try:
+            checked_sets = [
+                child.Tag
+                for child in self.sheet_set_checklist.Children
+                if hasattr(child, 'Tag') and child.Tag is not None and child.IsChecked
+            ]
+            if not checked_sets:
+                self.apply_filters()
+                return
+
+            # Union of all sheet IDs across checked sets
+            all_ids = set()
+            for set_name in checked_sets:
+                ids = self.get_sheet_ids_from_set(set_name)
+                all_ids.update(ids)
+
+            if not all_ids:
+                self.status_text.Text = "No sheets found in selected sets"
+                return
+
+            self.apply_filters(sheet_set_ids=list(all_ids))
+
+            # Auto-select sheets belonging to any checked set
+            selected_count = 0
+            for sheet_item in self.all_sheets:
+                if sheet_item.Sheet.Id in all_ids:
+                    sheet_item.IsSelected = True
+                    selected_count += 1
+                else:
+                    sheet_item.IsSelected = False
+
+            self.sheets_listview.Items.Refresh()
+            self.update_selection_count()
+            self.status_text.Text = "'{}': {} sheets selected".format(
+                self.sheet_set_label.Text, selected_count)
+
+        except Exception as ex:
+            logger.error("Error applying sheet set filter: {}".format(ex))
 
     def load_sheets(self):
         """Load all sheets - Phase 1: instant display of names, Phase 2: progressive background load."""
@@ -1171,8 +1264,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for sheet_item in chunk:
                 sheet_item._load_revision_params()
-                size, _ = self.get_sheet_paper_size_and_orientation(sheet_item.Sheet)
+                size, orientation = self.get_sheet_paper_size_and_orientation(sheet_item.Sheet)
                 sheet_item.Size = size
+                sheet_item.Orientation = orientation
 
             self._lazy_load_index = start + len(chunk)
 
@@ -1200,45 +1294,77 @@ class ExportManagerWindow(forms.WPFWindow):
         self._lazy_load_init()
 
     def load_views(self):
-        """Load all views from the document."""
+        """Load all views — Phase 1: instant display, Phase 2: chunked lazy loading."""
         try:
-            # Get all views
             views_collector = FilteredElementCollector(self.doc)\
                 .OfCategory(BuiltInCategory.OST_Views)\
                 .WhereElementIsNotElementType()
 
-            # Filter to get only valid view types (exclude templates, legends on sheets, etc.)
             views = []
             for v in views_collector:
-                # Skip if it's a template
                 if v.IsTemplate:
                     continue
-                # Skip sheets (they're handled separately)
                 if isinstance(v, ViewSheet):
                     continue
-                # Skip invalid view types
                 if not isinstance(v, (ViewPlan, ViewSection, View3D, ViewSchedule, ViewDrafting)):
                     continue
-                # Add to list
                 views.append(v)
 
-            # Sort by name
             views.sort(key=lambda x: x.Name)
 
-            # Create view items
-            self.all_views = [ViewItem(view, False) for view in views]
+            # lazy=True: skip Phase/ViewTemplate lookups for instant display
+            self.all_views = [ViewItem(view, False, lazy=True) for view in views]
             self.filtered_views = list(self.all_views)
 
-            # Update ListView
             self.update_items_list()
-
-            # Update status with version info
             self.status_text.Text = "Loaded {} views | Revit {}".format(
                 len(self.all_views), REVIT_VERSION)
+
+            # Phase 2: schedule chunked loading of Phase/ViewTemplate in background
+            self._lazy_view_load_index = 0
+            self.Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                Action(self._lazy_view_load_chunk)
+            )
 
         except Exception as ex:
             logger.error("Error loading views: {}".format(ex))
             forms.alert("Error loading views: {}".format(ex), exitscript=True)
+
+    def _lazy_view_load_chunk(self):
+        """Load Phase/ViewTemplate for a batch of views, then schedule the next batch."""
+        CHUNK_SIZE = 30
+        try:
+            start = self._lazy_view_load_index
+            chunk = self.all_views[start:start + CHUNK_SIZE]
+
+            if not chunk:
+                if hasattr(self, 'sheets_listview') and self.sheets_listview:
+                    self.sheets_listview.Items.Refresh()
+                self.status_text.Text = "Ready | {} views | Revit {}".format(
+                    len(self.all_views), REVIT_VERSION)
+                return
+
+            for view_item in chunk:
+                view_item._load_extra_data()
+
+            self._lazy_view_load_index = start + len(chunk)
+
+            if hasattr(self, 'sheets_listview') and self.sheets_listview:
+                self.sheets_listview.Items.Refresh()
+
+            loaded = self._lazy_view_load_index
+            total = len(self.all_views)
+            self.status_text.Text = "Loading view data... {}/{} | Revit {}".format(
+                loaded, total, REVIT_VERSION)
+
+            self.Dispatcher.BeginInvoke(
+                DispatcherPriority.Background,
+                Action(self._lazy_view_load_chunk)
+            )
+
+        except Exception as ex:
+            logger.debug("Error loading view chunk: {}".format(ex))
 
     def update_sheets_list(self):
         """Update the sheets ListView."""
@@ -1300,6 +1426,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.col_name.Header = "Sheet Name"
                     self.col_revision.Header = "Revision"
                     self.col_size.Header = "Size"
+                if hasattr(self, 'col_orientation'):
+                    self.col_orientation.Header = "Orientation"
             elif hasattr(self, 'views_radio') and self.views_radio.IsChecked:
                 self.selection_mode = "views"
                 # Show views
@@ -1316,6 +1444,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.col_name.Header = "View Type"
                     self.col_revision.Header = "Phase"
                     self.col_size.Header = "Scale"
+                if hasattr(self, 'col_orientation'):
+                    self.col_orientation.Header = "—"
         except Exception as ex:
             logger.error("Error changing selection mode: {}".format(ex))
 
@@ -1612,54 +1742,8 @@ class ExportManagerWindow(forms.WPFWindow):
         self.apply_filters()
 
     def filter_by_sheet_set(self, sender, e):
-        """Filter sheets by selected View/Sheet Set and auto-select matching sheets."""
-        try:
-            # Check if controls are initialized
-            if not hasattr(self, 'sheet_set_filter'):
-                return
-
-            # Get selected sheet set
-            selected_item = self.sheet_set_filter.SelectedItem
-            if not selected_item:
-                return
-
-            # Get the sheet set name from Tag
-            set_name = selected_item.Tag if hasattr(selected_item, 'Tag') else None
-
-            # If "All" is selected (Tag is None), just apply normal filters
-            if set_name is None:
-                self.apply_filters()
-                return
-
-            # Get sheet IDs from the selected set
-            sheet_ids = self.get_sheet_ids_from_set(set_name)
-
-            if not sheet_ids:
-                self.status_text.Text = "No sheets found in set '{}'".format(set_name)
-                return
-
-            # Apply the sheet set filter along with other filters
-            self.apply_filters(sheet_set_ids=sheet_ids)
-
-            # Auto-select sheets that belong to the selected set
-            selected_count = 0
-            for sheet_item in self.all_sheets:
-                if sheet_item.Sheet.Id in sheet_ids:
-                    sheet_item.IsSelected = True
-                    selected_count += 1
-                else:
-                    sheet_item.IsSelected = False
-
-            # Refresh ListView to reflect updated checkboxes
-            self.sheets_listview.Items.Refresh()
-            self.update_selection_count()
-
-            # Update status
-            self.status_text.Text = "Loaded set '{}': {} sheets selected".format(
-                set_name, selected_count)
-
-        except Exception as ex:
-            logger.error("Error filtering by sheet set: {}".format(ex))
+        """Legacy handler — delegates to the multi-select implementation."""
+        self._apply_sheet_set_filter()
 
     def filter_by_vs_changed(self, sender, e):
         """Handle Filter by V/S checkbox change."""
@@ -1759,6 +1843,60 @@ class ExportManagerWindow(forms.WPFWindow):
         if dialog.ShowDialog() == DialogResult.OK:
             self.output_folder.Text = dialog.SelectedPath
             self.status_text.Text = "Output folder: {}".format(dialog.SelectedPath)
+
+    # ── Accordion toggle helpers ──────────────────────────────────────────
+    def _toggle_format_panel(self, body_name, arrow_name, border_name, accent_color, header_bg):
+        """Expand or collapse a format settings panel."""
+        try:
+            body = getattr(self, body_name)
+            arrow = getattr(self, arrow_name)
+            border = getattr(self, border_name)
+            from System.Windows import Visibility
+            from System.Windows.Media import SolidColorBrush, Color
+
+            if body.Visibility == Visibility.Collapsed:
+                body.Visibility = Visibility.Visible
+                arrow.Text = "▴"
+                # Highlight border when expanded
+                r = int(accent_color[1:3], 16)
+                g = int(accent_color[3:5], 16)
+                b = int(accent_color[5:7], 16)
+                border.BorderBrush = SolidColorBrush(Color.FromRgb(r, g, b))
+            else:
+                body.Visibility = Visibility.Collapsed
+                arrow.Text = "▾"
+                border.BorderBrush = SolidColorBrush(Color.FromRgb(0xBD, 0xC3, 0xC7))
+        except Exception as ex:
+            logger.debug("Error toggling panel {}: {}".format(body_name, ex))
+
+    def pdf_header_clicked(self, sender, e):
+        self._toggle_format_panel("pdf_settings_body", "pdf_expand_arrow",
+                                  "pdf_panel_border", "#3498DB", "#E8F4F8")
+
+    def dwg_header_clicked(self, sender, e):
+        self._toggle_format_panel("dwg_settings_body", "dwg_expand_arrow",
+                                  "dwg_panel_border", "#3498DB", "#F8F9FA")
+
+    def dgn_header_clicked(self, sender, e):
+        self._toggle_format_panel("dgn_settings_body", "dgn_expand_arrow",
+                                  "dgn_panel_border", "#3498DB", "#F8F9FA")
+
+    def dwf_header_clicked(self, sender, e):
+        self._toggle_format_panel("dwf_settings_body", "dwf_expand_arrow",
+                                  "dwf_panel_border", "#3498DB", "#F8F9FA")
+
+    def nwc_header_clicked(self, sender, e):
+        self._toggle_format_panel("nwc_settings_body", "nwc_expand_arrow",
+                                  "nwc_panel_border", "#3498DB", "#F8F9FA")
+
+    def ifc_header_clicked(self, sender, e):
+        self._toggle_format_panel("ifc_settings_body", "ifc_expand_arrow",
+                                  "ifc_panel_border", "#3498DB", "#F8F9FA")
+
+    def img_header_clicked(self, sender, e):
+        self._toggle_format_panel("img_settings_body", "img_expand_arrow",
+                                  "img_panel_border", "#3498DB", "#F8F9FA")
+    # ─────────────────────────────────────────────────────────────────────
 
     def format_changed(self, sender, e):
         """Handle format checkbox change."""
@@ -2369,6 +2507,18 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.overall_progress.Value = progress_percent
                     self.progress_text.Text = "Completed {}%".format(progress_percent)
 
+            if self.export_dgn.IsChecked:
+                folder = os.path.join(output_folder, "DGN") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_dgn(selected_items, folder)
+                total_exported += count
+                current_item += count
+                if total_items > 0:
+                    progress_percent = int((current_item * 100.0) / total_items)
+                    self.overall_progress.Value = progress_percent
+                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+
             if self.export_nwd.IsChecked:
                 folder = os.path.join(output_folder, "NWC") if split_by_format else output_folder
                 if not os.path.exists(folder):
@@ -2559,6 +2709,57 @@ class ExportManagerWindow(forms.WPFWindow):
 
         except Exception as ex:
             logger.error("DWG export failed: {}".format(ex))
+            return 0
+
+    def export_to_dgn(self, items, output_folder):
+        """Export items (sheets or views) to DGN (MicroStation) format."""
+        try:
+            for item in items:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
+
+            dgn_options = DGNExportOptions()
+
+            exported_count = 0
+
+            for item in items:
+                try:
+                    if hasattr(item, 'Sheet'):
+                        element = item.Sheet
+                        element_name = element.SheetNumber
+                    elif hasattr(item, 'View'):
+                        element = item.View
+                        element_name = element.Name
+                    else:
+                        continue
+
+                    self.progress_text.Text = "Exporting {} to DGN...".format(element_name)
+
+                    filename = item.CustomFilename or self.get_export_filename(item)
+                    if filename.lower().endswith('.dgn'):
+                        filename = filename[:-4]
+
+                    view_ids = List[DB.ElementId]()
+                    view_ids.Add(element.Id)
+
+                    self.doc.Export(output_folder, filename, view_ids, dgn_options)
+
+                    expected_file = os.path.join(output_folder, filename + ".dgn")
+                    if os.path.exists(expected_file):
+                        exported_count += 1
+                        self.update_export_item_progress(item.SheetNumber, "DGN", 100)
+
+                except Exception as ex:
+                    logger.error("Error exporting {} to DGN: {}".format(element_name, ex))
+
+            return exported_count
+
+        except Exception as ex:
+            logger.error("DGN export failed: {}".format(ex))
             return 0
 
     def export_to_pdf(self, items, output_folder):
@@ -2923,9 +3124,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     item.SheetNumber = item.View.Name
                     item.ViewName = item.View.Name
 
-            # Create IFC export options
+            # Create IFC export options — version read from UI
             ifc_options = IFCExportOptions()
-            ifc_options.FileVersion = IFCVersion.IFC2x3
+            ifc_ver_map = {0: IFCVersion.IFC2x2, 1: IFCVersion.IFC2x3, 2: IFCVersion.IFC4}
+            ifc_ver_index = self.ifc_version.SelectedIndex if hasattr(self, 'ifc_version') else 1
+            ifc_options.FileVersion = ifc_ver_map.get(ifc_ver_index, IFCVersion.IFC2x3)
             ifc_options.WallAndColumnSplitting = True
 
             exported_count = 0
@@ -3032,14 +3235,48 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Get list of existing image files before export
                     existing_images = set(glob.glob(os.path.join(output_folder, "*.png")))
 
+                    # Read image options from UI
+                    use_fit_to_page = not (hasattr(self, 'img_zoom_to') and self.img_zoom_to.IsChecked)
+                    fit_pixels = 1080
+                    zoom_percent = 50
+                    try:
+                        if hasattr(self, 'img_fit_pixels'):
+                            fit_pixels = int(self.img_fit_pixels.Text)
+                    except:
+                        pass
+                    try:
+                        if hasattr(self, 'img_zoom_percent'):
+                            zoom_percent = int(self.img_zoom_percent.Text)
+                    except:
+                        pass
+                    use_horizontal = not (hasattr(self, 'img_dir_vertical') and self.img_dir_vertical.IsChecked)
+                    dpi_map = {
+                        0: ImageResolution.DPI_72,
+                        1: ImageResolution.DPI_96,
+                        2: ImageResolution.DPI_150,
+                        3: ImageResolution.DPI_300,
+                        4: ImageResolution.DPI_600,
+                    }
+                    dpi_index = self.img_dpi.SelectedIndex if hasattr(self, 'img_dpi') else 2
+                    img_resolution = dpi_map.get(dpi_index, ImageResolution.DPI_150)
+                    shaded_idx = self.img_shaded_format.SelectedIndex if hasattr(self, 'img_shaded_format') else 0
+                    nonshaded_idx = self.img_nonshaded_format.SelectedIndex if hasattr(self, 'img_nonshaded_format') else 0
+                    shaded_fmt = ImageFileType.JPEGLossless if shaded_idx == 1 else ImageFileType.PNG
+                    nonshaded_fmt = ImageFileType.JPEGLossless if nonshaded_idx == 1 else ImageFileType.PNG
+
                     # Create image export options for each sheet
                     img_options = ImageExportOptions()
-                    img_options.ZoomType = DB.ZoomFitType.FitToPage
-                    img_options.ImageResolution = ImageResolution.DPI_150
+                    if use_fit_to_page:
+                        img_options.ZoomType = DB.ZoomFitType.FitToPage
+                        img_options.PixelSize = fit_pixels
+                        img_options.FitDirection = DB.FitDirectionType.Horizontal if use_horizontal else DB.FitDirectionType.Vertical
+                    else:
+                        img_options.ZoomType = DB.ZoomFitType.Zoom
+                        img_options.Zoom = zoom_percent
+                    img_options.ImageResolution = img_resolution
                     img_options.FilePath = os.path.join(output_folder, filename)
-                    img_options.FitDirection = DB.FitDirectionType.Horizontal
-                    img_options.HLRandWFViewsFileType = ImageFileType.PNG
-                    img_options.ShadowViewsFileType = ImageFileType.PNG
+                    img_options.HLRandWFViewsFileType = nonshaded_fmt
+                    img_options.ShadowViewsFileType = shaded_fmt
                     img_options.ExportRange = DB.ExportRange.SetOfViews
 
                     # Set the view IDs using System.Collections.Generic.List
