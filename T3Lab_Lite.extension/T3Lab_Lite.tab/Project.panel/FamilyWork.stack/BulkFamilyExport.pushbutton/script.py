@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Bulk Family Export  (merged with DWG to Family)
+Bulk Family Export
 
 Export CAD blocks from imported DWG/DXF files as individual Revit families,
 with an option to load the exported families directly into the project.
@@ -8,27 +8,33 @@ with an option to load the exported families directly into the project.
 Parametric door/window families use reference planes + dimensions linked to
 Width/Height parameters, following the same pattern as the JSONtoFamily tool.
 
-Author: T3Lab
+--------------------------------------------------------
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+
+--------------------------------------------------------
 """
-
-from __future__ import unicode_literals
-
-__author__  = "T3Lab"
-__title__   = "Bulk Family\nExport"
+__author__  = "Tran Tien Thanh"
+__title__   = "Bulk Family Export"
 __version__ = "2.0.0"
 
-# ─── Imports ──────────────────────────────────────────────────────────────────
-
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import re
 import math
 import traceback
+import datetime
+import time
 
 import clr
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
 clr.AddReference('System')
+
+# from __future__ import unicode_literals
 
 from System.Windows import WindowState, Visibility as System_Windows_Visibility
 from System.Windows.Media.Imaging import BitmapImage
@@ -48,16 +54,44 @@ from Autodesk.Revit.DB import (
 
 from Utils.DWGFamilyHelpers import get_xy_bounds, _project_curve_to_z as _dwg_project_curve
 
-# ─── Revit context ────────────────────────────────────────────────────────────
+# DEBUG LOGGING
+# ==================================================
+SCRIPT_NAME = os.path.splitext(os.path.basename(__file__))[0].replace('_script', '')
+LOG_FILE = os.path.join(os.path.dirname(__file__), '{}_log.txt'.format(SCRIPT_NAME))
 
+def init_log():
+    """Initialize log file (clear previous run)"""
+    with open(LOG_FILE, 'w') as f:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write("="*60 + "\n")
+        f.write("{} - Script Started\n".format(timestamp))
+        f.write("="*60 + "\n\n")
+
+def write_log(message, level="INFO"):
+    """Write message to log file with timestamp and level"""
+    safe_message = message.encode('utf-8', errors='ignore').decode('utf-8')
+    with open(LOG_FILE, 'a') as f:
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        f.write("[{}] [{}] {}\n".format(timestamp, level, safe_message))
+
+def write_error(message, exception=None):
+    """Write error with full traceback"""
+    write_log(message, "ERROR")
+    if exception:
+        tb = traceback.format_exc()
+        safe_tb = tb.encode('utf-8', errors='ignore').decode('utf-8')
+        with open(LOG_FILE, 'a') as f:
+            f.write(safe_tb + "\n")
+
+# DEFINE VARIABLES
+# ==================================================
 uidoc = __revit__.ActiveUIDocument
 doc   = uidoc.Document
 app   = __revit__.Application
 
 logger = script.get_logger()
 
-# ─── Category-to-template mapping ────────────────────────────────────────────
-
+# Category-to-template mapping
 CATEGORY_TEMPLATES = [
     ("Generic Model",        ["Generic Model.rft", "Metric Generic Model.rft"]),
     ("Door",                 ["Door.rft", "Metric Door.rft"]),
@@ -84,9 +118,8 @@ DISCIPLINES = [
     "General"
 ]
 
-# --- Door Preset Definitions -----------------------------------------------
+# Door Preset Definitions
 # Source: T3Lab_Door_location_Not_Shared_2.rfa (W=810, H=2200, FW=65, PE=25, PI=25, LT=40)
-
 DOOR_PRESETS = [
     # (label, width_mm, height_mm, frame_w_mm, proj_ext_mm, proj_int_mm, leaf_t_mm, door_count)
     ("Single_Swing_700x2100",   700, 2100, 65, 25, 25, 40, 1),
@@ -111,7 +144,7 @@ MAX_DETAIL_CURVES = 150
 # fall back to embedding the source DWG directly into the family document.
 MIN_CURVE_RATIO = 0.30
 
-# --- Window Preset Definitions -----------------------------------------------
+# Window Preset Definitions
 # (label, width_mm, height_mm)
 
 WINDOW_PRESETS = [
@@ -130,7 +163,7 @@ WINDOW_PRESETS = [
     ("Sliding_2400x1500",      2400, 1500),
 ]
 
-# --- Generic Preset Definitions (label, width_mm, depth_mm, height_mm) -------
+# Generic Preset Definitions (label, width_mm, depth_mm, height_mm)
 
 FURNITURE_PRESETS = [
     ("Chair_Office_600x600x900",          600,   600,  900),
@@ -305,7 +338,7 @@ SITE_PRESETS = [
     ("Light_Pole_D200x5000",      200,  200, 5000),
 ]
 
-# --- Unified Category → Preset mapping ---------------------------------------
+# Unified Category → Preset mapping
 # mode: "door" | "window" | "generic"
 
 CATEGORY_PRESETS = {
@@ -327,8 +360,7 @@ CATEGORY_PRESETS = {
 
 
 
-# ─── Data Model ───────────────────────────────────────────────────────────────
-
+# Data Model
 # Keywords searched in (block_name + layer/graphicsstyle_category), lowercased.
 # English terms, Vietnamese no-diacritic, and common DWG layer prefixes are all included.
 _CAT_HINTS = [
@@ -466,7 +498,8 @@ _CAT_HINTS = [
     ]),
 ]
 
-
+# CLASS/FUNCTIONS
+# ==================================================
 def _suggest_category(name, arc_count, width_mm, depth_mm, layer=""):
     """Auto-suggest a Revit family category using block name + GraphicsStyle layer.
 
@@ -565,8 +598,7 @@ class BlockItem(object):
         self.SuggestedCat = _suggest_category(name, arc_count, w, d, layer=layer_level)
 
 
-# ─── Main Window ──────────────────────────────────────────────────────────────
-
+# Main Window
 class BulkFamilyExportWindow(forms.WPFWindow):
 
     def __init__(self):
@@ -589,8 +621,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         self._init_filter_bar()
         self._update_status("Ready")
 
-    # ── Logo ──────────────────────────────────────────────────────────────
-
+    # Logo
     def _load_logo(self):
         """Load T3Lab logo into title bar and window icon."""
         try:
@@ -605,8 +636,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    # ── Initialisation ────────────────────────────────────────────────────
-
+    # Initialisation
     def _init_cad_files(self):
         """Populate the CAD file ComboBox with all ImportInstances."""
         collector = FilteredElementCollector(doc).OfClass(ImportInstance)
@@ -741,8 +771,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         else:
             self.txt_filter_count.Text = "{} / {} items".format(showing, total)
 
-    # ── Filter event handlers ─────────────────────────────────────────────
-
+    # Filter event handlers
     def search_text_changed(self, sender, e):
         """Live-filter as the user types in the search box."""
         self._filter_text = self.txt_search.Text or ""
@@ -777,8 +806,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    # ── Block Scanning ────────────────────────────────────────────────────
-
+    # Block Scanning
     def scan_blocks_clicked(self, sender, e):
         """Event handler: scan the selected CAD file for blocks."""
         if not self._cad_instances:
@@ -922,8 +950,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         found   = {}      # fingerprint -> {name, curves, count}
         counter = [0]     # mutable counter (IronPython 2 – no nonlocal)
 
-        # ── helpers ──
-
+        # helpers
         def is_curve(item):
             try:
                 from Autodesk.Revit.DB import Curve as _Curve
@@ -1035,7 +1062,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             layer = style_name(geo_inst)
             counter[0] += 1
 
-            # ── Resolve block name ──────────────────────────────────────────
+            # Resolve block name
             # Priority:
             #   1. GeometryInstance.Symbol.Name  (DWG block definition name)
             #   2. importSymbolName parameter on parent ImportInstance
@@ -1065,8 +1092,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 'placements': [placement],
             }
 
-        # ── walk geometry tree ──
-
+        # Walk geometry tree
         def walk(geo_elem, depth):
             for item in geo_elem:
                 if not isinstance(item, GeometryInstance):
@@ -1097,15 +1123,13 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 import_inst=import_inst))
         return items
 
-    # ── Folder picker ─────────────────────────────────────────────────────
-
+    # Folder picker
     def browse_folder_clicked(self, sender, e):
         folder = forms.pick_folder()
         if folder:
             self.output_path.Text = folder
 
-    # ── Select / Deselect ─────────────────────────────────────────────────
-
+    # Select / Deselect
     def select_all_clicked(self, sender, e):
         for item in self._block_items:
             item.IsSelected = True
@@ -1116,8 +1140,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             item.IsSelected = False
         self.blocks_grid.Items.Refresh()
 
-    # ── Export ────────────────────────────────────────────────────────────
-
+    # Export
     def export_clicked(self, sender, e):
         """Export each selected block as a .rfa family file."""
         output_folder = self.output_path.Text
@@ -1191,7 +1214,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 except Exception:
                     pass
 
-        # ── Batch-load all exported families in one pass ──────────────────
+        # Batch-load all exported families in one pass
         loaded_count = 0
         if load_to_project and saved_paths:
             self._update_status("Loading {} families to project...".format(len(saved_paths)))
@@ -1208,8 +1231,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             "Exported : {}\nFailed   : {}{}\n\n"
             "Output folder:\n{}".format(success, failed, load_note, output_folder))
 
-    # ── Template lookup ───────────────────────────────────────────────────
-
+    # Template lookup
     def _find_template(self, cat_idx):
         """Locate the .rft family template for the chosen category."""
         _, template_names = CATEGORY_TEMPLATES[cat_idx]
@@ -1243,8 +1265,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     return fp
         return None
 
-    # ── Parametric reference planes (JSONtoFamily approach) ───────────────
-
+    # Parametric reference planes (JSONtoFamily approach)
     def _find_family_views(self, fam_doc):
         """Return (plan_view, elev_view) from a family document, or (None, None)."""
         plan_view = None
@@ -1281,7 +1302,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         """
         rp_left = rp_right = rp_top = None
 
-        # ── Plan: Left / Right planes for Width ──
+        # Plan: Left / Right planes for Width
         if plan_view is not None:
             try:
                 rp_left = fam_doc.FamilyCreate.NewReferencePlane(
@@ -1305,7 +1326,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-        # ── Elevation: Top plane for Height ──
+        # Elevation: Top plane for Height
         if elev_view is not None:
             try:
                 rp_top = fam_doc.FamilyCreate.NewReferencePlane(
@@ -1372,8 +1393,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    # ── Window geometry (JSONtoFamily hollow-extrusion approach) ──────────
-
+    # Window geometry (JSONtoFamily hollow-extrusion approach)
     def _create_window_body(self, fam_doc, sketch_plane, half_w, half_depth, height,
                             param_height_fp, param_material):
         """Create proper window geometry using the JSONtoFamily inner-loop technique.
@@ -1426,7 +1446,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         except Exception:
             pass
 
-        # ── Glass pane: thin slab centred at depth mid-point ──
+        # Glass pane: thin slab centred at depth mid-point
         # Tiny Y extent (≈5 mm) in plan, extruded in Z from sill+FRAME_W to head-FRAME_W.
         # Hidden in plan/ceiling views – model-only visibility (JSONtoFamily visible_param).
         glass_ext = None
@@ -1451,8 +1471,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
 
         return frame_ext, glass_ext
 
-    # ── Single-block export ───────────────────────────────────────────────
-
+    # Single-block export
     def _export_block(self, block_item, template_path, output_folder,
                       discipline_name, category_name, load_to_project=False,
                       mode_2d_only=False):
@@ -1719,7 +1738,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     except Exception:
                         pass
 
-                    # ── Geometry ──
+                    # Geometry
                     ext_box = None
 
                     if is_window:
@@ -1733,7 +1752,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                         ext_box = window_frame_ext   # used below for face-locking
 
                     elif not is_door:
-                        # ── Bounding-rectangle extrusion (solid base) ─────────────
+                        # Bounding-rectangle extrusion (solid base)
                         c1 = XYZ(-half_w, -half_h, 0.0)
                         c2 = XYZ( half_w, -half_h, 0.0)
                         c3 = XYZ( half_w,  half_h, 0.0)
@@ -1764,7 +1783,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                         except Exception:
                             pass
 
-                        # ── Model lines on top surface (DWGFamilyHelpers approach) ──
+                        # Model lines on top surface (DWGFamilyHelpers approach)
                         # Uses _dwg_project_curve() which:
                         #   • Line  → rebuild endpoints at (X-cx, Y-cy, extrusion_depth)
                         #   • Arc   → Arc.Create(center, r, t0, t1, BasisX, BasisY)
@@ -1804,7 +1823,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                         logger.info("3D '{}': {} ok / {} skipped on top face".format(
                             block_item.BlockName, ok_3d, fail_3d))
 
-                        # ── Fallback: embed source DWG if too many lines lost ────
+                        # Fallback: embed source DWG if too many lines lost
                         threshold = max(5, int(len(curves) * MIN_CURVE_RATIO))
                         if ok_3d < threshold:
                             logger.warning(
@@ -1814,7 +1833,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                             self._embed_dwg_into_family(
                                 fam_doc, block_item._import_inst, cx, cy)
 
-                    # ── Door: symbolic lines + panel extrusion ─────────────────────
+                    # Door: symbolic lines + panel extrusion
                     panel_ext = None
                     for curve in curves:
                         if not is_door:
@@ -1890,7 +1909,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                         except Exception:
                             pass
 
-                    # ── Parametric reference planes + dimensions (JSONtoFamily approach) ──
+                    # Parametric reference planes + dimensions (JSONtoFamily approach)
                     # Applied to Door and Window so Width/Height params drive the geometry.
                     if is_door or is_window:
                         fam_doc.Regenerate()
@@ -1919,8 +1938,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     pass
                 raise
 
-            # ── Save .rfa to output folder ────────────────────────────────────
-
+            # Save .rfa to output folder
             safe_cad_name = block_item.BlockName.strip() or "Family"
             base_name = "T3Lab_{}_{}".format(
                 category_name.replace(" ", "_"),
@@ -1939,8 +1957,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
 
             logger.info("Exported: {}".format(save_path))
 
-            # ── Load to Project (absorbed from DWGtoFamily) ───────────────────
-
+            # Load to Project (absorbed from DWGtoFamily)
             if load_to_project:
                 try:
                     t_load = Transaction(doc, 'Load Family - {}'.format(safe_cad_name))
@@ -1969,8 +1986,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
 
 
 
-    # ── Unified Preset Generator (no CAD) ────────────────────────────────
-
+    # Unified Preset Generator (no CAD)
     def presets_clicked(self, sender, e):
         """Generate families from presets for the currently selected category."""
         output_folder = self.output_path.Text
@@ -2051,7 +2067,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         t = Transaction(fam_doc, "T3Lab Window \u2013 " + label)
         t.Start()
         try:
-            # ── Find sketch plane (Z-up) ──
+            # Find sketch plane (Z-up)
             sketch_plane = None
             for sp in FilteredElementCollector(fam_doc).OfClass(SketchPlane):
                 try:
@@ -2065,7 +2081,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 sketch_plane = SketchPlane.Create(
                     fam_doc, Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ.Zero))
 
-            # ── Set Width / Height family parameters ──
+            # Set Width / Height family parameters
             param_width_fp = param_height_fp = param_material = None
             try:
                 fm = fam_doc.FamilyManager
@@ -2084,12 +2100,12 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-            # ── Window geometry (hollow frame + glass) ──
+            # Window geometry (hollow frame + glass)
             self._create_window_body(
                 fam_doc, sketch_plane, half_w, half_d, height,
                 param_height_fp, param_material)
 
-            # ── Parametric reference planes ──
+            # Parametric reference planes
             fam_doc.Regenerate()
             plan_view, elev_view = self._find_family_views(fam_doc)
             self._create_parametric_refs(
@@ -2103,7 +2119,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             fam_doc.Close(False)
             raise
 
-        # ── Save ──
+        # Save
         safe = re.sub(r'[/*?:"<>|]', "_", label)
         save_path = os.path.join(output_folder, "T3Lab_Window_{}.rfa".format(safe))
         ctr = 1
@@ -2147,7 +2163,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         t = Transaction(fam_doc, "T3Lab {} \u2013 {}".format(category_name, label))
         t.Start()
         try:
-            # ── Sketch plane (Z-up) ──
+            # Sketch plane (Z-up)
             sketch_plane = None
             for sp in FilteredElementCollector(fam_doc).OfClass(SketchPlane):
                 try:
@@ -2160,7 +2176,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 sketch_plane = SketchPlane.Create(
                     fam_doc, Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ.Zero))
 
-            # ── Try to set Width / Depth / Height family parameters ──
+            # Try to set Width / Depth / Height family parameters
             try:
                 fm = fam_doc.FamilyManager
                 for p in fm.Parameters:
@@ -2177,7 +2193,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-            # ── Solid box extrusion centred at origin in plan ──
+            # Solid box extrusion centred at origin in plan
             half_w = w / 2.0
             half_d = d / 2.0
             arr = CurveArray()
@@ -2196,7 +2212,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             fam_doc.Close(False)
             raise
 
-        # ── Save ──
+        # Save
         cat_prefix = re.sub(r'\s+', '_', category_name)
         safe = re.sub(r'[/*?:"<>|]', "_", label)
         save_path = os.path.join(
@@ -2229,8 +2245,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
 
         return True
 
-    # ── Door Preset Generator (no CAD) ───────────────────────────────────
-
+    # Door Preset Generator (no CAD)
     def door_presets_clicked(self, sender, e):
         """Generate parametric door families from preset sizes. No CAD file needed."""
         output_folder = self.output_path.Text
@@ -2304,7 +2319,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         t = Transaction(fam_doc, "T3Lab Door - " + label)
         t.Start()
         try:
-            # ── Find sketch planes from template ──
+            # Find sketch planes from template
             plan_sp = elev_sp = None
             for sp in FilteredElementCollector(fam_doc).OfClass(SketchPlane):
                 n, org = sp.GetPlane().Normal, sp.GetPlane().Origin
@@ -2318,7 +2333,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             if elev_sp is None:
                 elev_sp = SketchPlane.Create(fam_doc, Plane.CreateByNormalAndOrigin(XYZ(0.0,-1.0,0.0), XYZ.Zero))
 
-            # ── Set Width / Height parameters ──
+            # Set Width / Height parameters
             param_width_fp = param_height_fp = None
             try:
                 fm = fam_doc.FamilyManager
@@ -2344,7 +2359,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-            # ── Subcategories ──
+            # Subcategories
             frame_gs = leaf_gs = None
             try:
                 from Autodesk.Revit.DB import GraphicsStyleType
@@ -2360,7 +2375,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-            # ── Helpers ──
+            # Helpers
             def _extrude_xz(x0, x1, z0, z1, depth, gs=None):
                 """Rect profile in XZ plane, extruded in Y (+depth=ext, -depth=int)."""
                 arr = CurveArray()
@@ -2428,7 +2443,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             fam_doc.Close(False)
             raise
 
-        # ── Save ──
+        # Save
         safe = re.sub(r'[/*?:"<>|]', "_", label)
         save_path = os.path.join(output_folder, "T3Lab_Door_{}.rfa".format(safe))
         ctr = 1
@@ -2459,7 +2474,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         return True
 
 
-    # ── Export & Place ────────────────────────────────────────────────────
+    # Export & Place
 
     def export_and_place_clicked(self, sender, e):
         """Export each selected block as .rfa then place every CAD instance
@@ -2570,7 +2585,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         if not block_item._placements:
             return 0
 
-        # ── Load or find the family ──
+        # Load or find the family
         family = None
         try:
             loaded_ref = clr.Reference[DB.Family]()
@@ -2591,7 +2606,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             logger.warning("Could not load family: {}".format(rfa_path))
             return 0
 
-        # ── Activate first symbol ──
+        # Activate first symbol
         symbol = None
         for sid in family.GetFamilySymbolIds():
             symbol = doc.GetElement(sid)
@@ -2604,7 +2619,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
             symbol.Activate()
             doc.Regenerate()
 
-        # ── Place one instance per recorded CAD position ──
+        # Place one instance per recorded CAD position
         placed = 0
         for (centroid, angle) in block_item._placements:
             try:
@@ -2658,7 +2673,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                     path, traceback.format_exc()))
         return loaded
 
-    # ── Window chrome handlers ────────────────────────────────────────────
+    # Window chrome handlers
 
     def minimize_button_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -2675,8 +2690,8 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         self.Close()
 
 
-# ─── Entry point ──────────────────────────────────────────────────────────────
-
+# MAIN SCRIPT
+# ==================================================
 if __name__ == '__main__':
     try:
         window = BulkFamilyExportWindow()

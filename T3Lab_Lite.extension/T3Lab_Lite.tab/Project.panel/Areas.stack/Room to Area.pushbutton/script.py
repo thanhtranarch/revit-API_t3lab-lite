@@ -4,12 +4,16 @@ Room to Area
 
 This script will loop through existing areas to asign roomsr.
 
+--------------------------------------------------------
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
+
+--------------------------------------------------------
 """
 __author__ ="Tran Tien Thanh"
 __title__ = "Room to Area"
+__version__ = "1.0.0"
 
 # IMPORT LIBRARIES
 # ==================================================
@@ -61,7 +65,7 @@ def assign_room_to_area(room,area):
 
 # MAIN SCRIPT
 # ==================================================
-#get elements
+# Get elements
 rooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).ToElements()
 areas = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Areas).ToElements()
 with Transaction(doc, "Assign Rooms to Areas") as t:

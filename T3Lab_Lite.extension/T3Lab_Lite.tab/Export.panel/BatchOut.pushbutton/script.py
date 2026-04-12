@@ -4,17 +4,20 @@ Batch Out
 
 Batch export sheets to PDF, DWG, DWF and other formats.
 
+--------------------------------------------------------
 Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
+
+--------------------------------------------------------
 """
 
 __author__  = "Tran Tien Thanh"
 __title__   = "Batch Out"
-__author__ = "T3Lab"
 __version__ = "1.0.0"
 
-# IMPORTS
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import sys
 import clr
@@ -47,6 +50,7 @@ from Autodesk.Revit.DB import (
 
 from System.Collections.Generic import List
 
+
 # Import API learner and updater modules
 extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 lib_dir = os.path.join(extension_dir, 'lib')
@@ -75,12 +79,16 @@ try:
 except:
     HAS_NAVISWORKS = False
 
+# DEFINE VARIABLES
+# ==================================================
 logger = script.get_logger()
 output = script.get_output()
 
 # Get Revit version information
 REVIT_VERSION = int(revit.doc.Application.VersionNumber)  # e.g., 2023, 2024, 2025, 2026
 
+# CLASS/FUNCTIONS
+# ==================================================
 class SheetItem(forms.Reactive):
     """Represents a sheet item in the list - optimized for performance."""
     def __init__(self, sheet, is_selected=False, lazy=False):
@@ -3543,7 +3551,8 @@ class ExportManagerWindow(forms.WPFWindow):
         self.Close()
 
 
-# MAIN
+# MAIN SCRIPT
+# ==================================================
 if __name__ == '__main__':
     # Check if document is open
     if not revit.doc:
