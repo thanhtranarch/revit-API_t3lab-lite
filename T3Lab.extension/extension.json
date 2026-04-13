@@ -1,0 +1,18 @@
+{
+    "builtin": "True",
+    "default_enabled": "True",
+    "type": "extension",
+    "rocket_mode_compatible": "True",
+    "name": "SunA Tools",
+    "description": "IronPython Scripts for Autodesk Revit",
+    "author": "Tran Tien Thanh",
+    "author_profile": "",
+    "url": "",
+    "website": "",
+    "image": "",
+    "templates": {
+        "author": "Tran Tien Thanh",
+        "docpath": ""
+    },
+    "dependencies": []
+}

@@ -1,0 +1,18 @@
+{
+  "_comment": "T3Lab Family Loader Cloud Configuration Template",
+  "_instructions": [
+    "1. Copy this file to: ~/.t3lab/family_loader_config.json",
+    "2. Update the values below with your Vercel deployment details",
+    "3. Restart Revit and reload the Family Loader"
+  ],
+
+  "cloud_api_base": "https://your-deployment.vercel.app",
+  "cloud_api_endpoint": "/api/families",
+  "vercel_bypass_token": "",
+
+  "_notes": {
+    "cloud_api_base": "Your Vercel deployment URL (without the /api/families path)",
+    "cloud_api_endpoint": "The API endpoint path (usually /api/families)",
+    "vercel_bypass_token": "Optional: Get from Vercel Dashboard → Settings → Deployment Protection → Protection Bypass"
+  }
+}
