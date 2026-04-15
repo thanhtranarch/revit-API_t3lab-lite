@@ -36,6 +36,11 @@ from Autodesk.Revit.DB import (
     BuiltInCategory,
     ViewType,
     ViewFamilyType,
+    ViewFamily,
+    ViewPlan,
+    ElevationMarker,
+    SpatialElementBoundaryOptions,
+    SpatialElementBoundaryLocation,
 )
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import forms, script
@@ -164,6 +169,20 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             self.cmb_rcp_template.Items.Add(name)
         self.cmb_rcp_template.SelectedIndex = 0
 
+        # Elevation templates
+        elev_templates = sorted([
+            v.Name for v in view_elements
+            if v.IsTemplate and v.ViewType == ViewType.Elevation
+        ])
+        self._elev_template_map = {
+            v.Name: v.Id for v in view_elements
+            if v.IsTemplate and v.ViewType == ViewType.Elevation
+        }
+        self.cmb_elev_template.Items.Add("<None>")
+        for name in elev_templates:
+            self.cmb_elev_template.Items.Add(name)
+        self.cmb_elev_template.SelectedIndex = 0
+
     def _load_plan_type_options(self):
         """Load available view family types for Floor Plan / Ceiling Plan."""
         view_types = FilteredElementCollector(doc) \
@@ -173,12 +192,15 @@ class CreateRoomPlanWindow(forms.WPFWindow):
 
         self._floor_plan_type_id = None
         self._ceiling_plan_type_id = None
+        self._elevation_type_id = None
 
         for vt in view_types:
             if vt.FamilyName == 'Floor Plan' and self._floor_plan_type_id is None:
                 self._floor_plan_type_id = vt.Id
             elif vt.FamilyName == 'Ceiling Plan' and self._ceiling_plan_type_id is None:
                 self._ceiling_plan_type_id = vt.Id
+            elif vt.ViewFamily == ViewFamily.Elevation and self._elevation_type_id is None:
+                self._elevation_type_id = vt.Id
 
     # ── Helpers ───────────────────────────────────────
     def _get_selected_rooms(self):
@@ -216,6 +238,38 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             return "ENLARGED PLAN - TYPE {} ({})".format(room_item.RoomType, room_item.Name)
         else:
             return "ENLARGED PLAN - {} - (#{})".format(room_item.Name, room_item.Number)
+
+    def _find_plan_view_for_level(self, level_id):
+        """Find an existing floor plan view for the given level."""
+        views = FilteredElementCollector(doc) \
+            .OfClass(ViewPlan) \
+            .WhereElementIsNotElementType() \
+            .ToElements()
+        for v in views:
+            if (not v.IsTemplate
+                    and v.ViewType == ViewType.FloorPlan
+                    and v.GenLevel is not None
+                    and v.GenLevel.Id == level_id):
+                return v
+        return None
+
+    def _get_boundary_wall_ids(self, room):
+        """Return set of wall element ids forming the room boundary."""
+        wall_ids = set()
+        try:
+            opt = SpatialElementBoundaryOptions()
+            opt.SpatialElementBoundaryLocation = \
+                SpatialElementBoundaryLocation.Finish
+            segments_list = room.GetBoundarySegments(opt)
+            if segments_list:
+                for seg_loop in segments_list:
+                    for seg in seg_loop:
+                        elem = doc.GetElement(seg.ElementId)
+                        if elem and isinstance(elem, DB.Wall):
+                            wall_ids.add(seg.ElementId)
+        except Exception:
+            pass
+        return wall_ids
 
     # ── Window chrome handlers ────────────────────────
     def minimize_button_clicked(self, sender, e):
@@ -271,16 +325,19 @@ class CreateRoomPlanWindow(forms.WPFWindow):
 
         do_floor = self.chk_floor_plan.IsChecked
         do_ceiling = self.chk_ceiling_plan.IsChecked
+        do_elevations = self.chk_elevations.IsChecked
 
-        if not do_floor and not do_ceiling:
-            TaskDialog.Show("Create Room Plan", "Please select at least one plan type.")
+        if not do_floor and not do_ceiling and not do_elevations:
+            TaskDialog.Show("Create Room Plan", "Please select at least one view type.")
             return
 
         # Get template selections
         plan_template_name = self.cmb_plan_template.SelectedItem
         rcp_template_name = self.cmb_rcp_template.SelectedItem
+        elev_template_name = self.cmb_elev_template.SelectedItem
         plan_template_id = self._plan_template_map.get(plan_template_name) if plan_template_name != "<None>" else None
         rcp_template_id = self._rcp_template_map.get(rcp_template_name) if rcp_template_name != "<None>" else None
+        elev_template_id = self._elev_template_map.get(elev_template_name) if elev_template_name != "<None>" else None
 
         offset = self._get_offset()
         cropbox_visible = self.chk_cropbox_visible.IsChecked
@@ -348,8 +405,92 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                     error_count += 1
                     logger.error("Ceiling plan error for {}: {}".format(view_name, ex))
 
+            # Create Interior Elevations
+            if do_elevations and self._elevation_type_id:
+                try:
+                    # Find a floor plan view on this level for the marker
+                    host_plan = self._find_plan_view_for_level(room_level_id)
+                    if host_plan is None:
+                        error_count += 1
+                        logger.error("No floor plan found for level to host elevation marker")
+                        continue
+
+                    # Get room center point
+                    center = room.Location.Point
+
+                    # Get boundary walls
+                    wall_ids = self._get_boundary_wall_ids(room)
+
+                    # Get level height range for crop
+                    level = doc.GetElement(room_level_id)
+                    level_elev = level.Elevation if level else 0
+                    # Estimate top from room bbox
+                    room_top = room_bbox.Max.Z
+                    room_bottom = room_bbox.Min.Z
+
+                    t = Transaction(doc, "Create Interior Elevations")
+                    t.Start()
+
+                    # Create elevation marker at room center
+                    scale = host_plan.Scale
+                    marker = ElevationMarker.CreateElevationMarker(
+                        doc, self._elevation_type_id, center, scale
+                    )
+
+                    # Create 4 elevation views (one for each cardinal direction)
+                    directions = ["South", "West", "North", "East"]
+                    for idx in range(4):
+                        try:
+                            elev_view = marker.CreateElevation(
+                                doc, host_plan.Id, idx
+                            )
+                            elev_name = "INTERIOR ELEV - {} - {} ({})".format(
+                                room_item.Name, directions[idx], room_item.Number
+                            )
+                            try:
+                                elev_view.Name = elev_name
+                            except Exception:
+                                # Name conflict - use default
+                                pass
+
+                            # Set crop box to room extents with offset
+                            elev_view.CropBoxActive = True
+                            elev_view.CropBoxVisible = cropbox_visible
+
+                            # Set far clip to room boundary depth
+                            room_width = room_bbox.Max.X - room_bbox.Min.X
+                            room_depth = room_bbox.Max.Y - room_bbox.Min.Y
+                            max_dim = max(room_width, room_depth) + offset * 2
+
+                            far_clip_param = elev_view.get_Parameter(
+                                DB.BuiltInParameter.VIEWER_BOUND_FAR_CLIPPING
+                            )
+                            if far_clip_param:
+                                far_clip_param.Set(1)  # Enable far clipping
+
+                            far_offset_param = elev_view.get_Parameter(
+                                DB.BuiltInParameter.VIEWER_BOUND_OFFSET_FAR
+                            )
+                            if far_offset_param:
+                                far_offset_param.Set(max_dim / 2 + offset)
+
+                            # Apply template
+                            if elev_template_id:
+                                elev_view.ViewTemplateId = elev_template_id
+
+                            created_count += 1
+                        except Exception as ex:
+                            error_count += 1
+                            logger.error("Elevation {} error: {}".format(
+                                directions[idx], ex))
+
+                    t.Commit()
+                except Exception as ex:
+                    error_count += 1
+                    logger.error("Elevation error for {}: {}".format(view_name, ex))
+
         # Show result
-        msg = "{} plan view(s) created successfully.".format(created_count)
+        msg = "{} view(s) created successfully.".format(created_count)
         if error_count > 0:
             msg += "\n{} room(s) had errors.".format(error_count)
 
