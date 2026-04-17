@@ -1,0 +1,9 @@
+title: Send\nFeedback
+tooltip: Send feedback or suggestions to the T3Lab team
+description: |
+  Opens a popup to write feedback or suggestions.
+  The message is sent by email to trantienthanh909@gmail.com
+  using a consistent, clearly formatted subject line.
+
+author: T3Lab
+version: 1.0.0
