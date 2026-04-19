@@ -1,200 +1,211 @@
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d"
-    Title="Select From Dict"
-    Height="550" Width="400"
-    MinWidth="400"
-    MinHeight="550" MaxHeight="550"
+    Title="Select"
+    Height="580" Width="420"
+    MinWidth="400" MinHeight="500"
     WindowStartupLocation="CenterScreen"
-    HorizontalAlignment="Center"
-    ShowInTaskbar="True"
-    WindowStyle="None"
+    ResizeMode="CanResizeWithGrip"
     Background="White"
     FontFamily="Segoe UI">
 
-    <!--MAIN-->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64" UseAeroCaptionButtons="False" ResizeBorderThickness="5"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="WinCtrlButton" TargetType="Button">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="#7F8C8D"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#D5DBDB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E74C3C"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#ECF0F1"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#D5DBDB"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#3498DB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2980B9"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Grid Background="White">
         <Grid.RowDefinitions>
-            <RowDefinition Height="30"/>
-            <RowDefinition Height="45"/>
+            <RowDefinition Height="64"/>
+            <RowDefinition Height="1"/>
+            <RowDefinition Height="44"/>
             <RowDefinition/>
-            <RowDefinition Height="36"/>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="32"/>
         </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition></ColumnDefinition>
-        </Grid.ColumnDefinitions>
 
-        <!--HEADER START (BatchOut style)-->
-        <Grid MouseDown="header_drag" Background="#F8F9FA"
-              BorderBrush="#BDC3C7" BorderThickness="0,0,0,1"
-              Grid.ColumnSpan="2">
+        <!-- TITLE BAR -->
+        <Grid Grid.Row="0" Background="White">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal"
-                        Margin="10,0,0,0" VerticalAlignment="Center">
-                <TextBlock Text="🔤" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <TextBlock x:Name="main_title" Text="Select"
-                           FontWeight="SemiBold" Foreground="#2C3E50"
-                           VerticalAlignment="Center"/>
+                        VerticalAlignment="Center" Margin="12,0,0,0">
+                <Image x:Name="logo_image" Width="40" Height="40" Margin="0,0,10,0"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <TextBlock Text="T3Lab" FontSize="14" FontWeight="Bold"
+                           Foreground="#3498DB" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <TextBlock Text="|" Foreground="#BDC3C7" FontSize="16"
+                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="main_title" Text="Select"
+                               FontSize="13" FontWeight="SemiBold" Foreground="#2C3E50"/>
+                    <TextBlock Text="Choose items from list"
+                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+                </StackPanel>
             </StackPanel>
-            <Button Content="✕" Grid.Column="1"
-                    Width="30" Height="28" FontSize="11"
-                    Click="button_close"
-                    Background="Transparent" BorderThickness="0"
-                    Foreground="#7F8C8D" Cursor="Hand"
-                    VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <Button x:Name="btn_minimize" Content="&#x2212;" Style="{StaticResource WinCtrlButton}"
+                        Click="minimize_button_clicked"/>
+                <Button x:Name="btn_maximize" Content="&#x25A1;" Style="{StaticResource WinCtrlButton}"
+                        Click="maximize_button_clicked"/>
+                <Button x:Name="btn_close" Content="&#x2715;" Style="{StaticResource CloseButton}"
+                        Click="button_close"/>
+            </StackPanel>
         </Grid>
-        <!--HEADER END-->
 
+        <!-- SEPARATOR -->
+        <Rectangle Grid.Row="1" Fill="#BDC3C7"/>
 
-
-        <!--FILTER START-->
-        <DockPanel Grid.Row="1">
-            <Label  Content="🔍"
-                    VerticalAlignment="Top" Height="26"
-                    Foreground="#7F8C8D"
-                    Margin="5,5,5,5"/>
-
-            <TextBox x:Name="textbox_filter"
-                    Text=""
-                     Height="22" VerticalAlignment="Top"
-                     Foreground="#7F8C8D" Background="White"
-                     Margin="0,8,10,5" FontSize="14"
-                     BorderBrush="#BDC3C7"
-                     TextChanged="text_filter_updated">
-
-                <TextBox.Style>
-                    <Style TargetType="TextBox">
-                        <Style.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="5"/>
-                            </Style>
-                        </Style.Resources>
-                    </Style>
-                </TextBox.Style>
-            </TextBox>
+        <!-- FILTER -->
+        <DockPanel Grid.Row="2" Margin="12,8,12,0">
+            <TextBlock Text="&#x1F50D;" FontSize="13" Foreground="#7F8C8D"
+                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <TextBox x:Name="textbox_filter" Height="26" VerticalAlignment="Center"
+                     Foreground="#2C3E50" Background="White"
+                     BorderBrush="#BDC3C7" BorderThickness="1" Padding="6,3"
+                     TextChanged="text_filter_updated"/>
         </DockPanel>
-        <!--FILTER END-->
 
-        <!--LISTBOX START-->
-        <StackPanel Grid.Row="2"
-                    VerticalAlignment="Top"
-                    Margin="10,5,10,5">
-
-            <Separator Background="{StaticResource border_magenta}"/>
-
-            <Label x:Name="text_label"  Content="Select Elements:"
-                           Foreground="#7F8C8D"/>
-
-            <ListBox x:Name="main_ListBox"
-                         Height="350" Grid.Row="0"
-                         Background="White"
-                         SelectionMode="Single"
-                         ScrollViewer.VerticalScrollBarVisibility="Visible"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         BorderBrush="#BDC3C7"
-                         >
-
-                <ListBox.Resources>
-                    <Style TargetType="ScrollBar">
-                        <Setter Property="Background" Value="{StaticResource border_magenta}"/>
-                        <Setter Property="Foreground" Value="{StaticResource border_magenta}"/>
-                        <Setter Property="BorderBrush" Value="{StaticResource header_background}"/>
-                        <Setter Property="Opacity" Value="0.9"/>
-                        <Setter Property="Margin" Value="3"/>
-
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="{x:Type ScrollBar}">
-                                    <Grid x:Name="Bg"
-                                              SnapsToDevicePixels="true">
-                                        <Border BorderBrush     = "{TemplateBinding BorderBrush}"
-                                                    BorderThickness = "{TemplateBinding BorderThickness}"
-                                                    Background      = "{TemplateBinding Background}"
-
-                                                    Grid.Row        = "1"
-                                                    CornerRadius="10"/>
-
-                                        <Track x:Name="PART_Track"
-                                                   IsDirectionReversed="true"
-                                                   IsEnabled="{TemplateBinding IsMouseOver}"
-                                                   Grid.Row="1">
-                                            <Track.Thumb>
-                                                <Thumb Style="{StaticResource ScrollBarThumbVertical}"
-                                                           Margin="2"/>
-                                            </Track.Thumb>
-                                        </Track>
-
-                                    </Grid>
-
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                    <Style TargetType="ListBox">
-                        <Style.Resources>
-                            <Style TargetType="Border">
-                                <Setter Property="CornerRadius" Value="10"/>
-                            </Style>
-                        </Style.Resources>
-                    </Style>
-                </ListBox.Resources>
-
+        <!-- LIST -->
+        <Grid Grid.Row="3" Margin="12,6,12,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+            <Label x:Name="text_label" Content="Select Elements:"
+                   Foreground="#7F8C8D" Padding="0,0,0,2"/>
+            <ListBox Grid.Row="1" x:Name="main_ListBox"
+                     Background="White" SelectionMode="Single"
+                     BorderBrush="#BDC3C7" BorderThickness="1"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <CheckBox  Background="#EE82EE" Foreground="#2C3E50" IsChecked="{Binding IsChecked}"  Checked="UIe_ItemChecked" >
+                        <CheckBox Foreground="#2C3E50" IsChecked="{Binding IsChecked}"
+                                  Checked="UIe_ItemChecked">
                             <TextBlock Text="{Binding Name}"/>
                         </CheckBox>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
-
-
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="4,3"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#EBF5FB"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#D6EAF8"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
             </ListBox>
+        </Grid>
 
-            <!--BUTTONS START-->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" x:Name="UI_Buttons_all_none">
-                <!--BUTTON_1-->
-                <Button Content="Select All"
-                        Click="button_select_all"
-                        Height="20"
-                        Width="100"
-                        Margin="5"
-                        />
-                <!--BUTTON_2-->
-                <Button Content="Select None"
-                        Click="button_select_none"
-                        Height="20"
-                        Width="100"
-                        Margin="5"
-                        />
+        <!-- ACTION BUTTONS -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,6,0,0">
+            <StackPanel x:Name="UI_Buttons_all_none" Orientation="Horizontal">
+                <Button Content="Select All" Style="{StaticResource SecondaryButton}"
+                        Click="button_select_all" Margin="0,0,8,0"/>
+                <Button Content="Select None" Style="{StaticResource SecondaryButton}"
+                        Click="button_select_none" Margin="0,0,16,0"/>
             </StackPanel>
-            <!--BUTTONS END-->
-
-            <!--BUTTON_2-->
-            <Button x:Name="button_main"
-                Content="Select"
-                        Click="button_select"
-                        Height="30"
-                        Width="210"
-                        Margin="5"
-                        />
-
+            <Button x:Name="button_main" Content="Select"
+                    Style="{StaticResource PrimaryButton}"
+                    Click="button_select"/>
         </StackPanel>
-        <!--LISTBOX END-->
 
-        <!--FOOTER START-->
-        <Border Grid.Row="3" Background="#F8F9FA"
-                BorderBrush="#BDC3C7" BorderThickness="0,1,0,0">
-            <TextBlock Text="© Copyright by T3Lab"
-                       FontSize="10" Foreground="#AAAAAA"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"/>
+        <!-- FOOTER -->
+        <Border Grid.Row="5" Background="#FAFAFA" BorderBrush="#BDC3C7" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="footer_version" Text="T3Lab"
+                       FontSize="10" Foreground="#7F8C8D"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Border>
-        <!--FOOTER END-->
     </Grid>
 </Window>

@@ -4,7 +4,7 @@
     <Grid.Resources>
 
         <!-- Window control button (minimize) -->
-        <Style x:Key="WinMinBtn" TargetType="Button">
+        <Style x:Key="WinCtrlButton" TargetType="Button">
             <Setter Property="Width" Value="38"/>
             <Setter Property="Height" Value="38"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -29,7 +29,7 @@
         </Style>
 
         <!-- Window control button (close) -->
-        <Style x:Key="WinCloseBtn" TargetType="Button">
+        <Style x:Key="CloseButton" TargetType="Button">
             <Setter Property="Width" Value="38"/>
             <Setter Property="Height" Value="38"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -163,7 +163,7 @@
     <!-- ════════════════════════════════════════════════ -->
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="58"/>   <!-- 0 Title bar -->
+            <RowDefinition Height="64"/>   <!-- 0 Title bar -->
             <RowDefinition Height="50"/>   <!-- 1 Search bar -->
             <RowDefinition Height="44"/>   <!-- 2 Folder / source bar -->
             <RowDefinition Height="*"/>    <!-- 3 Main content -->
@@ -173,7 +173,7 @@
         <!-- ══ ROW 0 — TITLE BAR ══════════════════════ -->
         <Border Grid.Row="0" x:Name="title_bar_grid"
                 Background="White"
-                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                BorderBrush="#BDC3C7" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -192,10 +192,10 @@
                                        Foreground="#3498DB" VerticalAlignment="Bottom"
                                        Margin="0,0,5,1"/>
                             <TextBlock Text="Load Family" FontSize="16" FontWeight="Bold"
-                                       Foreground="#1F2937"/>
+                                       Foreground="#2C3E50"/>
                         </StackPanel>
                         <TextBlock Text="Load Revit families from local folders or cloud"
-                                   FontSize="9.5" Foreground="#9CA3AF" FontStyle="Italic"/>
+                                   FontSize="9.5" Foreground="#7F8C8D" FontStyle="Italic"/>
                     </StackPanel>
                 </StackPanel>
 
@@ -205,16 +205,16 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal"
                             VerticalAlignment="Center" Margin="0,0,6,0">
                     <Button x:Name="btn_minimize_fl"
-                            Style="{StaticResource WinMinBtn}"
+                            Style="{StaticResource WinCtrlButton}"
                             ToolTip="Minimize">
-                        <TextBlock Text="&#8212;" FontSize="12" Foreground="#6B7280"
+                        <TextBlock Text="&#8212;" FontSize="12" Foreground="#7F8C8D"
                                    Margin="0,-1,0,0"/>
                     </Button>
                     <Button x:Name="btn_close_x_fl"
-                            Style="{StaticResource WinCloseBtn}"
+                            Style="{StaticResource CloseButton}"
                             ToolTip="Close">
                         <!-- X drawn as a Path so it scales cleanly -->
-                        <Path Stroke="#6B7280" StrokeThickness="1.6"
+                        <Path Stroke="#7F8C8D" StrokeThickness="1.6"
                               Data="M2,2 L10,10 M10,2 L2,10"
                               Width="12" Height="12" Stretch="None"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -225,18 +225,18 @@
 
         <!-- ══ ROW 1 — SEARCH BAR ════════════════════ -->
         <Border Grid.Row="1" Background="White" Padding="14,7"
-                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
-            <Border BorderBrush="#D1D5DB" BorderThickness="1" CornerRadius="8"
+                BorderBrush="#BDC3C7" BorderThickness="0,0,0,1">
+            <Border BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="8"
                     Background="White">
                 <DockPanel>
                     <!-- magnifier icon (Unicode circle + line) -->
                     <TextBlock DockPanel.Dock="Left"
-                               Text="&#9740;" FontSize="16" Foreground="#9CA3AF"
+                               Text="&#9740;" FontSize="16" Foreground="#7F8C8D"
                                VerticalAlignment="Center" Margin="10,0,2,0"/>
                     <TextBox x:Name="txt_search"
                              BorderThickness="0" Background="Transparent"
                              VerticalContentAlignment="Center"
-                             FontSize="13" Foreground="#374151"
+                             FontSize="13" Foreground="#2C3E50"
                              Padding="6,0,8,0" Height="34"/>
                 </DockPanel>
             </Border>
@@ -244,12 +244,12 @@
 
         <!-- ══ ROW 2 — FOLDER / SOURCE BAR ══════════ -->
         <Border Grid.Row="2" Background="#F9FAFB" Padding="12,0"
-                BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                BorderBrush="#BDC3C7" BorderThickness="0,0,0,1">
             <DockPanel VerticalAlignment="Center">
                 <!-- Source radio buttons on the right -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <TextBlock Text="Source:" VerticalAlignment="Center"
-                               Margin="0,0,8,0" FontSize="11.5" Foreground="#6B7280"/>
+                               Margin="0,0,8,0" FontSize="11.5" Foreground="#7F8C8D"/>
                     <RadioButton x:Name="radio_local" Content="Local"
                                  GroupName="DataSource" IsChecked="True"
                                  VerticalAlignment="Center" Margin="0,0,12,0"
@@ -270,7 +270,7 @@
                            Text="No folder selected"
                            VerticalAlignment="Center"
                            Margin="10,0,0,0" FontSize="11.5"
-                           Foreground="#6B7280"
+                           Foreground="#7F8C8D"
                            TextTrimming="CharacterEllipsis"/>
             </DockPanel>
         </Border>
@@ -280,13 +280,13 @@
 
             <!-- Left: Category tree (slim) -->
             <Border DockPanel.Dock="Left" Width="190"
-                    BorderBrush="#E5E7EB" BorderThickness="0,0,1,0"
+                    BorderBrush="#BDC3C7" BorderThickness="0,0,1,0"
                     Background="#FAFAFA">
                 <DockPanel>
                     <Border DockPanel.Dock="Top" Background="#F3F4F6"
-                            Padding="12,6" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                            Padding="12,6" BorderBrush="#BDC3C7" BorderThickness="0,0,0,1">
                         <TextBlock Text="Categories" FontSize="11" FontWeight="SemiBold"
-                                   Foreground="#374151"/>
+                                   Foreground="#2C3E50"/>
                     </Border>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <TreeView x:Name="tree_categories"
@@ -301,13 +301,13 @@
                 <!-- Sub-header: count + select buttons -->
                 <Border DockPanel.Dock="Top" Padding="12,6"
                         Background="#F9FAFB"
-                        BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
+                        BorderBrush="#BDC3C7" BorderThickness="0,0,0,1">
                     <DockPanel>
                         <TextBlock x:Name="txt_result_count"
                                    Text="0 families found"
                                    VerticalAlignment="Center"
                                    FontSize="12" FontWeight="SemiBold"
-                                   Foreground="#374151"/>
+                                   Foreground="#2C3E50"/>
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right"
                                     HorizontalAlignment="Right">
                             <Button x:Name="btn_select_all"
@@ -341,7 +341,7 @@
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Setter Property="BorderThickness" Value="1"/>
-                                                <Setter Property="BorderBrush" Value="#D1D5DB"/>
+                                                <Setter Property="BorderBrush" Value="#BDC3C7"/>
                                                 <Setter Property="Background" Value="White"/>
                                                 <Style.Triggers>
                                                     <!-- Blue border + slightly thicker when selected -->
@@ -372,7 +372,7 @@
 
                                     <!-- Name below the card border (like reference image) -->
                                     <TextBlock Text="{Binding Name}"
-                                               FontSize="11" Foreground="#374151"
+                                               FontSize="11" Foreground="#2C3E50"
                                                TextWrapping="Wrap" MaxHeight="34"
                                                Margin="3,4,3,0"
                                                ToolTip="{Binding FullPath}"/>
@@ -386,14 +386,14 @@
 
         <!-- ══ ROW 4 — FOOTER ═══════════════════════ -->
         <Border Grid.Row="4" Background="White"
-                BorderBrush="#E5E7EB" BorderThickness="0,1,0,0"
+                BorderBrush="#BDC3C7" BorderThickness="0,1,0,0"
                 Padding="16,10">
             <DockPanel VerticalAlignment="Center">
                 <!-- Copyright left -->
                 <TextBlock DockPanel.Dock="Left"
                            Text="&#169; Copyright by T3Lab"
                            VerticalAlignment="Center"
-                           FontSize="10" Foreground="#9CA3AF"/>
+                           FontSize="10" Foreground="#7F8C8D"/>
                 <!-- Buttons right -->
                 <StackPanel Orientation="Horizontal"
                             HorizontalAlignment="Right">
@@ -401,7 +401,7 @@
                                Text="0 families selected"
                                VerticalAlignment="Center"
                                Margin="0,0,18,0"
-                               FontSize="12" Foreground="#6B7280"/>
+                               FontSize="12" Foreground="#7F8C8D"/>
                     <Button x:Name="btn_load"
                             Content="Load"
                             Style="{StaticResource LoadBtn}"
