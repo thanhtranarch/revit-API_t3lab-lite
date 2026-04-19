@@ -49,7 +49,6 @@ class SelectFromDict(my_WPF):
         self.items = self.generate_list_items()
         self.selected_items = []
 
-        self.add_wpf_resource()
         path_xaml_file = os.path.join(PATH_SCRIPT, 'SelectFromDict.xaml')
         wpf.LoadComponent(self, path_xaml_file)
 
@@ -85,9 +84,6 @@ class SelectFromDict(my_WPF):
         for type_name, floor_type in sorted(self.given_dict_items.items()):
             list_of_items.Add(ListItem(type_name, floor_type))
         return list_of_items
-
-    def add_wpf_resource(self):
-        super(SelectFromDict, self).add_wpf_resource()
 
     # Event handlers
     def text_filter_updated(self, sender, e):

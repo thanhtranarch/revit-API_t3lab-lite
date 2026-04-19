@@ -50,7 +50,6 @@ class CreateFromRooms(my_WPF):
         self.button_name = button_name
         self.version     = version
 
-        super(CreateFromRooms, self).add_wpf_resource()
         path_xaml_file = os.path.join(PATH_SCRIPT, 'CreateFromRooms.xaml')
         wpf.LoadComponent(self, path_xaml_file)
 
