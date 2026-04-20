@@ -41,7 +41,7 @@ def get_element_edges(element, view):
                 elif isinstance(geom_obj, DB.Solid):
                     for edge in geom_obj.Edges:
                         edges.append(edge)
-    except:
+    except Exception:
         pass
     return edges
 
@@ -62,5 +62,5 @@ with revit.Transaction ("Reset Overrides"):
 
                         # Set linework to by category (use InvalidElementId to reset)
                         view.SetLineworkGraphicsStyle(edge.Reference, DB.ElementId.InvalidElementId)
-                except:
+                except Exception:
                     pass

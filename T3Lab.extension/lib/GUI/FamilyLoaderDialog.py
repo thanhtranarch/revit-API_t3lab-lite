@@ -19,7 +19,11 @@ import traceback
 import time
 import datetime
 import threading
-import urllib2
+try:
+    from urllib2 import urlopen, Request, URLError, HTTPError
+except ImportError:
+    from urllib.request import urlopen, Request
+    from urllib.error import URLError, HTTPError
 import tempfile
 
 # .NET Imports
@@ -170,10 +174,10 @@ def fetch_cloud_families(api_url):
         logger.info("Fetching family data from cloud: {}".format(api_url))
 
         # Make HTTP request
-        request = urllib2.Request(api_url)
+        request = Request(api_url)
         request.add_header('User-Agent', 'T3Lab Family Loader/1.0')
 
-        response = urllib2.urlopen(request, timeout=30)
+        response = urlopen(request, timeout=30)
         data = response.read()
 
         # Parse JSON response
@@ -181,7 +185,7 @@ def fetch_cloud_families(api_url):
         logger.info("Successfully fetched cloud family data")
 
         return families_data
-    except urllib2.HTTPError as ex:
+    except HTTPError as ex:
         logger.error("HTTP error fetching cloud families: {} - {}".format(ex.code, ex.reason))
 
         # Provide specific error messages for different HTTP status codes
@@ -215,7 +219,7 @@ def fetch_cloud_families(api_url):
             error_msg = "Failed to fetch from cloud: HTTP {} - {}".format(ex.code, ex.reason)
 
         raise Exception(error_msg)
-    except urllib2.URLError as ex:
+    except URLError as ex:
         logger.error("URL error fetching cloud families: {}".format(ex.reason))
         error_msg = (
             "Failed to connect to cloud API.\n\n"
@@ -242,10 +246,10 @@ def download_family_file(download_url, save_path):
             os.makedirs(save_dir)
 
         # Download file
-        request = urllib2.Request(download_url)
+        request = Request(download_url)
         request.add_header('User-Agent', 'T3Lab Family Loader/1.0')
 
-        response = urllib2.urlopen(request, timeout=120)
+        response = urlopen(request, timeout=120)
 
         # Write to file
         with open(save_path, 'wb') as f:
@@ -1298,7 +1302,7 @@ class FamilyLoaderWindow(Window):
             for old_family in self.filtered_families:
                 try:
                     old_family.PropertyChanged -= self.on_family_property_changed
-                except:
+                except Exception:
                     pass  # Ignore if not subscribed
 
             # Clear collection
@@ -1309,7 +1313,7 @@ class FamilyLoaderWindow(Window):
                 # Subscribe to PropertyChanged event to update count when checkbox changes
                 try:
                     family.PropertyChanged += self.on_family_property_changed
-                except:
+                except Exception:
                     pass  # Ignore if already subscribed
                 self.filtered_families.Add(family)
 
@@ -1660,7 +1664,7 @@ class FamilyLoaderWindow(Window):
                 # Try simple message instead
                 try:
                     forms.alert("Loading completed. Success: {}, Failed: {}".format(success_count, fail_count), exitscript=False)
-                except:
+                except Exception:
                     pass
 
         except Exception as ex:
@@ -1793,7 +1797,7 @@ class FamilyLoaderWindow(Window):
             for family in self.filtered_families:
                 try:
                     family.PropertyChanged -= self.on_family_property_changed
-                except:
+                except Exception:
                     pass
 
             # Dispose all family items
@@ -1859,7 +1863,7 @@ def show_family_loader():
         logger.error("=" * 80)
         try:
             forms.alert("Critical error in Family Loader:\n\n{}\n\nPlease check the log for details.".format(str(ex)), exitscript=False)
-        except:
+        except Exception:
             pass
         return []
 

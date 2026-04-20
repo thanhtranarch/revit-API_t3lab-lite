@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(python -c ':*)",
-      "Bash(xargs -I{} sh -c 'echo \"=== {} ===\"; cat \"{}\"')"
+      "Bash(xargs -I{} sh -c 'echo \"=== {} ===\"; cat \"{}\"')",
+      "Bash(xargs grep *)"
     ]
   }
 }

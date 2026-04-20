@@ -4,7 +4,7 @@
     <Grid.Resources>
         <!-- Styles -->
         <Style TargetType="Button" x:Key="FolderButtonStyle">
-            <Setter Property="Background" Value="#0078D4"/>
+            <Setter Property="Background" Value="#3498DB"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -32,18 +32,18 @@
         </Grid.RowDefinitions>
 
         <!-- Cloud Source Info Bar -->
-        <Border Grid.Row="0" Background="#F0F0F0" Padding="10" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="#FAFAFA" Padding="10" BorderBrush="#BDC3C7" BorderThickness="0,0,0,1">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0">
                     <TextBlock Text="☁️ Cloud Mode"
                                VerticalAlignment="Center"
                                Margin="0,0,10,0"
                                FontWeight="Bold"
-                               Foreground="#0078D4"/>
+                               Foreground="#3498DB"/>
                     <TextBlock x:Name="txt_web_link"
                                Text="[View Online]"
                                VerticalAlignment="Center"
-                               Foreground="#0078D4"
+                               Foreground="#3498DB"
                                TextDecorations="Underline"
                                Cursor="Hand"
                                ToolTip="Open cloud family library in browser: https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
@@ -54,12 +54,12 @@
                            VerticalAlignment="Center"
                            Margin="10,0,0,0"
                            FontWeight="SemiBold"
-                           Foreground="#333333"/>
+                           Foreground="#2C3E50"/>
             </DockPanel>
         </Border>
 
         <!-- Search Bar -->
-        <Border Grid.Row="1" Padding="10" BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
+        <Border Grid.Row="1" Padding="10" BorderBrush="#BDC3C7" BorderThickness="0,0,0,1">
             <DockPanel>
                 <TextBlock Text="🔍"
                            DockPanel.Dock="Left"
@@ -73,7 +73,7 @@
                         <Style TargetType="TextBox">
                             <Setter Property="Background" Value="White"/>
                             <Setter Property="Padding" Value="8,5"/>
-                            <Setter Property="BorderBrush" Value="#D0D0D0"/>
+                            <Setter Property="BorderBrush" Value="#BDC3C7"/>
                         </Style>
                     </TextBox.Style>
                 </TextBox>
@@ -84,7 +84,7 @@
             <!-- Category Tree on Left -->
             <Border DockPanel.Dock="Left"
                     Width="250"
-                    BorderBrush="#D0D0D0"
+                    BorderBrush="#BDC3C7"
                     BorderThickness="0,0,1,0"
                     Background="#FAFAFA">
                 <DockPanel>
@@ -93,7 +93,7 @@
                                FontWeight="Bold"
                                FontSize="14"
                                Padding="10"
-                               Background="#E8E8E8"/>
+                               Background="#ECF0F1"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <TreeView x:Name="tree_categories"
                                   Padding="5"
@@ -107,9 +107,9 @@
             <!-- Family Grid on Right -->
             <DockPanel>
                 <Border DockPanel.Dock="Top"
-                        Background="#E8E8E8"
+                        Background="#ECF0F1"
                         Padding="10"
-                        BorderBrush="#D0D0D0"
+                        BorderBrush="#BDC3C7"
                         BorderThickness="0,0,0,1">
                     <DockPanel>
                         <TextBlock x:Name="txt_result_count"
@@ -141,7 +141,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="#D0D0D0"
+                                <Border BorderBrush="#BDC3C7"
                                         BorderThickness="1"
                                         Padding="8"
                                         Margin="5"
@@ -152,7 +152,7 @@
                                         <Style TargetType="Border">
                                             <Style.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="BorderBrush" Value="#0078D4"/>
+                                                    <Setter Property="BorderBrush" Value="#3498DB"/>
                                                     <Setter Property="BorderThickness" Value="2"/>
                                                 </Trigger>
                                             </Style.Triggers>
@@ -184,9 +184,9 @@
 
         <!-- Action Buttons at Bottom -->
         <Border Grid.Row="3"
-                Background="#F0F0F0"
+                Background="#FAFAFA"
                 Padding="15"
-                BorderBrush="#D0D0D0"
+                BorderBrush="#BDC3C7"
                 BorderThickness="0,1,0,0">
             <StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -198,7 +198,7 @@
                 <Button x:Name="btn_load"
                         Content="Load"
                         Style="{StaticResource ActionButtonStyle}"
-                        Background="#0078D4"
+                        Background="#3498DB"
                         Foreground="White"
                         Margin="5,0"
                         IsEnabled="False"/>
@@ -209,7 +209,7 @@
             </StackPanel>
             <!-- Copyright -->
             <TextBlock Text="© Copyright by T3Lab"
-                       FontSize="10" Foreground="#AAAAAA"
+                       FontSize="10" Foreground="#7F8C8D"
                        HorizontalAlignment="Center"
                        Margin="0,6,0,0"/>
             </StackPanel>
