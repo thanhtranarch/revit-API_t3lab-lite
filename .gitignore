@@ -41,3 +41,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Claude Code local/private configs
+.claude/settings.local.json
+.claude/CLAUDE.local.md
