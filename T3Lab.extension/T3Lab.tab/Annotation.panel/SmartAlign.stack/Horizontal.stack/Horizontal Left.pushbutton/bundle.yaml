@@ -1,5 +1,0 @@
-context:
-  - doc-project
-  - any:
-    - OST_TextNotes
-
