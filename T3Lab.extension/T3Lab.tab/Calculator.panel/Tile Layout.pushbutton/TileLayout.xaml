@@ -410,53 +410,10 @@
                             </Grid>
                         </Border>
 
-                        <!-- Per-floor pattern -->
+                        <!-- Per-floor pattern (rows built programmatically) -->
                         <TextBlock Text="PATTERN PER FLOOR" Style="{StaticResource SectionHeader}"/>
                         <Border BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="4">
-                            <ItemsControl x:Name="pattern_items_control">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="#ECF0F1" BorderThickness="0,0,0,1"
-                                                Padding="14,12">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-
-                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Name}"
-                                                               FontSize="13" FontWeight="SemiBold"
-                                                               Foreground="#2C3E50"/>
-                                                    <TextBlock FontSize="11" Foreground="#7F8C8D" Margin="0,2,0,0">
-                                                        <Run Text="{Binding Dimensions}"/>
-                                                        <Run Text=" · "/>
-                                                        <Run Text="{Binding AreaM2}"/>
-                                                        <Run Text=" m²"/>
-                                                    </TextBlock>
-                                                </StackPanel>
-
-                                                <ComboBox Grid.Column="1" x:Name="cmb_pattern"
-                                                          SelectedIndex="{Binding PatternIndex, Mode=TwoWay}"
-                                                          Width="200" FontSize="12"
-                                                          BorderBrush="#BDC3C7" Padding="8,5"
-                                                          Margin="0,0,10,0" VerticalAlignment="Center">
-                                                    <ComboBoxItem Content="Grid (Stacked Bond)"/>
-                                                    <ComboBoxItem Content="Staggered (Running Bond)"/>
-                                                </ComboBox>
-
-                                                <TextBox Grid.Column="2" x:Name="txt_angle"
-                                                         Text="{Binding AngleDeg, Mode=TwoWay}"
-                                                         Width="60" FontSize="12"
-                                                         Style="{StaticResource InputBox}"
-                                                         ToolTip="Layout angle (°)"
-                                                         VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <StackPanel x:Name="pattern_stack"/>
                         </Border>
 
                     </StackPanel>
