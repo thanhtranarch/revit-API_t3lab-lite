@@ -1,13 +1,12 @@
-﻿<Window
+<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Workset Manager"
-    Height="660" Width="1020"
-    MinHeight="440" MinWidth="740"
+    Height="600" Width="860"
+    MinHeight="420" MinWidth="640"
     WindowStartupLocation="CenterScreen"
     ResizeMode="CanResizeWithGrip"
-    Background="White"
-    Closing="window_closing">
+    Background="White">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
@@ -19,7 +18,6 @@
 
     <Window.Resources>
 
-        <!-- PRIMARY â€“ blue, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#3498DB"/>
             <Setter Property="Foreground"      Value="White"/>
@@ -32,8 +30,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -50,7 +47,6 @@
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY â€“ light gray, dark text -->
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECF0F1"/>
             <Setter Property="Foreground"      Value="#2C3E50"/>
@@ -66,8 +62,7 @@
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -77,30 +72,39 @@
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#D5DBDB"/>
                 </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#BDC3C7"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- DANGER â€“ red (delete / destructive) -->
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
             <Setter Property="Background" Value="#E74C3C"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#C0392B"/>
                 </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#BDC3C7"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS â€“ green (apply / confirm) -->
         <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
             <Setter Property="Background" Value="#27AE60"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#1E8449"/>
                 </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#BDC3C7"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- WINDOW CONTROL â€“ transparent, light on hover -->
         <Style x:Key="WinCtrlButton" TargetType="Button">
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
@@ -123,7 +127,6 @@
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE BUTTON â€“ red on hover -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Setter Property="Template">
                 <Setter.Value>
@@ -141,6 +144,23 @@
             </Setter>
         </Style>
 
+        <Style x:Key="GroupLabel" TargetType="TextBlock">
+            <Setter Property="FontSize"          Value="9"/>
+            <Setter Property="FontWeight"        Value="SemiBold"/>
+            <Setter Property="Foreground"        Value="#BDC3C7"/>
+            <Setter Property="FontFamily"        Value="Segoe UI"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin"            Value="0,0,8,0"/>
+        </Style>
+
+        <!-- Read-only checkbox cell -->
+        <Style x:Key="ReadOnlyCheck" TargetType="CheckBox">
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Focusable"        Value="False"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment"   Value="Center"/>
+        </Style>
+
     </Window.Resources>
 
     <Grid>
@@ -151,12 +171,8 @@
             <RowDefinition Height="Auto"/> <!-- Status bar -->
         </Grid.RowDefinitions>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             TITLE BAR
-             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        <!-- ── TITLE BAR ──────────────────────────────── -->
         <Grid Grid.Row="0" Background="White">
-
-            <!-- Logo + T3Lab brand + tool name + subtitle -->
             <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <Image x:Name="logo_image" Width="40" Height="40" Margin="0,0,12,0"
@@ -170,23 +186,22 @@
                                    Foreground="#2C3E50" FontFamily="Segoe UI"/>
                     </StackPanel>
                     <Separator Height="1" Background="#BDC3C7" Margin="0,3,0,3"/>
-                    <TextBlock Text="Rule-based workset assignment for Revit projects"
+                    <TextBlock Text="Manage user worksets in the active Revit project"
                                FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"
                                FontFamily="Segoe UI"/>
                 </StackPanel>
             </StackPanel>
 
-            <!-- Document name + window controls -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                         VerticalAlignment="Top"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <TextBlock x:Name="doc_name" Foreground="#95A5A6" FontSize="10"
                            FontFamily="Segoe UI" VerticalAlignment="Center"
-                           Margin="0,14,8,0" TextTrimming="CharacterEllipsis" MaxWidth="320"/>
+                           Margin="0,14,8,0" TextTrimming="CharacterEllipsis" MaxWidth="300"/>
                 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
                         Click="minimize_button_clicked" ToolTip="Minimize"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="â€”" FontSize="13" FontWeight="Bold"
+                    <TextBlock Text="&#x2014;" FontSize="13" FontWeight="Bold"
                                Foreground="#7F8C8D" Margin="0,-6,0,0"/>
                 </Button>
                 <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
@@ -213,78 +228,73 @@
                 </Button>
             </StackPanel>
 
-            <!-- Bottom divider -->
             <Border Height="1" VerticalAlignment="Bottom" Background="#BDC3C7"/>
         </Grid>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             TOOLBAR
-             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        <!-- ── TOOLBAR ─────────────────────────────────── -->
         <Border Grid.Row="1" Background="White"
-                BorderBrush="#BDC3C7" BorderThickness="0,0,0,1" Padding="12,8">
-            <WrapPanel>
+                BorderBrush="#BDC3C7" BorderThickness="0,0,0,1" Padding="12,7">
+            <WrapPanel VerticalAlignment="Center">
 
-                <!-- Rule CRUD -->
-                <Button x:Name="btn_add" Content="+ Add" Style="{StaticResource PrimaryButton}"
-                        Margin="0,0,4,0" Click="btn_add_click"
-                        ToolTip="Add a new assignment rule"/>
-                <Button x:Name="btn_delete" Content="Delete" Style="{StaticResource DangerButton}"
-                        Margin="0,0,4,0" Click="btn_delete_click"
-                        ToolTip="Delete selected rule(s)"/>
-                <Button x:Name="btn_duplicate" Content="Duplicate" Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,4,0" Click="btn_duplicate_click"
-                        ToolTip="Duplicate selected rule"/>
-                <Button x:Name="btn_move_up" Content="Up" Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,2,0" Click="btn_move_up_click"
-                        ToolTip="Move rule up in run order"/>
-                <Button x:Name="btn_move_down" Content="Down" Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,0,0" Click="btn_move_down_click"
-                        ToolTip="Move rule down in run order"/>
+                <!-- Group: Worksharing -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="WORKSHARING" Style="{StaticResource GroupLabel}"/>
+                    <Button x:Name="btn_enable_ws" Content="Enable Worksharing"
+                            Style="{StaticResource PrimaryButton}"
+                            Margin="0,0,0,0" Click="btn_enable_ws_click"
+                            ToolTip="Enable worksharing on this document"/>
+                </StackPanel>
 
-                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,2"/>
+                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,3"/>
 
-                <!-- Apply actions -->
-                <Button x:Name="btn_apply_view" Content="Apply to View" Style="{StaticResource SuccessButton}"
-                        Margin="0,0,4,0" Click="btn_apply_view_click"
-                        ToolTip="Assign elements in the active view per enabled rules"/>
-                <Button x:Name="btn_apply_project" Content="Apply to Project" Style="{StaticResource SuccessButton}"
-                        Background="#1E8449" Margin="0,0,0,0" Click="btn_apply_project_click"
-                        ToolTip="Assign ALL project elements per enabled rules"/>
+                <!-- Group: Worksets -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="WORKSETS" Style="{StaticResource GroupLabel}"/>
+                    <Button x:Name="btn_create" Content="+ Create"
+                            Style="{StaticResource PrimaryButton}"
+                            Margin="0,0,4,0" Click="btn_create_click"
+                            ToolTip="Create a new workset"/>
+                    <Button x:Name="btn_delete" Content="Delete"
+                            Style="{StaticResource DangerButton}"
+                            Margin="0,0,0,0" Click="btn_delete_click"
+                            ToolTip="Delete selected workset(s) and move their elements"/>
+                </StackPanel>
 
-                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,2"/>
+                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,3"/>
 
-                <!-- Workset operations -->
-                <Button x:Name="btn_create_worksets" Content="Create Worksets"
-                        Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,4,0" Click="btn_create_worksets_click"
-                        ToolTip="Create standard worksets from the workset list"/>
-                <Button x:Name="btn_remove_unused" Content="Remove Unused"
-                        Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,0,0" Click="btn_remove_unused_click"
-                        ToolTip="Remove worksets not in the standard list"/>
+                <!-- Group: Bulk -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="BULK" Style="{StaticResource GroupLabel}"/>
+                    <Button x:Name="btn_create_list" Content="Create from List"
+                            Style="{StaticResource SecondaryButton}"
+                            Margin="0,0,4,0" Click="btn_create_list_click"
+                            ToolTip="Create all worksets defined in workset_list.txt"/>
+                    <Button x:Name="btn_remove_unused" Content="Remove Unused"
+                            Style="{StaticResource SecondaryButton}"
+                            Margin="0,0,0,0" Click="btn_remove_unused_click"
+                            ToolTip="Remove worksets not in workset_list.txt"/>
+                </StackPanel>
 
-                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,2"/>
+                <Rectangle Width="1" Fill="#BDC3C7" Margin="12,3"/>
 
-                <!-- Configuration exchange -->
-                <Button x:Name="btn_import" Content="Import" Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,4,0" Click="btn_import_click"
-                        ToolTip="Import rules from a JSON file (replaces current rules)"/>
-                <Button x:Name="btn_export" Content="Export" Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,4,0" Click="btn_export_click"
-                        ToolTip="Export current rules to a JSON file"/>
-                <Button x:Name="btn_reset" Content="Reset" Style="{StaticResource SecondaryButton}"
-                        Margin="0,0,4,0" Click="btn_reset_click"
-                        ToolTip="Reset all rules to factory defaults"/>
-                <Button x:Name="btn_save" Content="Save" Style="{StaticResource PrimaryButton}"
-                        Margin="0,0,0,0" Click="btn_save_click"
-                        ToolTip="Save rules to disk"/>
+                <!-- Group: Views -->
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="VIEWS" Style="{StaticResource GroupLabel}"/>
+                    <Button x:Name="btn_create_views" Content="Create Workset Views"
+                            Style="{StaticResource SuccessButton}"
+                            Margin="0,0,4,0" Click="btn_create_views_click"
+                            ToolTip="Create a 3D isometric view per workset with isolated visibility"/>
+                    <Button x:Name="btn_refresh" Content="&#x21BB; Refresh"
+                            Style="{StaticResource SecondaryButton}"
+                            Click="btn_refresh_click"
+                            ToolTip="Reload worksets from the document"/>
+                </StackPanel>
+
             </WrapPanel>
         </Border>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             DATAGRID
-             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-        <DataGrid x:Name="rules_grid" Grid.Row="2"
+        <!-- ── DATAGRID ────────────────────────────────── -->
+        <DataGrid x:Name="ws_grid" Grid.Row="2"
                   Margin="12,8,12,4"
                   AutoGenerateColumns="False"
                   CanUserAddRows="False"
@@ -299,7 +309,7 @@
                   HeadersVisibility="Column"
                   FontFamily="Segoe UI"
                   FontSize="12"
-                  CellEditEnding="grid_cell_edit_ending">
+                  IsReadOnly="True">
 
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
@@ -330,8 +340,8 @@
 
             <DataGrid.Columns>
 
-                <!-- Run Order -->
-                <DataGridTextColumn Header="#" Binding="{Binding RunOrder}"
+                <!-- # -->
+                <DataGridTextColumn Header="#" Binding="{Binding Number}"
                                     Width="44" IsReadOnly="True">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
@@ -343,38 +353,60 @@
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
 
-                <!-- Enabled -->
-                <DataGridTemplateColumn Header="On" Width="46" CanUserResize="False">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <CheckBox IsChecked="{Binding Enabled, Mode=TwoWay,
-                                                  UpdateSourceTrigger=PropertyChanged}"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- Rule Name -->
-                <DataGridTextColumn Header="Rule Name"
-                                    Binding="{Binding Name, Mode=TwoWay}" Width="180">
+                <!-- Workset Name -->
+                <DataGridTextColumn Header="Workset Name" Binding="{Binding Name}" Width="*">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
                             <Setter Property="Padding"           Value="6,0"/>
                             <Setter Property="Foreground"        Value="#2C3E50"/>
+                            <Setter Property="FontWeight"        Value="SemiBold"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.EditingElementStyle>
-                        <Style TargetType="TextBox">
-                            <Setter Property="FontFamily" Value="Segoe UI"/>
-                            <Setter Property="Padding"    Value="4,2"/>
-                        </Style>
-                    </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>
 
-                <!-- Description -->
-                <DataGridTextColumn Header="Description"
-                                    Binding="{Binding Description, Mode=TwoWay}" Width="*">
+                <!-- Active (default for new elements) -->
+                <DataGridTemplateColumn Header="Active" Width="60" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsActive}"
+                                      Style="{StaticResource ReadOnlyCheck}">
+                                <CheckBox.Resources>
+                                    <Style TargetType="CheckBox" BasedOn="{StaticResource ReadOnlyCheck}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                <Setter Property="Foreground" Value="#3498DB"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </CheckBox.Resources>
+                            </CheckBox>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Open -->
+                <DataGridTemplateColumn Header="Open" Width="60" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding IsOpen}"
+                                      Style="{StaticResource ReadOnlyCheck}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Editable -->
+                <DataGridTemplateColumn Header="Editable" Width="70" CanUserResize="False">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox IsChecked="{Binding CanEdit}"
+                                      Style="{StaticResource ReadOnlyCheck}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Owner -->
+                <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="160">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -383,57 +415,12 @@
                             <Setter Property="FontSize"          Value="11"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.EditingElementStyle>
-                        <Style TargetType="TextBox">
-                            <Setter Property="FontFamily" Value="Segoe UI"/>
-                            <Setter Property="Padding"    Value="4,2"/>
-                        </Style>
-                    </DataGridTextColumn.EditingElementStyle>
-                </DataGridTextColumn>
-
-                <!-- Category Filter -->
-                <DataGridTextColumn Header="Category Filter"
-                                    Binding="{Binding CategoryFilter, Mode=TwoWay}" Width="165">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding"           Value="6,0"/>
-                            <Setter Property="Foreground"        Value="#2C3E50"/>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.EditingElementStyle>
-                        <Style TargetType="TextBox">
-                            <Setter Property="FontFamily" Value="Segoe UI"/>
-                            <Setter Property="Padding"    Value="4,2"/>
-                        </Style>
-                    </DataGridTextColumn.EditingElementStyle>
-                </DataGridTextColumn>
-
-                <!-- Target Workset -->
-                <DataGridTextColumn Header="Target Workset"
-                                    Binding="{Binding Workset, Mode=TwoWay}" Width="235">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding"           Value="6,0"/>
-                            <Setter Property="Foreground"        Value="#2980B9"/>
-                            <Setter Property="FontWeight"        Value="SemiBold"/>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.EditingElementStyle>
-                        <Style TargetType="TextBox">
-                            <Setter Property="FontFamily" Value="Segoe UI"/>
-                            <Setter Property="Padding"    Value="4,2"/>
-                        </Style>
-                    </DataGridTextColumn.EditingElementStyle>
                 </DataGridTextColumn>
 
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-             STATUS BAR
-             â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        <!-- ── STATUS BAR ──────────────────────────────── -->
         <Border Grid.Row="3" Background="#FAFAFA"
                 BorderBrush="#BDC3C7" BorderThickness="0,1,0,0" Padding="14,6">
             <Grid>
@@ -441,13 +428,12 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="status_text" Text="Ready" FontSize="11"
+                <TextBlock x:Name="status_text" Text="Loading..." FontSize="11"
                            Foreground="#7F8C8D" VerticalAlignment="Center" FontFamily="Segoe UI"/>
-                <TextBlock x:Name="workset_count" Grid.Column="1" Text="" FontSize="11"
+                <TextBlock x:Name="ws_status" Grid.Column="1" Text="" FontSize="11"
                            Foreground="#BDC3C7" VerticalAlignment="Center" FontFamily="Segoe UI"/>
             </Grid>
         </Border>
 
     </Grid>
 </Window>
-

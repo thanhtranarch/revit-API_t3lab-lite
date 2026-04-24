@@ -15,7 +15,7 @@ press Send.
 Author: T3Lab (Tran Tien Thanh)
 """
 
-__title__   = "Send\nFeedback"
+__title__   = "Send Feedback"
 __author__  = "T3Lab"
 __version__ = "1.0.0"
 
