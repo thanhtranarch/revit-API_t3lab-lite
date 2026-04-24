@@ -606,7 +606,7 @@ class BulkFamilyExportWindow(forms.WPFWindow):
         # script.py → pushbutton → stack → panel → tab → extension (5 levels)
         ext_dir = os.path.dirname(os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.dirname(__file__)))))
-        xaml_path = os.path.join(ext_dir, 'lib', 'GUI', 'BulkFamilyExport.xaml')
+        xaml_path = os.path.join(ext_dir, 'lib', 'GUI', 'Tools', 'BulkFamilyExport.xaml')
         forms.WPFWindow.__init__(self, xaml_path)
 
         self._ext_dir       = ext_dir

@@ -49,9 +49,13 @@ from pyrevit import forms, script
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
 # ==================================================
-logger = script.get_logger()
-uidoc = __revit__.ActiveUIDocument
-doc   = __revit__.ActiveUIDocument.Document
+logger    = script.get_logger()
+uidoc     = __revit__.ActiveUIDocument
+doc       = __revit__.ActiveUIDocument.Document
+
+SCRIPT_DIR = os.path.dirname(__file__)
+EXT_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'CreateRoomPlan.xaml')
 
 
 # ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
@@ -81,7 +85,7 @@ class CreateRoomPlanWindow(forms.WPFWindow):
     """WPF window for creating plan views from rooms."""
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, "CreateRoomPlan.xaml")
+        forms.WPFWindow.__init__(self, XAML_FILE)
         self._load_logo()
         self._all_rooms = []
         self._load_rooms()
@@ -93,14 +97,7 @@ class CreateRoomPlanWindow(forms.WPFWindow):
     def _load_logo(self):
         """Load T3Lab logo into the title bar and window icon."""
         try:
-            ext_dir = os.path.dirname(
-                os.path.dirname(
-                    os.path.dirname(
-                        os.path.dirname(__file__)
-                    )
-                )
-            )
-            logo_path = os.path.join(ext_dir, 'lib', 'GUI', 'T3Lab_logo.png')
+            logo_path = os.path.join(EXT_DIR, 'lib', 'GUI', 'T3Lab_logo.png')
             if os.path.exists(logo_path):
                 bitmap = BitmapImage()
                 bitmap.BeginInit()

@@ -510,7 +510,7 @@ class FamilyLoaderWindow(Window):
 
             # Load XAML
             logger.debug("DEBUG: Step 3 - Loading XAML")
-            xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoader.xaml')
+            xaml_path = os.path.join(os.path.dirname(__file__), 'Tools', 'FamilyLoader.xaml')
             logger.info("DEBUG: XAML path: {}".format(xaml_path))
 
             if not os.path.exists(xaml_path):

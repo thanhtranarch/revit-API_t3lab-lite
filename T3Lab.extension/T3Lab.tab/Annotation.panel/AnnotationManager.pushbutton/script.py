@@ -153,7 +153,7 @@ _GUI_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
     'lib', 'GUI'
 )
-_XAML_PATH = os.path.join(_GUI_DIR, 'AnnotationManager.xaml')
+_XAML_PATH = os.path.join(_GUI_DIR, 'Tools', 'AnnotationManager.xaml')
 _LOGO_PATH = os.path.join(_GUI_DIR, 'T3Lab_logo.png')
 
 

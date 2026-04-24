@@ -429,7 +429,7 @@ class FamilyLoaderCloudWindow(Window):
             self.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen
 
             # Load XAML
-            xaml_path = os.path.join(os.path.dirname(__file__), 'FamilyLoaderCloud.xaml')
+            xaml_path = os.path.join(os.path.dirname(__file__), 'Tools', 'FamilyLoaderCloud.xaml')
             logger.info("Loading XAML from: {}".format(xaml_path))
 
             try:

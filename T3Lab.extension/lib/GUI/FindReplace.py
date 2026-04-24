@@ -38,7 +38,7 @@ class FindReplace(my_WPF):
     run = False
 
     def __init__(self, title, label="Find and Replace", button_name="Rename"):
-        path_xaml_file = os.path.join(PATH_SCRIPT, 'FindReplace.xaml')
+        path_xaml_file = os.path.join(PATH_SCRIPT, 'Tools', 'FindReplace.xaml')
         wpf.LoadComponent(self, path_xaml_file)
 
         self.UI_label.Content       = label

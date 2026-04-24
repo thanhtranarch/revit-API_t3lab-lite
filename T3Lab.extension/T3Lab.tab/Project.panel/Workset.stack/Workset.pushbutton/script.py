@@ -42,6 +42,8 @@ uidoc = __revit__.ActiveUIDocument
 doc   = __revit__.ActiveUIDocument.Document
 
 SCRIPT_DIR        = os.path.dirname(__file__)
+EXT_DIR           = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+XAML_FILE         = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'WorksetManager.xaml')
 WORKSET_LIST_FILE = os.path.join(SCRIPT_DIR, "workset_list.txt")
 
 # ==================================================
@@ -317,7 +319,7 @@ def _confirm(message, title="Confirm"):
 class WorksetManagerWindow(forms.WPFWindow):
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, "WorksetManager.xaml")
+        forms.WPFWindow.__init__(self, XAML_FILE)
         self._load_logo()
         try:
             fname = os.path.basename(doc.PathName) if doc.PathName else "Unsaved Document"
@@ -331,6 +333,19 @@ class WorksetManagerWindow(forms.WPFWindow):
             self._set_worksharing_state(enabled=True)
             self._refresh_worksets()
         self._update_status()
+
+    def _load_logo(self):
+        try:
+            logo_path = os.path.join(EXT_DIR, 'lib', 'GUI', 'T3Lab_logo.png')
+            if os.path.exists(logo_path):
+                bitmap = BitmapImage()
+                bitmap.BeginInit()
+                bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                bitmap.EndInit()
+                self.logo_image.Source = bitmap
+                self.Icon = bitmap
+        except Exception:
+            pass
 
     # --------------------------------------------------
     # Worksharing state

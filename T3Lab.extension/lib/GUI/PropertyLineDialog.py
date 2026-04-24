@@ -1187,7 +1187,7 @@ class PropertyLineDialog(forms.WPFWindow):
         # Build absolute path so forms.WPFWindow finds the XAML regardless of
         # which script calls this class (avoids the IronPython absolute-URI bug
         # that occurs with Application.LoadComponent + file:// URIs)
-        xaml_path = os.path.join(os.path.dirname(__file__), "PropertyLine.xaml")
+        xaml_path = os.path.join(os.path.dirname(__file__), "Tools", "PropertyLine.xaml")
         forms.WPFWindow.__init__(self, xaml_path)
 
         self._selected_parcel = None

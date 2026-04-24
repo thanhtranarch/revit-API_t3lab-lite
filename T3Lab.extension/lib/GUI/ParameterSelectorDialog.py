@@ -104,7 +104,7 @@ class ParameterSelectorDialog(Window):
             System.Windows.Media.Color.FromArgb(255, 250, 250, 250))
 
         # Load XAML
-        xaml_file = os.path.join(os.path.dirname(__file__), 'ParameterSelector.xaml')
+        xaml_file = os.path.join(os.path.dirname(__file__), 'Tools', 'ParameterSelector.xaml')
         try:
             with open(xaml_file, 'r') as f:
                 xaml_content = f.read()

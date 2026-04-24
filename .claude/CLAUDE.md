@@ -14,7 +14,29 @@ Detailed instructions are organized in the `.claude/` folder:
 
 | Resource | Path |
 |----------|------|
-| Canonical UI | `T3Lab_Lite.extension/T3Lab_Lite.tab/Export.panel/BatchOut.pushbutton/` |
-| Shared styles | `T3Lab_Lite.extension/lib/GUI/Resources/WPF_styles.xaml` |
-| Logo asset | `T3Lab_Lite.extension/lib/GUI/T3Lab_logo.png` |
-| Example XAML | `T3Lab_Lite.extension/lib/GUI/ExportManager.xaml` |
+| Canonical UI | `T3Lab.extension/T3Lab.tab/Export.panel/BatchOut.pushbutton/` |
+| All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
+| Shared styles | `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` |
+| Logo asset | `T3Lab.extension/lib/GUI/T3Lab_logo.png` |
+| Example XAML | `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` |
+| Python dialogs | `T3Lab.extension/lib/GUI/` (FamilyLoaderDialog.py, etc.) |
+
+## Folder Layout
+
+```
+T3Lab.extension/
+├── T3Lab.tab/          ← ribbon panels and pushbutton scripts
+├── lib/
+│   ├── GUI/
+│   │   ├── Tools/      ← ALL .xaml files live here
+│   │   ├── Resources/  ← shared WPF styles (WPF_styles.xaml)
+│   │   ├── forms.py    ← WPF helpers
+│   │   ├── WPF_Base.py
+│   │   ├── *Dialog.py  ← Python WPF dialog classes
+│   │   └── T3Lab_logo.png
+│   ├── Snippets/       ← reusable Revit API helpers
+│   ├── Renaming/       ← renaming tool library
+│   └── ...
+├── checks/             ← model checker scripts
+└── commands/           ← command scripts
+```

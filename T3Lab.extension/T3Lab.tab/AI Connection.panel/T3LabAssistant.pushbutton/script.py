@@ -417,7 +417,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
     _DYNAMIC_BTNS = []   # list of Button WPF objects (not names)
 
     def __init__(self):
-        xaml_path = os.path.join(lib_dir, 'GUI', 'T3LabAssistant.xaml')
+        xaml_path = os.path.join(lib_dir, 'GUI', 'Tools', 'T3LabAssistant.xaml')
         forms.WPFWindow.__init__(self, xaml_path)
 
         # ── Session state ─────────────────────────────────────────────────────

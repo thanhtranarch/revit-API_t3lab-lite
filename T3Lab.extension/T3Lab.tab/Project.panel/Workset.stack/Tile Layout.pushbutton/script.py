@@ -48,6 +48,10 @@ logger = script.get_logger()
 doc    = revit.doc
 uidoc  = revit.uidoc
 
+SCRIPT_DIR = os.path.dirname(__file__)
+EXT_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'TileLayout.xaml')
+
 # ── Constants ─────────────────────────────────────────────────────────────────
 MM_TO_FT  = 1.0 / 304.8
 FT_TO_MM  = 304.8
@@ -1450,8 +1454,7 @@ STEP_CONCEPTS   = 2
 class TileLayoutWindow(forms.WPFWindow):
 
     def __init__(self, preselected_floors=None):
-        xaml_path = os.path.join(os.path.dirname(__file__), 'TileLayout.xaml')
-        forms.WPFWindow.__init__(self, xaml_path)
+        forms.WPFWindow.__init__(self, XAML_FILE)
 
         # ── wizard state ──
         self._floors = []        # [FloorInfo]
@@ -1472,9 +1475,7 @@ class TileLayoutWindow(forms.WPFWindow):
 
     # ── logo ──────────────────────────────────────────────────────────────────
     def _load_logo(self):
-        logo_path = os.path.normpath(os.path.join(
-            os.path.dirname(__file__),
-            '..', '..', '..', 'lib', 'GUI', 'T3Lab_logo.png'))
+        logo_path = os.path.join(EXT_DIR, 'lib', 'GUI', 'T3Lab_logo.png')
         if not os.path.exists(logo_path): return
         try:
             from System.Windows.Media.Imaging import BitmapImage

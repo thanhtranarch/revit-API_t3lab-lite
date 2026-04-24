@@ -68,7 +68,7 @@ SCL = (1.0 / 304.8) if IS_METRIC else 1.0
 # UI DIALOG
 # =========================================================================
 
-_XAML_PATH = os.path.join(lib_dir, 'GUI', 'JSONtoFamily.xaml')
+_XAML_PATH = os.path.join(lib_dir, 'GUI', 'Tools', 'JSONtoFamily.xaml')
 
 
 class JsonInputDialog(forms.WPFWindow):

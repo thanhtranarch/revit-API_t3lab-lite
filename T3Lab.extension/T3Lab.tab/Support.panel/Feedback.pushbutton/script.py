@@ -129,7 +129,7 @@ class FeedbackWindow(forms.WPFWindow):
         extension_dir = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         )
-        xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'FeedbackWindow.xaml')
+        xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'FeedbackWindow.xaml')
         forms.WPFWindow.__init__(self, xaml_file_path)
 
         self._load_logo(extension_dir)

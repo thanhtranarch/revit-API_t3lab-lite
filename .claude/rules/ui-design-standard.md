@@ -3,10 +3,11 @@
 All new pyrevit tool windows **MUST** follow the **BatchOut UI design language** (white light theme).
 
 ## Design Reference Files
-- **Canonical UI**: `T3Lab_Lite.extension/T3Lab_Lite.tab/Export.panel/BatchOut.pushbutton/`
-- **Shared styles**: `T3Lab_Lite.extension/lib/GUI/Resources/WPF_styles.xaml`
-- **Logo asset**: `T3Lab_Lite.extension/lib/GUI/T3Lab_logo.png`
-- **Example XAML**: `T3Lab_Lite.extension/lib/GUI/ExportManager.xaml`
+- **Canonical UI**: `T3Lab.extension/T3Lab.tab/Export.panel/BatchOut.pushbutton/`
+- **Shared styles**: `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml`
+- **Logo asset**: `T3Lab.extension/lib/GUI/T3Lab_logo.png`
+- **All XAML files**: `T3Lab.extension/lib/GUI/Tools/`
+- **Example XAML**: `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml`
 
 ## Color Palette
 
@@ -46,4 +47,4 @@ When creating a new pushbutton with a WPF UI:
 
 See `.claude/docs/` for full XAML and Python templates:
 - `wpf-window-templates.md` - Window structure, button styles, DataGrid, info box XAML
-- `python-wpf-pattern.md` - Python WPF Window class pattern
+- `python-wpf-pattern.md` - Python WPF Window class pattern (includes SCRIPT_DIR/EXT_DIR/XAML_FILE constants)

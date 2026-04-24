@@ -49,7 +49,7 @@ class SelectFromDict(my_WPF):
         self.items = self.generate_list_items()
         self.selected_items = []
 
-        path_xaml_file = os.path.join(PATH_SCRIPT, 'SelectFromDict.xaml')
+        path_xaml_file = os.path.join(PATH_SCRIPT, 'Tools', 'SelectFromDict.xaml')
         wpf.LoadComponent(self, path_xaml_file)
 
         self.main_title.Text     = title
