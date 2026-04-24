@@ -62,7 +62,7 @@ def walltype_create(doc,wall_data):
             "finish1": MaterialFunctionAssignment.Finish1,
             "finish2": MaterialFunctionAssignment.Finish2,
         }
-        return mapping.get(function_str.lower(), MaterialFunctionAssignment.None)  # Default to None if not found
+        return mapping.get(function_str.lower(), MaterialFunctionAssignment.Structure)
     for wall_type in wall_data:
         # Duplicate the sample wall type
         new_wall_type = samplewall.Duplicate(wall_type.name)

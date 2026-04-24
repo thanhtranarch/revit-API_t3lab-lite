@@ -26,8 +26,12 @@ from Autodesk.Revit.DB import Transaction
 
 from pyrevit.coreutils import logger as _logger
 
-doc = __revit__.ActiveUIDocument.Document
-uidoc = __revit__.ActiveUIDocument
+try:
+    doc = __revit__.ActiveUIDocument.Document
+    uidoc = __revit__.ActiveUIDocument
+except Exception:
+    doc = None
+    uidoc = None
 
 VERBOSE = True  # True to Keep Window Open
 #VERBOSE = False

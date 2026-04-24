@@ -17,7 +17,7 @@ __doc__ = 'Distribute Elements Horizontally'
 
 import sys
 import os
-sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'Lib'))
 from smartalign.distribute import main
 from smartalign.core import Alignment, VERBOSE
 
