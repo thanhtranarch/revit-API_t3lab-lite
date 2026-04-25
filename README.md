@@ -19,7 +19,7 @@ A lightweight IronPython/pyRevit extension that adds productivity tools for anno
 
 1. Install [pyRevit](https://github.com/eirannejad/pyRevit)
 2. Clone or download this repository
-3. Copy the `T3Lab_Lite.extension` folder to your pyRevit extensions directory
+3. Copy the `T3Lab.extension` folder to your pyRevit extensions directory
    - Default path: `%APPDATA%\pyRevit\Extensions\`
 4. Reload pyRevit (`pyRevit > Reload`)
 
@@ -27,34 +27,96 @@ A lightweight IronPython/pyRevit extension that adds productivity tools for anno
 
 ## Tools
 
-All tools are accessible from the **T3Lab Lite** tab in the Revit ribbon.
+All tools are accessible from the **T3Lab** tab in the Revit ribbon.
+
+### Cloud Panel
+
+| Tool | Description |
+|------|-------------|
+| **ACC Platform** | Quick link to Autodesk Construction Cloud |
+| **B360 Health** | Quick link to BIM 360 platform health status |
+| **Bluebeam Health** | Quick link to Bluebeam service health status |
+
+---
+
+### Project Panel
+
+#### Workset
+
+| Tool | Description |
+|------|-------------|
+| **Workset Manager** | List, rename, and manage user worksets; remove unused worksets via a checklist |
+| **Workset Views** | Generate dedicated 3D views per workset for isolation and coordination review |
+| **Central File** | Quick access to sync-to-central and central file worksharing workflows |
+| **Tile Layout** | 3-step wizard to extract floor boundaries, choose a tile pattern, and place a tiled view arrangement on the active sheet |
+
+#### Family Work
+
+| Tool | Description |
+|------|-------------|
+| **Load Family** | Browse and load Revit families from local disk; supports category filtering and batch loading |
+| **Bulk Family Export** | Scan imported DWG/DXF files for block definitions and export each block as a separate `.rfa` family file |
+| **JSON to Family** | Generate fully parametric Revit families from a structured JSON schema inside an open Family Document |
+
+#### Create
+
+| Tool | Description |
+|------|-------------|
+| **Wall Type Manager** | Browse, filter, and edit wall type properties; supports bulk updates and type duplication |
+| **Property Line** | Create US property lines from Lightbox parcel data |
+| **Create Plan Views** | Batch-generate individual floor plan views for each room with custom naming and template assignment |
+
+#### Areas
+
+| Tool | Description |
+|------|-------------|
+| **Room to Area** | Convert room boundaries to area boundaries automatically in the active area plan |
+| **Tag Area Opening** | Auto-tag all area openings in the active view |
+| **Opening Assign Values** | Map room or area parameter data onto filled region elements for color-filled area diagrams |
+
+#### Other
+
+| Tool | Description |
+|------|-------------|
+| **Align Positions** | Snap surrounding element distances to clean multiples of 5 or 10 mm relative to a reference Grid, Wall, or Column |
+
+---
 
 ### Annotation Panel
 
-#### Dimension
-| Tool | Description |
-|------|-------------|
-| **Find Dim** | Find and select dimensions by type or value in the active view |
-| **Remove Dim** | Remove selected or all dimensions from the active view |
-| **Rename Dim** | Rename dimension types using find and replace |
+#### Annotation Manager
 
-#### Text
 | Tool | Description |
 |------|-------------|
-| **Dim Text** | Edit dimension text overrides on selected dimensions |
-| **Upper Dim Text** | Convert dimension text overrides to uppercase |
+| **Annotation Manager** | Unified window with tabs for managing Dimensions and Text Notes — find, delete, and auto-rename types and instances |
+
+#### Grids
+
+| Tool | Description |
+|------|-------------|
 | **Save Grids** | Save current grid head and tail positions for later restoration |
 | **Restore Grids** | Restore selected grid heads and tails to their saved positions |
 | **Restore All Grids** | Restore all grid heads and tails to their saved positions |
 
-#### Text Note
+#### SmartAlign
+
 | Tool | Description |
 |------|-------------|
-| **Find Text** | Find and select text notes by content in the active view |
-| **Remove Text** | Remove selected or filtered text notes from the active view |
-| **Rename Text** | Rename text note types using find and replace |
+| **Align Left / Center / Right** | Align selected elements to the leftmost, center, or rightmost edge |
+| **Align Top / Center / Bottom** | Align selected elements to the top, center, or bottom edge |
+| **Distribute Horizontal** | Evenly distribute selected elements with equal horizontal spacing |
+| **Distribute Vertical** | Evenly distribute selected elements with equal vertical spacing |
+
+#### Text
+
+| Tool | Description |
+|------|-------------|
+| **Dim Text** | View and edit prefix, suffix, and value overrides on selected dimension elements |
+| **Adjust TextNote** | Batch-edit TextNote content, type, and formatting with search-and-replace support |
+| **Upper All Text** | Convert view names, sheet title block parameters, text notes, and dimension overrides to uppercase |
 
 #### Other
+
 | Tool | Description |
 |------|-------------|
 | **Reset Overrides** | Reset all graphic overrides on selected elements in the active view |
@@ -65,18 +127,7 @@ All tools are accessible from the **T3Lab Lite** tab in the Revit ribbon.
 
 | Tool | Description |
 |------|-------------|
-| **Batch Out** | Batch export sheets to PDF, DWG, DWF, DGN, IFC, NWD and image formats with sheet filtering and bilingual (Vietnamese/English) support |
-
----
-
-### Project Panel
-
-| Tool | Description |
-|------|-------------|
-| **Load Family** | Load Revit families from local folders with category-based browsing and search (cloud feature currently disabled) |
-| **Para Sync** | Synchronize parameter values between selected elements |
-| **Property Line** | Create and manage property lines from survey data |
-| **Workset** | Manage and assign worksets to selected elements |
+| **BatchOut** | Batch export sheets to PDF, DWG, NWD (Navisworks), and IFC formats with sheet filtering, custom naming patterns, revision tracking, and combined PDF support |
 
 ---
 
@@ -95,15 +146,25 @@ The AI assistant supports two backends:
 
 ---
 
+### Support Panel
+
+| Tool | Description |
+|------|-------------|
+| **Send Feedback** | Write and send feedback or suggestions directly to the T3Lab team by email |
+
+---
+
 ## Project Structure
 
 ```
-T3Lab_Lite.extension/
-├── T3Lab_Lite.tab/          # Ribbon tab with all tools
+T3Lab.extension/
+├── T3Lab.tab/               # Ribbon tab with all tools
+│   ├── Cloud.panel/
+│   ├── Project.panel/
 │   ├── Annotation.panel/
 │   ├── Export.panel/
-│   ├── Project.panel/
-│   └── AI Connection.panel/
+│   ├── AI Connection.panel/
+│   └── Support.panel/
 ├── checks/                  # Model quality check scripts
 ├── commands/                # Standalone command scripts
 └── lib/                     # Shared libraries
