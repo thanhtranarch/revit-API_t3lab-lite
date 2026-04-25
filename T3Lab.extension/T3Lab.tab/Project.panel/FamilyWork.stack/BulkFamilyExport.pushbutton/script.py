@@ -23,6 +23,7 @@ __version__ = "2.0.0"
 # ==================================================
 import os
 import re
+import sys
 import math
 import traceback
 import datetime
@@ -42,6 +43,13 @@ from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind
 
 from pyrevit import revit, DB, forms, script
+
+# Path setup
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+lib_dir = os.path.join(extension_dir, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
+
 from Autodesk.Revit.DB import (
     ImportInstance, FilteredElementCollector,
     Options, GeometryInstance,
@@ -86,11 +94,13 @@ def write_error(message, exception=None):
 
 # DEFINE VARIABLES
 # ==================================================
-uidoc = __revit__.ActiveUIDocument
-doc   = uidoc.Document
-app   = __revit__.Application
+doc   = revit.doc
+uidoc = revit.uidoc
+app   = revit.doc.Application
 
 logger = script.get_logger()
+output = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
 # Category-to-template mapping
 CATEGORY_TEMPLATES = [
@@ -632,10 +642,9 @@ class BulkFamilyExportWindow(forms.WPFWindow):
                 bitmap.BeginInit()
                 bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
                 bitmap.EndInit()
-                self.logo_image.Source = bitmap
                 self.Icon = bitmap
-        except Exception:
-            pass
+        except Exception as icon_ex:
+            logger.warning("Could not set window icon: {}".format(icon_ex))
 
     # Initialisation
     def _init_cad_files(self):

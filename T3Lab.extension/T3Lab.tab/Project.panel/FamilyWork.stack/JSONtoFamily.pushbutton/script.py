@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 JSON to Family
 
@@ -30,10 +30,11 @@ Author: T3Lab
 from __future__ import unicode_literals
 
 __title__   = "JSON to Family"
-__author__  = "T3Lab"
+__author__  = "Tran Tien Thanh"
 __version__ = "1.0.0"
 
-# IMPORTS
+# IMPORT LIBRARIES
+# ==============================================================================
 import json
 import clr
 import os
@@ -50,12 +51,20 @@ from System import Uri, UriKind
 from Autodesk.Revit.DB import *
 from pyrevit import revit, forms, script
 
-extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 lib_dir       = os.path.join(extension_dir, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
 
-doc    = revit.doc
-logger = script.get_logger()
-output = script.get_output()
+# DEFINE VARIABLES
+# ==============================================================================
+doc            = revit.doc
+logger         = script.get_logger()
+output         = script.get_output()
+REVIT_VERSION  = int(revit.doc.Application.VersionNumber)
+
+# CLASS/FUNCTIONS
+# ==============================================================================
 
 # =========================================================================
 # METRIC CONVERSION
@@ -86,7 +95,6 @@ class JsonInputDialog(forms.WPFWindow):
                 bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
                 bitmap.EndInit()
                 self.Icon = bitmap
-                self.logo_image.Source = bitmap
         except Exception:
             pass
 
@@ -505,9 +513,8 @@ def generate_family_from_json(schema):
                     logger.error("Failed to cut '{}': {}".format(solid_id, e))
 
 
-# =========================================================================
-# EXECUTION
-# =========================================================================
+# MAIN SCRIPT
+# ==============================================================================
 if __name__ == "__main__":
     logger.info("JSON to Family script started")
 

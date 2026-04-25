@@ -181,22 +181,19 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Logo + Title + Subtitle -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal"
-                            VerticalAlignment="Center" Margin="14,0,0,0">
-                    <Image x:Name="logo_image" Width="38" Height="38" Margin="0,0,10,0"
-                           VerticalAlignment="Center"/>
-                    <StackPanel VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="T3Lab" FontSize="10" FontWeight="Bold"
-                                       Foreground="#3498DB" VerticalAlignment="Bottom"
-                                       Margin="0,0,5,1"/>
-                            <TextBlock Text="Load Family" FontSize="16" FontWeight="Bold"
-                                       Foreground="#2C3E50"/>
-                        </StackPanel>
-                        <TextBlock Text="Load Revit families from local folders or cloud"
-                                   FontSize="9.5" Foreground="#7F8C8D" FontStyle="Italic"/>
+                <!-- Title -->
+                <StackPanel Grid.Column="0" Orientation="Vertical"
+                            VerticalAlignment="Center" Margin="16,0,0,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
+                                   Foreground="#3498DB" VerticalAlignment="Bottom"
+                                   Margin="0,0,6,3"/>
+                        <TextBlock Text="Load Family" FontSize="18" FontWeight="Bold"
+                                   Foreground="#2C3E50"/>
                     </StackPanel>
+                    <Separator Height="1" Background="#BDC3C7" Margin="0,2,0,2"/>
+                    <TextBlock Text="Load Revit families from local folders or cloud"
+                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
                 </StackPanel>
 
                 <!-- Window control buttons

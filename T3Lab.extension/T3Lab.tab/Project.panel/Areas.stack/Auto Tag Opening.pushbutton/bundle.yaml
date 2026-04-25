@@ -1,0 +1,9 @@
+title: Tag Area Opening
+tooltip: Automatically tag area openings in the active view
+description: |
+  Scans the active view for area openings and applies the appropriate
+  tag to each one automatically. Reduces manual tagging effort for
+  opening schedules and area documentation.
+
+author: Tran Tien Thanh
+version: 1.0.0

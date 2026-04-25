@@ -11,10 +11,14 @@ Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__author__ = "Tran Tien Thanh"
-__title__  = "Workset\nManagement"
+__author__  = "Tran Tien Thanh"
+__title__   = "Workset\nManagement"
+__version__ = "1.0.0"
 
+# IMPORT LIBRARIES
+# ==================================================
 import os
+import sys
 import json
 
 import clr
@@ -34,15 +38,24 @@ from Autodesk.Revit.DB import (
     View3D, ViewFamilyType, ViewFamily, WorksetVisibility,
 )
 from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogResult
-from pyrevit import forms, script
+from pyrevit import revit, forms, script
 
+# Path setup
+SCRIPT_DIR    = os.path.dirname(__file__)
+EXT_DIR       = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+lib_dir       = os.path.join(EXT_DIR, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
+
+# DEFINE VARIABLES
+# ==================================================
 logger = script.get_logger()
+output = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
-uidoc = __revit__.ActiveUIDocument
-doc   = __revit__.ActiveUIDocument.Document
+doc   = revit.doc
+uidoc = revit.uidoc
 
-SCRIPT_DIR        = os.path.dirname(__file__)
-EXT_DIR           = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
 XAML_FILE         = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'WorksetManager.xaml')
 WORKSET_LIST_FILE = os.path.join(SCRIPT_DIR, "workset_list.txt")
 
@@ -108,10 +121,10 @@ DEFAULT_WORKSET_LIST = [
     "Workset1",
 ]
 
-# ==================================================
-# WORKSET ITEM MODEL
+# CLASS/FUNCTIONS
 # ==================================================
 
+# WORKSET ITEM MODEL
 class WorksetItem(object):
     """View-model for a single user workset row in the DataGrid."""
 
@@ -342,10 +355,9 @@ class WorksetManagerWindow(forms.WPFWindow):
                 bitmap.BeginInit()
                 bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
                 bitmap.EndInit()
-                self.logo_image.Source = bitmap
                 self.Icon = bitmap
-        except Exception:
-            pass
+        except Exception as icon_ex:
+            logger.warning("Could not set window icon: {}".format(icon_ex))
 
     # --------------------------------------------------
     # Worksharing state

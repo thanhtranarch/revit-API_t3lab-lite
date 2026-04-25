@@ -1,0 +1,9 @@
+title: Load Family
+tooltip: Load Revit families from local folders or cloud storage
+description: |
+  Opens a family browser dialog to load Revit families from local disk
+  or a cloud library. Supports filtering by category and batch loading
+  of multiple families in a single transaction.
+
+author: Tran Tien Thanh
+version: 1.0.0

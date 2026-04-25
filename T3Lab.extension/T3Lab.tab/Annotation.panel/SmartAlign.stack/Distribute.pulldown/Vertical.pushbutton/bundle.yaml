@@ -1,0 +1,9 @@
+title: Distribute Vertical
+tooltip: Distribute selected elements with equal vertical spacing
+description: |
+  Evenly distributes selected elements along the vertical axis so
+  that the spacing between each element is equal. Works on annotation
+  and model elements in the active view.
+
+author: Tran Tien Thanh
+version: 1.0.0

@@ -10,6 +10,7 @@ Author: Tran Tien Thanh
 
 __author__ = "Tran Tien Thanh"
 __title__ = "Upper All Text\n(Views, Sheets & Dims)"
+__version__ = "1.0.0"
 
 from Autodesk.Revit.DB import FilteredElementCollector, BuiltInCategory, Transaction, View, ViewType, Dimension
 from Autodesk.Revit.UI import TaskDialog

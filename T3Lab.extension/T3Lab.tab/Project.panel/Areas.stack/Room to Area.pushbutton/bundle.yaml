@@ -1,0 +1,9 @@
+title: Room to Area
+tooltip: Convert room boundaries to area boundaries automatically
+description: |
+  Reads room geometry from the model and generates corresponding area
+  boundaries in the active area plan. Streamlines the workflow of
+  maintaining parallel room and area datasets.
+
+author: Tran Tien Thanh
+version: 1.0.0

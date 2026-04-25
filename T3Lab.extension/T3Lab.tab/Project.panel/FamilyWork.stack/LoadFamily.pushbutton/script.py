@@ -11,36 +11,33 @@ Linkedin: linkedin.com/in/sunarch7899/
 
 __author__  = "Tran Tien Thanh"
 __title__   = "Load Family"
+__version__ = "1.0.0"
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#====================================================================================================
+# IMPORT LIBRARIES
+# ==============================================================================
 import os
 import sys
+import traceback
 
-# Add lib directory to path
-extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+from pyrevit import revit, script
+
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 lib_dir = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
-# Import the dialog
 from GUI.FamilyLoaderDialog import show_family_loader
 
-# pyRevit Imports
-from pyrevit import script
+# DEFINE VARIABLES
+# ==============================================================================
+logger        = script.get_logger()
+output        = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝ MAIN
-#====================================================================================================
-
+# MAIN SCRIPT
+# ==============================================================================
 if __name__ == '__main__':
-    logger = script.get_logger()
-
     try:
-        # Show the family loader dialog
         loaded_families = show_family_loader()
 
         if loaded_families:
@@ -50,5 +47,4 @@ if __name__ == '__main__':
 
     except Exception as ex:
         logger.error("Error in Load Family tool: {}".format(ex))
-        import traceback
         logger.error(traceback.format_exc())

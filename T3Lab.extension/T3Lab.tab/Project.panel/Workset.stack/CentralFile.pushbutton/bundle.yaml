@@ -1,0 +1,9 @@
+title: Central File
+tooltip: Sync with central and manage central file operations
+description: |
+  Provides quick access to sync-to-central and central file management
+  operations. Supports save-to-central, reload latest, and related
+  worksharing workflows from a single button.
+
+author: Tran Tien Thanh
+version: 1.0.0

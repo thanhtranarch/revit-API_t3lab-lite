@@ -13,6 +13,7 @@ Linkedin: linkedin.com/in/sunarch7899/
 
 __author__ ="Tran Tien Thanh"
 __title__ = "Opening Assign Values"
+__version__ = "1.0.0"
 
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Copyright (c) 2014-2016 Gui Talarico
 
 Smart Align
@@ -11,7 +11,7 @@ pyRevit: repository at https://github.com/eirannejad/pyRevit
 
 """
 
-__author__ = 'Gui Talarico | @gtalarico'
+__author__  = "Tran Tien Thanh"
 __version__ = '0.4.0'
 __doc__ = 'Align Elements Vertically: Top'
 

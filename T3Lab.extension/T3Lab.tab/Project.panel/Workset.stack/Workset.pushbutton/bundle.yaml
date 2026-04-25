@@ -1,0 +1,9 @@
+title: Workset Manager
+tooltip: View and manage user worksets in the active Revit project
+description: |
+  Opens a WPF dialog to list, rename, and manage user worksets. Supports
+  quick removal of unused worksets via a checklist. Shift-click launches
+  the cleanup mode directly.
+
+author: Tran Tien Thanh
+version: 1.0.0

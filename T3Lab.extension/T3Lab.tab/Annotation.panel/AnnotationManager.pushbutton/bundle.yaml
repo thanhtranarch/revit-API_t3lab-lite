@@ -1,18 +1,18 @@
-title: Annotation Manager
+﻿title: Annotation Manager
 tooltip: Unified tool to Find, Remove and Rename Dimensions and Text Notes
 description: |
   Annotation Manager consolidates all Dimension and Text Note tools
   into one window with switchable tabs.
 
   Dimension tab:
-  - Find dimensions by type name keyword → jump to view
+  - Find dimensions by type name keyword â†’ jump to view
   - Delete selected dimension instances
   - Auto-rename all DimensionTypes by properties
 
   Text Note tab:
-  - Find Notes: search text notes by content → jump to view
-  - Find Types: search TextNoteTypes by name → delete types
+  - Find Notes: search text notes by content â†’ jump to view
+  - Find Types: search TextNoteTypes by name â†’ delete types
   - Auto-rename all TextNoteTypes by properties
 
-author: T3Lab
+author: Tran Tien Thanh
 version: 1.0.0

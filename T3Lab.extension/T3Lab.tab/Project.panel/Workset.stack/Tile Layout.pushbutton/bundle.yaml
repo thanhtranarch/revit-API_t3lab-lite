@@ -1,0 +1,9 @@
+title: Tile Layout
+tooltip: Arrange views in a tiled grid layout on a sheet
+description: |
+  Launches a 3-step wizard to extract floor boundaries, choose a tile
+  pattern per floor, and generate candidate tile layouts. The chosen
+  layout is placed on the active sheet as a tiled view arrangement.
+
+author: Tran Tien Thanh
+version: 1.0.0

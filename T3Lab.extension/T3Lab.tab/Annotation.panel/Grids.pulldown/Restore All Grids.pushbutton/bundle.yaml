@@ -1,0 +1,8 @@
+title: Restore All Grids
+tooltip: Restore visibility of all grid lines in all views
+description: |
+  Restores all grid heads and tails to their previously saved positions
+  across all views in the project. Requires a prior Save Grids operation.
+
+author: Tran Tien Thanh
+version: 1.0.0

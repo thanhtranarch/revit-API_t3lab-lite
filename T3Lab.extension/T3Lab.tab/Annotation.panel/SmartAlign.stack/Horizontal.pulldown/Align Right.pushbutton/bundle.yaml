@@ -1,0 +1,9 @@
+title: Align Right
+tooltip: Align selected elements to the rightmost edge
+description: |
+  Aligns all selected elements so their right edges match the rightmost
+  element in the selection. Ideal for aligning annotations and tags
+  along a consistent right boundary.
+
+author: Tran Tien Thanh
+version: 1.0.0

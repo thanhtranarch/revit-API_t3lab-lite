@@ -9,6 +9,7 @@ Mail: trantienthanh909@gmail.com
 
 __author__ = "Tran Tien Thanh"
 __title__ = "Adjust TextNote (py)"
+__version__ = "1.0.0"
 
 from Autodesk.Revit.DB import FilteredElementCollector, BuiltInCategory, TextNoteType
 from pyrevit import revit, script

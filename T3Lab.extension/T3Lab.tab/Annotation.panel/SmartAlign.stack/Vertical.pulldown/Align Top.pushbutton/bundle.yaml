@@ -1,0 +1,9 @@
+title: Align Top
+tooltip: Align selected elements to the top edge
+description: |
+  Aligns all selected elements so their top edges match the highest
+  element in the selection. Useful for tidying elevation and section
+  annotations.
+
+author: Tran Tien Thanh
+version: 1.0.0

@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Send Feedback
--------------
+
 Popup window that lets the user send feedback or suggestions about T3Lab
 tools. The message is delivered by email to the T3Lab team using a clear,
 consistent subject line:
@@ -12,13 +12,17 @@ The email opens in the user's default mail client (Outlook, etc.) with
 recipient, subject and body already filled in -- the user only needs to
 press Send.
 
-Author: T3Lab (Tran Tien Thanh)
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
 __title__   = "Send Feedback"
-__author__  = "T3Lab"
+__author__  = "Tran Tien Thanh"
 __version__ = "1.0.0"
 
+# IMPORT LIBRARIES
+# ==============================================================================
 import os
 import sys
 import clr
@@ -36,15 +40,23 @@ from System.Diagnostics import Process, ProcessStartInfo
 
 from pyrevit import revit, forms, script
 
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+lib_dir       = os.path.join(extension_dir, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
 
-# ============================================================
-# CONFIG
-# ============================================================
+# DEFINE VARIABLES
+# ==============================================================================
 FEEDBACK_RECIPIENT = "trantienthanh909@gmail.com"
 SUBJECT_PREFIX     = "[T3Lab Feedback]"
 
-logger = script.get_logger()
+logger        = script.get_logger()
+output        = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
+
+# CLASS/FUNCTIONS
+# ==============================================================================
 
 # ============================================================
 # HELPERS
@@ -126,16 +138,10 @@ class FeedbackWindow(forms.WPFWindow):
     """Popup window to collect and send feedback by email."""
 
     def __init__(self):
-        extension_dir = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        )
         xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'FeedbackWindow.xaml')
         forms.WPFWindow.__init__(self, xaml_file_path)
+        self.doc = revit.doc
 
-        self._load_logo(extension_dir)
-
-    # -------- chrome / title bar --------
-    def _load_logo(self, extension_dir):
         try:
             logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
             if os.path.exists(logo_path):
@@ -144,10 +150,10 @@ class FeedbackWindow(forms.WPFWindow):
                 bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
                 bitmap.EndInit()
                 self.Icon = bitmap
-                self.logo_image.Source = bitmap
         except Exception as ex:
             logger.warning("Could not load T3Lab logo: {}".format(ex))
 
+    # -------- chrome / title bar --------
     def minimize_button_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
 
@@ -228,8 +234,9 @@ class FeedbackWindow(forms.WPFWindow):
                 )
 
 
-# ============================================================
-# MAIN
-# ============================================================
+# MAIN SCRIPT
+# ==============================================================================
 if __name__ == '__main__':
+    if not revit.doc:
+        forms.alert("No open Revit document found.", exitscript=True)
     FeedbackWindow().ShowDialog()

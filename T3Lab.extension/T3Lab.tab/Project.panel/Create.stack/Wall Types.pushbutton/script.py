@@ -1,5 +1,6 @@
 __author__ ="Tran Tien Thanh"
 __title__ = "Wall Type"
+__version__ = "1.0.0"
 
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *

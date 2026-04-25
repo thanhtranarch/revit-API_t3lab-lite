@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Align Positions
 ---------------
@@ -11,13 +11,21 @@ Workflow
   3. Review the preview table
   4. Apply corrections
 
-Author: T3Lab (Tran Tien Thanh)
+--------------------------------------------------------
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+--------------------------------------------------------
 """
 
-__title__  = "Align\nPositions"
-__author__ = "T3Lab"
+__title__   = "Align\nPositions"
+__author__  = "Tran Tien Thanh"
+__version__ = "1.0.0"
 
+# IMPORT LIBRARIES
+# ==================================================
 import os
+import sys
 import math
 import clr
 
@@ -51,9 +59,22 @@ from Autodesk.Revit.Exceptions import OperationCanceledException
 
 from pyrevit import forms, revit, script
 
+# Path setup
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+lib_dir = os.path.join(extension_dir, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
+
+# DEFINE VARIABLES
+# ==================================================
 doc    = revit.doc
 uidoc  = revit.uidoc
 logger = script.get_logger()
+output = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+
+# CLASS/FUNCTIONS
+# ==================================================
 
 # ════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -210,10 +231,9 @@ class AlignPositionsWindow(forms.WPFWindow):
                 bmp.BeginInit()
                 bmp.UriSource = Uri(_LOGO, UriKind.Absolute)
                 bmp.EndInit()
-                self.logo_image.Source = bmp
                 self.Icon = bmp
-        except Exception:
-            pass
+        except Exception as icon_ex:
+            logger.warning("Could not set window icon: {}".format(icon_ex))
 
     def minimize_button_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -605,9 +625,10 @@ class AlignPositionsWindow(forms.WPFWindow):
         self.Show()
 
 
-# ════════════════════════════════════════════════════════════════
-# ENTRY POINT
-# ════════════════════════════════════════════════════════════════
+# MAIN SCRIPT
+# ==================================================
 if __name__ == '__main__':
+    if not revit.doc:
+        forms.alert("Please open a Revit document first.", exitscript=True)
     window = AlignPositionsWindow()
     window.ShowDialog()

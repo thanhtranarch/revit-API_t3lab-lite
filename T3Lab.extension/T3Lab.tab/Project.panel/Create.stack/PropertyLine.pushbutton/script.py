@@ -11,30 +11,43 @@ Linkedin: linkedin.com/in/sunarch7899/
 
 __author__  = "Tran Tien Thanh"
 __title__   = "Property Line"
+__version__ = "1.0.0"
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
+# IMPORT LIBRARIES
 # ==================================================
 import os
 import sys
+import clr
 
-# Add the lib directory to sys.path so GUI module is importable
-extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+clr.AddReference('PresentationFramework')
+clr.AddReference('PresentationCore')
+
+from pyrevit import revit, script
+
+# Path setup — 4 levels up: script.py → pushbutton → stack → panel → tab → extension
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 lib_dir = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
     sys.path.insert(0, lib_dir)
 
 from GUI.PropertyLineDialog import show_property_line_dialog
-from pyrevit import script
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝ MAIN
+# DEFINE VARIABLES
+# ==================================================
+logger = script.get_logger()
+output = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+
+# CLASS/FUNCTIONS
+# ==================================================
+
+# MAIN SCRIPT
 # ==================================================
 
 if __name__ == '__main__':
-    logger = script.get_logger()
+    if not revit.doc:
+        from pyrevit import forms
+        forms.alert("Please open a Revit document first.", exitscript=True)
     try:
         show_property_line_dialog()
     except Exception as ex:

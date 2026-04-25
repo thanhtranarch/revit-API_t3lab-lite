@@ -11,6 +11,7 @@ Linkedin: linkedin.com/in/sunarch7899/
 
 __author__  = "Tran Tien Thanh"
 __title__   = "Dim Text"
+__version__ = "1.0.0"
 
 # IMPORT LIBRARIES
 # ==================================================

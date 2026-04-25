@@ -90,20 +90,17 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Horizontal"
-                        VerticalAlignment="Center" Margin="12,0,0,0">
-                <Image x:Name="logo_image" Width="40" Height="40" Margin="0,0,10,0"
-                       RenderOptions.BitmapScalingMode="HighQuality"/>
-                <TextBlock Text="T3Lab" FontSize="14" FontWeight="Bold"
-                           Foreground="#3498DB" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <TextBlock Text="|" Foreground="#BDC3C7" FontSize="16"
-                           VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock x:Name="main_title" Text="Create From Rooms"
-                               FontSize="13" FontWeight="SemiBold" Foreground="#2C3E50"/>
-                    <TextBlock Text="Generate plan views from rooms"
-                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
+                               Foreground="#3498DB" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                    <TextBlock Text="Create From Rooms" FontSize="18" FontWeight="Bold"
+                               Foreground="#2C3E50"/>
                 </StackPanel>
+                <Separator Height="1" Background="#BDC3C7" Margin="0,2,0,2"/>
+                <TextBlock Text="Generate plan views from rooms"
+                           FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                 <Button x:Name="btn_minimize" Content="&#x2212;" Style="{StaticResource WinCtrlButton}"

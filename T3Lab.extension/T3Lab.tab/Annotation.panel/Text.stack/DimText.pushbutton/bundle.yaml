@@ -1,0 +1,9 @@
+title: Dim Text
+tooltip: Adjust dimension text overrides on selected elements
+description: |
+  Provides a dialog to view and edit text override values on selected
+  dimension elements. Supports prefix, suffix, and value replacement
+  for dimension strings in the active view.
+
+author: Tran Tien Thanh
+version: 1.0.0

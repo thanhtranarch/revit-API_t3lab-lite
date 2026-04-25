@@ -1,0 +1,9 @@
+title: Align Left
+tooltip: Align selected elements to the leftmost edge
+description: |
+  Aligns all selected elements so their left edges match the leftmost
+  element in the selection. Ideal for aligning annotations and tags
+  along a consistent left boundary.
+
+author: Tran Tien Thanh
+version: 1.0.0

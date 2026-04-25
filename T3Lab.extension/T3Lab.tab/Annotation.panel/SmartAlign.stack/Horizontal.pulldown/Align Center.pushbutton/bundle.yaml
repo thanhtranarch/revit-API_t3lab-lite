@@ -1,0 +1,9 @@
+title: Align Center (H)
+tooltip: Align selected elements to their horizontal center
+description: |
+  Aligns all selected elements so their centers share the same
+  horizontal axis. Useful for tidying up annotation layouts and
+  symbol arrangements in plan views.
+
+author: Tran Tien Thanh
+version: 1.0.0

@@ -1,6 +1,8 @@
 title:
-  en_us: Autodesk docs
-tooltip: 
+  en_us: ACC Platform
+tooltip:
   en_us: Open ACC Services
 hyperlink: 'https://acc.autodesk.com/docs/files/projects/'
 context: zero-doc
+author: Tran Tien Thanh
+version: 1.0.0

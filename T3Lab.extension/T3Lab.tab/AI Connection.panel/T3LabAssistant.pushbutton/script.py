@@ -11,14 +11,17 @@ Linkedin: linkedin.com/in/sunarch7899/
 
 __author__  = "Tran Tien Thanh"
 __title__   = "T3Lab Assistant"
+__version__ = "1.0.0"
 
-import json
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import sys
+import clr
+import json
 import re
 import datetime
 
-import clr
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('System')
@@ -30,7 +33,11 @@ from System.Threading import Thread, ThreadStart, ApartmentState
 
 from pyrevit import revit, forms, script
 
+# DEFINE VARIABLES
+# ==================================================
 logger = script.get_logger()
+output = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
 # ─── Lib path setup ───────────────────────────────────────────────────────────
 # __file__ → .../T3LabAssistant.pushbutton/script.py
@@ -408,7 +415,8 @@ def clear_chat_history(doc_key):
         logger.debug("Could not clear chat history: {}".format(ex))
 
 
-# ─── WPF Window ───────────────────────────────────────────────────────────────
+# CLASS/FUNCTIONS
+# ==================================================
 
 class T3LabAssistantWindow(forms.WPFWindow):
     """Standalone T3Lab Assistant chatbox window."""
@@ -417,8 +425,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
     _DYNAMIC_BTNS = []   # list of Button WPF objects (not names)
 
     def __init__(self):
-        xaml_path = os.path.join(lib_dir, 'GUI', 'Tools', 'T3LabAssistant.xaml')
-        forms.WPFWindow.__init__(self, xaml_path)
+        try:
+            xaml_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'T3LabAssistant.xaml')
+            forms.WPFWindow.__init__(self, xaml_path)
+        except Exception as ex:
+            logger.error("Could not load T3LabAssistant XAML: {}".format(ex))
+            raise
+
+        self.doc = revit.doc
 
         # ── Session state ─────────────────────────────────────────────────────
         self._busy             = False          # concurrency guard
@@ -431,14 +445,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # ── Logo ──────────────────────────────────────────────────────────────
         try:
-            logo_path = os.path.join(lib_dir, 'GUI', 'T3Lab_logo.png')
+            logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')
             if os.path.exists(logo_path):
-                bmp = BitmapImage()
-                bmp.BeginInit()
-                bmp.UriSource = Uri(logo_path, UriKind.Absolute)
-                bmp.EndInit()
-                self.logo_image.Source = bmp
-                self.Icon = bmp
+                bitmap = BitmapImage()
+                bitmap.BeginInit()
+                bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+                bitmap.EndInit()
+                self.Icon = bitmap
         except Exception:
             pass
 
@@ -1171,7 +1184,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
 
-# ─── MAIN ─────────────────────────────────────────────────────────────────────
+# MAIN SCRIPT
+# ==================================================
 
 if __name__ == '__main__':
     if not revit.doc:

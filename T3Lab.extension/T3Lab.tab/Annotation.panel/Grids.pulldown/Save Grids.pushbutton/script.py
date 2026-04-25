@@ -9,6 +9,7 @@ Mail: trantienthanh909@gmail.com
 
 __author__  = "Tran Tien Thanh"
 __title__   = "Save Grids"
+__version__ = "1.0.0"
 
 import os
 import pickle

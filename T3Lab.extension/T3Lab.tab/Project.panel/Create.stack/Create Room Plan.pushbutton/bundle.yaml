@@ -1,0 +1,9 @@
+title: Create Plan Views
+tooltip: Create floor plan views for all rooms automatically
+description: |
+  Generates individual floor plan views for each room in the project
+  using a WPF selection dialog. Supports custom view naming and
+  template assignment during batch creation.
+
+author: Tran Tien Thanh
+version: 1.0.0

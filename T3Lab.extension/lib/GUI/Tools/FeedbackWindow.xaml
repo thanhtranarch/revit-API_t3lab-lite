@@ -191,23 +191,18 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0"
-                        VerticalAlignment="Center"
+            <!-- T3Lab Title + Subtitle -->
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Image x:Name="logo_image" Width="44" Height="44" Margin="0,0,12,0"
-                       VerticalAlignment="Center"/>
-                <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                                   Foreground="#3498DB" VerticalAlignment="Bottom"
-                                   Margin="0,0,6,1"/>
-                        <TextBlock Text="Feedback" FontSize="18" FontWeight="Bold"
-                                   Foreground="#2C3E50"/>
-                    </StackPanel>
-                    <Separator Height="1" Background="#BDC3C7" Margin="0,3,0,3"/>
-                    <TextBlock Text="Share your feedback or suggestions with the T3Lab team"
-                               FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
+                               Foreground="#3498DB" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                    <TextBlock Text="Feedback" FontSize="18" FontWeight="Bold"
+                               Foreground="#2C3E50"/>
                 </StackPanel>
+                <Separator Height="1" Background="#BDC3C7" Margin="0,2,0,2"/>
+                <TextBlock Text="Share your feedback or suggestions with the T3Lab team"
+                           FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top"

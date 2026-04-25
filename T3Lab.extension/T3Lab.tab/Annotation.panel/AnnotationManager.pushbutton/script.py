@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Annotation Manager
 ------------------
@@ -8,14 +8,22 @@ Unified tool combining Dimension and Text Note management:
   - Double-click Name cell to rename inline (types and text note content)
   - Auto-rename all types based on their properties
 
-Author: T3Lab (Tran Tien Thanh)
+--------------------------------------------------------
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
+--------------------------------------------------------
 """
 
-__title__  = "Annotation Manager"
-__author__ = "T3Lab"
+__title__   = "Annotation Manager"
+__author__  = "Tran Tien Thanh"
+__version__ = "1.0.0"
 
+# IMPORT LIBRARIES
+# ==================================================
 import os
 import re
+import sys
 import clr
 clr.AddReference('PresentationCore')
 clr.AddReference('PresentationFramework')
@@ -26,12 +34,29 @@ from System.Windows import Visibility, WindowState
 from System.Windows.Media.Imaging import BitmapImage
 from System import Uri, UriKind
 from System.Data import DataTable
-from Autodesk.Revit.DB import *
+from Autodesk.Revit.DB import (
+    FilteredElementCollector,
+    Dimension, DimensionType,
+    TextNote, TextNoteType,
+    Transaction, ElementId,
+    BuiltInParameter,
+)
 from pyrevit import revit, forms, script
 
-doc    = revit.doc
-uidoc  = revit.uidoc
+# Path setup
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+lib_dir = os.path.join(extension_dir, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
+
+# DEFINE VARIABLES
+# ==================================================
 logger = script.get_logger()
+output = script.get_output()
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+
+# CLASS/FUNCTIONS
+# ==================================================
 
 # ============================================================
 # SHARED COLOR TABLE
@@ -163,40 +188,43 @@ _LOGO_PATH = os.path.join(_GUI_DIR, 'T3Lab_logo.png')
 class AnnotationManagerWindow(forms.WPFWindow):
 
     def __init__(self):
-        forms.WPFWindow.__init__(self, _XAML_PATH)
-        self._dim_submode = "instances"  # "instances" | "types"
-        self._txt_submode = "notes"      # "notes"     | "types"
-
-        # ── Dimension DataTable ──────────────────────────────────────────
-        self._dim_dt = DataTable()
-        for col in ["_id", "_cat", "Name", "Size", "Font", "Background", "Color", "Details"]:
-            self._dim_dt.Columns.Add(col)
-        self.dg_dim.ItemsSource = self._dim_dt.DefaultView
-        self._dim_map = {}   # id-str → Revit element
-        self.dg_dim.CellEditEnding += self.dim_cell_edit_ending
-
-        # ── TextNote DataTable ───────────────────────────────────────────
-        self._txt_dt = DataTable()
-        for col in ["_id", "_cat", "Name", "Size", "Font", "Background", "Color", "Details"]:
-            self._txt_dt.Columns.Add(col)
-        self.dg_txt.ItemsSource = self._txt_dt.DefaultView
-        self._txt_map = {}   # id-str → Revit element
-        self.dg_txt.CellEditEnding += self.txt_cell_edit_ending
-
-        # Load logo
         try:
-            bitmap = BitmapImage()
-            bitmap.BeginInit()
-            bitmap.UriSource = Uri(_LOGO_PATH, UriKind.Absolute)
-            bitmap.EndInit()
-            self.Icon = bitmap
-            self.logo_image.Source = bitmap
-        except Exception:
-            pass
+            forms.WPFWindow.__init__(self, _XAML_PATH)
+            self._dim_submode = "instances"  # "instances" | "types"
+            self._txt_submode = "notes"      # "notes"     | "types"
 
-        # Auto-load all elements on startup
-        self._load_all_dims()
-        self._load_all_txts()
+            # ── Dimension DataTable ──────────────────────────────────────────
+            self._dim_dt = DataTable()
+            for col in ["_id", "_cat", "Name", "Size", "Font", "Background", "Color", "Details"]:
+                self._dim_dt.Columns.Add(col)
+            self.dg_dim.ItemsSource = self._dim_dt.DefaultView
+            self._dim_map = {}   # id-str → Revit element
+            self.dg_dim.CellEditEnding += self.dim_cell_edit_ending
+
+            # ── TextNote DataTable ───────────────────────────────────────────
+            self._txt_dt = DataTable()
+            for col in ["_id", "_cat", "Name", "Size", "Font", "Background", "Color", "Details"]:
+                self._txt_dt.Columns.Add(col)
+            self.dg_txt.ItemsSource = self._txt_dt.DefaultView
+            self._txt_map = {}   # id-str → Revit element
+            self.dg_txt.CellEditEnding += self.txt_cell_edit_ending
+
+            # Load logo
+            try:
+                bitmap = BitmapImage()
+                bitmap.BeginInit()
+                bitmap.UriSource = Uri(_LOGO_PATH, UriKind.Absolute)
+                bitmap.EndInit()
+                self.Icon = bitmap
+            except Exception as icon_ex:
+                logger.warning("Could not set window icon: {}".format(icon_ex))
+
+            # Auto-load all elements on startup
+            self._load_all_dims()
+            self._load_all_txts()
+        except Exception as ex:
+            logger.error("Error initializing window: {}".format(ex))
+            raise
 
     # ── helpers ─────────────────────────────────────────────────────────
 
@@ -724,10 +752,11 @@ class AnnotationManagerWindow(forms.WPFWindow):
         self._status("Renamed {} TextNoteType(s).".format(count))
 
 
-# ============================================================
-# ENTRY POINT
-# ============================================================
-if __name__ == "__main__":
+# MAIN SCRIPT
+# ==================================================
+if __name__ == '__main__':
+    if not revit.doc:
+        forms.alert("Please open a Revit document first.", exitscript=True)
     logger.info("Annotation Manager started")
     win = AnnotationManagerWindow()
-    win.show_dialog()
+    win.ShowDialog()

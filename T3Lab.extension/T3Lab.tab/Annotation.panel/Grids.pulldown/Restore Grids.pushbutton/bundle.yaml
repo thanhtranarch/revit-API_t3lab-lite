@@ -1,0 +1,8 @@
+title: Restore Grids
+tooltip: Restore grid visibility in the active view
+description: |
+  Restores grid head and tail positions in the active view to their
+  previously saved state. Requires a prior Save Grids operation.
+
+author: Tran Tien Thanh
+version: 1.0.0

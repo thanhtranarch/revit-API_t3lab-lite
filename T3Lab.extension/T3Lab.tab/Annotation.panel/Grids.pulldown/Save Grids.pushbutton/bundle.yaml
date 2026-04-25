@@ -1,0 +1,8 @@
+title: Save Grids
+tooltip: Save current grid visibility state for later restoration
+description: |
+  Captures the current head and tail positions of all grid lines in the
+  active view. Saved state can be restored using Restore Grids or Restore All Grids.
+
+author: Tran Tien Thanh
+version: 1.0.0

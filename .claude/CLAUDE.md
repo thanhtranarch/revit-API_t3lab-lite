@@ -19,6 +19,7 @@ Spawn the appropriate agent based on the task:
 | Revit API logic, transactions, collectors | `@revit-api-agent` |
 | Build a new pushbutton end-to-end | `@tool-builder-agent` |
 | Review or test completed code | `@qa-agent` |
+| Standardize script.py structure to BatchOut frame | `@script-frame-agent` |
 
 Agent definitions: `.claude/agents/`
 

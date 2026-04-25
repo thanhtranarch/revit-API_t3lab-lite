@@ -11,12 +11,12 @@ Linkedin: linkedin.com/in/sunarch7899/
 
 __author__  = "Tran Tien Thanh"
 __title__   = "Create Plan Views"
+__version__ = "1.0.0"
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-# ==================================================
+# IMPORT LIBRARIES
+# ==============================================================================
 import os
+import sys
 import clr
 import re
 
@@ -45,23 +45,25 @@ from Autodesk.Revit.DB import (
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import forms, script
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-# ==================================================
-logger    = script.get_logger()
-uidoc     = __revit__.ActiveUIDocument
-doc       = __revit__.ActiveUIDocument.Document
-
 SCRIPT_DIR = os.path.dirname(__file__)
 EXT_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+lib_dir    = os.path.join(EXT_DIR, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
+
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'CreateRoomPlan.xaml')
 
+# DEFINE VARIABLES
+# ==============================================================================
+logger        = script.get_logger()
+output        = script.get_output()
+uidoc         = revit.uidoc
+doc           = revit.doc
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
-# ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
-# ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
-# ╚═╝╩═╝╩ ╩╚═╝╚═╝╚═╝╚═╝ CLASSES
-# ==================================================
+
+# CLASS/FUNCTIONS
+# ==============================================================================
 
 class RoomItem(object):
     """Represents a room item in the DataGrid."""
@@ -103,7 +105,6 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                 bitmap.BeginInit()
                 bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
                 bitmap.EndInit()
-                self.logo_image.Source = bitmap
                 self.Icon = bitmap
         except Exception:
             pass
@@ -496,10 +497,8 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         self.Close()
 
 
-# ╔╦╗╔═╗╦╔╗╔
-# ║║║╠═╣║║║║
-# ╩ ╩╩ ╩╩╝╚╝ MAIN
-# ==================================================
+# MAIN SCRIPT
+# ==============================================================================
 if __name__ == '__main__':
     try:
         window = CreateRoomPlanWindow()

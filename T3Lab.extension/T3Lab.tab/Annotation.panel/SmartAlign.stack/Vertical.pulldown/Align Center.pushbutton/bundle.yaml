@@ -1,0 +1,9 @@
+title: Align Center (V)
+tooltip: Align selected elements to their vertical center
+description: |
+  Aligns all selected elements so their centers share the same vertical
+  axis. Useful for vertically centering annotations, tags, and symbols
+  in elevation or section views.
+
+author: Tran Tien Thanh
+version: 1.0.0

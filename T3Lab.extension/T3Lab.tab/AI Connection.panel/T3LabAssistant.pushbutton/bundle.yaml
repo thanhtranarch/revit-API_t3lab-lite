@@ -1,11 +1,11 @@
-title: T3Lab Assistant
-tooltip: T3Lab AI Assistant - Thực hiện nhanh các công cụ T3Lab bằng ngôn ngữ tự nhiên
+﻿title: T3Lab Assistant
+tooltip: T3Lab AI Assistant - Thá»±c hiá»‡n nhanh cÃ¡c cÃ´ng cá»¥ T3Lab báº±ng ngÃ´n ngá»¯ tá»± nhiÃªn
 description: |
-  T3Lab Assistant là chatbox AI riêng lẻ cho phép bạn:
-  - Mở và điều khiển BatchOut (xuất sheet hàng loạt)
-  - Chạy ParaSync, LoadFamily, ProjectName và các công cụ khác
-  - Nhập lệnh bằng Tiếng Việt hoặc English
-  - Sử dụng Claude AI để hiểu ý định tự nhiên
+  T3Lab Assistant lÃ  chatbox AI riÃªng láº» cho phÃ©p báº¡n:
+  - Má»Ÿ vÃ  Ä‘iá»u khiá»ƒn BatchOut (xuáº¥t sheet hÃ ng loáº¡t)
+  - Cháº¡y ParaSync, LoadFamily, ProjectName vÃ  cÃ¡c cÃ´ng cá»¥ khÃ¡c
+  - Nháº­p lá»‡nh báº±ng Tiáº¿ng Viá»‡t hoáº·c English
+  - Sá»­ dá»¥ng Claude AI Ä‘á»ƒ hiá»ƒu Ã½ Ä‘á»‹nh tá»± nhiÃªn
 
-author: T3Lab
+author: Tran Tien Thanh
 version: 1.0.0

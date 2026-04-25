@@ -1,0 +1,9 @@
+title: Wall Type Manager
+tooltip: View and manage wall types in the active project
+description: |
+  Provides a grid-based interface to browse, filter, and edit wall type
+  properties in the active Revit project. Supports bulk updates and
+  type duplication workflows.
+
+author: Tran Tien Thanh
+version: 1.0.0

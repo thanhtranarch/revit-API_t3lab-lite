@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Tile Layout
+
 3-step wizard:
     (1) Extract floor boundaries,
     (2) Choose tile pattern per floor,
@@ -10,12 +11,18 @@ All geometry is computed in memory (no physical Revit elements for the tiles
 themselves — only temporary DirectShape + TextNote for the chosen layout).
 
 Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__author__ = "Tran Tien Thanh"
-__title__ = "Tile Layout"
+__author__  = "Tran Tien Thanh"
+__title__   = "Tile Layout"
+__version__ = "1.0.0"
 
+# IMPORT LIBRARIES
+# ==============================================================================
 import os
+import sys
 import math
 import csv
 import traceback
@@ -41,16 +48,25 @@ from Autodesk.Revit.DB import (
 )
 from Autodesk.Revit.UI import TaskDialog
 from Autodesk.Revit.UI.Selection import ObjectType, ISelectionFilter
+from System.Windows import WindowState
 
 from pyrevit import revit, forms, script
 
-logger = script.get_logger()
-doc    = revit.doc
-uidoc  = revit.uidoc
-
 SCRIPT_DIR = os.path.dirname(__file__)
 EXT_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+lib_dir    = os.path.join(EXT_DIR, 'lib')
+if lib_dir not in sys.path:
+    sys.path.append(lib_dir)
+
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'TileLayout.xaml')
+
+# DEFINE VARIABLES
+# ==============================================================================
+logger        = script.get_logger()
+output        = script.get_output()
+doc           = revit.doc
+uidoc         = revit.uidoc
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 MM_TO_FT  = 1.0 / 304.8
@@ -72,6 +88,9 @@ COL_CUT   = Color( 39, 174,  96)
 COL_REUSE = Color( 52, 152, 219)
 COL_WASTE = Color(231,  76,  60)
 
+
+# CLASS/FUNCTIONS
+# ==============================================================================
 
 # ═════════════════════════════════════════════════════════════════════════════
 # SECTION 1 — 2-D GEOMETRY (pure Python)
@@ -1476,23 +1495,30 @@ class TileLayoutWindow(forms.WPFWindow):
     # ── logo ──────────────────────────────────────────────────────────────────
     def _load_logo(self):
         logo_path = os.path.join(EXT_DIR, 'lib', 'GUI', 'T3Lab_logo.png')
-        if not os.path.exists(logo_path): return
+        if not os.path.exists(logo_path):
+            return
         try:
             from System.Windows.Media.Imaging import BitmapImage
             from System import Uri, UriKind
-            self.logo_image.Source = BitmapImage(Uri(logo_path, UriKind.Absolute))
-        except Exception: pass
+            bitmap = BitmapImage()
+            bitmap.BeginInit()
+            bitmap.UriSource = Uri(logo_path, UriKind.Absolute)
+            bitmap.EndInit()
+            self.Icon = bitmap
+        except Exception:
+            pass
 
     # ── chrome ────────────────────────────────────────────────────────────────
     def minimize_button_clicked(self, sender, args):
-        import System.Windows
-        self.WindowState = System.Windows.WindowState.Minimized
+        self.WindowState = WindowState.Minimized
 
     def maximize_button_clicked(self, sender, args):
-        import System.Windows
-        ws = System.Windows.WindowState
-        self.WindowState = (ws.Normal if self.WindowState == ws.Maximized
-                            else ws.Maximized)
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+            self.btn_maximize.ToolTip = "Maximize"
+        else:
+            self.WindowState = WindowState.Maximized
+            self.btn_maximize.ToolTip = "Restore"
 
     def close_button_clicked(self, sender, args):
         self.Close()
@@ -2432,5 +2458,7 @@ def run():
             break
 
 
+# MAIN SCRIPT
+# ==============================================================================
 if __name__ == '__main__':
     run()

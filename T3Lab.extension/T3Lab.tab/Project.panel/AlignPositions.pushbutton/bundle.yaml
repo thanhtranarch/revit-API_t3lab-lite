@@ -1,4 +1,4 @@
-title: Align Positions
+﻿title: Align Positions
 tooltip: Snap element positions to nearest 5 or 10 mm relative to a reference element
 description: |
   Align Positions snaps surrounding elements so their distance to a
@@ -10,5 +10,5 @@ description: |
   3. Review distances in the preview table
   4. Apply corrections
 
-author: T3Lab
+author: Tran Tien Thanh
 version: 1.0.0

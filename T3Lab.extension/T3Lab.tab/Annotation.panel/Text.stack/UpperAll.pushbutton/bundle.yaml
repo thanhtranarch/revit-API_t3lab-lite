@@ -1,0 +1,9 @@
+title: Upper All Text
+tooltip: Convert all text notes in views and sheets to uppercase
+description: |
+  Converts view names, sheet title block parameters, text notes, and
+  dimension text overrides to uppercase throughout the project. Helps
+  enforce consistent uppercase annotation standards.
+
+author: Tran Tien Thanh
+version: 1.0.0

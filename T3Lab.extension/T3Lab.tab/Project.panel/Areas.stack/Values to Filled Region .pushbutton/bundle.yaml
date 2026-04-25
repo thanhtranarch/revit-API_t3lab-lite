@@ -1,0 +1,9 @@
+title: Opening Assign Values
+tooltip: Assign parameter values to filled regions from room/area data
+description: |
+  Maps parameter data from rooms or areas onto filled region elements,
+  allowing area values and attributes to be represented graphically.
+  Useful for generating color-filled area diagrams with data.
+
+author: Tran Tien Thanh
+version: 1.0.0
