@@ -49,11 +49,11 @@ if lib_dir not in sys.path:
 
 # ─── NLP module ───────────────────────────────────────────────────────────────
 try:
-    from t3lab_assistant import (parse_command, has_api_key, keyword_parse,
-                                  learn_pattern, find_learned_match,
-                                  has_local_llm, parse_command_local,
-                                  get_local_model_name, parse_command_nlu,
-                                  inject_discovered_tools)
+    from Intelligence.t3lab_assistant import (parse_command, has_api_key, keyword_parse,
+                                              learn_pattern, find_learned_match,
+                                              has_local_llm, parse_command_local,
+                                              get_local_model_name, parse_command_nlu,
+                                              inject_discovered_tools)
     HAS_NLP = True
 except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
@@ -68,8 +68,8 @@ except Exception as e:
 
 # ─── Tool discovery module ────────────────────────────────────────────────────
 try:
-    from tool_discovery import (discover_new_tools, get_registered_tools,
-                                 make_generic_launcher)
+    from Services.tool_discovery import (discover_new_tools, get_registered_tools,
+                                         make_generic_launcher)
     HAS_DISCOVERY = True
 except Exception as e:
     logger.warning("Could not import tool_discovery: {}".format(e))
@@ -80,7 +80,7 @@ except Exception as e:
 
 # ─── BatchOut executor (configure + direct export) ────────────────────────────
 try:
-    from batchout_executor import configure_batchout_window, direct_export
+    from Services.batchout_executor import configure_batchout_window, direct_export
     HAS_EXECUTOR = True
 except Exception as e:
     logger.warning("Could not import batchout_executor: {}".format(e))
@@ -88,9 +88,9 @@ except Exception as e:
 
 # ─── RAG processor (PDF / image attachments) ──────────────────────────────────
 try:
-    from rag_processor import (is_supported, is_image, is_pdf,
-                               build_text_context, build_vision_content_blocks,
-                               has_images, summarize_attachments, SUPPORTED_EXTS)
+    from Intelligence.rag_processor import (is_supported, is_image, is_pdf,
+                                           build_text_context, build_vision_content_blocks,
+                                           has_images, summarize_attachments, SUPPORTED_EXTS)
     HAS_RAG = True
 except Exception as e:
     logger.warning("Could not import rag_processor: {}".format(e))

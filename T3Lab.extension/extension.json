@@ -3,7 +3,7 @@
     "default_enabled": "True",
     "type": "extension",
     "rocket_mode_compatible": "True",
-    "name": "SunA Tools",
+    "name": "T3Lab Tools",
     "description": "IronPython Scripts for Autodesk Revit",
     "author": "Tran Tien Thanh",
     "author_profile": "",

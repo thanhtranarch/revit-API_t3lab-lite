@@ -225,13 +225,10 @@
 
         <!-- Main Content -->
         <Grid Grid.Row="1" Margin="20,10,20,20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
 
             <!-- Tab Control -->
-            <TabControl Grid.Row="0" Margin="0,0,0,0" x:Name="main_tabs">
+            <Grid>
+                <TabControl Margin="0,0,0,0" x:Name="main_tabs">
 
             <!-- Selection Tab -->
             <TabItem Header="Selection" Style="{StaticResource TabItemStyle}">
@@ -353,7 +350,8 @@
                                 <ListView Grid.Row="1" x:Name="sheets_listview"
                                           SelectionMode="Extended"
                                           BorderThickness="0"
-                                          MouseDoubleClick="listview_item_double_clicked">
+                                          MouseDoubleClick="listview_item_double_clicked"
+                                          SizeChanged="on_listview_size_changed">
                                     <ListView.ItemContainerStyle>
                                         <Style TargetType="ListViewItem">
                                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -385,7 +383,7 @@
                                                             DisplayMemberBinding="{Binding Size}"/>
                                             <GridViewColumn x:Name="col_orientation" Header="Orientation" Width="90"
                                                             DisplayMemberBinding="{Binding Orientation}"/>
-                                            <GridViewColumn Width="280">
+                                            <GridViewColumn x:Name="col_custom_filename" Width="280">
                                                 <GridViewColumn.Header>
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="Custom Filename" VerticalAlignment="Center"/>
@@ -843,8 +841,8 @@
                 </ScrollViewer>
             </TabItem>
 
-<!-- Create Tab -->
-            <TabItem Header="Create" Style="{StaticResource TabItemStyle}">
+            <!-- Queue Tab -->
+            <TabItem Header="Queue" Style="{StaticResource TabItemStyle}">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -853,58 +851,13 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Export Rules -->
-                    <StackPanel Grid.Row="0">
-                        <TextBlock Text="Export Rules" Style="{StaticResource SectionHeader}"/>
-                        <Border BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="3">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-
-                                <!-- Output Folder -->
-                                <Grid Grid.Row="0" Margin="0,5">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="120"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center" FontWeight="Medium"/>
-                                    <TextBox x:Name="output_folder" Grid.Column="1" Height="28"
-                                             VerticalContentAlignment="Center" Margin="5,0"
-                                             IsReadOnly="True" Background="White"/>
-                                    <Button Grid.Column="2" Content="Browse..."
-                                            Style="{StaticResource SecondaryButton}"
-                                            Click="browse_output_folder"/>
-                                </Grid>
-
-                                <!-- File Organization -->
-                                <StackPanel Grid.Row="1" Margin="0,15,0,0">
-                                    <TextBlock Text="File Organization:" FontWeight="Medium" Margin="0,0,0,5"/>
-                                    <RadioButton x:Name="save_same_folder" Content="Save all files in the same folder location"
-                                                 GroupName="organization" IsChecked="True" Margin="0,3"/>
-                                    <RadioButton x:Name="save_split_by_format" Content="Save and split files by file format"
-                                                 GroupName="organization" Margin="0,3"/>
-                                </StackPanel>
-
-                                <!-- Additional Options -->
-                                <StackPanel Grid.Row="2" Margin="0,15,0,0">
-                                    <CheckBox x:Name="reverse_order" Content="Reverse sheet order"
-                                              Checked="reverse_order_changed" Unchecked="reverse_order_changed"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-                    </StackPanel>
-
                     <!-- Export Preview -->
-                    <StackPanel Grid.Row="1" Margin="0,15,0,0">
+                    <StackPanel Grid.Row="0" Margin="0,0,0,0">
                         <TextBlock Text="Export Preview" Style="{StaticResource SectionHeader}"/>
                     </StackPanel>
 
                     <!-- Preview List -->
-                    <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="3">
+                    <Border Grid.Row="1" BorderBrush="#BDC3C7" BorderThickness="1" Margin="0,5" CornerRadius="3">
                         <ListView x:Name="export_preview_list"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListView.View>
@@ -959,13 +912,86 @@
                     </Border>
 
                     <!-- Progress Info -->
-                    <StackPanel Grid.Row="3" Margin="0,10,0,0">
+                    <StackPanel Grid.Row="2" Margin="0,10,0,0">
                         <TextBlock x:Name="progress_text" Text="Ready to export" FontSize="12" Foreground="#7F8C8D"/>
                         <ProgressBar x:Name="overall_progress" Height="25" Minimum="0" Maximum="100" Value="0" Margin="0,5"/>
                     </StackPanel>
                 </Grid>
             </TabItem>
-        </TabControl>
+                </TabControl>
+
+                <!-- Settings View (Not in TabControl) -->
+                <Grid x:Name="settings_view" Visibility="Collapsed" Background="White">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="Export Rules &amp; Settings" Style="{StaticResource SectionHeader}"/>
+
+                            <Border Grid.Row="1" BorderBrush="#BDC3C7" BorderThickness="1" Padding="15" Background="#F8F9FA" CornerRadius="3" Margin="0,10,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Output Folder -->
+                                    <Grid Grid.Row="0" Margin="0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center" FontWeight="Medium"/>
+                                        <TextBox x:Name="output_folder" Grid.Column="1" Height="28"
+                                                 VerticalContentAlignment="Center" Margin="5,0"
+                                                 IsReadOnly="True" Background="White"/>
+                                        <Button Grid.Column="2" Content="Browse..."
+                                                Style="{StaticResource SecondaryButton}"
+                                                Click="browse_output_folder"/>
+                                    </Grid>
+
+                                    <!-- File Organization -->
+                                    <StackPanel Grid.Row="1" Margin="0,15,0,0">
+                                        <TextBlock Text="File Organization:" FontWeight="Medium" Margin="0,0,0,5"/>
+                                        <RadioButton x:Name="save_same_folder" Content="Save all files in the same folder location"
+                                                     GroupName="organization" IsChecked="True" Margin="0,3"/>
+                                        <RadioButton x:Name="save_split_by_format" Content="Save and split files by file format"
+                                                     GroupName="organization" Margin="0,3"/>
+                                    </StackPanel>
+
+                                    <!-- Additional Options -->
+                                    <StackPanel Grid.Row="2" Margin="0,15,0,0">
+                                        <CheckBox x:Name="reverse_order" Content="Reverse sheet order"
+                                                  Checked="reverse_order_changed" Unchecked="reverse_order_changed"/>
+                                    </StackPanel>
+
+                                    <Separator Grid.Row="3" Margin="0,15" Background="#BDC3C7"/>
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Grid.Row="2" Margin="0,20,0,0">
+                                <TextBlock Text="Export Naming Pattern" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="naming_pattern_settings" Grid.Column="0" Height="28" VerticalContentAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="Edit Pattern..." Margin="10,0,0,0" Padding="10,0" Click="button_custom_parameters"/>
+                                </Grid>
+                                <TextBlock Text="Note: This naming pattern applies to all exported files." FontSize="11" Foreground="#7F8C8D" Margin="0,5,0,0" FontStyle="Italic"/>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
 
         </Grid>
 
@@ -1015,7 +1041,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 1. Selection -->
-                <Border x:Name="nav_border_selection" Grid.Column="0" Background="#F0F8FF" Margin="0">
+                <Border x:Name="nav_border_selection" Grid.Column="0" Background="#F0F8FF" Margin="0" Cursor="Hand" MouseLeftButtonDown="nav_item_clicked">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock x:Name="nav_icon_selection" Text="&#xE14C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#005B82" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                         <TextBlock x:Name="nav_text_selection" Text="Selection" FontSize="10" Foreground="#005B82" HorizontalAlignment="Center"/>
@@ -1023,7 +1049,7 @@
                 </Border>
 
                 <!-- 2. Format -->
-                <Border x:Name="nav_border_format" Grid.Column="1" Background="Transparent" Margin="0">
+                <Border x:Name="nav_border_format" Grid.Column="1" Background="Transparent" Margin="0" Cursor="Hand" MouseLeftButtonDown="nav_item_clicked">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock x:Name="nav_icon_format" Text="&#xE1DC;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#7F8C8D" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                         <TextBlock x:Name="nav_text_format" Text="Format" FontSize="10" Foreground="#7F8C8D" HorizontalAlignment="Center"/>
@@ -1031,7 +1057,7 @@
                 </Border>
 
                 <!-- 3. Queue -->
-                <Border x:Name="nav_border_queue" Grid.Column="2" Background="Transparent" Margin="0">
+                <Border x:Name="nav_border_queue" Grid.Column="2" Background="Transparent" Margin="0" Cursor="Hand" MouseLeftButtonDown="nav_item_clicked">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock x:Name="nav_icon_queue" Text="&#xE914;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#7F8C8D" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                         <TextBlock x:Name="nav_text_queue" Text="Queue" FontSize="10" Foreground="#7F8C8D" HorizontalAlignment="Center"/>
@@ -1039,7 +1065,7 @@
                 </Border>
 
                 <!-- 4. Settings -->
-                <Border x:Name="nav_border_settings" Grid.Column="3" Background="Transparent" Margin="0">
+                <Border x:Name="nav_border_settings" Grid.Column="3" Background="Transparent" Margin="0" Cursor="Hand" MouseLeftButtonDown="nav_item_clicked">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock x:Name="nav_icon_settings" Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#7F8C8D" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                         <TextBlock x:Name="nav_text_settings" Text="Settings" FontSize="10" Foreground="#7F8C8D" HorizontalAlignment="Center"/>
