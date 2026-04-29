@@ -54,7 +54,7 @@ This feature allows you to load Revit families from a cloud-based API hosted on 
    CLOUD_API_URL = "https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app/api/families"
    ```
 
-3. **✅ Already configured!** Current deployment URL is set.
+3. **Already configured!** Current deployment URL is set.
 
 ### 2.1. Configure Vercel Deployment Protection
 

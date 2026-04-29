@@ -1,199 +1,88 @@
-# T3Lab Lite — pyRevit Extension for Autodesk Revit
+# T3Lab Revit API
 
-A lightweight IronPython/pyRevit extension that adds productivity tools for annotation, export, project management, and AI-assisted automation directly inside Autodesk Revit.
+[![Revit Version](https://img.shields.io/badge/Revit-2020%2B-blue.svg)](https://www.autodesk.com/products/revit/overview)
+[![pyRevit](https://img.shields.io/badge/pyRevit-4.8%2B-orange.svg)](https://github.com/eirannejad/pyRevit)
+[![Architecture](https://img.shields.io/badge/Architecture-T3Lab%20MAS%203.0-green.svg)](#architecture)
 
-**Author:** Tran Tien Thanh
-**Contact:** trantienthanh909@gmail.com
-**LinkedIn:** [linkedin.com/in/sunarch7899](https://linkedin.com/in/sunarch7899/)
-
----
-
-## Requirements
-
-- Autodesk Revit 2020 or later
-- [pyRevit](https://github.com/eirannejad/pyRevit) 4.8+
+T3Lab Revit API is an advanced BIM Automation and Intelligence framework for Autodesk Revit. Built upon the **T3Lab Master Architecture System (MAS)**, it bridges the gap between traditional BIM workflows and modern Artificial Intelligence.
 
 ---
 
-## Installation
+## Architecture: T3Lab MAS 3.0
 
-1. Install [pyRevit](https://github.com/eirannejad/pyRevit)
-2. Clone or download this repository
-3. Copy the `T3Lab.extension` folder to your pyRevit extensions directory
-   - Default path: `%APPDATA%\pyRevit\Extensions\`
-4. Reload pyRevit (`pyRevit > Reload`)
+The framework is organized into three distinct layers, creating a self-sustaining ecosystem for architectural intelligence:
 
----
+### 1. Intelligence Layer (Agent-Core)
+*   **T3Lab Assistant**: A natural language bridge allowing users to query and command Revit using Vietnamese or English.
+*   **Local Intelligence**: Support for offline LLMs (via Ollama) ensuring data privacy and high-speed local inference.
 
-## Tools
+### 2. Execution Layer (Tool-Stack)
+*   **Production Tools**: Specialized panels for Annotation, Project Management, and Data Export.
+*   **Discipline Modules**: Advanced logic for Architecture, Structure, and Coordination.
+*   **Automation Wizards**: Multi-step wizards (like BatchOut) that handle complex task sequences with minimal user input.
 
-All tools are accessible from the **T3Lab** tab in the Revit ribbon.
-
-### Cloud Panel
-
-| Tool | Description |
-|------|-------------|
-| **ACC Platform** | Quick link to Autodesk Construction Cloud |
-| **B360 Health** | Quick link to BIM 360 platform health status |
-| **Bluebeam Health** | Quick link to Bluebeam service health status |
+### 3. Data Fabric Layer (Cloud-Connect)
+*   **Cloud API**: Vercel-hosted backend for distributed family loading and metadata management.
+*   **Hybrid Storage**: Seamless switching between local library files and cloud-hosted BIM content.
 
 ---
 
-### Project Panel
+## Key Modules
 
-#### Workset
+### AI Connection & Control
+*   **T3Lab Assistant**: Context-aware AI that understands Revit terminology and executes complex commands.
 
-| Tool | Description |
-|------|-------------|
-| **Workset Manager** | List, rename, and manage user worksets; remove unused worksets via a checklist |
-| **Workset Views** | Generate dedicated 3D views per workset for isolation and coordination review |
-| **Central File** | Quick access to sync-to-central and central file worksharing workflows |
-| **Tile Layout** | 3-step wizard to extract floor boundaries, choose a tile pattern, and place a tiled view arrangement on the active sheet |
+### BatchOut: The Export Master
+*   A unified export engine for PDF, DWG, NWD, and IFC.
+*   Features custom naming patterns, revision-aware filtering, and automatic sheet set generation.
 
-#### Family Work
-
-| Tool | Description |
-|------|-------------|
-| **Load Family** | Browse and load Revit families from local disk; supports category filtering and batch loading |
-| **Bulk Family Export** | Scan imported DWG/DXF files for block definitions and export each block as a separate `.rfa` family file |
-| **JSON to Family** | Generate fully parametric Revit families from a structured JSON schema inside an open Family Document |
-
-#### Create
-
-| Tool | Description |
-|------|-------------|
-| **Wall Type Manager** | Browse, filter, and edit wall type properties; supports bulk updates and type duplication |
-| **Property Line** | Create US property lines from Lightbox parcel data |
-| **Create Plan Views** | Batch-generate individual floor plan views for each room with custom naming and template assignment |
-
-#### Areas
-
-| Tool | Description |
-|------|-------------|
-| **Room to Area** | Convert room boundaries to area boundaries automatically in the active area plan |
-| **Tag Area Opening** | Auto-tag all area openings in the active view |
-| **Opening Assign Values** | Map room or area parameter data onto filled region elements for color-filled area diagrams |
-
-#### Other
-
-| Tool | Description |
-|------|-------------|
-| **Align Positions** | Snap surrounding element distances to clean multiples of 5 or 10 mm relative to a reference Grid, Wall, or Column |
+### Project & Annotation Intelligence
+*   **Workset Management**: Automated isolation and coordination views.
+*   **SmartAlign**: Geometry-aware alignment and distribution logic.
+*   **Family Synthesis**: Generate parametric families from structured JSON data.
 
 ---
 
-### Annotation Panel
+## The Evolution Loop
 
-#### Annotation Manager
-
-| Tool | Description |
-|------|-------------|
-| **Annotation Manager** | Unified window with tabs for managing Dimensions and Text Notes — find, delete, and auto-rename types and instances |
-
-#### Grids
-
-| Tool | Description |
-|------|-------------|
-| **Save Grids** | Save current grid head and tail positions for later restoration |
-| **Restore Grids** | Restore selected grid heads and tails to their saved positions |
-| **Restore All Grids** | Restore all grid heads and tails to their saved positions |
-
-#### SmartAlign
-
-| Tool | Description |
-|------|-------------|
-| **Align Left / Center / Right** | Align selected elements to the leftmost, center, or rightmost edge |
-| **Align Top / Center / Bottom** | Align selected elements to the top, center, or bottom edge |
-| **Distribute Horizontal** | Evenly distribute selected elements with equal horizontal spacing |
-| **Distribute Vertical** | Evenly distribute selected elements with equal vertical spacing |
-
-#### Text
-
-| Tool | Description |
-|------|-------------|
-| **Dim Text** | View and edit prefix, suffix, and value overrides on selected dimension elements |
-| **Adjust TextNote** | Batch-edit TextNote content, type, and formatting with search-and-replace support |
-| **Upper All Text** | Convert view names, sheet title block parameters, text notes, and dimension overrides to uppercase |
-
-#### Other
-
-| Tool | Description |
-|------|-------------|
-| **Reset Overrides** | Reset all graphic overrides on selected elements in the active view |
-
----
-
-### Export Panel
-
-| Tool | Description |
-|------|-------------|
-| **BatchOut** | Batch export sheets to PDF, DWG, NWD (Navisworks), and IFC formats with sheet filtering, custom naming patterns, revision tracking, and combined PDF support |
-
----
-
-### AI Connection Panel
-
-| Tool | Description |
-|------|-------------|
-| **T3Lab Assistant** | Natural language AI assistant — type commands in Vietnamese or English to control Revit tools |
-| **Start MCP** | Start the local MCP server for AI-to-Revit communication |
-| **Stop MCP** | Stop the running MCP server |
-| **Settings** | Configure API keys and AI backend (Claude API or local Ollama) |
-
-The AI assistant supports two backends:
-- **Claude API** — requires an Anthropic API key
-- **Local LLM** — uses [Ollama](https://ollama.com/) for fully offline inference (recommended models: `qwen2.5`, `llama3.2`, `phi3:mini`)
-
----
-
-### Support Panel
-
-| Tool | Description |
-|------|-------------|
-| **Send Feedback** | Write and send feedback or suggestions directly to the T3Lab team by email |
+T3Lab Revit API is designed for **Self-Evolution**. By utilizing specialized agents (QA-Agent, Tool-Builder, UI-Agent), the framework allows for:
+1.  **Automated Error Detection**: Identifying BIM inconsistencies via the `checks` module.
+2.  **Rapid Tool Iteration**: Building new pushbutton scripts through the `tool-builder` agent.
+3.  **Knowledge Accumulation**: Storing project-specific wisdom in a local knowledge graph.
 
 ---
 
 ## Project Structure
 
-```
-T3Lab.extension/
-├── T3Lab.tab/               # Ribbon tab with all tools
-│   ├── Cloud.panel/
-│   ├── Project.panel/
-│   ├── Annotation.panel/
-│   ├── Export.panel/
-│   ├── AI Connection.panel/
-│   └── Support.panel/
-├── checks/                  # Model quality check scripts
-├── commands/                # Standalone command scripts
-└── lib/                     # Shared libraries
-    ├── GUI/                 # WPF dialogs (XAML + Python)
-    ├── Renaming/            # Find & replace base classes
-    ├── Selection/           # Element selection utilities
-    ├── Snippets/            # Reusable API code snippets
-    ├── config/              # Settings management
-    ├── core/                # MCP server & tool registry
-    └── ui/                  # Button state & settings UI
+```bash
+t3lab-revit-api/
+├── T3Lab.extension/          # Main pyRevit Extension
+│   ├── T3Lab.tab/            # Ribbon Panels (AI, Annotation, Project, Export)
+│   ├── lib/                  # Framework Core (GUI, NLU, RAG, Utils)
+│   ├── checks/               # Quality Assurance Scripts
+│   └── commands/             # Standalone Automation Commands
+├── api/                      # Vercel Serverless Functions
+├── scripts/                  # Maintenance & Environment Setup
+├── requirements.txt          # Framework Dependencies
+└── vercel.json               # Cloud Infrastructure Config
 ```
 
 ---
 
-## Known Issues
+## Setup & Installation
 
-### pyRevit Reload Error
-
-If you encounter an `IOError` when reloading pyRevit (file locking issue):
-
-```powershell
-# Run as Administrator
-PowerShell -ExecutionPolicy Bypass -File scripts/fix_pyrevit_reload.ps1
-```
-
-See [`PYREVIT_RELOAD_FIX.md`](PYREVIT_RELOAD_FIX.md) for details.
+1.  Clone this repository to: `%APPDATA%\pyRevit\Extensions\T3Lab.extension`
+2.  Ensure **pyRevit 4.8+** is installed and linked.
+3.  Reload pyRevit to initialize the **T3Lab** tab.
+4.  Configure AI settings in the **AI Connection > Settings** panel.
 
 ---
 
-## License
+## Author
+**Tran Tien Thanh**
+Architect & BIM Developer
+- [trantienthanh909@gmail.com](mailto:trantienthanh909@gmail.com)
+- [T3Lab.Space](https://t3lab.space)
 
-For other issues, please open an issue on GitHub.
+---
+*Empowering BIM with Intelligence.*

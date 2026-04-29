@@ -4,16 +4,16 @@
 
 Hệ thống **Self-Learning API** cho phép BatchOut tool tự động học và thích nghi với các thay đổi của Revit API qua các phiên bản 2022-2026 và cả các phiên bản tương lai.
 
-## 🎯 Tính năng chính
+## Tính năng chính
 
 ### 1. **Smart API Adapter** (`api_learner.py`)
 Bộ điều hợp API thông minh tự động xử lý sự khác biệt giữa các phiên bản.
 
 **Khả năng:**
-- ✅ Tự động detect phiên bản Revit
-- ✅ Load API signatures phù hợp
-- ✅ Cache thông tin API để dùng offline
-- ✅ Graceful fallback khi không có mạng
+- Tự động detect phiên bản Revit
+- Load API signatures phù hợp
+- Cache thông tin API để dùng offline
+- Graceful fallback khi không có mạng
 
 **Cách sử dụng:**
 ```python
@@ -37,10 +37,10 @@ pdf_options = adapter.configure_pdf_options(options, hide_scope_boxes=True)
 Hệ thống học API signatures từ documentation.
 
 **Khả năng:**
-- ✅ Học API signatures tự động
-- ✅ Cache thông tin trong 30 ngày
-- ✅ Load từ web khi cần update
-- ✅ Hỗ trợ offline với cached data
+- Học API signatures tự động
+- Cache thông tin trong 30 ngày
+- Load từ web khi cần update
+- Hỗ trợ offline với cached data
 
 **Cache location:**
 ```
@@ -56,11 +56,11 @@ Hệ thống học API signatures từ documentation.
 Tự động kiểm tra và cập nhật API mỗi thứ 6.
 
 **Khả năng:**
-- ✅ Tự động check mỗi thứ 6 (khi revitapidocs.com update)
-- ✅ Detect phiên bản Revit mới
-- ✅ Download API documentation
-- ✅ Parse "What's New" changes
-- ✅ Thông báo khi có update quan trọng
+- Tự động check mỗi thứ 6 (khi revitapidocs.com update)
+- Detect phiên bản Revit mới
+- Download API documentation
+- Parse "What's New" changes
+- Thông báo khi có update quan trọng
 
 **Cách sử dụng:**
 ```python
@@ -74,7 +74,7 @@ if result['updates_found']:
         print(notification['message'])
 ```
 
-## 🔄 Quy trình tự động
+## Quy trình tự động
 
 ### Khi Tool khởi động:
 ```
@@ -95,7 +95,7 @@ if result['updates_found']:
 6. Notify user
 ```
 
-## 📊 API Information Structure
+## API Information Structure
 
 ### Cached API Info Format:
 ```json
@@ -137,7 +137,7 @@ if result['updates_found']:
 }
 ```
 
-## 🛠️ Cách hoạt động
+## Cách hoạt động
 
 ### 1. Version Detection
 ```python
@@ -166,7 +166,7 @@ else:
     doc.Export(folder, filename, viewset, options)   # Older
 ```
 
-## 🎨 Integration với BatchOut
+## Integration với BatchOut
 
 ### DWG Export với Smart Adapter:
 ```python
@@ -202,44 +202,44 @@ else:
     self.doc.Export(folder, filename, view_ids, pdf_options)
 ```
 
-## 📅 Update Schedule
+## Update Schedule
 
 - **Thứ 6 hàng tuần**: Auto-check từ revitapidocs.com
 - **Mỗi 30 ngày**: Cache expiry, force re-learn
 - **Khi khởi động**: Quick check nếu cần
 - **Manual**: User có thể force update bất kỳ lúc nào
 
-## 🔒 Security & Privacy
+## Security & Privacy
 
-- ✅ Chỉ connect đến revitapidocs.com (official docs)
-- ✅ Không gửi data của user lên server
-- ✅ Cache local only (~/.t3lab/api_cache/)
-- ✅ Graceful fallback nếu không có mạng
-- ✅ Không require admin permissions
+- Chỉ connect đến revitapidocs.com (official docs)
+- Không gửi data của user lên server
+- Cache local only (~/.t3lab/api_cache/)
+- Graceful fallback nếu không có mạng
+- Không require admin permissions
 
-## 🚀 Benefits
+## Benefits
 
 ### Future-Proof
-- ✅ Tự động hỗ trợ Revit 2027, 2028, 2029...
-- ✅ Không cần update code thủ công
-- ✅ Zero downtime khi có phiên bản mới
+- Tự động hỗ trợ Revit 2027, 2028, 2029...
+- Không cần update code thủ công
+- Zero downtime khi có phiên bản mới
 
 ### Intelligent
-- ✅ Học từ official documentation
-- ✅ Tự động detect API changes
-- ✅ Smart fallback strategies
+- Học từ official documentation
+- Tự động detect API changes
+- Smart fallback strategies
 
 ### Offline-Capable
-- ✅ Cache 30 days
-- ✅ Hoạt động không cần internet
-- ✅ Background updates không block UI
+- Cache 30 days
+- Hoạt động không cần internet
+- Background updates không block UI
 
 ### Low Maintenance
-- ✅ Tự update mỗi tuần
-- ✅ Không cần can thiệp thủ công
-- ✅ Error handling tự động
+- Tự update mỗi tuần
+- Không cần can thiệp thủ công
+- Error handling tự động
 
-## 🧪 Testing
+## Testing
 
 ### Test API Learner:
 ```python
@@ -268,7 +268,7 @@ info = adapter.get_learner_info()
 print(info)
 ```
 
-## 📝 Logs & Debugging
+## Logs & Debugging
 
 ### Enable Debug Logging:
 ```python
@@ -296,7 +296,7 @@ print("Known versions:", summary['known_versions'])
 print("Latest version:", summary['latest_version'])
 ```
 
-## 🛠️ Manual Operations
+## Manual Operations
 
 ### Force Update:
 ```python
@@ -332,7 +332,7 @@ updater = RevitAPIUpdater()
 updater.enable_auto_update()
 ```
 
-## 📚 API References
+## API References
 
 ### RevitAPILearner
 - `learn_from_web()` - Học API từ web
@@ -357,7 +357,7 @@ updater.enable_auto_update()
 - `get_update_summary()` - Lấy update summary
 - `enable_auto_update()` / `disable_auto_update()` - Toggle auto-update
 
-## 🎯 Best Practices
+## Best Practices
 
 1. **Luôn dùng SmartAPIAdapter** khi có thể
 2. **Fallback to manual** nếu adapter không available
@@ -365,7 +365,7 @@ updater.enable_auto_update()
 4. **Monitor update notifications** để biết API changes
 5. **Keep cache fresh** (30 days max)
 
-## 🔮 Future Enhancements
+## Future Enhancements
 
 Các tính năng có thể thêm trong tương lai:
 
