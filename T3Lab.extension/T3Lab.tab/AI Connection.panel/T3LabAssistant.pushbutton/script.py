@@ -78,6 +78,17 @@ except Exception as e:
     def get_registered_tools(): return []
     def make_generic_launcher(script_path, title): return lambda: False
 
+# ─── Context Scout (BIM Context) ────────────────────────────────────────────────
+try:
+    from Selection.scout import ContextScout
+    HAS_SCOUT = True
+except Exception as e:
+    logger.warning("Could not import ContextScout: {}".format(e))
+    HAS_SCOUT = False
+    class ContextScout:
+        @staticmethod
+        def get_context_summary_for_ai(): return ""
+
 # ─── BatchOut executor (configure + direct export) ────────────────────────────
 try:
     from batchout_executor import configure_batchout_window, direct_export
@@ -306,6 +317,36 @@ def launch_resetoverrides():
         return False
 
 
+def launch_cadtobeam():
+    """Open the CAD to Beam tool."""
+    try:
+        script_path = _get_tool_script_dir('Project.panel', 'Create.stack', 'Beam.pushbutton')
+        mod = _load_script('cadtobeam_script', script_path)
+        if mod:
+            window = mod.CADtoBeamWindow()
+            window.ShowDialog()
+            return True
+        return False
+    except Exception as ex:
+        logger.error("Error launching CADtoBeam: {}".format(ex))
+        return False
+
+
+def launch_alignpositions():
+    """Open the Align Positions tool."""
+    try:
+        script_path = _get_tool_script_dir('Project.panel', 'AlignPositions.pushbutton')
+        mod = _load_script('alignpositions_script', script_path)
+        if mod:
+            window = mod.PositionAlignerWindow()
+            window.ShowDialog()
+            return True
+        return False
+    except Exception as ex:
+        logger.error("Error launching AlignPositions: {}".format(ex))
+        return False
+
+
 # Map intent → launcher function
 def _is_viet_text(text):
     viet_chars = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
@@ -323,6 +364,8 @@ TOOL_LAUNCHERS = {
     "open_dimtext":          launch_dimtext,
     "open_upperdimtext":     launch_upperdimtext,
     "open_resetoverrides":   launch_resetoverrides,
+    "open_cad_to_beam":      launch_cadtobeam,
+    "open_align_positions":  launch_alignpositions,
 }
 
 
@@ -458,6 +501,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Restore conversation from previous session ─────────────────────────
         self._restore_history()
 
+        # ── Suggested Actions ──────────────────────────────────────────────────
+        self._update_suggested_actions()
+
         # ── Tool discovery (background, then inject chips into UI) ─────────────
         def _discover_and_update():
             import time; time.sleep(0.3)
@@ -480,11 +526,54 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Window controls ──────────────────────────────────────────────────────
 
-    def minimize_clicked(self, sender, e):
-        self.WindowState = WindowState.Minimized
-
     def close_clicked(self, sender, e):
         self.Close()
+
+    def undo_clicked(self, sender, e):
+        """Undo the last Revit transaction."""
+        try:
+            if revit.doc.CanUndo():
+                revit.doc.Undo()
+                self._append_bot_message(u"↺ Đã hoàn tác (Undo) hành động cuối cùng.")
+            else:
+                self._append_bot_message(u"Không có hành động nào để hoàn tác.")
+        except Exception as ex:
+            logger.debug("Undo error: {}".format(ex))
+
+    def _update_suggested_actions(self):
+        """Add action chips for common tools."""
+        try:
+            self.suggested_actions_panel.Children.Clear()
+            actions = [
+                ("CAD to Beam", "open_cad_to_beam"),
+                ("Align Positions", "open_align_positions"),
+                ("BatchOut", "open_batchout"),
+                ("ParaSync", "open_parasync"),
+            ]
+            for title, intent in actions:
+                self._add_action_chip(title, intent)
+        except Exception as ex:
+            logger.debug("Suggested actions error: {}".format(ex))
+
+    def _add_action_chip(self, title, intent):
+        from System.Windows.Controls import Button
+        from System.Windows import Thickness
+        btn = Button()
+        btn.Content = title
+        btn.Margin = Thickness(0, 0, 8, 4)
+        btn.Padding = Thickness(10, 4, 10, 4)
+        btn.Cursor = System.Windows.Input.Cursors.Hand
+        
+        # Simple styling
+        from System.Windows.Media import SolidColorBrush, Color
+        btn.Background = SolidColorBrush(Color.FromRgb(236, 240, 241))
+        btn.BorderBrush = SolidColorBrush(Color.FromRgb(189, 195, 199))
+        
+        def _on_click(s, e):
+            self._run_tool(intent, u"Mở " + title)
+        
+        btn.Click += _on_click
+        self.suggested_actions_panel.Children.Add(btn)
 
     # ─── Tool discovery bootstrap ──────────────────────────────────────────────
 
@@ -871,6 +960,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             # For NLP routing we use only the raw text (no PDF dump)
             captured = raw
+            if HAS_SCOUT:
+                captured = ContextScout.get_context_summary_for_ai() + "\n" + raw
+
             history  = list(self._conversation_history[:-1])
 
             use_local  = HAS_NLP and has_local_llm()

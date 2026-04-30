@@ -1,4 +1,4 @@
-# T3Lab Lite — pyRevit Extension for Autodesk Revit
+# T3Lab — pyRevit Extension for Autodesk Revit
 
 A lightweight IronPython/pyRevit extension that adds productivity tools for annotation, export, project management, and AI-assisted automation directly inside Autodesk Revit.
 
@@ -54,7 +54,7 @@ All tools are accessible from the **T3Lab** tab in the Revit ribbon.
 
 | Tool | Description |
 |------|-------------|
-| **Load Family** | Browse and load Revit families from local disk; supports category filtering and batch loading |
+| **Load Family** | Browse and load Revit families from local disk or **Cloud (Vercel)**; supports category filtering, batch loading, and auto-download |
 | **Bulk Family Export** | Scan imported DWG/DXF files for block definitions and export each block as a separate `.rfa` family file |
 | **JSON to Family** | Generate fully parametric Revit families from a structured JSON schema inside an open Family Document |
 
@@ -62,7 +62,7 @@ All tools are accessible from the **T3Lab** tab in the Revit ribbon.
 
 | Tool | Description |
 |------|-------------|
-| **Wall Type Manager** | Browse, filter, and edit wall type properties; supports bulk updates and type duplication |
+| **CAD to Beam** | Create structural beams from CAD lines; features **AI-assisted dimension detection** from nearby Revit TextNotes |
 | **Property Line** | Create US property lines from Lightbox parcel data |
 | **Create Plan Views** | Batch-generate individual floor plan views for each room with custom naming and template assignment |
 
@@ -73,6 +73,12 @@ All tools are accessible from the **T3Lab** tab in the Revit ribbon.
 | **Room to Area** | Convert room boundaries to area boundaries automatically in the active area plan |
 | **Tag Area Opening** | Auto-tag all area openings in the active view |
 | **Opening Assign Values** | Map room or area parameter data onto filled region elements for color-filled area diagrams |
+
+#### CAD
+
+| Tool | Description |
+|------|-------------|
+| **Revit Beam From CAD** | Automatically create structural beams by pairing parallel lines in a selected CAD layer to find centerlines and widths |
 
 #### Other
 
@@ -167,7 +173,7 @@ T3Lab.extension/
 │   └── Support.panel/
 ├── checks/                  # Model quality check scripts
 ├── commands/                # Standalone command scripts
-└── lib/                     # Shared libraries
+├── lib/                     # Shared libraries
     ├── GUI/                 # WPF dialogs (XAML + Python)
     ├── Renaming/            # Find & replace base classes
     ├── Selection/           # Element selection utilities

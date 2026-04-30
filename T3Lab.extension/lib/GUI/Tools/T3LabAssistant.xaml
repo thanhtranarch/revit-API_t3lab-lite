@@ -192,6 +192,14 @@
             <StackPanel Grid.Column="2" Orientation="Horizontal"
                         VerticalAlignment="Top" Margin="0,0,5,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
+                <!-- Undo -->
+                <Button x:Name="btn_undo"
+                        Style="{StaticResource WindowControlButton}"
+                        ToolTip="Hoàn tác (Undo)"
+                        Click="undo_clicked"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="↶" FontSize="18" FontWeight="Bold" Foreground="#E67E22"/>
+                </Button>
                 <!-- Reset -->
                 <Button x:Name="btn_reset_chat"
                         Style="{StaticResource WindowControlButton}"
@@ -286,12 +294,21 @@
         </ScrollViewer>
 
         <!-- ═══════════════════════════════════════════════════════════
-             INPUT BAR
+             INPUT BAR & ACTION CENTER
         ═══════════════════════════════════════════════════════════ -->
         <Border Grid.Row="3" Background="White"
                 BorderBrush="#DFE6E9" BorderThickness="0,1,0,0"
                 Padding="14,8,14,10">
             <StackPanel>
+                
+                <!-- ── Suggested Actions Panel ── -->
+                <StackPanel x:Name="suggested_actions_container" Margin="0,0,0,8">
+                    <TextBlock Text="Suggested Actions" FontSize="10" FontWeight="SemiBold" 
+                               Foreground="#7F8C8D" Margin="4,0,0,4"/>
+                    <WrapPanel x:Name="suggested_actions_panel">
+                        <!-- Chips will be added dynamically -->
+                    </WrapPanel>
+                </StackPanel>
 
                 <!-- ── Attachment preview strip (hidden until files attached) ── -->
                 <Border x:Name="attachment_preview_border"
@@ -328,12 +345,12 @@
 
                     <!-- Attach button -->
                     <Button Grid.Column="0" x:Name="btn_attach"
-                            Style="{StaticResource IconButton}"
-                            Height="38" Width="38"
-                            Click="attach_clicked"
-                            ToolTip="Đính kèm hình ảnh hoặc PDF">
+                             Style="{StaticResource IconButton}"
+                             Height="38" Width="38"
+                             Click="attach_clicked"
+                             ToolTip="Đính kèm hình ảnh hoặc PDF">
                         <TextBlock Text="📎" FontSize="16" VerticalAlignment="Center"
-                                   HorizontalAlignment="Center"/>
+                                    HorizontalAlignment="Center"/>
                     </Button>
 
                     <!-- Text input -->
@@ -341,30 +358,30 @@
                             BorderBrush="#BDC3C7" BorderThickness="1,1,0,1"
                             CornerRadius="20,0,0,20" Background="White">
                         <TextBox x:Name="chat_input"
-                                 Height="38"
-                                 VerticalContentAlignment="Center"
-                                 Padding="14,0"
-                                 BorderThickness="0"
-                                 Background="Transparent"
-                                 FontSize="13"
-                                 Foreground="#2C3E50"
-                                 CaretBrush="#3498DB"
-                                 ToolTip="Nhập lệnh Tiếng Việt hoặc English (Enter để gửi)"
-                                 KeyDown="input_keydown"/>
+                                  Height="38"
+                                  VerticalContentAlignment="Center"
+                                  Padding="14,0"
+                                  BorderThickness="0"
+                                  Background="Transparent"
+                                  FontSize="13"
+                                  Foreground="#2C3E50"
+                                  CaretBrush="#3498DB"
+                                  ToolTip="Nhập lệnh Tiếng Việt hoặc English (Enter để gửi)"
+                                  KeyDown="input_keydown"/>
                     </Border>
 
                     <!-- Send button -->
                     <Button Grid.Column="2" x:Name="send_button"
-                            Height="38"
-                            Style="{StaticResource PrimaryButton}"
-                            Padding="18,0"
-                            Click="send_clicked"
-                            ToolTip="Gửi (Enter)">
+                             Height="38"
+                             Style="{StaticResource PrimaryButton}"
+                             Padding="18,0"
+                             Click="send_clicked"
+                             ToolTip="Gửi (Enter)">
                         <Border CornerRadius="0,20,20,0" Background="Transparent">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Gửi" VerticalAlignment="Center" FontSize="13"/>
                                 <TextBlock Text=" ➤" FontSize="11" VerticalAlignment="Center"
-                                           Margin="2,0,0,0"/>
+                                            Margin="2,0,0,0"/>
                             </StackPanel>
                         </Border>
                     </Button>
@@ -372,9 +389,9 @@
 
                 <!-- Copyright -->
                 <TextBlock Text="© Copyright by T3Lab"
-                           FontSize="10" Foreground="#BDC3C7"
-                           HorizontalAlignment="Center"
-                           Margin="0,6,0,0"/>
+                            FontSize="10" Foreground="#BDC3C7"
+                            HorizontalAlignment="Center"
+                            Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
 
