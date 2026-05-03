@@ -1,2 +1,10 @@
-# Vercel Python Runtime Dependencies
-# No additional dependencies needed for basic API
+# T3Lab Revit API Dependencies
+# Runtime: Vercel Python
+
+# Core
+# No additional dependencies required for baseline functionality
+
+# Optional: Database & External APIs
+# pymongo
+# requests
+# python-dotenv

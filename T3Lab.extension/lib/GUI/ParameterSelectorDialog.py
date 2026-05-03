@@ -98,7 +98,7 @@ class ParameterSelectorDialog(Window):
         self.Width = 700
         self.Height = 550
         self.WindowStartupLocation = WindowStartupLocation.CenterScreen
-        self.WindowStyle = WindowStyle.None
+        self.WindowStyle = WindowStyle.NoStyle
         self.AllowsTransparency = True
         self.Background = System.Windows.Media.SolidColorBrush(
             System.Windows.Media.Color.FromArgb(255, 250, 250, 250))

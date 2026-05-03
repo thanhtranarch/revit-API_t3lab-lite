@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "name": "t3lab-revit-api",
   "builds": [
     {
       "src": "api/**/*.py",
@@ -12,9 +13,11 @@
       "dest": "/api/$1",
       "headers": {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, OPTIONS",
-        "Access-Control-Allow-Headers": "X-Vercel-Protection-Bypass"
+        "Access-Control-Allow-Methods": "GET, OPTIONS, POST",
+        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Accept, X-Vercel-Protection-Bypass"
       }
     }
-  ]
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }

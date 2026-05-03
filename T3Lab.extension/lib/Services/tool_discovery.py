@@ -19,9 +19,10 @@ import re
 import json
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-_LIB_DIR      = os.path.dirname(os.path.abspath(__file__))
+_SERVICES_DIR = os.path.dirname(os.path.abspath(__file__))
+_LIB_DIR      = os.path.dirname(_SERVICES_DIR)
 _EXT_DIR      = os.path.dirname(_LIB_DIR)
-_TAB_DIR      = os.path.join(_EXT_DIR, 'T3Lab_Lite.tab')
+_TAB_DIR      = os.path.join(_EXT_DIR, 'T3Lab.tab')
 REGISTRY_FILE = os.path.join(_LIB_DIR, 'config', 'tool_registry.json')
 
 # ── Buttons that are infrastructure / already hardcoded in TOOL_LAUNCHERS ─────

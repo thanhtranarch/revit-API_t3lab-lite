@@ -345,7 +345,7 @@ def parse_command(user_input, history=None, attached_files=None, rag_context=Non
             lib_dir = os.path.dirname(os.path.abspath(__file__))
             if lib_dir not in sys.path:
                 sys.path.insert(0, lib_dir)
-            from rag_processor import build_vision_content_blocks, has_images
+            from Intelligence.rag_processor import build_vision_content_blocks, has_images
             files = attached_files or []
             has_vision_files = has_images(files)
             # build_vision_content_blocks prepends PDF text blocks + image blocks
@@ -538,7 +538,7 @@ def keyword_parse(raw):
 
     # ── Auto-discovered tools (from tool_registry.json) ───────────────────────
     try:
-        from tool_discovery import get_registered_tools
+        from Services.tool_discovery import get_registered_tools
         for tool in get_registered_tools():
             for kw in tool.get('keywords', []):
                 if kw and len(kw) > 2 and kw in cmd:
@@ -610,7 +610,7 @@ def _get_nlu():
     if _nlu is not None:
         return _nlu
     try:
-        import nlu_engine as _mod
+        from Intelligence import nlu_engine as _mod
         _nlu = _mod
     except Exception:
         pass
@@ -642,7 +642,7 @@ def _get_local_llm():
     if _local_llm is not None:
         return _local_llm
     try:
-        import local_llm as _mod
+        from Intelligence import local_llm as _mod
         _local_llm = _mod
         _HAS_LOCAL_LLM = True
     except Exception:

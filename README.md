@@ -1,32 +1,55 @@
+<<<<<<< HEAD
 # T3Lab — pyRevit Extension for Autodesk Revit
+=======
+# T3Lab Revit API
+>>>>>>> 5a2304818d72c88bc612843bab9f21796296fe70
 
-A lightweight IronPython/pyRevit extension that adds productivity tools for annotation, export, project management, and AI-assisted automation directly inside Autodesk Revit.
+[![Revit Version](https://img.shields.io/badge/Revit-2020%2B-blue.svg)](https://www.autodesk.com/products/revit/overview)
+[![pyRevit](https://img.shields.io/badge/pyRevit-4.8%2B-orange.svg)](https://github.com/eirannejad/pyRevit)
+[![Architecture](https://img.shields.io/badge/Architecture-T3Lab%20MAS%203.0-green.svg)](#architecture)
 
-**Author:** Tran Tien Thanh
-**Contact:** trantienthanh909@gmail.com
-**LinkedIn:** [linkedin.com/in/sunarch7899](https://linkedin.com/in/sunarch7899/)
-
----
-
-## Requirements
-
-- Autodesk Revit 2020 or later
-- [pyRevit](https://github.com/eirannejad/pyRevit) 4.8+
+T3Lab Revit API is an advanced BIM Automation and Intelligence framework for Autodesk Revit. Built upon the **T3Lab Master Architecture System (MAS)**, it bridges the gap between traditional BIM workflows and modern Artificial Intelligence.
 
 ---
 
-## Installation
+## Architecture: T3Lab MAS 3.0
 
-1. Install [pyRevit](https://github.com/eirannejad/pyRevit)
-2. Clone or download this repository
-3. Copy the `T3Lab.extension` folder to your pyRevit extensions directory
-   - Default path: `%APPDATA%\pyRevit\Extensions\`
-4. Reload pyRevit (`pyRevit > Reload`)
+The framework is organized into three distinct layers, creating a self-sustaining ecosystem for architectural intelligence:
+
+### 1. Intelligence Layer (Agent-Core)
+*   **T3Lab Assistant**: A natural language bridge allowing users to query and command Revit using Vietnamese or English.
+*   **Local Intelligence**: Support for offline LLMs (via Ollama) ensuring data privacy and high-speed local inference.
+
+### 2. Execution Layer (Tool-Stack)
+*   **Production Tools**: Specialized panels for Annotation, Project Management, and Data Export.
+*   **Discipline Modules**: Advanced logic for Architecture, Structure, and Coordination.
+*   **Automation Wizards**: Multi-step wizards (like BatchOut) that handle complex task sequences with minimal user input.
+
+### 3. Data Fabric Layer (Cloud-Connect)
+*   **Cloud API**: Vercel-hosted backend for distributed family loading and metadata management.
+*   **Hybrid Storage**: Seamless switching between local library files and cloud-hosted BIM content.
 
 ---
 
-## Tools
+## Key Modules
 
+### AI Connection & Control
+*   **T3Lab Assistant**: Context-aware AI that understands Revit terminology and executes complex commands.
+
+### BatchOut: The Export Master
+*   A unified export engine for PDF, DWG, NWD, and IFC.
+*   Features custom naming patterns, revision-aware filtering, and automatic sheet set generation.
+
+### Project & Annotation Intelligence
+*   **Workset Management**: Automated isolation and coordination views.
+*   **SmartAlign**: Geometry-aware alignment and distribution logic.
+*   **Family Synthesis**: Generate parametric families from structured JSON data.
+
+---
+
+## The Evolution Loop
+
+<<<<<<< HEAD
 All tools are accessible from the **T3Lab** tab in the Revit ribbon.
 
 ### Cloud Panel
@@ -157,11 +180,18 @@ The AI assistant supports two backends:
 | Tool | Description |
 |------|-------------|
 | **Send Feedback** | Write and send feedback or suggestions directly to the T3Lab team by email |
+=======
+T3Lab Revit API is designed for **Self-Evolution**. By utilizing specialized agents (QA-Agent, Tool-Builder, UI-Agent), the framework allows for:
+1.  **Automated Error Detection**: Identifying BIM inconsistencies via the `checks` module.
+2.  **Rapid Tool Iteration**: Building new pushbutton scripts through the `tool-builder` agent.
+3.  **Knowledge Accumulation**: Storing project-specific wisdom in a local knowledge graph.
+>>>>>>> 5a2304818d72c88bc612843bab9f21796296fe70
 
 ---
 
 ## Project Structure
 
+<<<<<<< HEAD
 ```
 T3Lab.extension/
 ├── T3Lab.tab/               # Ribbon tab with all tools
@@ -181,25 +211,37 @@ T3Lab.extension/
     ├── config/              # Settings management
     ├── core/                # MCP server & tool registry
     └── ui/                  # Button state & settings UI
+=======
+```bash
+t3lab-revit-api/
+├── T3Lab.extension/          # Main pyRevit Extension
+│   ├── T3Lab.tab/            # Ribbon Panels (AI, Annotation, Project, Export)
+│   ├── lib/                  # Framework Core (GUI, NLU, RAG, Utils)
+│   ├── checks/               # Quality Assurance Scripts
+│   └── commands/             # Standalone Automation Commands
+├── api/                      # Vercel Serverless Functions
+├── scripts/                  # Maintenance & Environment Setup
+├── requirements.txt          # Framework Dependencies
+└── vercel.json               # Cloud Infrastructure Config
+>>>>>>> 5a2304818d72c88bc612843bab9f21796296fe70
 ```
 
 ---
 
-## Known Issues
+## Setup & Installation
 
-### pyRevit Reload Error
-
-If you encounter an `IOError` when reloading pyRevit (file locking issue):
-
-```powershell
-# Run as Administrator
-PowerShell -ExecutionPolicy Bypass -File scripts/fix_pyrevit_reload.ps1
-```
-
-See [`PYREVIT_RELOAD_FIX.md`](PYREVIT_RELOAD_FIX.md) for details.
+1.  Clone this repository to: `%APPDATA%\pyRevit\Extensions\T3Lab.extension`
+2.  Ensure **pyRevit 4.8+** is installed and linked.
+3.  Reload pyRevit to initialize the **T3Lab** tab.
+4.  Configure AI settings in the **AI Connection > Settings** panel.
 
 ---
 
-## License
+## Author
+**Tran Tien Thanh**
+Architect & BIM Developer
+- [trantienthanh909@gmail.com](mailto:trantienthanh909@gmail.com)
+- [T3Lab.Space](https://t3lab.space)
 
-For other issues, please open an issue on GitHub.
+---
+*Empowering BIM with Intelligence.*

@@ -355,13 +355,9 @@ class ExportManagerWindow(forms.WPFWindow):
             self._titleblock_size_cache = {}  # Sheet ID -> (width_mm, height_mm)
             self._paper_size_cache = {}  # Sheet ID -> (size_name, orientation)
 
-            # Initialize naming pattern (removed from UI, now using per-row pattern buttons)
-            # Create a simple object to hold the pattern text for compatibility
-            # Default to SheetNumber only for DWG batch export
-            class NamingPattern:
-                def __init__(self):
-                    self.Text = "{SheetNumber}"
-            self.naming_pattern = NamingPattern()
+            # Link naming pattern to the new UI control in Settings tab
+            self.naming_pattern = self.naming_pattern_settings
+            self.naming_pattern.Text = "{SheetNumber}-{SheetName}"
 
             # Set window icon and title bar logo
             try:
@@ -1517,6 +1513,18 @@ class ExportManagerWindow(forms.WPFWindow):
         # Stop propagation so that clicking in textbox doesn't toggle row selection
         e.Handled = True
 
+    def on_listview_size_changed(self, sender, e):
+        """Resize Sheet Name and Custom Filename columns to fill available ListView width."""
+        try:
+            fixed = 40 + 150 + 80 + 80 + 90 + 20  # checkbox + number + revision + size + orientation + scrollbar
+            available = sender.ActualWidth - fixed
+            if available <= 0:
+                return
+            self.col_name.Width = available * 0.35
+            self.col_custom_filename.Width = available * 0.65
+        except Exception:
+            pass
+
     def header_checkbox_clicked(self, sender, e):
         """Handle header checkbox click to select/deselect all items."""
         is_checked = sender.IsChecked
@@ -2087,47 +2095,114 @@ class ExportManagerWindow(forms.WPFWindow):
         self.filtered_sheets.reverse()
         self.update_sheets_list()
 
-    def update_navigation_buttons(self):
-        """Update navigation button visibility and text based on current tab."""
-        current_tab_index = self.main_tabs.SelectedIndex
+    def nav_item_clicked(self, sender, e):
+        """Handle direct navigation when clicking items in the footer."""
+        try:
+            target_index = -1
+            if sender.Name == "nav_border_selection": target_index = 0
+            elif sender.Name == "nav_border_format": target_index = 1
+            elif sender.Name == "nav_border_queue": target_index = 2
+            elif sender.Name == "nav_border_settings": target_index = 3
+            
+            if target_index != -1:
+                self.switch_to_view(target_index)
+        except Exception as ex:
+            logger.debug("Error in nav_item_clicked: {}".format(ex))
 
-        if current_tab_index == 0:  # Selection tab
-            self.back_button.Visibility = Visibility.Collapsed
-            self.next_button.Content = "Next"
-        elif current_tab_index == 1:  # Format tab
-            self.back_button.Visibility = Visibility.Visible
-            self.next_button.Content = "Next"
-        elif current_tab_index == 2:  # Create tab
-            self.back_button.Visibility = Visibility.Visible
-            self.next_button.Content = "Create"
+    def switch_to_view(self, index):
+        """Switch between wizard tabs and the standalone settings view."""
+        try:
+            # Handle Settings View (index 3) vs Wizard Tabs (0-2)
+            if index == 3:
+                self.main_tabs.Visibility = Visibility.Collapsed
+                self.settings_view.Visibility = Visibility.Visible
+                self.sync_navigation_footer(3)
+                self.update_navigation_buttons(3)
+            else:
+                self.settings_view.Visibility = Visibility.Collapsed
+                self.main_tabs.Visibility = Visibility.Visible
+                self.main_tabs.SelectedIndex = index
+                # sync_navigation_footer and update_navigation_buttons 
+                # are called by tab_changed event
+        except Exception as ex:
+            logger.debug("Error in switch_to_view: {}".format(ex))
+
+    def sync_navigation_footer(self, index=None):
+        """Update the visual state of the bottom navigation bar."""
+        try:
+            if index is None:
+                index = 3 if self.settings_view.Visibility == Visibility.Visible else self.main_tabs.SelectedIndex
+                
+            from System.Windows.Media import SolidColorBrush, Color
+            # Helper for creating brushes
+            active_bg = SolidColorBrush(Color.FromRgb(0xF0, 0xF8, 0xFF))
+            active_fg = SolidColorBrush(Color.FromRgb(0x00, 0x5B, 0x82))
+            inactive_bg = SolidColorBrush(Color.FromArgb(0, 255, 255, 255))
+            inactive_fg = SolidColorBrush(Color.FromRgb(0x7F, 0x8C, 0x8D))
+
+            # Update all items
+            for idx, name in enumerate(['selection', 'format', 'queue', 'settings']):
+                border = getattr(self, 'nav_border_' + name)
+                icon = getattr(self, 'nav_icon_' + name)
+                text = getattr(self, 'nav_text_' + name)
+
+                if idx == index:
+                    border.Background = active_bg
+                    icon.Foreground = active_fg
+                    text.Foreground = active_fg
+                    text.FontWeight = System.Windows.FontWeights.Bold
+                else:
+                    border.Background = inactive_bg
+                    icon.Foreground = inactive_fg
+                    text.Foreground = inactive_fg
+                    text.FontWeight = System.Windows.FontWeights.Normal
+        except Exception as ex:
+            logger.debug("Error syncing navigation footer: {}".format(ex))
+
+    def update_navigation_buttons(self, index=None):
+        """Update navigation button visibility and text based on current view."""
+        if index is None:
+            index = 3 if self.settings_view.Visibility == Visibility.Visible else self.main_tabs.SelectedIndex
+
+        # Back button visibility
+        self.back_button.Visibility = Visibility.Collapsed if index == 0 else Visibility.Visible
+
+        # Next button text
+        if index == 3:  # Settings view
+            self.next_button_text.Text = "Create"
+        else:
+            self.next_button_text.Text = "Next"
+
+        # Sync footer visual state
+        self.sync_navigation_footer(index)
 
     def tab_changed(self, sender, e):
-        """Handle tab change event to update export preview when switching to Create tab."""
+        """Handle tab change event to update export preview and sync navigation."""
         try:
+            if e.Source != self.main_tabs:
+                return
+
             current_tab_index = self.main_tabs.SelectedIndex
-            if current_tab_index == 2:  # Create tab
-                # Update export preview when switching to Create tab
+            
+            if current_tab_index == 2:
                 self.update_export_preview_if_needed()
+            
+            self.update_navigation_buttons(current_tab_index)
         except Exception as ex:
             logger.debug("Error handling tab change: {}".format(ex))
 
     def update_export_preview_if_needed(self):
         """Update export preview if currently on Create tab."""
         try:
-            # Check if we're on the Create tab
-            current_tab_index = self.main_tabs.SelectedIndex
-            if current_tab_index == 2:  # Create tab
-                # Validate that we have selected items
+            if self.main_tabs.SelectedIndex == 2:
                 if self.selection_mode == "sheets":
                     selected_items = [s for s in self.all_sheets if s.IsSelected]
                 else:
                     selected_items = [v for v in self.all_views if v.IsSelected]
 
-                # Only update if we have selections
                 if selected_items:
                     self.build_export_preview()
                 else:
-                    # Clear preview if no items selected
                     self.export_items = []
                     self.export_preview_list.ItemsSource = self.export_items
                     self.progress_text.Text = "No items selected for export"
@@ -2135,54 +2210,26 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.debug("Error updating export preview: {}".format(ex))
 
     def go_back(self, sender, e):
-        """Navigate to previous tab."""
-        current_index = self.main_tabs.SelectedIndex
+        """Navigate to previous step."""
+        current_index = 3 if self.settings_view.Visibility == Visibility.Visible else self.main_tabs.SelectedIndex
         if current_index > 0:
-            self.main_tabs.SelectedIndex = current_index - 1
-            self.update_navigation_buttons()
+            self.switch_to_view(current_index - 1)
 
     def go_next(self, sender, e):
-        """Navigate to next tab or start export."""
-        current_index = self.main_tabs.SelectedIndex
+        """Navigate to next step or start export."""
+        current_index = 3 if self.settings_view.Visibility == Visibility.Visible else self.main_tabs.SelectedIndex
 
         if current_index == 0:  # Selection tab
-            # Validate selection based on mode
             if self.selection_mode == "sheets":
                 selected_items = [s for s in self.all_sheets if s.IsSelected]
                 if not selected_items:
                     forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
                     return
-            else:
-                selected_items = [v for v in self.all_views if v.IsSelected]
-                if not selected_items:
-                    forms.alert("Please select at least one view to export.", title="No Views Selected")
-                    return
-
-            # Don't cache filenames here - they will be generated fresh during export
-            # to ensure they reflect the current state of the items (e.g., updated names)
-
-            # Move to Format tab
-            self.main_tabs.SelectedIndex = 1
-            self.update_navigation_buttons()
-
-        elif current_index == 1:  # Format tab
-            # Validate format selection
-            if not (self.export_pdf.IsChecked or self.export_dwg.IsChecked or
-                    self.export_dgn.IsChecked or self.export_dwf.IsChecked or
-                    self.export_nwd.IsChecked or self.export_ifc.IsChecked or
-                    self.export_img.IsChecked):
-                forms.alert("Please select at least one export format.", title="No Format Selected")
-                return
-
-            # Build export preview
-            self.build_export_preview()
-
-            # Move to Create tab
-            self.main_tabs.SelectedIndex = 2
-            self.update_navigation_buttons()
-
-        elif current_index == 2:  # Create tab
-            # Start export
+            self.switch_to_view(1)
+        elif current_index < 3:
+            self.switch_to_view(current_index + 1)
+        else:
+            # On final (Settings) view, start export
             self.start_export()
 
     def build_export_preview(self):
