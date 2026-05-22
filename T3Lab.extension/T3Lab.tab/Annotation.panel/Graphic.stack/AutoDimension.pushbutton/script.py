@@ -45,11 +45,13 @@ from Autodesk.Revit.DB import (
     ShellLayerType,
     LocationCurve,
     LocationPoint,
+    View,
     ViewType,
     FamilyInstanceReferenceType,
     IFailuresPreprocessor,
     FailureProcessingResult,
     FailureSeverity,
+    JoinGeometryUtils,
 )
 from Autodesk.Revit.DB.Structure import StructuralType
 from Autodesk.Revit.UI import TaskDialog
@@ -366,6 +368,80 @@ def _collect_door_refs(door):
     return refs
 
 
+def element_id_int(elem_id):
+    """Return the integer value of an ElementId — compatible with Revit 2025+."""
+    try:
+        return elem_id.IntegerValue
+    except AttributeError:
+        return int(str(elem_id))
+
+
+def _collect_facade_walls(doc, view, perimeter_tol):
+    """
+    Return walls grouped by facade side: {'NORTH': [...], 'SOUTH': [...], 'EAST': [...], 'WEST': [...]}.
+    A wall belongs to a facade if its centroid is within perimeter_tol of the
+    outermost building extent in that direction.
+    """
+    walls = list(
+        FilteredElementCollector(doc, view.Id)
+        .OfCategory(BuiltInCategory.OST_Walls)
+        .WhereElementIsNotElementType()
+        .ToElements()
+    )
+    if not walls:
+        return {'NORTH': [], 'SOUTH': [], 'EAST': [], 'WEST': []}
+
+    xs, ys, bbs = [], [], {}
+    for w in walls:
+        bb = w.get_BoundingBox(view)
+        if bb:
+            wid = element_id_int(w.Id)
+            bbs[wid] = bb
+            xs += [bb.Min.X, bb.Max.X]
+            ys += [bb.Min.Y, bb.Max.Y]
+    if not xs:
+        return {'NORTH': [], 'SOUTH': [], 'EAST': [], 'WEST': []}
+
+    x_min, x_max = min(xs), max(xs)
+    y_min, y_max = min(ys), max(ys)
+
+    result = {'NORTH': [], 'SOUTH': [], 'EAST': [], 'WEST': []}
+    for w in walls:
+        bb = bbs.get(element_id_int(w.Id))
+        if not bb:
+            continue
+        cx = (bb.Min.X + bb.Max.X) * 0.5
+        cy = (bb.Min.Y + bb.Max.Y) * 0.5
+        if cy >= y_max - perimeter_tol:
+            result['NORTH'].append(w)
+        if cy <= y_min + perimeter_tol:
+            result['SOUTH'].append(w)
+        if cx >= x_max - perimeter_tol:
+            result['EAST'].append(w)
+        if cx <= x_min + perimeter_tol:
+            result['WEST'].append(w)
+    return result
+
+
+def _expand_by_joins(doc, wall_list):
+    """Add one level of physically joined walls to the list. Non-recursive for safety."""
+    seen = set(element_id_int(w.Id) for w in wall_list)
+    result = list(wall_list)
+    for wall in list(wall_list):
+        try:
+            for jid in JoinGeometryUtils.GetJoinedElements(doc, wall):
+                jid_int = element_id_int(jid)
+                if jid_int in seen:
+                    continue
+                jelem = doc.GetElement(jid)
+                if jelem is not None and hasattr(jelem, 'WallType'):
+                    result.append(jelem)
+                    seen.add(jid_int)
+        except Exception:
+            pass
+    return result
+
+
 def _group_elements_by_pos(elements, get_pos, tolerance):
     """Group elements whose position key falls within tolerance of each other.
     Returns list of (avg_pos, [elements]).
@@ -542,9 +618,10 @@ class AutoDimensionWindow(forms.WPFWindow):
         self.uidoc = uidoc_ref
         self.doc   = doc_ref
         self._dim_types = []  # list of DimensionType elements
-
+        self._views = []      # list of plan View elements
 
         self._populate_dim_types()
+        self._populate_views()
         self._set_status("Ready")
 
 
@@ -603,6 +680,37 @@ class AutoDimensionWindow(forms.WPFWindow):
                 self._set_status("No linear dimension types found in document.")
         except Exception as ex:
             logger.warning("Could not load dimension types: {}".format(ex))
+
+    def _populate_views(self):
+        """Populate the plan view list box with all non-template plan views."""
+        try:
+            plan_types = (
+                ViewType.FloorPlan,
+                ViewType.EngineeringPlan,
+                ViewType.AreaPlan,
+                ViewType.CeilingPlan,
+            )
+            all_views = list(
+                FilteredElementCollector(self.doc)
+                .OfClass(View)
+                .ToElements()
+            )
+            self._views = sorted(
+                [v for v in all_views
+                 if not v.IsTemplate and v.ViewType in plan_types],
+                key=lambda v: v.Name
+            )
+            self.lst_views.Items.Clear()
+            for v in self._views:
+                self.lst_views.Items.Add(v.Name)
+        except Exception as ex:
+            logger.warning("Could not load plan views: {}".format(ex))
+
+    def select_all_views_clicked(self, sender, args):
+        self.lst_views.SelectAll()
+
+    def clear_views_clicked(self, sender, args):
+        self.lst_views.UnselectAll()
 
     # ── Offset mode toggle ────────────────────────────────────────────────
 
@@ -762,12 +870,151 @@ class AutoDimensionWindow(forms.WPFWindow):
         except Exception:
             pass
 
-        view = self.uidoc.ActiveView
-        if not _is_valid_view(view):
-            TaskDialog.Show("Auto Dimension",
-                            "Please activate a Plan, Section, Elevation, or Detail view.")
-            return
+        # ── Facade dimension options ───────────────────────────────────────
+        do_facade = False
+        try:
+            do_facade = self.chk_facade.IsChecked == True
+        except Exception:
+            pass
 
+        facade_off = 1200.0 * MM_TO_FEET
+        try:
+            facade_off = float(self.txt_facade_offset.Text.strip()) * MM_TO_FEET
+        except Exception:
+            pass
+
+        facade_tol = 1800.0 * MM_TO_FEET
+        try:
+            facade_tol = float(self.txt_facade_tol.Text.strip()) * MM_TO_FEET
+        except Exception:
+            pass
+
+        # ── Collect views to process ───────────────────────────────────────
+        views_to_dim = []
+        try:
+            idx_list = list(self.lst_views.SelectedItems)
+            for name in idx_list:
+                for v in self._views:
+                    if v.Name == name:
+                        views_to_dim.append(v)
+                        break
+        except Exception:
+            pass
+
+        if not views_to_dim:
+            active = self.uidoc.ActiveView
+            if not _is_valid_view(active):
+                TaskDialog.Show("Auto Dimension",
+                                "Please activate a Plan, Section, Elevation, or Detail view.")
+                return
+            views_to_dim = [active]
+        else:
+            views_to_dim = [v for v in views_to_dim if _is_valid_view(v)]
+            if not views_to_dim:
+                TaskDialog.Show("Auto Dimension",
+                                "None of the selected views are valid for dimensioning.\n"
+                                "Please select Floor Plan or Engineering Plan views.")
+                return
+
+        # ── Run per-view and accumulate results ────────────────────────────
+        total_dims_created = 0
+        total_attempts = [0]
+        total_failures = []
+        all_created_dims = []
+
+        for view in views_to_dim:
+            n, att, fails, cdims = self._dim_one_view(
+                view, do_walls, do_struct_cols, do_arch_cols, do_grids,
+                do_windows, do_doors, do_lifts, do_facade,
+                wall_mode, dim_type, check_mode, ck_off, is_3level,
+                l1_feet, l2_feet, l3_feet, margin,
+                run_x, run_y, both_sides, check_min, min_seg_feet,
+                facade_off, facade_tol
+            )
+            total_dims_created += n
+            total_attempts[0] += att
+            total_failures.extend(fails)
+            all_created_dims.extend(cdims)
+
+        dims_created = total_dims_created
+        dim_attempts = total_attempts
+        dim_failures = total_failures[:5]
+        created_dims = all_created_dims
+
+        # ── Post-dim conflict detection ────────────────────────────────────
+        small_count = 0
+        if check_min and created_dims:
+            for dim_elem in created_dims:
+                try:
+                    for seg in dim_elem.Segments:
+                        try:
+                            val = seg.Value
+                            if val is not None and val < min_seg_feet:
+                                small_count += 1
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+        # Build element summary for diagnostic message
+        elem_summary = (
+            "Views processed: {}\n"
+            "Dim attempts (>=2 refs): {}\n"
+            "NewDimension failures: {}"
+        ).format(
+            len(views_to_dim),
+            dim_attempts[0],
+            len(dim_failures)
+        )
+
+        if dims_created == 0:
+            failure_detail = ""
+            if dim_failures:
+                failure_detail = "\n\nFirst error:\n" + dim_failures[0]
+            elif dim_attempts[0] == 0:
+                failure_detail = (
+                    "\n\nNo dimension was attempted — all ref_pos lists had < 2 refs.\n"
+                    "Likely cause: grid references could not be obtained."
+                )
+            self._set_status("Done — 0 dimensions. See dialog for details.")
+            TaskDialog.Show(
+                "Auto Dimension — Diagnostic",
+                "No dimensions were created across {} view(s).\n\n"
+                "{}{}\n\n"
+                "Tip: Check Revit journal for 'Chain dim failed' warnings.".format(
+                    len(views_to_dim), elem_summary, failure_detail)
+            )
+        elif small_count > 0:
+            warn = "  {} segment(s) < {}mm — text may overlap.".format(
+                small_count, int(min_seg_feet / MM_TO_FEET + 0.5))
+            self._set_status("Done ({} dims). {}".format(dims_created, warn))
+            TaskDialog.Show(
+                "Auto Dimension — Conflict Warning",
+                "Created {} dimension string(s) across {} view(s).\n\n"
+                "{} segment(s) are shorter than {}mm.\n"
+                "Consider increasing the offset or adjusting element positions "
+                "to prevent text overlap.".format(
+                    dims_created, len(views_to_dim),
+                    small_count, int(min_seg_feet / MM_TO_FEET + 0.5))
+            )
+        else:
+            self._set_status("Done — {} dimension string(s) created.".format(dims_created))
+            TaskDialog.Show(
+                "Auto Dimension",
+                "Done.\nCreated {} dimension string(s) across {} view(s).".format(
+                    dims_created, len(views_to_dim))
+            )
+
+    def _dim_one_view(self, view, do_walls, do_struct_cols, do_arch_cols, do_grids,
+                      do_windows, do_doors, do_lifts, do_facade,
+                      wall_mode, dim_type, check_mode, ck_off, is_3level,
+                      l1_feet, l2_feet, l3_feet, margin,
+                      run_x, run_y, both_sides, check_min, min_seg_feet,
+                      facade_off, facade_tol):
+        """
+        Run all dimensioning phases on a single view.
+        Returns (dims_created, attempts, failures_list, created_dims).
+        """
         # Use the level elevation for plan views — view.Origin.Z can be unreliable.
         try:
             dim_z = view.GenLevel.Elevation
@@ -787,11 +1034,7 @@ class AutoDimensionWindow(forms.WPFWindow):
             .ToElements()
         )
         if not all_grids:
-            TaskDialog.Show("Auto Dimension",
-                            "No grids found in the current view.\n"
-                            "Dimensions require grids as references.")
-            self._set_status("No grids in view.")
-            return
+            return (0, 0, [], [])
 
         v_grids, h_grids = _separate_grids(all_grids)
 
@@ -806,12 +1049,12 @@ class AutoDimensionWindow(forms.WPFWindow):
             except Exception:
                 return []
 
-        walls       = _collect(BuiltInCategory.OST_Walls)             if do_walls       else []
-        struct_cols = _collect(BuiltInCategory.OST_StructuralColumns)  if do_struct_cols else []
-        arch_cols   = _collect(BuiltInCategory.OST_Columns)           if do_arch_cols   else []
-        windows     = _collect(BuiltInCategory.OST_Windows)           if do_windows     else []
-        doors       = _collect(BuiltInCategory.OST_Doors)             if do_doors       else []
-        lifts       = _collect(BuiltInCategory.OST_MechanicalEquipment) if do_lifts     else []
+        walls       = _collect(BuiltInCategory.OST_Walls)              if do_walls       else []
+        struct_cols = _collect(BuiltInCategory.OST_StructuralColumns)   if do_struct_cols else []
+        arch_cols   = _collect(BuiltInCategory.OST_Columns)            if do_arch_cols   else []
+        windows     = _collect(BuiltInCategory.OST_Windows)            if do_windows     else []
+        doors       = _collect(BuiltInCategory.OST_Doors)              if do_doors       else []
+        lifts       = _collect(BuiltInCategory.OST_MechanicalEquipment) if do_lifts      else []
         all_cols    = struct_cols + arch_cols
 
         # ── Compute bounding box for overall dim placement ─────────────────
@@ -834,13 +1077,6 @@ class AutoDimensionWindow(forms.WPFWindow):
         v_span_hi = (max(_grid_pos(g, 'X') for g in v_grids) + margin) if v_grids else None
         h_span_lo = (min(_grid_pos(g, 'Y') for g in h_grids) - margin) if h_grids else None
         h_span_hi = (max(_grid_pos(g, 'Y') for g in h_grids) + margin) if h_grids else None
-
-        # Primary outer placement positions (L3 offset)
-        top_y    = y_max + l3_feet   # X overall chain — above
-        left_x   = x_min - l3_feet  # Y overall chain — left
-        # Secondary positions for both_sides mode
-        bot_y    = y_min - l3_feet   # X overall chain — below
-        right_x  = x_max + l3_feet  # Y overall chain — right
 
         dims_created = 0
         created_dims = []  # track for conflict detection
@@ -874,7 +1110,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                     made.append(d2)
             return made
 
-        t = Transaction(self.doc, "T3Lab: Auto Dimension")
+        t = Transaction(self.doc, "T3Lab: Auto Dimension [{}]".format(view.Name))
         try:
             t.Start()
             options = t.GetFailureHandlingOptions()
@@ -1332,6 +1568,124 @@ class AutoDimensionWindow(forms.WPFWindow):
                             created_dims.extend(made)
                             dims_created += len(made)
 
+            # ══ PHASE 6: Facade Dimension Chains ══════════════════════════════
+            if do_facade:
+                facade_walls_map = _collect_facade_walls(self.doc, view, facade_tol)
+
+                for facade_name in ('NORTH', 'SOUTH', 'EAST', 'WEST'):
+                    fwalls = facade_walls_map.get(facade_name, [])
+                    if not fwalls:
+                        continue
+                    fwalls = _expand_by_joins(self.doc, fwalls)
+
+                    if facade_name in ('NORTH', 'SOUTH'):
+                        axis = 'X'
+                        perp = (y_max + facade_off) if facade_name == 'NORTH' else (y_min - facade_off)
+                        span_lo = v_span_lo
+                        span_hi = v_span_hi
+                        used_grids = v_grids
+                    else:
+                        axis = 'Y'
+                        perp = (x_max + facade_off) if facade_name == 'EAST' else (x_min - facade_off)
+                        span_lo = h_span_lo
+                        span_hi = h_span_hi
+                        used_grids = h_grids
+
+                    ref_pos = []
+
+                    # Flanking grids
+                    fwall_positions = []
+                    for w in fwalls:
+                        bb_w = w.get_BoundingBox(view)
+                        if bb_w:
+                            if axis == 'X':
+                                fwall_positions += [bb_w.Min.X, bb_w.Max.X]
+                            else:
+                                fwall_positions += [bb_w.Min.Y, bb_w.Max.Y]
+                    if fwall_positions:
+                        if axis == 'X':
+                            lg, rg = _flanking_grids(v_grids, min(fwall_positions), max(fwall_positions), 'X')
+                            for g in (lg, rg):
+                                if g:
+                                    r = _get_grid_reference(g, view)
+                                    if r:
+                                        ref_pos.append((_grid_pos(g, 'X'), r))
+                        else:
+                            bg, tg = _flanking_grids(h_grids, min(fwall_positions), max(fwall_positions), 'Y')
+                            for g in (bg, tg):
+                                if g:
+                                    r = _get_grid_reference(g, view)
+                                    if r:
+                                        ref_pos.append((_grid_pos(g, 'Y'), r))
+
+                    # Wall face refs
+                    for wall in fwalls:
+                        try:
+                            wall_refs = _collect_wall_core_refs(wall)
+                            if not wall_refs:
+                                continue
+                            bb_w = wall.get_BoundingBox(view)
+                            if not bb_w:
+                                continue
+                            if axis == 'X':
+                                cx_w = (bb_w.Min.X + bb_w.Max.X) * 0.5
+                                ref_pos.append((cx_w, wall_refs[0]))
+                            else:
+                                cy_w = (bb_w.Min.Y + bb_w.Max.Y) * 0.5
+                                ref_pos.append((cy_w, wall_refs[0]))
+                        except Exception:
+                            pass
+
+                    # Window + door refs along this facade
+                    for elem in (windows + doors):
+                        try:
+                            cx_e, cy_e = _elem_centroid(elem, view)
+                            bb_e = elem.get_BoundingBox(view)
+                            if axis == 'X':
+                                facade_y = y_max if facade_name == 'NORTH' else y_min
+                                if abs(cy_e - facade_y) > facade_tol:
+                                    continue
+                                for rt, pos_fn in (
+                                    (FamilyInstanceReferenceType.Left,
+                                     lambda b, c: b.Min.X if b else c - 0.01),
+                                    (FamilyInstanceReferenceType.Right,
+                                     lambda b, c: b.Max.X if b else c + 0.01),
+                                ):
+                                    try:
+                                        refs = list(elem.GetReferences(rt))
+                                        if refs:
+                                            ref_pos.append((pos_fn(bb_e, cx_e), refs[0]))
+                                    except Exception:
+                                        pass
+                            else:
+                                facade_x = x_max if facade_name == 'EAST' else x_min
+                                if abs(cx_e - facade_x) > facade_tol:
+                                    continue
+                                for rt, pos_fn in (
+                                    (FamilyInstanceReferenceType.Front,
+                                     lambda b, c: b.Min.Y if b else c - 0.01),
+                                    (FamilyInstanceReferenceType.Back,
+                                     lambda b, c: b.Max.Y if b else c + 0.01),
+                                ):
+                                    try:
+                                        refs = list(elem.GetReferences(rt))
+                                        if refs:
+                                            ref_pos.append((pos_fn(bb_e, cy_e), refs[0]))
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+
+                    if len(ref_pos) >= 2:
+                        dim_attempts[0] += 1
+                        d = _create_chain_dim(self.doc, view, ref_pos, axis, perp, margin,
+                                              dim_type, dim_z,
+                                              span_lo=span_lo, span_hi=span_hi,
+                                              failures=dim_failures)
+                        if d:
+                            created_dims.append(d)
+                            dims_created += 1
+
             t.Commit()
 
         except Exception as ex:
@@ -1339,83 +1693,12 @@ class AutoDimensionWindow(forms.WPFWindow):
                 t.RollBack()
             except Exception:
                 pass
-            msg = "Transaction failed: {}".format(ex)
+            msg = "Transaction failed for view '{}': {}".format(view.Name, ex)
             logger.error(msg)
             TaskDialog.Show("Auto Dimension — Error", msg)
-            self._set_status("Error.")
-            return
+            return (0, dim_attempts[0], dim_failures, [])
 
-        # ── Post-dim conflict detection ────────────────────────────────────
-        small_count = 0
-        if check_min and created_dims:
-            for dim_elem in created_dims:
-                try:
-                    for seg in dim_elem.Segments:
-                        try:
-                            val = seg.Value
-                            if val is not None and val < min_seg_feet:
-                                small_count += 1
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-
-        # Build element summary for diagnostic message
-        v_ref_count = sum(1 for g in v_grids if _get_grid_reference(g, view) is not None)
-        h_ref_count = sum(1 for g in h_grids if _get_grid_reference(g, view) is not None)
-        elem_summary = (
-            "Grids found: {} ({} vert, {} horiz)\n"
-            "Grid refs obtained: {} vert, {} horiz\n"
-            "Dim attempts (>=2 refs): {}\n"
-            "NewDimension failures: {}"
-        ).format(
-            len(all_grids), len(v_grids), len(h_grids),
-            v_ref_count, h_ref_count,
-            dim_attempts[0],
-            len(dim_failures)
-        )
-        if all_cols:
-            elem_summary += "\nCols: {}".format(len(all_cols))
-        if walls:
-            elem_summary += ", Walls: {}".format(len(walls))
-
-        if dims_created == 0:
-            failure_detail = ""
-            if dim_failures:
-                failure_detail = "\n\nFirst error:\n" + dim_failures[0]
-            elif dim_attempts[0] == 0:
-                failure_detail = (
-                    "\n\nNo dimension was attempted — all ref_pos lists had < 2 refs.\n"
-                    "Likely cause: grid references could not be obtained."
-                )
-            self._set_status("Done — 0 dimensions. See dialog for details.")
-            TaskDialog.Show(
-                "Auto Dimension — Diagnostic",
-                "No dimensions were created in view '{}'.\n\n"
-                "{}{}\n\n"
-                "Tip: Check Revit journal for 'Chain dim failed' warnings.".format(
-                    view.Name, elem_summary, failure_detail)
-            )
-        elif small_count > 0:
-            warn = "  ⚠ {} segment(s) < {}mm — text may overlap.".format(
-                small_count, int(min_seg_feet / MM_TO_FEET + 0.5))
-            self._set_status("Done ({} dims). {}".format(dims_created, warn))
-            TaskDialog.Show(
-                "Auto Dimension — Conflict Warning",
-                "Created {} dimension string(s) in view '{}'.\n\n"
-                "{} segment(s) are shorter than {}mm.\n"
-                "Consider increasing the offset or adjusting element positions "
-                "to prevent text overlap.".format(
-                    dims_created, view.Name,
-                    small_count, int(min_seg_feet / MM_TO_FEET + 0.5))
-            )
-        else:
-            self._set_status("Done — {} dimension string(s) created.".format(dims_created))
-            TaskDialog.Show(
-                "Auto Dimension",
-                "Done.\nCreated {} dimension string(s) in view '{}'.".format(
-                    dims_created, view.Name)
-            )
+        return (dims_created, dim_attempts[0], dim_failures, created_dims)
 
 
 # MAIN SCRIPT

@@ -85,7 +85,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>
             <RowDefinition Height="1"/>
-            <RowDefinition/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- TITLE BAR -->
@@ -160,13 +161,23 @@
                     </DockPanel>
                 </StackPanel>
             </Border>
-
-            <Button x:Name="UI_main_button" Content="Rename"
-                    Style="{StaticResource PrimaryButton}"
-                    Click="button_run" Margin="0,12,0,0"
-                    HorizontalAlignment="Left"/>
         </StackPanel>
-    
+
+        <!-- STATUS BAR -->
+        <Border Grid.Row="3" Background="#F8F9FA" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="14,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="lbl_status" Grid.Column="0" Text="Ready" VerticalAlignment="Center"
+                           Foreground="#7F8C8D" FontSize="12"/>
+                <Button x:Name="UI_main_button" Grid.Column="1" Content="Rename"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="button_run"/>
+            </Grid>
+        </Border>
+
         <!-- Copyright added automatically -->
         <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>

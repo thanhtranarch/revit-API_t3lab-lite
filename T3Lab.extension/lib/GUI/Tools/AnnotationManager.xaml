@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
-        Background="#FFFFFF"
+        Background="White"
         FontFamily="Inter">
 
     <WindowChrome.WindowChrome>
@@ -284,15 +284,17 @@
             </Grid.ColumnDefinitions>
 
             <!-- Bottom Border -->
-            <Border Grid.ColumnSpan="3" Height="1" BorderBrush="{StaticResource BorderLight}" BorderThickness="0,0,0,1" VerticalAlignment="Bottom"/>
+            <Border Grid.ColumnSpan="3" Height="1" Background="#546E7A" VerticalAlignment="Bottom"/>
 
             <!-- Left: Logo & Title -->
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Vertical">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}" Margin="0,0,6,0" VerticalAlignment="Bottom"/>
-                        <TextBlock Text="Annotation Manager - Master UI" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextDark}"/>
+                        <TextBlock Text="Annotation Manager" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextDark}"/>
                     </StackPanel>
+                    <Separator Height="1" Background="#546E7A" Margin="0,2,0,2"/>
+                    <TextBlock Text="Manage dimension types and text notes across the model" FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
                 </StackPanel>
             </StackPanel>
 
@@ -308,10 +310,10 @@
                 <!-- Custom Minimize, Maximize, Close Buttons -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0">
                     <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize" Click="minimize_button_clicked">
-                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource TextDark}"/>
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
                     </Button>
                     <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize" Click="maximize_button_clicked">
-                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource TextDark}"/>
+                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
                     </Button>
                     <Button x:Name="btn_close" Style="{StaticResource CloseButton}" ToolTip="Close" Click="close_button_clicked">
                         <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
@@ -774,7 +776,7 @@
         </TabControl>
 
         <!-- ═══ FOOTER STATUS BAR ═══ -->
-        <Border Grid.Row="2" Background="#F8F9FA" BorderBrush="{StaticResource BorderLight}" BorderThickness="0,1,0,0" Padding="16,6">
+        <Border Grid.Row="2" Background="#F8F9FA" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="16,6">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -785,6 +787,7 @@
         </Border>
 
         <!-- Mandatory Copyright Compliance Footer (Foreground="#3498DB", FontSize="11", IsHitTestVisible="False") -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,7" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

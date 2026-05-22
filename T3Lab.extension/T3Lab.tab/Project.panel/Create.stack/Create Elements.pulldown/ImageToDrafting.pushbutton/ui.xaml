@@ -194,11 +194,120 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Drafting View Name Input -->
-            <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,12">
-                <TextBlock Text="Drafting View Name" FontWeight="SemiBold" FontSize="13" Foreground="#2C3E50" Margin="0,0,0,6"/>
-                <TextBox x:Name="ViewNameInput" Style="{StaticResource ModernTextBox}"
-                         Text="Image Import"/>
+            <!-- Settings Row -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                <!-- Group 1: General Settings -->
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Drafting View Name" FontWeight="SemiBold" FontSize="11"
+                                   Foreground="#2C3E50" Margin="0,0,0,4"/>
+                        <TextBox x:Name="ViewNameInput" Style="{StaticResource ModernTextBox}"
+                                 Text="Image Import"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Output Width (mm)" FontWeight="SemiBold" FontSize="11"
+                                   Foreground="#2C3E50" Margin="0,0,0,4"/>
+                        <TextBox x:Name="WidthInput" Style="{StaticResource ModernTextBox}"
+                                 Text="300"
+                                 ToolTip="Target width in Revit (mm). Height scales proportionally."/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Group 2: Algorithm Settings -->
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Col 0: Tracing Mode -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
+                        <TextBlock Text="Tracing Mode" FontWeight="SemiBold" FontSize="11"
+                                   Foreground="#2C3E50" Margin="0,0,0,4"/>
+                        <ComboBox x:Name="TracingModeInput" Height="32" SelectedIndex="0" VerticalContentAlignment="Center" FontSize="13" SelectionChanged="TracingMode_SelectionChanged">
+                            <ComboBoxItem Content="Centerline (Auto-Thinning)"/>
+                            <ComboBoxItem Content="Outline (Boundary)"/>
+                        </ComboBox>
+                    </StackPanel>
+                    
+                    <!-- Col 2: Line Thickness / Pruning -->
+                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
+                        <TextBlock x:Name="lbl_thickness" Text="Pruning Length (px)" FontWeight="SemiBold" FontSize="11"
+                                   Foreground="#2C3E50" Margin="0,0,0,4"/>
+                        <TextBox x:Name="ThicknessInput" Style="{StaticResource ModernTextBox}"
+                                 Text="2"
+                                 ToolTip="Pruning length (Centerline) or Erosion width (Outline)."/>
+                    </StackPanel>
+                    
+                    <!-- Col 0 Row 1: Threshold Mode -->
+                    <StackPanel Grid.Row="1" Grid.Column="0">
+                        <TextBlock Text="Threshold Mode" FontWeight="SemiBold" FontSize="11"
+                                   Foreground="#2C3E50" Margin="0,0,0,4"/>
+                        <ComboBox x:Name="ThresholdModeInput" Height="32" SelectedIndex="1" VerticalContentAlignment="Center" FontSize="13" SelectionChanged="ThresholdMode_SelectionChanged">
+                            <ComboBoxItem Content="Auto (Otsu's Method)"/>
+                            <ComboBoxItem Content="Manual Threshold"/>
+                        </ComboBox>
+                    </StackPanel>
+                    
+                    <!-- Col 2 Row 1: Threshold Value / RDP -->
+                    <Grid Grid.Row="1" Grid.Column="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock x:Name="lbl_manual_threshold" Text="Threshold" FontWeight="SemiBold" FontSize="11"
+                                       Foreground="#2C3E50" Margin="0,0,0,4" Opacity="1.0"/>
+                            <TextBox x:Name="ManualThresholdInput" Style="{StaticResource ModernTextBox}"
+                                     Text="210" IsEnabled="True"
+                                     ToolTip="Manual grayscale threshold (0-255). Ignored in Auto."/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Tolerance" FontWeight="SemiBold" FontSize="11"
+                                       Foreground="#2C3E50" Margin="0,0,0,4"/>
+                            <TextBox x:Name="RdpToleranceInput" Style="{StaticResource ModernTextBox}"
+                                     Text="1.0"
+                                     ToolTip="Simplification tolerance (px). Higher = straighter lines, lower = more detailed curves."/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- Options checkboxes -->
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.5*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox x:Name="InvertInput" Grid.Column="0" Content="Invert Colors (Dark Mode)" 
+                              FontWeight="SemiBold" FontSize="11" Foreground="#2C3E50" VerticalAlignment="Center"
+                              ToolTip="Invert colors for light-on-dark images (e.g. AutoCAD/Revit dark mode screenshots)."/>
+                    
+                    <!-- PDF options if any -->
+                    <Border x:Name="sp_pdf_options" Grid.Column="1" Visibility="Collapsed"
+                            Background="#EBF5FB" BorderBrush="#3498DB"
+                            BorderThickness="1" CornerRadius="4"
+                            Padding="8,4">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📄 Page:" FontWeight="SemiBold" FontSize="11"
+                                       Foreground="#2C3E50" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBox x:Name="txt_pdf_page" Style="{StaticResource ModernTextBox}"
+                                     Text="1" Width="30" Height="24" Padding="4,0" FontSize="11" Margin="0,0,4,0"/>
+                            <TextBlock x:Name="lbl_pdf_pages" Text="of ? pages" FontSize="10"
+                                       Foreground="#7F8C8D" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </StackPanel>
 
             <!-- Drag & Drop Area / Preview -->
@@ -211,7 +320,7 @@
                         <TextBlock Text="Paste Image (Ctrl+V) or Drag &amp; Drop Here"
                                    HorizontalAlignment="Center" FontWeight="Medium"
                                    Foreground="#7F8C8D" FontSize="13" TextAlignment="Center"/>
-                        <TextBlock Text="Supports JPG, PNG, BMP"
+                        <TextBlock Text="Supports JPG, PNG, BMP, PDF"
                                    HorizontalAlignment="Center" Margin="0,4,0,0"
                                    Foreground="#BDC3C7" FontSize="11" TextAlignment="Center"/>
                     </StackPanel>
@@ -227,7 +336,7 @@
                     <ColumnDefinition Width="12"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Content="📂  Browse Image..." Height="36"
+                <Button Grid.Column="0" Content="📂  Browse File..." Height="36"
                         Style="{StaticResource SecondaryButton}" Click="Browse_Click"/>
                 <Button Grid.Column="2" Content="✕  Clear Image" Height="36"
                         Style="{StaticResource SecondaryButton}" Click="Clear_Click"/>

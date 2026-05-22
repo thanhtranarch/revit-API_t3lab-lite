@@ -971,7 +971,7 @@
         </Grid>
 
         <!-- ═══════════════ ACTION BAR (Row 3) ═══════════════ -->
-        <Border Grid.Row="3" Background="White" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="20,10">
+        <Border Grid.Row="3" Background="#F8F9FA" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="20,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

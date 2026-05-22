@@ -378,13 +378,10 @@ class AnnotationManagerWindow(forms.WPFWindow):
                 view = doc.GetElement(d.OwnerViewId)
                 if view:
                     try:
-                        d_name = d.Name or "<unnamed>"
+                        _p = d.DimensionType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+                        d_name = (_p.AsString() if _p else "") or "<unnamed style>"
                     except Exception:
-                        try:
-                            _p = d.DimensionType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
-                            d_name = _p.AsString() if _p else "<unnamed>"
-                        except Exception:
-                            d_name = "<unnamed>"
+                        d_name = "<unnamed style>"
                     self._dt_add(self._dim_dt, str(d.Id), "DimInst",
                                  d_name, view.Name,
                                  selected=False, count="1", status="Active")
@@ -505,14 +502,19 @@ class AnnotationManagerWindow(forms.WPFWindow):
                 col.Visibility = vis
 
     def dim_submode(self, sender, args):
+        if not hasattr(self, '_dim_dt'):
+            return
         self._dim_submode = "instances" if self.rb_dim_inst.IsChecked else "types"
         is_type = self._dim_submode == "types"
         self.btn_dim_jump.IsEnabled = not is_type
         if hasattr(self, 'dim_lbl'):
-            self.dim_lbl.Text = "Name:" if not is_type else "Type name:"
+            self.dim_lbl.Text = "Style name:" if not is_type else "Type name:"
         self._toggle_param_cols(self.dg_dim, is_type)
-        self.btn_dim_apply.Visibility = Visibility.Visible if is_type else Visibility.Collapsed
-        self._load_all_dims()
+        vis = Visibility.Visible if is_type else Visibility.Collapsed
+        self.btn_dim_apply.Visibility = vis
+        if hasattr(self, 'btn_dim_del_unused'):
+            self.btn_dim_del_unused.Visibility = vis
+        self.dim_search(None, None)
 
     # ── DIMENSION operations ─────────────────────────────────────────────
 
@@ -538,18 +540,15 @@ class AnnotationManagerWindow(forms.WPFWindow):
                    .WhereElementIsNotElementType().ToElements()
             for d in dims:
                 try:
-                    d_name = d.Name or ""
+                    _p = d.DimensionType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+                    d_name = (_p.AsString() if _p else "") or "<unnamed style>"
                 except Exception:
-                    try:
-                        _p = d.DimensionType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
-                        d_name = _p.AsString() if _p else ""
-                    except Exception:
-                        d_name = ""
+                    d_name = "<unnamed style>"
                 if kw in d_name.lower():
                     view = doc.GetElement(d.OwnerViewId)
                     if view:
                         self._dt_add(self._dim_dt, str(d.Id), "DimInst",
-                                     d_name or "<unnamed>", view.Name,
+                                     d_name, view.Name,
                                      selected=False, count="1", status="Active")
                         self._dim_map[str(d.Id)] = d
         else:  # types
@@ -699,7 +698,9 @@ class AnnotationManagerWindow(forms.WPFWindow):
             if not new_name:
                 continue
             try:
-                if elem.Name != new_name:
+                _p = elem.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+                cur_name = _p.AsString() if _p else ""
+                if cur_name != new_name:
                     elem.Name = new_name
                     count += 1
             except Exception:
@@ -709,6 +710,7 @@ class AnnotationManagerWindow(forms.WPFWindow):
         if errors:
             msg += "  ({} failed.)".format(errors)
         self._status(msg)
+        self._load_all_dims()
         self._load_sidebar_lists()
 
     def dim_rename_all(self, sender, args):
@@ -749,9 +751,44 @@ class AnnotationManagerWindow(forms.WPFWindow):
         self._load_all_dims()
         self._load_sidebar_lists()
 
+    def dim_delete_unused(self, sender, args):
+        from pyrevit import forms as pf
+        all_dims = FilteredElementCollector(doc).OfClass(Dimension)\
+                   .WhereElementIsNotElementType().ToElements()
+        used_ids = set()
+        for d in all_dims:
+            try:
+                used_ids.add(str(d.DimensionType.Id))
+            except Exception:
+                pass
+        all_types = FilteredElementCollector(doc).OfClass(DimensionType)\
+                    .WhereElementIsElementType().ToElements()
+        unused = [dt for dt in all_types if str(dt.Id) not in used_ids]
+        if not unused:
+            self._status("No unused Dimension Types found.")
+            return
+        if not pf.alert("Purge {} unused Dimension Type(s)?\nThis cannot be undone.".format(len(unused)),
+                        title="Confirm Purge", yes=True, no=True):
+            return
+        t = Transaction(doc, "Purge Unused Dimension Types")
+        t.Start()
+        ok = 0
+        for dt in unused:
+            try:
+                doc.Delete(dt.Id)
+                ok += 1
+            except Exception:
+                pass
+        t.Commit()
+        self._status("Purged {} unused Dimension Type(s).".format(ok))
+        self._load_all_dims()
+        self._load_sidebar_lists()
+
     # ── TextNote sub-mode ────────────────────────────────────────────────
 
     def txt_submode(self, sender, args):
+        if not hasattr(self, '_txt_dt'):
+            return
         if self.rb_notes.IsChecked:
             self._txt_submode = "notes"
             if hasattr(self, 'txt_lbl'):
@@ -764,8 +801,11 @@ class AnnotationManagerWindow(forms.WPFWindow):
             self.btn_txt_jump.IsEnabled = False
         is_type = self._txt_submode == "types"
         self._toggle_param_cols(self.dg_txt, is_type)
-        self.btn_txt_apply.Visibility = Visibility.Visible if is_type else Visibility.Collapsed
-        self._load_all_txts()
+        vis = Visibility.Visible if is_type else Visibility.Collapsed
+        self.btn_txt_apply.Visibility = vis
+        if hasattr(self, 'btn_txt_del_unused'):
+            self.btn_txt_del_unused.Visibility = vis
+        self.txt_search(None, None)
 
     # ── TEXTNOTE operations ──────────────────────────────────────────────
 
@@ -944,7 +984,9 @@ class AnnotationManagerWindow(forms.WPFWindow):
             if not new_name:
                 continue
             try:
-                if elem.Name != new_name:
+                _p = elem.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+                cur_name = _p.AsString() if _p else ""
+                if cur_name != new_name:
                     elem.Name = new_name
                     count += 1
             except Exception:
@@ -954,6 +996,7 @@ class AnnotationManagerWindow(forms.WPFWindow):
         if errors:
             msg += "  ({} failed.)".format(errors)
         self._status(msg)
+        self._load_all_txts()
         self._load_sidebar_lists()
 
     def txt_rename_all(self, sender, args):
@@ -968,7 +1011,12 @@ class AnnotationManagerWindow(forms.WPFWindow):
             for tt in FilteredElementCollector(doc).OfClass(TextNoteType)\
                       .WhereElementIsElementType().ToElements():
                 try:
-                    origin = tt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString()
+                    _p = tt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
+                    if _p is None:
+                        continue
+                    origin = _p.AsString()
+                    if not origin:
+                        continue
                     tt.Name = _txt_name(tt, origin)
                     count += 1
                 except Exception:
@@ -976,6 +1024,39 @@ class AnnotationManagerWindow(forms.WPFWindow):
         finally:
             t.Commit()
         self._status("Renamed {} TextNoteType(s).".format(count))
+        self._load_all_txts()
+        self._load_sidebar_lists()
+
+    def txt_delete_unused(self, sender, args):
+        from pyrevit import forms as pf
+        all_notes = FilteredElementCollector(doc).OfClass(TextNote)\
+                    .WhereElementIsNotElementType().ToElements()
+        used_ids = set()
+        for tn in all_notes:
+            try:
+                used_ids.add(str(tn.TextNoteType.Id))
+            except Exception:
+                pass
+        all_types = FilteredElementCollector(doc).OfClass(TextNoteType)\
+                    .WhereElementIsElementType().ToElements()
+        unused = [tt for tt in all_types if str(tt.Id) not in used_ids]
+        if not unused:
+            self._status("No unused Text Note Types found.")
+            return
+        if not pf.alert("Purge {} unused Text Note Type(s)?\nThis cannot be undone.".format(len(unused)),
+                        title="Confirm Purge", yes=True, no=True):
+            return
+        t = Transaction(doc, "Purge Unused Text Note Types")
+        t.Start()
+        ok = 0
+        for tt in unused:
+            try:
+                doc.Delete(tt.Id)
+                ok += 1
+            except Exception:
+                pass
+        t.Commit()
+        self._status("Purged {} unused Text Note Type(s).".format(ok))
         self._load_all_txts()
         self._load_sidebar_lists()
 

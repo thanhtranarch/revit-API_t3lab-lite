@@ -346,6 +346,180 @@ class WorksetManagerWindow(forms.WPFWindow):
             self._refresh_worksets()
         self._update_status()
 
+    # ── Window chrome ──────────────────────────────────────────────────────────
+
+    def minimize_button_clicked(self, sender, e):
+        self.WindowState = WindowState.Minimized
+
+    def maximize_button_clicked(self, sender, e):
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+        else:
+            self.WindowState = WindowState.Maximized
+
+    def close_button_clicked(self, sender, e):
+        self.Close()
+
+    # ── Private helpers ────────────────────────────────────────────────────────
+
+    def _set_worksharing_state(self, enabled):
+        """Enable/disable controls based on whether worksharing is active."""
+        self.btn_enable_ws.IsEnabled = not enabled
+        for btn in [self.btn_create, self.btn_delete,
+                    self.btn_create_list, self.btn_remove_unused,
+                    self.btn_create_views, self.btn_refresh]:
+            btn.IsEnabled = enabled
+        if not enabled:
+            self.status_text.Text = "Worksharing is not enabled on this document."
+
+    def _refresh_worksets(self):
+        """Reload user worksets from the document into the DataGrid."""
+        active_id = get_active_workset_id()
+        worksets  = get_user_worksets()
+        items     = [WorksetItem(i + 1, ws, active_id) for i, ws in enumerate(worksets)]
+        self.ws_grid.ItemsSource = items
+        count = len(items)
+        self.ws_status.Text = "{} workset{}".format(count, "s" if count != 1 else "")
+
+    def _update_status(self):
+        """Refresh the status-bar message."""
+        if not doc.IsWorkshared:
+            self.status_text.Text = "Not workshared — enable worksharing first."
+        else:
+            count = len(get_user_worksets())
+            self.status_text.Text = "Ready  —  {} user workset{} loaded.".format(
+                count, "s" if count != 1 else "")
+
+    # ── Toolbar button handlers ────────────────────────────────────────────────
+
+    def btn_enable_ws_click(self, sender, e):
+        if not _confirm(
+            "Enable worksharing on this document?\n\n"
+            "This will create two default worksets:\n"
+            "  • _SHARED LEVELS & GRIDS\n"
+            "  • _ARCHITECT",
+            title="Enable Worksharing"
+        ):
+            return
+        if enable_worksharing():
+            self._set_worksharing_state(enabled=True)
+            self._refresh_worksets()
+            self.status_text.Text = "Worksharing enabled successfully."
+
+    def btn_create_click(self, sender, e):
+        name = forms.ask_for_string(
+            prompt="Enter a name for the new workset:",
+            title="Create Workset",
+        )
+        if not name:
+            return
+        name = name.strip()
+        if not name:
+            return
+        existing = get_workset_names()
+        if name in existing:
+            forms.alert("Workset '{}' already exists.".format(name), title="Duplicate")
+            return
+        created = create_worksets([name], existing)
+        if created:
+            self._refresh_worksets()
+            self.status_text.Text = "Created workset: {}.".format(name)
+
+    def btn_delete_click(self, sender, e):
+        selected = list(self.ws_grid.SelectedItems)
+        if not selected:
+            forms.alert("Select one or more worksets to delete.", title="No Selection")
+            return
+        names = [item.Name for item in selected]
+        if not _confirm(
+            "Delete {} workset(s)?\n\n{}\n\n"
+            "Elements will be moved to the closest matching workset.".format(
+                len(names), "\n".join("  • " + n for n in names)),
+            title="Delete Workset(s)"
+        ):
+            return
+        all_names = get_workset_names()
+        deleted = 0
+        for name in names:
+            keep = [n for n in all_names if n != name]
+            dest = _find_best_match(name, keep)
+            if dest:
+                current = get_user_worksets()
+                if _remove_workset(name, dest, current):
+                    all_names = keep
+                    deleted += 1
+            else:
+                forms.alert(
+                    "Cannot delete '{}': no other workset to move elements to.".format(name),
+                    title="Delete Failed"
+                )
+        self._refresh_worksets()
+        self.status_text.Text = "Deleted {} of {} workset(s).".format(deleted, len(names))
+
+    def btn_create_list_click(self, sender, e):
+        workset_list = load_workset_list()
+        existing     = get_workset_names()
+        to_create    = [n for n in workset_list if n not in existing]
+        if not to_create:
+            forms.alert(
+                "All {} worksets in the list already exist.".format(len(workset_list)),
+                title="Nothing to Create"
+            )
+            return
+        if not _confirm(
+            "Create {} new workset(s) from workset_list.txt?".format(len(to_create)),
+            title="Create from List"
+        ):
+            return
+        created = create_worksets(to_create, existing)
+        self._refresh_worksets()
+        self.status_text.Text = "Created {} workset(s) from list.".format(len(created))
+
+    def btn_remove_unused_click(self, sender, e):
+        workset_list     = load_workset_list()
+        existing_ws      = get_user_worksets()
+        existing_names   = [ws.Name for ws in existing_ws]
+        unused           = [ws for ws in existing_ws if ws.Name not in workset_list]
+        if not unused:
+            forms.alert("No unused worksets found.", title="Remove Unused")
+            return
+        selected_names = forms.SelectFromList.show(
+            sorted([ws.Name for ws in unused]),
+            title="Remove Unused Worksets",
+            button_name="Remove Selected",
+            multiselect=True,
+        )
+        if not selected_names:
+            return
+        keep_names = [n for n in existing_names if n not in selected_names]
+        deleted = 0
+        for name in selected_names:
+            dest = _find_best_match(name, keep_names)
+            if dest:
+                current = get_user_worksets()
+                if _remove_workset(name, dest, current):
+                    deleted += 1
+            else:
+                print("No destination for '{}', skipping.".format(name))
+        self._refresh_worksets()
+        self.status_text.Text = "Removed {} workset(s).".format(deleted)
+
+    def btn_create_views_click(self, sender, e):
+        self.status_text.Text = "Creating workset views…"
+        created, skipped, error = create_workset_views()
+        if error:
+            forms.alert("Error: {}".format(error), title="Create Workset Views")
+            self.status_text.Text = "Error creating views."
+            return
+        msg = "Created {} view(s).".format(len(created))
+        if skipped:
+            msg += "  Skipped {} (already exist).".format(len(skipped))
+        self.status_text.Text = msg
+
+    def btn_refresh_click(self, sender, e):
+        self._refresh_worksets()
+        self._update_status()
+
 # ==================================================
 # MAIN ENTRY POINT
 # ==================================================

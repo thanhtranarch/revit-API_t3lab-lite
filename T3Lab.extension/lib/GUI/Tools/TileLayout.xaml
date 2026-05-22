@@ -214,6 +214,7 @@
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
                 </Button>
             </StackPanel>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#546E7A"/>
         </Grid>
 
         <!-- ═══════════════ STEP PROGRESS ═══════════════ -->

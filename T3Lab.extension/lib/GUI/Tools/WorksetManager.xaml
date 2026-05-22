@@ -6,7 +6,8 @@
     MinHeight="420" MinWidth="640"
     WindowStartupLocation="CenterScreen"
     ResizeMode="CanResizeWithGrip"
-    Background="White">
+    Background="White"
+    FontFamily="Inter">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"

@@ -52,7 +52,7 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Close Button -->
+        <!-- Window Control Button -->
         <Style x:Key="WinCtrlButton" TargetType="Button">
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
@@ -65,14 +65,32 @@
                         <Border x:Name="bd" Background="{TemplateBinding Background}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#F8F9FA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D32F2F"/>
-                </Trigger>
-            </Style.Triggers>
+        </Style>
+
+        <!-- Close Button -->
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#D32F2F"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -96,7 +114,13 @@
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button x:Name="btn_close" Style="{StaticResource WinCtrlButton}" Click="close_button_clicked">
+                <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" Click="minimize_button_clicked" ToolTip="Minimize">
+                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                </Button>
+                <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" Click="maximize_button_clicked" ToolTip="Maximize">
+                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                </Button>
+                <Button x:Name="btn_close" Style="{StaticResource CloseButton}" Click="close_button_clicked" ToolTip="Close">
                     <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -158,9 +182,18 @@
             </StackPanel>
         </ScrollViewer>
 
-        <!-- Footer -->
-        <Border Grid.Row="2" Padding="20,0,20,20">
-            <Button x:Name="btn_generate" Content="START MODELING BEAMS" Style="{StaticResource PrimaryButton}" Click="generate_clicked"/>
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="#F8F9FA" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="14,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="lbl_status" Grid.Column="0" Text="Ready" VerticalAlignment="Center"
+                           Foreground="#7F8C8D" FontSize="12"/>
+                <Button x:Name="btn_generate" Grid.Column="1" Content="START MODELING BEAMS"
+                        Style="{StaticResource PrimaryButton}" Click="generate_clicked"/>
+            </Grid>
         </Border>
     
         <!-- Copyright added automatically -->

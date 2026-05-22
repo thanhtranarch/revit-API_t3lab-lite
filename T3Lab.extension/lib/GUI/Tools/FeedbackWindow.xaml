@@ -239,6 +239,7 @@
                     </TextBlock>
                 </Button>
             </StackPanel>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#546E7A"/>
         </Grid>
 
         <!-- ========================= BODY ========================= -->
@@ -308,7 +309,7 @@
         </Grid>
 
         <!-- ========================= FOOTER ========================= -->
-        <Border Grid.Row="2" Background="#F8F9FA" BorderBrush="#F8F9FA"
+        <Border Grid.Row="2" Background="#F8F9FA" BorderBrush="#546E7A"
                 BorderThickness="0,1,0,0" Padding="24,10">
             <Grid>
                 <Grid.ColumnDefinitions>

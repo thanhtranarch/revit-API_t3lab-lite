@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
-        Background="#F9FAFB"
+        Background="White"
         FontFamily="Inter"
         FontSize="12">
 
@@ -213,10 +213,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- T3Lab Title + Subtitle Brand layout -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,0,0">
-                <TextBlock Text="T3Lab" FontSize="16" FontWeight="Bold" Foreground="#083D56" VerticalAlignment="Center"/>
-                <Border Width="1" Height="16" Background="#E5E7EB" Margin="12,0" VerticalAlignment="Center"/>
-                <TextBlock Text="Property Line Tool" FontSize="16" FontWeight="SemiBold" Foreground="#1F2937" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="24,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#083D56" VerticalAlignment="Bottom" Margin="0,0,6,2"/>
+                    <TextBlock Text="Property Line Tool" FontSize="18" FontWeight="Bold" Foreground="#2C3E50" VerticalAlignment="Bottom"/>
+                </StackPanel>
+                <Separator Height="1" Background="#546E7A" Margin="0,2,0,2"/>
+                <TextBlock Text="Lookup and create property line boundaries from cadastral data" FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
             </StackPanel>
 
             <!-- Window controls + Profile Icon -->
@@ -239,7 +242,16 @@
                         ToolTip="Minimize"
                         Click="btn_minimize_Click"
                         Margin="0,0,4,0">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#4B5563"/>
+                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                </Button>
+
+                <!-- Maximize -->
+                <Button x:Name="btn_maximize"
+                        Style="{StaticResource WinCtrlButton}"
+                        ToolTip="Maximize"
+                        Click="maximize_button_clicked"
+                        Margin="0,0,4,0">
+                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
                 </Button>
 
                 <!-- Close -->
@@ -247,7 +259,7 @@
                         Style="{StaticResource CloseButton}"
                         ToolTip="Close"
                         Click="btn_close_Click">
-                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#4B5563">
+                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
@@ -261,11 +273,11 @@
                 </Button>
             </StackPanel>
             
-            <Border Height="1" VerticalAlignment="Bottom" Background="#E5E7EB"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#546E7A"/>
         </Grid>
 
         <!-- ═══════════════════════════════════════════════════════════ CONTENT (2-COLUMN) -->
-        <Grid Grid.Row="1" Background="#F9FAFB">
+        <Grid Grid.Row="1" Background="White">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="340"/> <!-- Left column: API Config & Details -->
                 <ColumnDefinition Width="*"/>   <!-- Right column: Search & Results -->
@@ -641,7 +653,7 @@
 
         <!-- ═══════════════════════════════════════════════════════════ COMBINED BOTTOM BAR -->
         <Border Grid.Row="2" Background="#F8F9FA"
-                BorderBrush="#E5E7EB" BorderThickness="0,1,0,0"
+                BorderBrush="#546E7A" BorderThickness="0,1,0,0"
                 Padding="24,16">
             <Grid>
                 <Grid.ColumnDefinitions>

@@ -20,6 +20,7 @@ Spawn the appropriate agent based on the task:
 | Build a new pushbutton end-to-end | `@tool-builder-agent` |
 | Review or test completed code | `@qa-agent` |
 | Standardize script.py structure to BatchOut frame | `@script-frame-agent` |
+| Audit & fix ALL XAML files for UI consistency | `@ui-police-agent` |
 
 Agent definitions: `.claude/agents/`
 

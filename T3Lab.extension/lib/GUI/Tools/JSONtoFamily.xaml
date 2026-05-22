@@ -148,6 +148,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Custom Title Bar -->
@@ -218,6 +219,7 @@
                     </TextBlock>
                 </Button>
             </StackPanel>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#546E7A"/>
         </Grid>
 
         <!-- Main Content -->
@@ -242,24 +244,35 @@
                      Padding="10"
                      Text="Paste your JSON schema here..."/>
 
-            <!-- Footer Buttons -->
-            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                <Button x:Name="copy_prompt_btn" Content="Copy Prompt"
-                        Width="130" Height="36"
-                        Margin="0,0,10,0"
-                        Style="{StaticResource CopyButton}"
-                        Click="copy_prompt_clicked"/>
-                <Button x:Name="cancel_btn" Content="Cancel"
-                        Width="100" Height="36"
-                        Margin="0,0,10,0"
-                        Style="{StaticResource SecondaryButton}"
-                        Click="cancel_clicked"/>
-                <Button x:Name="create_btn" Content="Create Family"
-                        Width="140" Height="36"
-                        Style="{StaticResource PrimaryButton}"
-                        Click="create_clicked"/>
-            </StackPanel>
         </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="#F8F9FA" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="14,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="lbl_status" Grid.Column="0" Text="Ready" VerticalAlignment="Center"
+                           Foreground="#7F8C8D" FontSize="12"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="copy_prompt_btn" Content="Copy Prompt"
+                            Width="130" Height="32"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource CopyButton}"
+                            Click="copy_prompt_clicked"/>
+                    <Button x:Name="cancel_btn" Content="Cancel"
+                            Width="100" Height="32"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource SecondaryButton}"
+                            Click="cancel_clicked"/>
+                    <Button x:Name="create_btn" Content="Create Family"
+                            Width="140" Height="32"
+                            Style="{StaticResource PrimaryButton}"
+                            Click="create_clicked"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     
         <!-- Copyright added automatically -->
         <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>

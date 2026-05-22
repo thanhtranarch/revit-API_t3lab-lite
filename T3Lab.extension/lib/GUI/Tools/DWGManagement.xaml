@@ -209,7 +209,7 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="T3Lab"
                                    FontSize="11" FontWeight="Bold"
-                                   Foreground="#2C3E50"
+                                   Foreground="#083D56"
                                    VerticalAlignment="Bottom" Margin="0,0,6,2"/>
                         <TextBlock Text="|"
                                    FontSize="14" Foreground="#546E7A"

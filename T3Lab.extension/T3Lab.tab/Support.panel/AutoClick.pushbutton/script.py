@@ -112,7 +112,8 @@ class AutoClickWindow(forms.WPFWindow):
         for vk in range(8, 256):
             ctypes.windll.user32.GetAsyncKeyState(vk)
 
-        for i in range(total_clicks):
+        i = 0
+        while i < total_clicks:
             # Check if any key is pressed to abort
             abort = False
             for vk in range(8, 256):
@@ -129,7 +130,7 @@ class AutoClickWindow(forms.WPFWindow):
             ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
             Thread.Sleep(50)
             ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
-            
+
             if i < total_clicks - 1:
                 elapsed = 0.0
                 while elapsed < interval:
@@ -140,6 +141,8 @@ class AutoClickWindow(forms.WPFWindow):
                             return
                     Thread.Sleep(50)
                     elapsed += 0.05
+
+            i += 1
 
         self.WindowState = WindowState.Normal
         self._set_status("Successfully completed {} clicks!".format(total_clicks))

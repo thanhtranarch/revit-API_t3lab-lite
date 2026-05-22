@@ -7,7 +7,10 @@
       "Bash(cat)",
       "Read(//tmp/**)",
       "Bash(grep -E '\\\\.\\(panel|stack|pulldown|pushbutton\\)$')",
-      "WebFetch(domain:www.youtube.com)"
+      "WebFetch(domain:www.youtube.com)",
+      "Bash(gh repo *)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
