@@ -1,0 +1,9 @@
+title: CAD To Beam
+tooltip: Create structural beams in Revit from imported CAD files
+description: |
+  Automatically detect beam layers in a CAD file, pair parallel lines
+  to find centerlines and widths, then place structural beams with
+  correct level and Z-offset.
+
+author: Tran Tien Thanh
+version: 2.0.0

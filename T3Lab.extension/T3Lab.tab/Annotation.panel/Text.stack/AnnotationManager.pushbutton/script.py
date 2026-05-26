@@ -58,40 +58,40 @@ uidoc  = revit.uidoc
 REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
 # ============================================================
-# NAMING STRUCTURE CONFIGURATION (EASILY CUSTOMIZED)
+# NAMING STRUCTURE CONFIGURATION — ISO 19650 COMPLIANT
 # ============================================================
-# Tokens will be replaced with their evaluated values. Unused tokens (value is None or empty) are removed.
+# Format: {Discipline}_{TypeIndicator}_{Size}_{Font}_{WidthScale}_{Background}_[optional fields]
+# Separator: '_' per ISO 19650-2:2018 Annex A field delimiter convention.
+# Unused tokens (value is None or empty/"N/A") are omitted automatically.
 NAMING_TEMPLATES = {
     "Dimension": {
-        "Prefix": "LB",
         "Separator": "_",
         "Fields": [
-            "Prefix",          # E.g. "LB"
-            "Discipline",      # E.g. "ARC" or "STR"
+            "Discipline",      # "ARC" or "STR"
+            "TypeIndicator",   # Always "DIM"
             "Size",            # E.g. "2.50mm"
             "Font",            # E.g. "Arial"
             "WidthScale",      # E.g. "0.7"
-            "Background",      # E.g. "Transparent" or "Opaque"
-            "Color",           # E.g. "Red" (skipped if Black)
-            "CenterSymbol",    # E.g. "Center"
-            "PrefixText",      # E.g. Prefix parameter of Dimension
-            "ElevationText",   # E.g. Elevation indicators
-            "Rounding"         # E.g. "Round1" or "Round0.1"
+            "Background",      # "Transparent" or "Opaque"
+            "Color",           # E.g. "Red" (omitted if Black)
+            "CenterSymbol",    # "Center" if center-line symbol present
+            "PrefixText",      # Prefix parameter of Dimension
+            "ElevationText",   # Elevation indicators
+            "Rounding"         # "Round1" or "Round0.1"
         ]
     },
     "TextNote": {
-        "Prefix": "LB",
         "Separator": "_",
         "Fields": [
-            "Prefix",          # E.g. "LB"
-            "Discipline",      # E.g. "ARC" or "STR"
+            "Discipline",      # "ARC" or "STR"
+            "TypeIndicator",   # Always "TXT"
             "Size",            # E.g. "2.50mm"
             "Font",            # E.g. "Arial"
             "WidthScale",      # E.g. "0.7"
-            "Background",      # E.g. "Transparent" or "Opaque"
-            "Color",           # E.g. "Red" (skipped if Black)
-            "Border",          # E.g. "Border"
-            "TextStyles"       # E.g. Bold/Underline/Italic "BUI"
+            "Background",      # "Transparent" or "Opaque"
+            "Color",           # E.g. "Red" (omitted if Black)
+            "Border",          # "Border" if text box visible
+            "TextStyles"       # Bold/Underline/Italic → "BUI"
         ]
     }
 }
@@ -170,8 +170,8 @@ def _dim_name(dt, origin):
 
     # Map variable values to structure configuration fields
     field_values = {
-        "Prefix": NAMING_TEMPLATES["Dimension"]["Prefix"],
         "Discipline": discipline,
+        "TypeIndicator": "DIM",
         "Size": size,
         "Font": font,
         "WidthScale": factor,
@@ -228,8 +228,8 @@ def _txt_name(tt, origin):
 
     # Map variable values to structure configuration fields
     field_values = {
-        "Prefix": NAMING_TEMPLATES["TextNote"]["Prefix"],
         "Discipline": discipline,
+        "TypeIndicator": "TXT",
         "Size": size,
         "Font": font,
         "WidthScale": factor,

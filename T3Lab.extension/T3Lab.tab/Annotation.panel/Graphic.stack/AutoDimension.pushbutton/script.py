@@ -916,6 +916,9 @@ class AutoDimensionWindow(forms.WPFWindow):
                                 "Please select Floor Plan or Engineering Plan views.")
                 return
 
+        # margin is recomputed inside _dim_one_view; pass a placeholder derived from l1_feet
+        margin = l1_feet * 0.5
+
         # ── Run per-view and accumulate results ────────────────────────────
         total_dims_created = 0
         total_attempts = [0]

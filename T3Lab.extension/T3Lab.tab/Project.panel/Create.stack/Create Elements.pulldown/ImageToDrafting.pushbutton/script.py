@@ -23,6 +23,10 @@ PDF support (v4.0)
 Author: Tran Tien Thanh
 """
 
+__title__   = "Image To Drafting"
+__author__  = "Tran Tien Thanh"
+__version__ = "4.0.0"
+
 import os
 import re
 import glob as _glob

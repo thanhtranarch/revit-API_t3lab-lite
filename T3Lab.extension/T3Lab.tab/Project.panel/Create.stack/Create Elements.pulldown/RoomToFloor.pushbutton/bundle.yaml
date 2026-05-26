@@ -1,0 +1,8 @@
+title: Room To Floor
+tooltip: Create architectural or structural floors from selected room boundaries
+description: |
+  Automatically generates floor elements using the boundary curves
+  of selected rooms. Supports both architectural and structural floor types.
+
+author: Tran Tien Thanh
+version: 1.0.0
