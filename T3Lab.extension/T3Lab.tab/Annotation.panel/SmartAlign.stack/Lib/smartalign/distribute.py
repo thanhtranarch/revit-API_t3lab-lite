@@ -63,6 +63,10 @@ def main(ALIGN):
             point_element.element = element
             point_collection.points.append(point_element)
 
+    if len(point_collection) < 2:
+        logger.error('Select at least 2 elements with a valid location to distribute.')
+        return
+
     point_collection.sort_points(alignment.axis)
     qty_items = len(point_collection)
 
@@ -81,21 +85,24 @@ def main(ALIGN):
 
     t = Transaction(doc, 'Smart Align - Distribute')
     t.Start()
+    try:
+        for point_element, target_location in zip(point_collection, target_locations):
+            current_location = getattr(point_element, alignment.axis)
+            delta = current_location - target_location
+            delta_vector = PointElement(0, 0, 0)
+            setattr(delta_vector, alignment.axis,-delta)
+            translation = XYZ(*delta_vector.as_tuple)
 
-    for point_element, target_location in zip(point_collection, target_locations):
-        current_location = getattr(point_element, alignment.axis)
-        delta = current_location - target_location
-        delta_vector = PointElement(0, 0, 0)
-        setattr(delta_vector, alignment.axis,-delta)
-        translation = XYZ(*delta_vector.as_tuple)
+            move_element(point_element.element, translation)
 
-        move_element(point_element.element, translation)
-
-        logger.debug('current: {}'.format(current_location))
-        logger.debug('target: {}'.format(target_location))
-        logger.debug('delta: {}'.format(delta))
-        logger.debug('delta_vector: {}'.format(delta_vector))
-        logger.debug('Translation: {}'.format(str(translation)))
+            logger.debug('current: {}'.format(current_location))
+            logger.debug('target: {}'.format(target_location))
+            logger.debug('delta: {}'.format(delta))
+            logger.debug('delta_vector: {}'.format(delta_vector))
+            logger.debug('Translation: {}'.format(str(translation)))
+    except Exception:
+        t.RollBack()
+        raise
 
     logger.info('Done.')
     t.Commit()

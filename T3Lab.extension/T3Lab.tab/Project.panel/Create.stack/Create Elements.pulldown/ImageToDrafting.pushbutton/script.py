@@ -1533,6 +1533,7 @@ class ImageToDraftingWindow(forms.WPFWindow):
 
         # 4 ── Create detail lines in Revit
         created = 0
+        failed  = 0
         with revit.Transaction("Image to Drafting View"):
             dview = DB.ViewDrafting.Create(doc, vft.Id)
             dview.Name = final_name
@@ -1541,10 +1542,13 @@ class ImageToDraftingWindow(forms.WPFWindow):
                     doc.Create.NewDetailCurve(dview, DB.Line.CreateBound(p1, p2))
                     created += 1
                 except Exception:
-                    pass
+                    failed += 1
 
         revit.uidoc.ActiveView = dview
-        print("Done — {} detail lines in '{}'.".format(created, final_name))
+        msg = "Done — {} detail lines in '{}'.".format(created, final_name)
+        if failed:
+            msg += " ({} segment(s) could not be created and were skipped.)".format(failed)
+        print(msg)
 
     # ── cleanup ────────────────────────────────────────────────────────────────
     def cleanup(self):
@@ -1563,8 +1567,10 @@ def main():
     if not doc:
         forms.alert("No active Revit document."); return
     win = ImageToDraftingWindow(script.get_bundle_file('ui.xaml'))
-    win.ShowDialog()
-    win.cleanup()
+    try:
+        win.ShowDialog()
+    finally:
+        win.cleanup()
 
 if __name__ == '__main__':
     main()

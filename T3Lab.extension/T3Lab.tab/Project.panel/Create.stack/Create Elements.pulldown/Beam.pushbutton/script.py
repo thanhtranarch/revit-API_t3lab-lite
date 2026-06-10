@@ -213,7 +213,7 @@ class CADtoBeamWindow(forms.WPFWindow):
 
         try:
             default_z_offset = float(self.txt_offset.Text)
-        except:
+        except (ValueError, TypeError):
             default_z_offset = -50.0
 
         # Mapping Height logic (as per user's table)

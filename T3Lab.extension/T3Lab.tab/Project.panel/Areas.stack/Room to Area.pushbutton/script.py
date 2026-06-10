@@ -48,6 +48,8 @@ def compare_box(room, area):
         result = all(i <= 4 for i in compare)
         return result
 def assign_room_to_area(room,area):
+    """Copy room parameters onto the matched area.
+    Returns None on success, or an error description on failure."""
     try:
         occupancy = room.LookupParameter("Occupancy").AsString()
         room_type = room.LookupParameter("Room Type").AsString()
@@ -60,8 +62,8 @@ def assign_room_to_area(room,area):
         area.LookupParameter("Name").Set(name)
         area.LookupParameter("Balcony Area").Set(0)
         area.LookupParameter("LEVEL").Set(level_splited[-1])
-    except:
-        pass
+    except Exception as e:
+        return "Area {}: {}".format(area.Id, e)
 
 # MAIN SCRIPT
 # ==================================================
@@ -71,6 +73,7 @@ areas = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Areas).ToEl
 with Transaction(doc, "Assign Rooms to Areas") as t:
     t.Start()
     count=0
+    failures = []
     for area in areas:
         # if area.AreaScheme.Name.strip()=='GS - DWELLING UNIT':.
         try:
@@ -78,12 +81,20 @@ with Transaction(doc, "Assign Rooms to Areas") as t:
                 result = compare_box(room, area)
                 if result:
                     count+=1
-                    assign_room_to_area(room,area)
+                    error = assign_room_to_area(room,area)
+                    if error:
+                        failures.append(error)
         except Exception as e:
-            print(str(e))
+            failures.append("Area {}: {}".format(area.Id, e))
     t.Commit()
-    
-if count > 0:
-    TaskDialog.Show("Rooms to Areas", "Done!")
+
+if failures:
+    shown = "\n".join(failures[:15])
+    if len(failures) > 15:
+        shown += "\n... and {} more".format(len(failures) - 15)
+    TaskDialog.Show("Rooms to Areas",
+                    "Matched {} room(s), but {} assignment(s) failed:\n\n{}".format(count, len(failures), shown))
+elif count > 0:
+    TaskDialog.Show("Rooms to Areas", "Done! {} room(s) assigned to areas.".format(count))
 else:
-    TaskDialog.Show("Rooms to Areas", "There is not assigned value")
+    TaskDialog.Show("Rooms to Areas", "No matching rooms/areas were found. Nothing was changed.")
