@@ -4,7 +4,7 @@
         Width="450" Height="580"
         Background="White"
         FontFamily="Inter"
-        ResizeMode="NoResize"
+        ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen">
 
     <WindowChrome.WindowChrome>

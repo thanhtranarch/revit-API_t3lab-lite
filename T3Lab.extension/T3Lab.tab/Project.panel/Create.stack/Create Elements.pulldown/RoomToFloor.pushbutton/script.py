@@ -253,7 +253,7 @@ class RoomToFloorWindow(forms.WPFWindow):
         for t in floor_types:
             try:
                 type_name = t.LookupParameter("Type Name").AsString() if t.LookupParameter("Type Name") else t.Name
-            except:
+            except Exception:
                 type_name = t.Name
             if not type_name:
                 type_name = ""
@@ -321,7 +321,7 @@ class RoomToFloorWindow(forms.WPFWindow):
         
         try:
             offset_mm = float(self.txt_offset.Text)
-        except:
+        except (ValueError, TypeError):
             offset_mm = 0
 
         is_structural = self.chk_structural.IsChecked

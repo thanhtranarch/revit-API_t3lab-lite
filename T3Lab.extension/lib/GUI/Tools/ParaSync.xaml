@@ -748,7 +748,7 @@
     </TabControl>
 
     <!-- Row 3: Bottom options -->
-    <Border Grid.Row="3" Background="#F5F5F5" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="10,6">
+    <Border Grid.Row="3" Background="#F8F9FA" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="10,6">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>

@@ -56,25 +56,32 @@ def main(ALIGN):
             point_element.element = element
             point_collection.points.append(point_element)
 
+    if not point_collection.points:
+        logger.error('Selected elements have no alignable location. Nothing to align.')
+        return
+
     average_target = getattr(point_collection, alignment.method)
     logger.debug('Location Target is: {}'.format(average_target))
 
     t = Transaction(doc, 'Smart Align - Align')
     t.Start()
+    try:
+        for point_element in point_collection:
+            delta = getattr(average_target, alignment.axis) - getattr(point_element, alignment.axis)
 
-    for point_element in point_collection:
-        delta = getattr(average_target, alignment.axis) - getattr(point_element, alignment.axis)
+            logger.debug('Delta is: {}'.format(str(delta)))
+            if abs(delta) < TOLERANCE:
+                logger.info('Translation smaller than tolerance. Skipping...')
 
-        logger.debug('Delta is: {}'.format(str(delta)))
-        if abs(delta) < TOLERANCE:
-            logger.info('Translation smaller than tolerance. Skipping...')
-            
-        else:
-            delta_vector = PointElement(0, 0, 0)  # Blank Vector
-            setattr(delta_vector, alignment.axis, delta)    # Replace Axis with Delta
-            translation = XYZ(*delta_vector.as_tuple)  # Revit PTvector
-            logger.debug('Translation: {}'.format(str(translation)))
-            move_element(point_element.element, translation)
+            else:
+                delta_vector = PointElement(0, 0, 0)  # Blank Vector
+                setattr(delta_vector, alignment.axis, delta)    # Replace Axis with Delta
+                translation = XYZ(*delta_vector.as_tuple)  # Revit PTvector
+                logger.debug('Translation: {}'.format(str(translation)))
+                move_element(point_element.element, translation)
+    except Exception:
+        t.RollBack()
+        raise
 
     logger.info('Done.')
     t.Commit()

@@ -22,6 +22,7 @@ import traceback
 from Autodesk.Revit.UI.Selection    import ISelectionFilter, ObjectType, Selection
 from Autodesk.Revit.DB.Architecture import Room
 from Autodesk.Revit.DB import *
+from Autodesk.Revit.Exceptions     import OperationCanceledException
 
 # pyRevit IMPORTS
 from pyrevit.forms import SelectFromList
@@ -52,12 +53,9 @@ def get_selected_elements(uidoc = uidoc, exitscript=True):
     doc       = uidoc.Document
     selection = uidoc.Selection  # type: Selection
 
-    try:
-        selected_elements = [doc.GetElement(e_id) for e_id in selection.GetElementIds()]
-        if not selected_elements:
-            forms.alert("No elements  were selected.\nPlease, try again.", exitscript=exitscript)
-    except:
-        return
+    selected_elements = [doc.GetElement(e_id) for e_id in selection.GetElementIds()]
+    if not selected_elements:
+        forms.alert("No elements were selected.\nPlease, try again.", exitscript=exitscript)
 
     return selected_elements
 
@@ -86,8 +84,8 @@ def get_selected_rooms(uidoc=uidoc, exitscript = True):
                                                        ref_preselection)
 
         selected_rooms  = [doc.GetElement(ref) for ref in ref_selected_rooms]
-    except:
-        pass
+    except OperationCanceledException:
+        pass  # user pressed Esc / cancelled picking — handled by the alert below
 
     if not selected_rooms:
         error_msg = 'No Rooms were selected.\nPlease Try Again'
