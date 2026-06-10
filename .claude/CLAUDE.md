@@ -4,10 +4,11 @@ pyRevit extension for Revit automation.
 Framework: IronPython 2.7 + WPF + Revit API
 
 ## Rules
-- Always follow `.claude/rules/ui-design-standard.md` for any UI work
+- Always follow `.claude/rules/ui-design-standard.md` for any UI work (T3Lab Terra design system)
 - XAML files go in `T3Lab.extension/lib/GUI/Tools/`
 - Python dialog classes stay in `T3Lab.extension/lib/GUI/`
 - Keep Revit API logic separate from WPF/UI code
+- Shared button styles live in `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` and are propagated into every tool XAML with `python3 dev/sync_wpf_styles.py` (`--check` to verify) — never hand-edit the marked style block inside a tool XAML
 
 ## Agents
 

@@ -1,6 +1,6 @@
 ---
 name: ui-police-agent
-description: UI consistency enforcer for T3Lab pyRevit tools. Audits ALL XAML files in lib/GUI/Tools/ against the T3Lab Kinetix design standard, produces a violation report grouped by severity, then fixes every violation automatically. Use this agent when you want a full codebase-wide UI audit or when onboarding new tools that may not have been reviewed yet.
+description: UI consistency enforcer for T3Lab pyRevit tools. Audits ALL XAML files in lib/GUI/Tools/ against the T3Lab Terra design standard, produces a violation report grouped by severity, then fixes every violation automatically. Use this agent when you want a full codebase-wide UI audit or when onboarding new tools that may not have been reviewed yet.
 tools: Read, Edit, Write, Glob, Grep
 ---
 
@@ -8,7 +8,7 @@ tools: Read, Edit, Write, Glob, Grep
 
 ## Mission
 
-Scan every `.xaml` file in `T3Lab.extension/lib/GUI/Tools/`, compare it against the T3Lab Kinetix design standard, report all violations with file + line number, then patch each file so it complies.
+Scan every `.xaml` file in `T3Lab.extension/lib/GUI/Tools/`, compare it against the T3Lab Terra design standard, report all violations with file + line number, then patch each file so it complies.
 
 **Authoritative standard**: `.claude/rules/ui-design-standard.md`
 **Canonical reference**: `T3Lab.extension/lib/GUI/Tools/BulkFamilyExport.xaml`
@@ -62,15 +62,15 @@ If written as a single-line self-closing tag (which silently drops CornerRadius 
 | Row 0 height | `64` (or `Height="64"` on RowDefinition) | MAJOR |
 | Background | `White` | MINOR |
 | "T3Lab" brand label font size | `11` | MINOR |
-| "T3Lab" brand label foreground | `#083D56` | MAJOR |
+| "T3Lab" brand label foreground | `#0F766E` | MAJOR |
 | "T3Lab" brand label font weight | `Bold` | MINOR |
 | Tool name font size | `18` | MINOR |
-| Tool name foreground | `#2C3E50` | MAJOR |
-| Separator thickness | `1` px, color `#546E7A` | MINOR |
+| Tool name foreground | `#1C2B33` | MAJOR |
+| Separator thickness | `1` px, color `#DDE5E7` | MINOR |
 | Subtitle font size | `10` | MINOR |
 | Subtitle font style | `Italic` | MINOR |
-| Subtitle foreground | `#7F8C8D` | MINOR |
-| Bottom border of title row | `BorderThickness="0,0,0,1"`, `BorderBrush="#546E7A"` | MAJOR |
+| Subtitle foreground | `#64748B` | MINOR |
+| Bottom border of title row | `BorderThickness="0,0,0,1"`, `BorderBrush="#C7D2D4"` | MAJOR |
 
 ### 2.4 Window Control Buttons (Min / Max / Close)
 
@@ -85,7 +85,7 @@ Each of the three buttons must use an **embedded `<TextBlock>` child** — never
 On each TextBlock child:
 - `FontFamily="Segoe MDL2 Assets"` — CRITICAL if missing/wrong
 - `FontSize="10"` — MINOR
-- `Foreground="#083D56"` — MAJOR
+- `Foreground="#0F766E"` — MAJOR
 
 `WindowChrome.IsHitTestVisibleInChrome="True"` must be on the containing `<StackPanel>` — CRITICAL.
 
@@ -94,8 +94,8 @@ Click handlers: `minimize_button_clicked`, `maximize_button_clicked`, `close_but
 ### 2.5 Status Bar (last content row)
 | Check | Expected | Severity |
 |-------|----------|----------|
-| Background | `#F8F9FA` | MAJOR |
-| BorderBrush | `#546E7A` | MAJOR |
+| Background | `#F6F8F8` | MAJOR |
+| BorderBrush | `#DDE5E7` | MAJOR |
 | BorderThickness | `"0,1,0,0"` | MAJOR |
 | Padding | `"14,8"` | MINOR |
 
@@ -104,7 +104,7 @@ Exactly **one** copyright TextBlock per file. It must be the **last child** of t
 
 ```xml
 <!-- Copyright added automatically -->
-<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 ```
 
 Violations:
@@ -131,11 +131,11 @@ If a named style is referenced but **not defined** in `Window.Resources` → CRI
 | Check | Expected | Severity |
 |-------|----------|----------|
 | `Background` | `"White"` | MINOR |
-| `BorderBrush` | `"#546E7A"` | MINOR |
-| `AlternatingRowBackground` | `"#F8F9FA"` | MINOR |
+| `BorderBrush` | `"#DDE5E7"` | MINOR |
+| `AlternatingRowBackground` | `"#F6F8F8"` | MINOR |
 | `FontFamily` | `"Inter"` | MAJOR |
-| Header `Background` | `"#F8F9FA"` | MINOR |
-| Header `Foreground` | `"#2C3E50"` | MINOR |
+| Header `Background` | `"#F6F8F8"` | MINOR |
+| Header `Foreground` | `"#1C2B33"` | MINOR |
 
 ---
 
@@ -156,7 +156,7 @@ MAJOR (brand/design breaking)
   ...
 
 MINOR (polish)
-  • WorksetManager.xaml   — subtitle foreground #999999 instead of #7F8C8D (line 31)
+  • WorksetManager.xaml   — subtitle foreground #999999 instead of #64748B (line 31)
   ...
 
 CLEAN (no violations)
@@ -200,7 +200,7 @@ If using `&#169;`: replace with literal `©`.
 Delete the entire `<Image Source="…T3Lab_logo.png" …/>` element. If it was the only child in a container `<StackPanel>` / `<Border>`, check whether that container is still needed for layout and remove it if not.
 
 **Status bar background = White**
-Replace `Background="White"` on the status bar Border with `Background="#F8F9FA"`.
+Replace `Background="White"` on the status bar Border with `Background="#F6F8F8"`.
 
 **Style not defined in Window.Resources**
 If a named button style key is referenced but not in `Window.Resources`, add the complete style definition (copy verbatim from BulkFamilyExport.xaml's `Window.Resources` block).
@@ -222,7 +222,7 @@ After all fixes are applied:
   AutoClick.xaml          — 1 fix  (added IsHitTestVisibleInChrome)
   ...
 
-All <N> files now comply with T3Lab Kinetix design standard.
+All <N> files now comply with T3Lab Terra design standard.
 ```
 
 If any violation could not be fixed automatically (e.g., a file with structural ambiguity), list it clearly with the reason and recommend manual review.

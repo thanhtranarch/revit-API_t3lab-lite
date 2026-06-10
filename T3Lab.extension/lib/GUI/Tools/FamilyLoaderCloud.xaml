@@ -2,9 +2,167 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Grid.Resources>
+        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- PRIMARY BUTTON - teal, white text -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#115E59"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0B4F4A"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SECONDARY BUTTON - surface, ink text -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#F6F8F8"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#DDE5E7"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#15803D"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#166534"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#14532D"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DANGER BUTTON - red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#DC2626"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#991B1B"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ACCENT BUTTON - amber highlight -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#F59E0B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D97706"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B45309"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL BUTTON -->
+        <Style x:Key="WinCtrlButton" TargetType="Button">
+            <Setter Property="Width"           Value="40"/>
+            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
         <!-- Styles -->
         <Style TargetType="Button" x:Key="FolderButtonStyle">
-            <Setter Property="Background" Value="#083D56"/>
+            <Setter Property="Background" Value="#0F766E"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -32,18 +190,18 @@
         </Grid.RowDefinitions>
 
         <!-- Cloud Source Info Bar -->
-        <Border Grid.Row="0" Background="#F8F9FA" Padding="10" BorderBrush="#546E7A" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="#F6F8F8" Padding="10" BorderBrush="#DDE5E7" BorderThickness="0,0,0,1">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0">
                     <TextBlock Text="☁️ Cloud Mode"
                                VerticalAlignment="Center"
                                Margin="0,0,10,0"
                                FontWeight="Bold"
-                               Foreground="#083D56"/>
+                               Foreground="#0F766E"/>
                     <TextBlock x:Name="txt_web_link"
                                Text="[View Online]"
                                VerticalAlignment="Center"
-                               Foreground="#083D56"
+                               Foreground="#0F766E"
                                TextDecorations="Underline"
                                Cursor="Hand"
                                ToolTip="Open cloud family library in browser: https://t3stu-dojk2t66r-tien-thanh-trans-projects.vercel.app"
@@ -54,12 +212,12 @@
                            VerticalAlignment="Center"
                            Margin="10,0,0,0"
                            FontWeight="SemiBold"
-                           Foreground="#2C3E50"/>
+                           Foreground="#1C2B33"/>
             </DockPanel>
         </Border>
 
         <!-- Search Bar -->
-        <Border Grid.Row="1" Padding="10" BorderBrush="#546E7A" BorderThickness="0,0,0,1">
+        <Border Grid.Row="1" Padding="10" BorderBrush="#DDE5E7" BorderThickness="0,0,0,1">
             <DockPanel>
                 <TextBlock Text="🔍"
                            DockPanel.Dock="Left"
@@ -73,7 +231,7 @@
                         <Style TargetType="TextBox">
                             <Setter Property="Background" Value="White"/>
                             <Setter Property="Padding" Value="8,5"/>
-                            <Setter Property="BorderBrush" Value="#546E7A"/>
+                            <Setter Property="BorderBrush" Value="#DDE5E7"/>
                         </Style>
                     </TextBox.Style>
                 </TextBox>
@@ -84,16 +242,16 @@
             <!-- Category Tree on Left -->
             <Border DockPanel.Dock="Left"
                     Width="250"
-                    BorderBrush="#546E7A"
+                    BorderBrush="#DDE5E7"
                     BorderThickness="0,0,1,0"
-                    Background="#F8F9FA">
+                    Background="#F6F8F8">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top"
                                Text="Categories"
                                FontWeight="Bold"
                                FontSize="14"
                                Padding="10"
-                               Background="#F8F9FA"/>
+                               Background="#F6F8F8"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <TreeView x:Name="tree_categories"
                                   Padding="5"
@@ -107,9 +265,9 @@
             <!-- Family Grid on Right -->
             <DockPanel>
                 <Border DockPanel.Dock="Top"
-                        Background="#F8F9FA"
+                        Background="#F6F8F8"
                         Padding="10"
-                        BorderBrush="#546E7A"
+                        BorderBrush="#DDE5E7"
                         BorderThickness="0,0,0,1">
                     <DockPanel>
                         <TextBlock x:Name="txt_result_count"
@@ -141,7 +299,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="#546E7A"
+                                <Border BorderBrush="#DDE5E7"
                                         BorderThickness="1"
                                         Padding="8"
                                         Margin="5"
@@ -152,7 +310,7 @@
                                         <Style TargetType="Border">
                                             <Style.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="BorderBrush" Value="#083D56"/>
+                                                    <Setter Property="BorderBrush" Value="#0F766E"/>
                                                     <Setter Property="BorderThickness" Value="2"/>
                                                 </Trigger>
                                             </Style.Triggers>
@@ -184,9 +342,9 @@
 
         <!-- Action Buttons at Bottom -->
         <Border Grid.Row="3"
-                Background="#F8F9FA"
+                Background="#F6F8F8"
                 Padding="15"
-                BorderBrush="#546E7A"
+                BorderBrush="#DDE5E7"
                 BorderThickness="0,1,0,0">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <TextBlock x:Name="txt_selected_count"
@@ -197,7 +355,7 @@
                 <Button x:Name="btn_load"
                         Content="Load"
                         Style="{StaticResource ActionButtonStyle}"
-                        Background="#083D56"
+                        Background="#0F766E"
                         Foreground="White"
                         Margin="5,0"
                         IsEnabled="False"/>
@@ -210,5 +368,5 @@
     </Grid>
 
     <!-- Copyright added automatically -->
-    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 </Grid>

@@ -20,29 +20,28 @@
     <Window.Resources>
         <!-- COLOR TOKENS -->
         <!-- Primary branding blue -->
-        <SolidColorBrush x:Key="PrimaryBlue" Color="#083D56"/>
+        <SolidColorBrush x:Key="PrimaryBlue" Color="#0F766E"/>
         <SolidColorBrush x:Key="LightBlueHighlight" Color="#EBF5FB"/>
-        <SolidColorBrush x:Key="AccentBlue" Color="#3498DB"/>
-        <SolidColorBrush x:Key="TextDark" Color="#2C3E50"/>
-        <SolidColorBrush x:Key="TextMuted" Color="#7F8C8D"/>
+        <SolidColorBrush x:Key="AccentBlue" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="TextDark" Color="#1C2B33"/>
+        <SolidColorBrush x:Key="TextMuted" Color="#64748B"/>
         <SolidColorBrush x:Key="BorderLight" Color="#E5E9EC"/>
-        <SolidColorBrush x:Key="BgLight" Color="#F8F9FA"/>
-
-        <!-- BUTTON STYLES -->
-        <!-- Primary button: solid dark blue -->
+        <SolidColorBrush x:Key="BgLight" Color="#F6F8F8"/>
+        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- PRIMARY BUTTON - teal, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background" Value="{StaticResource PrimaryBlue}"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="4"
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -51,33 +50,36 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#062A3C"/>
+                    <Setter Property="Background" Value="#115E59"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0B4F4A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#95A5A6"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Secondary button: white background, gray border -->
+        <!-- SECONDARY BUTTON - surface, ink text -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="{StaticResource TextDark}"/>
-            <Setter Property="BorderBrush" Value="#BDC3C7"/>
+            <Setter Property="Background"      Value="#F6F8F8"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4"
-                                Padding="{TemplateBinding Padding}">
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -85,37 +87,107 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F2F4F4"/>
-                    <Setter Property="BorderBrush" Value="#95A5A6"/>
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#DDE5E7"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="#BDC3C7"/>
-                    <Setter Property="BorderBrush" Value="#E5E9EC"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Danger button: red background -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <!-- SUCCESS BUTTON - green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#15803D"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FDEDEC"/>
-                    <Setter Property="Foreground" Value="#E74C3C"/>
-                    <Setter Property="BorderBrush" Value="#E74C3C"/>
+                    <Setter Property="Background" Value="#166534"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#14532D"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- Action / Orange button -->
-        <Style x:Key="OrangeButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#E67E22"/>
+        <!-- DANGER BUTTON - red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#DC2626"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D35400"/>
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#991B1B"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <!-- ACCENT BUTTON - amber highlight -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#F59E0B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D97706"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B45309"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL BUTTON -->
+        <Style x:Key="WinCtrlButton" TargetType="Button">
+            <Setter Property="Width"           Value="40"/>
+            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
+
+        <!-- Action / Orange button (legacy key, now amber AccentButton) -->
+        <Style x:Key="OrangeButton" TargetType="Button" BasedOn="{StaticResource AccentButton}"/>
 
         <!-- TOP BAR NAV TAB STYLE -->
         <Style x:Key="TopNavTabStyle" TargetType="RadioButton">
@@ -174,48 +246,6 @@
             </Setter>
         </Style>
 
-        <!-- WINDOW CONTROL BUTTONS -->
-        <Style x:Key="WinCtrlButton" TargetType="Button">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F8F9FA"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Close Button with resources for text box styling inside -->
-        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
-            <Style.Resources>
-                <Style TargetType="TextBlock">
-                    <Setter Property="Foreground" Value="{StaticResource TextDark}"/>
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                            <Setter Property="Foreground" Value="White"/>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Style.Resources>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#D32F2F"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- DATAGRID STYLES -->
         <Style TargetType="DataGrid">
             <Setter Property="Background" Value="White"/>
@@ -232,7 +262,7 @@
         </Style>
 
         <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="Background" Value="#F6F8F8"/>
             <Setter Property="Foreground" Value="{StaticResource TextDark}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="FontSize" Value="11"/>
@@ -284,7 +314,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- Bottom Border -->
-            <Border Grid.ColumnSpan="3" Height="1" Background="#546E7A" VerticalAlignment="Bottom"/>
+            <Border Grid.ColumnSpan="3" Height="1" Background="#DDE5E7" VerticalAlignment="Bottom"/>
 
             <!-- Left: Logo & Title -->
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
@@ -293,8 +323,8 @@
                         <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}" Margin="0,0,6,0" VerticalAlignment="Bottom"/>
                         <TextBlock Text="Annotation Manager" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextDark}"/>
                     </StackPanel>
-                    <Separator Height="1" Background="#546E7A" Margin="0,2,0,2"/>
-                    <TextBlock Text="Manage dimension types and text notes across the model" FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+                    <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
+                    <TextBlock Text="Manage dimension types and text notes across the model" FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
                 </StackPanel>
             </StackPanel>
 
@@ -310,10 +340,10 @@
                 <!-- Custom Minimize, Maximize, Close Buttons -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0">
                     <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize" Click="minimize_button_clicked">
-                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                     <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize" Click="maximize_button_clicked">
-                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                     <Button x:Name="btn_close" Style="{StaticResource CloseButton}" ToolTip="Close" Click="close_button_clicked">
                         <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
@@ -459,7 +489,7 @@
                                                                 <Setter Property="Foreground" Value="#117A65"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Status}" Value="Unused">
-                                                                <Setter Property="Foreground" Value="#D35400"/>
+                                                                <Setter Property="Foreground" Value="#B45309"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -646,7 +676,7 @@
                                                                 <Setter Property="Foreground" Value="#117A65"/>
                                                             </DataTrigger>
                                                             <DataTrigger Binding="{Binding Status}" Value="Unused">
-                                                                <Setter Property="Foreground" Value="#D35400"/>
+                                                                <Setter Property="Foreground" Value="#B45309"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -776,7 +806,7 @@
         </TabControl>
 
         <!-- ═══ FOOTER STATUS BAR ═══ -->
-        <Border Grid.Row="2" Background="#F8F9FA" BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="16,6">
+        <Border Grid.Row="2" Background="#F6F8F8" BorderBrush="#DDE5E7" BorderThickness="0,1,0,0" Padding="16,6">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -786,8 +816,8 @@
             </Grid>
         </Border>
 
-        <!-- Mandatory Copyright Compliance Footer (Foreground="#3498DB", FontSize="11", IsHitTestVisible="False") -->
+        <!-- Mandatory Copyright Compliance Footer (Foreground="#F59E0B", FontSize="11", IsHitTestVisible="False") -->
         <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

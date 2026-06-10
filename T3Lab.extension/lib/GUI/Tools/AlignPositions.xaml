@@ -21,24 +21,25 @@
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize"   Value="11"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#7F8C8D"/>
+            <Setter Property="Foreground" Value="#64748B"/>
             <Setter Property="Margin"     Value="0,14,0,6"/>
             <Setter Property="FontFamily" Value="Inter"/>
         </Style>
-
-        <!-- PRIMARY button - blue, white text -->
+        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- PRIMARY BUTTON - teal, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#083D56"/>
+            <Setter Property="Background"      Value="#0F766E"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="3"
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -47,32 +48,36 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#062A3C"/>
+                    <Setter Property="Background" Value="#115E59"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0B4F4A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#546E7A"/>
+                    <Setter Property="Background" Value="#AEBFBC"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY button - light gray, dark text -->
+        <!-- SECONDARY BUTTON - surface, ink text -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F8F9FA"/>
-            <Setter Property="Foreground"      Value="#2C3E50"/>
-            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="Background"      Value="#F6F8F8"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#546E7A"/>
+            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -80,35 +85,75 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E2E6EA"/>
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#DDE5E7"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#F8F9FA"/>
-                    <Setter Property="Foreground" Value="#546E7A"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS button - green -->
+        <!-- SUCCESS BUTTON - green -->
         <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#27AE60"/>
+            <Setter Property="Background" Value="#15803D"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1E8449"/>
+                    <Setter Property="Background" Value="#166534"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#14532D"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#546E7A"/>
+                    <Setter Property="Background" Value="#AEBFBC"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- WINDOW CONTROL button -->
+        <!-- DANGER BUTTON - red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#DC2626"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#991B1B"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ACCENT BUTTON - amber highlight -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#F59E0B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D97706"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B45309"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL BUTTON -->
         <Style x:Key="WinCtrlButton" TargetType="Button">
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -122,28 +167,22 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F8F9FA"/>
+                    <Setter Property="Background" Value="#E6EDEC"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE button - red on hover -->
+        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#D32F2F"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
+        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
     </Window.Resources>
 
     <Grid>
@@ -161,32 +200,32 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#083D56" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                               Foreground="#0F766E" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
                     <TextBlock Text="Align Positions" FontSize="18" FontWeight="Bold"
-                               Foreground="#2C3E50"/>
+                               Foreground="#1C2B33"/>
                 </StackPanel>
-                <Separator Height="1" Background="#546E7A" Margin="0,2,0,2"/>
+                <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
                 <TextBlock Text="Snap element distances to nearest 5 or 10 mm"
-                           FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
                         Click="minimize_button_clicked" ToolTip="Minimize">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
                         Click="maximize_button_clicked" ToolTip="Maximize">
-                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
                         Click="close_button_clicked" ToolTip="Close">
-                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
 
-            <Border Height="1" VerticalAlignment="Bottom" Background="#546E7A"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#DDE5E7"/>
         </Grid>
 
         <!-- ═══ Row 1 : Reference + Settings ═══ -->
@@ -194,7 +233,7 @@
 
             <!-- Reference Element -->
             <TextBlock Text="REFERENCE ELEMENT" Style="{StaticResource SectionHeader}"/>
-            <Border BorderBrush="#546E7A" BorderThickness="1" CornerRadius="3" Padding="12,10">
+            <Border BorderBrush="#DDE5E7" BorderThickness="1" CornerRadius="3" Padding="12,10">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -205,14 +244,14 @@
                             Margin="0,0,12,0"/>
                     <TextBlock x:Name="txt_ref_info" Grid.Column="1"
                                Text="No reference selected"
-                               VerticalAlignment="Center" Foreground="#7F8C8D"
+                               VerticalAlignment="Center" Foreground="#64748B"
                                FontSize="12" FontFamily="Inter"/>
                 </Grid>
             </Border>
 
             <!-- Settings -->
             <TextBlock Text="SETTINGS" Style="{StaticResource SectionHeader}"/>
-            <Border BorderBrush="#546E7A" BorderThickness="1" CornerRadius="3" Padding="12,10">
+            <Border BorderBrush="#DDE5E7" BorderThickness="1" CornerRadius="3" Padding="12,10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -220,7 +259,7 @@
                     </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,8">
                         <TextBlock Text="Units:" VerticalAlignment="Center" Width="70"
-                                   Foreground="#2C3E50" FontSize="12" FontFamily="Inter"/>
+                                   Foreground="#1C2B33" FontSize="12" FontFamily="Inter"/>
                         <RadioButton x:Name="rb_metric" Content=" Metric (mm)" IsChecked="True"
                                      VerticalAlignment="Center" Margin="0,0,20,0" Checked="unit_changed"/>
                         <RadioButton x:Name="rb_imperial" Content=" Imperial (inch)"
@@ -228,18 +267,18 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Grid.Row="1">
                         <TextBlock Text="Snap to:" VerticalAlignment="Center" Width="70"
-                                   Foreground="#2C3E50" FontSize="12" FontFamily="Inter"/>
+                                   Foreground="#1C2B33" FontSize="12" FontFamily="Inter"/>
                         <RadioButton x:Name="rb_snap1" Content=" 5 mm" IsChecked="True"
                                      VerticalAlignment="Center" Margin="0,0,20,0"
-                                     FontFamily="Inter" FontSize="12" Foreground="#2C3E50"
+                                     FontFamily="Inter" FontSize="12" Foreground="#1C2B33"
                                      Checked="snap_changed"/>
                         <RadioButton x:Name="rb_snap2" Content=" 10 mm"
                                      VerticalAlignment="Center" Margin="0,0,20,0"
-                                     FontFamily="Inter" FontSize="12" Foreground="#2C3E50"
+                                     FontFamily="Inter" FontSize="12" Foreground="#1C2B33"
                                      Checked="snap_changed"/>
                         <RadioButton x:Name="rb_snap3" Content=" 20 mm"
                                      VerticalAlignment="Center"
-                                     FontFamily="Inter" FontSize="12" Foreground="#2C3E50"
+                                     FontFamily="Inter" FontSize="12" Foreground="#1C2B33"
                                      Checked="snap_changed"/>
                     </StackPanel>
                 </Grid>
@@ -257,7 +296,7 @@
                         Margin="0,0,12,0"/>
                 <TextBlock x:Name="txt_element_count" Grid.Column="1"
                            Text="No elements collected"
-                           VerticalAlignment="Center" Foreground="#7F8C8D"
+                           VerticalAlignment="Center" Foreground="#64748B"
                            FontSize="12" FontFamily="Inter"/>
             </Grid>
         </StackPanel>
@@ -270,20 +309,20 @@
                   CanUserSortColumns="True"
                   SelectionMode="Single"
                   GridLinesVisibility="Horizontal"
-                  HorizontalGridLinesBrush="#F8F9FA"
+                  HorizontalGridLinesBrush="#F6F8F8"
                   Background="White"
-                  BorderBrush="#546E7A"
+                  BorderBrush="#DDE5E7"
                   BorderThickness="1"
                   FontFamily="Inter"
                   FontSize="12"
-                  AlternatingRowBackground="#F8F9FA">
+                  AlternatingRowBackground="#F6F8F8">
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background"      Value="#F8F9FA"/>
-                    <Setter Property="Foreground"      Value="#2C3E50"/>
+                    <Setter Property="Background"      Value="#F6F8F8"/>
+                    <Setter Property="Foreground"      Value="#1C2B33"/>
                     <Setter Property="FontWeight"      Value="SemiBold"/>
                     <Setter Property="Padding"         Value="8,6"/>
-                    <Setter Property="BorderBrush"     Value="#546E7A"/>
+                    <Setter Property="BorderBrush"     Value="#DDE5E7"/>
                     <Setter Property="BorderThickness" Value="0,0,1,1"/>
                     <Setter Property="Height"          Value="34"/>
                 </Style>
@@ -292,10 +331,10 @@
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#F8F9FA"/>
+                            <Setter Property="Background" Value="#F6F8F8"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#E2E6EA"/>
+                            <Setter Property="Background" Value="#D9EBE8"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -325,16 +364,16 @@
         <!-- ═══ Row 3 : Info box + Apply ═══ -->
         <StackPanel Grid.Row="3" Margin="20,10,20,12">
             <!-- Info / Tip box -->
-            <Border BorderBrush="#083D56" BorderThickness="1" Background="#F8F9FA"
+            <Border BorderBrush="#0F766E" BorderThickness="1" Background="#F6F8F8"
                     CornerRadius="2" Padding="10" Margin="0,0,0,10">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                        <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#062A3C"
+                        <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#115E59"
                                    Margin="0,0,5,0" FontFamily="Inter" FontSize="11"/>
-                        <TextBlock Foreground="#2C3E50" FontFamily="Inter" FontSize="11"
+                        <TextBlock Foreground="#1C2B33" FontFamily="Inter" FontSize="11"
                                    Text="Pick a Grid, Wall, or Column as reference."/>
                     </StackPanel>
-                    <TextBlock Foreground="#2C3E50" FontFamily="Inter" FontSize="11" Margin="32,0,0,0"
+                    <TextBlock Foreground="#1C2B33" FontFamily="Inter" FontSize="11" Margin="32,0,0,0"
                                Text="Elements whose distance is already a clean multiple of 5/10 mm are hidden."/>
                 </StackPanel>
             </Border>
@@ -345,14 +384,14 @@
         </StackPanel>
 
         <!-- ═══ Row 4 : Status Bar ═══ -->
-        <Border Grid.Row="4" Background="#F8F9FA" BorderBrush="#546E7A"
+        <Border Grid.Row="4" Background="#F6F8F8" BorderBrush="#DDE5E7"
                 BorderThickness="0,1,0,0" Padding="14,6">
-            <TextBlock x:Name="status_text" FontSize="11" Foreground="#7F8C8D"
+            <TextBlock x:Name="status_text" FontSize="11" Foreground="#64748B"
                        FontFamily="Inter" Text="Ready"/>
         </Border>
     
         <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>
 
