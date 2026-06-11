@@ -30,11 +30,11 @@ Every tool window must include:
         <Image x:Name="logo_image" Width="40" Height="40" Margin="0,0,10,0"/>
         <StackPanel VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="T3Lab"     FontSize="11" FontWeight="Bold"  Foreground="#3498DB" .../>
-                <TextBlock Text="Tool Name" FontSize="17" FontWeight="Bold"  Foreground="#2C3E50" .../>
+                <TextBlock Text="T3Lab"     FontSize="11" FontWeight="Bold"  Foreground="#F59E0B" .../>
+                <TextBlock Text="Tool Name" FontSize="17" FontWeight="Bold"  Foreground="#1C2B33" .../>
             </StackPanel>
             <Separator Height="1" Background="#BDC3C7" Margin="0,3"/>
-            <TextBlock Text="Short description" FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+            <TextBlock Text="Short description" FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
         </StackPanel>
     </StackPanel>
 
@@ -64,12 +64,12 @@ Every tool window must include:
 ```xml
 <Border Background="#FAFAFA" BorderBrush="#BDC3C7" BorderThickness="0,1,0,0" Padding="14,6">
     <Grid>
-        <TextBlock x:Name="status_text" FontSize="11" Foreground="#7F8C8D"/>
+        <TextBlock x:Name="status_text" FontSize="11" Foreground="#64748B"/>
     </Grid>
 </Border>
 
 <!-- Copyright text should be added right before the main closing </Grid> of the window -->
-<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 ```
 
 ---
@@ -81,9 +81,9 @@ Define these as `Window.Resources`:
 ```xml
 <!-- PRIMARY - blue, white text -->
 <Style x:Key="PrimaryButton" TargetType="Button">
-    <Setter Property="Background"   Value="#083D56"/>
+    <Setter Property="Background"   Value="#0F766E"/>
     <Setter Property="Foreground"   Value="White"/>
-    <Setter Property="Padding"      Value="12,6"/>
+    <Setter Property="Padding"      Value="14,7"/>
     <Setter Property="FontSize"     Value="12"/>
     <Setter Property="FontFamily"   Value="Inter"/>
     <Setter Property="Cursor"       Value="Hand"/>
@@ -100,10 +100,10 @@ Define these as `Window.Resources`:
     </Setter>
     <Style.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#062A3C"/>
+            <Setter Property="Background" Value="#115E59"/>
         </Trigger>
         <Trigger Property="IsEnabled" Value="False">
-            <Setter Property="Background" Value="#546E7A"/>
+            <Setter Property="Background" Value="#DDE5E7"/>
             <Setter Property="Cursor"     Value="Arrow"/>
         </Trigger>
     </Style.Triggers>
@@ -111,14 +111,14 @@ Define these as `Window.Resources`:
 
 <!-- SECONDARY - light gray, dark text -->
 <Style x:Key="SecondaryButton" TargetType="Button">
-    <Setter Property="Background"      Value="#F8F9FA"/>
-    <Setter Property="Foreground"      Value="#2C3E50"/>
-    <Setter Property="Padding"         Value="12,6"/>
+    <Setter Property="Background"      Value="#F6F8F8"/>
+    <Setter Property="Foreground"      Value="#1C2B33"/>
+    <Setter Property="Padding"         Value="14,7"/>
     <Setter Property="FontSize"        Value="12"/>
     <Setter Property="FontFamily"      Value="Inter"/>
     <Setter Property="Cursor"          Value="Hand"/>
     <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="BorderBrush"     Value="#546E7A"/>
+    <Setter Property="BorderBrush"     Value="#DDE5E7"/>
     <Setter Property="Template">
         <Setter.Value>
             <ControlTemplate TargetType="Button">
@@ -133,7 +133,7 @@ Define these as `Window.Resources`:
     </Setter>
     <Style.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#E2E6EA"/>
+            <Setter Property="Background" Value="#E6EDEC"/>
         </Trigger>
     </Style.Triggers>
 </Style>
@@ -150,20 +150,20 @@ Define these as `Window.Resources`:
 
 <!-- DANGER - red (delete/destructive) -->
 <Style x:Key="DangerButton"  TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="Background" Value="#D32F2F"/>
+    <Setter Property="Background" Value="#DC2626"/>
     <Style.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#B71C1C"/>
+            <Setter Property="Background" Value="#B91C1C"/>
         </Trigger>
     </Style.Triggers>
 </Style>
 
 <!-- SUCCESS - green (apply/confirm) -->
 <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="Background" Value="#27AE60"/>
+    <Setter Property="Background" Value="#15803D"/>
     <Style.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#1E8449"/>
+            <Setter Property="Background" Value="#166534"/>
         </Trigger>
     </Style.Triggers>
 </Style>
@@ -186,7 +186,7 @@ Define these as `Window.Resources`:
     </Setter>
     <Style.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="Background" Value="#F6F8F8"/>
         </Trigger>
     </Style.Triggers>
 </Style>
@@ -215,15 +215,15 @@ Define these as `Window.Resources`:
 ## DataGrid Style
 
 ```xml
-<DataGrid Background="White" BorderBrush="#546E7A" BorderThickness="1"
-          AlternatingRowBackground="#F8F9FA" FontFamily="Inter" FontSize="12">
+<DataGrid Background="White" BorderBrush="#C7D2D4" BorderThickness="1"
+          AlternatingRowBackground="#F6F8F8" FontFamily="Inter" FontSize="12">
     <DataGrid.ColumnHeaderStyle>
         <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background"   Value="#F8F9FA"/>
-            <Setter Property="Foreground"   Value="#2C3E50"/>
+            <Setter Property="Background"   Value="#F6F8F8"/>
+            <Setter Property="Foreground"   Value="#1C2B33"/>
             <Setter Property="FontWeight"   Value="SemiBold"/>
             <Setter Property="Padding"      Value="8,6"/>
-            <Setter Property="BorderBrush"  Value="#546E7A"/>
+            <Setter Property="BorderBrush"  Value="#DDE5E7"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
             <Setter Property="Height"       Value="34"/>
         </Style>
@@ -232,10 +232,10 @@ Define these as `Window.Resources`:
         <Style TargetType="DataGridRow">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F8F9FA"/>
+                    <Setter Property="Background" Value="#F6F8F8"/>
                 </Trigger>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#E2E6EA"/>
+                    <Setter Property="Background" Value="#E6EDEC"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -248,11 +248,11 @@ Define these as `Window.Resources`:
 ## Info / Tip Box
 
 ```xml
-<Border BorderBrush="#083D56" BorderThickness="1" Background="#F8F9FA"
+<Border BorderBrush="#0F766E" BorderThickness="1" Background="#F6F8F8"
         CornerRadius="2" Padding="10">
     <StackPanel Orientation="Horizontal">
-        <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#083D56" Margin="0,0,5,0"/>
-        <TextBlock Text="Your message here." Foreground="#2C3E50"/>
+        <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#0F766E" Margin="0,0,5,0"/>
+        <TextBlock Text="Your message here." Foreground="#1C2B33"/>
     </StackPanel>
 </Border>
 ```
@@ -276,7 +276,7 @@ Use this pattern in the status bar row for long-running tasks:
 
     <ProgressBar x:Name="pb_task" Grid.Column="0"
                  Height="8" Minimum="0" Maximum="100" Value="0"
-                 Foreground="#083D56" Background="#E2E6EA"
+                 Foreground="#0F766E" Background="#E6EDEC"
                  BorderThickness="0" VerticalAlignment="Center"/>
 
     <!-- Pause / Resume -->

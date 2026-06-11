@@ -20,7 +20,7 @@ description: Code review and quality assurance agent for T3Lab pyRevit tools. Us
 - [ ] Minimize / Maximize / Close buttons present and wired
 - [ ] All button styles use PrimaryButton / SecondaryButton / DangerButton / SuccessButton
 - [ ] DataGrid headers #ECF0F1, row hover #EBF5FB, selected #D6EAF8
-- [ ] Status bar #FAFAFA background, #7F8C8D text
+- [ ] Status bar #FAFAFA background, #64748B text
 - [ ] Font: Segoe UI throughout
 - [ ] `_load_logo()` called in `__init__`, uses EXT_DIR
 
