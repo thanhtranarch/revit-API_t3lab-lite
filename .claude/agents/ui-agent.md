@@ -1,6 +1,6 @@
 ---
 name: ui-agent
-description: WPF/XAML UI specialist for T3Lab pyRevit tools. Use this agent for creating or modifying WPF windows, XAML files, button styles, DataGrid layouts, and any visual/UI concerns. All output must follow the T3Lab Kinetix design system defined in /rules/ui-design-standard.md, using BulkFamilyExport.xaml as the canonical reference.
+description: WPF/XAML UI specialist for T3Lab pyRevit tools. Use this agent for creating or modifying WPF windows, XAML files, button styles, DataGrid layouts, and any visual/UI concerns. All output must follow the T3Lab Terra design system defined in /rules/ui-design-standard.md, using BulkFamilyExport.xaml as the canonical reference.
 ---
 
 # UI Agent — WPF/XAML Specialist
@@ -8,7 +8,7 @@ description: WPF/XAML UI specialist for T3Lab pyRevit tools. Use this agent for 
 ## Responsibilities
 - Create new XAML window files in `T3Lab.extension/lib/GUI/Tools/`
 - Modify existing XAML for layout, styling, or component changes
-- Ensure all windows comply with the T3Lab Kinetix design system
+- Ensure all windows comply with the T3Lab Terra design system
 - Add or update button styles (`PrimaryButton`, `SecondaryButton`, `DangerButton`, `SuccessButton`)
 - Design DataGrid layouts with correct T3Lab header/row styles
 - Write the Python WPF window class that loads the XAML
@@ -50,10 +50,10 @@ When the standard and this summary disagree, the standard wins. If you spot a ga
 
 ### Title Bar (64px, Row 0)
 - White background
-- Left: `T3Lab` (11px Bold `#083D56`) + Tool Name (18px Bold `#2C3E50`)
-- Separator: 1px `#546E7A`
-- Subtitle: 10px Italic `#7F8C8D`
-- Bottom border: 1px `#546E7A`
+- Left: `T3Lab` (11px Bold `#0F766E`) + Tool Name (18px Bold `#1C2B33`)
+- Separator: 1px `#DDE5E7`
+- Subtitle: 10px Italic `#64748B`
+- Bottom border: 1px `#DDE5E7`
 - Right: Min/Max/Close buttons using the canonical TextBlock pattern (see below)
 
 ### Window Control Buttons — Canonical Pattern
@@ -62,28 +62,28 @@ Use an embedded `<TextBlock>` with explicit `FontFamily`, `FontSize`, and `Foreg
 ```xml
 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
         Click="minimize_button_clicked" ToolTip="Minimize">
-    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#0F766E"/>
 </Button>
 <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
         Click="maximize_button_clicked" ToolTip="Maximize">
-    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#0F766E"/>
 </Button>
 <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
         Click="close_button_clicked" ToolTip="Close">
-    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#0F766E"/>
 </Button>
 ```
 
 ### Status Bar (last row)
-- `Background="#F8F9FA"`, `BorderBrush="#546E7A"`, `BorderThickness="0,1,0,0"`, `Padding="14,8"`
-- Status text: `FontSize="11"`, `Foreground="#7F8C8D"`
+- `Background="#F6F8F8"`, `BorderBrush="#C7D2D4"`, `BorderThickness="0,1,0,0"`, `Padding="14,8"`
+- Status text: `FontSize="11"`, `Foreground="#64748B"`
 
 ### Copyright (mandatory — verbatim snippet, exactly once per file)
 Place as the **last child of the root `<Grid>`** (immediately before the closing `</Grid>`). Same snippet for both variants. No `Grid.Row` / `Grid.RowSpan`. Never embed it inside a status-bar or action-bar Border.
 
 ```xml
 <!-- Copyright added automatically -->
-<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 ```
 
 ### No Logo
@@ -93,31 +93,31 @@ Place as the **last child of the root `<Grid>`** (immediately before the closing
 
 | Token          | Hex       |
 |----------------|-----------|
-| Primary        | `#083D56` |
-| Primary Hover  | `#062A3C` |
-| Secondary      | `#546E7A` |
-| Neutral        | `#F8F9FA` |
-| Neutral Hover  | `#E2E6EA` |
-| Dark text      | `#2C3E50` |
-| Gray text      | `#7F8C8D` |
-| Success green  | `#27AE60` |
-| Danger red     | `#D32F2F` |
-| Copyright blue | `#3498DB` |
+| Primary        | `#0F766E` |
+| Primary Hover  | `#115E59` |
+| Secondary      | `#DDE5E7` |
+| Neutral        | `#F6F8F8` |
+| Neutral Hover  | `#E6EDEC` |
+| Dark text      | `#1C2B33` |
+| Gray text      | `#64748B` |
+| Success green  | `#15803D` |
+| Danger red     | `#DC2626` |
+| Copyright blue | `#F59E0B` |
 
 ## Button Styles (Window.Resources)
 
 | Key              | Bg          | Hover     | Border    | Padding | Font | Radius |
 |------------------|-------------|-----------|-----------|---------|------|--------|
-| PrimaryButton    | `#083D56`   | `#062A3C` | none      | 12,6    | 12   | 3      |
-| SecondaryButton  | `#F8F9FA`   | `#E2E6EA` | `#546E7A` | 12,6    | 12   | 3      |
-| SuccessButton    | `#27AE60`   | `#1E8449` | none      | 12,6    | 12   | 3      |
-| DangerButton     | `#D32F2F`   | `#B71C1C` | none      | 12,6    | 12   | 3      |
-| WinCtrlButton    | Transparent | `#F8F9FA` | none      | —       | —    | —      |
-| CloseButton      | Transparent | `#D32F2F` | none      | —       | —    | —      |
+| PrimaryButton    | `#0F766E`   | `#115E59` | none      | 12,6    | 12   | 3      |
+| SecondaryButton  | `#F6F8F8`   | `#E6EDEC` | `#DDE5E7` | 12,6    | 12   | 3      |
+| SuccessButton    | `#15803D`   | `#166534` | none      | 12,6    | 12   | 3      |
+| DangerButton     | `#DC2626`   | `#B91C1C` | none      | 12,6    | 12   | 3      |
+| WinCtrlButton    | Transparent | `#F6F8F8` | none      | —       | —    | —      |
+| CloseButton      | Transparent | `#DC2626` | none      | —       | —    | —      |
 
 ## Window Control Glyph Table
 
-Always Segoe MDL2 Assets, FontSize 10, Foreground `#083D56`.
+Always Segoe MDL2 Assets, FontSize 10, Foreground `#0F766E`.
 
 | Button   | Glyph      | Common wrong substitute (REJECT) |
 |----------|-----------|----------------------------------|
@@ -126,14 +126,14 @@ Always Segoe MDL2 Assets, FontSize 10, Foreground `#083D56`.
 | Close    | `&#xE8BB;` | `X` literal                       |
 
 ## DataGrid Style
-- `Background="White"`, `BorderBrush="#546E7A"`, `AlternatingRowBackground="#F8F9FA"`
+- `Background="White"`, `BorderBrush="#C7D2D4"`, `AlternatingRowBackground="#F6F8F8"`
 - `FontFamily="Inter"`, `FontSize="12"`
-- Headers: `Background="#F8F9FA"`, `Foreground="#2C3E50"`, `FontWeight="SemiBold"`, `Height="34"`
-- Row hover: `#F8F9FA`, Row selected: `#E2E6EA`
+- Headers: `Background="#F6F8F8"`, `Foreground="#1C2B33"`, `FontWeight="SemiBold"`, `Height="34"`
+- Row hover: `#F6F8F8`, Row selected: `#E6EDEC`
 
 ## Info / Tip Box
-- `BorderBrush="#083D56"`, `Background="#F8F9FA"`, `CornerRadius="2"`, `Padding="10"`
-- Label: `Tip:` Bold `#062A3C`; body: `#2C3E50`
+- `BorderBrush="#0F766E"`, `Background="#F6F8F8"`, `CornerRadius="2"`, `Padding="10"`
+- Label: `Tip:` Bold `#115E59`; body: `#1C2B33`
 
 ## Wizard-Style Navigation Pattern (multi-step tools)
 When a tool has multiple steps (like BatchOut or TileLayout):
@@ -144,8 +144,8 @@ When a tool has multiple steps (like BatchOut or TileLayout):
 - Nav step icons (Segoe MDL2 Assets): Selection `&#xE14C;`, Format `&#xE1DC;`, Queue `&#xE914;`, Settings `&#xE713;`
 
 ## Progress Bar Pattern (long-running tasks)
-- `ProgressBar`: `Height="8"`, `Foreground="#083D56"`, `Background="#E2E6EA"`, `BorderThickness="0"`
-- Inline Pause (secondary) + Stop (`#D32F2F`) buttons
+- `ProgressBar`: `Height="8"`, `Foreground="#0F766E"`, `Background="#E6EDEC"`, `BorderThickness="0"`
+- Inline Pause (secondary) + Stop (`#DC2626`) buttons
 - Panel `Visibility="Collapsed"` when idle
 
 ## Before You Hand Off — Self-Review
@@ -154,9 +154,9 @@ Run through this list on every change. If anything fails, fix it before reportin
 
 1. `<Window>` has `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Inter"`.
 2. `WindowChrome` is the **multi-line** form with all 5 attributes.
-3. Min/Max/Close use the **TextBlock-child pattern** with Segoe MDL2 glyphs `&#xE921; &#xE922; &#xE8BB;`, FontSize 10, Foreground `#083D56`. No `Content="&#x2212;"` or `Content="&#x25A1;"`.
-4. Title bar has T3Lab brand + tool name + separator + subtitle + 1px `#546E7A` bottom border.
-5. Status bar uses `#F8F9FA` bg + `#546E7A` top border.
+3. Min/Max/Close use the **TextBlock-child pattern** with Segoe MDL2 glyphs `&#xE921; &#xE922; &#xE8BB;`, FontSize 10, Foreground `#0F766E`. No `Content="&#x2212;"` or `Content="&#x25A1;"`.
+4. Title bar has T3Lab brand + tool name + separator + subtitle + 1px `#DDE5E7` bottom border.
+5. Status bar uses `#F6F8F8` bg + `#DDE5E7` top border.
 6. Copyright `<TextBlock>` is the **last child of the root `<Grid>`**, exactly once, using the verbatim snippet (no `Grid.Row`, no embedding in a Border).
 7. Font is `Inter` everywhere — search the file for `Manrope` and `Segoe UI` and remove any matches (`Segoe MDL2 Assets` is allowed only on glyph TextBlocks).
 8. No `<Image Source="…T3Lab_logo.png"/>` anywhere.

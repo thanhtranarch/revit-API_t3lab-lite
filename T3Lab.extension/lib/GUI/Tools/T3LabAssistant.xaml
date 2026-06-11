@@ -18,41 +18,167 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-
-        <!-- ── Primary (blue) button ── -->
+        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- PRIMARY BUTTON - teal, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#083D56"/>
+            <Setter Property="Background"      Value="#0F766E"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="15,8"/>
-            <Setter Property="FontSize"        Value="13"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#115E59"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0B4F4A"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SECONDARY BUTTON - surface, ink text -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#F6F8F8"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#DDE5E7"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#15803D"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#166534"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#14532D"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DANGER BUTTON - red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#DC2626"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#991B1B"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ACCENT BUTTON - amber highlight -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#F59E0B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D97706"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B45309"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL BUTTON -->
+        <Style x:Key="WinCtrlButton" TargetType="Button">
+            <Setter Property="Width"           Value="40"/>
+            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#062A3C"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#546E7A"/>
-                                <Setter Property="Cursor"     Value="Arrow"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
+
+        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
         <!-- ── Send button style (pill corner radius matching input) ── -->
         <Style x:Key="SendButtonStyle" TargetType="Button">
-            <Setter Property="Background"      Value="#083D56"/>
+            <Setter Property="Background"      Value="#0F766E"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="18,0"/>
             <Setter Property="FontSize"        Value="13"/>
@@ -69,43 +195,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#062A3C"/>
+                                <Setter Property="Background" Value="#115E59"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#546E7A"/>
+                                <Setter Property="Background" Value="#AEBFBC"/>
                                 <Setter Property="Cursor"     Value="Arrow"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- ── Window control buttons ── -->
-        <Style x:Key="WinCtrlButton" TargetType="Button">
-            <Setter Property="Width"           Value="40"/>
-            <Setter Property="Height"          Value="32"/>
-            <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor"          Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F8F9FA"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- ── Close button (red on hover) ── -->
-        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#D32F2F"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -115,12 +209,12 @@
 
         <!-- ── Attachment chip button ── -->
         <Style x:Key="AttachChipBtn" TargetType="Button">
-            <Setter Property="Background"      Value="#F8F9FA"/>
-            <Setter Property="Foreground"      Value="#062A3C"/>
+            <Setter Property="Background"      Value="#F6F8F8"/>
+            <Setter Property="Foreground"      Value="#115E59"/>
             <Setter Property="Padding"         Value="8,3"/>
             <Setter Property="FontSize"        Value="11"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#F8F9FA"/>
+            <Setter Property="BorderBrush"     Value="#DDE5E7"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Margin"          Value="0,0,5,0"/>
             <Setter Property="Template">
@@ -136,10 +230,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background"  Value="#F8F9FA"/>
+                                <Setter TargetName="bd" Property="Background"  Value="#E6EDEC"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#083D56"/>
+                                <Setter TargetName="bd" Property="Background" Value="#0F766E"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -164,7 +258,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#F8F9FA"/>
+                                <Setter TargetName="bd" Property="Background" Value="#E6EDEC"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4"/>
@@ -201,10 +295,10 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#083D56" VerticalAlignment="Bottom"
+                               Foreground="#0F766E" VerticalAlignment="Bottom"
                                Margin="0,0,6,3"/>
                     <TextBlock Text="Assistant" FontSize="18" FontWeight="Bold"
-                               Foreground="#2C3E50"/>
+                               Foreground="#1C2B33"/>
                     <!-- AI / LOCAL status badge -->
                     <Border x:Name="ai_status_badge"
                             CornerRadius="3" Padding="5,2"
@@ -214,9 +308,9 @@
                                    FontSize="9" FontWeight="Bold" Foreground="White"/>
                     </Border>
                 </StackPanel>
-                <Separator Height="1" Background="#546E7A" Margin="0,2,0,2"/>
+                <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
                 <TextBlock Text="Chatbox AI cho T3Lab Tools — Tiếng Việt &amp; English"
-                           FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
 
             <!-- Window control buttons -->
@@ -229,7 +323,7 @@
                         ToolTip="Hoàn tác (Undo)"
                         Click="undo_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="↶" FontSize="18" FontWeight="Bold" Foreground="#E67E22"/>
+                    <TextBlock Text="↶" FontSize="18" FontWeight="Bold" Foreground="#F59E0B"/>
                 </Button>
                 <!-- Reset -->
                 <Button x:Name="btn_reset_chat"
@@ -237,35 +331,25 @@
                         ToolTip="Làm mới cuộc trò chuyện"
                         Click="reset_chat_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="↺" FontSize="15" FontWeight="Bold" Foreground="#7F8C8D"/>
+                    <TextBlock Text="↺" FontSize="15" FontWeight="Bold" Foreground="#64748B"/>
                 </Button>
                 <!-- Minimize -->
                 <Button x:Name="btn_minimize"
                         Style="{StaticResource WinCtrlButton}"
                         ToolTip="Minimize" Click="minimize_clicked">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <!-- Close -->
                 <Button x:Name="btn_close"
                         Style="{StaticResource CloseButton}"
                         ToolTip="Close" Click="close_clicked">
-                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
         </Grid>
 
         <!-- Header separator -->
-        <Border Grid.Row="1" Background="#546E7A"/>
+        <Border Grid.Row="1" Background="#DDE5E7"/>
 
         <!-- ═══════════════════════════════════════════════════════════
              CHAT AREA
@@ -273,8 +357,8 @@
         <ScrollViewer Grid.Row="2" x:Name="chat_scroll"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
-                      Background="#F4F6F7"
-                      Padding="14,12,14,8">
+                      Background="#F6F8F8"
+                      Padding="16,12,16,8">
             <StackPanel x:Name="chat_history_panel" Margin="0,0,0,4">
 
                 <!-- Welcome bubble (static, always shown) -->
@@ -286,7 +370,7 @@
 
                     <!-- T3 Avatar -->
                     <Border Grid.Column="0" Width="34" Height="34"
-                            CornerRadius="17" Background="#083D56"
+                            CornerRadius="17" Background="#0F766E"
                             Margin="0,2,10,0" VerticalAlignment="Top">
                         <TextBlock Text="T3" FontSize="11" FontWeight="Bold" Foreground="White"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -296,25 +380,25 @@
                     <Border Grid.Column="1" Background="White"
                             CornerRadius="3,10,10,10"
                             Padding="14,10"
-                            BorderBrush="#F8F9FA" BorderThickness="1">
+                            BorderBrush="#DDE5E7" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Text="T3Lab Assistant" FontSize="10" FontWeight="Bold"
-                                       Foreground="#083D56" Margin="0,0,0,5"/>
-                            <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#2C3E50"
+                                       Foreground="#0F766E" Margin="0,0,0,5"/>
+                            <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#1C2B33"
                                        LineHeight="20"
                                        Text="Xin chào! Tôi là T3Lab Assistant. Tôi có thể:"/>
                             <StackPanel Margin="0,6,0,0">
-                                <TextBlock FontSize="12" Foreground="#7F8C8D"
+                                <TextBlock FontSize="12" Foreground="#64748B"
                                            Text="• Mở BatchOut và xuất sheet PDF/DWG/DWF..."/>
-                                <TextBlock FontSize="12" Foreground="#7F8C8D" Margin="0,3,0,0"
+                                <TextBlock FontSize="12" Foreground="#64748B" Margin="0,3,0,0"
                                            Text="• Chạy ParaSync, Load Family, và các công cụ khác"/>
-                                <TextBlock FontSize="12" Foreground="#7F8C8D" Margin="0,3,0,0"
+                                <TextBlock FontSize="12" Foreground="#64748B" Margin="0,3,0,0"
                                            Text="• Phân tích tài liệu PDF và hình ảnh đính kèm (RAG)"/>
-                                <TextBlock FontSize="12" Foreground="#7F8C8D" Margin="0,3,0,0"
+                                <TextBlock FontSize="12" Foreground="#64748B" Margin="0,3,0,0"
                                            Text="• Trả lời câu hỏi về T3Lab và Revit"/>
                             </StackPanel>
-                            <Separator Height="1" Background="#F8F9FA" Margin="0,8,0,6"/>
-                            <TextBlock FontSize="11" Foreground="#95A5A6" FontStyle="Italic"
+                            <Separator Height="1" Background="#DDE5E7" Margin="0,8,0,6"/>
+                            <TextBlock FontSize="11" Foreground="#94A3B8" FontStyle="Italic"
                                        Text="Nhập lệnh bằng Tiếng Việt hoặc English — Enter để gửi. 📎 để đính kèm PDF/ảnh."/>
                         </StackPanel>
                     </Border>
@@ -326,15 +410,15 @@
         <!-- ═══════════════════════════════════════════════════════════
              INPUT BAR & ACTION CENTER
         ═══════════════════════════════════════════════════════════ -->
-        <Border Grid.Row="3" Background="#F8F9FA"
-                BorderBrush="#546E7A" BorderThickness="0,1,0,0"
-                Padding="14,8,14,10">
+        <Border Grid.Row="3" Background="#F6F8F8"
+                BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                Padding="16,8,16,10">
             <StackPanel>
-                
+
                 <!-- ── Suggested Actions Panel ── -->
                 <StackPanel x:Name="suggested_actions_container" Margin="0,0,0,8">
-                    <TextBlock Text="Suggested Actions" FontSize="10" FontWeight="SemiBold" 
-                               Foreground="#7F8C8D" Margin="4,0,0,4"/>
+                    <TextBlock Text="Suggested Actions" FontSize="10" FontWeight="SemiBold"
+                               Foreground="#64748B" Margin="4,0,0,4"/>
                     <WrapPanel x:Name="suggested_actions_panel">
                         <!-- Chips will be added dynamically -->
                     </WrapPanel>
@@ -343,22 +427,24 @@
                 <!-- ── Attachment preview strip (hidden until files attached) ── -->
                 <Border x:Name="attachment_preview_border"
                         Visibility="Collapsed"
-                        Background="#F8F9FA"
-                        BorderBrush="#F8F9FA" BorderThickness="1"
+                        Background="#F6F8F8"
+                        BorderBrush="#DDE5E7" BorderThickness="1"
                         CornerRadius="3"
                         Padding="8,6"
                         Margin="0,0,0,6">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <TextBlock Text="&#x1F4CE; Đính kèm:" FontSize="10" FontWeight="Bold"
-                                       Foreground="#062A3C" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                       Foreground="#115E59" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                            <TextBlock Text="Đính kèm:" FontSize="10" FontWeight="Bold"
+                                       Foreground="#115E59" VerticalAlignment="Center"/>
                             <Button x:Name="btn_clear_attachments"
                                     Style="{StaticResource IconButton}"
                                     Click="clear_attachments_clicked"
                                     ToolTip="Xóa tất cả đính kèm"
                                     Margin="6,0,0,0"
                                     Padding="3,1">
-                                <TextBlock Text="✕ Xóa tất cả" FontSize="9" Foreground="#D32F2F"/>
+                                <TextBlock Text="✕ Xóa tất cả" FontSize="9" Foreground="#DC2626"/>
                             </Button>
                         </StackPanel>
                         <WrapPanel x:Name="attachment_chips_panel"/>
@@ -379,13 +465,14 @@
                              Height="38" Width="38"
                              Click="attach_clicked"
                              ToolTip="Đính kèm hình ảnh hoặc PDF">
-                        <TextBlock Text="📎" FontSize="16" VerticalAlignment="Center"
+                        <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                                    Foreground="#1C2B33" VerticalAlignment="Center"
                                     HorizontalAlignment="Center"/>
                     </Button>
 
                     <!-- Text input -->
                     <Border Grid.Column="1"
-                            BorderBrush="#546E7A" BorderThickness="1,1,0,1"
+                            BorderBrush="#C7D2D4" BorderThickness="1,1,0,1"
                             CornerRadius="20,0,0,20" Background="White">
                         <TextBox x:Name="chat_input"
                                   Height="38"
@@ -394,8 +481,8 @@
                                   BorderThickness="0"
                                   Background="Transparent"
                                   FontSize="13"
-                                  Foreground="#2C3E50"
-                                  CaretBrush="#083D56"
+                                  Foreground="#1C2B33"
+                                  CaretBrush="#0F766E"
                                   ToolTip="Nhập lệnh Tiếng Việt hoặc English (Enter để gửi)"
                                   KeyDown="input_keydown"/>
                     </Border>
@@ -410,8 +497,8 @@
 
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="Gửi" VerticalAlignment="Center" FontSize="13"/>
-                                <TextBlock Text=" ➤" FontSize="11" VerticalAlignment="Center"
-                                            Margin="2,0,0,0"/>
+                                <TextBlock Text="&#xE724;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                            VerticalAlignment="Center" Margin="4,0,0,0"/>
                             </StackPanel>
 
                     </Button>
@@ -420,6 +507,6 @@
         </Border>
 
         <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

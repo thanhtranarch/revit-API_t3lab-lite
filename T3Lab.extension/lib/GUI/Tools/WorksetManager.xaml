@@ -18,20 +18,22 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-
+        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- PRIMARY BUTTON - teal, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#083D56"/>
+            <Setter Property="Background"      Value="#0F766E"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -39,31 +41,36 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#062A3C"/>
+                    <Setter Property="Background" Value="#115E59"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0B4F4A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#546E7A"/>
+                    <Setter Property="Background" Value="#AEBFBC"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
+        <!-- SECONDARY BUTTON - surface, ink text -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F8F9FA"/>
-            <Setter Property="Foreground"      Value="#2C3E50"/>
-            <Setter Property="Padding"         Value="12,6"/>
+            <Setter Property="Background"      Value="#F6F8F8"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#546E7A"/>
+            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -71,45 +78,75 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E2E6EA"/>
+                    <Setter Property="Background" Value="#E6EDEC"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#DDE5E7"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="#546E7A"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#D32F2F"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#B71C1C"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#546E7A"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
+        <!-- SUCCESS BUTTON - green -->
         <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#27AE60"/>
+            <Setter Property="Background" Value="#15803D"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#1E8449"/>
+                    <Setter Property="Background" Value="#166534"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#14532D"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#546E7A"/>
+                    <Setter Property="Background" Value="#AEBFBC"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
+        <!-- DANGER BUTTON - red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#DC2626"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#991B1B"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ACCENT BUTTON - amber highlight -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#F59E0B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#D97706"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B45309"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL BUTTON -->
         <Style x:Key="WinCtrlButton" TargetType="Button">
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#1C2B33"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -123,32 +160,27 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F8F9FA"/>
+                    <Setter Property="Background" Value="#E6EDEC"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
+        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#D32F2F"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
+        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
 
         <Style x:Key="GroupLabel" TargetType="TextBlock">
             <Setter Property="FontSize"          Value="9"/>
             <Setter Property="FontWeight"        Value="SemiBold"/>
-            <Setter Property="Foreground"        Value="#546E7A"/>
+            <Setter Property="Foreground"        Value="#64748B"/>
             <Setter Property="FontFamily"        Value="Inter"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin"            Value="0,0,8,0"/>
@@ -178,13 +210,13 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#083D56" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                               Foreground="#0F766E" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
                     <TextBlock Text="Workset Manager" FontSize="18" FontWeight="Bold"
-                               Foreground="#2C3E50"/>
+                               Foreground="#1C2B33"/>
                 </StackPanel>
-                <Separator Height="1" Background="#546E7A" Margin="0,2,0,2"/>
+                <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
                 <TextBlock Text="Manage user worksets in the active Revit project"
-                           FontSize="10" Foreground="#7F8C8D" FontStyle="Italic"/>
+                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
@@ -196,17 +228,17 @@
                 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
                         Click="minimize_button_clicked" ToolTip="Minimize"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
                         Click="maximize_button_clicked" ToolTip="Maximize"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56"/>
+                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
                         Click="close_button_clicked" ToolTip="Close"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="#083D56">
+                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
@@ -222,12 +254,12 @@
                 </Button>
             </StackPanel>
 
-            <Border Height="1" VerticalAlignment="Bottom" Background="#546E7A"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#DDE5E7"/>
         </Grid>
 
         <!-- ── TOOLBAR ─────────────────────────────────── -->
         <Border Grid.Row="1" Background="White"
-                BorderBrush="#546E7A" BorderThickness="0,0,0,1" Padding="12,7">
+                BorderBrush="#DDE5E7" BorderThickness="0,0,0,1" Padding="12,7">
             <WrapPanel VerticalAlignment="Center">
 
                 <!-- Group: Worksharing -->
@@ -239,7 +271,7 @@
                             ToolTip="Enable worksharing on this document"/>
                 </StackPanel>
 
-                <Rectangle Width="1" Fill="#546E7A" Margin="12,3"/>
+                <Rectangle Width="1" Fill="#DDE5E7" Margin="12,3"/>
 
                 <!-- Group: Worksets -->
                 <StackPanel Orientation="Horizontal">
@@ -254,7 +286,7 @@
                             ToolTip="Delete selected workset(s) and move their elements"/>
                 </StackPanel>
 
-                <Rectangle Width="1" Fill="#546E7A" Margin="12,3"/>
+                <Rectangle Width="1" Fill="#DDE5E7" Margin="12,3"/>
 
                 <!-- Group: Bulk -->
                 <StackPanel Orientation="Horizontal">
@@ -269,7 +301,7 @@
                             ToolTip="Remove worksets not in workset_list.txt"/>
                 </StackPanel>
 
-                <Rectangle Width="1" Fill="#546E7A" Margin="12,3"/>
+                <Rectangle Width="1" Fill="#DDE5E7" Margin="12,3"/>
 
                 <!-- Group: Views -->
                 <StackPanel Orientation="Horizontal">
@@ -295,9 +327,9 @@
                   CanUserDeleteRows="False"
                   SelectionMode="Extended"
                   GridLinesVisibility="Horizontal"
-                  AlternatingRowBackground="#F8F9FA"
+                  AlternatingRowBackground="#F6F8F8"
                   Background="White"
-                  BorderBrush="#546E7A"
+                  BorderBrush="#DDE5E7"
                   BorderThickness="1"
                   RowHeight="30"
                   HeadersVisibility="Column"
@@ -307,13 +339,13 @@
 
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background"      Value="#F8F9FA"/>
-                    <Setter Property="Foreground"      Value="#2C3E50"/>
+                    <Setter Property="Background"      Value="#F6F8F8"/>
+                    <Setter Property="Foreground"      Value="#1C2B33"/>
                     <Setter Property="FontWeight"      Value="SemiBold"/>
                     <Setter Property="FontSize"        Value="12"/>
                     <Setter Property="FontFamily"      Value="Inter"/>
                     <Setter Property="Padding"         Value="8,6"/>
-                    <Setter Property="BorderBrush"     Value="#546E7A"/>
+                    <Setter Property="BorderBrush"     Value="#DDE5E7"/>
                     <Setter Property="BorderThickness" Value="0,0,1,1"/>
                     <Setter Property="Height"          Value="34"/>
                 </Style>
@@ -323,10 +355,10 @@
                 <Style TargetType="DataGridRow">
                     <Style.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#F8F9FA"/>
+                            <Setter Property="Background" Value="#F6F8F8"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#E2E6EA"/>
+                            <Setter Property="Background" Value="#D9EBE8"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -353,7 +385,7 @@
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
                             <Setter Property="Padding"           Value="6,0"/>
-                            <Setter Property="Foreground"        Value="#2C3E50"/>
+                            <Setter Property="Foreground"        Value="#1C2B33"/>
                             <Setter Property="FontWeight"        Value="SemiBold"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
@@ -369,7 +401,7 @@
                                     <Style TargetType="CheckBox" BasedOn="{StaticResource ReadOnlyCheck}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="Foreground" Value="#083D56"/>
+                                                <Setter Property="Foreground" Value="#0F766E"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -405,7 +437,7 @@
                         <Style TargetType="TextBlock">
                             <Setter Property="VerticalAlignment" Value="Center"/>
                             <Setter Property="Padding"           Value="6,0"/>
-                            <Setter Property="Foreground"        Value="#7F8C8D"/>
+                            <Setter Property="Foreground"        Value="#64748B"/>
                             <Setter Property="FontSize"          Value="11"/>
                         </Style>
                     </DataGridTextColumn.ElementStyle>
@@ -415,22 +447,22 @@
         </DataGrid>
 
         <!-- ── STATUS BAR ──────────────────────────────── -->
-        <Border Grid.Row="3" Background="#F8F9FA"
-                BorderBrush="#546E7A" BorderThickness="0,1,0,0" Padding="14,6">
+        <Border Grid.Row="3" Background="#F6F8F8"
+                BorderBrush="#DDE5E7" BorderThickness="0,1,0,0" Padding="14,6">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="status_text" Text="Loading..." FontSize="11"
-                           Foreground="#7F8C8D" VerticalAlignment="Center" FontFamily="Inter"/>
+                           Foreground="#64748B" VerticalAlignment="Center" FontFamily="Inter"/>
                 <TextBlock x:Name="ws_status" Grid.Column="1" Text="" FontSize="11"
-                           Foreground="#546E7A" VerticalAlignment="Center" FontFamily="Inter"/>
+                           Foreground="#64748B" VerticalAlignment="Center" FontFamily="Inter"/>
             </Grid>
         </Border>
 
     
         <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#3498DB" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>
