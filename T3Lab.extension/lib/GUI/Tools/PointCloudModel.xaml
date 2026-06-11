@@ -243,7 +243,7 @@
                     <Border Width="40" Height="2" Background="#DDE5E7" VerticalAlignment="Center"
                             Margin="0,0,0,16"/>
 
-                    <!-- Step 2: Detection -->
+                    <!-- Step 2: Results -->
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Width="90">
                         <Border x:Name="step_circle_2" Width="28" Height="28" CornerRadius="14"
                                 Background="#E6EDEC" HorizontalAlignment="Center">
@@ -251,29 +251,10 @@
                                        Foreground="#64748B" HorizontalAlignment="Center"
                                        VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock x:Name="step_label_2" Text="Detection" FontSize="11"
+                        <TextBlock x:Name="step_label_2" Text="Results" FontSize="11"
                                    Foreground="#64748B"
                                    HorizontalAlignment="Center" Margin="0,4,0,2"/>
                         <Border x:Name="step_underline_2" Height="2" Background="#F59E0B"
-                                HorizontalAlignment="Center" Width="60" Visibility="Collapsed"/>
-                    </StackPanel>
-
-                    <!-- Connector line 2→3 -->
-                    <Border Width="40" Height="2" Background="#DDE5E7" VerticalAlignment="Center"
-                            Margin="0,0,0,16"/>
-
-                    <!-- Step 3: Results -->
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" Width="90">
-                        <Border x:Name="step_circle_3" Width="28" Height="28" CornerRadius="14"
-                                Background="#E6EDEC" HorizontalAlignment="Center">
-                            <TextBlock x:Name="step_num_3" Text="3" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="#64748B" HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"/>
-                        </Border>
-                        <TextBlock x:Name="step_label_3" Text="Results" FontSize="11"
-                                   Foreground="#64748B"
-                                   HorizontalAlignment="Center" Margin="0,4,0,2"/>
-                        <Border x:Name="step_underline_3" Height="2" Background="#F59E0B"
                                 HorizontalAlignment="Center" Width="60" Visibility="Collapsed"/>
                     </StackPanel>
 
@@ -358,301 +339,8 @@
                 </ScrollViewer>
             </TabItem>
 
-            <!-- ─── TAB 2: Detection Settings ─── -->
+            <!-- ─── TAB 2: Results ─── -->
             <TabItem x:Name="tab_step2" Header="" Visibility="Collapsed">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="20,16,20,16">
-
-                        <TextBlock Text="Select element types to detect and configure tolerances:"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
-                                   Margin="0,0,0,10"/>
-
-                        <UniformGrid Columns="2">
-
-                            <!-- Card 1: Wall -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_wall" IsChecked="True"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Wall" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="6"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Snap tolerance (°):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_snap_tol"
-                                                 Text="1.0" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Min length (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="txt_wall_min_len"
-                                                 Text="500" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Card 2: Floor / Slab -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_floor" IsChecked="True"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Floor / Slab" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="6"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Z bin size (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_floor_zbin"
-                                                 Text="50" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Min area (m²):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="txt_floor_min_area"
-                                                 Text="1" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Card 3: Ceiling -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_ceiling" IsChecked="True"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Ceiling" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Z bin size (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_ceil_zbin"
-                                                 Text="50" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Card 4: Door -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_door" IsChecked="False"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Door" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="6"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Min width (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_door_min_w"
-                                                 Text="600" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Min height (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="txt_door_min_h"
-                                                 Text="1800" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Card 5: Window -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_window" IsChecked="False"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Window" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="6"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Min width (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_win_min_w"
-                                                 Text="400" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Min height (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="txt_win_min_h"
-                                                 Text="400" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Card 6: Column -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_column" IsChecked="False"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Column" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="6"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Min size (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_col_min"
-                                                 Text="100" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Max size (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="2" Grid.Column="1" x:Name="txt_col_max"
-                                                 Text="600" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Card 7: Stair -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_stair" IsChecked="False"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Stair" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Riser height (mm):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_stair_riser"
-                                                 Text="165" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Card 8: Roof -->
-                            <Border Margin="0,0,8,8" BorderBrush="#DDE5E7" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,10" Background="White">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <CheckBox x:Name="chk_detect_roof" IsChecked="False"
-                                                  Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Roof" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                    <Grid Margin="20,0,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Min slope (°):"
-                                                   FontSize="11" Foreground="#64748B"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="0" Grid.Column="1" x:Name="txt_roof_slope"
-                                                 Text="5" FontFamily="Inter" FontSize="11"
-                                                 Padding="4,3" BorderBrush="#C7D2D4"
-                                                 MaxWidth="80" HorizontalAlignment="Left"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                        </UniformGrid>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <!-- ─── TAB 3: Results ─── -->
-            <TabItem x:Name="tab_step3" Header="" Visibility="Collapsed">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>   <!-- Row 0: summary badges -->
@@ -805,10 +493,11 @@
                     <Button x:Name="btn_analyze" Content="&#x25B6;  Analyze"
                             Style="{StaticResource SuccessButton}"
                             Padding="20,8" FontSize="13"
-                            Visibility="Collapsed" Margin="0,0,8,0"/>
+                            Margin="0,0,8,0"/>
                     <Button x:Name="btn_next" Content="Next  &#x2192;"
                             Style="{StaticResource PrimaryButton}"
-                            Padding="20,8" FontSize="13"/>
+                            Padding="20,8" FontSize="13"
+                            Visibility="Collapsed"/>
                     <Button x:Name="btn_generate" Content="Generate Selected"
                             Style="{StaticResource SuccessButton}"
                             Padding="20,8" FontSize="13"
