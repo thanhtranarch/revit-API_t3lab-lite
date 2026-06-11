@@ -3,3 +3,4 @@ layout:
   - DoorThreshold
   - ImageToDrafting
   - RoomToFloor
+  - PointCloud
