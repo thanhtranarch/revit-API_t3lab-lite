@@ -1,0 +1,9 @@
+title: Point Cloud to Wall
+tooltip: Extract wall geometry from a point cloud and create a Revit wall element
+description: |
+  Select a Point Cloud Instance, click a sampling point, and the tool
+  fits a wall centerline via Least-Squares Regression, auto-snaps to
+  project grids/axes within 1 degree, matches wall types by compound thickness,
+  then creates the wall after user confirmation.
+author: Tran Tien Thanh
+version: 1.0.0
