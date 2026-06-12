@@ -1,9 +1,8 @@
 layout:
-  - Cloud
-  - Project
-  - Annotation
-  - Export
-  - Review
-  - Calculator
   - AI Connection
+  - Annotation
+  - Project
+  - ViewsSheets
+  - Data
+  - Settings
   - Support

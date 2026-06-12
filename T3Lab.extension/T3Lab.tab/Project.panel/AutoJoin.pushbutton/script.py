@@ -4,19 +4,17 @@ Auto Join
 
 Automatically join intersecting Revit elements by category rules.
 Define priority categories (which cut) and join-with categories (which get cut).
-Inspired by Alpha BIM Auto Join workflow.
+Collaborative tool by T3Lab & Dang Quoc Truong.
 
 - Click       : Open Auto Join Manager (WPF rule-based dialog)
 - Shift+Click : Quick join with default rules (Walls ↔ Floors, Columns)
 
-Author: Tran Tien Thanh
-Mail: trantienthanh909@gmail.com
-Linkedin: linkedin.com/in/sunarch7899/
+Author: Tran Tien Thanh & Dang Quoc Truong
 """
 
-__author__  = "Tran Tien Thanh"
+__author__  = "Tran Tien Thanh & Dang Quoc Truong"
 __title__   = "AutoJoin"
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # IMPORT LIBRARIES
 # ==================================================

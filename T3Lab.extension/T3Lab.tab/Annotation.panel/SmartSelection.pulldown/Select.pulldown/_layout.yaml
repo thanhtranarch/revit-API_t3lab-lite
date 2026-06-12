@@ -1,0 +1,16 @@
+layout:
+  - SelectSimilar_Type_InView
+  - SelectSimilar_Type_InModel
+  - "---"
+  - SelectSimilar_Family_InView
+  - SelectSimilar_Family_InModel
+  - "---"
+  - SelectSimilar_Category_InView
+  - SelectSimilar_Category_InModel
+  - "---"
+  - SelectByCategory
+  - SelectAllInPlaceElements
+  - DeselectGroupedElements
+  - "---"
+  - SelectOnSheets_TitleBlocks
+  - SelectOnSheets_DWG

@@ -1,2 +1,6 @@
+title: AI Connection
 layout:
-
+  - T3LabAssistant
+  - StartMCP
+  - StopMCP
+  - Settings

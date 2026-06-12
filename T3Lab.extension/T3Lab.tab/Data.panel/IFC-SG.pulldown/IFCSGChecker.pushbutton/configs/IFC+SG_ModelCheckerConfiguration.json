@@ -1,0 +1,830 @@
+{
+  "name": "IFC+SG Model Checker Configuration", 
+  "description": "Configuration file based CORENET X Code of Practice 3rd Edition September 2025", 
+  "source": "XML", 
+  "disciplines": {
+    "STR": {
+      "enabled": true, 
+      "categories": {
+        "Generic Models": {
+          "params": [
+            "Depth", 
+            "IfcObjectType", 
+            "LoadBearing", 
+            "Mark", 
+            "SHDLevel_SPT_MoreThan_100N", 
+            "SHDLevel_SPT_MoreThan_60N", 
+            "TerminationLevel", 
+            "TopLevel"
+          ], 
+          "enabled": true
+        }, 
+        "Columns": {
+          "params": [
+            "IfcObjectType", 
+            "ReferTo2DDetail"
+          ], 
+          "enabled": true
+        }, 
+        "Walls": {
+          "params": [
+            "ArrangementType", 
+            "BeamFacade", 
+            "ConstructionMethod", 
+            "Double Bay Façade", 
+            "HorizontalRebar", 
+            "IfcObjectType", 
+            "IsExternal", 
+            "LoadBearing", 
+            "Mark", 
+            "MaterialGrade", 
+            "MechanicalConnectionType", 
+            "PrefabricationReinforcementCage", 
+            "Prefinished Façade", 
+            "ReferTo2DDetail", 
+            "ReinforcementSteelGrade", 
+            "ShelterUsage", 
+            "Stirrups", 
+            "StirrupsType", 
+            "Thickness", 
+            "VerticalRebar", 
+            "WorkingLoad_DA1-1", 
+            "WorkingLoad_DA1-2"
+          ], 
+          "enabled": true
+        }, 
+        "Structural Framing": {
+          "params": [
+            "BeamSpanType", 
+            "BottomLeft", 
+            "BottomMiddle", 
+            "BottomRight", 
+            "ConstructionMethod", 
+            "Depth", 
+            "IfcObjectType", 
+            "LeftConnectionDetail", 
+            "LeftConnectionType", 
+            "Mark", 
+            "MaterialGrade", 
+            "MechanicalConnectionType", 
+            "MemberSection", 
+            "PrefabricationReinforcementCage", 
+            "ReferTo2DDetail", 
+            "ReinforcementSteelGrade", 
+            "RightConnectionDetail", 
+            "RightConnectionType", 
+            "SectionFabricationMethod", 
+            "SideBar", 
+            "SpliceConnection", 
+            "StirrupsLeft", 
+            "StirrupsMiddle", 
+            "StirrupsRight", 
+            "StirrupsTypeLeft", 
+            "StirrupsTypeMiddle", 
+            "StirrupsTypeRight", 
+            "TopLeft", 
+            "TopMiddle", 
+            "TopRight", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Railings": {
+          "params": [
+            "IfcObjectType", 
+            "Material"
+          ], 
+          "enabled": true
+        }, 
+        "Floors": {
+          "params": [
+            "Accreditation_PAS", 
+            "BottomDistribution_nominal", 
+            "BottomMain_nominal", 
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "LatticeGirderReinforcement", 
+            "LoadBearing", 
+            "Mark", 
+            "MaterialGrade", 
+            "MechanicalConnectionType", 
+            "ReferTo2DDetail", 
+            "ReinforcementSteelGrade", 
+            "ShelterUsage", 
+            "SlabType", 
+            "Stirrups", 
+            "StirrupsType", 
+            "Thickness", 
+            "TopDistribution_nominal", 
+            "TopMain_nominal", 
+            "TypeDesignator", 
+            "WeldedMesh"
+          ], 
+          "enabled": true
+        }, 
+        "Structural Foundations": {
+          "params": [
+            "BoreholeRef", 
+            "BottomDistribution", 
+            "BottomMain", 
+            "Breadth", 
+            "ConstructionMethod", 
+            "CutOffLevel_SHD", 
+            "DA1-1_BearingCapacity", 
+            "DA1-1_CompressionCapacity", 
+            "DA1-1_CompressionDesignLoad", 
+            "DA1-1_TensionCapacity", 
+            "DA1-1_TensionDesignLoad", 
+            "DA1-2_BearingCapacity", 
+            "DA1-2_CompressionCapacity", 
+            "DA1-2_CompressionDesignLoad", 
+            "DA1-2_TensionCapacity", 
+            "DA1-2_TensionDesignLoad", 
+            "Depth", 
+            "Diameter", 
+            "IfcObjectType", 
+            "Length", 
+            "MainRebar", 
+            "Mark", 
+            "MaterialGrade", 
+            "MemberSection", 
+            "MinEmbedmentIntoBearingLayer_SPT_MoreThan_100N", 
+            "MinEmbedmentIntoBearingLayer_SPT_MoreThan_60N", 
+            "MinRockSocketingLength", 
+            "NegativeSkinFriction", 
+            "PileType", 
+            "ReferTo2DDetail", 
+            "ReinforcementLength", 
+            "ReinforcementSteelGrade", 
+            "SideBar", 
+            "SoilVerificationTest", 
+            "Stirrups", 
+            "StirrupsType", 
+            "StructuralCompressionCapacity", 
+            "StructuralTensionCapacity", 
+            "ToeLevel_SHD", 
+            "TopDistribution", 
+            "TopMain", 
+            "Width", 
+            "WorkingLoad_DA1-1", 
+            "WorkingLoad_DA1-2"
+          ], 
+          "enabled": true
+        }, 
+        "Structural Columns": {
+          "params": [
+            "Accreditation_PAS", 
+            "ArrangementType", 
+            "Breadth", 
+            "ColumnCage", 
+            "ConnectionDetailsBottom", 
+            "ConnectionDetailsTop", 
+            "ConnectionTypeBottom", 
+            "ConnectionTypeTop", 
+            "ConstructionMethod", 
+            "Diameter", 
+            "EndStorey", 
+            "IfcObjectType", 
+            "MainRebar", 
+            "Mark", 
+            "MaterialGrade", 
+            "MechanicalConnectionType", 
+            "MemberSection", 
+            "PrefabricationReinforcementCage", 
+            "ReinforcementSteelGrade", 
+            "SectionFabricationMethod", 
+            "SpliceDetail", 
+            "StartingStorey", 
+            "Stirrups", 
+            "StirrupsType", 
+            "Width", 
+            "WorkingLoad_DA1-1", 
+            "WorkingLoad_DA1-2"
+          ], 
+          "enabled": true
+        }, 
+        "Stairs": {
+          "params": [
+            "BottomDistribution", 
+            "BottomMain", 
+            "ConnectionDetailsBottom", 
+            "ConnectionDetailsTop", 
+            "ConnectionTypeBottom", 
+            "ConnectionTypeTop", 
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "Mark", 
+            "MaterialGrade", 
+            "MechanicalConnectionType", 
+            "MemberSection", 
+            "ReferTo2DDetail", 
+            "ReinforcementSteelGrade", 
+            "SectionFabricationMethod", 
+            "Thickness", 
+            "TopDistribution", 
+            "TopMain", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Project Information": {
+          "params": [
+            "EndBearingR4DesignFactor", 
+            "IfcObjectType", 
+            "NoOfNonDestructiveTestPile", 
+            "NoOfULTTest", 
+            "NoOfWorkingLoadTest_MaintainedLoadTest", 
+            "NoOfWorkingLoadTest_RapidLoadTest", 
+            "PileModelFactor", 
+            "ShaftR4DesignFactor"
+          ], 
+          "enabled": true
+        }
+      }
+    }, 
+    "ARC": {
+      "enabled": true, 
+      "categories": {
+        "Specialty Equipment": {
+          "params": [
+            "BarrierFreeAccessibility", 
+            "ClearDepth", 
+            "ClearHeight", 
+            "ClearWidth", 
+            "FireFightingLift", 
+            "IfcObjectType", 
+            "Length", 
+            "LiftType", 
+            "MountingHeight", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Plumbing Fixtures": {
+          "params": [
+            "AmbulantDisabled", 
+            "BarrierFreeAccessibility", 
+            "ChildrenFriendly", 
+            "IfcObjectType", 
+            "Mounting", 
+            "PanMounting", 
+            "ToiletPanType", 
+            "Waterless"
+          ], 
+          "enabled": true
+        }, 
+        "Ceilings": {
+          "params": [
+            "FireRating", 
+            "IfcObjectType", 
+            "Material"
+          ], 
+          "enabled": true
+        }, 
+        "Rooms": {
+          "params": [
+            "Accreditation_MAS", 
+            "Accreditation_PAS", 
+            "AmbulantDisabled", 
+            "Area", 
+            "BarrierFreeAccessibility", 
+            "CValue", 
+            "ChildrenFriendly", 
+            "ConstructionMethod", 
+            "EffectiveCapacity", 
+            "ElderlyFriendly", 
+            "EmergencyVoiceCommunicationSystem", 
+            "FireDetectionAndSuppressionSystem", 
+            "FireEmergencyVentilationMode", 
+            "FireExit", 
+            "FullyCoveredWithTreesShrubs", 
+            "HearingEnhancement", 
+            "Height", 
+            "IfcObjectType", 
+            "InternalLength", 
+            "InternalWidth", 
+            "IsPotable", 
+            "LargerAccessible", 
+            "MechanicalConnectionType", 
+            "NominalCapacity", 
+            "OccupancyLoad", 
+            "OccupancyType", 
+            "ParkingType", 
+            "PurposeGroup", 
+            "RefuseOutput", 
+            "Retrofit", 
+            "SmokeControlSystem", 
+            "SoundPowerLevel", 
+            "SoundPressureLevel", 
+            "SpaceName", 
+            "StepRampAccess", 
+            "Thickness", 
+            "TwentyFourHourMannedStation", 
+            "UnitNumber", 
+            "VentilationMode", 
+            "VentilationType", 
+            "Volume"
+          ], 
+          "enabled": true
+        }, 
+        "Project Information": {
+          "params": [
+            "IfcObjectType", 
+            "NumberOfWorkers", 
+            "OwnerBuiltOwnerStay", 
+            "ProjectDevelopmentType"
+          ], 
+          "enabled": true
+        }, 
+        "Toposolid": {
+          "params": [
+            "ApprovedSoilMixture", 
+            "Area", 
+            "BroadLandUse", 
+            "CarparkProvision", 
+            "Compensated", 
+            "Encroachment", 
+            "IfcObjectType", 
+            "Status", 
+            "TotalArea", 
+            "Turf", 
+            "TurfSpecies", 
+            "VacantLand"
+          ], 
+          "enabled": true
+        }, 
+        "Areas": {
+          "params": [
+            "ACN_ActivityGeneratingUseType", 
+            "ACN_CloseTime", 
+            "ACN_ConnectivityType", 
+            "ACN_IsOpen24HoursToPublic", 
+            "ACN_IsPavingSpecified", 
+            "ACN_OpenTime", 
+            "ACN_PavingSpecification", 
+            "AGF_BonusGFAType", 
+            "AGF_BuildingTypology", 
+            "AGF_DevelopmentUse", 
+            "AGF_Name", 
+            "AGF_Note", 
+            "AGF_SupportingFacility", 
+            "AGF_UnitNumber", 
+            "AGF_UseQuantum", 
+            "ALS_GreeneryFeatures", 
+            "ALS_LandscapeType", 
+            "ALS_Species", 
+            "AST_AreaType", 
+            "AST_Extg_StrataLotNumber", 
+            "AST_LegalArea", 
+            "AST_Prop_StrataLotNumber", 
+            "AVF_IncludeAsGFA", 
+            "Area", 
+            "BarrierFreeAccessibility", 
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "InternalLength", 
+            "InternalWidth", 
+            "LoadingCapacity", 
+            "Material", 
+            "ShelterUsage", 
+            "SpaceName", 
+            "Thickness", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Roofs": {
+          "params": [
+            "ConstructionMethod", 
+            "FireRating", 
+            "IfcObjectType", 
+            "Material"
+          ], 
+          "enabled": true
+        }, 
+        "Doors": {
+          "params": [
+            "AirTight", 
+            "ClearHeight", 
+            "ClearWidth", 
+            "ElectromechanicalLock", 
+            "FireAccessOpening", 
+            "FireExit", 
+            "FireRating", 
+            "IfcObjectType", 
+            "MainEntrance", 
+            "Material", 
+            "OneWayLockingDevice", 
+            "OperationType", 
+            "OverallWidth", 
+            "PowerOperated", 
+            "SelfClosing", 
+            "StructuralHeight", 
+            "StructuralWidth", 
+            "Thickness", 
+            "VisionPanel", 
+            "VolumeControlled"
+          ], 
+          "enabled": true
+        }, 
+        "Parking": {
+          "params": [
+            "BicycleRack_Type", 
+            "CarParking_ServedByCarLift", 
+            "IfcObjectType", 
+            "Length", 
+            "MechanisedParkingSystem", 
+            "OpenAtGrade", 
+            "ParkingUse", 
+            "Perforated", 
+            "VehicleType", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Windows": {
+          "params": [
+            "FireAccessOpening", 
+            "IfcObjectType", 
+            "InnerDiameter", 
+            "Material", 
+            "OperationType", 
+            "OuterDiameter", 
+            "PercentageOfOpening", 
+            "SafetyBarrierHeight", 
+            "StructuralHeight", 
+            "StructuralWidth"
+          ], 
+          "enabled": true
+        }, 
+        "Stairs": {
+          "params": [
+            "ConstructionMethod", 
+            "FireExit", 
+            "IfcObjectType", 
+            "MaterialGrade", 
+            "NumberOfRisers", 
+            "NumberOfTreads", 
+            "RiserHeight", 
+            "SpaceName", 
+            "TreadLength"
+          ], 
+          "enabled": true
+        }, 
+        "Railings": {
+          "params": [
+            "Height", 
+            "IfcObjectType", 
+            "IsLaminated", 
+            "SafetyBarrier", 
+            "TypeOfBarrier"
+          ], 
+          "enabled": true
+        }, 
+        "Furniture": {
+          "params": [
+            "Capacity", 
+            "IfcObjectType"
+          ], 
+          "enabled": true
+        }, 
+        "Model Groups": {
+          "params": [
+            "ChamferRadius", 
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "InnerLength", 
+            "InnerWidth", 
+            "OuterLength", 
+            "OuterWidth"
+          ], 
+          "enabled": true
+        }, 
+        "Shaft Openings": {
+          "params": [
+            "FireAccessOpening", 
+            "IfcObjectType"
+          ], 
+          "enabled": true
+        }, 
+        "Generic Models": {
+          "params": [
+            "AI_AmmoniaAndAmmonium", 
+            "AI_Antimony", 
+            "AI_Arsenic", 
+            "AI_Benzene", 
+            "AI_Cadmium", 
+            "AI_CarbonMonoxide", 
+            "AI_Chlorine", 
+            "AI_Copper", 
+            "AI_DioxinsAndFurans", 
+            "AI_EthyleneOxide", 
+            "AI_FlourineAndHydrofluoricAcid", 
+            "AI_Formaldehyde", 
+            "AI_HydrogenChloride", 
+            "AI_HydrogenSulphide", 
+            "AI_Lead", 
+            "AI_Mercury", 
+            "AI_OxidesOfNitrogen", 
+            "AI_ParticulateSubstances", 
+            "AI_StyreneMonomer", 
+            "AI_SulphurDioxide", 
+            "AI_SulphurTrioxideAndAcidGases", 
+            "AI_SulphurTrioxideOrSulphuricAcidMist", 
+            "AI_VinylChlorideMonomer", 
+            "BarrierFreeAccessibility", 
+            "Egress", 
+            "FamilyLot", 
+            "FireExtinguisherRating", 
+            "IfcObjectType", 
+            "Ingress", 
+            "LotNumber", 
+            "ShadingDevice", 
+            "SystemName", 
+            "SystemType", 
+            "TED_Arsenic", 
+            "TED_Barium", 
+            "TED_Beryllium", 
+            "TED_BiochemicalOxygenDemand", 
+            "TED_Boron", 
+            "TED_Cadmium", 
+            "TED_Calcium", 
+            "TED_ChemicalOxygenDemand", 
+            "TED_Chloride", 
+            "TED_Chromium", 
+            "TED_Colour", 
+            "TED_Copper", 
+            "TED_Cyanide", 
+            "TED_Detergent", 
+            "TED_GreaseAndOil", 
+            "TED_Iron", 
+            "TED_Lead", 
+            "TED_Magnesium", 
+            "TED_Manganese", 
+            "TED_Mercury", 
+            "TED_MetalsInTotal", 
+            "TED_Nickel", 
+            "TED_Nitrate", 
+            "TED_PHValue", 
+            "TED_PhenolicCompound", 
+            "TED_Phosphate", 
+            "TED_Selenium", 
+            "TED_Silver", 
+            "TED_Sulphate", 
+            "TED_Sulphide", 
+            "TED_TemperatureOfDischarge", 
+            "TED_Tin", 
+            "TED_TotalDissolvedSolid", 
+            "TED_TotalSuspendedSolid", 
+            "TED_Zinc", 
+            "Vehicular", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Ramps": {
+          "params": [
+            "Accessway", 
+            "BarrierFreeAccessibility", 
+            "Egress", 
+            "Gradient", 
+            "IfcObjectType", 
+            "Ingress", 
+            "Material", 
+            "TransitionRamp", 
+            "Vehicular", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Walls": {
+          "params": [
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "IsPartyWall", 
+            "Thickness"
+          ], 
+          "enabled": true
+        }, 
+        "Floors": {
+          "params": [
+            "DesignedVehicleMass", 
+            "Egress", 
+            "FireRating", 
+            "Height", 
+            "IfcObjectType", 
+            "Ingress", 
+            "KerbType", 
+            "Material", 
+            "RoadCategory", 
+            "Thickness", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Planting": {
+          "params": [
+            "Girth", 
+            "HedgeNumber", 
+            "Height", 
+            "IfcObjectType", 
+            "ReasonForRemoval", 
+            "Roadside", 
+            "SingleStem", 
+            "Species", 
+            "Status", 
+            "TreeNumber", 
+            "TreeSize", 
+            "Turf"
+          ], 
+          "enabled": true
+        }
+      }
+    }, 
+    "MEP": {
+      "enabled": true, 
+      "categories": {
+        "Duct Accessories": {
+          "params": [
+            "FireRating", 
+            "IfcObjectType"
+          ], 
+          "enabled": true
+        }, 
+        "Ducts": {
+          "params": [
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "PreInsulated", 
+            "SystemName", 
+            "SystemType", 
+            "TradeEffluent"
+          ], 
+          "enabled": true
+        }, 
+        "Duct Fittings": {
+          "params": [
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "PreInsulated", 
+            "SystemName", 
+            "SystemType", 
+            "TradeEffluent"
+          ], 
+          "enabled": true
+        }, 
+        "Pipes": {
+          "params": [
+            "ConstructionMethod", 
+            "DemountableStructureAbovePipe", 
+            "Gradient", 
+            "IfcObjectType", 
+            "InnerDiameter", 
+            "Length", 
+            "Material", 
+            "Perforated", 
+            "PreInsulated", 
+            "SystemName", 
+            "SystemType", 
+            "Thickness", 
+            "TradeEffluent"
+          ], 
+          "enabled": true
+        }, 
+        "Mechanical Equipment": {
+          "params": [
+            "BasePlateMaterial ", 
+            "BasePlateThickness", 
+            "Capacity", 
+            "ColourCode", 
+            "CompactionRatio", 
+            "Diameter", 
+            "Duty", 
+            "EffectiveCapacity", 
+            "EquipmentType", 
+            "Height", 
+            "HookUpPoint", 
+            "Hose_NominalDiameter", 
+            "IfcObjectType", 
+            "IsPotable", 
+            "Length", 
+            "Litre", 
+            "NominalCapacity", 
+            "PumpHead", 
+            "Standby", 
+            "TailGateOrientation", 
+            "Thickness", 
+            "TradeEffluent", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Pipe Fittings": {
+          "params": [
+            "ConstructionMethod", 
+            "IfcObjectType", 
+            "InnerDiameter", 
+            "NominalDiameter", 
+            "OuterDiameter", 
+            "PreInsulated", 
+            "SystemName", 
+            "SystemType", 
+            "Thickness"
+          ], 
+          "enabled": true
+        }, 
+        "Pipe Accessories": {
+          "params": [
+            "Capacity", 
+            "Diameter", 
+            "IfcObjectType", 
+            "Length", 
+            "Material", 
+            "Purpose", 
+            "TradeEffluent", 
+            "UnitNumber", 
+            "UnitNumberTag", 
+            "WaterSupplySource"
+          ], 
+          "enabled": true
+        }, 
+        "Electrical Equipment": {
+          "params": [
+            "IfcObjectType", 
+            "PWCS_Flushing", 
+            "Purpose"
+          ], 
+          "enabled": true
+        }, 
+        "Plumbing Fixtures": {
+          "params": [
+            "ComplyToPUBStandardDrawing", 
+            "Depth", 
+            "Diameter", 
+            "Height", 
+            "Hose_NominalDiameter", 
+            "ID", 
+            "IfcObjectType", 
+            "InvertLevel", 
+            "Length", 
+            "Material", 
+            "Private", 
+            "Public", 
+            "ReferToDrawingNumber", 
+            "SystemName", 
+            "SystemType", 
+            "TopLevel", 
+            "TradeEffluent", 
+            "WELS", 
+            "Width"
+          ], 
+          "enabled": true
+        }, 
+        "Generic Models": {
+          "params": [
+            "ConstructionMethod", 
+            "Diameter", 
+            "Gradient", 
+            "Height", 
+            "IfcObjectType", 
+            "IsCommon", 
+            "Length", 
+            "Material", 
+            "Public", 
+            "SystemName", 
+            "SystemType", 
+            "Thickness", 
+            "Width"
+          ], 
+          "enabled": true
+        }
+      }
+    }, 
+    "External Works": {
+      "enabled": true, 
+      "categories": {
+        "Generic Models": {
+          "params": [
+            "BeddingType", 
+            "IfcObjectType"
+          ], 
+          "enabled": true
+        }, 
+        "Toposolid": {
+          "params": [
+            "ALS_GreeneryFeature", 
+            "ALS_LandscapeType", 
+            "ALS_Status", 
+            "ApprovedSoilMixture", 
+            "ApprovedTurfSpecies", 
+            "Area", 
+            "IfcObjectType", 
+            "ShrubSpecies", 
+            "Status"
+          ], 
+          "enabled": true
+        }
+      }
+    }
+  }
+}

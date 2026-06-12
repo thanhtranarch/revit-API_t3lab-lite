@@ -4,12 +4,12 @@ Family Management
 
 Batch rename families/types, modify case, customize prefix/suffix, and assign worksets.
 
-Author: Tran Tien Thanh
+Author: Tran Tien Thanh & Dang Quoc Truong
 """
 
-__author__  = "Tran Tien Thanh"
+__author__  = "Tran Tien Thanh & Dang Quoc Truong"
 __title__   = "Family\nManagement"
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 # IMPORT LIBRARIES
 # ==============================================================================
