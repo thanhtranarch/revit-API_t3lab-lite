@@ -22,8 +22,11 @@ __title__   = "Upper All Text"
 __version__ = "2.0.0"
 
 from Autodesk.Revit.DB import (
-    FilteredElementCollector, BuiltInCategory,
-    Transaction, View, ViewSheet, Dimension, SpotDimension, TextNote, StorageType,
+    FilteredElementCollector, BuiltInCategory, BuiltInParameter,
+    Transaction, View, ViewSheet, Dimension, SpotDimension,
+    TextNote, StorageType, Group, GroupType, Family, FamilySymbol,
+    FamilyInstance, SpatialElement, Level, Grid, ElementType,
+    IFailuresPreprocessor, FailureProcessingResult
 )
 from Autodesk.Revit.UI import TaskDialog
 
@@ -41,6 +44,20 @@ def _is_skippable_string_param(param):
 
 uidoc = __revit__.ActiveUIDocument
 doc   = uidoc.Document
+
+
+# ---------------- Failure Handling ----------------
+
+class WarningSwallower(IFailuresPreprocessor):
+    def PreprocessFailures(self, failuresAccessor):
+        try:
+            failures = failuresAccessor.GetFailureMessages()
+            for f in failures:
+                # We can delete all warnings to suppress them
+                failuresAccessor.DeleteWarning(f)
+        except Exception:
+            pass
+        return FailureProcessingResult.Continue
 
 
 # ---------------- helpers ----------------
@@ -126,6 +143,35 @@ def rename_safely(elem, new_name):
     except Exception:
         return False
 
+def rename_element_name(el):
+    """Rename an element to its uppercase name safely. Returns True if changed."""
+    try:
+        if needs_upper(el.Name):
+            return rename_safely(el, el.Name.upper())
+    except Exception:
+        pass
+    return False
+
+def rename_spatial_element(se):
+    """Rename a SpatialElement (Room, Space, Area) safely. Returns True if changed."""
+    try:
+        # Check BuiltInParameter.ROOM_NAME (Rooms, Spaces & Areas)
+        p = se.get_Parameter(BuiltInParameter.ROOM_NAME)
+        if p and p.StorageType == StorageType.String and not p.IsReadOnly:
+            val = p.AsString()
+            if needs_upper(val):
+                return set_string_param(p, val.upper())
+
+        # Fallback to LookupParameter("Name")
+        p = se.LookupParameter("Name")
+        if p and p.StorageType == StorageType.String and not p.IsReadOnly:
+            val = p.AsString()
+            if needs_upper(val):
+                return set_string_param(p, val.upper())
+    except Exception:
+        pass
+    return False
+
 
 # ---------------- dispatch ----------------
 
@@ -133,30 +179,145 @@ def get_selected_elements():
     return [doc.GetElement(eid) for eid in uidoc.Selection.GetElementIds()]
 
 def process_selection(elements):
-    dim_count = note_count = 0
+    s = {"views": 0,
+         "sheets": 0,
+         "groups": 0,
+         "grouptypes": 0,
+         "families": 0,
+         "familytypes": 0,
+         "spatial": 0,
+         "levels": 0,
+         "grids": 0,
+         "titleblocks": 0,
+         "notes": 0,
+         "dims": 0,
+         "skipped": 0
+        }
     for el in elements:
-        if isinstance(el, Dimension):
-            if upper_dimension(el):
-                dim_count += 1
-        elif isinstance(el, TextNote):
-            if upper_text_note(el):
-                note_count += 1
-    return dim_count, note_count
+        try:
+            if isinstance(el, Dimension):
+                if upper_dimension(el):
+                    s["dims"] += 1
+            elif isinstance(el, TextNote):
+                if upper_text_note(el):
+                    s["notes"] += 1
+            elif isinstance(el, View):
+                if el.IsTemplate:
+                    continue
+                if rename_element_name(el):
+                    s["views"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+                tos = el.LookupParameter("Title on Sheet")
+                if tos:
+                    cur = tos.AsString()
+                    if needs_upper(cur):
+                        set_string_param(tos, cur.upper())
+            elif isinstance(el, ViewSheet):
+                if rename_element_name(el):
+                    s["sheets"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+            elif isinstance(el, Group):
+                if rename_element_name(el):
+                    s["groups"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+                try:
+                    gt = el.GroupType
+                    if gt and rename_element_name(gt):
+                        s["grouptypes"] += 1
+                except Exception:
+                    pass
+            elif isinstance(el, GroupType):
+                if rename_element_name(el):
+                    s["grouptypes"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+            elif isinstance(el, Family):
+                if rename_element_name(el):
+                    s["families"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+            elif isinstance(el, FamilySymbol):
+                if rename_element_name(el):
+                    s["familytypes"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+            elif isinstance(el, Level):
+                if rename_element_name(el):
+                    s["levels"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+            elif isinstance(el, Grid):
+                if rename_element_name(el):
+                    s["grids"] += 1
+                else:
+                    if needs_upper(el.Name):
+                        s["skipped"] += 1
+            elif isinstance(el, SpatialElement):
+                if rename_spatial_element(el):
+                    s["spatial"] += 1
+            elif isinstance(el, FamilyInstance):
+                try:
+                    sym = el.Symbol
+                    if sym and rename_element_name(sym):
+                        s["familytypes"] += 1
+                    fam = sym.Family
+                    if fam and rename_element_name(fam):
+                        s["families"] += 1
+                except Exception:
+                    pass
+            elif el.Category and el.Category.Id.IntegerValue == int(BuiltInCategory.OST_TitleBlocks):
+                if upper_element_string_params(el) > 0:
+                    s["titleblocks"] += 1
+            
+            # For general elements, try renaming their Type
+            try:
+                type_id = el.GetTypeId()
+                if type_id and type_id.IntegerValue != -1:
+                    elem_type = doc.GetElement(type_id)
+                    if elem_type and isinstance(elem_type, ElementType):
+                        if rename_element_name(elem_type):
+                            s["familytypes"] += 1
+            except Exception:
+                pass
+        except Exception:
+            pass
+    return s
 
 def process_all_text():
-    s = {"views": 0, "sheets": 0, "titleblocks": 0, "notes": 0, "dims": 0, "skipped": 0}
-
-    # Views (all types, skip templates). Some system / read-only views (browser
-    # organization, system schedules) reject the rename — counted as "skipped" so
-    # the summary makes it visible instead of swallowing silently.
+    s = {"views": 0,
+         "sheets": 0,
+         "groups": 0,
+         "grouptypes": 0,
+         "families": 0,
+         "familytypes": 0,
+         "spatial": 0,
+         "levels": 0,
+         "grids": 0,
+         "titleblocks": 0,
+         "notes": 0,
+         "dims": 0,
+         "skipped": 0
+        }
+    
+    # Views
     for v in FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType():
         try:
             if v.IsTemplate:
                 continue
-            if needs_upper(v.Name):
-                if rename_safely(v, v.Name.upper()):
-                    s["views"] += 1
-                else:
+            if rename_element_name(v):
+                s["views"] += 1
+            else:
+                if needs_upper(v.Name):
                     s["skipped"] += 1
             tos = v.LookupParameter("Title on Sheet")
             if tos:
@@ -169,30 +330,113 @@ def process_all_text():
     # Sheets
     for sh in FilteredElementCollector(doc).OfClass(ViewSheet).WhereElementIsNotElementType():
         try:
-            if needs_upper(sh.Name):
-                if rename_safely(sh, sh.Name.upper()):
-                    s["sheets"] += 1
-                else:
+            if rename_element_name(sh):
+                s["sheets"] += 1
+            else:
+                if needs_upper(sh.Name):
                     s["skipped"] += 1
         except Exception:
             pass
 
-    # Title block instances — uppercase every editable string param
+    # Group Types
+    for gt in FilteredElementCollector(doc).OfClass(GroupType):
+        try:
+            if rename_element_name(gt):
+                s["grouptypes"] += 1
+            else:
+                if needs_upper(gt.Name):
+                    s["skipped"] += 1
+        except Exception:
+            pass
+
+    # Group instances
+    for g in FilteredElementCollector(doc).OfClass(Group).WhereElementIsNotElementType():
+        try:
+            if rename_element_name(g):
+                s["groups"] += 1
+            else:
+                if needs_upper(g.Name):
+                    s["skipped"] += 1
+        except Exception:
+            pass
+
+    # Families
+    for fam in FilteredElementCollector(doc).OfClass(Family):
+        try:
+            if rename_element_name(fam):
+                s["families"] += 1
+            else:
+                if needs_upper(fam.Name):
+                    s["skipped"] += 1
+        except Exception:
+            pass
+
+    # Family Symbols
+    for fs in FilteredElementCollector(doc).OfClass(FamilySymbol):
+        try:
+            if rename_element_name(fs):
+                s["familytypes"] += 1
+            else:
+                if needs_upper(fs.Name):
+                    s["skipped"] += 1
+        except Exception:
+            pass
+
+    # Spatial Elements (Rooms, Spaces, Areas)
+    for se in FilteredElementCollector(doc).OfClass(SpatialElement).WhereElementIsNotElementType():
+        try:
+            if rename_spatial_element(se):
+                s["spatial"] += 1
+        except Exception:
+            pass
+
+    # Levels
+    for lvl in FilteredElementCollector(doc).OfClass(Level).WhereElementIsNotElementType():
+        try:
+            if rename_element_name(lvl):
+                s["levels"] += 1
+            else:
+                if needs_upper(lvl.Name):
+                    s["skipped"] += 1
+        except Exception:
+            pass
+
+    # Grids
+    for grd in FilteredElementCollector(doc).OfClass(Grid).WhereElementIsNotElementType():
+        try:
+            if rename_element_name(grd):
+                s["grids"] += 1
+            else:
+                if needs_upper(grd.Name):
+                    s["skipped"] += 1
+        except Exception:
+            pass
+
+    # Title block instances
     for tb in (FilteredElementCollector(doc)
                .OfCategory(BuiltInCategory.OST_TitleBlocks)
                .WhereElementIsNotElementType()):
-        if upper_element_string_params(tb) > 0:
-            s["titleblocks"] += 1
+        try:
+            if upper_element_string_params(tb) > 0:
+                s["titleblocks"] += 1
+        except Exception:
+            pass
 
     # All TextNotes in document
     for tn in FilteredElementCollector(doc).OfClass(TextNote).WhereElementIsNotElementType():
-        if upper_text_note(tn):
-            s["notes"] += 1
+        try:
+            if upper_text_note(tn):
+                s["notes"] += 1
+        except Exception:
+            pass
 
     # All Dimensions in document
     for d in FilteredElementCollector(doc).OfClass(Dimension).WhereElementIsNotElementType():
-        if upper_dimension(d):
-            s["dims"] += 1
+        try:
+            if upper_dimension(d):
+                s["dims"] += 1
+        except Exception:
+            pass
 
     return s
 
@@ -201,38 +445,76 @@ def process_all_text():
 
 def main():
     selected = get_selected_elements()
-    has_dim  = any(isinstance(e, Dimension) for e in selected)
-    has_note = any(isinstance(e, TextNote)  for e in selected)
-
-    if selected and not (has_dim or has_note):
-        TaskDialog.Show(
-            "Upper All Text",
-            "Selection contains no Dimensions or TextNotes.\n\n"
-            "Tip: clear the selection to uppercase the whole project, "
-            "or select only Dimensions / TextNotes to scope the change.")
-        return
 
     t = Transaction(doc, "Upper All Text")
+    
+    # Configure FailureHandlingOptions to suppress warnings
+    options = t.GetFailureHandlingOptions()
+    options.SetFailuresPreprocessor(WarningSwallower())
+    t.SetFailureHandlingOptions(options)
+    
     t.Start()
     try:
         if selected:
-            dim_count, note_count = process_selection(selected)
+            s = process_selection(selected)
             t.Commit()
+            
+            # Check if anything was processed
+            total_processed = (
+                s["views"] + s["sheets"] + s["groups"] + s["grouptypes"] +
+                s["families"] + s["familytypes"] + s["spatial"] + s["levels"] +
+                s["grids"] + s["titleblocks"] + s["notes"] + s["dims"]
+            )
+            
+            if total_processed == 0 and s["skipped"] == 0:
+                if t.HasStarted() and not t.HasEnded():
+                    t.RollBack()
+                TaskDialog.Show(
+                    "Upper All Text",
+                    "No valid elements were processed in the selection.\n\n"
+                    "Supported elements: Dimensions, Text Notes, Views, Sheets, Groups, Families/Types, Rooms/Spaces/Areas, Levels, Grids, and Title Blocks.\n\n"
+                    "Tip: Clear the selection to process the entire project.")
+                return
+            
             msg = ("Uppercase applied to selection:\n"
-                   "  - Dimensions: {}\n"
-                   "  - TextNotes:  {}").format(dim_count, note_count)
+                   "  - Views:        {}\n"
+                   "  - Sheets:       {}\n"
+                   "  - Groups:       {}\n"
+                   "  - Group Types:  {}\n"
+                   "  - Families:     {}\n"
+                   "  - Family Types: {}\n"
+                   "  - Rooms/Spaces: {}\n"
+                   "  - Levels:       {}\n"
+                   "  - Grids:        {}\n"
+                   "  - Title blocks: {}\n"
+                   "  - TextNotes:    {}\n"
+                   "  - Dimensions:   {}\n"
+                   "  - Skipped (locked/duplicate): {}").format(
+                       s["views"], s["sheets"], s["groups"], s["grouptypes"],
+                       s["families"], s["familytypes"], s["spatial"], s["levels"],
+                       s["grids"], s["titleblocks"], s["notes"], s["dims"],
+                       s["skipped"])
         else:
             s = process_all_text()
             t.Commit()
             msg = ("Uppercase applied across project:\n"
                    "  - Views:        {}\n"
                    "  - Sheets:       {}\n"
+                   "  - Groups:       {}\n"
+                   "  - Group Types:  {}\n"
+                   "  - Families:     {}\n"
+                   "  - Family Types: {}\n"
+                   "  - Rooms/Spaces: {}\n"
+                   "  - Levels:       {}\n"
+                   "  - Grids:        {}\n"
                    "  - Title blocks: {}\n"
                    "  - TextNotes:    {}\n"
                    "  - Dimensions:   {}\n"
-                   "  - Skipped (locked/duplicate name): {}").format(
-                       s["views"], s["sheets"], s["titleblocks"],
-                       s["notes"], s["dims"], s["skipped"])
+                   "  - Skipped (locked/duplicate): {}").format(
+                       s["views"], s["sheets"], s["groups"], s["grouptypes"],
+                       s["families"], s["familytypes"], s["spatial"], s["levels"],
+                       s["grids"], s["titleblocks"], s["notes"], s["dims"],
+                       s["skipped"])
     except Exception as ex:
         if t.HasStarted() and not t.HasEnded():
             t.RollBack()
@@ -244,3 +526,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

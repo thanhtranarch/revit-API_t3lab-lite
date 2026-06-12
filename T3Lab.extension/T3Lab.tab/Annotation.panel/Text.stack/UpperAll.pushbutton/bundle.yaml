@@ -1,23 +1,12 @@
 title: Upper All Text
-tooltip: Selection-aware uppercase for dimensions, text notes, and project-wide text
+tooltip: Selection-aware uppercase for dimensions, text notes, views, sheets, groups, families, rooms, levels, grids, and title blocks
 description: |
   Converts text to uppercase based on what is currently selected:
 
-  - Select Dimensions  -> uppercase only those dimension overrides.
-  - Select TextNotes   -> uppercase only those text notes.
-  - Select both        -> processes both kinds together.
-  - Select nothing     -> uppercases everything across the project:
-      view names, sheet names, title block instance text params,
-      every TextNote, and every Dimension override.
+  - Select elements (Views, Sheets, Groups, Families, Rooms, Levels, Grids, Dimensions, Text Notes) -> uppercase only those elements or their types/parameters.
+  - Select nothing -> uppercases everything across the project.
 
-  Selecting elements that are not dimensions or text notes is a no-op
-  (the tool stops with a hint) to avoid an accidental project-wide run.
-
-  Notes:
-  - Spot Dimensions / Spot Elevations are skipped (different override surface).
-  - Title block URL and Image params are skipped (uppercasing would corrupt them).
-  - Mixed inline formatting (bold/italic runs) inside a TextNote is flattened
-    to the note's default format — Revit's API does not expose per-run editing.
+  Warnings are automatically suppressed and locked/read-only/duplicate elements are safely skipped without stopping the operation.
 
 author: Tran Tien Thanh
-version: 2.0.0
+version: 2.1.0
