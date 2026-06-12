@@ -19,9 +19,9 @@
 
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-        <!-- PRIMARY BUTTON - teal, white text -->
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Background"      Value="#0F172A"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
@@ -41,29 +41,30 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#115E59"/>
+                    <Setter Property="Background" Value="#1E293B"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0B4F4A"/>
+                    <Setter Property="Background" Value="#0F172A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY BUTTON - surface, ink text -->
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F6F8F8"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -78,64 +79,68 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#DDE5E7"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
                     <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS BUTTON - green -->
-        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#15803D"/>
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#166534"/>
+                    <Setter Property="Background" Value="#DC2626"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#14532D"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- DANGER BUTTON - red -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#DC2626"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#B91C1C"/>
                 </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#991B1B"/>
-                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- ACCENT BUTTON - amber highlight -->
+        <!-- ACCENT BUTTON - refined blue -->
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#F59E0B"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D97706"/>
+                    <Setter Property="Background" Value="#2563EB"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#B45309"/>
+                    <Setter Property="Background" Value="#1D4ED8"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -146,7 +151,7 @@
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -160,16 +165,16 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Background" Value="#EF4444"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -179,9 +184,9 @@
 
         <!-- Filter tag toggle button style -->
         <Style x:Key="FilterToggleButton" TargetType="ToggleButton">
-            <Setter Property="Background" Value="#F6F8F8"/>
-            <Setter Property="Foreground" Value="#1C2B33"/>
-            <Setter Property="BorderBrush" Value="#DDE5E7"/>
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="10,4"/>
             <Setter Property="FontSize" Value="12"/>
@@ -201,19 +206,19 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#0F766E"/>
-                                <Setter TargetName="bd" Property="BorderBrush" Value="#0F766E"/>
+                                <Setter TargetName="bd" Property="Background" Value="#0F172A"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#0F172A"/>
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#E6EDEC"/>
+                                <Setter TargetName="bd" Property="Background" Value="#F1F5F9"/>
                             </Trigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsChecked" Value="True"/>
                                     <Condition Property="IsMouseOver" Value="True"/>
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="bd" Property="Background" Value="#115E59"/>
+                                <Setter TargetName="bd" Property="Background" Value="#1E293B"/>
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -251,14 +256,14 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="T3Lab"
                                    FontSize="11" FontWeight="Bold"
-                                   Foreground="#0F766E"
+                                   Foreground="#0F172A"
                                    VerticalAlignment="Bottom" Margin="0,0,6,2"/>
                         <TextBlock Text="|"
                                    FontSize="14" Foreground="#64748B"
                                    VerticalAlignment="Bottom" Margin="0,0,6,1"/>
                         <TextBlock Text="DWG Management"
                                    FontSize="17" FontWeight="Bold"
-                                   Foreground="#1C2B33"
+                                   Foreground="#0F172A"
                                    VerticalAlignment="Bottom"/>
                     </StackPanel>
                     <TextBlock Text="Manage CAD Imports &amp; Links"
@@ -277,7 +282,7 @@
                         ToolTip="Minimize"
                         Click="minimize_button_clicked">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="10" Foreground="#0F766E"/>
+                               FontSize="10" Foreground="#0F172A"/>
                 </Button>
 
                 <Button x:Name="btn_maximize"
@@ -285,7 +290,7 @@
                         ToolTip="Maximize"
                         Click="maximize_button_clicked">
                     <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="10" Foreground="#0F766E"/>
+                               FontSize="10" Foreground="#0F172A"/>
                 </Button>
 
                 <Button x:Name="btn_close"
@@ -293,7 +298,7 @@
                         ToolTip="Close"
                         Click="close_button_clicked">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="10" Foreground="#0F766E">
+                               FontSize="10" Foreground="#0F172A">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
@@ -311,7 +316,7 @@
             <!-- Title bar bottom border -->
             <Border Grid.Column="0" Grid.ColumnSpan="3"
                     Height="1" VerticalAlignment="Bottom"
-                    Background="#DDE5E7"/>
+                    Background="#E2E8F0"/>
         </Grid>
 
         <!-- ═══════════════════════════════════════════════════════ -->
@@ -372,10 +377,10 @@
                          Height="28"
                          VerticalContentAlignment="Center"
                          Padding="6,0,6,0"
-                         BorderBrush="#C7D2D4"
+                         BorderBrush="#CBD5E1"
                          BorderThickness="1"
                          Background="White"
-                         Foreground="#1C2B33"
+                         Foreground="#0F172A"
                          FontSize="12"
                          TextChanged="search_text_changed"/>
                 <!-- Placeholder text -->
@@ -405,7 +410,7 @@
                   x:Name="DWGDataGrid"
                   Margin="16,0,16,8"
                   Background="White"
-                  BorderBrush="#DDE5E7"
+                  BorderBrush="#E2E8F0"
                   BorderThickness="1"
                   AutoGenerateColumns="False"
                   SelectionMode="Extended"
@@ -416,8 +421,8 @@
                   CanUserResizeRows="False"
                   RowHeight="36"
                   GridLinesVisibility="Horizontal"
-                  HorizontalGridLinesBrush="#F6F8F8"
-                  AlternatingRowBackground="#F6F8F8"
+                  HorizontalGridLinesBrush="#F8FAFC"
+                  AlternatingRowBackground="#F8FAFC"
                   FontFamily="Inter"
                   FontSize="12"
                   ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -426,12 +431,12 @@
             <!-- Column header style -->
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background" Value="#F6F8F8"/>
-                    <Setter Property="Foreground" Value="#1C2B33"/>
+                    <Setter Property="Background" Value="#F8FAFC"/>
+                    <Setter Property="Foreground" Value="#0F172A"/>
                     <Setter Property="FontWeight" Value="SemiBold"/>
                     <Setter Property="FontSize" Value="12"/>
                     <Setter Property="Padding" Value="8,6"/>
-                    <Setter Property="BorderBrush" Value="#DDE5E7"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
                     <Setter Property="BorderThickness" Value="0,0,1,1"/>
                     <Setter Property="Height" Value="34"/>
                 </Style>
@@ -443,10 +448,10 @@
                     <Setter Property="VerticalAlignment" Value="Center"/>
                     <Style.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#F6F8F8"/>
+                            <Setter Property="Background" Value="#F8FAFC"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#D9EBE8"/>
+                            <Setter Property="Background" Value="#E2E8F0"/>
                         </Trigger>
                     </Style.Triggers>
                 </Style>
@@ -500,10 +505,10 @@
                                         <Setter Property="Foreground" Value="#64748B"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding DWGType}" Value="Import">
-                                                <Setter Property="Foreground" Value="#DC2626"/>
+                                                <Setter Property="Foreground" Value="#EF4444"/>
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding DWGType}" Value="Link">
-                                                <Setter Property="Foreground" Value="#0F766E"/>
+                                                <Setter Property="Foreground" Value="#0F172A"/>
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -520,7 +525,7 @@
                             <TextBlock Text="{Binding Name}"
                                        VerticalAlignment="Center"
                                        Margin="4,0"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        TextTrimming="CharacterEllipsis"
                                        ToolTip="{Binding Name}"/>
                         </DataTemplate>
@@ -530,10 +535,10 @@
                             <TextBox Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      VerticalContentAlignment="Center"
                                      BorderThickness="1"
-                                     BorderBrush="#0F766E"
+                                     BorderBrush="#0F172A"
                                      Padding="4,2"
                                      Background="White"
-                                     Foreground="#1C2B33"/>
+                                     Foreground="#0F172A"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellEditingTemplate>
                 </DataGridTemplateColumn>
@@ -545,7 +550,7 @@
                             <TextBlock Text="{Binding ViewNames}"
                                        VerticalAlignment="Center"
                                        Margin="4,0"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        TextTrimming="CharacterEllipsis"
                                        ToolTip="{Binding ViewNames}"/>
                         </DataTemplate>
@@ -559,7 +564,7 @@
                             <TextBlock Text="{Binding ViewCount}"
                                        VerticalAlignment="Center"
                                        HorizontalAlignment="Center"
-                                       Foreground="#1C2B33"/>
+                                       Foreground="#0F172A"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -634,8 +639,8 @@
         <!-- ROW 4: Status bar (32px)                               -->
         <!-- ═══════════════════════════════════════════════════════ -->
         <Border Grid.Row="4"
-                Background="#F6F8F8"
-                BorderBrush="#DDE5E7"
+                Background="#F8FAFC"
+                BorderBrush="#E2E8F0"
                 BorderThickness="0,1,0,0"
                 Padding="14,0">
             <Grid>

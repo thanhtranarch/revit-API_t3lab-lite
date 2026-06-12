@@ -5,22 +5,22 @@
     <Grid.Resources>
         <SolidColorBrush x:Key="bg_white" Color="White"/>
         <SolidColorBrush x:Key="bg_light" Color="#F4F6F7"/>
-        <SolidColorBrush x:Key="bg_panel" Color="#F6F8F8"/>
-        <SolidColorBrush x:Key="border_gray" Color="#DDE5E7"/>
-        <SolidColorBrush x:Key="border_light" Color="#DDE5E7"/>
-        <SolidColorBrush x:Key="text_dark" Color="#1C2B33"/>
+        <SolidColorBrush x:Key="bg_panel" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="border_gray" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="border_light" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="text_dark" Color="#0F172A"/>
         <SolidColorBrush x:Key="text_gray" Color="#64748B"/>
-        <SolidColorBrush x:Key="accent_green" Color="#15803D"/>
+        <SolidColorBrush x:Key="accent_green" Color="#10B981"/>
         <SolidColorBrush x:Key="accent_yellow" Color="#F59E0B"/>
-        <SolidColorBrush x:Key="accent_red" Color="#DC2626"/>
-        <SolidColorBrush x:Key="accent_blue" Color="#0F766E"/>
-        <SolidColorBrush x:Key="export_green" Color="#15803D"/>
+        <SolidColorBrush x:Key="accent_red" Color="#EF4444"/>
+        <SolidColorBrush x:Key="accent_blue" Color="#0F172A"/>
+        <SolidColorBrush x:Key="export_green" Color="#10B981"/>
         <SolidColorBrush x:Key="import_orange" Color="#F59E0B"/>
 
         <Style x:Key="SmallButton" TargetType="Button">
-            <Setter Property="Background" Value="#F6F8F8"/>
-            <Setter Property="Foreground" Value="#1C2B33"/>
-            <Setter Property="BorderBrush" Value="#DDE5E7"/>
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Padding" Value="6,3"/>
@@ -39,7 +39,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
                     <Setter Property="Opacity" Value="0.5"/>
@@ -77,8 +77,8 @@
         <Style x:Key="ArrowButton" TargetType="Button">
             <Setter Property="Width" Value="32"/>
             <Setter Property="Height" Value="32"/>
-            <Setter Property="Background" Value="#F6F8F8"/>
-            <Setter Property="BorderBrush" Value="#DDE5E7"/>
+            <Setter Property="Background" Value="#F8FAFC"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontSize" Value="14"/>
@@ -96,7 +96,7 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -106,9 +106,9 @@
             <Setter Property="Padding" Value="12,6"/>
         </Style>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-        <!-- PRIMARY BUTTON - teal, white text -->
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Background"      Value="#0F172A"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
@@ -128,29 +128,30 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#115E59"/>
+                    <Setter Property="Background" Value="#1E293B"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0B4F4A"/>
+                    <Setter Property="Background" Value="#0F172A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY BUTTON - surface, ink text -->
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F6F8F8"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -165,64 +166,68 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#DDE5E7"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
                     <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS BUTTON - green -->
-        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#15803D"/>
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#166534"/>
+                    <Setter Property="Background" Value="#DC2626"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#14532D"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- DANGER BUTTON - red -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#DC2626"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#B91C1C"/>
                 </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#991B1B"/>
-                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- ACCENT BUTTON - amber highlight -->
+        <!-- ACCENT BUTTON - refined blue -->
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#F59E0B"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D97706"/>
+                    <Setter Property="Background" Value="#2563EB"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#B45309"/>
+                    <Setter Property="Background" Value="#1D4ED8"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -233,7 +238,7 @@
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -247,16 +252,16 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Background" Value="#EF4444"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -285,11 +290,11 @@
         <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                           Foreground="#0F766E" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                           Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
                 <TextBlock Text="ParaSync" FontSize="18" FontWeight="Bold"
-                           Foreground="#1C2B33"/>
+                           Foreground="#0F172A"/>
             </StackPanel>
-            <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
+            <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
             <TextBlock Text="Export/Import parameter data to Excel - SheetLink style"
                        FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
         </StackPanel>
@@ -327,7 +332,7 @@
     </Grid>
 
     <!-- Row 1: Sub-header with Profile + Progress -->
-    <Border Grid.Row="1" Background="#F6F8F8" BorderBrush="#DDE5E7" BorderThickness="0,1,0,1" Padding="15,6">
+    <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,1" Padding="15,6">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -397,7 +402,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Col 0: Select Categories -->
-                    <Border Grid.Column="0" BorderBrush="#DDE5E7" BorderThickness="1" Margin="0,0,4,0">
+                    <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -406,7 +411,7 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -435,7 +440,7 @@
                     </Border>
 
                     <!-- Col 1: Available Parameters -->
-                    <Border Grid.Column="1" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0">
+                    <Border Grid.Column="1" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -443,7 +448,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Available Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <ComboBox x:Name="mc_avail_param_filter" Grid.Row="1" Margin="4" Height="24" FontSize="11"/>
@@ -471,7 +476,7 @@
                     </StackPanel>
 
                     <!-- Col 3: Selected Parameters -->
-                    <Border Grid.Column="3" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0,0,0">
+                    <Border Grid.Column="3" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -479,7 +484,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Selected Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <ComboBox x:Name="mc_sel_param_filter" Grid.Row="1" Margin="4" Height="24" FontSize="11"/>
@@ -529,7 +534,7 @@
                         <ColumnDefinition Width="40"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" BorderBrush="#DDE5E7" BorderThickness="1" Margin="0,0,4,0">
+                    <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -537,7 +542,7 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -557,7 +562,7 @@
                                       Margin="6,4" FontSize="11"/>
                         </Grid>
                     </Border>
-                    <Border Grid.Column="1" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0">
+                    <Border Grid.Column="1" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -565,7 +570,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Available Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <ComboBox x:Name="ac_avail_param_filter" Grid.Row="1" Margin="4" Height="24" FontSize="11"/>
@@ -582,7 +587,7 @@
                         <Button x:Name="ac_btn_add_param" Content="&#x25B6;" Style="{StaticResource ArrowButton}" Margin="0,4"/>
                         <Button x:Name="ac_btn_remove_param" Content="&#x25C0;" Style="{StaticResource ArrowButton}" Margin="0,4"/>
                     </StackPanel>
-                    <Border Grid.Column="3" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0,0,0">
+                    <Border Grid.Column="3" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -590,7 +595,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Selected Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <ComboBox x:Name="ac_sel_param_filter" Grid.Row="1" Margin="4" Height="24" FontSize="11"/>
@@ -631,14 +636,14 @@
                         <ColumnDefinition Width="40"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" BorderBrush="#DDE5E7" BorderThickness="1" Margin="0,0,4,0">
+                    <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -656,7 +661,7 @@
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                         </Grid>
                     </Border>
-                    <Border Grid.Column="1" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0">
+                    <Border Grid.Column="1" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -664,7 +669,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Available Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <ComboBox x:Name="el_avail_param_filter" Grid.Row="1" Margin="4" Height="24" FontSize="11"/>
@@ -681,7 +686,7 @@
                         <Button x:Name="el_btn_add_param" Content="&#x25B6;" Style="{StaticResource ArrowButton}" Margin="0,4"/>
                         <Button x:Name="el_btn_remove_param" Content="&#x25C0;" Style="{StaticResource ArrowButton}" Margin="0,4"/>
                     </StackPanel>
-                    <Border Grid.Column="3" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0,0,0">
+                    <Border Grid.Column="3" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -689,7 +694,7 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Selected Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <ComboBox x:Name="el_sel_param_filter" Grid.Row="1" Margin="4" Height="24" FontSize="11"/>
@@ -729,7 +734,7 @@
                              VerticalContentAlignment="Center" Padding="4,0"/>
                     <TextBlock Grid.Column="1" Text="&#x1F50D;" VerticalAlignment="Center" Margin="6,0,0,0" FontSize="12"/>
                 </Grid>
-                <Border Grid.Row="2" BorderBrush="#DDE5E7" BorderThickness="1">
+                <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1">
                     <ListBox x:Name="sc_schedule_list" BorderThickness="0"
                              SelectionMode="Extended"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"/>
@@ -757,14 +762,14 @@
                         <ColumnDefinition Width="40"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Column="0" BorderBrush="#DDE5E7" BorderThickness="1" Margin="0,0,4,0">
+                    <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -782,14 +787,14 @@
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                         </Grid>
                     </Border>
-                    <Border Grid.Column="1" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0">
+                    <Border Grid.Column="1" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Available Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <Grid Grid.Row="1" Margin="4">
@@ -805,14 +810,14 @@
                         <Button x:Name="sp_btn_add_param" Content="&#x25B6;" Style="{StaticResource ArrowButton}" Margin="0,4"/>
                         <Button x:Name="sp_btn_remove_param" Content="&#x25C0;" Style="{StaticResource ArrowButton}" Margin="0,4"/>
                     </StackPanel>
-                    <Border Grid.Column="3" BorderBrush="#DDE5E7" BorderThickness="1" Margin="4,0,0,0">
+                    <Border Grid.Column="3" BorderBrush="#E2E8F0" BorderThickness="1" Margin="4,0,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F6F8F8" Padding="6,4">
+                            <Border Grid.Row="0" Background="#F8FAFC" Padding="6,4">
                                 <TextBlock Text="Selected Parameters" FontWeight="SemiBold" FontSize="12"/>
                             </Border>
                             <Grid Grid.Row="1" Margin="4">
@@ -841,14 +846,14 @@
                     <Button x:Name="btn_refresh_preview" Content="Refresh Preview"
                             Style="{StaticResource SmallButton}" Margin="16,0,0,0" Padding="10,4"/>
                 </StackPanel>
-                <Border Grid.Row="1" BorderBrush="#DDE5E7" BorderThickness="1">
+                <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1">
                     <DataGrid x:Name="preview_grid" AutoGenerateColumns="True"
                               CanUserAddRows="False" CanUserDeleteRows="False"
                               IsReadOnly="False"
                               GridLinesVisibility="All"
-                              HorizontalGridLinesBrush="#DDE5E7"
-                              VerticalGridLinesBrush="#DDE5E7"
-                              AlternatingRowBackground="#F6F8F8"
+                              HorizontalGridLinesBrush="#E2E8F0"
+                              VerticalGridLinesBrush="#E2E8F0"
+                              AlternatingRowBackground="#F8FAFC"
                               RowBackground="White"
                               Background="White"
                               BorderThickness="0"
@@ -860,7 +865,7 @@
     </TabControl>
 
     <!-- Row 3: Bottom options -->
-    <Border Grid.Row="3" Background="#F6F8F8" BorderBrush="#DDE5E7" BorderThickness="0,1,0,0" Padding="10,6">
+    <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="10,6">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -907,7 +912,7 @@
     </Border>
 
     <!-- Row 4: Status bar + Action buttons -->
-    <Border Grid.Row="4" Background="White" BorderBrush="#DDE5E7" BorderThickness="0,1,0,0" Padding="10,8">
+    <Border Grid.Row="4" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="10,8">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -933,7 +938,7 @@
                     Background="#D97706"/>
             <Button x:Name="btn_export" Grid.Column="4" Content="Export"
                     Style="{StaticResource ActionButton}"
-                    Background="#15803D"/>
+                    Background="#10B981"/>
         </Grid>
     </Border>
 

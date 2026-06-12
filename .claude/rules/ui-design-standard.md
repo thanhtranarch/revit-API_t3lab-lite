@@ -1,12 +1,12 @@
-# UI Design Standard — T3Lab Terra (v2)
+# UI Design Standard — Lumina Architecture System
 
-All pyRevit tool windows **MUST** follow the **T3Lab Terra** design system
-(Deep Teal + Amber). The canonical reference is **`BulkFamilyExport.xaml`**.
+All pyRevit tool windows **MUST** follow the **Lumina Architecture System** design system
+(Deep Slate + Refined Blue). The canonical reference is **`BulkFamilyExport.xaml`**.
 
-> v2 replaces the old navy "Kinetix" palette (`#083D56`). If you see navy/slate
-> colors (`#083D56`, `#062A3C`, `#2C3E50`, `#546E7A`, `#7F8C8D`, `#27AE60`,
-> `#D32F2F`, `#3498DB`, `#E2E6EA`, `#F8F9FA`) in a file, it has not been
-> migrated — flag it.
+> Lumina replaces the old navy "Kinetix" palette and the teal/amber "Terra (v2)" palette.
+> If you see old navy/teal/amber colors (#083D56, #0F766E, #F59E0B etc.) in a file
+> (except where amber is specifically allowed for warning highlights/copyright),
+> it has not been migrated — flag it.
 
 ## Design Reference Files
 - **Canonical UI (reference)**: `T3Lab.extension/lib/GUI/Tools/BulkFamilyExport.xaml`
@@ -28,49 +28,48 @@ The codebase has **two distinct XAML root patterns**. Pick the one that matches 
 ### Variant B — Modal Dialog Content (rare, 3 existing files)
 - Root is `<Grid>`; the XAML provides only the content. The hosting Python class creates a `Window` with `WindowStyle=NoStyle`, `AllowsTransparency=True`, then assigns the parsed Grid to `self.Content`.
 - **Do not create new Variant B files** unless explicitly building a borderless modal hosted inside another window. Existing files: `FamilyLoader.xaml`, `FamilyLoaderCloud.xaml`, `ParameterSelector.xaml`.
-- Variant B files use the same Terra palette and the same shared style block (inside `Grid.Resources`).
+- Variant B files use the same Lumina palette and the same shared style block (inside `Grid.Resources`).
 
 The rest of this document targets **Variant A** unless otherwise noted.
 
-## Color Palette (Terra)
+## Color Palette (Lumina)
 
 | Token            | Hex       | Usage                                                  |
 |------------------|-----------|--------------------------------------------------------|
-| Accent (teal)    | `#0F766E` | Primary buttons, brand, active states, progress fill    |
-| Accent hover     | `#115E59` | Primary button hover, emphasized accent text            |
-| Accent pressed   | `#0B4F4A` | Primary button pressed                                  |
-| Amber highlight  | `#F59E0B` | AccentButton, active-step underline, badges, copyright  |
-| Amber hover      | `#D97706` | AccentButton hover                                      |
-| Ink text         | `#1C2B33` | Headings, labels, main text, window-control glyphs      |
-| Muted text       | `#64748B` | Subtitles, status text, secondary labels                |
-| Faint text       | `#94A3B8` | Placeholders, disabled text                             |
-| Surface          | `#F6F8F8` | Backgrounds, cards, inputs, status bar, grid headers    |
-| Surface hover    | `#E6EDEC` | Secondary button hover, inactive wizard circles         |
-| Teal tint        | `#EFF6F5` | DataGrid row hover, tip box background                  |
-| Selected tint    | `#D9EBE8` | DataGrid row selected                                   |
-| Border           | `#DDE5E7` | Borders, separators, dividers, connector lines          |
-| Input border     | `#C7D2D4` | TextBox / ComboBox / search-box borders                 |
-| Success green    | `#15803D` | Success/confirm buttons (hover: `#166534`)              |
-| Danger red       | `#DC2626` | Delete/destructive buttons (hover: `#B91C1C`)           |
-| Disabled bg      | `#AEBFBC` | Disabled button background                              |
+| Primary (slate)  | `#0F172A` | Brand title, primary buttons, window control glyphs    |
+| Accent (blue)    | `#3B82F6` | Secondary active states, focus borders, primary actions|
+| Success green    | `#10B981` | Success/confirm buttons (hover: `#059669`)              |
+| Danger red       | `#EF4444` | Delete/destructive buttons (hover: `#DC2626`)           |
+| Amber highlight  | `#F59E0B` | Warning labels, highlights, copyright overlay          |
+| Ink text         | `#0F172A` | Headings, labels, main text                            |
+| Muted text       | `#64748B` | Subtitles, secondary labels, disabled state text       |
+| Faint text       | `#94A3B8` | Placeholders, disabled text                            |
+| Surface          | `#F8FAFC` | Backgrounds, inputs background, status bar bg          |
+| Surface hover    | `#F1F5F9` | Secondary button hover, menu hover                     |
+| Surface press    | `#E2E8F0` | Button pressed bg, active selection tint               |
+| Border           | `#E2E8F0` | Dividers, separators, connector lines                  |
+| Input border     | `#CBD5E1` | TextBox / ComboBox / search-box borders                 |
+| Selected tint    | `#E2E8F0` | DataGrid row selected                                   |
+| Disabled bg      | `#E2E8F0` | Disabled button background                              |
 
-There is **no** separate "copyright blue" anymore — copyright uses amber `#F59E0B`.
+### Migration map (Terra v2 → Lumina)
 
-### Migration map (old Kinetix → Terra)
-
-| Old (Kinetix)              | New (Terra)                                              |
-|----------------------------|----------------------------------------------------------|
-| `#083D56` primary          | `#0F766E`                                                |
-| `#062A3C` primary hover    | `#115E59`                                                |
-| `#2C3E50` dark text        | `#1C2B33`                                                |
-| `#7F8C8D` gray text        | `#64748B`                                                |
-| `#F8F9FA` neutral bg       | `#F6F8F8`                                                |
-| `#E2E6EA` hover/selected   | `#E6EDEC` (hover) / `#D9EBE8` (DataGrid selected)        |
-| `#546E7A` (context!)       | borders/separators → `#DDE5E7`; input borders → `#C7D2D4`; disabled/placeholder text → `#94A3B8`; disabled button bg → `#AEBFBC` |
-| `#27AE60` / `#1E8449`      | `#15803D` / `#166534`                                    |
-| `#D32F2F` / `#B71C1C`      | `#DC2626` / `#B91C1C`                                    |
-| `#E67E22` orange button    | `AccentButton` style (`#F59E0B`)                         |
-| `#3498DB` copyright        | `#F59E0B`                                                |
+| Old (Terra v2)             | New (Lumina)                                              |
+|----------------------------|-----------------------------------------------------------|
+| `#0F766E` primary          | `#0F172A` (deep slate)                                    |
+| `#115E59` primary hover    | `#1E293B`                                                 |
+| `#0B4F4A` primary pressed  | `#0F172A`                                                 |
+| `#F6F8F8` surface          | `#F8FAFC`                                                 |
+| `#E6EDEC` surface hover    | `#F1F5F9`                                                 |
+| `#D9EBE8` selected tint    | `#E2E8F0`                                                 |
+| `#DDE5E7` border           | `#E2E8F0`                                                 |
+| `#C7D2D4` input border     | `#CBD5E1`                                                 |
+| `#15803D` success green    | `#10B981` (emerald)                                       |
+| `#166534` success hover    | `#059669`                                                 |
+| `#DC2626` danger red       | `#EF4444` (rose)                                          |
+| `#B91C1C` danger hover     | `#DC2626`                                                 |
+| `#F59E0B` (AccentButton)   | `#3B82F6` (refined blue AccentButton)                     |
+| `#AEBFBC` disabled bg      | `#E2E8F0`                                                 |
 
 ## Typography
 
@@ -81,7 +80,7 @@ There is **no** separate "copyright blue" anymore — copyright uses amber `#F59
 ## Window Structure (every tool)
 
 1. `<Window>` with `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Inter"`
-2. **WindowChrome — multi-line form is required.** All five attributes below must be present together. The single-line shortcut silently drops `CornerRadius` and `GlassFrameThickness` and breaks the rounded-corner shell:
+2. **WindowChrome — multi-line form is required.** All five attributes below must be present together:
    ```xml
    <WindowChrome.WindowChrome>
        <WindowChrome CaptionHeight="64"
@@ -92,17 +91,17 @@ There is **no** separate "copyright blue" anymore — copyright uses amber `#F59
    </WindowChrome.WindowChrome>
    ```
 3. **Title bar** (Row 0, Height=64): White bg
-   - Left: `T3Lab` (11px Bold `#0F766E`) + Tool Name (18px Bold `#1C2B33`)
-   - Below: Separator (1px `#DDE5E7`) + subtitle (10px Italic `#64748B`)
+   - Left: `T3Lab` (11px Bold `#0F172A`) + Tool Name (18px Bold `#0F172A`)
+   - Below: Separator (1px `#E2E8F0`) + subtitle (10px Italic `#64748B`)
    - Right: Min/Max/Close buttons (Segoe MDL2 Assets glyphs — see table below)
-   - Bottom: Border 1px `#DDE5E7`
+   - Bottom: Border 1px `#E2E8F0`
 4. **Content area** — tool-specific. 16px horizontal margins; 10–12px vertical rhythm between sections.
-5. **Status bar** (last row): `Background="#F6F8F8"`, `BorderBrush="#DDE5E7"`, `BorderThickness="0,1,0,0"`, `Padding="14,8"`
+5. **Status bar** (last row): `Background="#F8FAFC"`, `BorderBrush="#E2E8F0"`, `BorderThickness="0,1,0,0"`, `Padding="14,8"`
 6. **Copyright overlay** — always before closing root `<Grid>`
 
 ## Shared Styles (single source of truth)
 
-Button styles are **not** hand-edited per file anymore. The master copy lives in
+Button styles are **not** hand-edited per file. The master copy lives in
 `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml`, and every tool XAML carries
 an identical copy of the block between these markers inside `Window.Resources`
 (Variant A) or `Grid.Resources` (Variant B):
@@ -113,24 +112,23 @@ an identical copy of the block between these markers inside `Window.Resources`
 <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 ```
 
-- To change a button style: edit the master file, run `python3 dev/sync_wpf_styles.py` to propagate, or `python3 dev/sync_wpf_styles.py --check` to verify all files match.
-- Window-specific styles (DataGrid cell styles, one-off toggles) go **outside** the markers.
+- To change a button style: edit the master file, run `python dev/sync_wpf_styles.py` to propagate, or `python dev/sync_wpf_styles.py --check` to verify all files match.
+- Window-specific styles go **outside** the markers.
 - Never edit inside the markers by hand.
 
 ### Shared style keys
 
 | Style Key         | Background  | Foreground | Hover Bg   | Pressed Bg | Border     | Padding | FontSize | Radius |
 |-------------------|-------------|------------|------------|------------|------------|---------|----------|--------|
-| `PrimaryButton`   | `#0F766E`   | White      | `#115E59`  | `#0B4F4A`  | none       | `14,7`  | 12       | 6      |
-| `SecondaryButton` | `#F6F8F8`   | `#1C2B33`  | `#E6EDEC`  | `#DDE5E7`  | `#C7D2D4`  | `14,7`  | 12       | 6      |
-| `SuccessButton`   | `#15803D`   | White      | `#166534`  | `#14532D`  | none       | `14,7`  | 12       | 6      |
-| `DangerButton`    | `#DC2626`   | White      | `#B91C1C`  | `#991B1B`  | none       | `14,7`  | 12       | 6      |
-| `AccentButton`    | `#F59E0B`   | White      | `#D97706`  | `#B45309`  | none       | `14,7`  | 12       | 6      |
-| `WinCtrlButton`   | Transparent | `#1C2B33`  | `#E6EDEC`  | —          | none       | —       | —        | —      |
-| `CloseButton`     | Transparent | `#1C2B33`  | `#DC2626` (Foreground → White) | — | none | — | — | — |
+| `PrimaryButton`   | `#0F172A`   | White      | `#1E293B`  | `#0F172A`  | none       | `14,7`  | 12       | 6      |
+| `SecondaryButton` | Transparent | `#0F172A`  | `#F1F5F9`  | `#E2E8F0`  | `#0F172A`  | `14,7`  | 12       | 6      |
+| `SuccessButton`   | `#10B981`   | White      | `#059669`  | `#047857`  | none       | `14,7`  | 12       | 6      |
+| `DangerButton`    | `#EF4444`   | White      | `#DC2626`  | `#B91C1C`  | none       | `14,7`  | 12       | 6      |
+| `AccentButton`    | `#3B82F6`   | White      | `#2563EB`  | `#1D4ED8`  | none       | `14,7`  | 12       | 6      |
+| `WinCtrlButton`   | Transparent | `#0F172A`  | `#F1F5F9`  | —          | none       | —       | —        | —      |
+| `CloseButton`     | Transparent | `#0F172A`  | `#EF4444` (Foreground → White) | — | none | — | — | — |
 
-All shared buttons use `FontWeight="SemiBold"`, `Cursor="Hand"`, disabled state
-`Background="#AEBFBC"`.
+All shared buttons use `FontWeight="SemiBold"`, `Cursor="Hand"`, disabled state background `#E2E8F0` and foreground `#94A3B8`.
 
 ## Window Control Buttons
 
@@ -169,28 +167,29 @@ to white on its red hover.
 ## Inputs (TextBox / ComboBox / search boxes)
 
 - `FontFamily="Inter"`, `FontSize="12"`, `Padding="6,4"`
-- `BorderBrush="#C7D2D4"`, read-only fields `Background="#F6F8F8"`
+- `BorderBrush="#CBD5E1"`, read-only fields `Background="#F8FAFC"`
+- Focus state: `BorderBrush="#3B82F6"` with BorderThickness `2` (no glow)
 - Placeholder text: `#94A3B8`
 
 ## DataGrid Style
 
-- `Background="White"`, `BorderBrush="#DDE5E7"`, `BorderThickness="1"`
-- `AlternatingRowBackground="#F6F8F8"`, `FontFamily="Inter"`, `FontSize="12"`
-- `GridLinesVisibility="Horizontal"`, `HorizontalGridLinesBrush="#EFF2F2"`
-- Headers: `Background="#F6F8F8"`, `Foreground="#1C2B33"`, `FontWeight="SemiBold"`, `Height="34"`, `BorderBrush="#DDE5E7"`
-- Row hover: `#EFF6F5`
-- Row selected: `#D9EBE8`
+- `Background="White"`, `BorderBrush="#E2E8F0"`, `BorderThickness="1"`
+- `AlternatingRowBackground="#F8FAFC"`, `FontFamily="Inter"`, `FontSize="12"`
+- `GridLinesVisibility="Horizontal"`, `HorizontalGridLinesBrush="#F1F5F9"`
+- Headers: `Background="#F8FAFC"`, `Foreground="#0F172A"`, `FontWeight="SemiBold"`, `Height="34"`, `BorderBrush="#E2E8F0"`
+- Row hover: `#F1F5F9`
+- Row selected: `#E2E8F0`
 
 ## Info / Tip Box
 
-- `BorderBrush="#BFDBD7"`, `Background="#EFF6F5"`, `CornerRadius="4"`, `Padding="10,8"`
-- Label: `Tip:` — `FontWeight="Bold"`, `Foreground="#115E59"`
-- Body: `Foreground="#1C2B33"`
+- `BorderBrush="#CBD5E1"`, `Background="#F8FAFC"`, `CornerRadius="4"`, `Padding="10,8"`
+- Label: `Tip:` — `FontWeight="Bold"`, `Foreground="#3B82F6"`
+- Body: `Foreground="#0F172A"`
 
 ## Progress Bar (long-running tasks)
 
-- `Height="8"`, `Foreground="#0F766E"`, `Background="#E6EDEC"`, `BorderThickness="0"`
-- Inline Pause (secondary style) + Stop (`#DC2626`) buttons
+- `Height="8"`, `Foreground="#3B82F6"`, `Background="#E2E8F0"`, `BorderThickness="0"`
+- Inline Pause (secondary style) + Stop (`#EF4444`) buttons
 - Panel `Visibility="Collapsed"` when idle
 
 ## Wizard-Style Navigation (multi-step tools)
@@ -198,9 +197,9 @@ to white on its red hover.
 When a tool has multiple steps (BatchOut / TileLayout / ExportManager):
 - Use hidden `TabItem` with `Visibility="Collapsed"` — navigation driven by code-behind
 - Add a **step progress bar** (Row 1) with numbered circles:
-  - Active circle: `#0F766E` bg, white number; active label `#115E59` SemiBold
-  - Optional 2px amber `#F59E0B` underline beneath the active step
-  - Inactive circles: `#E6EDEC` bg, `#64748B` number; connector lines `#DDE5E7`
+  - Active circle: `#3B82F6` bg, white number; active label `#1D4ED8` SemiBold
+  - Optional 2px blue `#3B82F6` underline beneath the active step
+  - Inactive circles: `#F1F5F9` bg, `#64748B` number; connector lines `#E2E8F0`
 - Action bar contains Back (`SecondaryButton`) + Next (`SuccessButton`)
 - Nav step icons (Segoe MDL2 Assets): Selection `&#xE14C;`, Format `&#xE1DC;`, Queue `&#xE914;`, Settings `&#xE713;`
 
@@ -213,46 +212,15 @@ When a tool has multiple steps (BatchOut / TileLayout / ExportManager):
 <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 ```
 
-- Do **not** embed it inside the status bar, action bar, or any other content `<Border>` / `<StackPanel>` — it must be a direct child of the root `<Grid>` so it floats as an overlay.
-- Do **not** add `Grid.Row`, `Grid.Column`, or `Grid.RowSpan` — keep the snippet byte-for-byte identical across files.
+- Do **not** embed it inside the status bar, action bar, or any other content `<Border>` / `<StackPanel>` — it must float as an overlay.
+- Do **not** add `Grid.Row`, `Grid.Column`, or `Grid.RowSpan` attributes.
 - Do **not** use `&#169;` — use the literal `©` character.
-- Do **not** duplicate it (some legacy files had two copyrights; only one is allowed).
+- Do **not** duplicate it.
 
 ## Common Deviations to Avoid
 
-| Anti-pattern                                                            | Use instead                                                          |
-|-------------------------------------------------------------------------|----------------------------------------------------------------------|
-| Old Kinetix navy palette (`#083D56`, `#2C3E50`, `#546E7A`, …)           | Terra palette (see migration map above)                              |
-| Single-line `<WindowChrome CaptionHeight="64" .../>`                    | Multi-line form with all 5 attributes (see Window Structure §2)      |
-| `<Button Content="&#x25A1;" />` for maximize                            | `<Button><TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" .../></Button>` |
-| Explicit `Foreground` on window-control glyph TextBlocks                | No Foreground — inherit from `WinCtrlButton` / `CloseButton` style   |
-| Hand-editing button styles inside the shared-styles markers             | Edit `lib/GUI/Resources/WPF_styles.xaml`, run `dev/sync_wpf_styles.py` |
-| `FontFamily="Manrope"` or `FontFamily="Segoe UI"`                       | `FontFamily="Inter"` (only Segoe MDL2 Assets is allowed, for glyphs) |
-| `<Image Source="…/T3Lab_logo.png"/>` in title bar                       | Logo was removed; do not add it back                                 |
-| Hard-coded button colors (`Background="#FF0000"` etc.)                  | Use the shared style keys (incl. `AccentButton` for amber)           |
-| Status bar with `Background="White"`                                    | Status bar background is `#F6F8F8`                                   |
-| Copyright TextBlock embedded inside a status-bar / action-bar Border    | Place it as the last child of the root `<Grid>` (overlay form)       |
-| Two copyright TextBlocks in the same file                               | Exactly one, using the verbatim snippet                              |
-
-## Checklist for New Tools
-
-- [ ] `Window.Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Inter"`
-- [ ] `WindowChrome` uses multi-line form with all 5 attributes (`CaptionHeight=64`, `ResizeBorderThickness=5`, `GlassFrameThickness=0`, `CornerRadius=8`, `UseAeroCaptionButtons=False`)
-- [ ] Title bar: 64px, white, T3Lab brand (#0F766E) + tool name (#1C2B33) + subtitle (#64748B)
-- [ ] Separator (1px #DDE5E7) between title and subtitle
-- [ ] Min/Max/Close buttons use the canonical TextBlock pattern with Segoe MDL2 glyphs `&#xE921; &#xE922; &#xE8BB;` (FontSize=10, no Foreground attribute)
-- [ ] Shared style block present between the AUTO-SYNCED markers, byte-identical to the master (`dev/sync_wpf_styles.py --check` passes)
-- [ ] DataGrid with correct header/row styles (if applicable)
-- [ ] Status bar: `#F6F8F8` background, `#DDE5E7` top border
-- [ ] Copyright TextBlock overlay (amber `#F59E0B`) before closing `</Grid>`
-- [ ] Font: `Inter` throughout (no Manrope, no Segoe UI)
-- [ ] `minimize_button_clicked`, `maximize_button_clicked`, `close_button_clicked` implemented in Python
-- [ ] No logo/image loading — logo was removed
-- [ ] No old Kinetix colors anywhere in the file
-- [ ] No deviation from the "Common Deviations to Avoid" table above
-
-## Template References
-
-See `.claude/docs/` for full XAML and Python templates:
-- `wpf-window-templates.md` — Window structure, button styles, DataGrid, info box XAML
-- `python-wpf-pattern.md` — Python WPF Window class pattern
+- Old Kinetix navy or Terra v2 teal palettes.
+- Single-line `<WindowChrome>` tags (silently drops corner radius).
+- Non-embedded text or wrong Segoe icons on control buttons.
+- Hardcoded button background hexes.
+- Copyright block embedded inside templates instead of direct root Grid child.

@@ -23,25 +23,25 @@
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#1C2B33"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
         <!-- ── GroupBox override ── -->
         <Style x:Key="SectionGroup" TargetType="GroupBox">
-            <Setter Property="BorderBrush" Value="#DDE5E7"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="12,8,12,12"/>
             <Setter Property="Margin" Value="0,0,0,10"/>
             <Setter Property="FontFamily" Value="Inter"/>
-            <Setter Property="Foreground" Value="#1C2B33"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-        <!-- PRIMARY BUTTON - teal, white text -->
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Background"      Value="#0F172A"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
@@ -61,29 +61,30 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#115E59"/>
+                    <Setter Property="Background" Value="#1E293B"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0B4F4A"/>
+                    <Setter Property="Background" Value="#0F172A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY BUTTON - surface, ink text -->
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F6F8F8"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -98,64 +99,68 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#DDE5E7"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
                     <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS BUTTON - green -->
-        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#15803D"/>
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#166534"/>
+                    <Setter Property="Background" Value="#DC2626"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#14532D"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- DANGER BUTTON - red -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#DC2626"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#B91C1C"/>
                 </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#991B1B"/>
-                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- ACCENT BUTTON - amber highlight -->
+        <!-- ACCENT BUTTON - refined blue -->
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#F59E0B"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D97706"/>
+                    <Setter Property="Background" Value="#2563EB"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#B45309"/>
+                    <Setter Property="Background" Value="#1D4ED8"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -166,7 +171,7 @@
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -180,16 +185,16 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Background" Value="#EF4444"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -233,14 +238,14 @@
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="T3Lab"
                                    FontSize="11" FontWeight="Bold"
-                                   Foreground="#0F766E"
+                                   Foreground="#0F172A"
                                    VerticalAlignment="Bottom"
                                    Margin="0,0,8,2"/>
                         <TextBlock Text="Auto Dimension"
                                    FontSize="18" FontWeight="Bold"
-                                   Foreground="#1C2B33"/>
+                                   Foreground="#0F172A"/>
                     </StackPanel>
-                    <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
+                    <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
                     <TextBlock Text="Shop drawing string dimensions — walls, columns, doors, lifts &amp; grids"
                                FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
                 </StackPanel>
@@ -275,7 +280,7 @@
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#0F766E"/>
+                                <Setter Property="Foreground" Value="#0F172A"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsMouseOver,
                                                  RelativeSource={RelativeSource AncestorType=Button}}"
@@ -288,7 +293,7 @@
                     </TextBlock>
                 </Button>
             </StackPanel>
-            <Border Height="1" VerticalAlignment="Bottom" Background="#DDE5E7" Grid.ColumnSpan="3"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0" Grid.ColumnSpan="3"/>
         </Grid>
 
         <!-- ═══════════════════════════════════════════════ -->
@@ -313,10 +318,10 @@
                         <ListBox x:Name="lst_views"
                                  Height="90"
                                  SelectionMode="Extended"
-                                 BorderBrush="#DDE5E7"
+                                 BorderBrush="#E2E8F0"
                                  BorderThickness="1"
                                  FontSize="12"
-                                 Foreground="#1C2B33"/>
+                                 Foreground="#0F172A"/>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                             <Button Content="Select All"
                                     Style="{StaticResource SecondaryButton}"
@@ -343,7 +348,7 @@
                                   Content="Enable Checking Mode — align to nearest grid only"
                                   IsChecked="False"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,2,0,6"
                                   Checked="checking_mode_changed"
                                   Unchecked="checking_mode_changed"/>
@@ -355,14 +360,14 @@
                             <TextBlock Grid.Column="0"
                                        Text="Check dim style:"
                                        FontSize="13"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        VerticalAlignment="Center"/>
                             <ComboBox x:Name="cmb_check_dim_type"
                                       Grid.Column="1"
                                       Height="28"
                                       FontSize="12"
-                                      Foreground="#1C2B33"
-                                      BorderBrush="#C7D2D4"
+                                      Foreground="#0F172A"
+                                      BorderBrush="#CBD5E1"
                                       BorderThickness="1"
                                       VerticalContentAlignment="Center"/>
                         </Grid>
@@ -379,49 +384,49 @@
                                   Content="Walls (from core layer)"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,4"/>
                         <CheckBox x:Name="chk_struct_columns"
                                   Content="Structural Columns"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,4"/>
                         <CheckBox x:Name="chk_arch_columns"
                                   Content="Architectural Columns"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,4"/>
                         <CheckBox x:Name="chk_grids"
                                   Content="Grid-to-Grid Overall Chains"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,4"/>
                         <CheckBox x:Name="chk_windows"
                                   Content="Windows (opening width)"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,4"/>
                         <CheckBox x:Name="chk_doors"
                                   Content="Doors (opening width)"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,4"/>
                         <CheckBox x:Name="chk_lifts"
                                   Content="Lifts / Mechanical Equipment"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,0"/>
                         <CheckBox x:Name="chk_facade"
                                   Content="Facade Dimensions  (exterior walls — N / S / E / W)"
                                   IsChecked="False"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,4,0,0"/>
                     </StackPanel>
                 </GroupBox>
@@ -442,19 +447,19 @@
                                      IsChecked="True"
                                      GroupName="WallLayer"
                                      FontSize="13"
-                                     Foreground="#1C2B33"
+                                     Foreground="#0F172A"
                                      Margin="0,3,0,3"/>
                         <RadioButton x:Name="rad_wall_int"
                                      Content="Interior face"
                                      GroupName="WallLayer"
                                      FontSize="13"
-                                     Foreground="#1C2B33"
+                                     Foreground="#0F172A"
                                      Margin="0,3,0,3"/>
                         <RadioButton x:Name="rad_wall_both"
                                      Content="Both faces  (dim string shows wall thickness)"
                                      GroupName="WallLayer"
                                      FontSize="13"
-                                     Foreground="#1C2B33"
+                                     Foreground="#0F172A"
                                      Margin="0,3,0,0"/>
                     </StackPanel>
                 </GroupBox>
@@ -474,15 +479,15 @@
                         <TextBlock Grid.Column="0"
                                    Text="Linear Dim Style:"
                                    FontSize="13"
-                                   Foreground="#1C2B33"
+                                   Foreground="#0F172A"
                                    VerticalAlignment="Center"/>
 
                         <ComboBox x:Name="cmb_dim_type"
                                   Grid.Column="1"
                                   Height="28"
                                   FontSize="12"
-                                  Foreground="#1C2B33"
-                                  BorderBrush="#C7D2D4"
+                                  Foreground="#0F172A"
+                                  BorderBrush="#CBD5E1"
                                   BorderThickness="1"
                                   VerticalContentAlignment="Center">
                             <!-- Items are populated from code -->
@@ -511,14 +516,14 @@
                             <TextBlock Grid.Column="0"
                                        Text="Offset mode:"
                                        FontSize="13"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        VerticalAlignment="Center"/>
                             <ComboBox x:Name="cmb_offset_mode"
                                       Grid.Column="1"
                                       Height="28"
                                       FontSize="12"
-                                      Foreground="#1C2B33"
-                                      BorderBrush="#C7D2D4"
+                                      Foreground="#0F172A"
+                                      BorderBrush="#CBD5E1"
                                       BorderThickness="1"
                                       VerticalContentAlignment="Center"
                                       SelectionChanged="offset_mode_changed">
@@ -537,15 +542,15 @@
                             <TextBlock Grid.Column="0"
                                        Text="Offset distance:"
                                        FontSize="13"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        VerticalAlignment="Center"/>
                             <TextBox x:Name="txt_offset"
                                      Grid.Column="1"
                                      Text="1000"
                                      Height="28"
                                      FontSize="13"
-                                     Foreground="#1C2B33"
-                                     BorderBrush="#C7D2D4"
+                                     Foreground="#0F172A"
+                                     BorderBrush="#CBD5E1"
                                      BorderThickness="1"
                                      VerticalContentAlignment="Center"
                                      Padding="6,0"
@@ -571,15 +576,15 @@
                                 <TextBlock Grid.Column="0"
                                            Text="L1 — Openings:"
                                            FontSize="13"
-                                           Foreground="#1C2B33"
+                                           Foreground="#0F172A"
                                            VerticalAlignment="Center"/>
                                 <TextBox x:Name="txt_l1"
                                          Grid.Column="1"
                                          Text="500"
                                          Height="28"
                                          FontSize="13"
-                                         Foreground="#1C2B33"
-                                         BorderBrush="#C7D2D4"
+                                         Foreground="#0F172A"
+                                         BorderBrush="#CBD5E1"
                                          BorderThickness="1"
                                          VerticalContentAlignment="Center"
                                          Padding="6,0"
@@ -600,15 +605,15 @@
                                 <TextBlock Grid.Column="0"
                                            Text="L2 — Columns/Walls:"
                                            FontSize="13"
-                                           Foreground="#1C2B33"
+                                           Foreground="#0F172A"
                                            VerticalAlignment="Center"/>
                                 <TextBox x:Name="txt_l2"
                                          Grid.Column="1"
                                          Text="1000"
                                          Height="28"
                                          FontSize="13"
-                                         Foreground="#1C2B33"
-                                         BorderBrush="#C7D2D4"
+                                         Foreground="#0F172A"
+                                         BorderBrush="#CBD5E1"
                                          BorderThickness="1"
                                          VerticalContentAlignment="Center"
                                          Padding="6,0"
@@ -629,15 +634,15 @@
                                 <TextBlock Grid.Column="0"
                                            Text="L3 — Grid overall:"
                                            FontSize="13"
-                                           Foreground="#1C2B33"
+                                           Foreground="#0F172A"
                                            VerticalAlignment="Center"/>
                                 <TextBox x:Name="txt_l3"
                                          Grid.Column="1"
                                          Text="1500"
                                          Height="28"
                                          FontSize="13"
-                                         Foreground="#1C2B33"
-                                         BorderBrush="#C7D2D4"
+                                         Foreground="#0F172A"
+                                         BorderBrush="#CBD5E1"
                                          BorderThickness="1"
                                          VerticalContentAlignment="Center"
                                          Padding="6,0"
@@ -659,14 +664,14 @@
                             <TextBlock Grid.Column="0"
                                        Text="Direction:"
                                        FontSize="13"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        VerticalAlignment="Center"/>
                             <ComboBox x:Name="cmb_direction"
                                       Grid.Column="1"
                                       Height="28"
                                       FontSize="12"
-                                      Foreground="#1C2B33"
-                                      BorderBrush="#C7D2D4"
+                                      Foreground="#0F172A"
+                                      BorderBrush="#CBD5E1"
                                       BorderThickness="1"
                                       VerticalContentAlignment="Center">
                                 <ComboBoxItem Content="Both X and Y" IsSelected="True"/>
@@ -680,7 +685,7 @@
                                   Content="Mirror dim strings to both sides of building"
                                   IsChecked="True"
                                   FontSize="13"
-                                  Foreground="#1C2B33"
+                                  Foreground="#0F172A"
                                   Margin="0,0,0,8"/>
 
                         <!-- Conflict warning row -->
@@ -696,7 +701,7 @@
                                       Content="Warn if segment &lt; "
                                       IsChecked="True"
                                       FontSize="13"
-                                      Foreground="#1C2B33"
+                                      Foreground="#0F172A"
                                       VerticalAlignment="Center"
                                       Margin="0,0,4,0"/>
                             <TextBox x:Name="txt_min_seg"
@@ -705,8 +710,8 @@
                                      Height="28"
                                      Width="60"
                                      FontSize="13"
-                                     Foreground="#1C2B33"
-                                     BorderBrush="#C7D2D4"
+                                     Foreground="#0F172A"
+                                     BorderBrush="#CBD5E1"
                                      BorderThickness="1"
                                      VerticalContentAlignment="Center"
                                      HorizontalAlignment="Left"
@@ -729,15 +734,15 @@
                             <TextBlock Grid.Column="0"
                                        Text="Facade offset:"
                                        FontSize="13"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        VerticalAlignment="Center"/>
                             <TextBox x:Name="txt_facade_offset"
                                      Grid.Column="1"
                                      Text="1200"
                                      Height="28"
                                      FontSize="13"
-                                     Foreground="#1C2B33"
-                                     BorderBrush="#C7D2D4"
+                                     Foreground="#0F172A"
+                                     BorderBrush="#CBD5E1"
                                      BorderThickness="1"
                                      VerticalContentAlignment="Center"
                                      Padding="6,0"
@@ -759,15 +764,15 @@
                             <TextBlock Grid.Column="0"
                                        Text="Perimeter tol.:"
                                        FontSize="13"
-                                       Foreground="#1C2B33"
+                                       Foreground="#0F172A"
                                        VerticalAlignment="Center"/>
                             <TextBox x:Name="txt_facade_tol"
                                      Grid.Column="1"
                                      Text="1800"
                                      Height="28"
                                      FontSize="13"
-                                     Foreground="#1C2B33"
-                                     BorderBrush="#C7D2D4"
+                                     Foreground="#0F172A"
+                                     BorderBrush="#CBD5E1"
                                      BorderThickness="1"
                                      VerticalContentAlignment="Center"
                                      Padding="6,0"
@@ -786,8 +791,8 @@
                 <!--  Info box                               -->
                 <!-- ─────────────────────────────────────── -->
                 <Border x:Name="brd_info"
-                        Background="#F6F8F8"
-                        BorderBrush="#0F766E"
+                        Background="#F8FAFC"
+                        BorderBrush="#0F172A"
                         BorderThickness="1"
                         CornerRadius="4"
                         Padding="12,10"
@@ -796,12 +801,12 @@
                         <TextBlock Text="&#xE946;"
                                    FontFamily="Segoe MDL2 Assets"
                                    FontSize="14"
-                                   Foreground="#115E59"
+                                   Foreground="#1E293B"
                                    VerticalAlignment="Top"
                                    Margin="0,1,10,0"/>
                         <TextBlock Text="3-level nested dims: ① Inner (L1) — windows + doors per row. ② Mid (L2) — columns &amp; walls per row. ③ Outer (L3) — grid-to-grid overall. Facade mode detects exterior walls (N/S/E/W) and creates dedicated facade string dims with opening references. Multi-view: select views above to process multiple plans in one run."
                                    FontSize="12"
-                                   Foreground="#1C2B33"
+                                   Foreground="#0F172A"
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
@@ -815,7 +820,7 @@
         <!-- ═══════════════════════════════════════════════ -->
         <Border Grid.Row="2"
                 Background="White"
-                BorderBrush="#DDE5E7"
+                BorderBrush="#E2E8F0"
                 BorderThickness="0,1,0,0"
                 Padding="18,10">
             <Grid>
@@ -847,8 +852,8 @@
         <!--  STATUS BAR                                     -->
         <!-- ═══════════════════════════════════════════════ -->
         <Border Grid.Row="3"
-                Background="#F6F8F8"
-                BorderBrush="#DDE5E7"
+                Background="#F8FAFC"
+                BorderBrush="#E2E8F0"
                 BorderThickness="0,1,0,0"
                 Padding="18,0">
             <TextBlock x:Name="status_text"

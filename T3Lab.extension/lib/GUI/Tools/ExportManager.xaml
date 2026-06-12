@@ -23,12 +23,12 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Margin" Value="0,10,0,5"/>
-            <Setter Property="Foreground" Value="#1C2B33"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
         </Style>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-        <!-- PRIMARY BUTTON - teal, white text -->
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Background"      Value="#0F172A"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
@@ -48,29 +48,30 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#115E59"/>
+                    <Setter Property="Background" Value="#1E293B"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0B4F4A"/>
+                    <Setter Property="Background" Value="#0F172A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY BUTTON - surface, ink text -->
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F6F8F8"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -85,64 +86,68 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#DDE5E7"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
                     <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS BUTTON - green -->
-        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#15803D"/>
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#166534"/>
+                    <Setter Property="Background" Value="#DC2626"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#14532D"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- DANGER BUTTON - red -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#DC2626"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#B91C1C"/>
                 </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#991B1B"/>
-                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- ACCENT BUTTON - amber highlight -->
+        <!-- ACCENT BUTTON - refined blue -->
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#F59E0B"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D97706"/>
+                    <Setter Property="Background" Value="#2563EB"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#B45309"/>
+                    <Setter Property="Background" Value="#1D4ED8"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -153,7 +158,7 @@
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -167,16 +172,16 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Background" Value="#EF4444"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -198,7 +203,7 @@
             <Setter Property="Width" Value="24"/>
             <Setter Property="Height" Value="24"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Background" Value="#AEBFBC"/>
+            <Setter Property="Background" Value="#E2E8F0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
@@ -231,11 +236,11 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F766E" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
                     <TextBlock Text="BatchOut" FontSize="18" FontWeight="Bold"
-                               Foreground="#1C2B33"/>
+                               Foreground="#0F172A"/>
                 </StackPanel>
-                <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
+                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
                 <TextBlock Text="Batch export sheets to multiple formats with advanced options"
                            FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
@@ -248,10 +253,10 @@
                         Style="{StaticResource WinCtrlButton}"
                         ToolTip="Profiles"
                         Click="profile_button_clicked">
-                    <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#0F766E"/>
+                    <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#0F172A"/>
                 </Button>
 
-                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,8" Background="#F6F8F8"/>
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,8" Background="#F8FAFC"/>
 
                 <!-- Minimize Button -->
                 <Button x:Name="btn_minimize"
@@ -359,12 +364,12 @@
                                               Height="28"
                                               HorizontalContentAlignment="Left"
                                               Padding="8,0,26,0"
-                                              BorderBrush="#DDE5E7" BorderThickness="1"
+                                              BorderBrush="#E2E8F0" BorderThickness="1"
                                               Background="White" Cursor="Hand"
                                               Click="sheet_set_toggle_clicked"
                                               ToolTip="Click to select one or more View/Sheet Sets">
                                     <TextBlock x:Name="sheet_set_label" Text="All Sheets/Views"
-                                               VerticalAlignment="Center" Foreground="#1C2B33" FontSize="12"/>
+                                               VerticalAlignment="Center" Foreground="#0F172A" FontSize="12"/>
                                 </ToggleButton>
                                 <TextBlock Text="▾" VerticalAlignment="Center" HorizontalAlignment="Right"
                                            Margin="0,0,8,0" IsHitTestVisible="False"
@@ -375,7 +380,7 @@
                                        PopupAnimation="Fade"
                                        PlacementTarget="{Binding ElementName=sheet_set_toggle}"
                                        Placement="Bottom">
-                                    <Border BorderBrush="#DDE5E7" BorderThickness="1"
+                                    <Border BorderBrush="#E2E8F0" BorderThickness="1"
                                             Background="White" MinWidth="240" MaxHeight="220">
                                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                                             <StackPanel x:Name="sheet_set_checklist" Margin="4,6,4,6"/>
@@ -407,7 +412,7 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <Border Grid.Row="0" BorderBrush="#DDE5E7" BorderThickness="1" Margin="0,5" CornerRadius="3" Background="#F4F6F7">
+                        <Border Grid.Row="0" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,5" CornerRadius="3" Background="#F4F6F7">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -468,7 +473,7 @@
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                 BorderThickness="1" BorderBrush="#F6F8F8" Padding="4,2"
+                                                                 BorderThickness="1" BorderBrush="#F8FAFC" Padding="4,2"
                                                                  ToolTip="Custom filename (leave empty to use pattern)"
                                                                  PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
                                                     </DataTemplate>
@@ -481,7 +486,7 @@
                         </Border>
 
                         <!-- Selection Count Status Bar -->
-                        <Border Grid.Row="1" Background="#F6F8F8" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
                                 Padding="10,8" Margin="0,5,0,0" CornerRadius="2">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -493,7 +498,7 @@
                                            Text="0 sheets and 0 views selected. Total: 0"
                                            FontSize="12"
                                            FontWeight="Medium"
-                                           Foreground="#1C2B33"
+                                           Foreground="#0F172A"
                                            VerticalAlignment="Center"/>
                             </Grid>
                         </Border>
@@ -511,11 +516,11 @@
                                    FontSize="11" Foreground="#64748B" Margin="0,0,0,10"/>
 
                         <!-- ═══ PDF ═══ -->
-                        <Border x:Name="pdf_panel_border" BorderBrush="#0F766E" BorderThickness="1"
+                        <Border x:Name="pdf_panel_border" BorderBrush="#0F172A" BorderThickness="1"
                                 CornerRadius="4" Margin="0,0,0,6">
                             <!-- Header row -->
                             <StackPanel>
-                                <Border Background="#F6F8F8" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="pdf_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -525,19 +530,19 @@
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_pdf" Grid.Column="0"
                                                   Content="PDF" IsChecked="True"
-                                                  FontSize="13" FontWeight="SemiBold" Foreground="#1C2B33"
+                                                  FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="Portable Document Format"
                                                    FontSize="11" Foreground="#64748B"
                                                    VerticalAlignment="Center" Margin="12,0,0,0"/>
                                         <TextBlock x:Name="pdf_expand_arrow" Grid.Column="2"
-                                                   Text="▾" FontSize="12" Foreground="#0F766E"
+                                                   Text="▾" FontSize="12" Foreground="#0F172A"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
                                 </Border>
                                 <!-- PDF Settings Body -->
                                 <Border x:Name="pdf_settings_body" Background="White"
-                                        BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                                         Padding="15,10" CornerRadius="0,0,4,4">
                                     <Grid>
                                         <Grid.RowDefinitions>
@@ -594,10 +599,10 @@
                         </Border>
 
                         <!-- ═══ DWG ═══ -->
-                        <Border x:Name="dwg_panel_border" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border x:Name="dwg_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Margin="0,0,0,6">
                             <StackPanel>
-                                <Border Background="#F6F8F8" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="dwg_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -606,7 +611,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_dwg" Grid.Column="0"
-                                                  Content="DWG" FontSize="13" FontWeight="SemiBold" Foreground="#1C2B33"
+                                                  Content="DWG" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="AutoCAD Drawing File"
                                                    FontSize="11" Foreground="#64748B"
@@ -617,7 +622,7 @@
                                     </Grid>
                                 </Border>
                                 <Border x:Name="dwg_settings_body" Background="White"
-                                        BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                                         Padding="15,10" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <Grid>
@@ -651,10 +656,10 @@
                         </Border>
 
                         <!-- ═══ DGN ═══ -->
-                        <Border x:Name="dgn_panel_border" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border x:Name="dgn_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Margin="0,0,0,6">
                             <StackPanel>
-                                <Border Background="#F6F8F8" CornerRadius="4" Cursor="Hand"
+                                <Border Background="#F8FAFC" CornerRadius="4" Cursor="Hand"
                                         MouseLeftButtonUp="dgn_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -663,7 +668,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_dgn" Grid.Column="0"
-                                                  Content="DGN" FontSize="13" FontWeight="SemiBold" Foreground="#1C2B33"
+                                                  Content="DGN" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="MicroStation Design File"
                                                    FontSize="11" Foreground="#64748B"
@@ -674,7 +679,7 @@
                                     </Grid>
                                 </Border>
                                 <Border x:Name="dgn_settings_body" Background="White"
-                                        BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                                         Padding="15,10" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <TextBlock Text="Uses Revit's default DGN export settings. No additional configuration required."
@@ -684,10 +689,10 @@
                         </Border>
 
                         <!-- ═══ DWF ═══ -->
-                        <Border x:Name="dwf_panel_border" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border x:Name="dwf_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Margin="0,0,0,6">
                             <StackPanel>
-                                <Border Background="#F6F8F8" CornerRadius="4" Cursor="Hand"
+                                <Border Background="#F8FAFC" CornerRadius="4" Cursor="Hand"
                                         MouseLeftButtonUp="dwf_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -696,7 +701,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_dwf" Grid.Column="0"
-                                                  Content="DWF" FontSize="13" FontWeight="SemiBold" Foreground="#1C2B33"
+                                                  Content="DWF" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="Design Web Format"
                                                    FontSize="11" Foreground="#64748B"
@@ -707,7 +712,7 @@
                                     </Grid>
                                 </Border>
                                 <Border x:Name="dwf_settings_body" Background="White"
-                                        BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                                         Padding="15,10" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <TextBlock Text="Uses Revit's default DWF export settings. No additional configuration required."
@@ -717,10 +722,10 @@
                         </Border>
 
                         <!-- ═══ NWC ═══ -->
-                        <Border x:Name="nwc_panel_border" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border x:Name="nwc_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Margin="0,0,0,6">
                             <StackPanel>
-                                <Border Background="#F6F8F8" CornerRadius="4" Cursor="Hand"
+                                <Border Background="#F8FAFC" CornerRadius="4" Cursor="Hand"
                                         MouseLeftButtonUp="nwc_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -729,7 +734,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_nwd" Grid.Column="0"
-                                                  Content="NWC" FontSize="13" FontWeight="SemiBold" Foreground="#1C2B33"
+                                                  Content="NWC" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                   Checked="format_changed" Unchecked="format_changed"
                                                   ToolTip="Requires Navisworks to be installed"/>
                                         <TextBlock Grid.Column="1" Text="Navisworks Cache File"
@@ -741,7 +746,7 @@
                                     </Grid>
                                 </Border>
                                 <Border x:Name="nwc_settings_body" Background="White"
-                                        BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                                         Padding="15,10" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <TextBlock Text="Exports each view/sheet as a separate NWC file. Requires Navisworks Exporters to be installed."
@@ -751,10 +756,10 @@
                         </Border>
 
                         <!-- ═══ IFC ═══ -->
-                        <Border x:Name="ifc_panel_border" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border x:Name="ifc_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Margin="0,0,0,6">
                             <StackPanel>
-                                <Border Background="#F6F8F8" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="ifc_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -763,7 +768,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_ifc" Grid.Column="0"
-                                                  Content="IFC" FontSize="13" FontWeight="SemiBold" Foreground="#1C2B33"
+                                                  Content="IFC" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="Industry Foundation Classes"
                                                    FontSize="11" Foreground="#64748B"
@@ -774,7 +779,7 @@
                                     </Grid>
                                 </Border>
                                 <Border x:Name="ifc_settings_body" Background="White"
-                                        BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                                         Padding="15,10" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <Grid>
@@ -801,10 +806,10 @@
                         </Border>
 
                         <!-- ═══ IMG ═══ -->
-                        <Border x:Name="img_panel_border" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border x:Name="img_panel_border" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Margin="0,0,0,6">
                             <StackPanel>
-                                <Border Background="#F6F8F8" CornerRadius="4,4,0,0" Cursor="Hand"
+                                <Border Background="#F8FAFC" CornerRadius="4,4,0,0" Cursor="Hand"
                                         MouseLeftButtonUp="img_header_clicked">
                                     <Grid Margin="12,8">
                                         <Grid.ColumnDefinitions>
@@ -813,7 +818,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <CheckBox x:Name="export_img" Grid.Column="0"
-                                                  Content="IMG" FontSize="13" FontWeight="SemiBold" Foreground="#1C2B33"
+                                                  Content="IMG" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"
                                                   Checked="format_changed" Unchecked="format_changed"/>
                                         <TextBlock Grid.Column="1" Text="PNG / JPEG Image"
                                                    FontSize="11" Foreground="#64748B"
@@ -824,7 +829,7 @@
                                     </Grid>
                                 </Border>
                                 <Border x:Name="img_settings_body" Background="White"
-                                        BorderBrush="#DDE5E7" BorderThickness="0,1,0,0"
+                                        BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                                         Padding="15,10" CornerRadius="0,0,4,4"
                                         Visibility="Collapsed">
                                     <Grid>
@@ -918,8 +923,8 @@
                     </Grid.RowDefinitions>
 
                     <!-- ── SETTINGS CARD ── -->
-                    <Border Grid.Row="0" BorderBrush="#DDE5E7" BorderThickness="1"
-                            Padding="12,10" Background="#F6F8F8" CornerRadius="3" Margin="0,0,0,10">
+                    <Border Grid.Row="0" BorderBrush="#E2E8F0" BorderThickness="1"
+                            Padding="12,10" Background="#F8FAFC" CornerRadius="3" Margin="0,0,0,10">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -976,7 +981,7 @@
 
                         <TextBlock Grid.Row="0" Text="Export Queue" Style="{StaticResource SectionHeader}"/>
 
-                        <Border Grid.Row="1" BorderBrush="#DDE5E7" BorderThickness="1" Margin="0,5" CornerRadius="3">
+                        <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,5" CornerRadius="3">
                             <ListView x:Name="export_preview_list"
                                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <ListView.View>
@@ -1004,13 +1009,13 @@
                                                                 <Style TargetType="ProgressBar">
                                                                     <Style.Triggers>
                                                                         <DataTrigger Binding="{Binding Progress}" Value="100">
-                                                                            <Setter Property="Foreground" Value="#15803D"/>
+                                                                            <Setter Property="Foreground" Value="#10B981"/>
                                                                         </DataTrigger>
                                                                     </Style.Triggers>
                                                                 </Style>
                                                             </ProgressBar.Style>
                                                         </ProgressBar>
-                                                        <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="11" Foreground="#15803D" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,2,0,0">
+                                                        <TextBlock Grid.Row="1" Text="{Binding Status}" FontSize="11" Foreground="#10B981" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,2,0,0">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
                                                                     <Style.Triggers>
@@ -1045,7 +1050,7 @@
         </Grid>
 
         <!-- ═══════════════ ACTION BAR (Row 3) ═══════════════ -->
-        <Border Grid.Row="3" Background="#F6F8F8" BorderBrush="#DDE5E7" BorderThickness="0,1,0,0" Padding="20,10">
+        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="20,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -1054,7 +1059,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock x:Name="status_text" Text="Ready | 0 sheets | Revit" FontStyle="Italic" FontSize="12" Foreground="#0F766E"/>
+                    <TextBlock x:Name="status_text" Text="Ready | 0 sheets | Revit" FontStyle="Italic" FontSize="12" Foreground="#0F172A"/>
                 </StackPanel>
 
                 <Button x:Name="back_button" Grid.Column="1"
@@ -1069,7 +1074,7 @@
                         Style="{StaticResource PrimaryButton}"
                         Click="go_next"
                         Width="100"
-                        Background="#0F766E">
+                        Background="#0F172A">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock x:Name="next_button_text" Text="Next" FontWeight="Medium"/>
                         <TextBlock x:Name="next_button_icon" Text="→" FontFamily="Inter" FontWeight="Medium" Margin="5,0,0,0"/>
@@ -1079,7 +1084,7 @@
         </Border>
 
         <!-- ═══════════════ NAVIGATION BAR (Row 1) ═══════════════ -->
-        <Border Grid.Row="1" Background="White" BorderBrush="#DDE5E7" BorderThickness="0,0,0,1" Height="60">
+        <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Height="60">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -1088,10 +1093,10 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 1. Selection -->
-                <Border x:Name="nav_border_selection" Grid.Column="0" Background="#F6F8F8" Margin="0" Cursor="Hand" MouseLeftButtonDown="nav_item_clicked">
+                <Border x:Name="nav_border_selection" Grid.Column="0" Background="#F8FAFC" Margin="0" Cursor="Hand" MouseLeftButtonDown="nav_item_clicked">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock x:Name="nav_icon_selection" Text="&#xE14C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#0F766E" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                        <TextBlock x:Name="nav_text_selection" Text="Selection" FontSize="10" Foreground="#0F766E" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="nav_icon_selection" Text="&#xE14C;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#0F172A" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                        <TextBlock x:Name="nav_text_selection" Text="Selection" FontSize="10" Foreground="#0F172A" HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
 

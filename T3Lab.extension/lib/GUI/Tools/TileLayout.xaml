@@ -19,9 +19,9 @@
 
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-        <!-- PRIMARY BUTTON - teal, white text -->
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Background"      Value="#0F172A"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
@@ -41,29 +41,30 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#115E59"/>
+                    <Setter Property="Background" Value="#1E293B"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0B4F4A"/>
+                    <Setter Property="Background" Value="#0F172A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY BUTTON - surface, ink text -->
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F6F8F8"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -78,64 +79,68 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#DDE5E7"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
                     <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS BUTTON - green -->
-        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#15803D"/>
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#166534"/>
+                    <Setter Property="Background" Value="#DC2626"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#14532D"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- DANGER BUTTON - red -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#DC2626"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#B91C1C"/>
                 </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#991B1B"/>
-                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- ACCENT BUTTON - amber highlight -->
+        <!-- ACCENT BUTTON - refined blue -->
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#F59E0B"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D97706"/>
+                    <Setter Property="Background" Value="#2563EB"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#B45309"/>
+                    <Setter Property="Background" Value="#1D4ED8"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -146,7 +151,7 @@
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -160,16 +165,16 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Background" Value="#EF4444"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -179,15 +184,15 @@
 
         <Style x:Key="FieldLabel" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#1C2B33"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
         </Style>
 
         <Style x:Key="InputBox" TargetType="TextBox">
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="#1C2B33"/>
-            <Setter Property="BorderBrush" Value="#DDE5E7"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="Background" Value="White"/>
@@ -204,7 +209,7 @@
             <Setter Property="Width" Value="24"/>
             <Setter Property="Height" Value="24"/>
             <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Background" Value="#AEBFBC"/>
+            <Setter Property="Background" Value="#E2E8F0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
@@ -242,11 +247,11 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F766E" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
                     <TextBlock Text="Tile Layout" FontSize="18" FontWeight="Bold"
-                               Foreground="#1C2B33"/>
+                               Foreground="#0F172A"/>
                 </StackPanel>
-                <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
+                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
                 <TextBlock Text="Best-fit tiling options with off-cut nesting"
                            FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
@@ -267,12 +272,12 @@
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
-            <Border Height="1" VerticalAlignment="Bottom" Background="#DDE5E7"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
         </Grid>
 
         <!-- ═══════════════ STEP PROGRESS ═══════════════ -->
-        <Border Grid.Row="1" Background="#F6F8F8"
-                BorderBrush="#DDE5E7" BorderThickness="0,1,0,1">
+        <Border Grid.Row="1" Background="#F8FAFC"
+                BorderBrush="#E2E8F0" BorderThickness="0,1,0,1">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                         VerticalAlignment="Center">
 
@@ -330,14 +335,14 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Text="Step 1 — Extract Floor Boundaries"
-                               FontSize="18" FontWeight="SemiBold" Foreground="#1C2B33"
+                               FontSize="18" FontWeight="SemiBold" Foreground="#0F172A"
                                Margin="0,0,0,6"/>
                     <TextBlock Grid.Row="1"
                                Text="Pick one or more floors. The tool will read each top face and show its dimensions."
                                FontSize="12" Foreground="#64748B" Margin="0,0,0,18"
                                TextWrapping="Wrap"/>
 
-                    <Border Grid.Row="2" BorderBrush="#DDE5E7" BorderThickness="1"
+                    <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1"
                             CornerRadius="4" Background="White">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -345,8 +350,8 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <Border Grid.Row="0" Background="#F6F8F8"
-                                    BorderBrush="#DDE5E7" BorderThickness="0,0,0,1"
+                            <Border Grid.Row="0" Background="#F8FAFC"
+                                    BorderBrush="#E2E8F0" BorderThickness="0,0,0,1"
                                     Padding="14,10">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -358,7 +363,7 @@
                                         <TextBlock x:Name="floors_count_text"
                                                    Text="No floors selected yet"
                                                    FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="#1C2B33"/>
+                                                   Foreground="#0F172A"/>
                                         <TextBlock x:Name="floors_total_text"
                                                    Text=""
                                                    FontSize="11" Foreground="#64748B"
@@ -379,8 +384,8 @@
                                     <GridView>
                                         <GridView.ColumnHeaderContainerStyle>
                                             <Style TargetType="GridViewColumnHeader">
-                                                <Setter Property="Background" Value="#F6F8F8"/>
-                                                <Setter Property="Foreground" Value="#1C2B33"/>
+                                                <Setter Property="Background" Value="#F8FAFC"/>
+                                                <Setter Property="Foreground" Value="#0F172A"/>
                                                 <Setter Property="FontWeight" Value="SemiBold"/>
                                                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
                                                 <Setter Property="Padding" Value="10,6"/>
@@ -410,7 +415,7 @@
                     <StackPanel>
 
                         <TextBlock Text="Step 2 — Choose Tile Pattern per Floor"
-                                   FontSize="18" FontWeight="SemiBold" Foreground="#1C2B33"
+                                   FontSize="18" FontWeight="SemiBold" Foreground="#0F172A"
                                    Margin="0,0,0,6"/>
                         <TextBlock Text="Set tile size + grout globally, then pick a pattern per floor."
                                    FontSize="12" Foreground="#64748B" Margin="0,0,0,14"
@@ -419,7 +424,7 @@
                         <!-- Global tile size -->
                         <TextBlock Text="TILE DIMENSIONS (applied to all floors)"
                                    Style="{StaticResource SectionHeader}"/>
-                        <Border Background="#F6F8F8" BorderBrush="#DDE5E7" BorderThickness="1"
+                        <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
                                 CornerRadius="4" Padding="14,12">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -454,14 +459,14 @@
 
                                 <CheckBox Grid.Row="2" Grid.Column="6" x:Name="chk_nesting"
                                           IsChecked="True" FontSize="12"
-                                          Foreground="#1C2B33" VerticalAlignment="Center"
+                                          Foreground="#0F172A" VerticalAlignment="Center"
                                           Content="Optimize off-cuts"/>
                             </Grid>
                         </Border>
 
                         <!-- Per-floor pattern (rows built programmatically) -->
                         <TextBlock Text="PATTERN PER FLOOR" Style="{StaticResource SectionHeader}"/>
-                        <Border BorderBrush="#DDE5E7" BorderThickness="1" CornerRadius="4">
+                        <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4">
                             <StackPanel x:Name="pattern_stack"/>
                         </Border>
 
@@ -479,7 +484,7 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Text="Step 3 — Pick the Best Layout for Each Floor"
-                               FontSize="18" FontWeight="SemiBold" Foreground="#1C2B33"
+                               FontSize="18" FontWeight="SemiBold" Foreground="#0F172A"
                                Margin="0,0,0,6"/>
                     <TextBlock Grid.Row="1"
                                Text="Each floor got several candidate layouts (rotated / shifted variants). Click a card to select — Ctrl+Wheel zooms the preview, right-drag pans, right-double-click resets. Then Apply to materialize."
@@ -497,7 +502,7 @@
 
         <!-- ═══════════════ ACTION BAR ═══════════════ -->
         <Border Grid.Row="3" Background="White"
-                BorderBrush="#DDE5E7" BorderThickness="0,1,0,1">
+                BorderBrush="#E2E8F0" BorderThickness="0,1,0,1">
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -541,8 +546,8 @@
         </Border>
 
         <!-- ═══════════════ STATUS BAR ═══════════════ -->
-        <Border Grid.Row="4" Background="#F6F8F8"
-                BorderBrush="#DDE5E7" BorderThickness="0,1,0,0">
+        <Border Grid.Row="4" Background="#F8FAFC"
+                BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
             <Grid Margin="14,0">
                 <TextBlock x:Name="status_text"
                            Text="Ready — start by picking floors."

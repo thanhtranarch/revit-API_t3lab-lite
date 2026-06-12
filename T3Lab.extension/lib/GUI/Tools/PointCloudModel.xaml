@@ -18,9 +18,9 @@
 
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-        <!-- PRIMARY BUTTON - teal, white text -->
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#0F766E"/>
+            <Setter Property="Background"      Value="#0F172A"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
@@ -40,29 +40,30 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#115E59"/>
+                    <Setter Property="Background" Value="#1E293B"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#0B4F4A"/>
+                    <Setter Property="Background" Value="#0F172A"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SECONDARY BUTTON - surface, ink text -->
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
         <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background"      Value="#F6F8F8"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="Padding"         Value="14,7"/>
             <Setter Property="FontSize"        Value="12"/>
             <Setter Property="FontFamily"      Value="Inter"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#C7D2D4"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -77,64 +78,68 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#DDE5E7"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
                     <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- SUCCESS BUTTON - green -->
-        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#15803D"/>
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#166534"/>
+                    <Setter Property="Background" Value="#DC2626"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#14532D"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
-                    <Setter Property="Cursor"     Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- DANGER BUTTON - red -->
-        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#DC2626"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#B91C1C"/>
                 </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#991B1B"/>
-                </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- ACCENT BUTTON - amber highlight -->
+        <!-- ACCENT BUTTON - refined blue -->
         <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#F59E0B"/>
+            <Setter Property="Background" Value="#3B82F6"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#D97706"/>
+                    <Setter Property="Background" Value="#2563EB"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#B45309"/>
+                    <Setter Property="Background" Value="#1D4ED8"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#AEBFBC"/>
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
                     <Setter Property="Cursor"     Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -145,7 +150,7 @@
             <Setter Property="Width"           Value="40"/>
             <Setter Property="Height"          Value="32"/>
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#1C2B33"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Template">
@@ -159,16 +164,16 @@
             </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#E6EDEC"/>
+                    <Setter Property="Background" Value="#F1F5F9"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
 
-        <!-- CLOSE BUTTON - red on hover, glyph flips to white -->
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
         <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#DC2626"/>
+                    <Setter Property="Background" Value="#EF4444"/>
                     <Setter Property="Foreground" Value="White"/>
                 </Trigger>
             </Style.Triggers>
@@ -192,12 +197,12 @@
             <StackPanel Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F766E"
+                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A"
                                VerticalAlignment="Bottom" Margin="0,0,6,3"/>
                     <TextBlock Text="Point Cloud to Model" FontSize="18" FontWeight="Bold"
-                               Foreground="#1C2B33"/>
+                               Foreground="#0F172A"/>
                 </StackPanel>
-                <Separator Height="1" Background="#DDE5E7" Margin="0,2,0,2"/>
+                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
                 <TextBlock Text="Detect and create building elements from point cloud data"
                            FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
@@ -218,11 +223,11 @@
                 </Button>
             </StackPanel>
 
-            <Border Height="1" VerticalAlignment="Bottom" Background="#DDE5E7"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
         </Grid>
 
         <!-- ═══ ROW 1 — SETUP PANEL ═══ -->
-        <Border Grid.Row="1" Background="#F6F8F8" BorderBrush="#DDE5E7"
+        <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0"
                 BorderThickness="0,0,0,1" Padding="16,12">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -244,7 +249,7 @@
                                    Foreground="#64748B" Margin="0,0,0,4"/>
                         <TextBlock x:Name="lbl_cloud_name"
                                    Text="No cloud selected — press Select Cloud to continue"
-                                   FontSize="12" FontWeight="SemiBold" Foreground="#DC2626"
+                                   FontSize="12" FontWeight="SemiBold" Foreground="#EF4444"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                     <Button x:Name="btn_pick_cloud" Grid.Column="1"
@@ -255,19 +260,19 @@
                 </Grid>
 
                 <!-- Divider -->
-                <Border Grid.Column="1" Background="#DDE5E7" VerticalAlignment="Stretch" Margin="0,2"/>
+                <Border Grid.Column="1" Background="#E2E8F0" VerticalAlignment="Stretch" Margin="0,2"/>
 
                 <!-- Scan Region -->
                 <StackPanel Grid.Column="2" Margin="16,0" VerticalAlignment="Center" MinWidth="210">
                     <TextBlock Text="Scan Region" FontSize="11" FontWeight="SemiBold"
                                Foreground="#64748B" Margin="0,0,0,4"/>
                     <RadioButton x:Name="rb_full_extent" IsChecked="True"
-                                 FontFamily="Inter" FontSize="12" Foreground="#1C2B33"
+                                 FontFamily="Inter" FontSize="12" Foreground="#0F172A"
                                  Content="Full Cloud Extent (recommended)"
                                  Margin="0,0,0,4"
                                  Checked="rb_full_extent_checked"/>
                     <RadioButton x:Name="rb_custom_region"
-                                 FontFamily="Inter" FontSize="12" Foreground="#1C2B33"
+                                 FontFamily="Inter" FontSize="12" Foreground="#0F172A"
                                  Content="Custom Region — pick 2 corners"
                                  Margin="0,0,0,6"
                                  Checked="rb_custom_region_checked"/>
@@ -278,14 +283,14 @@
                 </StackPanel>
 
                 <!-- Divider -->
-                <Border Grid.Column="3" Background="#DDE5E7" VerticalAlignment="Stretch" Margin="0,2"/>
+                <Border Grid.Column="3" Background="#E2E8F0" VerticalAlignment="Stretch" Margin="0,2"/>
 
                 <!-- Sampling Density -->
                 <StackPanel Grid.Column="4" Margin="16,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="Sampling Density" FontSize="11" FontWeight="SemiBold"
                                Foreground="#64748B" Margin="0,0,0,4"/>
                     <ComboBox x:Name="cmb_density" FontFamily="Inter" FontSize="12"
-                              Padding="6,4" BorderBrush="#C7D2D4" SelectedIndex="1">
+                              Padding="6,4" BorderBrush="#CBD5E1" SelectedIndex="1">
                         <ComboBoxItem Content="Low — 5,000 pts"/>
                         <ComboBoxItem Content="Medium — 20,000 pts"/>
                         <ComboBoxItem Content="High — 50,000 pts"/>
@@ -298,8 +303,8 @@
         <Border Grid.Row="2" BorderBrush="#BFDBD7" Background="#EFF6F5"
                 Margin="16,10,16,0" CornerRadius="4" Padding="10,8">
             <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#115E59" Margin="0,0,5,0"/>
-                <TextBlock TextWrapping="Wrap" Foreground="#1C2B33"
+                <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#1E293B" Margin="0,0,5,0"/>
+                <TextBlock TextWrapping="Wrap" Foreground="#0F172A"
                            Text="Use Full Extent + Medium density for a first pass. Switch to High for small rooms or detailed structural elements."/>
             </StackPanel>
         </Border>
@@ -309,42 +314,42 @@
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_wall" Text="0 Walls" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_floor" Text="0 Floors" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_ceiling" Text="0 Ceilings" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_door" Text="0 Doors" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_window" Text="0 Windows" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_column" Text="0 Columns" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_stair" Text="0 Stairs" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_roof" Text="0 Roofs" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F766E"/>
+                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
         </WrapPanel>
 
@@ -352,11 +357,11 @@
         <Grid Grid.Row="4" Margin="16,10,16,0">
 
             <!-- Empty state — shown before first analysis -->
-            <Border x:Name="pnl_empty_state" Background="#F6F8F8" BorderBrush="#DDE5E7"
+            <Border x:Name="pnl_empty_state" Background="#F8FAFC" BorderBrush="#E2E8F0"
                     BorderThickness="1" CornerRadius="6">
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" FontSize="48"
-                               Foreground="#C7D2D4" HorizontalAlignment="Center"/>
+                               Foreground="#CBD5E1" HorizontalAlignment="Center"/>
                     <TextBlock Text="Select a point cloud and click Analyze"
                                FontSize="13" Foreground="#64748B" FontWeight="SemiBold"
                                HorizontalAlignment="Center" Margin="0,10,0,4"/>
@@ -369,19 +374,19 @@
             <!-- Results DataGrid — shown after successful analysis -->
             <DataGrid x:Name="results_grid" Visibility="Collapsed"
                       AutoGenerateColumns="False" CanUserAddRows="False"
-                      Background="White" BorderBrush="#DDE5E7" BorderThickness="1"
-                      AlternatingRowBackground="#F6F8F8" FontFamily="Inter" FontSize="12"
+                      Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                      AlternatingRowBackground="#F8FAFC" FontFamily="Inter" FontSize="12"
                       HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                       HorizontalGridLinesBrush="#EFF2F2" SelectionMode="Single"
                       VerticalScrollBarVisibility="Auto">
 
                 <DataGrid.ColumnHeaderStyle>
                     <Style TargetType="DataGridColumnHeader">
-                        <Setter Property="Background"      Value="#F6F8F8"/>
-                        <Setter Property="Foreground"      Value="#1C2B33"/>
+                        <Setter Property="Background"      Value="#F8FAFC"/>
+                        <Setter Property="Foreground"      Value="#0F172A"/>
                         <Setter Property="FontWeight"      Value="SemiBold"/>
                         <Setter Property="Padding"         Value="8,6"/>
-                        <Setter Property="BorderBrush"     Value="#DDE5E7"/>
+                        <Setter Property="BorderBrush"     Value="#E2E8F0"/>
                         <Setter Property="BorderThickness" Value="0,0,1,1"/>
                         <Setter Property="Height"          Value="34"/>
                     </Style>
@@ -394,7 +399,7 @@
                                 <Setter Property="Background" Value="#EFF6F5"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#D9EBE8"/>
+                                <Setter Property="Background" Value="#E2E8F0"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -431,16 +436,16 @@
                     CornerRadius="4" Padding="10,8"
                     VerticalAlignment="Top">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#x26A0;" Foreground="#DC2626" Margin="0,0,6,0" FontSize="13"/>
+                    <TextBlock Text="&#x26A0;" Foreground="#EF4444" Margin="0,0,6,0" FontSize="13"/>
                     <TextBlock Text="No elements detected. Try increasing point density or using a custom scan region."
-                               Foreground="#DC2626" FontFamily="Inter" FontSize="11" TextWrapping="Wrap"/>
+                               Foreground="#EF4444" FontFamily="Inter" FontSize="11" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
         </Grid>
 
         <!-- ═══ ROW 5 — ACTION BAR ═══ -->
-        <Border Grid.Row="5" Background="White" BorderBrush="#DDE5E7"
+        <Border Grid.Row="5" Background="White" BorderBrush="#E2E8F0"
                 BorderThickness="0,1,0,0" Padding="16,10" Margin="0,10,0,0">
             <Grid>
                 <TextBlock x:Name="lbl_selected_count" HorizontalAlignment="Left"
@@ -466,7 +471,7 @@
         </Border>
 
         <!-- ═══ ROW 6 — STATUS BAR ═══ -->
-        <Border Grid.Row="6" Background="#F6F8F8" BorderBrush="#DDE5E7"
+        <Border Grid.Row="6" Background="#F8FAFC" BorderBrush="#E2E8F0"
                 BorderThickness="0,1,0,0" Padding="14,8">
             <Grid>
                 <Grid.ColumnDefinitions>

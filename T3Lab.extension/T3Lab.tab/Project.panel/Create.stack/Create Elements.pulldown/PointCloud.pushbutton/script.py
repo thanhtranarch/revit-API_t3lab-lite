@@ -1263,7 +1263,7 @@ class PointCloudModelWindow(forms.WPFWindow):
         except Exception:
             name = u"Point Cloud"
         self.lbl_cloud_name.Text       = name
-        self.lbl_cloud_name.Foreground = self._brush('#0F766E')
+        self.lbl_cloud_name.Foreground = self._brush('#0F172A')
         self.status_text.Text          = u"Cloud selected: {}".format(name)
 
     def _brush(self, hex_color):
