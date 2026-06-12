@@ -1,9 +1,9 @@
-title: Point Cloud to Wall
-tooltip: Extract wall geometry from a point cloud and create a Revit wall element
+title: Point Cloud to Model
+tooltip: Detect and create all building elements from a point cloud scan
 description: |
-  Select a Point Cloud Instance, click a sampling point, and the tool
-  fits a wall centerline via Least-Squares Regression, auto-snaps to
-  project grids/axes within 1 degree, matches wall types by compound thickness,
-  then creates the wall after user confirmation.
+  2-step Scan-to-BIM wizard. Select a point cloud and sampling density,
+  then click Analyze — the tool auto-detects Walls, Floors, Ceilings,
+  Doors, Windows, Columns, Stairs, and Roof planes. Review results and
+  click Generate to create all elements at once.
 author: Tran Tien Thanh
-version: 1.0.0
+version: 2.0.0

@@ -1,9 +1,0 @@
-title: Point Cloud to Model
-tooltip: Detect and create building elements from a point cloud scan
-description: |
-  3-step Scan-to-BIM wizard. Select a point cloud, configure which
-  element types to detect (Walls, Floors, Ceilings, Doors, Windows,
-  Columns, Stairs, Roof), review detected geometry, then generate all
-  Revit elements in a single operation.
-author: Tran Tien Thanh
-version: 1.0.0
