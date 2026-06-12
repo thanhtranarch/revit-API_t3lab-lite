@@ -59,7 +59,7 @@ from pyrevit import forms
 # PATH SETUP
 # ==================================================
 SCRIPT_DIR    = os.path.dirname(__file__)
-EXT_DIR       = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
+EXT_DIR       = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
 LIB_DIR       = os.path.join(EXT_DIR, 'lib')
 XAML_FILE     = os.path.join(LIB_DIR, 'GUI', 'Tools', 'LocationManager.xaml')
 SETTINGS_FILE = os.path.join(SCRIPT_DIR, 'session.json')

@@ -541,7 +541,7 @@ class MainWin(object):
         return [1.0, 0.5, 5.0, 10.0][self.cmbPrec.SelectedIndex]
 
     def _mm(self):
-        return [0.1, 0.5, 1.0, 2.0, 5.0, 94A3B8.0][self.cmbMax.SelectedIndex]
+        return [0.1, 0.5, 1.0, 2.0, 5.0, float('inf')][self.cmbMax.SelectedIndex]
 
     def _get_cats(self):
         return self.CAT_MAP.get(self.cmbCat.SelectedIndex,

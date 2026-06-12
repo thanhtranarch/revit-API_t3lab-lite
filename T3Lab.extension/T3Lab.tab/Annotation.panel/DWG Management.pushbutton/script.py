@@ -12,7 +12,7 @@ Author: Tran Tien Thanh & Dang Quoc Truong
 """
 
 __author__  = "Tran Tien Thanh & Dang Quoc Truong"
-__title__   = "DWG\nManagement"
+__title__   = "DWG Manager"
 __version__ = "1.1.0"
 
 # IMPORT LIBRARIES

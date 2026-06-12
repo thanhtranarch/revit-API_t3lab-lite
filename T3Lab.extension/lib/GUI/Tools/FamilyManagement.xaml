@@ -250,7 +250,8 @@
                     </Grid.RowDefinitions>
 
                     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Padding="16,12" Margin="0,0,0,10">
+                        <Border Padding="16,12" Margin="0,0,0,10">
+                            <StackPanel>
                             <!-- Scope Selector -->
                             <TextBlock Text="SCOPE" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,6"/>
                             <StackPanel Margin="0,0,0,14">
@@ -320,8 +321,8 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Content="Find Next" Click="find_next_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
-                                <Button Content="Find All" Click="find_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="0" Content="Find Next" Click="find_next_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="1" Content="Find All" Click="find_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
                             </Grid>
 
                             <TextBox x:Name="tb_replace" Height="28" Padding="6,4" FontSize="12" BorderBrush="#CBD5E1" Margin="0,0,0,8"/>
@@ -330,8 +331,8 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Content="Replace" Click="replace_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
-                                <Button Content="Replace All" Click="replace_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="0" Content="Replace" Click="replace_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="1" Content="Replace All" Click="replace_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
                             </Grid>
                             <Separator Background="#E2E8F0" Margin="0,0,0,12"/>
 
@@ -385,7 +386,8 @@
                                 <Button Content="Sentence" Click="case_sentence_click" Grid.Row="2" Grid.Column="1" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
                             </Grid>
 
-                        </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </ScrollViewer>
 
                     <!-- Sidebar Footer: Clear Button -->
