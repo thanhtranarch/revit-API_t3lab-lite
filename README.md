@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # T3Lab — pyRevit Extension for Autodesk Revit
-=======
-# T3Lab Revit API
->>>>>>> 5a2304818d72c88bc612843bab9f21796296fe70
 
 [![Revit Version](https://img.shields.io/badge/Revit-2020%2B-blue.svg)](https://www.autodesk.com/products/revit/overview)
 [![pyRevit](https://img.shields.io/badge/pyRevit-4.8%2B-orange.svg)](https://github.com/eirannejad/pyRevit)
@@ -40,6 +36,11 @@ The framework is organized into three distinct layers, creating a self-sustainin
 *   A unified export engine for PDF, DWG, NWD, and IFC.
 *   Features custom naming patterns, revision-aware filtering, and automatic sheet set generation.
 
+### Point Cloud to Model: Scan-to-BIM
+*   Auto-detects **Walls, Floors, Ceilings, Doors, Windows, Columns, Stairs, and Roof** from a point cloud scan.
+*   Single-window UI: select cloud → set density → Analyze → review detected elements → Generate all at once.
+*   Pure-Python geometry (no NumPy) — works in IronPython 2.7; version-safe unit conversion for Revit 2020–2025+.
+
 ### Project & Annotation Intelligence
 *   **Workset Management**: Automated isolation and coordination views.
 *   **SmartAlign**: Geometry-aware alignment and distribution logic.
@@ -47,9 +48,8 @@ The framework is organized into three distinct layers, creating a self-sustainin
 
 ---
 
-## The Evolution Loop
+## Tools by Panel
 
-<<<<<<< HEAD
 All tools are accessible from the **T3Lab** tab in the Revit ribbon.
 
 ### Cloud Panel
@@ -85,6 +85,7 @@ All tools are accessible from the **T3Lab** tab in the Revit ribbon.
 
 | Tool | Description |
 |------|-------------|
+| **Point Cloud to Model** | Scan-to-BIM tool: auto-detect Walls, Floors, Ceilings, Doors, Windows, Columns, Stairs, and Roof from a point cloud scan and create all elements in one click |
 | **CAD to Beam** | Create structural beams from CAD lines; features **AI-assisted dimension detection** from nearby Revit TextNotes |
 | **Property Line** | Create US property lines from Lightbox parcel data |
 | **Create Plan Views** | Batch-generate individual floor plan views for each room with custom naming and template assignment |
@@ -180,18 +181,11 @@ The AI assistant supports two backends:
 | Tool | Description |
 |------|-------------|
 | **Send Feedback** | Write and send feedback or suggestions directly to the T3Lab team by email |
-=======
-T3Lab Revit API is designed for **Self-Evolution**. By utilizing specialized agents (QA-Agent, Tool-Builder, UI-Agent), the framework allows for:
-1.  **Automated Error Detection**: Identifying BIM inconsistencies via the `checks` module.
-2.  **Rapid Tool Iteration**: Building new pushbutton scripts through the `tool-builder` agent.
-3.  **Knowledge Accumulation**: Storing project-specific wisdom in a local knowledge graph.
->>>>>>> 5a2304818d72c88bc612843bab9f21796296fe70
 
 ---
 
 ## Project Structure
 
-<<<<<<< HEAD
 ```
 T3Lab.extension/
 ├── T3Lab.tab/               # Ribbon tab with all tools
@@ -211,19 +205,6 @@ T3Lab.extension/
     ├── config/              # Settings management
     ├── core/                # MCP server & tool registry
     └── ui/                  # Button state & settings UI
-=======
-```bash
-t3lab-revit-api/
-├── T3Lab.extension/          # Main pyRevit Extension
-│   ├── T3Lab.tab/            # Ribbon Panels (AI, Annotation, Project, Export)
-│   ├── lib/                  # Framework Core (GUI, NLU, RAG, Utils)
-│   ├── checks/               # Quality Assurance Scripts
-│   └── commands/             # Standalone Automation Commands
-├── api/                      # Vercel Serverless Functions
-├── scripts/                  # Maintenance & Environment Setup
-├── requirements.txt          # Framework Dependencies
-└── vercel.json               # Cloud Infrastructure Config
->>>>>>> 5a2304818d72c88bc612843bab9f21796296fe70
 ```
 
 ---

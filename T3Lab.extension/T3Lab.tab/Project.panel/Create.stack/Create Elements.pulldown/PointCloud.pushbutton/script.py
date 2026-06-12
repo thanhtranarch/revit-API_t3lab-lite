@@ -25,7 +25,6 @@ clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
 
-import System.Windows
 from System.Windows import WindowState, Visibility
 from System.Collections.Generic import List
 
@@ -1230,35 +1229,20 @@ class ElementBuilder(object):
 # ── Section 7: WPF Wizard Window ──────────────────────────────────────────────
 
 class PointCloudModelWindow(forms.WPFWindow):
-    """
-    3-step wizard for Point Cloud to Model.
-      Step 0 — Cloud setup (select instance + region)
-      Step 1 — Detection settings
-      Step 2 — Results review + Generate
-    """
+    """Single-window UI for Point Cloud to Model analysis and element generation."""
 
     DENSITY_CAPS = [5000, 20000, 50000]
 
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
-        self._current_step    = 0
-        self._pc_instance     = None
-        self._custom_min_pt   = None
-        self._custom_max_pt   = None
+        self._pc_instance       = None
+        self._custom_min_pt     = None
+        self._custom_max_pt     = None
         self._detected_elements = []
-        self._builder         = ElementBuilder(doc)
-        self.result           = None
-
-        # Populate density combo
-        self.cmb_density.Items.Add(u"Low — 5,000 pts (quick, large buildings)")
-        self.cmb_density.Items.Add(u"Medium — 20,000 pts (balanced)")
-        self.cmb_density.Items.Add(u"High — 50,000 pts (detailed, small areas)")
-        self.cmb_density.SelectedIndex = 1
+        self._builder           = ElementBuilder(doc)
+        self.result             = None
 
         self.status_count.Text = u"Revit {}".format(REVIT_VERSION)
-        self._go_to_step(0)
-
-        # Pre-select any already-selected point cloud
         self._try_preselect_cloud()
 
     def _try_preselect_cloud(self):
@@ -1285,46 +1269,6 @@ class PointCloudModelWindow(forms.WPFWindow):
     def _brush(self, hex_color):
         from System.Windows.Media import BrushConverter
         return BrushConverter().ConvertFromString(hex_color)
-
-    # ── Step navigation ────────────────────────────────────────────────────────
-
-    def _go_to_step(self, step):
-        self._current_step         = step
-        self.tab_main.SelectedIndex = step
-
-        circles    = [self.step_circle_1,    self.step_circle_2]
-        labels     = [self.step_label_1,     self.step_label_2]
-        underlines = [self.step_underline_1, self.step_underline_2]
-        nums       = [self.step_num_1,       self.step_num_2]
-
-        for i in range(2):
-            if i == step:
-                circles[i].Background    = self._brush('#0F766E')
-                nums[i].Foreground       = self._brush('White')
-                labels[i].Foreground     = self._brush('#115E59')
-                labels[i].FontWeight     = System.Windows.FontWeights.SemiBold
-                underlines[i].Visibility = Visibility.Visible
-            elif i < step:
-                circles[i].Background    = self._brush('#0F766E')
-                nums[i].Foreground       = self._brush('White')
-                labels[i].Foreground     = self._brush('#64748B')
-                labels[i].FontWeight     = System.Windows.FontWeights.Normal
-                underlines[i].Visibility = Visibility.Collapsed
-            else:
-                circles[i].Background    = self._brush('#E6EDEC')
-                nums[i].Foreground       = self._brush('#64748B')
-                labels[i].Foreground     = self._brush('#64748B')
-                labels[i].FontWeight     = System.Windows.FontWeights.Normal
-                underlines[i].Visibility = Visibility.Collapsed
-
-        # Action bar visibility — 2-step wizard: Analyze on step 0, Generate on step 1
-        self.btn_back.Visibility     = (Visibility.Visible
-                                        if step > 0 else Visibility.Collapsed)
-        self.btn_next.Visibility     = Visibility.Collapsed
-        self.btn_analyze.Visibility  = (Visibility.Visible
-                                        if step == 0 else Visibility.Collapsed)
-        self.btn_generate.Visibility = (Visibility.Visible
-                                        if step == 1 else Visibility.Collapsed)
 
     # ── Window chrome ──────────────────────────────────────────────────────────
 
@@ -1377,15 +1321,6 @@ class PointCloudModelWindow(forms.WPFWindow):
         except Exception:
             pass
         self.Show()
-
-    def btn_next_clicked(self, sender, e):
-        # btn_next is hidden in the 2-step wizard; kept for XAML compatibility only
-        self.btn_analyze_clicked(sender, e)
-
-    # ── Step 1 handlers ────────────────────────────────────────────────────────
-
-    def btn_back_clicked(self, sender, e):
-        self._go_to_step(max(0, self._current_step - 1))
 
     def btn_analyze_clicked(self, sender, e):
         if self._pc_instance is None:
@@ -1470,7 +1405,6 @@ class PointCloudModelWindow(forms.WPFWindow):
         self._detected_elements = analyzer.run(settings)
 
         self._populate_results()
-        self._go_to_step(1)
         total = len(self._detected_elements)
         self.status_text.Text = (
             u"Detected {} elements. Review and click Generate.".format(total))
@@ -1501,14 +1435,19 @@ class PointCloudModelWindow(forms.WPFWindow):
             cnt = type_counts.get(t, 0)
             badge.Text = u"{} {}".format(cnt, labels[t])
 
-        self.results_grid.ItemsSource = elems
         total = len(elems)
-        self.btn_generate.Content = (
-            u"Generate {} Selected".format(total) if total else u"Generate")
-        if total == 0:
-            self.pnl_no_results.Visibility = Visibility.Visible
-        else:
+        self.pnl_empty_state.Visibility = Visibility.Collapsed
+        if total > 0:
+            self.results_grid.ItemsSource  = elems
+            self.results_grid.Visibility   = Visibility.Visible
             self.pnl_no_results.Visibility = Visibility.Collapsed
+            self.btn_generate.IsEnabled    = True
+            self.btn_generate.Content      = u"Generate {} Selected".format(total)
+        else:
+            self.results_grid.Visibility   = Visibility.Collapsed
+            self.pnl_no_results.Visibility = Visibility.Visible
+            self.btn_generate.IsEnabled    = False
+            self.btn_generate.Content      = u"Generate"
 
     # ── Step 2 handlers ────────────────────────────────────────────────────────
 
