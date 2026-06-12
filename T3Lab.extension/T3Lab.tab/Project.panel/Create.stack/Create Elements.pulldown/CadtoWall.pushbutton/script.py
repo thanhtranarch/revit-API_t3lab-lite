@@ -711,202 +711,28 @@ def mm_to_ft(mm):
 # ============================================================
 # WPF UI
 # ============================================================
-XAML_STR = '''
-<Window
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="CAD to Wall - DQT"
-    Width="750" Height="720"
-    MinWidth="650" MinHeight="550"
-    WindowStartupLocation="CenterScreen"
-    Background="#F8FAFC">
 
-    <Window.Resources>
-        <Style x:Key="CardBorder" TargetType="Border">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="BorderBrush" Value="#E0D5C0"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12"/>
-        </Style>
-
-        <Style x:Key="SectionLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#5D4E37"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
-        </Style>
-
-        <Style x:Key="ComboStyle" TargetType="ComboBox">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="6,4"/>
-        </Style>
-
-        <Style x:Key="ActionBtn" TargetType="Button">
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="16,0"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#E0D5C0"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-
-        <Style x:Key="PrimaryBtn" TargetType="Button" BasedOn="{StaticResource ActionBtn}">
-            <Setter Property="Background" Value="#0F172A"/>
-            <Setter Property="BorderBrush" Value="#C89650"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#5D4E37"/>
-        </Style>
-    </Window.Resources>
-
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <!-- Header -->
-        <Border Grid.Row="0" Background="#5D4E37" CornerRadius="6" Padding="16,12" Margin="0,0,0,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="CAD to Wall" FontSize="20" FontWeight="Bold" Foreground="#0F172A"/>
-                    <TextBlock Text="Auto-detect wall thickness from CAD and create matching Wall Types"
-                               FontSize="11" Foreground="#D4C5A0" Margin="0,2,0,0"/>
-                </StackPanel>
-                <TextBlock Grid.Column="1" Text="DQT" FontSize="28" FontWeight="Bold"
-                           Foreground="#0F172A" VerticalAlignment="Center" Opacity="0.5"/>
-            </Grid>
-        </Border>
-
-        <!-- Settings -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,10">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="16"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Row="0" Grid.Column="0">
-                    <TextBlock Text="CAD Instance" Style="{StaticResource SectionLabel}"/>
-                    <ComboBox x:Name="cmbCAD" Style="{StaticResource ComboStyle}"/>
-                </StackPanel>
-
-                <StackPanel Grid.Row="0" Grid.Column="2">
-                    <TextBlock Text="Level" Style="{StaticResource SectionLabel}"/>
-                    <ComboBox x:Name="cmbLevel" Style="{StaticResource ComboStyle}"/>
-                </StackPanel>
-
-                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
-                    <TextBlock Text="Wall Height (mm)" Style="{StaticResource SectionLabel}"/>
-                    <TextBox x:Name="txtHeight" Height="28" FontSize="12" Padding="6,4" Text="3000"/>
-                </StackPanel>
-
-                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
-                    <TextBlock Text="Default Thickness for Unpaired (mm)" Style="{StaticResource SectionLabel}"/>
-                    <TextBox x:Name="txtDefaultThk" Height="28" FontSize="12" Padding="6,4" Text="200"/>
-                </StackPanel>
-
-                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,12,0,0">
-                    <CheckBox x:Name="chkStructural" Content="Structural" FontSize="11"
-                              Foreground="#FFFFFF" VerticalContentAlignment="Center" Margin="0,0,16,0"/>
-                    <CheckBox x:Name="chkMerge" Content="Merge Collinear" FontSize="11"
-                              Foreground="#FFFFFF" VerticalContentAlignment="Center" IsChecked="True" Margin="0,0,16,0"/>
-                    <CheckBox x:Name="chkUnpaired" Content="Include Unpaired Lines" FontSize="11"
-                              Foreground="#FFFFFF" VerticalContentAlignment="Center" Margin="0,0,16,0"/>
-                    <CheckBox x:Name="chkSelectAll" Content="Select All Layers" FontSize="11"
-                              Foreground="#FFFFFF" VerticalContentAlignment="Center"/>
-                </StackPanel>
-
-                <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
-                        Background="#F8FAFC" CornerRadius="6" Padding="10,6" Margin="0,10,0,0">
-                    <TextBlock x:Name="txtSummary" Text="Select a CAD instance to begin"
-                               FontSize="11" Foreground="#FFFFFF" TextWrapping="Wrap"/>
-                </Border>
-            </Grid>
-        </Border>
-
-        <!-- Layers -->
-        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Margin="0,0,0,10">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.Row="0" Text="CAD Layers (select layers containing wall lines)"
-                           Style="{StaticResource SectionLabel}"/>
-                <TextBox Grid.Row="1" x:Name="txtSearch" Height="26" FontSize="11"
-                         Padding="6,3" Margin="0,0,0,8"/>
-                <Border Grid.Row="2" BorderBrush="#E0D5C0" BorderThickness="1" CornerRadius="6">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="layerPanel"/>
-                    </ScrollViewer>
-                </Border>
-            </Grid>
-        </Border>
-
-        <!-- Buttons -->
-        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Margin="0,0,0,10" Padding="10,8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <Button Grid.Column="0" x:Name="btnRefresh" Content="Refresh Layers"
-                        Style="{StaticResource ActionBtn}" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" x:Name="btnPreview" Content="Preview"
-                        Style="{StaticResource ActionBtn}" Margin="0,0,8,0"/>
-                <Button Grid.Column="3" x:Name="btnCreate" Content="Create Walls"
-                        Style="{StaticResource PrimaryBtn}" Width="140" Margin="0,0,8,0"/>
-                <Button Grid.Column="4" x:Name="btnClose" Content="Close"
-                        Style="{StaticResource ActionBtn}" Width="80"/>
-            </Grid>
-        </Border>
-
-        <!-- Status -->
-        <Border Grid.Row="4" Background="#F8FAFC" CornerRadius="6" Padding="10,4" Margin="0,0,0,8">
-            <TextBlock x:Name="txtStatus" Text="Ready" FontSize="10" Foreground="#888888" TextWrapping="Wrap"/>
-        </Border>
-
-        <!-- Footer -->
-        <Border Grid.Row="5" Background="#0F172A" CornerRadius="6" Padding="10,6">
-            <TextBlock Text="Copyright by Dang Quoc Truong - DQT (c) 2026"
-                       FontSize="10" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
-        </Border>
-    </Grid>
-</Window>
-'''
 
 
 class CADtoWallWindow(Window):
+    def _get_xaml_content(self):
+        import codecs
+        current_dir = os.path.dirname(__file__)
+        while current_dir and not current_dir.endswith('T3Lab.extension'):
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:
+                break
+            current_dir = parent
+        xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "CadtoWall.xaml")
+        with codecs.open(xaml_path, "r", "utf-8") as f:
+            return f.read()
+
     def __init__(self):
         from System.IO import MemoryStream
         from System.Text import Encoding
         from System.Windows.Markup import XamlReader
 
-        byte_array = Encoding.UTF8.GetBytes(XAML_STR)
+        byte_array = Encoding.UTF8.GetBytes(self._get_xaml_content())
         stream = MemoryStream(byte_array)
         xr = XamlReader.Load(stream)
 

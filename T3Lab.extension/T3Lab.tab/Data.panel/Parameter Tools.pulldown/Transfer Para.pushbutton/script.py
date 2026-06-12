@@ -20,6 +20,8 @@ __doc__ = "Transfer parameter values between parameters within the same elements
 # =============================================================================
 import clr
 import sys
+import codecs
+import os
 import traceback
 
 clr.AddReference("PresentationFramework")
@@ -348,175 +350,6 @@ def storage_type_label(st):
 # =============================================================================
 # XAML WINDOW
 # =============================================================================
-def _build_xaml():
-    """Build XAML string with color placeholders replaced safely.
-    Uses %% delimiters to avoid conflicts with XAML curly braces.
-    """
-    xaml = '''
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Transfer Parameter Value v1.0 - DQT"
-        Height="820" Width="1050"
-        MinHeight="650" MinWidth="850"
-        WindowStartupLocation="CenterScreen"
-        Background="%%bg%%">
-
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <!-- HEADER -->
-        <Border Grid.Row="0" Background="%%header_bg%%" Padding="18,14">
-            <StackPanel>
-                <TextBlock Text="Transfer Parameter Value"
-                           FontSize="22" FontWeight="Bold"
-                           Foreground="%%header_fg%%"
-                           HorizontalAlignment="Left"/>
-                <TextBlock Text="Copy values from one parameter to another within the same elements"
-                           FontSize="11" Foreground="%%subtext%%"
-                           HorizontalAlignment="Left" Margin="0,4,0,0"/>
-            </StackPanel>
-        </Border>
-
-        <!-- CATEGORY + COUNT -->
-        <Border Grid.Row="1" Background="White" BorderBrush="%%card_border%%"
-                BorderThickness="0,0,0,1" Padding="18,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="250"/>
-                    <ColumnDefinition Width="20"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Category:" FontWeight="SemiBold"
-                           VerticalAlignment="Center" FontSize="13" Foreground="%%text%%"/>
-                <ComboBox x:Name="cmbCategory" Grid.Column="1" Height="30"
-                          Margin="10,0,0,0" FontSize="12" VerticalContentAlignment="Center"/>
-                <TextBlock x:Name="txtCount" Grid.Column="3" Text="0 elements"
-                           VerticalAlignment="Center" FontSize="12"
-                           Foreground="%%subtext%%" FontStyle="Italic"/>
-            </Grid>
-        </Border>
-
-        <!-- SOURCE / TARGET PARAM SELECTION -->
-        <Border Grid.Row="2" Background="White" BorderBrush="%%card_border%%"
-                BorderThickness="0,0,0,1" Padding="18,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="60"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- Source -->
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="SOURCE Parameter (read from):" FontWeight="SemiBold"
-                               FontSize="12" Foreground="%%text%%" Margin="0,0,0,6"/>
-                    <TextBox x:Name="txtSearchSource" Height="26" FontSize="11"
-                             Padding="6,3" Margin="0,0,0,4"/>
-                    <Border BorderBrush="%%card_border%%" BorderThickness="1"
-                            CornerRadius="6" Height="180">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel x:Name="pnlSource"/>
-                        </ScrollViewer>
-                    </Border>
-                    <TextBlock x:Name="txtSourceInfo" FontSize="10" Foreground="%%subtext%%"
-                               Margin="0,4,0,0" Text="Select a source parameter"/>
-                </StackPanel>
-
-                <!-- Arrow -->
-                <TextBlock Grid.Column="1" Text="&#x2794;" FontSize="28"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="%%accent%%" FontWeight="Bold"/>
-
-                <!-- Target -->
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="TARGET Parameter (write to):" FontWeight="SemiBold"
-                               FontSize="12" Foreground="%%text%%" Margin="0,0,0,6"/>
-                    <TextBox x:Name="txtSearchTarget" Height="26" FontSize="11"
-                             Padding="6,3" Margin="0,0,0,4"/>
-                    <Border BorderBrush="%%card_border%%" BorderThickness="1"
-                            CornerRadius="6" Height="180">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel x:Name="pnlTarget"/>
-                        </ScrollViewer>
-                    </Border>
-                    <TextBlock x:Name="txtTargetInfo" FontSize="10" Foreground="%%subtext%%"
-                               Margin="0,4,0,0" Text="Select a target parameter"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- PREVIEW DATAGRID -->
-        <Border Grid.Row="3" Margin="18,10,18,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <DockPanel Grid.Row="0" Margin="0,0,0,6">
-                    <TextBlock Text="Preview:" FontWeight="SemiBold" FontSize="13"
-                               Foreground="%%text%%" VerticalAlignment="Center"
-                               DockPanel.Dock="Left"/>
-                    <Button x:Name="btnPreview" Content="Refresh Preview"
-                            DockPanel.Dock="Right" HorizontalAlignment="Right"/>
-                    <TextBlock x:Name="txtPreviewStatus" FontSize="11"
-                               Foreground="%%subtext%%" VerticalAlignment="Center"
-                               Margin="12,0,0,0" FontStyle="Italic"/>
-                </DockPanel>
-                <DataGrid x:Name="dgPreview" Grid.Row="1"
-                          AutoGenerateColumns="False" IsReadOnly="True"
-                          CanUserAddRows="False" CanUserDeleteRows="False"
-                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                          BorderBrush="%%card_border%%" BorderThickness="1"
-                          RowHeight="26" FontSize="11"
-                          Background="White" AlternatingRowBackground="#FAFAF5"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Auto"/>
-            </Grid>
-        </Border>
-
-        <!-- ACTION BUTTONS -->
-        <Border Grid.Row="4" Padding="18,10">
-            <DockPanel>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                    <Button x:Name="btnTransfer" Content="Transfer Values" Margin="0,0,8,0"/>
-                    <Button x:Name="btnClose" Content="Close"/>
-                </StackPanel>
-                <TextBlock x:Name="txtSummary" FontSize="11" Foreground="%%subtext%%"
-                           VerticalAlignment="Center" TextWrapping="Wrap"/>
-            </DockPanel>
-        </Border>
-
-        <!-- FOOTER -->
-        <Border Grid.Row="5" Background="%%footer_bg%%" Padding="0,6">
-            <TextBlock Text="Copyright (c) 2026 by Dang Quoc Truong (DQT)"
-                       FontSize="10" Foreground="%%footer_fg%%"
-                       HorizontalAlignment="Center" FontWeight="SemiBold"/>
-        </Border>
-    </Grid>
-</Window>
-'''
-    xaml = xaml.replace("%%bg%%", CLR_BG)
-    xaml = xaml.replace("%%header_bg%%", CLR_HEADER_BG)
-    xaml = xaml.replace("%%header_fg%%", CLR_HEADER_FG)
-    xaml = xaml.replace("%%primary%%", CLR_PRIMARY)
-    xaml = xaml.replace("%%accent%%", CLR_ACCENT)
-    xaml = xaml.replace("%%card_border%%", CLR_CARD_BORDER)
-    xaml = xaml.replace("%%footer_bg%%", CLR_FOOTER_BG)
-    xaml = xaml.replace("%%footer_fg%%", CLR_FOOTER_FG)
-    xaml = xaml.replace("%%text%%", CLR_TEXT)
-    xaml = xaml.replace("%%subtext%%", CLR_SUBTEXT)
-    return xaml
-
-
 def _style_button_primary(btn):
     """Apply DQT primary button style - gold bg, dark text (matches Contains Manager)"""
     btn.Background = BC.ConvertFromString(CLR_BTN_PRIMARY_BG)
@@ -651,8 +484,18 @@ class ParamItem(object):
 class TransferParamWindow(object):
     def __init__(self):
         # Load XAML - use safe %% delimiters
-        xaml_str = _build_xaml()
-        stream = IO.MemoryStream(Text.Encoding.UTF8.GetBytes(xaml_str))
+        # Find T3Lab.extension parent folder dynamically
+        current_dir = os.path.dirname(__file__)
+        while current_dir and not current_dir.endswith('T3Lab.extension'):
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:
+                break
+            current_dir = parent
+        xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "TransferPara.xaml")
+        
+        with codecs.open(xaml_path, "r", "utf-8") as f:
+            xaml_content = f.read()
+        stream = IO.MemoryStream(Text.Encoding.UTF8.GetBytes(xaml_content))
         self.window = XamlReader.Load(stream)
         
         # Get controls
@@ -674,10 +517,7 @@ class TransferParamWindow(object):
         self.btn_close = self.window.FindName("btnClose")
         self.txt_summary = self.window.FindName("txtSummary")
         
-        # Apply button styles via code-behind (avoids XAML StaticResource issues)
-        _style_button_primary(self.btn_transfer)
-        _style_button_secondary(self.btn_preview)
-        _style_button_secondary(self.btn_close)
+        
         
         # Build DataGrid columns via code-behind (avoids XAML Binding curly-brace issues)
         self._setup_datagrid_columns()

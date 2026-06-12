@@ -32,6 +32,7 @@ from pyrevit import revit, HOST_APP
 
 import sys
 import os
+import codecs
 import System
 from System.Windows import Window, Thickness, HorizontalAlignment, VerticalAlignment, TextWrapping, Visibility
 from System.Windows import RoutedEventArgs, MessageBox as WPFMessageBox, MessageBoxButton, MessageBoxResult, MessageBoxImage
@@ -65,194 +66,7 @@ def format_elevation(value_feet):
 # =====================================================
 # XAML UI DEFINITION
 # =====================================================
-MAIN_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Level Swap - By DQT" Height="720" Width="1100"
-        WindowStartupLocation="CenterScreen" Background="#F8FAFC"
-        MinHeight="600" MinWidth="900">
-    <Grid Margin="0">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <!-- Header -->
-        <Border Grid.Row="0" Background="#0F172A" Padding="12" BorderBrush="#CBD5E1" BorderThickness="0,0,0,2">
-            <StackPanel>
-                <TextBlock Text="LEVEL SWAP" 
-                           FontSize="20" FontWeight="Bold" 
-                           HorizontalAlignment="Center"
-                           Foreground="White"/>
-                <TextBlock Text="Swap Levels between 3D and 2D Extents | Control Bubble Visibility" 
-                           FontSize="11" 
-                           HorizontalAlignment="Center"
-                           Foreground="White"
-                           Margin="0,3,0,0"/>
-            </StackPanel>
-        </Border>
-        
-        <!-- Summary Cards -->
-        <Border Grid.Row="1" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10" Margin="15,10,15,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                
-                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtTotalLevels" Text="0" FontSize="22" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Total Levels" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                </StackPanel>
-                
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtIs3D" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981" HorizontalAlignment="Center"/>
-                    <TextBlock Text="3D Extents" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                </StackPanel>
-                
-                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtIs2D" Text="0" FontSize="22" FontWeight="Bold" Foreground="#2196F3" HorizontalAlignment="Center"/>
-                    <TextBlock Text="2D Extents" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                </StackPanel>
-                
-                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtSelectedLevels" Text="0" FontSize="22" FontWeight="Bold" Foreground="#F59E0B" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Selected" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                </StackPanel>
-                
-                <StackPanel Grid.Column="4" HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtViewCount" Text="0" FontSize="22" FontWeight="Bold" Foreground="#9C27B0" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Views" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-        
-        <!-- Toolbar: View Selector + Search + Filter -->
-        <Border Grid.Row="2" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="8" Margin="15,8,15,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                
-                <TextBlock Grid.Column="0" Text="View:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                <ComboBox x:Name="cmbView" Grid.Column="1" Width="300" Height="28" Margin="0,0,10,0"/>
-                
-                <TextBlock Grid.Column="2" Text="Filter:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                <ComboBox x:Name="cmbFilter" Grid.Column="3" Width="120" Height="28" Margin="0,0,10,0">
-                    <ComboBoxItem Content="All" IsSelected="True"/>
-                    <ComboBoxItem Content="3D Only"/>
-                    <ComboBoxItem Content="2D Only"/>
-                </ComboBox>
-                
-                <TextBlock Grid.Column="4" Text="Search:" VerticalAlignment="Center" Margin="10,0,5,0" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                <TextBox x:Name="txtSearch" Grid.Column="5" Width="180" Height="28" VerticalContentAlignment="Center"/>
-            </Grid>
-        </Border>
-        
-        <!-- Main DataGrid -->
-        <Border Grid.Row="3" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Margin="15,8,15,0" Padding="0">
-            <DataGrid x:Name="dgLevels" 
-                      AutoGenerateColumns="False" 
-                      CanUserAddRows="False" 
-                      CanUserDeleteRows="False"
-                      SelectionMode="Extended"
-                      GridLinesVisibility="Horizontal"
-                      HeadersVisibility="Column"
-                      BorderThickness="0"
-                      Background="White"
-                      RowBackground="White"
-                      AlternatingRowBackground="#F1F5F9"
-                      IsReadOnly="False"
-                      CanUserSortColumns="True"
-                      HorizontalGridLinesBrush="#E8E8E8">
-                <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Binding="{Binding IsChecked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                            Width="40" 
-                                            Header="&#x2611;"/>
-                    <DataGridTextColumn Binding="{Binding LevelName}" 
-                                        Header="Level Name" Width="180" IsReadOnly="True"/>
-                    <DataGridTextColumn Binding="{Binding Elevation}" 
-                                        Header="Elevation" Width="120" IsReadOnly="True"/>
-                    <DataGridTextColumn Binding="{Binding ExtentStatus}" 
-                                        Header="Extent Type" Width="100" IsReadOnly="True"/>
-                    <DataGridTextColumn Binding="{Binding BubbleStart}" 
-                                        Header="Bubble Left" Width="100" IsReadOnly="True"/>
-                    <DataGridTextColumn Binding="{Binding BubbleEnd}" 
-                                        Header="Bubble Right" Width="100" IsReadOnly="True"/>
-                    <DataGridTextColumn Binding="{Binding IsStructural}" 
-                                        Header="Structural" Width="80" IsReadOnly="True"/>
-                    <DataGridTextColumn Binding="{Binding IsBuildingStory}" 
-                                        Header="Story" Width="80" IsReadOnly="True"/>
-                    <DataGridTextColumn Binding="{Binding ElementId}" 
-                                        Header="Element ID" Width="90" IsReadOnly="True"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
-        
-        <!-- Action Buttons -->
-        <Border Grid.Row="4" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="8" Margin="15,8,15,0">
-            <StackPanel>
-                <!-- Row 1: Selection + Extent Swap -->
-                <Grid>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                        <Button x:Name="btnSelectAll" Content="Select All" Padding="12,5" Margin="2" Background="White" BorderBrush="#CBD5E1"/>
-                        <Button x:Name="btnSelectNone" Content="Clear" Padding="12,5" Margin="2" Background="White" BorderBrush="#CBD5E1"/>
-                        <Button x:Name="btnSelect3D" Content="Select 3D" Padding="12,5" Margin="2" Background="White" BorderBrush="#CBD5E1"/>
-                        <Button x:Name="btnSelect2D" Content="Select 2D" Padding="12,5" Margin="2" Background="White" BorderBrush="#CBD5E1"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button x:Name="btnSwapTo2D" Content="&#x21E8; Swap to 2D" Padding="16,6" Margin="3" Background="#2196F3" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
-                        <Button x:Name="btnSwapTo3D" Content="&#x21E8; Swap to 3D" Padding="16,6" Margin="3" Background="#10B981" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
-                        <Button x:Name="btnToggle" Content="&#x21C4; Toggle" Padding="16,6" Margin="3" Background="#0F172A" Foreground="White" FontWeight="Bold" BorderThickness="0"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button x:Name="btnRefresh" Content="Refresh" Padding="12,5" Margin="2" Background="White" BorderBrush="#CBD5E1"/>
-                    </StackPanel>
-                </Grid>
-                
-                <!-- Separator -->
-                <Border BorderBrush="#E8E8E8" BorderThickness="0,1,0,0" Margin="0,6,0,6"/>
-                
-                <!-- Row 2: Bubble Controls -->
-                <Grid>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                        <TextBlock Text="Bubbles:" VerticalAlignment="Center" Margin="2,0,8,0" FontWeight="SemiBold" Foreground="#FFFFFF" FontSize="11"/>
-                        <Button x:Name="btnBubbleStartOn" Content="&#x25C9; Left ON" Padding="10,5" Margin="2" Background="#E8F5E9" BorderBrush="#10B981" Foreground="#2E7D32" FontWeight="SemiBold" FontSize="11"/>
-                        <Button x:Name="btnBubbleStartOff" Content="&#x25CB; Left OFF" Padding="10,5" Margin="2" Background="#FFEBEE" BorderBrush="#EF4444" Foreground="#C62828" FontWeight="SemiBold" FontSize="11"/>
-                        <Border BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" Margin="6,2,6,2"/>
-                        <Button x:Name="btnBubbleEndOn" Content="&#x25C9; Right ON" Padding="10,5" Margin="2" Background="#E8F5E9" BorderBrush="#10B981" Foreground="#2E7D32" FontWeight="SemiBold" FontSize="11"/>
-                        <Button x:Name="btnBubbleEndOff" Content="&#x25CB; Right OFF" Padding="10,5" Margin="2" Background="#FFEBEE" BorderBrush="#EF4444" Foreground="#C62828" FontWeight="SemiBold" FontSize="11"/>
-                        <Border BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" Margin="6,2,6,2"/>
-                        <Button x:Name="btnBubbleAllOn" Content="&#x25C9; All ON" Padding="10,5" Margin="2" Background="#E8F5E9" BorderBrush="#10B981" Foreground="#2E7D32" FontWeight="Bold" FontSize="11"/>
-                        <Button x:Name="btnBubbleAllOff" Content="&#x25CB; All OFF" Padding="10,5" Margin="2" Background="#FFEBEE" BorderBrush="#EF4444" Foreground="#C62828" FontWeight="Bold" FontSize="11"/>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
-        </Border>
-        
-        <!-- Footer -->
-        <Grid Grid.Row="5" Margin="15,8,15,10">
-            <TextBlock Text="Ctrl+Click: multi-select | Checkbox: batch select | Double-click row: select in Revit" FontSize="10" Foreground="#888" VerticalAlignment="Center"/>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <TextBlock Text="pyDQT v1.0" FontSize="9" Foreground="#AAA" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <Button x:Name="btnClose" Content="Close" Padding="15,5" Background="White" BorderBrush="#CBD5E1"/>
-            </StackPanel>
-        </Grid>
-    </Grid>
-</Window>
-"""
+
 
 # =====================================================
 # LEVEL ITEM DATA CLASS
@@ -372,7 +186,18 @@ class LevelSwapWindow(object):
     
     def __init__(self):
         # Parse XAML
-        xml_reader = XmlReader.Create(StringReader(MAIN_XAML))
+        # Find T3Lab.extension parent folder dynamically
+        current_dir = os.path.dirname(__file__)
+        while current_dir and not current_dir.endswith('T3Lab.extension'):
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:
+                break
+            current_dir = parent
+        xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "ConvertLevel.xaml")
+
+        with codecs.open(xaml_path, "r", "utf-8") as f:
+            xaml_content = f.read()
+        xml_reader = XmlReader.Create(StringReader(xaml_content))
         self.window = XamlReader.Load(xml_reader)
         
         # Get UI elements - Summary

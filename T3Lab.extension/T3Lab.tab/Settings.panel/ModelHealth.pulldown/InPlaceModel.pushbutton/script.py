@@ -19,6 +19,16 @@ from System.Collections.Generic import List
 import System
 import re, datetime, codecs, os, tempfile
 
+def get_xaml_path(filename):
+    current_dir = os.path.dirname(__file__)
+    while current_dir and not current_dir.endswith('T3Lab.extension'):
+        parent = os.path.dirname(current_dir)
+        if parent == current_dir:
+            break
+        current_dir = parent
+    return os.path.join(current_dir, "lib", "GUI", "Tools", filename)
+
+
 # ============================================================================
 # REVIT 2026 COMPATIBILITY - Use pyrevit.compat
 # ============================================================================
@@ -205,272 +215,18 @@ tr:hover{{background:#fafafa}}
 # ============================================================================
 # XAML
 # ============================================================================
-MAIN_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="In-Place Manager v1.7 - DQT" 
-        Height="750" Width="1150" 
-        WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC">
-    <Grid Margin="12">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <!-- Header -->
-        <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="12,8" Margin="0,0,0,10">
-            <Grid>
-                <StackPanel>
-                    <TextBlock Text="In-Place Model Manager v1.7" FontSize="17" FontWeight="Bold"/>
-                    <TextBlock Text="by Dang Quoc Truong (DQT)" FontSize="10" Foreground="#FFFFFF" Margin="0,2,0,0"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button x:Name="btnSettings" Content="⚙ Settings" Padding="10,4" Background="White" Margin="0,0,5,0"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-        
-        <!-- Summary Cards -->
-        <Grid Grid.Row="1" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,4,0">
-                <StackPanel><TextBlock Text="TOTAL" FontSize="9" Foreground="#666"/><TextBlock x:Name="txtTotal" Text="0" FontSize="22" FontWeight="Bold"/></StackPanel>
-            </Border>
-            <Border Grid.Column="1" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="4,0">
-                <StackPanel><TextBlock Text="SELECTED" FontSize="9" Foreground="#666"/><TextBlock x:Name="txtSelected" Text="0" FontSize="22" FontWeight="Bold" Foreground="#E5B85C"/></StackPanel>
-            </Border>
-            <Border Grid.Column="2" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="4,0">
-                <StackPanel><TextBlock Text="CATEGORIES" FontSize="9" Foreground="#666"/><TextBlock x:Name="txtCategories" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/></StackPanel>
-            </Border>
-            <Border Grid.Column="3" Background="White" BorderBrush="#FF6B6B" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="4,0,0,0">
-                <StackPanel><TextBlock Text="ISSUES" FontSize="9" Foreground="#FF6B6B"/><TextBlock x:Name="txtIssues" Text="0" FontSize="22" FontWeight="Bold" Foreground="#FF6B6B"/></StackPanel>
-            </Border>
-        </Grid>
-        
-        <!-- Content -->
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="180"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            
-            <!-- Left Panel -->
-            <Border Grid.Column="0" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,8,0">
-                <StackPanel>
-                    <TextBlock Text="SEARCH" FontSize="9" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <TextBox x:Name="txtSearch" Padding="6,4" Margin="0,0,0,10"/>
-                    <TextBlock Text="FILTER" FontSize="9" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <ComboBox x:Name="cmbFilter" Padding="6,4" Margin="0,0,0,10" SelectedIndex="0">
-                        <ComboBoxItem Content="All"/>
-                        <ComboBoxItem Content="With Issues"/>
-                        <ComboBoxItem Content="No Name"/>
-                        <ComboBoxItem Content="Complex"/>
-                        <ComboBoxItem Content="Bad Name"/>
-                        <ComboBoxItem Content="OK Only"/>
-                    </ComboBox>
-                    <TextBlock Text="CATEGORY" FontSize="9" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                    <ListBox x:Name="lstCategories" Height="280"/>
-                </StackPanel>
-            </Border>
-            
-            <!-- DataGrid -->
-            <DataGrid Grid.Column="1" x:Name="dataGrid" 
-                      AutoGenerateColumns="False" IsReadOnly="True"
-                      SelectionMode="Extended" SelectionUnit="FullRow"
-                      CanUserSortColumns="True"
-                      Background="White" BorderBrush="#CBD5E1"
-                      GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#EEE"
-                      RowBackground="White" AlternatingRowBackground="#F1F5F9">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="ID" Binding="{Binding element_id}" Width="70" SortMemberPath="element_id"/>
-                    <DataGridTextColumn Header="Family Name" Binding="{Binding family_name}" Width="*" SortMemberPath="family_name"/>
-                    <DataGridTextColumn Header="Type" Binding="{Binding name}" Width="100" SortMemberPath="name"/>
-                    <DataGridTextColumn Header="Category" Binding="{Binding category_name}" Width="90" SortMemberPath="category_name"/>
-                    <DataGridTextColumn Header="Faces" Binding="{Binding face_count}" Width="50" SortMemberPath="face_count"/>
-                    <DataGridTextColumn Header="Status" Binding="{Binding complexity_status}" Width="60" SortMemberPath="complexity_status"/>
-                    <DataGridTextColumn Header="Issues" Binding="{Binding issue_text}" Width="80" SortMemberPath="issue_text"/>
-                    <DataGridTextColumn Header="Level" Binding="{Binding level}" Width="80" SortMemberPath="level"/>
-                    <DataGridTextColumn Header="Workset" Binding="{Binding workset}" Width="80" SortMemberPath="workset"/>
-                </DataGrid.Columns>
-            </DataGrid>
-        </Grid>
-        
-        <!-- Action Buttons -->
-        <Border Grid.Row="3" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,10,0,0">
-            <Grid>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Button x:Name="btnSelectAll" Content="Select All" Padding="10,5" Margin="2" Background="White"/>
-                    <Button x:Name="btnClear" Content="Clear" Padding="10,5" Margin="2" Background="White"/>
-                    <Button x:Name="btnSelectIssues" Content="Select Issues" Padding="10,5" Margin="2" Background="White"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="btnZoom" Content="Zoom To" Padding="10,5" Margin="2" Background="#0F172A"/>
-                    <Button x:Name="btnSelect" Content="Select" Padding="10,5" Margin="2" Background="#0F172A"/>
-                    <Button x:Name="btnIsolate" Content="Isolate" Padding="10,5" Margin="2" Background="#0F172A"/>
-                    <Button x:Name="btnRename" Content="Rename" Padding="10,5" Margin="2" Background="#0F172A"/>
-                    <Button x:Name="btnExportFamily" Content="To Family" Padding="10,5" Margin="2" Background="#10B981" Foreground="White" ToolTip="Convert to Loadable Family"/>
-                    <Button x:Name="btnExportCSV" Content="CSV" Padding="10,5" Margin="2" Background="#0F172A"/>
-                    <Button x:Name="btnExportHTML" Content="Report" Padding="10,5" Margin="2" Background="#0F172A"/>
-                    <Button x:Name="btnDelete" Content="Delete" Padding="10,5" Margin="2" Background="#FF6B6B" Foreground="White"/>
-                </StackPanel>
-                <Button x:Name="btnRefresh" Content="Refresh" Padding="10,5" Margin="2" Background="White" HorizontalAlignment="Right"/>
-            </Grid>
-        </Border>
-        
-        <!-- Footer with Copyright -->
-        <Grid Grid.Row="4" Margin="0,8,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <Grid Grid.Row="0">
-                <TextBlock Text="Ctrl+Click: multi-select | Double-click: zoom to element" FontSize="10" Foreground="#888"/>
-                <Button x:Name="btnClose" Content="Close" Padding="15,5" Background="White" HorizontalAlignment="Right"/>
-            </Grid>
-            <Border Grid.Row="1" Background="#0F172A" CornerRadius="6" Padding="8,5" Margin="0,8,0,0">
-                <TextBlock Text="© 2024 Dang Quoc Truong (DQT) - All Rights Reserved" 
-                           FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="#FFFFFF"/>
-            </Border>
-        </Grid>
-    </Grid>
-</Window>
-"""
 
-SETTINGS_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Settings" Height="350" Width="400" 
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="#F8FAFC">
-    <Grid Margin="15">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <TextBlock Grid.Row="0" Text="Settings" FontSize="18" FontWeight="Bold" Margin="0,0,0,15"/>
-        
-        <StackPanel Grid.Row="1">
-            <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
-                <StackPanel>
-                    <TextBlock Text="COMPLEXITY THRESHOLDS" FontSize="10" FontWeight="SemiBold" Foreground="#666" Margin="0,0,0,10"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <TextBlock Text="Warning (faces):" Width="100" VerticalAlignment="Center"/>
-                        <TextBox x:Name="txtWarn" Width="80" Padding="6,4"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Error (faces):" Width="100" VerticalAlignment="Center"/>
-                        <TextBox x:Name="txtErr" Width="80" Padding="6,4"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-            
-            <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="12">
-                <StackPanel>
-                    <TextBlock Text="NAMING PATTERNS (regex, one per line)" FontSize="10" FontWeight="SemiBold" Foreground="#666" Margin="0,0,0,10"/>
-                    <TextBox x:Name="txtPatterns" Height="80" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="6,4"/>
-                </StackPanel>
-            </Border>
-        </StackPanel>
-        
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button x:Name="btnReset" Content="Reset" Width="70" Padding="8,6" Margin="0,0,8,0" Background="White"/>
-            <Button x:Name="btnCancel" Content="Cancel" Width="70" Padding="8,6" Margin="0,0,8,0" Background="White"/>
-            <Button x:Name="btnSave" Content="Save" Width="70" Padding="8,6" Background="#0F172A" FontWeight="SemiBold"/>
-        </StackPanel>
-    </Grid>
-</Window>
-"""
 
-RENAME_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Batch Rename" Height="400" Width="450" 
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="#F8FAFC">
-    <Grid Margin="15">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <TextBlock Grid.Row="0" Text="Batch Rename" FontSize="16" FontWeight="Bold" Margin="0,0,0,5"/>
-        <TextBlock Grid.Row="1" x:Name="txtCount" Text="Selected: 0 items" Foreground="#666" Margin="0,0,0,10"/>
-        
-        <Border Grid.Row="2" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,10">
-            <StackPanel>
-                <TextBlock Text="RENAME ALL TO:" FontSize="10" FontWeight="SemiBold" Foreground="#666" Margin="0,0,0,5"/>
-                <TextBox x:Name="txtNewName" Padding="6,4" ToolTip="Leave empty to use options below"/>
-            </StackPanel>
-        </Border>
-        
-        <TextBlock Grid.Row="3" Text="─── OR USE OPTIONS BELOW ───" HorizontalAlignment="Center" Foreground="#999" Margin="0,0,0,10"/>
-        
-        <Grid Grid.Row="4" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="Prefix:" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" x:Name="txtPrefix" Padding="6,4" Margin="0,0,10,0"/>
-            <TextBlock Grid.Column="2" Text="Suffix:" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="3" x:Name="txtSuffix" Padding="6,4"/>
-        </Grid>
-        
-        <Grid Grid.Row="5" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="60"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="30"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="Find:" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="1" x:Name="txtFind" Padding="6,4"/>
-            <TextBlock Grid.Column="2" Text="→" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
-            <TextBox Grid.Column="3" x:Name="txtReplace" Padding="6,4" ToolTip="Replace with (can be empty)"/>
-        </Grid>
-        
-        <Border Grid.Row="6" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" Padding="10" Margin="0,5,0,0">
-            <StackPanel>
-                <TextBlock Text="Preview (first item):" FontWeight="SemiBold" Margin="0,0,0,5"/>
-                <TextBlock x:Name="txtOldName" Text="" Foreground="#666" TextWrapping="Wrap"/>
-                <TextBlock Text="↓" HorizontalAlignment="Center" Foreground="#999" Margin="0,3"/>
-                <TextBlock x:Name="txtNewPreview" Text="" Foreground="#10B981" FontWeight="SemiBold" TextWrapping="Wrap"/>
-            </StackPanel>
-        </Border>
-        
-        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button x:Name="btnCancel" Content="Cancel" Width="70" Padding="8,6" Margin="0,0,8,0" Background="White"/>
-            <Button x:Name="btnApply" Content="Apply" Width="70" Padding="8,6" Background="#0F172A" FontWeight="SemiBold"/>
-        </StackPanel>
-    </Grid>
-</Window>
-"""
+
+
+
 
 # ============================================================================
 # SETTINGS DIALOG
 # ============================================================================
 class SettingsDialog(WPFWindow):
     def __init__(self):
-        WPFWindow.__init__(self, SETTINGS_XAML, literal_string=True)
+        WPFWindow.__init__(self, get_xaml_path('InPlaceModelSettings.xaml'))
         self.result = False
         
         self.txtWarn.Text = str(Config.warn_faces)
@@ -504,7 +260,7 @@ class SettingsDialog(WPFWindow):
 # ============================================================================
 class RenameDialog(WPFWindow):
     def __init__(self, items):
-        WPFWindow.__init__(self, RENAME_XAML, literal_string=True)
+        WPFWindow.__init__(self, get_xaml_path('InPlaceModelRename.xaml'))
         self.items = items
         self.result = False
         self.first_name = items[0].family_name if items else ""
@@ -572,7 +328,7 @@ class RenameDialog(WPFWindow):
 # ============================================================================
 class InPlaceManagerWindow(WPFWindow):
     def __init__(self):
-        WPFWindow.__init__(self, MAIN_XAML, literal_string=True)
+        WPFWindow.__init__(self, get_xaml_path('InPlaceModelMain.xaml'))
         self.doc = revit.doc
         self.uidoc = revit.uidoc
         self.items = []

@@ -16,6 +16,7 @@ __doc__ = "Create Revit Floors or Parts from linked/imported AutoCAD DWG layers.
 # ==============================================================================
 import clr
 import os
+import codecs
 import sys
 import math
 
@@ -44,6 +45,18 @@ from System.Windows.Markup import XamlReader
 # PyRevit
 from pyrevit import revit
 
+
+# Find T3Lab.extension parent folder dynamically
+_current_dir = os.path.dirname(__file__)
+while _current_dir and not _current_dir.endswith('T3Lab.extension'):
+    _parent = os.path.dirname(_current_dir)
+    if _parent == _current_dir:
+        break
+    _current_dir = _parent
+
+XAML_MAIN_PATH = os.path.join(_current_dir, "lib", "GUI", "Tools", "CadtoFloor.xaml")
+XAML_LAYER_ITEM_PATH = os.path.join(_current_dir, "lib", "GUI", "Tools", "CadtoFloorLayerItem.xaml")
+
 # ==============================================================================
 # CONSTANTS
 # ==============================================================================
@@ -53,360 +66,9 @@ MODE_PART = "part"
 # ==============================================================================
 # XAML UI
 # ==============================================================================
-XAML_MAIN = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CAD to Floor / Part v1.3 - DQT"
-        Width="820" Height="750"
-        WindowStartupLocation="CenterScreen"
-        ResizeMode="CanResizeWithGrip"
-        Background="#F5F5F5">
-    <Window.Resources>
-        <Style x:Key="ActionButton" TargetType="Button">
-            <Setter Property="Height" Value="32"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="16,0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}"
-                                CornerRadius="6" Padding="{TemplateBinding Padding}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                BorderBrush="{TemplateBinding BorderBrush}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Opacity" Value="0.85"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.5"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="StyledComboBox" TargetType="ComboBox">
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#E0E0E0"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-        <Style x:Key="SearchBox" TargetType="TextBox">
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#E0E0E0"/>
-            <Setter Property="BorderThickness" Value="1"/>
-        </Style>
-        <Style x:Key="ModeRadio" TargetType="RadioButton">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,0,20,0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-    </Window.Resources>
-    
-    <Grid Margin="0">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <!-- HEADER -->
-        <Border Grid.Row="0" Background="#0F172A" Padding="16,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock Text="CAD to Floor / Part" FontSize="20" FontWeight="Bold" Foreground="#2D2D2D"/>
-                    <TextBlock Text="Create Revit Floors or Parts from AutoCAD DWG layers" FontSize="11" Foreground="#FFFFFF" Margin="0,2,0,0"/>
-                    <TextBlock Text="Copyright (c) 2025 Dang Quoc Truong (DQT). All rights reserved." 
-                               FontSize="9" Foreground="#8B7355" Margin="0,4,0,0" FontStyle="Italic"/>
-                </StackPanel>
-                <TextBlock Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Right"
-                           FontSize="9" Foreground="#8B7355" Text="v1.3"/>
-            </Grid>
-        </Border>
-        
-        <!-- MODE SELECTION -->
-        <Border Grid.Row="1" Background="White" Margin="12,8,12,0" Padding="12,10" CornerRadius="6"
-                BorderBrush="#E8E8E8" BorderThickness="1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Create Mode:" VerticalAlignment="Center" 
-                           FontWeight="SemiBold" FontSize="12" Foreground="#2D2D2D"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <RadioButton x:Name="rb_floor" Content="Floor" GroupName="mode" 
-                                 IsChecked="True" Style="{StaticResource ModeRadio}"/>
-                    <RadioButton x:Name="rb_part" Content="Part (DirectShape)" GroupName="mode" 
-                                 Style="{StaticResource ModeRadio}"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-        
-        <!-- SETTINGS -->
-        <Border Grid.Row="2" Background="White" Margin="12,8,12,0" Padding="12" CornerRadius="6"
-                BorderBrush="#E8E8E8" BorderThickness="1">
-            <StackPanel>
-                <!-- CAD File + Pick + Scan -->
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="CAD File:" VerticalAlignment="Center" 
-                               FontWeight="SemiBold" FontSize="12" Foreground="#2D2D2D"/>
-                    <ComboBox x:Name="cmb_cad_files" Grid.Column="1" Style="{StaticResource StyledComboBox}"/>
-                    <Button x:Name="btn_pick_cad" Grid.Column="3" Content="Pick"
-                            Style="{StaticResource ActionButton}" Background="#0F172A" 
-                            Foreground="#2D2D2D" Width="55" ToolTip="Pick a CAD instance from view"/>
-                    <Button x:Name="btn_scan" Grid.Column="5" Content="Scan Layers"
-                            Style="{StaticResource ActionButton}" Background="#C89650" 
-                            Foreground="White" Width="95" ToolTip="Scan selected CAD file for layers"/>
-                </Grid>
-                
-                <!-- Level -->
-                <Grid Margin="0,8,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Level:" VerticalAlignment="Center" 
-                               FontWeight="SemiBold" FontSize="12" Foreground="#2D2D2D"/>
-                    <ComboBox x:Name="cmb_levels" Grid.Column="1" Style="{StaticResource StyledComboBox}"/>
-                </Grid>
-                
-                <!-- Floor Type (Floor mode) -->
-                <Grid x:Name="pnl_floor_type_row" Margin="0,8,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Floor Type:" VerticalAlignment="Center" 
-                               FontWeight="SemiBold" FontSize="12" Foreground="#2D2D2D"/>
-                    <ComboBox x:Name="cmb_floor_types" Grid.Column="1" Style="{StaticResource StyledComboBox}"/>
-                </Grid>
-                
-                <!-- Part Category (Part mode) -->
-                <Grid x:Name="pnl_part_row1" Margin="0,8,0,0" Visibility="Collapsed">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Category:" VerticalAlignment="Center" 
-                               FontWeight="SemiBold" FontSize="12" Foreground="#2D2D2D"/>
-                    <ComboBox x:Name="cmb_ds_category" Grid.Column="1" Style="{StaticResource StyledComboBox}"/>
-                </Grid>
-                
-                <!-- Part Thickness (Part mode) -->
-                <Grid x:Name="pnl_part_row2" Margin="0,8,0,0" Visibility="Collapsed">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Thickness:" VerticalAlignment="Center" 
-                               FontWeight="SemiBold" FontSize="12" Foreground="#2D2D2D"/>
-                    <TextBox x:Name="txt_thickness" Grid.Column="1" Text="200" Style="{StaticResource SearchBox}"/>
-                    <TextBlock Grid.Column="2" Text="  mm" VerticalAlignment="Center" FontSize="12" Foreground="#888"/>
-                </Grid>
-                
-                <!-- Offset + Structural -->
-                <Grid Margin="0,8,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="20"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Offset (mm):" VerticalAlignment="Center" 
-                               FontWeight="SemiBold" FontSize="12" Foreground="#2D2D2D"/>
-                    <TextBox x:Name="txt_offset" Grid.Column="1" Text="0" Style="{StaticResource SearchBox}"/>
-                    <TextBlock Grid.Column="2" Text="  mm" VerticalAlignment="Center" FontSize="12" Foreground="#888"/>
-                    <CheckBox x:Name="chk_structural" Grid.Column="4" Content="Structural Floor" 
-                              VerticalAlignment="Center" FontSize="12" IsChecked="False"/>
-                </Grid>
-            </StackPanel>
-        </Border>
-        
-        <!-- SUMMARY CARDS -->
-        <Border Grid.Row="3" Margin="12,8,12,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Background="White" CornerRadius="6" Padding="10,8"
-                        BorderBrush="#E8E8E8" BorderThickness="1">
-                    <StackPanel HorizontalAlignment="Center">
-                        <TextBlock x:Name="txt_total_layers" Text="0" FontSize="20" FontWeight="Bold" 
-                                   Foreground="#C89650" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Total Layers" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="2" Background="White" CornerRadius="6" Padding="10,8"
-                        BorderBrush="#E8E8E8" BorderThickness="1">
-                    <StackPanel HorizontalAlignment="Center">
-                        <TextBlock x:Name="txt_selected_layers" Text="0" FontSize="20" FontWeight="Bold" 
-                                   Foreground="#2196F3" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Selected" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="4" Background="White" CornerRadius="6" Padding="10,8"
-                        BorderBrush="#E8E8E8" BorderThickness="1">
-                    <StackPanel HorizontalAlignment="Center">
-                        <TextBlock x:Name="txt_total_curves" Text="0" FontSize="20" FontWeight="Bold" 
-                                   Foreground="#10B981" HorizontalAlignment="Center"/>
-                        <TextBlock Text="Closed Loops" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="6" Background="White" CornerRadius="6" Padding="10,8"
-                        BorderBrush="#E8E8E8" BorderThickness="1">
-                    <StackPanel HorizontalAlignment="Center">
-                        <TextBlock x:Name="txt_elements_created" Text="0" FontSize="20" FontWeight="Bold" 
-                                   Foreground="#0F172A" HorizontalAlignment="Center"/>
-                        <TextBlock x:Name="lbl_created" Text="Created" FontSize="10" Foreground="#888" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
-        </Border>
-        
-        <!-- LAYER LIST -->
-        <Border Grid.Row="4" Background="White" Margin="12,8,12,0" Padding="0" CornerRadius="6"
-                BorderBrush="#E8E8E8" BorderThickness="1">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <Grid Grid.Row="0" Margin="10,10,10,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="txt_search" Grid.Column="0" Style="{StaticResource SearchBox}" 
-                             ToolTip="Search layers by name..."/>
-                    <Button x:Name="btn_select_all" Grid.Column="2" Content="Select All"
-                            Style="{StaticResource ActionButton}" Background="#0F172A" Foreground="#2D2D2D" Width="80"/>
-                    <Button x:Name="btn_select_none" Grid.Column="4" Content="Select None"
-                            Style="{StaticResource ActionButton}" Background="#EEEEEE" Foreground="#555" Width="85"/>
-                </Grid>
-                <Grid Grid.Row="1" Margin="10,8,10,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="35"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="100"/>
-                        <ColumnDefinition Width="80"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="1" Text="Layer Name" FontSize="10" FontWeight="SemiBold" Foreground="#999"/>
-                    <TextBlock Grid.Column="2" Text="Closed Loops" FontSize="10" FontWeight="SemiBold" 
-                               Foreground="#999" TextAlignment="Center"/>
-                    <TextBlock Grid.Column="3" Text="All Curves" FontSize="10" FontWeight="SemiBold" 
-                               Foreground="#999" TextAlignment="Center"/>
-                </Grid>
-                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="10,4,10,10">
-                    <StackPanel x:Name="pnl_layers"/>
-                </ScrollViewer>
-            </Grid>
-        </Border>
-        
-        <!-- STATUS -->
-        <Border Grid.Row="5" Margin="12,8,12,0">
-            <TextBlock x:Name="txt_status" Text="Select a CAD file and click 'Scan Layers' to begin." 
-                       FontSize="11" Foreground="#888" VerticalAlignment="Center"/>
-        </Border>
-        
-        <!-- ACTION BUTTONS -->
-        <Border Grid.Row="6" Background="White" Padding="12,10" Margin="0,8,0,0"
-                BorderBrush="#E8E8E8" BorderThickness="0,1,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="8"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Button x:Name="btn_refresh" Grid.Column="0" Content="Refresh"
-                        Style="{StaticResource ActionButton}" Background="#EEEEEE" 
-                        Foreground="#555" Width="90"/>
-                <Button x:Name="btn_create" Grid.Column="2" Content="Create Floors"
-                        Style="{StaticResource ActionButton}" Background="#C89650" 
-                        Foreground="White" Width="140" IsEnabled="False"/>
-                <Button x:Name="btn_close" Grid.Column="4" Content="Close"
-                        Style="{StaticResource ActionButton}" Background="#EEEEEE" 
-                        Foreground="#555" Width="90"/>
-            </Grid>
-        </Border>
-        
-        <!-- COPYRIGHT FOOTER -->
-        <Border Grid.Row="7" Background="#0F172A" Padding="8,6">
-            <TextBlock Text="Copyright (c) 2025 Dang Quoc Truong (DQT). All rights reserved." 
-                       FontSize="9" Foreground="#FFFFFF" HorizontalAlignment="Center" FontStyle="Italic"/>
-        </Border>
-    </Grid>
-</Window>
-"""
 
-XAML_LAYER_ITEM = """
-<Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Background="Transparent" Padding="4,6" Margin="0,1"
-        CornerRadius="6" BorderBrush="Transparent" BorderThickness="1"
-        Cursor="Hand">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="35"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="100"/>
-            <ColumnDefinition Width="80"/>
-        </Grid.ColumnDefinitions>
-        <CheckBox x:Name="chk" Grid.Column="0" VerticalAlignment="Center" IsChecked="False"/>
-        <TextBlock x:Name="txt_name" Grid.Column="1" VerticalAlignment="Center" FontSize="12"
-                   Foreground="#2D2D2D" TextTrimming="CharacterEllipsis"/>
-        <TextBlock x:Name="txt_closed" Grid.Column="2" VerticalAlignment="Center" FontSize="12"
-                   Foreground="#10B981" FontWeight="SemiBold" TextAlignment="Center"/>
-        <TextBlock x:Name="txt_total" Grid.Column="3" VerticalAlignment="Center" FontSize="12"
-                   Foreground="#888" TextAlignment="Center"/>
-    </Grid>
-</Border>
-"""
+
+
 
 
 # ==============================================================================
@@ -798,7 +460,9 @@ class LayerData(object):
 class CADtoFloorWindow(object):
     
     def __init__(self):
-        self.window = load_xaml_from_string(XAML_MAIN)
+        with codecs.open(XAML_MAIN_PATH, 'r', 'utf-8') as f:
+            xaml_content = f.read()
+        self.window = load_xaml_from_string(xaml_content)
         
         # Get UI elements
         self.rb_floor = self.window.FindName("rb_floor")
@@ -986,7 +650,9 @@ class CADtoFloorWindow(object):
                 continue
             
             try:
-                border = load_xaml_from_string(XAML_LAYER_ITEM)
+                with codecs.open(XAML_LAYER_ITEM_PATH, 'r', 'utf-8') as f:
+                    item_content = f.read()
+                border = load_xaml_from_string(item_content)
                 chk = border.FindName("chk")
                 txt_name = border.FindName("txt_name")
                 txt_closed = border.FindName("txt_closed")

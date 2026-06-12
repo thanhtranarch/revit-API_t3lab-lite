@@ -36,7 +36,7 @@ uidoc  = revit.uidoc
 doc    = revit.doc
 logger = script.get_logger()
 
-_EXT_DIR  = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+_EXT_DIR  = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))))
 XAML_PATH = os.path.join(_EXT_DIR, "lib", "GUI", "Tools", "DimText.xaml")
 
 _OPERATORS = [

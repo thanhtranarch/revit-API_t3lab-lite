@@ -629,272 +629,19 @@ class ExcelReporter:
             raise e
 
 
+# # =====================================================================
+# XAML PATH DEFINITION
 # =====================================================================
-# WPF UI
-# =====================================================================
-XAML_STR = '''
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IFC-SG Parameter Checker v1.0 - DQT"
-        Height="820" Width="1150"
-        MinHeight="650" MinWidth="900"
-        WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC">
-    
-    <Window.Resources>
-        <Style x:Key="CardBorder" TargetType="Border">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Padding" Value="12,8"/>
-        </Style>
-        <Style x:Key="BtnPrimary" TargetType="Button">
-            <Setter Property="Background" Value="#0F172A"/>
-            <Setter Property="Foreground" Value="#5D4E37"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="12,7"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="11"/>
-        </Style>
-        <Style x:Key="BtnSecondary" TargetType="Button">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#5D4E37"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="11"/>
-        </Style>
-        <Style x:Key="BtnSuccess" TargetType="Button">
-            <Setter Property="Background" Value="#C8E6C9"/>
-            <Setter Property="Foreground" Value="#2E7D32"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="14,8"/>
-            <Setter Property="BorderBrush" Value="#81C784"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="13"/>
-        </Style>
-        <Style x:Key="BtnDanger" TargetType="Button">
-            <Setter Property="Background" Value="#FFCDD2"/>
-            <Setter Property="Foreground" Value="#C62828"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="BorderBrush" Value="#EF9A9A"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-    </Window.Resources>
-    
-    <Grid Margin="12">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <!-- Row 0: Header -->
-        <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="14,10" Margin="0,0,0,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="&#x1F4CB; IFC-SG Parameter Checker" FontSize="20" FontWeight="Bold" Foreground="#333"/>
-                    <TextBlock Text="Check required IFC+SG parameters in Revit model" FontSize="11" Foreground="#666" Margin="0,3,0,0"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <TextBlock Text="DQT" FontSize="14" FontWeight="Bold" Foreground="#C89650"/>
-                    <TextBlock Text="v1.0" FontSize="9" Foreground="#999" HorizontalAlignment="Right"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-        
-        <!-- Row 1: Config Import Bar -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                
-                <TextBlock Grid.Column="0" Text="Config:" FontWeight="SemiBold" 
-                           FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#FFFFFF"/>
-                <ComboBox x:Name="cmbConfig" Grid.Column="1" Padding="8,5" FontSize="11"/>
-                
-                <Button x:Name="btnImportXML" Grid.Column="2" Content="Import XML" 
-                        Style="{StaticResource BtnPrimary}" Margin="6,0,0,0"/>
-                <Button x:Name="btnImportExcel" Grid.Column="3" Content="Import Excel" 
-                        Style="{StaticResource BtnPrimary}" Margin="4,0,0,0"/>
-                <Button x:Name="btnSaveConfig" Grid.Column="4" Content="Save JSON" 
-                        Style="{StaticResource BtnSecondary}" Margin="4,0,0,0"/>
-                <Button x:Name="btnDeleteConfig" Grid.Column="5" Content="Delete" 
-                        Style="{StaticResource BtnDanger}" Margin="4,0,0,0"/>
-            </Grid>
-        </Border>
-        
-        <!-- Row 2: Summary Cards -->
-        <Grid Grid.Row="2" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            
-            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,3,0">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtTotalParams" Text="0" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Params" FontSize="9" Foreground="#999" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Margin="2,0,2,0">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtCategories" Text="0" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Categories" FontSize="9" Foreground="#999" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="2" Style="{StaticResource CardBorder}" Margin="2,0,2,0" Background="#E8F5E9">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtPassed" Text="0" FontSize="20" FontWeight="Bold" Foreground="#2E7D32" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Passed" FontSize="9" Foreground="#388E3C" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="3" Style="{StaticResource CardBorder}" Margin="2,0,2,0" Background="#FFEBEE">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtFailed" Text="0" FontSize="20" FontWeight="Bold" Foreground="#C62828" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Failed" FontSize="9" Foreground="#D32F2F" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="4" Style="{StaticResource CardBorder}" Margin="2,0,2,0" Background="#FFF8E1">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtWarning" Text="0" FontSize="20" FontWeight="Bold" Foreground="#F57F17" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Partial" FontSize="9" Foreground="#F9A825" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="5" Style="{StaticResource CardBorder}" Margin="3,0,0,0" Background="#ECEFF1">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtNoElem" Text="0" FontSize="20" FontWeight="Bold" Foreground="#546E7A" HorizontalAlignment="Center"/>
-                    <TextBlock Text="No Elem" FontSize="9" Foreground="#78909C" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-        </Grid>
-        
-        <!-- Row 3: Main Content -->
-        <Grid Grid.Row="3" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="250"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            
-            <!-- Left: Discipline/Category tree -->
-            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,4,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    
-                    <TextBlock Grid.Row="0" Text="Disciplines / Categories" FontWeight="Bold" 
-                               FontSize="12" Foreground="#FFFFFF" Margin="0,0,0,6"/>
-                    
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                        <Button x:Name="btnExpandAll" Content="Expand" 
-                                Style="{StaticResource BtnSecondary}" Padding="6,3" FontSize="10" Margin="0,0,4,0"/>
-                        <Button x:Name="btnCollapseAll" Content="Collapse" 
-                                Style="{StaticResource BtnSecondary}" Padding="6,3" FontSize="10"/>
-                    </StackPanel>
-                    
-                    <TreeView x:Name="tvCategories" Grid.Row="2" 
-                              BorderBrush="#E0E0E0" BorderThickness="1" Background="White">
-                    </TreeView>
-                </Grid>
-            </Border>
-            
-            <!-- Right: Results -->
-            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Margin="4,0,0,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    
-                    <TextBlock Grid.Row="0" x:Name="txtResultHeader" Text="Load a config and click Run Check" 
-                               FontWeight="Bold" FontSize="12" Foreground="#FFFFFF" Margin="0,0,0,4"/>
-                    
-                    <!-- Filter bar -->
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                        <TextBlock Text="Filter:" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888"/>
-                        <Button x:Name="btnFilterAll" Content="All" Style="{StaticResource BtnSecondary}" 
-                                Padding="8,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnFilterFail" Content="Failed" Style="{StaticResource BtnDanger}" 
-                                Padding="8,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnFilterWarn" Content="Partial" Style="{StaticResource BtnSecondary}" 
-                                Padding="8,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnFilterPass" Content="Passed" Style="{StaticResource BtnSecondary}" 
-                                Padding="8,3" FontSize="10" Margin="0,0,8,0"/>
-                        <Button x:Name="btnSelectAllFailed" Content="&#x25BA; Select All Failed" 
-                                Style="{StaticResource BtnDanger}" Padding="8,3" FontSize="10" 
-                                Margin="0,0,8,0" IsEnabled="False"/>
-                        <TextBlock Text="Search:" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888"/>
-                        <TextBox x:Name="txtSearch" Width="150" Padding="4,3" FontSize="11"/>
-                    </StackPanel>
-                    
-                    <!-- Results list -->
-                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="spResults"/>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-        </Grid>
-        
-        <!-- Row 4: Action Buttons -->
-        <Grid Grid.Row="4" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            
-            <TextBlock x:Name="txtStatus" Grid.Column="0" Text="Ready. Import a config or select saved config." 
-                       FontSize="11" Foreground="#888" VerticalAlignment="Center"/>
-            
-            <Button x:Name="btnRunCheck" Grid.Column="1" Content="&#x25B6; Run Check" 
-                    Style="{StaticResource BtnSuccess}" Margin="0,0,6,0" IsEnabled="False"/>
-            <Button x:Name="btnExportExcel" Grid.Column="2" Content="&#x1F4CA; Export Excel" 
-                    Style="{StaticResource BtnPrimary}" Margin="0,0,6,0" IsEnabled="False"/>
-            <Button x:Name="btnClose" Grid.Column="3" Content="Close" 
-                    Style="{StaticResource BtnSecondary}"/>
-        </Grid>
-        
-        <!-- Row 5: Footer -->
-        <Border Grid.Row="5" Background="#F5F0E0" CornerRadius="6" Padding="8,4">
-            <Grid>
-                <TextBlock Text="IFC-SG Parameter Checker v1.0 | Dang Quoc Truong (DQT)" 
-                           FontSize="9" Foreground="#999" HorizontalAlignment="Left"/>
-                <TextBlock x:Name="txtFooter" Text="" 
-                           FontSize="9" Foreground="#999" HorizontalAlignment="Right"/>
-            </Grid>
-        </Border>
-    </Grid>
-</Window>
-'''
+import os
+import io
+
+current_dir = os.path.dirname(__file__)
+while current_dir and not current_dir.endswith('T3Lab.extension'):
+    parent = os.path.dirname(current_dir)
+    if parent == current_dir:
+        break
+    current_dir = parent
+xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "IFCSGChecker.xaml")
 
 
 # =====================================================================
@@ -911,7 +658,9 @@ class IFCSGCheckerWindow:
         self.reporter = ExcelReporter(doc)
         
         # Parse XAML
-        xr = XmlReader.Create(StringReader(XAML_STR))
+        with io.open(xaml_path, 'r', encoding='utf-8') as f:
+            xaml_content = f.read()
+        xr = XmlReader.Create(StringReader(xaml_content))
         self.window = XamlReader.Load(xr)
         
         self._get_controls()

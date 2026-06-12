@@ -26,6 +26,115 @@
             <Setter Property="Foreground" Value="#0F172A"/>
         </Style>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
+        <SolidColorBrush x:Key="T3SlateBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3AccentBrush" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="T3SuccessBrush" Color="#10B981"/>
+        <SolidColorBrush x:Key="T3DangerBrush" Color="#EF4444"/>
+        <SolidColorBrush x:Key="T3WarningBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="T3TextDarkBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3TextMutedBrush" Color="#64748B"/>
+        <SolidColorBrush x:Key="T3BorderLightBrush" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="T3BgLightBrush" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="T3LightBlueHighlightBrush" Color="#EBF5FB"/>
+
+        <!-- Sleek Modern Input Field -->
+        <Style x:Key="T3InputField" TargetType="TextBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Inter"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Premium Modern GroupBox Card -->
+        <Style x:Key="T3PremiumCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <!-- Card Header -->
+                                <Border Grid.Row="0" 
+                                        Background="White"
+                                        Padding="16,12"
+                                        BorderBrush="#F1F5F9"
+                                        BorderThickness="0,0,0,1">
+                                    <ContentPresenter ContentSource="Header"
+                                                      RecognizeAccessKey="True"
+                                                      TextBlock.FontSize="12"
+                                                      TextBlock.FontWeight="Bold"
+                                                      TextBlock.Foreground="#0F172A"/>
+                                </Border>
+                                <!-- Card Content -->
+                                <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Top Navigation Tab Style -->
+        <Style x:Key="T3TopNavTabStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#0F172A"/>
@@ -248,15 +357,28 @@
             <!-- Window Control Buttons -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <!-- Profile Button -->
+                <!-- Premium circular vector profile avatar -->
                 <Button x:Name="btn_profile"
-                        Style="{StaticResource WinCtrlButton}"
-                        ToolTip="Profiles"
-                        Click="profile_button_clicked">
-                    <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#0F172A"/>
+                        Click="profile_button_clicked"
+                        ToolTip="User Profile"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Margin="0,0,8,0"
+                        Cursor="Hand"
+                        VerticalAlignment="Center">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16" Background="#F3F4F6" BorderBrush="#E5E7EB" BorderThickness="1">
+                                <Grid>
+                                    <Ellipse Width="10" Height="10" Fill="#9CA3AF" VerticalAlignment="Top" Margin="0,6,0,0"/>
+                                    <Path Data="M 6,24 A 10,10 0 0,1 26,24 Z" Fill="#9CA3AF" Stretch="Fill" VerticalAlignment="Bottom" Height="10" Margin="4,0,4,3"/>
+                                </Grid>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
                 </Button>
 
-                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,8" Background="#F8FAFC"/>
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,8" Background="#E2E8F0"/>
 
                 <!-- Minimize Button -->
                 <Button x:Name="btn_minimize"
@@ -400,7 +522,7 @@
                             <!-- Search Box -->
                             <TextBlock Grid.Column="8" Text="Search:" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             <TextBox Grid.Column="9" x:Name="search_textbox" Height="28"
-                                     VerticalContentAlignment="Center"
+                                     Style="{StaticResource T3InputField}"
                                      TextChanged="search_sheets"/>
                         </Grid>
                     </Grid>
@@ -473,7 +595,7 @@
                                                 <GridViewColumn.CellTemplate>
                                                     <DataTemplate>
                                                         <TextBox Text="{Binding CustomFilename, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                 BorderThickness="1" BorderBrush="#F8FAFC" Padding="4,2"
+                                                                 Style="{StaticResource T3InputField}"
                                                                  ToolTip="Custom filename (leave empty to use pattern)"
                                                                  PreviewMouseLeftButtonDown="textbox_prevent_toggle"/>
                                                     </DataTemplate>
@@ -849,7 +971,7 @@
                                                 <RadioButton x:Name="img_fit_to_page" Content="Fit to" GroupName="imgSize"
                                                              IsChecked="True" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                 <TextBox x:Name="img_fit_pixels" Text="1080" Width="60" Height="24"
-                                                         VerticalContentAlignment="Center" Margin="0,0,5,0"/>
+                                                         Style="{StaticResource T3InputField}" Margin="0,0,5,0"/>
                                                 <TextBlock Text="pixels" VerticalAlignment="Center" Margin="0,0,20,0"/>
                                                 <TextBlock Text="Direction:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#64748B"/>
                                                 <RadioButton x:Name="img_dir_horizontal" Content="Horizontal" GroupName="imgDirection"
@@ -860,7 +982,7 @@
                                                 <RadioButton x:Name="img_zoom_to" Content="Zoom to" GroupName="imgSize"
                                                              Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                 <TextBox x:Name="img_zoom_percent" Text="50" Width="50" Height="24"
-                                                         VerticalContentAlignment="Center" Margin="0,0,5,0"/>
+                                                         Style="{StaticResource T3InputField}" Margin="0,0,5,0"/>
                                                 <TextBlock Text="% of actual size" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </StackPanel>
@@ -941,7 +1063,7 @@
                                 <TextBlock Grid.Column="0" Text="Output Folder:" VerticalAlignment="Center"
                                            FontWeight="Medium" FontSize="12"/>
                                 <TextBox x:Name="output_folder" Grid.Column="1" Height="26"
-                                         VerticalContentAlignment="Center" Margin="5,0" Background="White"/>
+                                         Style="{StaticResource T3InputField}" Margin="5,0"/>
                                 <Button Grid.Column="2" Content="Browse..." Height="26"
                                         Style="{StaticResource SecondaryButton}" Click="browse_output_folder"/>
                             </Grid>

@@ -33,6 +33,20 @@ from Autodesk.Revit.DB import (
 )
 from pyrevit import script
 
+# Find T3Lab.extension parent folder dynamically
+import os
+import io
+
+current_dir = os.path.dirname(__file__)
+while current_dir and not current_dir.endswith('T3Lab.extension'):
+    parent = os.path.dirname(current_dir)
+    if parent == current_dir:
+        break
+    current_dir = parent
+
+col_map_xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "SubtypeDefinerColMap.xaml")
+main_xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "SubtypeDefinerMain.xaml")
+
 doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 output = script.get_output()
@@ -153,89 +167,9 @@ def show_column_mapping_dialog(excel_info, filepath):
     """
     from System.Windows.Controls import ComboBox as WPFComboBox, ComboBoxItem
 
-    MAP_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Column Mapping | IFC-SG Subtype Definer"
-        Width="560" Height="460" WindowStartupLocation="CenterScreen"
-        Background="%%BG%%">
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <TextBlock Text="Map Excel Columns to IFC-SG Fields" FontSize="15"
-                   FontWeight="Bold" Foreground="%%TEXT%%" Margin="0,0,0,8"/>
-
-        <StackPanel Grid.Row="1" Margin="0,0,0,10">
-            <TextBlock Text="Sheet:" FontSize="11" FontWeight="SemiBold"
-                       Foreground="%%TEXT%%" Margin="0,0,0,3"/>
-            <ComboBox x:Name="cmbSheet" FontSize="12" Height="28"/>
-        </StackPanel>
-
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="160"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="32"/>
-                <RowDefinition Height="32"/>
-                <RowDefinition Height="32"/>
-                <RowDefinition Height="32"/>
-                <RowDefinition Height="32"/>
-                <RowDefinition Height="32"/>
-            </Grid.RowDefinitions>
-
-            <TextBlock Text="Component Name *" Grid.Row="0" VerticalAlignment="Center"
-                       FontWeight="SemiBold" Foreground="%%TEXT%%"/>
-            <ComboBox x:Name="cmbComponent" Grid.Row="0" Grid.Column="1" Margin="4,2"/>
-
-            <TextBlock Text="IFC4 Entity *" Grid.Row="1" VerticalAlignment="Center"
-                       FontWeight="SemiBold" Foreground="%%TEXT%%"/>
-            <ComboBox x:Name="cmbEntity" Grid.Row="1" Grid.Column="1" Margin="4,2"/>
-
-            <TextBlock Text="IFC Sub Types" Grid.Row="2" VerticalAlignment="Center"
-                       Foreground="%%TEXT%%"/>
-            <ComboBox x:Name="cmbSubtype" Grid.Row="2" Grid.Column="1" Margin="4,2"/>
-
-            <TextBlock Text="Revit Representation" Grid.Row="3" VerticalAlignment="Center"
-                       Foreground="%%TEXT%%"/>
-            <ComboBox x:Name="cmbRevit" Grid.Row="3" Grid.Column="1" Margin="4,2"/>
-
-            <TextBlock Text="Agency" Grid.Row="4" VerticalAlignment="Center"
-                       Foreground="%%TEXT%%"/>
-            <ComboBox x:Name="cmbAgency" Grid.Row="4" Grid.Column="1" Margin="4,2"/>
-
-            <TextBlock Text="* = Required" Grid.Row="5" Foreground="%%GRAY%%"
-                       FontSize="10" VerticalAlignment="Center"/>
-        </Grid>
-
-        <StackPanel Grid.Row="3" Orientation="Horizontal"
-                    HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button x:Name="btnOK" Content="OK" Width="90" Height="30"
-                    Background="%%BTN_BG%%" Foreground="%%BTN_FG%%"
-                    FontWeight="Bold" BorderThickness="0" Cursor="Hand"
-                    Margin="0,0,8,0"/>
-            <Button x:Name="btnCancel" Content="Cancel" Width="90" Height="30"
-                    Background="%%BTN2_BG%%" Foreground="%%BTN2_FG%%"
-                    BorderBrush="%%BORDER%%" BorderThickness="1" Cursor="Hand"/>
-        </StackPanel>
-    </Grid>
-</Window>
-""".replace("%%BG%%", Config.BACKGROUND) \
-   .replace("%%TEXT%%", Config.TEXT_PRIMARY) \
-   .replace("%%GRAY%%", Config.TEXT_SECONDARY) \
-   .replace("%%BORDER%%", Config.BORDER) \
-   .replace("%%BTN_BG%%", Config.BUTTON_PRIMARY_BG) \
-   .replace("%%BTN_FG%%", Config.BUTTON_PRIMARY_FG) \
-   .replace("%%BTN2_BG%%", Config.BUTTON_SECONDARY_BG) \
-   .replace("%%BTN2_FG%%", Config.BUTTON_SECONDARY_FG)
-
-    stream = MemoryStream(Encoding.UTF8.GetBytes(MAP_XAML))
+    with io.open(col_map_xaml_path, 'r', encoding='utf-8') as f:
+        xaml_content = f.read()
+    stream = MemoryStream(Encoding.UTF8.GetBytes(xaml_content))
     win = XamlReader.Load(stream)
     stream.Close()
 
@@ -616,193 +550,6 @@ def build_type_rows(elems):
 # DataGrid columns created in code to handle {Binding} safely
 # ==============================================================================
 
-XAML_STR = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IFC-SG Subtype Definer | pyDQT"
-        Width="1150" Height="740"
-        WindowStartupLocation="CenterScreen"
-        Background="%%BACKGROUND%%">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="52"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="26"/>
-        </Grid.RowDefinitions>
-
-        <!-- HEADER -->
-        <Border Grid.Row="0" Background="%%PRIMARY%%">
-            <Grid Margin="16,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="IFC-SG Subtype Definer" FontSize="17"
-                               FontWeight="Bold" Foreground="%%TEXT_PRIMARY%%"/>
-                    <TextBlock x:Name="txtHeader"
-                               Text="Load Industry Mapping Excel to start"
-                               FontSize="10.5" Foreground="%%TEXT_DARK%%" Opacity="0.8"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal"
-                            VerticalAlignment="Center">
-                    <Button x:Name="btnAutoAssign" Content="Auto-Assign"
-                            Padding="12,6" Margin="0,0,8,0"
-                            Background="%%BUTTON_PRI_BG%%" Foreground="%%BUTTON_PRI_FG%%"
-                            FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
-                    <Button x:Name="btnLoadExcel"
-                            Content="Load Mapping Excel" Padding="12,6"
-                            Background="%%BUTTON_SEC_BG%%" Foreground="%%BUTTON_SEC_FG%%"
-                            FontWeight="SemiBold" BorderBrush="%%BORDER%%" BorderThickness="1"
-                            Cursor="Hand"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- MAIN -->
-        <Grid Grid.Row="1" Margin="10,6,10,6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="265"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- LEFT PANEL -->
-            <Border Grid.Column="0" BorderBrush="%%BORDER%%" BorderThickness="1"
-                    Background="%%CARD_BG%%">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="34"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Border Background="%%PRIMARY%%">
-                        <TextBlock Text="IFC-SG Components" Foreground="%%TEXT_PRIMARY%%"
-                                   FontWeight="SemiBold" FontSize="12" Margin="10,0"
-                                   VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBox x:Name="txtFilter" Grid.Row="1" Margin="6,4"
-                             Height="24" FontSize="11" Padding="4,0"
-                             VerticalContentAlignment="Center"
-                             BorderBrush="%%BORDER%%" BorderThickness="1"/>
-                    <ListBox x:Name="lstComponents" Grid.Row="2"
-                             BorderThickness="0" Background="Transparent"/>
-                    <TextBlock x:Name="txtSummary" Grid.Row="3" FontSize="9.5"
-                               Foreground="%%TEXT_SECONDARY%%" Margin="8,4"
-                               TextWrapping="Wrap"/>
-                </Grid>
-            </Border>
-
-            <!-- RIGHT PANEL -->
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-
-                <!-- Info + Assign bar -->
-                <Border Grid.Row="0" Background="%%CARD_BG%%" BorderBrush="%%BORDER%%"
-                        BorderThickness="1" Padding="10,6" Margin="0,0,0,4">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock x:Name="txtCompName" FontSize="14"
-                                           FontWeight="Bold" Foreground="%%TEXT_PRIMARY%%"
-                                           Text="Select a component from the left panel"/>
-                                <TextBlock x:Name="txtCompInfo" FontSize="11"
-                                           Foreground="%%TEXT_SECONDARY%%" TextWrapping="Wrap"/>
-                            </StackPanel>
-                            <TextBlock x:Name="txtAgencies" Grid.Column="1" FontSize="10"
-                                       Foreground="%%TEXT_SECONDARY%%" TextAlignment="Right"
-                                       VerticalAlignment="Top"/>
-                        </Grid>
-                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
-                            <TextBlock Text="Assign Subtype:" FontSize="12"
-                                       VerticalAlignment="Center" Margin="0,0,6,0"
-                                       FontWeight="SemiBold" Foreground="%%TEXT_PRIMARY%%"/>
-                            <ComboBox x:Name="cmbSubtype" Width="280" FontSize="12"
-                                      VerticalAlignment="Center"/>
-                            <Button x:Name="btnApply" Content="Apply to Selected"
-                                    Margin="8,0,0,0" Padding="12,5"
-                                    Background="%%BUTTON_PRI_BG%%" Foreground="%%BUTTON_PRI_FG%%"
-                                    FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
-                            <Button x:Name="btnApplyAll" Content="Apply to ALL"
-                                    Margin="6,0,0,0" Padding="12,5"
-                                    Background="%%BUTTON_PRI_BG%%" Foreground="%%BUTTON_PRI_FG%%"
-                                    FontWeight="Bold" BorderThickness="0" Cursor="Hand"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- DataGrid -->
-                <Border Grid.Row="1" BorderBrush="%%BORDER%%" BorderThickness="1"
-                        Background="%%CARD_BG%%">
-                    <DataGrid x:Name="dgTypes" AutoGenerateColumns="False"
-                              IsReadOnly="True" SelectionMode="Extended"
-                              CanUserSortColumns="True"
-                              GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#E8E8E8"
-                              BorderThickness="0" RowHeaderWidth="0"
-                              AlternatingRowBackground="%%ROW_ALT%%"
-                              HeadersVisibility="Column"/>
-                </Border>
-
-                <!-- Bottom controls -->
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,5,0,0">
-                    <CheckBox x:Name="chkApplyType" Content="Apply to Type"
-                              IsChecked="True" FontSize="11" Margin="0,0,14,0"
-                              Foreground="%%TEXT_PRIMARY%%"/>
-                    <CheckBox x:Name="chkApplyEntity" Content="Also set IFC Entity"
-                              IsChecked="True" FontSize="11" Margin="0,0,14,0"
-                              Foreground="%%TEXT_PRIMARY%%"/>
-                    <CheckBox x:Name="chkSetObjectType"
-                              Content="Set ObjectType for USERDEFINED"
-                              IsChecked="True" FontSize="11"
-                              Foreground="%%TEXT_PRIMARY%%"/>
-                    <TextBlock Text="  |  Ctrl+Click to multi-select in grid"
-                               FontSize="10" Foreground="%%TEXT_SECONDARY%%"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-            </Grid>
-        </Grid>
-
-        <!-- FOOTER -->
-        <Border Grid.Row="2" Background="%%FOOTER_BG%%">
-            <TextBlock Text="Copyright (c) 2026 by Dang Quoc Truong (DQT)"
-                       Foreground="%%TEXT_DARK%%" FontSize="10"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-        </Border>
-    </Grid>
-</Window>
-"""
-
-# Apply color replacements
-XAML = XAML_STR \
-    .replace("%%BACKGROUND%%", Config.BACKGROUND) \
-    .replace("%%PRIMARY%%", Config.PRIMARY) \
-    .replace("%%TEXT_PRIMARY%%", Config.TEXT_PRIMARY) \
-    .replace("%%TEXT_DARK%%", Config.TEXT_DARK) \
-    .replace("%%TEXT_SECONDARY%%", Config.TEXT_SECONDARY) \
-    .replace("%%BORDER%%", Config.BORDER) \
-    .replace("%%CARD_BG%%", Config.CARD_BG) \
-    .replace("%%ROW_ALT%%", Config.ROW_ALT) \
-    .replace("%%FOOTER_BG%%", Config.FOOTER_BG) \
-    .replace("%%BUTTON_PRI_BG%%", Config.BUTTON_PRIMARY_BG) \
-    .replace("%%BUTTON_PRI_FG%%", Config.BUTTON_PRIMARY_FG) \
-    .replace("%%BUTTON_SEC_BG%%", Config.BUTTON_SECONDARY_BG) \
-    .replace("%%BUTTON_SEC_FG%%", Config.BUTTON_SECONDARY_FG)
-
-
 # ==============================================================================
 # Main Window
 # ==============================================================================
@@ -810,7 +557,26 @@ XAML = XAML_STR \
 class IFCSGSubtypeWindow(object):
 
     def __init__(self):
-        stream = MemoryStream(Encoding.UTF8.GetBytes(XAML))
+        with io.open(main_xaml_path, 'r', encoding='utf-8') as f:
+            xaml_content = f.read()
+        
+        # Apply color replacements
+        xaml_content = xaml_content \
+            .replace("%%BACKGROUND%%", Config.BACKGROUND) \
+            .replace("%%PRIMARY%%", Config.PRIMARY) \
+            .replace("%%TEXT_PRIMARY%%", Config.TEXT_PRIMARY) \
+            .replace("%%TEXT_DARK%%", Config.TEXT_DARK) \
+            .replace("%%TEXT_SECONDARY%%", Config.TEXT_SECONDARY) \
+            .replace("%%BORDER%%", Config.BORDER) \
+            .replace("%%CARD_BG%%", Config.CARD_BG) \
+            .replace("%%ROW_ALT%%", Config.ROW_ALT) \
+            .replace("%%FOOTER_BG%%", Config.FOOTER_BG) \
+            .replace("%%BUTTON_PRI_BG%%", Config.BUTTON_PRIMARY_BG) \
+            .replace("%%BUTTON_PRI_FG%%", Config.BUTTON_PRIMARY_FG) \
+            .replace("%%BUTTON_SEC_BG%%", Config.BUTTON_SECONDARY_BG) \
+            .replace("%%BUTTON_SEC_FG%%", Config.BUTTON_SECONDARY_FG)
+
+        stream = MemoryStream(Encoding.UTF8.GetBytes(xaml_content))
         self.window = XamlReader.Load(stream)
         stream.Close()
 

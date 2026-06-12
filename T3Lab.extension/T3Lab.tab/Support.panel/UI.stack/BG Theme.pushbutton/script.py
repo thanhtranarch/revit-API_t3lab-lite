@@ -25,6 +25,7 @@ Works on Revit 2024 / 2025 / 2026 / 2027.
 
 # ------------------------------------------------------------------ IMPORTS
 import os
+import codecs
 import json
 
 import Autodesk.Revit.DB as DB
@@ -178,182 +179,24 @@ def quick_cycle():
 
 
 # ------------------------------------------------------------------ XAML
-XAML = """<Window
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="DQT - Background Theme" Height="480" Width="440"
-    WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
-    Background="#FFFFFF">
 
-  <Window.Resources>
-    <Style x:Key="DqtButton" TargetType="Button">
-      <Setter Property="Background" Value="#0F172A"/>
-      <Setter Property="Foreground" Value="#5D4E37"/>
-      <Setter Property="BorderBrush" Value="#CBD5E1"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding" Value="14,6"/>
-      <Setter Property="Margin" Value="4"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Border x:Name="bd" CornerRadius="6"
-                    Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}">
-              <ContentPresenter HorizontalAlignment="Center"
-                                VerticalAlignment="Center"/>
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="bd" Property="Background" Value="#E4D2A8"/>
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="bd" Property="Background" Value="#CBD5E1"/>
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-
-    <Style x:Key="PresetButton" TargetType="Button">
-      <Setter Property="BorderBrush" Value="#CBD5E1"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Margin" Value="3"/>
-      <Setter Property="Height" Value="30"/>
-      <Setter Property="Foreground" Value="#5D4E37"/>
-      <Setter Property="FontSize" Value="11"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Background" Value="#FAF3E0"/>
-    </Style>
-  </Window.Resources>
-
-  <Grid>
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-
-    <!-- Header -->
-    <Border Grid.Row="0" Background="#0F172A"
-            BorderBrush="#CBD5E1" BorderThickness="0,0,0,2" Padding="16,12">
-      <StackPanel>
-        <TextBlock Text="Background Theme" Foreground="#FFFFFF"
-                   FontSize="18" FontWeight="Bold"/>
-        <TextBlock Text="Choose a preset, fine-tune, preview, and apply."
-                   Foreground="#FFFFFF" FontSize="11" Margin="0,2,0,0"/>
-      </StackPanel>
-    </Border>
-
-    <!-- Body -->
-    <Border Grid.Row="1" Padding="16">
-      <StackPanel>
-
-        <TextBlock Text="Presets" Foreground="#FFFFFF"
-                   FontWeight="SemiBold" Margin="0,0,0,4"/>
-        <UniformGrid x:Name="PresetGrid" Columns="3" Margin="0,0,0,12"/>
-
-        <Border BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Margin="0,0,0,10"/>
-
-        <TextBlock Text="Fine-tune (RGB)" Foreground="#FFFFFF"
-                   FontWeight="SemiBold" Margin="0,0,0,4"/>
-
-        <Grid Margin="0,0,0,4">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="20"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="40"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="R" Foreground="#0F172A"
-                     VerticalAlignment="Center"/>
-          <Slider x:Name="SliderR" Grid.Column="1" Minimum="0" Maximum="255"
-                  VerticalAlignment="Center"/>
-          <TextBlock x:Name="LblR" Grid.Column="2" Text="0" Foreground="#0F172A"
-                     HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        </Grid>
-
-        <Grid Margin="0,0,0,4">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="20"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="40"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="G" Foreground="#0F172A"
-                     VerticalAlignment="Center"/>
-          <Slider x:Name="SliderG" Grid.Column="1" Minimum="0" Maximum="255"
-                  VerticalAlignment="Center"/>
-          <TextBlock x:Name="LblG" Grid.Column="2" Text="0" Foreground="#0F172A"
-                     HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        </Grid>
-
-        <Grid Margin="0,0,0,10">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="20"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="40"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="B" Foreground="#0F172A"
-                     VerticalAlignment="Center"/>
-          <Slider x:Name="SliderB" Grid.Column="1" Minimum="0" Maximum="255"
-                  VerticalAlignment="Center"/>
-          <TextBlock x:Name="LblB" Grid.Column="2" Text="0" Foreground="#0F172A"
-                     HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        </Grid>
-
-        <Grid Margin="0,0,0,10">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="120"/>
-          </Grid.ColumnDefinitions>
-
-          <StackPanel Grid.Column="0" Orientation="Horizontal"
-                      VerticalAlignment="Center">
-            <TextBlock Text="HEX" Foreground="#FFFFFF"
-                       FontWeight="SemiBold" VerticalAlignment="Center"
-                       Margin="0,0,6,0"/>
-            <TextBox x:Name="HexBox" Width="90" Height="24"
-                     VerticalContentAlignment="Center"
-                     BorderBrush="#E0E0E0" Text="#000000"/>
-            <Button x:Name="HexApply" Content="Set" Style="{StaticResource DqtButton}"
-                    Padding="8,2" Margin="6,0,0,0"/>
-          </StackPanel>
-
-          <Border Grid.Column="1" x:Name="PreviewBox" Height="46"
-                  BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6">
-            <TextBlock x:Name="PreviewLbl" Text="Preview"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       FontSize="10"/>
-          </Border>
-        </Grid>
-
-      </StackPanel>
-    </Border>
-
-    <!-- Action bar + footer -->
-    <Border Grid.Row="2" Background="#FFFFFF"
-            BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="12,8">
-      <StackPanel>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-          <Button x:Name="BtnApply" Content="Apply" Style="{StaticResource DqtButton}"/>
-          <Button x:Name="BtnClose" Content="Close" Style="{StaticResource DqtButton}"/>
-        </StackPanel>
-        <TextBlock Text="Dang Quoc Truong - DQT (c) 2026"
-                   Foreground="#FFFFFF" FontSize="11"
-                   HorizontalAlignment="Right" Margin="0,6,0,0"/>
-      </StackPanel>
-    </Border>
-  </Grid>
-</Window>"""
 
 
 # ------------------------------------------------------------------ WINDOW
 class BackgroundThemeWindow(object):
     def __init__(self, r, g, b):
-        stream = MemoryStream(Encoding.UTF8.GetBytes(XAML))
+        # Find T3Lab.extension parent folder dynamically
+        current_dir = os.path.dirname(__file__)
+        while current_dir and not current_dir.endswith('T3Lab.extension'):
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:
+                break
+            current_dir = parent
+        xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "BGTheme.xaml")
+
+        with codecs.open(xaml_path, "r", "utf-8") as f:
+            xaml_content = f.read()
+        stream = MemoryStream(Encoding.UTF8.GetBytes(xaml_content))
         self.win = XamlReader.Load(stream)
 
         self.applied = False

@@ -38,6 +38,18 @@ import codecs
 import traceback
 import datetime
 
+# Find T3Lab.extension parent folder dynamically
+current_dir = os.path.dirname(__file__)
+while current_dir and not current_dir.endswith('T3Lab.extension'):
+    parent = os.path.dirname(current_dir)
+    if parent == current_dir:
+        break
+    current_dir = parent
+
+MAPPER_XAML_PATH = os.path.join(current_dir, "lib", "GUI", "Tools", "ParameterLoaderMapper.xaml")
+CATPICKER_XAML_PATH = os.path.join(current_dir, "lib", "GUI", "Tools", "ParameterLoaderCatPicker.xaml")
+MAIN_XAML_PATH = os.path.join(current_dir, "lib", "GUI", "Tools", "ParameterLoaderMain.xaml")
+
 # =====================================================================
 # REVIT API COMPATIBILITY (2024/2025/2026+)
 # =====================================================================
@@ -404,114 +416,7 @@ class RequirementParser:
 # =====================================================================
 # EXCEL COLUMN MAPPER DIALOG
 # =====================================================================
-MAPPER_XAML = '''
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Excel Column Mapping - DQT"
-        Height="520" Width="650"
-        WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC"
-        ResizeMode="NoResize">
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <!-- Header -->
-        <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
-            <TextBlock Text="Map Excel Columns" FontSize="16" FontWeight="Bold" Foreground="#333"/>
-        </Border>
-        
-        <!-- Sheet + Header Row -->
-        <Grid Grid.Row="1" Margin="0,0,0,10">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="80"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="Sheet:" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" 
-                       Margin="0,0,8,0" Foreground="#FFFFFF"/>
-            <ComboBox x:Name="cmbSheet" Grid.Column="1" Padding="6,4" FontSize="11"/>
-            <TextBlock Grid.Column="2" Text="  Header Row:" FontSize="12" FontWeight="SemiBold" 
-                       VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#FFFFFF"/>
-            <TextBox x:Name="txtHeaderRow" Grid.Column="3" Text="1" Padding="6,4" FontSize="11" 
-                     HorizontalContentAlignment="Center"/>
-        </Grid>
-        
-        <!-- Column Mapping -->
-        <Border Grid.Row="2" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" 
-                CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="60"/>
-                </Grid.ColumnDefinitions>
-                
-                <TextBlock Text="Parameter Name *" FontSize="11" FontWeight="SemiBold" 
-                           VerticalAlignment="Center" Foreground="#C62828"/>
-                <ComboBox x:Name="cmbColParam" Grid.Column="1" Padding="6,4" FontSize="11" Margin="0,0,0,4"/>
-                <TextBlock Grid.Column="2" Text="Required" FontSize="9" Foreground="#C62828" 
-                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                
-                <TextBlock Grid.Row="1" Text="Revit Category" FontSize="11" FontWeight="SemiBold" 
-                           VerticalAlignment="Center" Foreground="#FFFFFF" Margin="0,4,0,0"/>
-                <ComboBox x:Name="cmbColCategory" Grid.Row="1" Grid.Column="1" Padding="6,4" 
-                          FontSize="11" Margin="0,4,0,4"/>
-                <TextBlock Grid.Row="1" Grid.Column="2" Text="Optional" FontSize="9" Foreground="#888" 
-                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                
-                <TextBlock Grid.Row="2" Text="Discipline" FontSize="11" FontWeight="SemiBold" 
-                           VerticalAlignment="Center" Foreground="#FFFFFF" Margin="0,4,0,0"/>
-                <ComboBox x:Name="cmbColDiscipline" Grid.Row="2" Grid.Column="1" Padding="6,4" 
-                          FontSize="11" Margin="0,4,0,0"/>
-                <TextBlock Grid.Row="2" Grid.Column="2" Text="Optional" FontSize="9" Foreground="#888" 
-                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
-            </Grid>
-        </Border>
-        
-        <!-- Preview -->
-        <Border Grid.Row="3" Background="White" BorderBrush="#E0E0E0" BorderThickness="1" 
-                CornerRadius="6" Padding="8">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Text="Data Preview (first 5 rows)" FontSize="10" FontWeight="SemiBold" 
-                           Foreground="#888" Margin="0,0,0,4"/>
-                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" 
-                              VerticalScrollBarVisibility="Auto">
-                    <TextBlock x:Name="txtPreview" FontFamily="Consolas" FontSize="10" 
-                               Foreground="#333" TextWrapping="NoWrap"/>
-                </ScrollViewer>
-            </Grid>
-        </Border>
-        
-        <!-- Buttons -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <TextBlock x:Name="txtMapInfo" Text="" FontSize="10" Foreground="#888" 
-                       VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <Button x:Name="btnMapOK" Content="Import" Padding="20,8" FontSize="12" FontWeight="Bold"
-                    Background="#C8E6C9" Foreground="#2E7D32" BorderBrush="#81C784" BorderThickness="1"
-                    Cursor="Hand" Margin="0,0,6,0"/>
-            <Button x:Name="btnMapCancel" Content="Cancel" Padding="16,8" FontSize="12"
-                    Background="White" Foreground="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1"
-                    Cursor="Hand"/>
-        </StackPanel>
-    </Grid>
-</Window>
-'''
+
 
 
 class ExcelColumnMapper:
@@ -522,7 +427,9 @@ class ExcelColumnMapper:
         self.result = None  # Will hold mapping dict if OK
         self.sheets_data = RequirementParser.read_excel_headers(filepath)
         
-        xr = XmlReader.Create(StringReader(MAPPER_XAML))
+        with codecs.open(MAPPER_XAML_PATH, "r", "utf-8") as f:
+            xaml_content = f.read()
+        xr = XmlReader.Create(StringReader(xaml_content))
         self.window = XamlReader.Load(xr)
         
         # Get controls
@@ -654,59 +561,7 @@ class ExcelColumnMapper:
 # =====================================================================
 # CATEGORY PICKER DIALOG
 # =====================================================================
-CATPICKER_XAML = '''
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Select Categories - DQT"
-        Height="550" Width="420"
-        WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC"
-        ResizeMode="NoResize">
-    <Grid Margin="14">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="10,6" Margin="0,0,0,10">
-            <StackPanel>
-                <TextBlock Text="Select Target Categories" FontSize="15" FontWeight="Bold" Foreground="#333"/>
-                <TextBlock x:Name="txtPickerInfo" Text="" FontSize="10" Foreground="#666" Margin="0,2,0,0"/>
-            </StackPanel>
-        </Border>
-        
-        <TextBlock Grid.Row="1" TextWrapping="Wrap" FontSize="11" Foreground="#666" Margin="0,0,0,8"
-                   Text="Some parameters have no category assigned. Select which Revit categories these parameters should be added to:"/>
-        
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
-            <Button x:Name="btnPickAll" Content="Check All" Padding="8,3" FontSize="10" Margin="0,0,4,0"
-                    Background="White" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand"/>
-            <Button x:Name="btnPickNone" Content="Check None" Padding="8,3" FontSize="10" Margin="0,0,8,0"
-                    Background="White" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand"/>
-            <TextBlock Text="Search:" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888"/>
-            <TextBox x:Name="txtPickSearch" Width="150" Padding="4,3" FontSize="11"/>
-        </StackPanel>
-        
-        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="spPickCategories"/>
-        </ScrollViewer>
-        
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-            <TextBlock x:Name="txtPickCount" Text="0 selected" FontSize="10" Foreground="#888"
-                       VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <Button x:Name="btnPickOK" Content="Apply" Padding="18,7" FontSize="12" FontWeight="Bold"
-                    Background="#C8E6C9" Foreground="#2E7D32" BorderBrush="#81C784" BorderThickness="1"
-                    Cursor="Hand" Margin="0,0,6,0"/>
-            <Button x:Name="btnPickCancel" Content="Cancel" Padding="14,7" FontSize="12"
-                    Background="White" Foreground="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1"
-                    Cursor="Hand"/>
-        </StackPanel>
-    </Grid>
-</Window>
-'''
+
 
 
 class CategoryPickerDialog:
@@ -720,7 +575,9 @@ class CategoryPickerDialog:
         self.selected_categories = []
         self._checkboxes = []
         
-        xr = XmlReader.Create(StringReader(CATPICKER_XAML))
+        with codecs.open(CATPICKER_XAML_PATH, "r", "utf-8") as f:
+            xaml_content = f.read()
+        xr = XmlReader.Create(StringReader(xaml_content))
         self.window = XamlReader.Load(xr)
         
         self.txtPickerInfo = self.window.FindName("txtPickerInfo")
@@ -1077,257 +934,7 @@ class ParameterAdder:
 # =====================================================================
 # WPF UI
 # =====================================================================
-XAML_STR = '''
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IFC-SG Parameter Loader v1.0 - DQT"
-        Height="800" Width="1050"
-        MinHeight="600" MinWidth="850"
-        WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC">
-    
-    <Window.Resources>
-        <Style x:Key="CardBorder" TargetType="Border">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="Padding" Value="12,8"/>
-        </Style>
-        <Style x:Key="BtnPrimary" TargetType="Button">
-            <Setter Property="Background" Value="#0F172A"/>
-            <Setter Property="Foreground" Value="#5D4E37"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="12,7"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="11"/>
-        </Style>
-        <Style x:Key="BtnSecondary" TargetType="Button">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#5D4E37"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="11"/>
-        </Style>
-        <Style x:Key="BtnSuccess" TargetType="Button">
-            <Setter Property="Background" Value="#C8E6C9"/>
-            <Setter Property="Foreground" Value="#2E7D32"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Padding" Value="16,9"/>
-            <Setter Property="BorderBrush" Value="#81C784"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="13"/>
-        </Style>
-        <Style x:Key="BtnDanger" TargetType="Button">
-            <Setter Property="Background" Value="#FFCDD2"/>
-            <Setter Property="Foreground" Value="#C62828"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="BorderBrush" Value="#EF9A9A"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-    </Window.Resources>
-    
-    <Grid Margin="12">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <!-- Header -->
-        <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="14,10" Margin="0,0,0,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="&#x2795; IFC-SG Parameter Loader" FontSize="20" FontWeight="Bold" Foreground="#333"/>
-                    <TextBlock Text="Add required IFC+SG parameters to model categories" FontSize="11" Foreground="#666" Margin="0,3,0,0"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="DQT" FontSize="14" FontWeight="Bold" Foreground="#C89650"/>
-                    <TextBlock Text="v1.0" FontSize="9" Foreground="#999" HorizontalAlignment="Right"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-        
-        <!-- Import Bar -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorder}" Margin="0,0,0,8">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Import from:" FontWeight="SemiBold" FontSize="12" 
-                           VerticalAlignment="Center" Margin="0,0,10,0" Foreground="#FFFFFF"/>
-                <Button x:Name="btnImportXML" Content="&#x1F4C4; Autodesk Model Checker XML" 
-                        Style="{StaticResource BtnPrimary}" Margin="0,0,6,0"/>
-                <Button x:Name="btnImportExcel" Content="&#x1F4CA; Excel Parameter Mapping" 
-                        Style="{StaticResource BtnPrimary}" Margin="0,0,20,0"/>
-                <TextBlock x:Name="txtSourceInfo" Text="No source loaded" FontSize="11" 
-                           Foreground="#999" VerticalAlignment="Center"/>
-            </StackPanel>
-        </Border>
-        
-        <!-- Summary Cards -->
-        <Grid Grid.Row="2" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,3,0">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtTotalParams" Text="0" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Total Params" FontSize="9" Foreground="#999" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Margin="2,0,2,0" Background="#E8F5E9">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtExisting" Text="0" FontSize="22" FontWeight="Bold" Foreground="#2E7D32" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Already Exist" FontSize="9" Foreground="#388E3C" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="2" Style="{StaticResource CardBorder}" Margin="2,0,2,0" Background="#FFF8E1">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtToAdd" Text="0" FontSize="22" FontWeight="Bold" Foreground="#F57F17" HorizontalAlignment="Center"/>
-                    <TextBlock Text="To Add" FontSize="9" Foreground="#F9A825" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="3" Style="{StaticResource CardBorder}" Margin="3,0,0,0">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock x:Name="txtCategories" Text="0" FontSize="22" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Categories" FontSize="9" Foreground="#999" HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-        </Grid>
-        
-        <!-- Main Content -->
-        <Grid Grid.Row="3" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="300"/>
-            </Grid.ColumnDefinitions>
-            
-            <!-- Left: Parameter list -->
-            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,4,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    
-                    <Grid Grid.Row="0" Margin="0,0,0,6">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Parameters" FontWeight="Bold" FontSize="12" Foreground="#FFFFFF"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button x:Name="btnSelectNew" Content="Select New Only" 
-                                    Style="{StaticResource BtnSecondary}" Padding="6,3" FontSize="10" Margin="0,0,4,0"/>
-                            <Button x:Name="btnSelectAll" Content="Select All" 
-                                    Style="{StaticResource BtnSecondary}" Padding="6,3" FontSize="10" Margin="0,0,4,0"/>
-                            <Button x:Name="btnSelectNone" Content="None" 
-                                    Style="{StaticResource BtnSecondary}" Padding="6,3" FontSize="10"/>
-                        </StackPanel>
-                    </Grid>
-                    
-                    <!-- Filter + Sort -->
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                        <TextBlock Text="Search:" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888"/>
-                        <TextBox x:Name="txtSearch" Width="150" Padding="4,3" FontSize="11"/>
-                        <TextBlock Text="  Show:" FontSize="11" VerticalAlignment="Center" Margin="6,0,6,0" Foreground="#888"/>
-                        <Button x:Name="btnShowAll" Content="All" Style="{StaticResource BtnSecondary}" 
-                                Padding="6,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnShowNew" Content="New" Style="{StaticResource BtnPrimary}" 
-                                Padding="6,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnShowExist" Content="Existing" Style="{StaticResource BtnSecondary}" 
-                                Padding="6,3" FontSize="10" Margin="0,0,10,0"/>
-                        <TextBlock Text="Sort:" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888"/>
-                        <Button x:Name="btnSortName" Content="Name &#x25B2;" Style="{StaticResource BtnSecondary}" 
-                                Padding="6,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnSortGroup" Content="Group" Style="{StaticResource BtnSecondary}" 
-                                Padding="6,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnSortCat" Content="Category" Style="{StaticResource BtnSecondary}" 
-                                Padding="6,3" FontSize="10" Margin="0,0,3,0"/>
-                        <Button x:Name="btnSortStatus" Content="Status" Style="{StaticResource BtnSecondary}" 
-                                Padding="6,3" FontSize="10"/>
-                    </StackPanel>
-                    
-                    <!-- Column headers -->
-                    <Border Grid.Row="2" Background="#F5F0E0" Padding="6,3" CornerRadius="6" Margin="0,0,0,2">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="28"/>
-                                <ColumnDefinition Width="65"/>
-                                <ColumnDefinition Width="200"/>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <CheckBox x:Name="chkHeaderAll" Grid.Column="0" VerticalAlignment="Center" IsChecked="True"/>
-                            <TextBlock Grid.Column="1" Text="Status" FontSize="10" FontWeight="SemiBold" Foreground="#888" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="Parameter Name" FontSize="10" FontWeight="SemiBold" Foreground="#888" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="3" Text="Group Under" FontSize="10" FontWeight="SemiBold" Foreground="#888" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="4" Text="Categories" FontSize="10" FontWeight="SemiBold" Foreground="#888" VerticalAlignment="Center"/>
-                        </Grid>
-                    </Border>
-                    
-                    <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="spParams"/>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-            
-            <!-- Right: Log panel -->
-            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Margin="4,0,0,0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Activity Log" FontWeight="Bold" FontSize="12" 
-                               Foreground="#FFFFFF" Margin="0,0,0,6"/>
-                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <TextBlock x:Name="txtLog" TextWrapping="Wrap" FontSize="10" 
-                                   Foreground="#666" FontFamily="Consolas"/>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-        </Grid>
-        
-        <!-- Action Buttons -->
-        <Grid Grid.Row="4" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock x:Name="txtStatus" Text="Import a config to begin." FontSize="11" 
-                       Foreground="#888" VerticalAlignment="Center"/>
-            <Button x:Name="btnAddParams" Grid.Column="1" Content="&#x2795; Add Selected Parameters" 
-                    Style="{StaticResource BtnSuccess}" Margin="0,0,6,0" IsEnabled="False"/>
-            <Button x:Name="btnClose" Grid.Column="2" Content="Close" Style="{StaticResource BtnSecondary}"/>
-        </Grid>
-        
-        <!-- Footer -->
-        <Border Grid.Row="5" Background="#F5F0E0" CornerRadius="6" Padding="8,4">
-            <TextBlock Text="IFC-SG Parameter Loader v1.0 | Dang Quoc Truong (DQT)" 
-                       FontSize="9" Foreground="#999"/>
-        </Border>
-    </Grid>
-</Window>
-'''
+
 
 
 # =====================================================================
@@ -1341,7 +948,9 @@ class ParamLoaderWindow:
         self._show_filter = "all"
         self._checkboxes = []  # track checkbox -> requirement index
         
-        xr = XmlReader.Create(StringReader(XAML_STR))
+        with codecs.open(MAIN_XAML_PATH, "r", "utf-8") as f:
+            xaml_content = f.read()
+        xr = XmlReader.Create(StringReader(xaml_content))
         self.window = XamlReader.Load(xr)
         self._get_controls()
         self._bind_events()

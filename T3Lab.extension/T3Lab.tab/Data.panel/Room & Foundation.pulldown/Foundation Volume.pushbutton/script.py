@@ -26,6 +26,8 @@ clr.AddReference('WindowsBase')
 clr.AddReference('System.Xml')
 
 import System
+import codecs
+import os
 from System import Array
 from System.IO import MemoryStream
 from System.Text import Encoding
@@ -122,177 +124,7 @@ def get_writable_params(foundations):
 # ═══════════════════════════════════════════════════════════════════════════
 # XAML UI
 # ═══════════════════════════════════════════════════════════════════════════
-XAML_TEMPLATE = """
-<Window
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Foundation Volume Writer"
-    Width="420"
-    SizeToContent="Height"
-    MinHeight="480" MaxHeight="720"
-    WindowStartupLocation="CenterScreen"
-    ResizeMode="NoResize"
-    FontFamily="Segoe UI">
-  <Window.Resources>
-    <Style x:Key="PrimaryBtn" TargetType="Button">
-      <Setter Property="Background" Value="%%BTN_BG%%"/>
-      <Setter Property="Foreground" Value="White"/>
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Height" Value="38"/>
-      <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Border Background="{TemplateBinding Background}"
-                    CornerRadius="6"
-                    Padding="12,0">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-    <Style x:Key="SecondaryBtn" TargetType="Button" BasedOn="{StaticResource PrimaryBtn}">
-      <Setter Property="Background" Value="#9E9E9E"/>
-    </Style>
-  </Window.Resources>
 
-  <Border Background="White">
-    <Grid>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-        <RowDefinition Height="Auto"/>
-      </Grid.RowDefinitions>
-
-      <!-- HEADER -->
-      <Border Grid.Row="0" Background="%%HEADER_BG%%" CornerRadius="6">
-        <Grid Margin="16,14,16,14">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-          </Grid.ColumnDefinitions>
-          <StackPanel Grid.Column="0" VerticalAlignment="Center">
-            <TextBlock Text="Foundation Volume Writer" FontSize="16"
-                       FontWeight="Bold" Foreground="%%DARK_ACCENT%%"/>
-            <TextBlock Text="Write computed volume to a shared parameter"
-                       FontSize="11" Foreground="%%DARK_ACCENT%%" Opacity="0.75" Margin="0,2,0,0"/>
-          </StackPanel>
-          <Border Grid.Column="1" Background="%%ACCENT%%" CornerRadius="6"
-                  Padding="10,4" VerticalAlignment="Center">
-            <TextBlock x:Name="FoundationCount" Text="0 foundations"
-                       FontSize="11" FontWeight="SemiBold" Foreground="%%DARK_ACCENT%%"/>
-          </Border>
-        </Grid>
-      </Border>
-
-      <!-- BODY -->
-      <StackPanel Grid.Row="1" Margin="16,16,16,12">
-
-        <!-- Step 1 label -->
-        <Border Background="#F5F5F5" CornerRadius="6" Padding="10,6" Margin="0,0,0,10">
-          <TextBlock FontSize="12" Foreground="#555555">
-            <Run FontWeight="Bold" Foreground="%%DARK_ACCENT%%">Step 1 — </Run>
-            <Run>Search and select the target parameter</Run>
-          </TextBlock>
-        </Border>
-
-        <!-- Search box -->
-        <Grid Margin="0,0,0,8">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="🔍  " FontSize="14"
-                     VerticalAlignment="Center" Margin="0,0,4,0"/>
-          <TextBox x:Name="SearchBox" Grid.Column="1"
-                   Height="32" Padding="8,4"
-                   FontSize="12" BorderBrush="%%ACCENT%%"
-                   BorderThickness="1.5" VerticalContentAlignment="Center"/>
-        </Grid>
-
-        <!-- Parameter list -->
-        <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="6" Height="220">
-          <ListBox x:Name="ParamList"
-                   BorderThickness="0"
-                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                   FontSize="12" Padding="2">
-            <ListBox.ItemContainerStyle>
-              <Style TargetType="ListBoxItem">
-                <Setter Property="Padding" Value="10,7"/>
-                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Style.Triggers>
-                  <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="%%HEADER_BG%%"/>
-                    <Setter Property="Foreground" Value="%%DARK_ACCENT%%"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                  </Trigger>
-                </Style.Triggers>
-              </Style>
-            </ListBox.ItemContainerStyle>
-          </ListBox>
-        </Border>
-
-        <!-- Selected label -->
-        <Border Background="#FFF8E8" CornerRadius="6" Padding="10,7" Margin="0,8,0,0"
-                BorderBrush="%%ACCENT%%" BorderThickness="1">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock Text="Selected: " FontSize="11" Foreground="#475569"/>
-            <TextBlock x:Name="SelectedLabel" Text="(none)"
-                       FontSize="11" FontWeight="SemiBold" Foreground="%%DARK_ACCENT%%"/>
-          </StackPanel>
-        </Border>
-
-        <!-- Step 2 label -->
-        <Border Background="#F5F5F5" CornerRadius="6" Padding="10,6" Margin="0,12,0,8">
-          <TextBlock FontSize="12" Foreground="#555555">
-            <Run FontWeight="Bold" Foreground="%%DARK_ACCENT%%">Step 2 — </Run>
-            <Run>Click Write Volume to apply</Run>
-          </TextBlock>
-        </Border>
-
-        <!-- Status result — always visible after run -->
-        <Border x:Name="StatusBorder" CornerRadius="6"
-                Padding="12,10" Margin="0,0,0,4" Visibility="Collapsed">
-          <StackPanel>
-            <TextBlock x:Name="StatusTitle" FontSize="13" FontWeight="Bold"
-                       Margin="0,0,0,4"/>
-            <TextBlock x:Name="StatusText" FontSize="11"
-                       Foreground="#0F172A" TextWrapping="Wrap" LineHeight="18"/>
-          </StackPanel>
-        </Border>
-
-      </StackPanel>
-
-      <!-- FOOTER -->
-      <Border Grid.Row="2" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="16,10">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="8"/>
-            <ColumnDefinition Width="Auto"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="Dang Quoc Truong - DQT (c) 2026"
-                     FontSize="9" Foreground="#94A3B8" VerticalAlignment="Center"/>
-          <Button x:Name="RunButton" Grid.Column="1"
-                  Content="▶  Write Volume" Width="140"
-                  Style="{StaticResource PrimaryBtn}"/>
-          <Button x:Name="CloseButton" Grid.Column="3"
-                  Content="Close" Width="80"
-                  Style="{StaticResource SecondaryBtn}"/>
-        </Grid>
-      </Border>
-
-    </Grid>
-  </Border>
-</Window>
-""".replace("%%HEADER_BG%%", "#0F172A") \
-   .replace("%%ACCENT%%",    "#CBD5E1") \
-   .replace("%%DARK_ACCENT%%","#5D4E37") \
-   .replace("%%BTN_BG%%",    "#5D4E37")
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Main dialog class
@@ -304,7 +136,18 @@ class FoundationVolumeDialog(object):
         self.all_params    = get_writable_params(self.foundations)
         self.selected_param = None
 
-        stream = MemoryStream(Encoding.UTF8.GetBytes(XAML_TEMPLATE))
+        # Find T3Lab.extension parent folder dynamically
+        current_dir = os.path.dirname(__file__)
+        while current_dir and not current_dir.endswith('T3Lab.extension'):
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:
+                break
+            current_dir = parent
+        xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "FoundationVolume.xaml")
+        
+        with codecs.open(xaml_path, "r", "utf-8") as f:
+            xaml_content = f.read()
+        stream = MemoryStream(Encoding.UTF8.GetBytes(xaml_content))
         self.window = XamlReader.Load(stream)
 
         # Controls

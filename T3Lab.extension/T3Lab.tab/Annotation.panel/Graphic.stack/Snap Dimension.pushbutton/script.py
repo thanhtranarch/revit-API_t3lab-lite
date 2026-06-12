@@ -345,148 +345,18 @@ ALL_BICS = WALL_BICS + BEAM_BICS + COL_BICS
 
 
 # ==============================================================================
-# XAML
+# XAML LOADING
 # ==============================================================================
-XAML_STR = """
-<Window
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="DQT - Snap to Grid"
-    Width="880" Height="580"
-    WindowStartupLocation="CenterScreen"
-    ResizeMode="CanResizeWithGrip"
-    Background="%%BG%%">
-    <Window.Resources>
-        <Style x:Key="BtnP" TargetType="Button">
-            <Setter Property="Background" Value="%%HD%%"/>
-            <Setter Property="Foreground" Value="%%DK%%"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="BorderBrush" Value="%%AC%%"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-        <Style x:Key="BtnS" TargetType="Button">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="%%DK%%"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="BorderBrush" Value="%%AC%%"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-    </Window.Resources>
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+import os
+import io
 
-        <!-- HEADER -->
-        <Border Grid.Row="0" Background="%%HD%%" Padding="16,10">
-            <StackPanel>
-                <TextBlock Text="Snap to Grid" FontSize="18" FontWeight="Bold" Foreground="%%DK%%"/>
-                <TextBlock Text="Round element distances to gridlines (Walls, Columns, Beams)" FontSize="11" Foreground="%%DK%%" Opacity="0.7"/>
-            </StackPanel>
-        </Border>
-
-        <!-- OPTIONS -->
-        <Border Grid.Row="1" Background="White" Padding="16,8" BorderBrush="%%AC%%" BorderThickness="0,0,0,1">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Grid.Column="0" Text="Scope:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="%%DK%%"/>
-                <ComboBox x:Name="cmbScope" Grid.Column="1" Width="140" Margin="0,0,12,0" SelectedIndex="0">
-                    <ComboBoxItem Content="Entire Project"/>
-                    <ComboBoxItem Content="Current Selection"/>
-                </ComboBox>
-
-                <TextBlock Grid.Column="2" Text="Category:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="%%DK%%"/>
-                <ComboBox x:Name="cmbCat" Grid.Column="3" Width="175" Margin="0,0,12,0" SelectedIndex="0">
-                    <ComboBoxItem Content="All (Walls+Columns+Beams)"/>
-                    <ComboBoxItem Content="Walls Only"/>
-                    <ComboBoxItem Content="Columns Only"/>
-                    <ComboBoxItem Content="Beams Only"/>
-                    <ComboBoxItem Content="Walls + Columns"/>
-                    <ComboBoxItem Content="Walls + Beams"/>
-                    <ComboBoxItem Content="Columns + Beams"/>
-                </ComboBox>
-
-                <TextBlock Grid.Column="4" Text="Round:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="%%DK%%"/>
-                <ComboBox x:Name="cmbPrec" Grid.Column="5" Width="80" Margin="0,0,12,0" SelectedIndex="0">
-                    <ComboBoxItem Content="1 mm"/>
-                    <ComboBoxItem Content="0.5 mm"/>
-                    <ComboBoxItem Content="5 mm"/>
-                    <ComboBoxItem Content="10 mm"/>
-                </ComboBox>
-
-                <TextBlock Grid.Column="7" Text="Max:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="%%DK%%"/>
-                <ComboBox x:Name="cmbMax" Grid.Column="8" Width="80" SelectedIndex="2">
-                    <ComboBoxItem Content="0.1 mm"/>
-                    <ComboBoxItem Content="0.5 mm"/>
-                    <ComboBoxItem Content="1 mm"/>
-                    <ComboBoxItem Content="2 mm"/>
-                    <ComboBoxItem Content="5 mm"/>
-                    <ComboBoxItem Content="No limit"/>
-                </ComboBox>
-            </Grid>
-        </Border>
-
-        <!-- DATAGRID -->
-        <DataGrid x:Name="dg" Grid.Row="2" Margin="10,8,10,4"
-            AutoGenerateColumns="True" IsReadOnly="True" CanUserSortColumns="True"
-            SelectionMode="Extended" GridLinesVisibility="Horizontal"
-            HeadersVisibility="Column" BorderBrush="%%AC%%" BorderThickness="1"
-            RowHeight="26" FontSize="12" AlternatingRowBackground="#FFF8F0"/>
-
-        <!-- STATUS -->
-        <Border Grid.Row="3" Padding="12,4" Background="White">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="txtSt" Grid.Column="0" Text="Click Scan." FontSize="11" Foreground="%%DK%%" VerticalAlignment="Center"/>
-                <CheckBox x:Name="chkAll" Grid.Column="1" Content="Select All" VerticalAlignment="Center" Margin="0,0,16,0" IsChecked="True"/>
-            </Grid>
-        </Border>
-
-        <!-- BUTTONS -->
-        <Border Grid.Row="4" Background="White" Padding="12,8" BorderBrush="%%AC%%" BorderThickness="0,1,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Button x:Name="btnScan" Grid.Column="0" Content="Scan" Style="{StaticResource BtnS}" Margin="0,0,8,0"/>
-                <Button x:Name="btnHL" Grid.Column="1" Content="Highlight Selected" Style="{StaticResource BtnS}"/>
-                <Button x:Name="btnApply" Grid.Column="3" Content="Apply Snap" Style="{StaticResource BtnP}" Margin="0,0,8,0"/>
-                <Button x:Name="btnClose" Grid.Column="4" Content="Close" Style="{StaticResource BtnS}"/>
-            </Grid>
-        </Border>
-    </Grid>
-</Window>
-"""
+current_dir = os.path.dirname(__file__)
+while current_dir and not current_dir.endswith('T3Lab.extension'):
+    parent = os.path.dirname(current_dir)
+    if parent == current_dir:
+        break
+    current_dir = parent
+xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "SnapDimension.xaml")
 
 
 class SI(object):
@@ -516,9 +386,9 @@ class MainWin(object):
 
     def __init__(self):
         self.items = []
-        x = XAML_STR.replace("%%HD%%", "#0F172A").replace("%%BG%%", "#F8FAFC")
-        x = x.replace("%%AC%%", "#CBD5E1").replace("%%DK%%", "#5D4E37")
-        self.w = XamlReader.Load(MemoryStream(Encoding.UTF8.GetBytes(x)))
+        with io.open(xaml_path, 'r', encoding='utf-8') as f:
+            xaml_content = f.read()
+        self.w = XamlReader.Load(MemoryStream(Encoding.UTF8.GetBytes(xaml_content)))
         self.cmbScope = self.w.FindName("cmbScope")
         self.cmbCat = self.w.FindName("cmbCat")
         self.cmbPrec = self.w.FindName("cmbPrec")

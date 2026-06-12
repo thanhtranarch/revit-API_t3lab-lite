@@ -2822,11 +2822,19 @@ class BCFManagerWindow(WPFWindow):
 def main():
     _ensure_output_dir()
     try:
-        xaml_file = script.get_bundle_file('BCFReaderWindow.xaml')
-        if xaml_file is None or not os.path.exists(xaml_file):
+        # Find T3Lab.extension parent folder dynamically
+        current_dir = os.path.dirname(__file__)
+        while current_dir and not current_dir.endswith('T3Lab.extension'):
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:
+                break
+            current_dir = parent
+        xaml_file = os.path.join(current_dir, "lib", "GUI", "Tools", "BCFReaderWindow.xaml")
+
+        if not os.path.exists(xaml_file):
             TaskDialog.Show("DQT BCF Reader",
-                "BCFReaderWindow.xaml not found in bundle folder.\n"
-                "Expected: same folder as script.py")
+                "BCFReaderWindow.xaml not found in central Tools folder.\n"
+                "Expected: " + xaml_file)
             return
 
         win = BCFManagerWindow(xaml_file)

@@ -18,16 +18,124 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <!-- COLOR TOKENS -->
-        <!-- Primary branding blue -->
+        <!-- COLOR TOKENS ALIGNED TO V2 STANDARD -->
         <SolidColorBrush x:Key="PrimaryBlue" Color="#0F172A"/>
         <SolidColorBrush x:Key="LightBlueHighlight" Color="#EBF5FB"/>
-        <SolidColorBrush x:Key="AccentBlue" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="AccentBlue" Color="#3B82F6"/>
         <SolidColorBrush x:Key="TextDark" Color="#0F172A"/>
         <SolidColorBrush x:Key="TextMuted" Color="#64748B"/>
-        <SolidColorBrush x:Key="BorderLight" Color="#E5E9EC"/>
+        <SolidColorBrush x:Key="BorderLight" Color="#E2E8F0"/>
         <SolidColorBrush x:Key="BgLight" Color="#F8FAFC"/>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
+        <SolidColorBrush x:Key="T3SlateBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3AccentBrush" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="T3SuccessBrush" Color="#10B981"/>
+        <SolidColorBrush x:Key="T3DangerBrush" Color="#EF4444"/>
+        <SolidColorBrush x:Key="T3WarningBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="T3TextDarkBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3TextMutedBrush" Color="#64748B"/>
+        <SolidColorBrush x:Key="T3BorderLightBrush" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="T3BgLightBrush" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="T3LightBlueHighlightBrush" Color="#EBF5FB"/>
+
+        <!-- Sleek Modern Input Field -->
+        <Style x:Key="T3InputField" TargetType="TextBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Inter"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Premium Modern GroupBox Card -->
+        <Style x:Key="T3PremiumCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <!-- Card Header -->
+                                <Border Grid.Row="0" 
+                                        Background="White"
+                                        Padding="16,12"
+                                        BorderBrush="#F1F5F9"
+                                        BorderThickness="0,0,0,1">
+                                    <ContentPresenter ContentSource="Header"
+                                                      RecognizeAccessKey="True"
+                                                      TextBlock.FontSize="12"
+                                                      TextBlock.FontWeight="Bold"
+                                                      TextBlock.Foreground="#0F172A"/>
+                                </Border>
+                                <!-- Card Content -->
+                                <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Top Navigation Tab Style -->
+        <Style x:Key="T3TopNavTabStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#0F172A"/>
@@ -194,34 +302,7 @@
         <!-- Action / Orange button (legacy key, now amber AccentButton) -->
         <Style x:Key="OrangeButton" TargetType="Button" BasedOn="{StaticResource AccentButton}"/>
 
-        <!-- TOP BAR NAV TAB STYLE -->
-        <Style x:Key="TopNavTabStyle" TargetType="RadioButton">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="Medium"/>
-            <Setter Property="Padding" Value="16,20"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource PrimaryBlue}"/>
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource PrimaryBlue}"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource PrimaryBlue}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
 
         <!-- SIDEBAR LISTBOX ITEM STYLE -->
         <Style x:Key="SidebarListBoxItemStyle" TargetType="ListBoxItem">
@@ -337,9 +418,9 @@
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Stretch" WindowChrome.IsHitTestVisibleInChrome="True">
                 <!-- Navigation Tabs (RadioButtons styled as tabs) -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
-                    <RadioButton x:Name="nav_dim" Content="Dimensions" Style="{StaticResource TopNavTabStyle}" IsChecked="True" Checked="nav_dimensions_checked"/>
-                    <RadioButton x:Name="nav_txt" Content="Text Notes" Style="{StaticResource TopNavTabStyle}" Checked="nav_textnotes_checked"/>
-                    <RadioButton x:Name="nav_settings" Content="Settings" Style="{StaticResource TopNavTabStyle}" Checked="nav_settings_checked"/>
+                    <RadioButton x:Name="nav_dim" Content="Dimensions" Style="{StaticResource T3TopNavTabStyle}" IsChecked="True" Checked="nav_dimensions_checked"/>
+                    <RadioButton x:Name="nav_txt" Content="Text Notes" Style="{StaticResource T3TopNavTabStyle}" Checked="nav_textnotes_checked"/>
+                    <RadioButton x:Name="nav_settings" Content="Settings" Style="{StaticResource T3TopNavTabStyle}" Checked="nav_settings_checked"/>
                 </StackPanel>
 
                 <!-- Custom Minimize, Maximize, Close Buttons -->
@@ -395,7 +476,7 @@
                             <TextBlock x:Name="dim_lbl" Grid.Row="1" Text="Type name:" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextDark}" Margin="0,0,0,6"/>
 
                             <!-- Sidebar Search TextBox -->
-                            <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="4" Height="32" Margin="0,0,0,12">
+                            <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Height="32" Margin="0,0,0,12">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -435,7 +516,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <!-- Search box -->
-                            <Border Grid.Column="0" BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
+                            <Border Grid.Column="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -582,7 +663,7 @@
                             <TextBlock x:Name="txt_lbl" Grid.Row="1" Text="Content:" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextDark}" Margin="0,0,0,6"/>
 
                             <!-- Sidebar Search TextBox -->
-                            <Border Grid.Row="2" BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="4" Height="32" Margin="0,0,0,12">
+                            <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Height="32" Margin="0,0,0,12">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -622,7 +703,7 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <!-- Search box -->
-                            <Border Grid.Column="0" BorderBrush="#BDC3C7" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
+                            <Border Grid.Column="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>

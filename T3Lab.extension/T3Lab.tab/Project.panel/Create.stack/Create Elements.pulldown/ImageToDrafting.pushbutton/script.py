@@ -1565,8 +1565,17 @@ class ImageToDraftingWindow(forms.WPFWindow):
 
 def main():
     if not doc:
-        forms.alert("No active Revit document."); return
-    win = ImageToDraftingWindow(script.get_bundle_file('ui.xaml'))
+        forms.alert("No active Revit document.")
+        return
+    current_dir = os.path.dirname(__file__)
+    while current_dir and not current_dir.endswith('T3Lab.extension'):
+        parent = os.path.dirname(current_dir)
+        if parent == current_dir:
+            break
+        current_dir = parent
+    xaml_file = os.path.join(current_dir, "lib", "GUI", "Tools", "ImageToDrafting.xaml")
+
+    win = ImageToDraftingWindow(xaml_file)
     try:
         win.ShowDialog()
     finally:

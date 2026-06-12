@@ -50,6 +50,21 @@ doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
 output = script.get_output()
 
+# Find T3Lab.extension parent folder dynamically
+import os
+import io
+
+current_dir = os.path.dirname(__file__)
+while current_dir and not current_dir.endswith('T3Lab.extension'):
+    parent = os.path.dirname(current_dir)
+    if parent == current_dir:
+        break
+    current_dir = parent
+
+col_map_xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "AutoAssignColMap.xaml")
+preview_xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "AutoAssignPreview.xaml")
+main_xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "AutoAssignMain.xaml")
+
 # =====================================================================
 # Helpers
 # =====================================================================
@@ -58,8 +73,10 @@ def _eid_int(eid):
     try: return eid.Value
     except: return eid.IntegerValue
 
-def _load_xaml(xaml_str):
-    return XamlReader.Load(MemoryStream(Encoding.UTF8.GetBytes(xaml_str)))
+def _load_xaml_file(file_path):
+    with io.open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    return XamlReader.Load(MemoryStream(Encoding.UTF8.GetBytes(content)))
 
 def _is_userdefined(raw_subtype):
     """Check if Excel subtype is USERDEFINED (has * prefix)."""
@@ -580,52 +597,8 @@ def collect_elements(categories):
 # =====================================================================
 # Column Mapping Dialog
 # =====================================================================
-COL_MAP_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Column Mapping - IFC-SG Auto Assign | DQT"
-        Width="560" Height="500" WindowStartupLocation="CenterScreen" Background="#F8FAFC">
-  <Window.Resources>
-    <Style x:Key="BtnPrimary" TargetType="Button">
-      <Setter Property="Background" Value="#0F172A"/><Setter Property="Foreground" Value="#5D4E37"/>
-      <Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="12,7"/>
-      <Setter Property="BorderBrush" Value="#CBD5E1"/><Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-  </Window.Resources>
-  <Grid Margin="15">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-    <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
-      <TextBlock Text="Map Excel Columns" FontSize="16" FontWeight="Bold" Foreground="#333"/>
-    </Border>
-    <StackPanel Grid.Row="1">
-      <TextBlock Text="Sheet:" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
-      <ComboBox x:Name="cmbSheet" Height="28" Margin="0,0,0,12"/>
-      <Border BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Margin="0,0,0,10"/>
-      <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <TextBlock Text="Component Name *" FontSize="11" VerticalAlignment="Center"/>
-        <ComboBox Grid.Column="1" x:Name="cmbComponent" FontSize="11" Height="26"/></Grid>
-      <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <TextBlock Text="IFC Entity *" FontSize="11" VerticalAlignment="Center"/>
-        <ComboBox Grid.Column="1" x:Name="cmbEntity" FontSize="11" Height="26"/></Grid>
-      <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <TextBlock Text="IFC Sub Types" FontSize="11" VerticalAlignment="Center"/>
-        <ComboBox Grid.Column="1" x:Name="cmbSubtype" FontSize="11" Height="26"/></Grid>
-      <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <TextBlock Text="Revit Category" FontSize="11" VerticalAlignment="Center"/>
-        <ComboBox Grid.Column="1" x:Name="cmbRevit" FontSize="11" Height="26"/></Grid>
-    </StackPanel>
-    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-      <Button x:Name="btnCancel" Content="Cancel" Width="80" Height="28" Margin="0,0,8,0"/>
-      <Button x:Name="btnOK" Content="Load Mapping" Style="{StaticResource BtnPrimary}" Width="110" Height="28"/>
-    </StackPanel>
-  </Grid>
-</Window>"""
-
 def show_column_mapping_dialog(excel_info):
-    win = _load_xaml(COL_MAP_XAML)
+    win = _load_xaml_file(col_map_xaml_path)
     result = {"ok": False}
     cs, cc, ce, csu, cr = (win.FindName(n) for n in
         ["cmbSheet","cmbComponent","cmbEntity","cmbSubtype","cmbRevit"])
@@ -856,109 +829,6 @@ def _build_rows(elems_by_cat, mapping, src):
 
     rows.sort(key=lambda x: (x["category"].lower(), x["family_type"].lower()))
     return rows
-
-
-# =====================================================================
-# Preview XAML
-# =====================================================================
-PREVIEW_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IFC-SG Auto Assign v3.0 - DQT"
-        Width="1200" Height="720" MinWidth="1000" MinHeight="550"
-        WindowStartupLocation="CenterScreen" Background="#F8FAFC">
-  <Window.Resources>
-    <Style x:Key="BtnPrimary" TargetType="Button">
-      <Setter Property="Background" Value="#0F172A"/><Setter Property="Foreground" Value="#5D4E37"/>
-      <Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="14,8"/>
-      <Setter Property="BorderBrush" Value="#CBD5E1"/><Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Cursor" Value="Hand"/><Setter Property="FontSize" Value="11"/>
-    </Style>
-    <Style x:Key="BtnSecondary" TargetType="Button">
-      <Setter Property="Background" Value="White"/><Setter Property="Foreground" Value="#5D4E37"/>
-      <Setter Property="Padding" Value="10,7"/><Setter Property="BorderBrush" Value="#CBD5E1"/>
-      <Setter Property="BorderThickness" Value="1"/><Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="FontSize" Value="11"/>
-    </Style>
-    <Style TargetType="DataGridColumnHeader">
-      <Setter Property="Background" Value="#0F172A"/><Setter Property="Foreground" Value="#333"/>
-      <Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontSize" Value="12"/>
-      <Setter Property="Padding" Value="8,6"/><Setter Property="BorderBrush" Value="#CBD5E1"/>
-      <Setter Property="BorderThickness" Value="0,0,1,1"/>
-    </Style>
-  </Window.Resources>
-  <Grid Margin="15">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-
-    <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="15,10" Margin="0,0,0,10">
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <StackPanel>
-          <TextBlock Text="IFC-SG Auto Assign v3.0" FontSize="20" FontWeight="Bold" Foreground="#333"/>
-          <TextBlock x:Name="txtSummary" FontSize="11" Foreground="#666"/>
-        </StackPanel>
-        <TextBlock Grid.Column="1" Text="DQT" FontSize="11" Foreground="#666" VerticalAlignment="Center" FontStyle="Italic"/>
-      </Grid>
-    </Border>
-
-    <Grid Grid.Row="1" Margin="0,0,0,8">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <Border Grid.Column="0" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,5" Margin="0,0,4,0">
-        <StackPanel><TextBlock Text="CATEGORIES" FontSize="9" Foreground="#666"/>
-          <TextBlock x:Name="txtCatCount" Text="0" FontSize="20" FontWeight="Bold"/></StackPanel></Border>
-      <Border Grid.Column="1" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,5" Margin="4,0">
-        <StackPanel><TextBlock Text="ELEMENTS" FontSize="9" Foreground="#666"/>
-          <TextBlock x:Name="txtElemCount" Text="0" FontSize="20" FontWeight="Bold" Foreground="#E5B85C"/></StackPanel></Border>
-      <Border Grid.Column="2" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,5" Margin="4,0">
-        <StackPanel><TextBlock Text="UNMATCHED" FontSize="9" Foreground="#666"/>
-          <TextBlock x:Name="txtUnmatched" Text="0" FontSize="20" FontWeight="Bold" Foreground="#EF4444"/></StackPanel></Border>
-      <Border Grid.Column="3" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,5" Margin="4,0,0,0">
-        <StackPanel><TextBlock Text="SOURCE" FontSize="9" Foreground="#666"/>
-          <TextBlock x:Name="txtSource" Text="-" FontSize="16" FontWeight="Bold" Foreground="#10B981"/></StackPanel></Border>
-    </Grid>
-
-    <Border Grid.Row="2" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,5" Margin="0,0,0,8">
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="Auto"/><ColumnDefinition Width="150"/>
-          <ColumnDefinition Width="Auto"/><ColumnDefinition Width="140"/>
-          <ColumnDefinition Width="Auto"/><ColumnDefinition Width="120"/>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <TextBlock Text="Search:" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
-        <TextBox Grid.Column="1" x:Name="txtSearch" FontSize="11" Height="26" VerticalContentAlignment="Center"/>
-        <TextBlock Grid.Column="2" Text="  Category:" FontSize="11" VerticalAlignment="Center" Margin="8,0,6,0"/>
-        <ComboBox Grid.Column="3" x:Name="cmbFilterCat" FontSize="11" Height="26"/>
-        <TextBlock Grid.Column="4" Text="  Source:" FontSize="11" VerticalAlignment="Center" Margin="8,0,6,0"/>
-        <ComboBox Grid.Column="5" x:Name="cmbFilterSource" FontSize="11" Height="26"/>
-        <StackPanel Grid.Column="6" Orientation="Horizontal" Margin="12,0,0,0">
-          <RadioButton x:Name="rbAll" Content="Overwrite" FontSize="11" IsChecked="True" Margin="0,0,10,0" VerticalAlignment="Center"/>
-          <RadioButton x:Name="rbEmpty" Content="Empty only" FontSize="11" VerticalAlignment="Center"/>
-        </StackPanel>
-        <Button Grid.Column="7" x:Name="btnChangeIFC" Content="Change IFC" Style="{StaticResource BtnPrimary}" Width="95" Margin="8,0,0,0"
-                ToolTip="Select rows (Ctrl/Shift+Click) then change IFC assignment"/>
-      </Grid>
-    </Border>
-
-    <DataGrid Grid.Row="4" x:Name="dgMapping" AutoGenerateColumns="False" IsReadOnly="True"
-              CanUserSortColumns="True" CanUserReorderColumns="False" HeadersVisibility="Column"
-              GridLinesVisibility="Horizontal" AlternatingRowBackground="#FAF6ED" RowBackground="White"
-              BorderBrush="#CBD5E1" BorderThickness="1" FontSize="13" SelectionMode="Extended"
-              VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
-
-    <Grid Grid.Row="5" Margin="0,10,0,0">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <TextBlock Text="Dang Quoc Truong - DQT (c) 2026" FontSize="9" Foreground="#999" VerticalAlignment="Center"/>
-      <Button Grid.Column="1" x:Name="btnCancel" Content="Cancel" Style="{StaticResource BtnSecondary}" Width="80" Margin="0,0,8,0"/>
-      <Button Grid.Column="2" x:Name="btnApply" Content="Apply Assignment" Style="{StaticResource BtnPrimary}" Width="130"/>
-    </Grid>
-  </Grid>
-</Window>"""
 
 
 # =====================================================================
@@ -1201,53 +1071,9 @@ def apply_assignment(final_mapping, mode):
 # =====================================================================
 # Main Dialog
 # =====================================================================
-MAIN_XAML = """
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IFC-SG Auto Assign v3.0 - DQT"
-        Width="480" Height="370" WindowStartupLocation="CenterScreen" Background="#F8FAFC">
-  <Window.Resources>
-    <Style x:Key="BtnPrimary" TargetType="Button">
-      <Setter Property="Background" Value="#0F172A"/><Setter Property="Foreground" Value="#5D4E37"/>
-      <Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Padding" Value="12,7"/>
-      <Setter Property="BorderBrush" Value="#CBD5E1"/><Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Cursor" Value="Hand"/>
-    </Style>
-  </Window.Resources>
-  <Grid Margin="15">
-    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <Border Grid.Row="0" Background="#0F172A" CornerRadius="6" Padding="14,10" Margin="0,0,0,14">
-      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <StackPanel>
-          <TextBlock Text="IFC-SG Auto Assign v3.0" FontSize="18" FontWeight="Bold" Foreground="#333"/>
-          <TextBlock Text="Assign IFC Export + ObjectType per Family Type" FontSize="11" Foreground="#666"/>
-        </StackPanel>
-        <TextBlock Grid.Column="1" Text="DQT" FontSize="11" Foreground="#666" VerticalAlignment="Center" FontStyle="Italic"/>
-      </Grid>
-    </Border>
-    <StackPanel Grid.Row="1">
-      <TextBlock Text="Choose mapping source:" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,12"/>
-      <Border x:Name="btnExcel" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,0,0,8" Cursor="Hand">
-        <StackPanel>
-          <TextBlock Text="Load from LTA Industry Mapping Excel" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-          <TextBlock Text="Handles * USERDEFINED vs Predefined subtypes correctly" FontSize="10.5" Foreground="#888" Margin="0,4,0,0"/>
-        </StackPanel>
-      </Border>
-      <Border x:Name="btnBuiltin" Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="14,12" Cursor="Hand">
-        <StackPanel>
-          <TextBlock Text="Use Built-in Default Mapping" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-          <TextBlock Text="Basic IFC-SG mapping without Excel" FontSize="10.5" Foreground="#888" Margin="0,4,0,0"/>
-        </StackPanel>
-      </Border>
-      <TextBlock x:Name="txtStatus" Text="" FontSize="10.5" Foreground="#C89650" Margin="0,8,0,0" TextWrapping="Wrap"/>
-    </StackPanel>
-    <TextBlock Grid.Row="2" Text="Dang Quoc Truong - DQT (c) 2026" FontSize="9" Foreground="#999" HorizontalAlignment="Center"/>
-  </Grid>
-</Window>"""
-
 class MainWindow(object):
     def __init__(self):
-        self.win = _load_xaml(MAIN_XAML)
+        self.win = _load_xaml_file(main_xaml_path)
         self.st = self.win.FindName("txtStatus")
         self.win.FindName("btnExcel").MouseLeftButtonUp += self.on_excel
         self.win.FindName("btnBuiltin").MouseLeftButtonUp += self.on_builtin

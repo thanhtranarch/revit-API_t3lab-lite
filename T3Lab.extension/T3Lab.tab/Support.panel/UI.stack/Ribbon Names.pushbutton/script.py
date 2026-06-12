@@ -29,6 +29,7 @@ Works on Revit 2024 / 2025 / 2026 / 2027.
 
 # ------------------------------------------------------------------ IMPORTS
 import os
+import codecs
 import json
 
 from pyrevit import script, forms
@@ -161,118 +162,24 @@ def get_ribbon_tabs():
 
 
 # ------------------------------------------------------------------ XAML
-XAML = """<Window
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="DQT - Ribbon Name Manager" Height="560" Width="560"
-    WindowStartupLocation="CenterScreen" ResizeMode="CanResize"
-    Background="#FFFFFF">
 
-  <Window.Resources>
-    <Style x:Key="DqtButton" TargetType="Button">
-      <Setter Property="Background" Value="#0F172A"/>
-      <Setter Property="Foreground" Value="#5D4E37"/>
-      <Setter Property="BorderBrush" Value="#CBD5E1"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding" Value="12,6"/>
-      <Setter Property="Margin" Value="4"/>
-      <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Border x:Name="bd" CornerRadius="6"
-                    Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}">
-              <ContentPresenter HorizontalAlignment="Center"
-                                VerticalAlignment="Center"/>
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="bd" Property="Background" Value="#E4D2A8"/>
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="bd" Property="Background" Value="#CBD5E1"/>
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-  </Window.Resources>
-
-  <Grid>
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-
-    <!-- Header -->
-    <Border Grid.Row="0" Background="#0F172A"
-            BorderBrush="#CBD5E1" BorderThickness="0,0,0,2" Padding="16,12">
-      <StackPanel>
-        <TextBlock Text="Ribbon Name Manager" Foreground="#FFFFFF"
-                   FontSize="18" FontWeight="Bold"/>
-        <TextBlock x:Name="HeaderSub"
-                   Text="Double-click a Short Name cell to edit. Then Apply Short or Restore Full."
-                   Foreground="#FFFFFF" FontSize="11" Margin="0,2,0,0"
-                   TextWrapping="Wrap"/>
-      </StackPanel>
-    </Border>
-
-    <!-- Body: DataGrid -->
-    <Border Grid.Row="1" Padding="16,12">
-      <DataGrid x:Name="Grid" AutoGenerateColumns="False"
-                HeadersVisibility="Column" CanUserAddRows="False"
-                GridLinesVisibility="All" SelectionMode="Single"
-                Background="#FFFFFF" RowBackground="#FFFFFF"
-                AlternatingRowBackground="#FAF3E0"
-                BorderBrush="#E0E0E0" BorderThickness="1"
-                HorizontalGridLinesBrush="#E0E0E0"
-                VerticalGridLinesBrush="#E0E0E0">
-        <DataGrid.ColumnHeaderStyle>
-          <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="#0F172A"/>
-            <Setter Property="Foreground" Value="#5D4E37"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Padding" Value="8,4"/>
-          </Style>
-        </DataGrid.ColumnHeaderStyle>
-        <DataGrid.Columns>
-          <DataGridTextColumn Header="Current Name" Width="*"
-                              Binding="{Binding CurrentName}" IsReadOnly="True"/>
-          <DataGridTextColumn Header="Short Name" Width="200"
-                              Binding="{Binding ShortName}"/>
-        </DataGrid.Columns>
-      </DataGrid>
-    </Border>
-
-    <!-- Action bar + footer -->
-    <Border Grid.Row="2" Background="#FFFFFF"
-            BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="12,8">
-      <StackPanel>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-          <Button x:Name="BtnShort"   Content="Apply Short"  Style="{StaticResource DqtButton}"/>
-          <Button x:Name="BtnFull"    Content="Restore Full" Style="{StaticResource DqtButton}"/>
-          <Button x:Name="BtnSave"    Content="Save Map"     Style="{StaticResource DqtButton}"/>
-          <Button x:Name="BtnReset"   Content="Reset"        Style="{StaticResource DqtButton}"/>
-          <Button x:Name="BtnClose"   Content="Close"        Style="{StaticResource DqtButton}"/>
-        </StackPanel>
-        <TextBlock Text="Dang Quoc Truong - DQT (c) 2026"
-                   Foreground="#FFFFFF" FontSize="11"
-                   HorizontalAlignment="Right" Margin="0,6,0,0"/>
-      </StackPanel>
-    </Border>
-  </Grid>
-</Window>"""
 
 
 # ------------------------------------------------------------------ WINDOW
 class RibbonNameWindow(object):
     def __init__(self):
-        stream = MemoryStream(Encoding.UTF8.GetBytes(XAML))
+        # Find T3Lab.extension parent folder dynamically
+        current_dir = os.path.dirname(__file__)
+        while current_dir and not current_dir.endswith('T3Lab.extension'):
+            parent = os.path.dirname(current_dir)
+            if parent == current_dir:
+                break
+            current_dir = parent
+        xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "RibbonNames.xaml")
+
+        with codecs.open(xaml_path, "r", "utf-8") as f:
+            xaml_content = f.read()
+        stream = MemoryStream(Encoding.UTF8.GetBytes(xaml_content))
         self.win = XamlReader.Load(stream)
 
         self.short_map = load_map()
