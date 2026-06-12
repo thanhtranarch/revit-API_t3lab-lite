@@ -1,0 +1,22 @@
+title: Quick Select
+tooltip: >-
+  Quick Select Manager - Quickly find, select, and zoom to any element
+  
+  FEATURES:
+  • Hierarchical browser: Category → Family → Type → Instance
+  • Display modes: Entire Project / Active View / Current Selection
+  • Search/filter by Category, Family, or Type name
+  • Double-click to zoom to any element
+  • Select elements directly in Revit model
+  • Show elements even if hidden in current view
+  
+  USAGE:
+  1. Choose display mode (Active View is default)
+  2. Use search box to filter elements
+  3. Expand tree to find specific elements
+  4. Double-click to zoom, or use action buttons
+  
+  Copyright © 2025 Dang Quoc Truong - DQT
+  
+author: Dang Quoc Truong (DQT)
+highlight: new

@@ -26,129 +26,86 @@ Three layers form a self-sustaining ecosystem for architectural intelligence:
 
 | Tool | Description |
 |------|-------------|
-| **T3Lab Assistant** | Natural language AI assistant — type commands in Vietnamese or English to control Revit tools, powered by Claude API or a local Ollama LLM |
-| **Start MCP** | Start the local MCP server for AI-to-Revit communication |
-| **Stop MCP** | Stop the running MCP server |
-| **Settings** | Configure API keys and AI backend (Claude API or local Ollama) |
-
-Supported backends: **Claude API** (Anthropic key required) · **Local LLM** via [Ollama](https://ollama.com/) — recommended models: `qwen2.5`, `llama3.2`, `phi3:mini`
+| **T3Lab Assistant** | Natural language AI assistant — control Revit via Vietnamese/English chat, powered by Claude API or Ollama. |
+| **Start MCP** | Starts the thread-safe local MCP server with dynamic port allocation (starting at `48884`) and pyRevit routes integration. |
+| **Stop MCP** | Stops the running MCP server and deactivates pyRevit routes. |
+| **Settings** | Configure API keys, backend options, and copy dynamically-updating Claude Desktop/Cline JSON config snippets. |
 
 ---
 
 ### Annotation Panel
 
-#### Graphic
+#### Graphic Stack
+- **Auto Dimension**: Consolidated wall/column grid dimensioning (collaborative tool by T3Lab & Dang Quoc Truong).
+- **Snap Dimension**: Quick-snap dimensioning tool for model alignments (from Dang Quoc Truong).
+- **Grids** (Pulldown): Save Grids, Restore Grids, Restore All Grids.
+- **Reset Overrides**: Reset visual and graphic overrides in the active view.
 
-| Tool | Description |
-|------|-------------|
-| **Auto Dimension** | Auto-dimension walls, structural/architectural columns, and grids in the current view; supports Plan, Section, Elevation, and Detail views with configurable offsets and style selection |
-| **Save Grids** | Save current grid head and tail positions for later restoration |
-| **Restore Grids** | Restore selected grid heads and tails to their saved positions |
-| **Restore All Grids** | Restore all grid heads and tails to their saved positions in all views |
-| **Reset Overrides** | Reset all by-element graphic overrides and linework in the active view |
-| **DWG Management** | List, rename, and delete CAD imports and CAD links from a single interface |
+#### SmartAlign Stack
+- Smart-alignment buttons: Align Top/Bottom/Left/Right, Align Center H/V, Distribute H/V.
 
-#### SmartAlign
+#### Smart Selection (Pulldown)
+- Material Select, Quick Element Select, Select Linked, and Select (Category/Family/Type).
 
-| Tool | Description |
-|------|-------------|
-| **Align Top** | Align selected elements to the topmost edge |
-| **Align Center (V)** | Align selected elements to their vertical center |
-| **Align Bottom** | Align selected elements to the bottom edge |
-| **Align Left** | Align selected elements to the leftmost edge |
-| **Align Center (H)** | Align selected elements to their horizontal center |
-| **Align Right** | Align selected elements to the rightmost edge |
-| **Distribute Horizontal** | Evenly distribute selected elements with equal horizontal spacing |
-| **Distribute Vertical** | Evenly distribute selected elements with equal vertical spacing |
+#### Text Stack
+- **Annotation Manager**: Consolidated Dimension and Text Note type and instance managers (collaborative tool by T3Lab & Dang Quoc Truong).
+- **Text & Tagging** (Pulldown): Text Note Type tools.
+- **Renumbering**: Renumber elements sequentially.
+- **Tag Checker**: Tag checkers and auto-openings tagging.
 
-#### Text
-
-| Tool | Description |
-|------|-------------|
-| **Annotation Manager** | Unified window with tabs for finding, deleting, and auto-renaming Dimension and Text Note types and instances |
-| **Dim Text** | View and edit prefix, suffix, and value overrides on selected dimension elements |
-| **Upper All Text** | Convert view names, sheet title block parameters, text notes, and dimension overrides to uppercase |
-
----
-
-### Cloud Panel
-
-| Tool | Description |
-|------|-------------|
-| **ACC Platform** | Quick link to Autodesk Construction Cloud |
-| **B360 Health** | Quick link to BIM 360 / ACC service health status |
-| **Bluebeam Health** | Quick link to Bluebeam service health status |
-
----
-
-### Export Panel
-
-| Tool | Description |
-|------|-------------|
-| **BatchOut** | Batch export sheets to PDF, DWG, NWD (Navisworks), and IFC formats with sheet filtering, custom naming patterns, revision tracking, progress tracking, and combined PDF support |
+#### Other
+- **DWG Management**: Unified CAD import and link manager with sheet selection capabilities (collaborative tool by T3Lab & Dang Quoc Truong).
 
 ---
 
 ### Project Panel
 
-#### Create
-
-| Tool | Description |
-|------|-------------|
-| **Point Cloud to Model** | Scan-to-BIM: auto-detect Walls, Floors, Ceilings, Doors, Windows, Columns, Stairs, and Roof from a point cloud scan and create all elements in one click |
-| **CAD to Beam** | Create structural beams from imported CAD files — pairs parallel lines to find centerlines and widths, then places beams at the correct level and Z-offset |
-| **Room to Floor** | Create architectural or structural floors from selected room boundaries |
-| **Door Threshold** | Create threshold floor elements at the base of selected doors with automatic dimension matching |
-| **Image to Drafting** | Create a new Drafting View and import an image into it |
-| **Property Line** | Create US property lines from Lightbox parcel data |
-| **Create Plan Views** | Batch-generate individual floor plan views for each room with custom naming and template assignment |
-
-#### Family Work
-
-| Tool | Description |
-|------|-------------|
-| **Load Family** | Browse and load Revit families from local disk or cloud library; supports category filtering and batch loading |
-| **Bulk Family Export** | Scan imported DWG/DXF files for block definitions and export each block as a separate `.rfa` family file |
-| **JSON to Family** | Generate fully parametric Revit families (Extrusion, Sweep, Revolve, Blend, Void) from a structured JSON schema |
-
-#### Workset
-
-| Tool | Description |
-|------|-------------|
-| **Workset Manager** | List, rename, and manage user worksets; remove unused worksets via a checklist interface |
-| **Central File** | Quick access to sync-to-central and central file worksharing workflows |
-| **Tile Layout** | 3-step wizard to extract floor boundaries, choose a tile pattern, and place a tiled view arrangement on the active sheet |
-
-#### Areas
-
-| Tool | Description |
-|------|-------------|
-| **Room to Area** | Convert room boundaries to area boundaries automatically in the active area plan |
-| **Tag Area Opening** | Auto-tag all area openings in the active view |
-| **Opening Assign Values** | Map room or area parameter data onto filled region elements for color-filled area diagrams |
-
-#### Other
-
-| Tool | Description |
-|------|-------------|
-| **Auto Join** | Automatically join intersecting elements by configurable category rules; supports saving/loading rule presets |
+- **Auto Join**: Rule-based automatic elements joiner (collaborative tool by T3Lab & Dang Quoc Truong).
+- **Room to Area**: Convert room boundaries to area elements (collaborative tool by T3Lab & Dang Quoc Truong).
+- **Create** (Stack):
+  - **Create Elements** (Pulldown): CAD to Beam, CAD to Wall, CAD to Floor, Point Cloud to Model, Door Threshold, Room to Floor, Property Line, Image to Drafting.
+  - **Datum** (Pulldown): Save/Restore Levels and Grids.
+- **Element Adjust** (Pulldown): Split elements, Wall Cut Profile, Wall Adjust Base.
+- **Family Work** (Stack): Load Family, CAD to Family (DWG block exporter), JSON to Family, Family Management (collaborative tool by T3Lab & Dang Quoc Truong).
+- **Workset** (Stack): Workset Manager, Central File (Sync).
 
 ---
 
-### Review Panel
+### Views & Sheets Panel
 
-| Tool | Description |
-|------|-------------|
-| **Location Manager** | List and adjust element locations in the current view or by level; modeless — stays open while you work |
+- **View Manager** (Pulldown): ViewManager Advanced, ViewTemplate, Create Room Plan.
+- **Sheet Manager** (Pulldown): SheetManager Advanced, Sheet re-number, Tile Layout.
+- **Linked Element Box**: Generate 3D Section Box around selected linked elements.
+
+---
+
+### Data Panel
+
+- **Excel Schedules** (Pulldown): Schedule Export/Import Pro, Schedule Copy.
+- **Parameter Tools** (Pulldown): Transfer Parameters, Text to Element, Values to Filled Region.
+- **Model Audits** (Pulldown): Room Data Collector, Foundation Volume.
+- **BCF Reader**: BIM Collaboration Format Reader.
+- **IFC-SG Submission** (Pulldown): Parameter Loader, Auto Assign, Manual Assign, IFCSG Subtype Definer, IFCSG Checker.
+
+---
+
+### Settings Panel
+
+- **Family Audit**: Clean, purge, and size-audit families in the active model.
+- **Style Editors** (Pulldown): Line Style Edit, Line Pattern, Hatching.
+- **Parameter Config**: ParaManager (advanced parameter configuration).
+- **Color Splasher**: Audits elements visually by mapping colors to parameters.
+- **Model Health** (Pulldown): ModelChecker, HealthCheck, Warnings, In-Place Models check, Location Manager, Material List.
 
 ---
 
 ### Support Panel
 
-| Tool | Description |
-|------|-------------|
-| **Auto Work** | Automate repetitive actions — Quick Click simulates automated clicks at fixed coordinates; Record & Replay records and replays mouse action sequences |
-| **Send Feedback** | Write and send feedback or suggestions directly to the T3Lab team by email |
+- **BatchOut**: Bulk PDF, DWG, NWD, and IFC exporter with revision tracking.
+- **UI Customizer** (Pulldown): Background Theme, Ribbon Names, Tab Manager.
+- **Cloud Links** (Pulldown): ACC Platform, BIM 360 Health, Bluebeam Health.
+- **Auto Work**: Automation recorder & player.
+- **Help & Feedback**: Send Feedback, Documentation.
 
 ---
 
@@ -160,31 +117,30 @@ t3lab-revit-api/
 │   ├── T3Lab.tab/
 │   │   ├── AI Connection.panel/
 │   │   ├── Annotation.panel/
-│   │   ├── Cloud.panel/
-│   │   ├── Export.panel/
+│   │   ├── ViewsSheets.panel/
+│   │   ├── Data.panel/
 │   │   ├── Project.panel/
-│   │   ├── Review.panel/
+│   │   ├── Settings.panel/
 │   │   └── Support.panel/
 │   ├── lib/
 │   │   ├── GUI/                    # WPF dialogs (XAML + Python classes)
-│   │   │   ├── Tools/              # All .xaml window files
+│   │   │   ├── Tools/              # Consolidated window views
 │   │   │   └── Resources/          # Shared WPF styles (WPF_styles.xaml)
-│   │   ├── Intelligence/           # AI engine: NLU, RAG, local LLM, assistant
-│   │   ├── Renaming/               # Find & replace base classes
-│   │   ├── Selection/              # Element selection utilities
-│   │   ├── Services/               # BatchOut executor, tool discovery
-│   │   ├── Snippets/               # 19 reusable Revit API code patterns
-│   │   ├── Utils/                  # CAD/family conversion helpers
-│   │   ├── config/                 # Settings, tool registry JSON
-│   │   ├── core/                   # MCP server integration
-│   │   └── ui/                     # Button state & settings UI
-│   ├── checks/                     # Model quality check scripts
+│   │   ├── Intelligence/           # AI engine: NLU, RAG, Ollama local LLM
+│   │   ├── Renaming/               # Renaming engine classes
+│   │   ├── Selection/              # Element selection helpers
+│   │   ├── Services/               # Exporters & tool discovery
+│   │   ├── Snippets/               # 19 reusable Revit API code snippets
+│   │   ├── Utils/                  # CAD/family helpers
+│   │   ├── config/                 # Configurations, tool registry
+│   │   ├── core/                   # MCP Server & ExternalEvents bridge
+│   │   └── ui/                     # Button states and general settings
+│   ├── checks/                     # Model checker script validations
 │   └── commands/                   # Standalone command scripts
-├── api/                            # Vercel serverless functions (cloud families)
+├── api/                            # Cloud serverless functions
 ├── dev/                            # Dev utilities (sync_wpf_styles.py)
-├── docs/                           # API learning guide, cloud loader docs
-├── scripts/                        # Cache-clearing and pyRevit reload helpers
-└── config/                         # Extension configuration (extensions.json)
+├── docs/                           # Documentation
+└── scripts/                        # Reload and cache-clearing scripts
 ```
 
 ---

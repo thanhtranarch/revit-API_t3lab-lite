@@ -22,6 +22,40 @@ except ImportError:
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
     from urlparse import urlparse, parse_qs
 
+# External Event Handler for thread-safe Revit API calls
+HAS_REVIT_UI = False
+try:
+    import clr
+    clr.AddReference('RevitAPIUI')
+    from Autodesk.Revit.UI import IExternalEventHandler, ExternalEvent
+    
+    class MCPExternalEventHandler(IExternalEventHandler):
+        def __init__(self, server):
+            self.server = server
+            self.tool_name = None
+            self.arguments = None
+            self.result = None
+            self.exception = None
+            self._lock = threading.Event()
+
+        def Execute(self, app):
+            try:
+                self.result = self.server._execute_tool_in_context(self.tool_name, self.arguments)
+                self.exception = None
+            except Exception as e:
+                self.exception = e
+                self.result = None
+            finally:
+                self._lock.set()
+
+        def GetName(self):
+            return "T3Lab MCP External Event Handler"
+            
+    HAS_REVIT_UI = True
+except Exception as e:
+    pass
+
+
 
 class MCPRequestHandler(BaseHTTPRequestHandler):
     """HTTP Request Handler for MCP Protocol"""
@@ -193,7 +227,7 @@ class T3LabAIServer:
         if self._initialized:
             return
 
-        self._port = 8080
+        self._port = 48884
         self._is_running = False
         self._client_count = 0
         self._total_clients = 0
@@ -202,6 +236,8 @@ class T3LabAIServer:
         self._http_server = None
         self._clients = {}
         self._tools = {}
+        self._external_event = None
+        self._event_handler = None
         self._initialized = True
 
         # Register default Revit tools
@@ -354,8 +390,26 @@ class T3LabAIServer:
             }
 
     def _execute_tool(self, tool_name, arguments):
-        """Execute a Revit tool"""
-        # Import Revit API here to avoid issues when running outside Revit
+        """Execute a Revit tool in a thread-safe manner using External Events."""
+        if self._external_event:
+            self._event_handler.tool_name = tool_name
+            self._event_handler.arguments = arguments
+            self._event_handler._lock.clear()
+            self._external_event.Raise()
+            
+            # Wait for main UI thread execution (10s timeout)
+            success = self._event_handler._lock.wait(timeout=10)
+            if not success:
+                return {'error': 'Execution timed out waiting for Revit thread context', 'tool': tool_name}
+            if self._event_handler.exception:
+                return {'error': str(self._event_handler.exception), 'tool': tool_name}
+            return self._event_handler.result
+        else:
+            # Fallback if external event is not available (e.g. running headlessly or test context)
+            return self._execute_tool_in_context(tool_name, arguments)
+
+    def _execute_tool_in_context(self, tool_name, arguments):
+        """Execute a Revit tool directly (must be inside Revit context thread)"""
         try:
             from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet
             from pyrevit import revit
@@ -447,6 +501,46 @@ class T3LabAIServer:
         if self._is_running:
             return False
 
+        # Check port and increment dynamically
+        def is_port_in_use(port):
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                s.bind(('127.0.0.1', port))
+                s.close()
+                return False
+            except socket.error:
+                return True
+
+        port = 48884
+        while is_port_in_use(port):
+            port += 1
+            if port > 48894:
+                raise Exception("No free port available in range 48884-48894")
+        self._port = port
+
+        # Update pyRevit user config
+        try:
+            from pyrevit import userconfigs
+            userconfigs.set_config_value("routes", "port", str(self._port))
+        except Exception:
+            pass
+
+        # Initialize External Event for thread safety
+        if HAS_REVIT_UI and not self._external_event:
+            try:
+                self._event_handler = MCPExternalEventHandler(self)
+                self._external_event = ExternalEvent.Create(self._event_handler)
+            except Exception as e:
+                pass
+
+        # Activate pyRevit routes server
+        try:
+            from pyrevit.routes.server import activate_server
+            activate_server()
+        except Exception:
+            pass
+
         def run_server():
             try:
                 self._http_server = HTTPServer(('localhost', self._port), MCPRequestHandler)
@@ -473,6 +567,13 @@ class T3LabAIServer:
             return False
 
         self._is_running = False
+
+        # Deactivate pyRevit routes server
+        try:
+            from pyrevit.routes.server import deactivate_server
+            deactivate_server()
+        except Exception:
+            pass
 
         if self._http_server:
             self._http_server.shutdown()

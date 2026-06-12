@@ -1,0 +1,15 @@
+tooltip:
+  en_us: |-
+    DQT - Ribbon Name Manager
+
+    Shorten or restore Revit ribbon tab names. Lists every live ribbon
+    tab; double-click a Short Name cell to edit, then Apply Short /
+    Restore Full / Save Map / Reset.
+
+    Works on Revit 2024 / 2025 / 2026 / 2027.
+    Dang Quoc Truong - DQT (c) 2026
+
+title:
+  en_us: |-
+    Ribbon
+    Names

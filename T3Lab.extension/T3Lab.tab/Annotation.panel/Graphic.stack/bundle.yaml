@@ -1,0 +1,5 @@
+layout:
+  - AutoDimension
+  - Snap Dimension
+  - Grids
+  - Reset Overrides

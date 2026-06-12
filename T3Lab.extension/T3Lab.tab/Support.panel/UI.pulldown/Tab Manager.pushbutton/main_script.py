@@ -1,0 +1,175 @@
+# -*- coding: utf-8 -*-
+"""
+Extension Tab Manager
+Manage visibility of Extension/Add-in tabs in Revit
+Copyright (c) 2025 by Dang Quoc Truong (DQT)
+"""
+
+__author__ = "Dang Quoc Truong (DQT)"
+__version__ = "1.0.0"
+__copyright__ = "Copyright (c) 2025 by Dang Quoc Truong (DQT)"
+tool_name = "Extension Tab Manager"
+
+# System library
+from pyrevit.forms import SelectFromList, alert, TemplateListItem
+from pyrevit.api import AdWindows
+import os
+import codecs
+from System import DateTime
+
+# Autodesk library
+
+# External library
+
+# General info
+uidoc = __revit__.ActiveUIDocument
+app = __revit__.Application
+doc = uidoc.Document
+activeView = doc.ActiveView
+date = DateTime.Now.ToString("yyMMdd")
+revit_version = int(app.VersionNumber)
+
+userName = app.Username
+
+# User define
+
+def TempMemory(tool_name, bool):
+    output = []
+
+    # main dir
+    memory_folder = r"C:\MEOS_Temp"
+    memory_clear_folder = os.path.join(memory_folder, userName)
+
+    # temp folder
+    memory_need_clear_folder = os.path.join(memory_clear_folder, "Temp")
+    output.append(memory_need_clear_folder)  # output 0
+    memory_file_folder = os.path.join(memory_need_clear_folder, tool_name, date)
+    output.append(memory_file_folder)  # output 1
+    try:
+        os.makedirs(memory_file_folder)
+    except:
+        pass
+    memory_file_name = userName + "_" + tool_name + ".txt"
+    memory_file_path = os.path.join(memory_file_folder, memory_file_name)
+    output.append(memory_file_path)  # output 2
+
+    # not delete folder
+    memory_not_clear_folder = os.path.join(memory_clear_folder, "Not Delete")
+    output.append(memory_not_clear_folder)  # output 3
+    memory_data_folder = os.path.join(memory_not_clear_folder, tool_name)
+    output.append(memory_data_folder)  # output 4
+    try:
+        os.makedirs(memory_data_folder)
+    except:
+        pass
+    if bool is True:
+        memory_data_name = userName + "_" + tool_name + "_" + str(revit_version) + ".txt"
+    else:
+        memory_data_name = userName + "_" + tool_name + ".txt"
+    memory_data_path = os.path.join(memory_data_folder, memory_data_name)
+    output.append(memory_data_path)  # output 5
+    return output
+
+class MyOption(TemplateListItem):
+    @property
+    def name(self):
+        return self.item
+
+def CheckBoxForListItem(nameLst, activeLst):
+    currentLst = []
+    for n in nameLst:
+        item = MyOption(n)
+        if n in activeLst:
+            item = MyOption(n, True)
+        currentLst.append(item)
+    return currentLst
+
+
+# Starting
+def main_task():
+    # Danh sach cac tab REVIT BUILT-IN - se bo qua khong hien thi
+    ignoreTabNameLst = []
+    ignoreTabNameLst1 = ["Architecture", "Structure", "Steel", "Precast", "Systems", "Insert", "Annotate", "Analyze",
+                         "Massing & Site", "Collaborate", "View", "Manage", "Add-Ins", "Modify"]
+    ignoreTabNameLst2 = ["Arch", "Struc", "MEP", "Anno", "Mass&Site", "Collab", "Fam.Editor"]
+    ignoreTabNameLst3 = ["Create", "In-Place Model", "In-Place Mass", "Zone", "Family Editor"]
+    
+    # Them cac tab cua ban vao day neu muon BO QUA (khong quan ly)
+    ignoreTabNameLst4 = ["pyRevit", "MEOS"]
+    
+    ignoreTabNameLst.extend(ignoreTabNameLst1)
+    ignoreTabNameLst.extend(ignoreTabNameLst2)
+    ignoreTabNameLst.extend(ignoreTabNameLst3)
+    ignoreTabNameLst.extend(ignoreTabNameLst4)
+
+    # Lay tat ca cac tab EXTENSION/ADD-IN (khong phai built-in cua Revit)
+    extensionTabLst = []
+    extensionTabNameLst = []
+    visibleTabNameLst = []
+    
+    for tab in AdWindows.ComponentManager.Ribbon.Tabs:
+        # Chi lay cac tab KHONG NAM trong danh sach ignore (tuc la Extension/Add-in)
+        if tab.Title not in ignoreTabNameLst:
+            extensionTabLst.append(tab)
+            extensionTabNameLst.append(tab.Title)
+            if tab.IsVisible:
+                visibleTabNameLst.append(tab.Title)
+
+    # Kiem tra neu khong co tab extension nao
+    if len(extensionTabNameLst) == 0:
+        alert("No Extension/Add-in tabs found!", title="Extension Tab Manager")
+        return
+
+    # Tao checkbox list
+    currentLst = CheckBoxForListItem(extensionTabNameLst, visibleTabNameLst)
+    
+    # Hien thi dialog voi ban quyen
+    dialog_title = "Extension Tab Manager - Select Tabs to Show\nCopyright (c) 2025 by Dang Quoc Truong (DQT)"
+    
+    selectedTabNameLst = SelectFromList.show(
+        currentLst, 
+        title=dialog_title,
+        multiselect=True, 
+        width=500, 
+        height=400, 
+        button_name="Apply"
+    )
+
+    if selectedTabNameLst is not None:
+        # Tao danh sach cac tab can an
+        hideTabNameLst = []
+        for i in extensionTabNameLst:
+            if i not in selectedTabNameLst:
+                hideTabNameLst.append(i)
+
+        # Tao file luu tru
+        memory_data_path = TempMemory(tool_name, True)[5]
+
+        # Ap dung thay doi va luu data
+        try:
+            with codecs.open(memory_data_path, "w", encoding="utf-8") as textfile:
+                # Ghi thong tin ban quyen vao file
+                textfile.write("# Extension Tab Manager\n")
+                textfile.write("# Copyright (c) 2025 by Dang Quoc Truong (DQT)\n")
+                textfile.write("# Hidden Tabs:\n")
+                
+                for tab in extensionTabLst:
+                    if tab.Title in hideTabNameLst:
+                        tab.IsVisible = False
+                        textfile.write(tab.Title)
+                        textfile.write("\n")
+                    else:
+                        tab.IsVisible = True
+            
+            # Thong bao
+            visible_count = len(selectedTabNameLst)
+            hidden_count = len(hideTabNameLst)
+            alert("Extension Tab Manager completed!\n\nVisible: {}\nHidden: {}\n\nCopyright (c) 2025 by Dang Quoc Truong (DQT)".format(
+                visible_count, hidden_count), 
+                title="Extension Tab Manager")
+        except Exception as e:
+            alert("Error: {}".format(str(e)), title="Error")
+
+
+if __name__ == "__main__":
+    main_task()
