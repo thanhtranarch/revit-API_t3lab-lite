@@ -1,0 +1,16 @@
+title: Family\nManagement
+tooltip: Rename Revit families/types, batch change case, inject prefixes/suffixes, and assign worksets
+description: |
+  Family Management is a professional tool for batch renaming and organizing loaded families and types.
+
+  Features:
+  - Select scope: All Families, Active View, or Selected Families.
+  - Target loadable families, system families, model groups, or assemblies.
+  - Find and Replace renaming with case sensitivity control.
+  - Inject custom prefixes or suffixes.
+  - Batch Change Case: UPPER CASE, lower case, Title Case, and Sentence case.
+  - Direct Worksets assignment for elements.
+  - Staged changes with Apply and Undo support.
+
+author: Tran Tien Thanh
+version: 1.0.0
