@@ -1,0 +1,7 @@
+title: IFC-SG
+layout:
+  - IFCSG Subtype Definer
+  - IFCSGChecker
+  - Auto Assign
+  - Manual Assign
+  - ParameterLoader

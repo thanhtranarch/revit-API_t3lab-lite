@@ -28,17 +28,12 @@ class ToolRegistry:
             "cad_to_beam": {
                 "name": "CAD to Beam",
                 "description": "Converts CAD lines to Revit beams with AI dimension detection from nearby TextNotes.",
-                "rel_path": "Project.panel/Create.stack/Beam.pushbutton/script.py"
-            },
-            "align_positions": {
-                "name": "Align Positions",
-                "description": "Snaps element positions to clean multiples of 5 or 10 mm relative to a reference element (Grid, Wall, or Column).",
-                "rel_path": "Project.panel/AlignPositions.pushbutton/script.py"
+                "rel_path": "Project.panel/Create.stack/Create Elements.pulldown/Beam.pushbutton/script.py"
             },
             "annotation_manager": {
                 "name": "Annotation Manager",
                 "description": "Unified tool for managing Dimensions and Text Notes — find, delete, and auto-rename types and instances.",
-                "rel_path": "Annotation.panel/AnnotationManager.pushbutton/script.py"
+                "rel_path": "Annotation.panel/Text.stack/AnnotationManager.pushbutton/script.py"
             },
             "workset_manager": {
                 "name": "Workset Manager",
@@ -48,12 +43,12 @@ class ToolRegistry:
             "batch_export": {
                 "name": "BatchOut",
                 "description": "Batch export sheets to PDF, DWG, NWD, and IFC formats with custom naming and revision tracking.",
-                "rel_path": "Export.panel/BatchOut.pushbutton/script.py"
+                "rel_path": "Support.panel/BatchOut.pushbutton/script.py"
             },
             "load_family": {
                 "name": "Load Family",
                 "description": "Browse and load Revit families from local disk or Cloud (Vercel API).",
-                "rel_path": "Project.panel/FamilyWork.stack/LoadFamily.pushbutton/script.py"
+                "rel_path": "Project.panel/Family Work 2.stack/Load Family.pushbutton/script.py"
             },
             "room_to_area": {
                 "name": "Room to Area",
@@ -63,7 +58,7 @@ class ToolRegistry:
             "create_plan_views": {
                 "name": "Create Plan Views",
                 "description": "Batch-generate individual floor plan views for each room with custom naming and template assignment.",
-                "rel_path": "Project.panel/Create.stack/Create Room Plan.pushbutton/script.py"
+                "rel_path": "ViewsSheets.panel/ViewManager.stack/Create Room Plan.pushbutton/script.py"
             }
         }
 

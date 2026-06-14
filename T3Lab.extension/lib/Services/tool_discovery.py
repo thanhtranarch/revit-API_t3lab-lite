@@ -39,7 +39,7 @@ _SKIP_BUTTONS = {
     'ProjectName.pushbutton',
     'Workset.pushbutton',
     'DimText.pushbutton',
-    'UpperDimText.pushbutton',
+    'UpperAll.pushbutton',
     'Reset Overrides.pushbutton',
     'Grids.pushbutton',
     'PropertyLine.pushbutton',

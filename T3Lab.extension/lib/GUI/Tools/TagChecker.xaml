@@ -1,0 +1,412 @@
+<Window
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Tag Checker - T3Lab"
+    Width="640" Height="760"
+    WindowStartupLocation="CenterScreen"
+    ResizeMode="CanResizeWithGrip"
+    Background="White"
+    FontFamily="Inter"
+    FontSize="12">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
+        <SolidColorBrush x:Key="T3SlateBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3AccentBrush" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="T3SuccessBrush" Color="#10B981"/>
+        <SolidColorBrush x:Key="T3DangerBrush" Color="#EF4444"/>
+        <SolidColorBrush x:Key="T3WarningBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="T3TextDarkBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3TextMutedBrush" Color="#64748B"/>
+        <SolidColorBrush x:Key="T3BorderLightBrush" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="T3BgLightBrush" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="T3LightBlueHighlightBrush" Color="#EBF5FB"/>
+
+        <!-- Sleek Modern Input Field -->
+        <Style x:Key="T3InputField" TargetType="TextBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Inter"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Premium Modern GroupBox Card -->
+        <Style x:Key="T3PremiumCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <!-- Card Header -->
+                                <Border Grid.Row="0" 
+                                        Background="White"
+                                        Padding="16,12"
+                                        BorderBrush="#F1F5F9"
+                                        BorderThickness="0,0,0,1">
+                                    <ContentPresenter ContentSource="Header"
+                                                      RecognizeAccessKey="True"
+                                                      TextBlock.FontSize="12"
+                                                      TextBlock.FontWeight="Bold"
+                                                      TextBlock.Foreground="#0F172A"/>
+                                </Border>
+                                <!-- Card Content -->
+                                <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Top Navigation Tab Style -->
+        <Style x:Key="T3TopNavTabStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#0F172A"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1E293B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0F172A"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F1F5F9"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ACCENT BUTTON - refined blue -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2563EB"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#1D4ED8"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL BUTTON -->
+        <Style x:Key="WinCtrlButton" TargetType="Button">
+            <Setter Property="Width"           Value="40"/>
+            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F1F5F9"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EF4444"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" Background="#0F172A" Padding="16,16">
+            <StackPanel>
+                <TextBlock Text="TAG CHECKER" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                <TextBlock Text="Check and auto-tag untagged elements in current view" FontSize="12" Foreground="#94A3B8" Margin="0,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- CONTENT -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,12">
+            <StackPanel>
+
+                <!-- CATEGORIES -->
+                <GroupBox Header="Select Categories to Check" Style="{StaticResource T3PremiumCard}" Margin="0,0,0,16">
+                    <StackPanel Margin="0,4,0,0">
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="tbSearch" Grid.Column="0" Style="{StaticResource T3InputField}" Height="32" Padding="8,4"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                                <Button x:Name="btnSelectAll" Content="All" Style="{StaticResource SecondaryButton}" Height="32" Width="55" Margin="0,0,4,0"/>
+                                <Button x:Name="btnSelectNone" Content="None" Style="{StaticResource SecondaryButton}" Height="32" Width="60"/>
+                            </StackPanel>
+                        </Grid>
+                        <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="White">
+                            <ScrollViewer Height="150" VerticalScrollBarVisibility="Auto" Padding="8,6">
+                                <StackPanel x:Name="spCategories"/>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- OPTIONS -->
+                <GroupBox Header="Options" Style="{StaticResource T3PremiumCard}" Margin="0,0,0,16">
+                    <StackPanel Margin="0,4,0,0">
+                        <CheckBox x:Name="cbIncludeLinks" Content="Include Linked Files" FontSize="12" IsChecked="True" Margin="0,0,0,12" Foreground="#0F172A"/>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Max Tag Distance (mm):" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#0F172A" FontWeight="Medium"/>
+                            <TextBox x:Name="tbMaxDist" Text="3000" Width="100" Style="{StaticResource T3InputField}" Height="32"/>
+                        </StackPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- BUTTONS ROW 1 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button x:Name="btnCheck" Content="Check Tags" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Width="120"/>
+                    <Button x:Name="btnAutoTag" Content="Tag All Untagged" Style="{StaticResource SuccessButton}" IsEnabled="False" Margin="0,0,8,0" Width="150"/>
+                    <Button x:Name="btnSelect" Content="Select Untagged" Style="{StaticResource AccentButton}" IsEnabled="False" Width="150"/>
+                </StackPanel>
+                
+                <!-- BUTTONS ROW 2 -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                    <Button x:Name="btnResetColors" Content="Reset Colors" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Width="120"/>
+                    <Button x:Name="btnClearAll" Content="Clear All" Style="{StaticResource DangerButton}" Width="110"/>
+                </StackPanel>
+
+                <!-- RESULTS -->
+                <GroupBox x:Name="borderResults" Header="Results Summary" Style="{StaticResource T3PremiumCard}" Visibility="Collapsed" Margin="0,0,0,16">
+                    <StackPanel Margin="0,4,0,0">
+                        <TextBlock x:Name="tbSummary" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                        <Grid Height="24" Margin="0,4,0,12">
+                            <Border Background="#E2E8F0" CornerRadius="4"/>
+                            <Border x:Name="borderProgress" Background="#10B981" CornerRadius="4" HorizontalAlignment="Left" Width="0"/>
+                            <TextBlock x:Name="tbPercent" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="12" FontWeight="Bold" Foreground="#0F172A"/>
+                        </Grid>
+
+                        <!-- Legend -->
+                        <WrapPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                                <Border Background="#EF4444" Width="12" Height="12" CornerRadius="2" Margin="0,0,6,0"/>
+                                <TextBlock Text="Untagged" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                                <Border Background="#F59E0B" Width="12" Height="12" CornerRadius="2" Margin="0,0,6,0"/>
+                                <TextBlock Text="Tag Too Far" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                                <Border Background="#10B981" Width="12" Height="12" CornerRadius="2" Margin="0,0,6,0"/>
+                                <TextBlock Text="New Auto-Tag" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                                <Border Background="#8B5CF6" Width="12" Height="12" CornerRadius="2" Margin="0,0,6,0"/>
+                                <TextBlock Text="Tag with ?" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <TextBlock FontSize="11" Foreground="#64748B" FontStyle="Italic" Margin="0,0,0,8" Text="Double-click item to zoom (closes dialog temporarily)"/>
+
+                        <TextBlock x:Name="tbTagResult" FontSize="12" Foreground="#10B981" FontWeight="Medium" TextWrapping="Wrap" Visibility="Collapsed" Margin="0,4,0,8"/>
+
+                        <!-- Untagged -->
+                        <TextBlock x:Name="tbUntaggedHeader" FontSize="12" FontWeight="SemiBold" Foreground="#EF4444" Visibility="Collapsed" Margin="0,8,0,4"/>
+                        <ListBox x:Name="lbUntagged" MaxHeight="180" FontSize="11" BorderBrush="#E2E8F0" Visibility="Collapsed" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
+
+                        <!-- Far tags -->
+                        <TextBlock x:Name="tbFarHeader" FontSize="12" FontWeight="SemiBold" Foreground="#F59E0B" Visibility="Collapsed" Margin="0,8,0,4"/>
+                        <ListBox x:Name="lbFarTags" MaxHeight="140" FontSize="11" BorderBrush="#E2E8F0" Visibility="Collapsed" ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
+
+                        <!-- Question mark tags -->
+                        <TextBlock x:Name="tbQuestionHeader" FontSize="12" FontWeight="SemiBold" Foreground="#8B5CF6" Visibility="Collapsed" Margin="0,8,0,4"/>
+                        <ListBox x:Name="lbQuestionTags" MaxHeight="140" FontSize="11" BorderBrush="#E2E8F0" Visibility="Collapsed" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+    </Grid>
+</Window>

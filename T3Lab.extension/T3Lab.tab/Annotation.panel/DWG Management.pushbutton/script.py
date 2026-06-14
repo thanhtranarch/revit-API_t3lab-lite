@@ -4,17 +4,16 @@ DWG Management
 
 Manage CAD imports and CAD links in the current Revit project.
 List, rename, and delete DWG imports and links directly from a single interface.
+Collaborative tool by T3Lab & Dang Quoc Truong.
 
 --------------------------------------------------------
-Author: Tran Tien Thanh
-Mail: trantienthanh909@gmail.com
-Linkedin: linkedin.com/in/sunarch7899/
+Author: Tran Tien Thanh & Dang Quoc Truong
 --------------------------------------------------------
 """
 
-__author__  = "Tran Tien Thanh"
-__title__   = "DWG\nManagement"
-__version__ = "1.0.0"
+__author__  = "Tran Tien Thanh & Dang Quoc Truong"
+__title__   = "DWG Manager"
+__version__ = "1.1.0"
 
 # IMPORT LIBRARIES
 # ==================================================

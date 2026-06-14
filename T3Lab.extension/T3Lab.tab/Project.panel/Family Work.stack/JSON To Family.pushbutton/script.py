@@ -51,7 +51,7 @@ from System import Uri, UriKind
 from Autodesk.Revit.DB import *
 from pyrevit import revit, forms, script
 
-extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 lib_dir       = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)

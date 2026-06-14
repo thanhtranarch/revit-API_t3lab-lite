@@ -20,6 +20,115 @@
 
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
+        <SolidColorBrush x:Key="T3SlateBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3AccentBrush" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="T3SuccessBrush" Color="#10B981"/>
+        <SolidColorBrush x:Key="T3DangerBrush" Color="#EF4444"/>
+        <SolidColorBrush x:Key="T3WarningBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="T3TextDarkBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3TextMutedBrush" Color="#64748B"/>
+        <SolidColorBrush x:Key="T3BorderLightBrush" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="T3BgLightBrush" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="T3LightBlueHighlightBrush" Color="#EBF5FB"/>
+
+        <!-- Sleek Modern Input Field -->
+        <Style x:Key="T3InputField" TargetType="TextBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Inter"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Premium Modern GroupBox Card -->
+        <Style x:Key="T3PremiumCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <!-- Card Header -->
+                                <Border Grid.Row="0" 
+                                        Background="White"
+                                        Padding="16,12"
+                                        BorderBrush="#F1F5F9"
+                                        BorderThickness="0,0,0,1">
+                                    <ContentPresenter ContentSource="Header"
+                                                      RecognizeAccessKey="True"
+                                                      TextBlock.FontSize="12"
+                                                      TextBlock.FontWeight="Bold"
+                                                      TextBlock.Foreground="#0F172A"/>
+                                </Border>
+                                <!-- Card Content -->
+                                <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Top Navigation Tab Style -->
+        <Style x:Key="T3TopNavTabStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#0F172A"/>
@@ -183,74 +292,6 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
 
-        <!-- ── Input field (white, light border) ── -->
-        <Style x:Key="InputField" TargetType="TextBox">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#1F2937"/>
-            <Setter Property="BorderBrush" Value="#D1D5DB"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,8"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter Property="BorderBrush" Value="#0F172A"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- ── Premium modern GroupBox card style ── -->
-        <Style x:Key="PremiumCard" TargetType="GroupBox">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#E5E7EB"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Margin" Value="0,0,0,16"/>
-            <Setter Property="Padding" Value="16"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="GroupBox">
-                        <Border Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                
-                                <!-- Card Header -->
-                                <Border Grid.Row="0" 
-                                        Background="White"
-                                        Padding="16,12"
-                                        BorderBrush="#F3F4F6"
-                                        BorderThickness="0,0,0,1">
-                                    <ContentPresenter ContentSource="Header"
-                                                      RecognizeAccessKey="True"
-                                                      TextBlock.FontSize="13"
-                                                      TextBlock.FontWeight="Bold"
-                                                      TextBlock.Foreground="#1F2937"/>
-                                </Border>
-                                
-                                <!-- Card Content -->
-                                <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
-                            </Grid>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- ── Field label ── -->
         <Style x:Key="FieldLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#4B5563"/>
@@ -321,17 +362,7 @@
                         Style="{StaticResource CloseButton}"
                         ToolTip="Close"
                         Click="btn_close_Click">
-                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
             
@@ -350,7 +381,7 @@
                 <StackPanel>
                     
                     <!-- ─── API KEY CARD ─── -->
-                    <GroupBox Header="API Configuration" Style="{StaticResource PremiumCard}">
+                    <GroupBox Header="API Configuration" Style="{StaticResource T3PremiumCard}">
                         <StackPanel>
                             <TextBlock Text="Lightbox API Key" Style="{StaticResource FieldLabel}"/>
                             <Grid Margin="0,0,0,8">
@@ -360,7 +391,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="txt_api_key"
                                          Grid.Column="0"
-                                         Style="{StaticResource InputField}"
+                                         Style="{StaticResource T3InputField}"
                                          ToolTip="Enter your Lightbox RE API key."
                                          Margin="0,0,8,0"/>
                                 <Button x:Name="btn_save_key"
@@ -380,7 +411,7 @@
                     <!-- ─── SELECTED PARCEL DETAILS CARD (Collapsed initially) ─── -->
                     <GroupBox x:Name="grp_parcel_details"
                               Header="Selected Parcel Details"
-                              Style="{StaticResource PremiumCard}"
+                              Style="{StaticResource T3PremiumCard}"
                               Visibility="Collapsed">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -463,7 +494,7 @@
                     <!-- ─── SETBACK LINES CARD (Collapsed initially) ─── -->
                     <GroupBox x:Name="grp_setback"
                               Header="Setback Information"
-                              Style="{StaticResource PremiumCard}"
+                              Style="{StaticResource T3PremiumCard}"
                               Visibility="Collapsed">
                         <StackPanel>
                             <TextBlock Text="Setback distances from parcel data (read-only):"
@@ -477,7 +508,7 @@
                     <!-- ─── PROJECT DATA PREVIEW CARD (Collapsed initially) ─── -->
                     <GroupBox x:Name="grp_project_data"
                               Header="Project Data"
-                              Style="{StaticResource PremiumCard}"
+                              Style="{StaticResource T3PremiumCard}"
                               Visibility="Collapsed">
                         <StackPanel>
                             <TextBlock Text="Auto-generated from parcel registry."
@@ -508,7 +539,7 @@
                 <StackPanel>
                     
                     <!-- ─── ADDRESS SEARCH CARD ─── -->
-                    <GroupBox Header="Search Property by Address" Style="{StaticResource PremiumCard}">
+                    <GroupBox Header="Search Property by Address" Style="{StaticResource T3PremiumCard}">
                         <StackPanel>
                             <TextBlock Text="US Property Address" Style="{StaticResource FieldLabel}"/>
                             <Grid Margin="0,0,0,8">
@@ -518,7 +549,7 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="txt_address"
                                          Grid.Column="0"
-                                         Style="{StaticResource InputField}"
+                                         Style="{StaticResource T3InputField}"
                                          KeyDown="txt_address_KeyDown"
                                          ToolTip="e.g. 123 Main St, Los Angeles, CA 90001"
                                          Margin="0,0,8,0"/>
@@ -541,7 +572,7 @@
                     </GroupBox>
 
                     <!-- ─── SEARCH RESULTS CARD (MAP + RADIO BUTTONS) ─── -->
-                    <GroupBox Header="Search Results" Style="{StaticResource PremiumCard}">
+                    <GroupBox Header="Search Results" Style="{StaticResource T3PremiumCard}">
                         <Grid Height="300">
                             <Grid.ColumnDefinitions>
                                 <Grid.ColumnDefinition Width="1.3*"/> <!-- Map view -->
@@ -564,9 +595,9 @@
                                     
                                     <!-- Centered Location Pin Overlay -->
                                     <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" Margin="0,0,0,14">
-                                        <Ellipse Fill="#2563EB" Width="14" Height="14" VerticalAlignment="Top" HorizontalAlignment="Center"/>
+                                        <Ellipse Fill="#3B82F6" Width="14" Height="14" VerticalAlignment="Top" HorizontalAlignment="Center"/>
                                         <Ellipse Fill="White" Width="5" Height="5" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                        <Path Fill="#2563EB" Data="M 6,10 L 12,6 L 12,9 Z" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="14" Width="12" Stretch="Fill" Margin="0,8,0,0"/>
+                                        <Path Fill="#3B82F6" Data="M 6,10 L 12,6 L 12,9 Z" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="14" Width="12" Stretch="Fill" Margin="0,8,0,0"/>
                                     </Grid>
                                     
                                     <!-- Map Preview Watermark Label in bottom-left -->
@@ -641,7 +672,7 @@
                                                 <!-- Custom Radio Circle visual matches standard RadioButton -->
                                                 <Grid Grid.Column="0" Width="18" Height="18" Margin="0,0,12,0" VerticalAlignment="Center">
                                                     <Ellipse Stroke="#D1D5DB" StrokeThickness="2" Fill="White" x:Name="outerRing"/>
-                                                    <Ellipse Fill="#2563EB" Width="8" Height="8" Visibility="Collapsed" x:Name="dot"/>
+                                                    <Ellipse Fill="#3B82F6" Width="8" Height="8" Visibility="Collapsed" x:Name="dot"/>
                                                 </Grid>
 
                                                 <TextBlock Grid.Column="1" 
@@ -655,7 +686,7 @@
                                             <!-- Trigger to checked radio button visuals upon selection -->
                                             <DataTemplate.Triggers>
                                                 <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
-                                                    <Setter TargetName="outerRing" Property="Stroke" Value="#2563EB"/>
+                                                    <Setter TargetName="outerRing" Property="Stroke" Value="#3B82F6"/>
                                                     <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
                                                 </DataTrigger>
                                             </DataTemplate.Triggers>
@@ -667,7 +698,7 @@
                     </GroupBox>
 
                     <!-- ─── REVIT CREATION OPTIONS CARD ─── -->
-                    <GroupBox Header="Revit Creation Options" Style="{StaticResource PremiumCard}">
+                    <GroupBox Header="Revit Creation Options" Style="{StaticResource T3PremiumCard}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <Grid.ColumnDefinition Width="*"/>
@@ -678,7 +709,7 @@
                             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                                 <TextBlock Text="Elevation (ft)" Style="{StaticResource FieldLabel}"/>
                                 <TextBox x:Name="txt_elevation" Text="0.0"
-                                         Style="{StaticResource InputField}"/>
+                                         Style="{StaticResource T3InputField}"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Margin="0,0,12,0">

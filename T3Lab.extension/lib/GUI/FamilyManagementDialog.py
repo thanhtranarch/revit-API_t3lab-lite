@@ -640,49 +640,48 @@ class FamilyManagementWindow(forms.WPFWindow):
     def tab_click(self, sender, e):
         """Switch view modes or trigger external panels (Export / Import / Worksets)."""
         tab_name = sender.Name
-        # Reset indicators
-        self.tab_export.BorderThickness = System.Windows.Thickness(0)
-        self.tab_export.Foreground = System.Windows.Media.Brushes.Gray
-        self.tab_import.BorderThickness = System.Windows.Thickness(0)
-        self.tab_import.Foreground = System.Windows.Media.Brushes.Gray
-        self.tab_edit.BorderThickness = System.Windows.Thickness(0)
-        self.tab_edit.Foreground = System.Windows.Media.Brushes.Gray
-        self.tab_worksets.BorderThickness = System.Windows.Thickness(0)
-        self.tab_worksets.Foreground = System.Windows.Media.Brushes.Gray
-
-        sender.BorderThickness = System.Windows.Thickness(0, 0, 0, 2)
-        sender.BorderBrush = System.Windows.Media.Brushes.DodgerBlue
-        sender.Foreground = System.Windows.Media.Brushes.DodgerBlue
+        if tab_name == "tab_edit":
+            return
 
         # Trigger existing actions or dialogs
+        gui_dir = os.path.dirname(os.path.abspath(__file__))
+        lib_dir = os.path.dirname(gui_dir)
+        ext_dir = os.path.dirname(lib_dir)
+
         if tab_name == "tab_export":
             # Launch Bulk Family Export (CAD to Family)
-            self.Close()
-            from GUI.FamilyLoaderDialog import show_family_loader
-            # We can run BulkFamilyExport directly since it is in our context
             try:
-                # Import BulkFamilyExportWindow dynamically
-                from T3Lab.tab.Project.panel.FamilyWork.stack.CAD_To_Family import BulkFamilyExportWindow
-                BulkFamilyExportWindow().ShowDialog()
-            except Exception:
-                # Fallback to general loader
-                pass
+                cad_to_fam_dir = os.path.join(ext_dir, 'T3Lab.tab', 'Project.panel', 'Family Work.stack', 'CAD To Family.pushbutton')
+                if os.path.exists(cad_to_fam_dir):
+                    import imp
+                    script_file = os.path.join(cad_to_fam_dir, 'script.py')
+                    mod = imp.load_source('cad_to_family_module', script_file)
+                    win = mod.BulkFamilyExportWindow()
+                    self.Close()
+                    win.ShowDialog()
+            except Exception as ex:
+                logger.debug("Failed to launch CAD To Family: {}".format(ex))
         elif tab_name == "tab_import":
             # Load families from local folder
-            self.Close()
             try:
                 from GUI.FamilyLoaderDialog import show_family_loader
+                self.Close()
                 show_family_loader()
-            except Exception:
-                pass
+            except Exception as ex:
+                logger.debug("Failed to launch Family Loader: {}".format(ex))
         elif tab_name == "tab_worksets":
             # Load worksets manager
-            self.Close()
             try:
-                from T3Lab.tab.Project.panel.Workset.stack.Workset.pushbutton.script import WorksetManagerWindow
-                WorksetManagerWindow().ShowDialog()
-            except Exception:
-                pass
+                workset_dir = os.path.join(ext_dir, 'T3Lab.tab', 'Project.panel', 'Workset.stack', 'Workset.pushbutton')
+                if os.path.exists(workset_dir):
+                    import imp
+                    script_file = os.path.join(workset_dir, 'script.py')
+                    mod = imp.load_source('workset_module', script_file)
+                    win = mod.WorksetManagerWindow()
+                    self.Close()
+                    win.ShowDialog()
+            except Exception as ex:
+                logger.debug("Failed to launch Workset Manager: {}".format(ex))
 
 # ==============================================================================
 # MAIN ENTRY POINT

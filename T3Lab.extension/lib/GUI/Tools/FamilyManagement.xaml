@@ -18,6 +18,115 @@
 
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
+        <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
+        <SolidColorBrush x:Key="T3SlateBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3AccentBrush" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="T3SuccessBrush" Color="#10B981"/>
+        <SolidColorBrush x:Key="T3DangerBrush" Color="#EF4444"/>
+        <SolidColorBrush x:Key="T3WarningBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="T3TextDarkBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3TextMutedBrush" Color="#64748B"/>
+        <SolidColorBrush x:Key="T3BorderLightBrush" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="T3BgLightBrush" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="T3LightBlueHighlightBrush" Color="#EBF5FB"/>
+
+        <!-- Sleek Modern Input Field -->
+        <Style x:Key="T3InputField" TargetType="TextBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Inter"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Premium Modern GroupBox Card -->
+        <Style x:Key="T3PremiumCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <!-- Card Header -->
+                                <Border Grid.Row="0" 
+                                        Background="White"
+                                        Padding="16,12"
+                                        BorderBrush="#F1F5F9"
+                                        BorderThickness="0,0,0,1">
+                                    <ContentPresenter ContentSource="Header"
+                                                      RecognizeAccessKey="True"
+                                                      TextBlock.FontSize="12"
+                                                      TextBlock.FontWeight="Bold"
+                                                      TextBlock.Foreground="#0F172A"/>
+                                </Border>
+                                <!-- Card Content -->
+                                <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Top Navigation Tab Style -->
+        <Style x:Key="T3TopNavTabStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- PRIMARY BUTTON - solid deep slate, white text -->
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#0F172A"/>
@@ -227,10 +336,10 @@
         <!-- ═══ NAVIGATION TABS ═══ -->
         <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Height="40">
             <StackPanel Orientation="Horizontal" Margin="16,0,0,0">
-                <Button x:Name="tab_export" Content="Export" Click="tab_click" Width="80" Background="Transparent" Foreground="#64748B" BorderThickness="0" Cursor="Hand" FontWeight="Medium" FontSize="12"/>
-                <Button x:Name="tab_import" Content="Import" Click="tab_click" Width="80" Background="Transparent" Foreground="#64748B" BorderThickness="0" Cursor="Hand" FontWeight="Medium" FontSize="12"/>
-                <Button x:Name="tab_edit" Content="Edit" Click="tab_click" Width="80" Background="Transparent" Foreground="#3B82F6" BorderThickness="0,0,0,2" BorderBrush="#3B82F6" Cursor="Hand" FontWeight="SemiBold" FontSize="12"/>
-                <Button x:Name="tab_worksets" Content="Worksets" Click="tab_click" Width="80" Background="Transparent" Foreground="#64748B" BorderThickness="0" Cursor="Hand" FontWeight="Medium" FontSize="12"/>
+                <RadioButton x:Name="tab_export" Content="Export" Click="tab_click" Style="{StaticResource T3TopNavTabStyle}" GroupName="FamilyManagementTabs" Width="80"/>
+                <RadioButton x:Name="tab_import" Content="Import" Click="tab_click" Style="{StaticResource T3TopNavTabStyle}" GroupName="FamilyManagementTabs" Width="80"/>
+                <RadioButton x:Name="tab_edit" Content="Edit" Click="tab_click" Style="{StaticResource T3TopNavTabStyle}" GroupName="FamilyManagementTabs" Width="80" IsChecked="True"/>
+                <RadioButton x:Name="tab_worksets" Content="Worksets" Click="tab_click" Style="{StaticResource T3TopNavTabStyle}" GroupName="FamilyManagementTabs" Width="80"/>
             </StackPanel>
         </Border>
 
@@ -250,7 +359,8 @@
                     </Grid.RowDefinitions>
 
                     <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Padding="16,12" Margin="0,0,0,10">
+                        <Border Padding="16,12" Margin="0,0,0,10">
+                            <StackPanel>
                             <!-- Scope Selector -->
                             <TextBlock Text="SCOPE" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,6"/>
                             <StackPanel Margin="0,0,0,14">
@@ -272,12 +382,13 @@
 
                             <!-- Find and Replace Section -->
                             <TextBlock Text="FIND AND REPLACE" FontSize="10" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,8"/>
+                            <TextBlock Text="Find" FontSize="11" Foreground="#0F172A" Margin="0,0,0,4"/>
                             <Grid Margin="0,0,0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="32"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="tb_find" Grid.Column="0" Height="28" Padding="6,4" FontSize="12" BorderBrush="#CBD5E1"/>
+                                <TextBox x:Name="tb_find" Grid.Column="0" Style="{StaticResource T3InputField}" Height="28"/>
                                 <ToggleButton x:Name="btn_match_case" Grid.Column="1" Margin="4,0,0,0" ToolTip="Match Case" Click="match_case_click">
                                     <ToggleButton.Style>
                                         <Style TargetType="ToggleButton">
@@ -320,18 +431,19 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Content="Find Next" Click="find_next_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
-                                <Button Content="Find All" Click="find_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="0" Content="Find Next" Click="find_next_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="1" Content="Find All" Click="find_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
                             </Grid>
 
-                            <TextBox x:Name="tb_replace" Height="28" Padding="6,4" FontSize="12" BorderBrush="#CBD5E1" Margin="0,0,0,8"/>
+                            <TextBlock Text="Replace with" FontSize="11" Foreground="#0F172A" Margin="0,0,0,4"/>
+                            <TextBox x:Name="tb_replace" Style="{StaticResource T3InputField}" Height="28" Margin="0,0,0,8"/>
                             <Grid Margin="0,0,0,14">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Content="Replace" Click="replace_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
-                                <Button Content="Replace All" Click="replace_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="0" Content="Replace" Click="replace_click" Height="26" Margin="0,0,4,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
+                                <Button Grid.Column="1" Content="Replace All" Click="replace_all_click" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
                             </Grid>
                             <Separator Background="#E2E8F0" Margin="0,0,0,12"/>
 
@@ -344,7 +456,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="tb_prefix" Grid.Column="0" Height="28" Padding="6,4" FontSize="12" BorderBrush="#CBD5E1"/>
+                                <TextBox x:Name="tb_prefix" Grid.Column="0" Style="{StaticResource T3InputField}" Height="28"/>
                                 <Button Content="Sel" Click="prefix_selected_click" Grid.Column="1" Width="36" Height="28" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="0" FontSize="11"/>
                                 <Button Content="All" Click="prefix_all_click" Grid.Column="2" Width="36" Height="28" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="0" FontSize="11"/>
                             </Grid>
@@ -356,7 +468,7 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="tb_suffix" Grid.Column="0" Height="28" Padding="6,4" FontSize="12" BorderBrush="#CBD5E1"/>
+                                <TextBox x:Name="tb_suffix" Grid.Column="0" Style="{StaticResource T3InputField}" Height="28"/>
                                 <Button Content="Sel" Click="suffix_selected_click" Grid.Column="1" Width="36" Height="28" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="0" FontSize="11"/>
                                 <Button Content="All" Click="suffix_all_click" Grid.Column="2" Width="36" Height="28" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="0" FontSize="11"/>
                             </Grid>
@@ -385,7 +497,8 @@
                                 <Button Content="Sentence" Click="case_sentence_click" Grid.Row="2" Grid.Column="1" Height="26" Margin="4,0,0,0" Style="{StaticResource SecondaryButton}" Padding="4,2" FontSize="11"/>
                             </Grid>
 
-                        </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </ScrollViewer>
 
                     <!-- Sidebar Footer: Clear Button -->
@@ -412,7 +525,7 @@
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="16,0,0,0">
                         <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                        <TextBox x:Name="tb_search" Width="250" Height="28" Padding="6,2" FontSize="12" BorderBrush="#CBD5E1" VerticalAlignment="Center" ToolTip="Filter rows..." TextChanged="search_changed"/>
+                        <TextBox x:Name="tb_search" Width="250" Height="28" Style="{StaticResource T3InputField}" VerticalAlignment="Center" ToolTip="Filter rows..." TextChanged="search_changed"/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,16,0">

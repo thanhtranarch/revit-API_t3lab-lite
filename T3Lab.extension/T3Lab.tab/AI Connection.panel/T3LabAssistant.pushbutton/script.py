@@ -153,7 +153,7 @@ def _load_script(name, script_path):
 
 def _load_batchout_mod():
     """Load the BatchOut script module, raising RuntimeError on failure."""
-    script_path = _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
+    script_path = _get_tool_script_dir('Support.panel', 'BatchOut.pushbutton')
     mod = _load_script('batchout_script', script_path)
     if mod is None:
         raise RuntimeError("Could not load BatchOut module from: {}".format(script_path))
@@ -287,7 +287,7 @@ def launch_workset():
 def launch_dimtext():
     """Run the Dim Text tool on current selection."""
     try:
-        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'DimText.pushbutton')
+        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'TextTagTools.pulldown', 'DimText.pushbutton')
         mod = _load_script('dimtext_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -295,21 +295,23 @@ def launch_dimtext():
         return False
 
 
-def launch_upperdimtext():
-    """Run the Upper Dim Text tool on current selection."""
+def launch_upperall():
+    """Run the Upper All Text tool on current selection."""
     try:
-        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'UpperDimText.pushbutton')
-        mod = _load_script('upperdimtext_script', script_path)
+        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'TextTagTools.pulldown', 'UpperAll.pushbutton')
+        mod = _load_script('upperall_script', script_path)
+        if mod and hasattr(mod, 'main'):
+            mod.main()
         return mod is not None
     except Exception as ex:
-        logger.error("Error launching UpperDimText: {}".format(ex))
+        logger.error("Error launching UpperAll: {}".format(ex))
         return False
 
 
 def launch_resetoverrides():
     """Run the Reset Overrides tool on the active view."""
     try:
-        script_path = _get_tool_script_dir('Annotation.panel', 'Reset Overrides.pushbutton')
+        script_path = _get_tool_script_dir('Annotation.panel', 'Graphic 2.stack', 'Reset Overrides.pushbutton')
         mod = _load_script('resetoverrides_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -320,7 +322,7 @@ def launch_resetoverrides():
 def launch_cadtobeam():
     """Open the CAD to Beam tool."""
     try:
-        script_path = _get_tool_script_dir('Project.panel', 'Create.stack', 'Beam.pushbutton')
+        script_path = _get_tool_script_dir('Project.panel', 'Create.stack', 'Create Elements.pulldown', 'Beam.pushbutton')
         mod = _load_script('cadtobeam_script', script_path)
         if mod:
             window = mod.CADtoBeamWindow()
@@ -329,21 +331,6 @@ def launch_cadtobeam():
         return False
     except Exception as ex:
         logger.error("Error launching CADtoBeam: {}".format(ex))
-        return False
-
-
-def launch_alignpositions():
-    """Open the Align Positions tool."""
-    try:
-        script_path = _get_tool_script_dir('Project.panel', 'AlignPositions.pushbutton')
-        mod = _load_script('alignpositions_script', script_path)
-        if mod:
-            window = mod.PositionAlignerWindow()
-            window.ShowDialog()
-            return True
-        return False
-    except Exception as ex:
-        logger.error("Error launching AlignPositions: {}".format(ex))
         return False
 
 
@@ -362,10 +349,9 @@ TOOL_LAUNCHERS = {
     "open_projectname":      launch_projectname,
     "open_workset":          launch_workset,
     "open_dimtext":          launch_dimtext,
-    "open_upperdimtext":     launch_upperdimtext,
+    "open_upperdimtext":     launch_upperall,
     "open_resetoverrides":   launch_resetoverrides,
     "open_cad_to_beam":      launch_cadtobeam,
-    "open_align_positions":  launch_alignpositions,
 }
 
 
@@ -539,7 +525,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.suggested_actions_panel.Children.Clear()
             actions = [
                 ("CAD to Beam", "open_cad_to_beam"),
-                ("Align Positions", "open_align_positions"),
+                ("Annotation Manager", "open_annotationmanager"),
                 ("BatchOut", "open_batchout"),
                 ("ParaSync", "open_parasync"),
             ]
