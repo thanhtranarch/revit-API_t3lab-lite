@@ -289,7 +289,7 @@
             </Style.Triggers>
         </Style>
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
-
+    </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>

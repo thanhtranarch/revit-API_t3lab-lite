@@ -1,8 +1,0 @@
-title: Room to Area
-tooltip: Convert room boundaries to area boundaries automatically (Collab with DQT)
-description: |
-  Reads room geometry from the model and generates corresponding area
-  boundaries in the active area plan. Developed in collaboration with Dang Quoc Truong.
-
-author: Tran Tien Thanh & Dang Quoc Truong
-version: 1.1.0

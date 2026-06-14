@@ -321,7 +321,7 @@
             </Grid.ColumnDefinitions>
             <Button Grid.Column="0" x:Name="btnPickAll" Content="Check All" Style="{StaticResource SecondaryButton}" Height="32" Width="90" Margin="0,0,4,0"/>
             <Button Grid.Column="1" x:Name="btnPickNone" Content="Check None" Style="{StaticResource SecondaryButton}" Height="32" Width="100" Margin="0,0,8,0"/>
-            <TextBlock Grid.Column,3="3" Text="Search:" FontSize="12" VerticalAlignment="Center" Margin="8,0,8,0" Foreground="#0F172A" FontWeight="Bold"/>
+            <TextBlock Grid.Column="3" Text="Search:" FontSize="12" VerticalAlignment="Center" Margin="8,0,8,0" Foreground="#0F172A" FontWeight="Bold"/>
             <TextBox Grid.Column="4" x:Name="txtPickSearch" Style="{StaticResource T3InputField}" Height="32"/>
         </Grid>
         
