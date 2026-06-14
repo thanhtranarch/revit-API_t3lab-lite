@@ -15,7 +15,7 @@ from System.Windows.Media import SolidColorBrush, Color, Brushes
 from System.Windows.Data import Binding
 from System.Windows.Controls import DataGridLength, DataGridLengthUnitType
 
-from core.config import Config
+from sheet_core.config import Config
 
 
 class ButtonFactory(object):

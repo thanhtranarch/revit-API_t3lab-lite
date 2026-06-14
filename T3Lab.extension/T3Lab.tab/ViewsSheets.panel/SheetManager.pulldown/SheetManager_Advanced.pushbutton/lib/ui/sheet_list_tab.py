@@ -382,6 +382,11 @@ class SheetListTab(object):
         btn_rename.Click += self.on_rename_click
         center_panel.Children.Add(btn_rename)
         
+        # Renumber
+        btn_renumber = self._create_button("Renumber", primary_color)
+        btn_renumber.Click += self.on_renumber_click
+        center_panel.Children.Add(btn_renumber)
+        
         # Export Excel
         btn_excel = self._create_button("Excel", primary_color)
         btn_excel.Click += self.on_export_excel_click
@@ -973,9 +978,16 @@ class SheetListTab(object):
                     def __init__(self, element):
                         self.element = element
                         self.is_selected = False
-                        self.status = ""
-                        self.sheet_number = element.SheetNumber if element else ""
-                        self.sheet_name = element.Name if element else ""
+                        self.status = u"✓"
+                        
+                        # Original values
+                        self._original_sheet_number = element.SheetNumber if element and element.SheetNumber else "-"
+                        self._original_sheet_name = element.Name if element and element.Name else "-"
+                        
+                        # Current values
+                        self.sheet_number = self._original_sheet_number
+                        self.sheet_name = self._original_sheet_name
+                        self.is_modified = False
                         
                         # Get views on sheet
                         try:
@@ -1002,6 +1014,22 @@ class SheetListTab(object):
                                 self.current_revision = ""
                         except:
                             self.current_revision = ""
+
+                    def check_if_modified(self):
+                        if (self.sheet_number != self._original_sheet_number or
+                            self.sheet_name != self._original_sheet_name):
+                            self.is_modified = True
+                            self.status = u"●"
+                        else:
+                            self.is_modified = False
+                            self.status = u"✓"
+                        return self.is_modified
+
+                    def commit_changes(self):
+                        self._original_sheet_number = self.sheet_number
+                        self._original_sheet_name = self.sheet_name
+                        self.is_modified = False
+                        self.status = u"✓"
 
         
         items = []
@@ -2055,6 +2083,75 @@ class SheetListTab(object):
             MessageBox.Show("Error: {}".format(str(e)), "Error",
                           MessageBoxButton.OK, MessageBoxImage.Error)
     
+    def on_renumber_click(self, sender, args):
+        """Renumber selected sheets sequentially"""
+        from System.Windows import MessageBox, MessageBoxButton, MessageBoxImage
+        
+        selected = [item for item in self.all_items if item.is_selected]
+        
+        if not selected:
+            MessageBox.Show("Please select at least one sheet to renumber.", "Info",
+                          MessageBoxButton.OK, MessageBoxImage.Information)
+            return
+            
+        # Sort selected by sheet number to ensure sequential order
+        selected.sort(key=lambda x: x.sheet_number)
+        
+        # Ask starting number
+        starting_number_input = forms.ask_for_string(
+            prompt='Enter the starting number for renumbering:',
+            title='Starting Number',
+            default='1'
+        )
+        if starting_number_input is None:
+            return
+            
+        try:
+            starting_number = int(starting_number_input)
+        except ValueError:
+            MessageBox.Show("Invalid starting number. Please enter a valid integer.", "Error",
+                          MessageBoxButton.OK, MessageBoxImage.Error)
+            return
+            
+        # Ask prefix
+        prefix_input = forms.ask_for_string(
+            prompt='Enter a prefix for the sheet numbers (leave blank for none):',
+            title='Sheet Prefix',
+            default=''
+        )
+        if prefix_input is None:
+            return
+            
+        # Perform renumbering
+        from Autodesk.Revit.DB import Transaction
+        t = Transaction(self.doc, "Renumber Sheets")
+        t.Start()
+        try:
+            count = 0
+            for index, sheet_model in enumerate(selected):
+                # Create the new sheet number with the optional prefix
+                new_sheet_number = "{}{}".format(prefix_input, starting_number + index)
+                
+                # Assign new sheet number
+                sheet_model.sheet_number = new_sheet_number
+                sheet_model.check_if_modified()
+                
+                if sheet_model.is_modified:
+                    self.change_tracker.track_modification(sheet_model)
+                    count += 1
+            
+            t.Commit()
+            self.data_grid.Items.Refresh()
+            self.update_status()
+            self.parent_window.update_status_with_counts()
+            
+            MessageBox.Show("Renumbered {} sheet(s) successfully.\n\nClick Apply to save changes to the project.", 
+                          "Success", MessageBoxButton.OK, MessageBoxImage.Information)
+        except Exception as e:
+            t.RollBack()
+            MessageBox.Show("Error: {}".format(str(e)), "Error",
+                          MessageBoxButton.OK, MessageBoxImage.Error)
+    
     def on_delete_click(self, sender, args):
         """Delete selected sheets"""
         from System.Windows import MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult
@@ -2311,7 +2408,7 @@ class SheetListTab(object):
         try:
             # Reload ALL sheet data from Revit
             print("DEBUG: Refreshing sheet data...")
-            self.all_items = self.revit_service.get_all_sheets()
+            self.all_items = self.get_all_sheets()
             print("DEBUG: Total sheets loaded: {}".format(len(self.all_items)))
             
             # Re-add custom parameter columns to new data

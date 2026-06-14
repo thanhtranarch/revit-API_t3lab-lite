@@ -63,6 +63,22 @@ class UIStandardShowcaseWindow(forms.WPFWindow):
         forms.WPFWindow.__init__(self, XAML_FILE)
         self._load_sample_data()
 
+    def setup_icon(self):
+        """Override pyrevit's setup_icon to load custom T3Lab icon and handle exceptions gracefully."""
+        try:
+            # Resolve the pushbutton's icon.png path relative to this file
+            current_dir = os.path.dirname(__file__)  # lib/GUI
+            extension_dir = os.path.dirname(os.path.dirname(current_dir))  # T3Lab.extension
+            icon_path = os.path.join(extension_dir, "T3Lab.tab", "Support.panel", "UIStandard.pushbutton", "icon.png")
+            if os.path.exists(icon_path):
+                self.set_icon(icon_path)
+            else:
+                # Fallback to default pyRevit icon
+                super(UIStandardShowcaseWindow, self).setup_icon()
+        except Exception as e:
+            # Silence icon loading errors to prevent window initialization crash
+            print("Warning: Failed to load window icon: {}".format(e))
+
     def minimize_button_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
 

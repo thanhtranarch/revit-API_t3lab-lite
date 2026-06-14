@@ -16,7 +16,7 @@ from System.Windows.Controls import Grid, StackPanel, Button, Orientation, RowDe
 from System.Windows.Media import SolidColorBrush, Color, Brushes
 import System
 
-from core.config import Config
+from sheet_core.config import Config
 
 
 class MainWindow(Window):

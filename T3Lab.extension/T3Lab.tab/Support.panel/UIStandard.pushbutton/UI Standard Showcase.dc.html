@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  *::-webkit-scrollbar { width: 11px; height: 11px; }
+  *::-webkit-scrollbar-thumb { background: #D9D9DE; border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+  *::-webkit-scrollbar-thumb:hover { background: #C4C4CB; background-clip: padding-box; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  ::selection { background: #18181B; color: #fff; }
+  @keyframes ddIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+  @keyframes expandIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes pulseDot { 0%, 100% { box-shadow: 0 0 0 0 rgba(24,24,27,.4); } 70% { box-shadow: 0 0 0 5px rgba(24,24,27,0); } }
+  @keyframes shimmer { from { transform: translateX(-120%); } to { transform: translateX(360%); } }
+</style>
+</helmet>
+
+<div style="height:100vh;width:100vw;padding:18px;background:radial-gradient(130% 130% at 50% -10%, #E9E9EC 0%, #DEDEE2 100%);box-sizing:border-box;font-family:'Hanken Grotesk', -apple-system, system-ui, sans-serif;color:#27272A;-webkit-font-smoothing:antialiased">
+  <div style="height:100%;width:100%;max-width:1680px;margin:0 auto;display:flex;background:#F1F1F3;border-radius:22px;overflow:hidden;border:1px solid #DEDEE2;box-shadow:0 1px 1px rgba(24,24,27,.06), 0 30px 70px -24px rgba(24,24,27,.4)">
+
+    <!-- DARK ICON RAIL -->
+    <div style="width:66px;flex:none;background:#161618;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:7px">
+      <div style="width:40px;height:40px;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:14px;flex:none"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#161618;stroke-width:1.8;stroke-linejoin:round"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg></div>
+      <button style="width:42px;height:42px;border:none;border-radius:13px;background:#fff;color:#161618;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none"><svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></button>
+      <button style="width:42px;height:42px;border:none;border-radius:13px;background:transparent;color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:all .15s" style-hover="background:rgba(255,255,255,.09);color:#fff"><svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/></svg></button>
+      <button style="width:42px;height:42px;border:none;border-radius:13px;background:transparent;color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:all .15s" style-hover="background:rgba(255,255,255,.09);color:#fff"><svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 8h9"/><path d="M17 8h3"/><path d="M4 16h3"/><path d="M11 16h9"/><circle cx="15" cy="8" r="2.2"/><circle cx="7" cy="16" r="2.2"/></svg></button>
+      <button style="width:42px;height:42px;border:none;border-radius:13px;background:transparent;color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:all .15s" style-hover="background:rgba(255,255,255,.09);color:#fff"><svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9h16M8 3v4M16 3v4"/></svg></button>
+      <div style="flex:1"></div>
+      <button style="width:42px;height:42px;border:none;border-radius:13px;background:transparent;color:rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:all .15s" style-hover="background:rgba(255,255,255,.09);color:#fff"><svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></svg></button>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+      <!-- TOP BAR -->
+      <div style="height:68px;flex:none;display:flex;align-items:center;gap:18px;padding:0 22px;background:#F1F1F3;border-bottom:1px solid #E4E4E8">
+        <div style="display:flex;flex-direction:column;line-height:1.18;flex:none">
+          <div style="font-size:15px;font-weight:700;color:#18181B;letter-spacing:-.01em">UI Standard Showcase</div>
+          <div style="font-size:11.5px;color:#9A9AA2">Lumina Compliance Reviewer · Revit 2024–2026</div>
+        </div>
+        <div onClick="{{ onCmd }}" style="flex:1;max-width:440px;margin:0 auto;display:flex;align-items:center;gap:11px;height:42px;padding:0 18px;background:#FFFFFF;border:1px solid #E8E8EC;border-radius:999px;cursor:text;box-shadow:0 1px 2px rgba(24,24,27,.03)" style-hover="border-color:#D8D8DE">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:#9A9AA2;stroke-width:1.9;stroke-linecap:round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <span style="flex:1;min-width:0;font-size:13.5px;color:#9A9AA2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Search views, sheets, or commands…</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex:none">
+          <div style="display:flex;gap:3px;padding:3px;background:#E6E6EA;border-radius:999px">
+            <button onClick="{{ setLight }}" style="{{ lightPillStyle }}">Light</button>
+            <button onClick="{{ setDark }}" style="{{ darkPillStyle }}">Dark</button>
+          </div>
+          <button style="position:relative;width:40px;height:40px;border:1px solid #E8E8EC;background:#fff;border-radius:13px;display:flex;align-items:center;justify-content:center;color:#3F3F46;cursor:pointer" style-hover="background:#FAFAFB;border-color:#D8D8DE">
+            <svg viewBox="0 0 24 24" style="width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2.5 6 2.5 6H3.5S6 14 6 9z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+            <span style="position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:999px;background:#18181B;border:2px solid #fff"></span>
+          </button>
+          <div style="display:flex;align-items:center;gap:9px;padding:4px 12px 4px 4px;background:#fff;border:1px solid #E8E8EC;border-radius:999px;cursor:pointer" style-hover="background:#FAFAFB;border-color:#D8D8DE">
+            <span style="width:30px;height:30px;border-radius:999px;background:linear-gradient(135deg,#3F3F46,#18181B);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none">HN</span>
+            <div style="line-height:1.12"><div style="font-size:12.5px;font-weight:600;color:#27272A">H. Nguyễn</div><div style="font-size:10.5px;color:#9A9AA2">Reviewer</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BODY -->
+      <div style="flex:1;display:flex;flex-direction:column;gap:16px;padding:18px;overflow:hidden;min-height:0">
+
+        <!-- KPI ROW -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;flex:none">
+          <div style="background:#fff;border:1px solid #ECECEF;border-radius:20px;padding:19px 21px;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -12px rgba(24,24,27,.12)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <span style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9A9AA2">Total Projects</span>
+              <span style="width:36px;height:36px;border-radius:12px;background:#F3F3F5;color:#3F3F46;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><path d="M3 7.5a2 2 0 0 1 2-2h3.5a2 2 0 0 1 1.5.7l.9 1a2 2 0 0 0 1.5.6H19a2 2 0 0 1 2 2v6.2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span>
+            </div>
+            <div style="font-size:35px;font-weight:700;letter-spacing:-.025em;color:#18181B;margin-top:13px;line-height:1">245</div>
+            <div style="font-size:12.5px;color:#8A8A90;margin-top:9px">Across 4 disciplines</div>
+          </div>
+          <div style="background:#fff;border:1px solid #ECECEF;border-radius:20px;padding:19px 21px;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -12px rgba(24,24,27,.12)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <span style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9A9AA2">Active Views</span>
+              <span style="width:36px;height:36px;border-radius:12px;background:#F3F3F5;color:#3F3F46;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linejoin:round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            </div>
+            <div style="font-size:35px;font-weight:700;letter-spacing:-.025em;color:#18181B;margin-top:13px;line-height:1">18</div>
+            <div style="font-size:12.5px;color:#8A8A90;margin-top:9px">Open in this session</div>
+          </div>
+          <div style="background:#fff;border:1px solid #ECECEF;border-radius:20px;padding:19px 21px;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -12px rgba(24,24,27,.12)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <span style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9A9AA2">Completed Items</span>
+              <span style="width:36px;height:36px;border-radius:12px;background:#F3F3F5;color:#3F3F46;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"/><path d="M8.4 12.2l2.4 2.4 4.8-5"/></svg></span>
+            </div>
+            <div style="font-size:35px;font-weight:700;letter-spacing:-.025em;color:#18181B;margin-top:13px;line-height:1">198</div>
+            <div style="margin-top:12px"><div style="height:5px;background:#ECECEF;border-radius:999px;overflow:hidden"><div style="width:87%;height:100%;background:#C2410C;border-radius:999px"></div></div></div>
+            <div style="font-size:12px;color:#8A8A90;margin-top:7px">87% of total reviewed</div>
+          </div>
+          <div style="background:#fff;border:1px solid #ECECEF;border-radius:20px;padding:19px 21px;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -12px rgba(24,24,27,.12)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <span style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9A9AA2">Pending Issues</span>
+              <span style="width:36px;height:36px;border-radius:12px;background:#18181B;color:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 4.5l8.2 14.2H3.8z"/><path d="M12 10.2v4"/><path d="M12 16.8v.02"/></svg></span>
+            </div>
+            <div style="font-size:35px;font-weight:700;letter-spacing:-.025em;color:#18181B;margin-top:13px;line-height:1">29</div>
+            <div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#52525B;margin-top:9px"><span style="width:6px;height:6px;border-radius:999px;background:#18181B"></span>Awaiting your review</div>
+          </div>
+        </div>
+
+        <!-- WORKSPACE -->
+        <div style="flex:1;display:flex;gap:16px;overflow:hidden;min-height:0">
+
+          <!-- SIDEBAR -->
+          <aside style="width:334px;flex:none;background:#fff;border:1px solid #ECECEF;border-radius:20px;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -14px rgba(24,24,27,.12);display:flex;flex-direction:column;overflow:hidden">
+            <div style="padding:16px 18px 15px;border-bottom:1px solid #F0F0F2;display:flex;align-items:center;gap:11px;flex:none">
+              <div style="width:34px;height:34px;border-radius:11px;background:#18181B;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linejoin:round"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg></div>
+              <div style="min-width:0"><div style="font-size:14px;font-weight:700;color:#18181B;line-height:1.1;white-space:nowrap">Component Library</div><div style="font-size:12px;color:#9A9AA2;margin-top:2px;white-space:nowrap">T3Lab UI standard kit</div></div>
+            </div>
+
+            <div style="padding:18px;overflow:auto;flex:1">
+
+              <!-- INPUT -->
+              <div style="margin-bottom:22px">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 9px 1px">Text input</div>
+                <div style="position:relative">
+                  <input value="{{ input }}" onInput="{{ onInput }}" placeholder="Sample input text…" style="width:100%;height:44px;padding:0 40px 0 15px;border:1px solid #E6E6EA;border-radius:13px;background:#F4F4F6;font-family:'Hanken Grotesk';font-size:14px;font-weight:500;color:#18181B;outline:none" style-focus="border-color:#18181B;background:#fff;box-shadow:0 0 0 3px rgba(24,24,27,.08)" />
+                  <sc-if value="{{ hasInput }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ clearInput }}" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:none;background:#E8E8EC;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#71717A" style-hover="background:#18181B;color:#fff"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>
+                  </sc-if>
+                </div>
+              </div>
+
+              <!-- DROPDOWN -->
+              <div style="margin-bottom:22px" ref="{{ ddRefCb }}">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 9px 1px">Dropdown</div>
+                <div style="position:relative">
+                  <button onClick="{{ toggleDropdown }}" style="width:100%;height:44px;padding:0 13px 0 15px;border:1px solid #E6E6EA;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:'Hanken Grotesk';font-size:14px;font-weight:500;color:#18181B;cursor:pointer" style-hover="border-color:#D4D4DA">
+                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ dropdown }}</span>
+                    <svg viewBox="0 0 24 24" style="{{ chevronStyle }}"><path d="M6 9l6 6 6-6"/></svg>
+                  </button>
+                  <sc-if value="{{ dropdownOpen }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid #ECECEF;border-radius:16px;box-shadow:0 16px 38px -10px rgba(24,24,27,.26);padding:6px;z-index:40;animation:ddIn .16s ease">
+                      <sc-for list="{{ options }}" as="opt" hint-placeholder-count="4">
+                        <button onClick="{{ opt.onSelect }}" style="{{ opt.style }}">
+                          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ opt.label }}</span>
+                          <sc-if value="{{ opt.selected }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:16px;height:16px;flex:none;fill:none;stroke:#18181B;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></sc-if>
+                        </button>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+
+              <!-- RADIO -->
+              <div style="margin-bottom:22px">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 12px 1px">Radio group</div>
+                <div style="display:flex;flex-direction:column;gap:13px">
+                  <div onClick="{{ setRadioA }}" style="display:flex;align-items:center;gap:11px;cursor:pointer">
+                    <span style="{{ radioABox }}"><sc-if value="{{ radioA }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:999px;background:#18181B"></span></sc-if></span>
+                    <span style="font-size:14px;color:#3F3F46;font-weight:500">Standard preset</span>
+                  </div>
+                  <div onClick="{{ setRadioB }}" style="display:flex;align-items:center;gap:11px;cursor:pointer">
+                    <span style="{{ radioBBox }}"><sc-if value="{{ radioB }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:999px;background:#18181B"></span></sc-if></span>
+                    <span style="font-size:14px;color:#3F3F46;font-weight:500">Custom override</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CHECKBOX -->
+              <div style="margin-bottom:22px">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 12px 1px">Checkboxes</div>
+                <div style="display:flex;flex-direction:column;gap:14px">
+                  <div onClick="{{ toggleAccept }}" style="display:flex;align-items:center;gap:11px;cursor:pointer">
+                    <span style="{{ acceptBox }}"><sc-if value="{{ accept }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></sc-if></span>
+                    <span style="font-size:14px;color:#3F3F46;font-weight:500">Accept standard guidelines</span>
+                  </div>
+                  <div onClick="{{ toggleDark }}" style="display:flex;align-items:center;gap:11px;cursor:pointer">
+                    <span style="{{ darkBox }}"><sc-if value="{{ dark }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></sc-if></span>
+                    <span style="font-size:14px;color:#3F3F46;font-weight:500">Enable dark accent colors</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- GROUP CARD (dark) -->
+              <div style="margin-bottom:22px">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 9px 1px">Group card</div>
+                <div style="border-radius:16px;overflow:hidden;background:#18181B">
+                  <div style="display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid rgba(255,255,255,.08)">
+                    <div style="width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:#fff;flex:none"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;stroke:none"><path d="M12 3.5l2.3 4.9 5.3.6-3.9 3.7 1 5.3-4.7-2.6-4.7 2.6 1-5.3L4.4 9l5.3-.6z"/></svg></div>
+                    <div style="font-size:13.5px;font-weight:700;color:#fff">Premium group box</div>
+                  </div>
+                  <div style="padding:13px 15px;font-size:13px;line-height:1.55;color:rgba(255,255,255,.6)">A grouped container with an integrated title bar, icon slot, and content region for related settings.</div>
+                </div>
+              </div>
+
+              <!-- INFO ALERT -->
+              <div style="margin-bottom:15px">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 9px 1px">Info alert</div>
+                <div style="display:flex;gap:11px;padding:13px 14px;background:#F4F4F6;border:1px solid #ECECEF;border-radius:14px">
+                  <span style="width:22px;height:22px;border-radius:999px;background:#18181B;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.1;stroke-linecap:round"><path d="M12 11v5.5"/><path d="M12 7.6v.02"/></svg></span>
+                  <div style="font-size:13px;line-height:1.5;color:#3F3F46">Hold <b style="font-weight:700;color:#18181B">Shift</b> while selecting rows in the grid to pick a range.</div>
+                </div>
+              </div>
+
+              <!-- SUCCESS ALERT -->
+              <div style="margin-bottom:22px">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 9px 1px">Success alert</div>
+                <div style="display:flex;gap:11px;padding:13px 14px;background:#EAF8F0;border:1px solid #CDEBD9;border-radius:14px">
+                  <span style="width:22px;height:22px;border-radius:999px;background:#22A85C;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></span>
+                  <div style="font-size:13px;line-height:1.5;color:#1B7A45"><b style="font-weight:700;color:#157038">24 sheets renumbered.</b> All views now follow the standard.</div>
+                </div>
+              </div>
+
+              <!-- EXPANDER -->
+              <div style="margin-bottom:22px">
+                <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin:0 0 9px 1px">Expander</div>
+                <div style="border:1px solid #E6E6EA;border-radius:14px;overflow:hidden">
+                  <button onClick="{{ toggleExpander }}" style="width:100%;display:flex;align-items:center;gap:11px;padding:13px 14px;background:#fff;border:none;cursor:pointer;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;color:#18181B" style-hover="background:#FAFAFB">
+                    <span style="width:26px;height:26px;border-radius:8px;background:#F3F3F5;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="{{ expIconStyle }}"><path d="M6 9l6 6 6-6"/></svg></span>
+                    <span style="flex:1;text-align:left">Advanced layout settings</span>
+                  </button>
+                  <sc-if value="{{ expander }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding:2px 14px 12px;border-top:1px solid #F0F0F2;animation:expandIn .2s ease">
+                      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+                        <span style="font-size:13px;color:#3F3F46;font-weight:500">Auto-tag new callouts</span>
+                        <div onClick="{{ toggleAutoTag }}" style="{{ autoTagTrack }}"><span style="{{ autoTagKnob }}"></span></div>
+                      </div>
+                      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid #F4F4F6">
+                        <span style="font-size:13px;color:#3F3F46;font-weight:500">Snap to layout grid</span>
+                        <div onClick="{{ toggleSnap }}" style="{{ snapTrack }}"><span style="{{ snapKnob }}"></span></div>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+
+              <!-- PROGRESS -->
+              <div style="margin-bottom:23px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin:0 1px 9px">
+                  <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2">Progress</span>
+                  <span style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:#C2410C">75%</span>
+                </div>
+                <div style="height:8px;background:#ECECEF;border-radius:999px;overflow:hidden"><div style="{{ progFill }}"><span style="position:absolute;top:0;left:0;height:100%;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);animation:shimmer 1.9s infinite"></span></div></div>
+                <div style="font-size:12px;color:#9A9AA2;margin-top:8px">Exporting audit to Excel…</div>
+              </div>
+
+              <!-- SLIDER -->
+              <div style="margin-bottom:4px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin:0 1px 12px">
+                  <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2">Slider</span>
+                  <span style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:#C2410C">{{ sliderLabel }}</span>
+                </div>
+                <div onMouseDown="{{ startSlide }}" style="position:relative;height:18px;display:flex;align-items:center;cursor:pointer">
+                  <div style="position:relative;width:100%;height:6px;background:#E4E4E8;border-radius:999px">
+                    <div style="{{ sliderFill }}"></div>
+                    <div style="{{ sliderThumb }}"></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </aside>
+
+          <!-- MAIN -->
+          <main style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
+            <div style="flex:none;margin-bottom:16px">
+              <div style="display:inline-flex;gap:4px;padding:4px;background:#E6E6EA;border-radius:14px">
+                <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="3">
+                  <button onClick="{{ tab.onClick }}" style="{{ tab.style }}"><span>{{ tab.label }}</span><span style="{{ tab.badgeStyle }}">{{ tab.count }}</span></button>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="flex:1;overflow:auto;min-height:0">
+
+              <!-- ACTIVE VIEW LIST -->
+              <sc-if value="{{ isActive }}" hint-placeholder-val="{{ true }}">
+                <div style="background:#fff;border:1px solid #ECECEF;border-radius:20px;overflow:hidden;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -14px rgba(24,24,27,.12)">
+                  <div style="display:flex;align-items:center;gap:14px;padding:15px 17px;border-bottom:1px solid #F0F0F2">
+                    <div style="position:relative;flex:1;max-width:330px">
+                      <svg viewBox="0 0 24 24" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;fill:none;stroke:#9A9AA2;stroke-width:1.9;stroke-linecap:round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+                      <input value="{{ query }}" onInput="{{ onQuery }}" placeholder="Search views, IDs, categories…" style="width:100%;height:40px;padding:0 13px 0 37px;border:1px solid #E6E6EA;border-radius:11px;background:#F4F4F6;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:500;color:#18181B;outline:none" style-focus="border-color:#18181B;background:#fff;box-shadow:0 0 0 3px rgba(24,24,27,.07)" />
+                    </div>
+                    <div style="display:flex;gap:3px;padding:3px;background:#E6E6EA;border-radius:11px">
+                      <sc-for list="{{ filterChips }}" as="chip" hint-placeholder-count="3">
+                        <button onClick="{{ chip.onClick }}" style="{{ chip.style }}"><span>{{ chip.label }}</span><span style="{{ chip.badgeStyle }}">{{ chip.count }}</span></button>
+                      </sc-for>
+                    </div>
+                    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:#8A8A90;font-weight:500"><span style="font-weight:700;color:#18181B">{{ rowCount }}</span>views<sc-if value="{{ hasSelection }}" hint-placeholder-val="{{ false }}"><span style="margin-left:3px;padding:3px 10px;background:#18181B;color:#fff;border-radius:999px;font-size:11.5px;font-weight:600">{{ selectedCount }} selected</span></sc-if></div>
+                  </div>
+                  <div style="overflow:auto">
+                    <table style="width:100%;border-collapse:collapse">
+                      <thead>
+                        <tr>
+                          <th style="position:sticky;top:0;background:#F8F8FA;padding:12px 12px 12px 18px;border-bottom:1px solid #ECECEF;width:48px;z-index:2"><div onClick="{{ onToggleAll }}" style="{{ headBox }}"><sc-if value="{{ allSel }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></sc-if><sc-if value="{{ headDash }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round"><path d="M6 12h12"/></svg></sc-if></div></th>
+                          <th style="position:sticky;top:0;background:#F8F8FA;padding:12px 14px;border-bottom:1px solid #ECECEF;text-align:left;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA2;z-index:2;white-space:nowrap">Element ID</th>
+                          <th style="position:sticky;top:0;background:#F8F8FA;padding:12px 14px;border-bottom:1px solid #ECECEF;text-align:left;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA2;z-index:2;white-space:nowrap">Name</th>
+                          <th style="position:sticky;top:0;background:#F8F8FA;padding:12px 14px;border-bottom:1px solid #ECECEF;text-align:left;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA2;z-index:2;white-space:nowrap">Category</th>
+                          <th style="position:sticky;top:0;background:#F8F8FA;padding:12px 14px;border-bottom:1px solid #ECECEF;text-align:left;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA2;z-index:2;white-space:nowrap">Compliance Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <sc-for list="{{ rows }}" as="row" hint-placeholder-count="9">
+                          <tr onClick="{{ row.onClick }}" style="{{ row.rowStyle }}" style-hover="filter:brightness(.985)">
+                            <td style="padding:13px 12px 13px 18px;border-bottom:1px solid #F2F2F4"><div style="{{ row.boxStyle }}"><sc-if value="{{ row.selected }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></sc-if></div></td>
+                            <td style="padding:13px 14px;border-bottom:1px solid #F2F2F4;font-family:'JetBrains Mono';font-size:13px;font-weight:500;color:#71717A">{{ row.id }}</td>
+                            <td style="padding:13px 14px;border-bottom:1px solid #F2F2F4;font-size:13.5px;font-weight:500;color:#27272A;white-space:nowrap">{{ row.name }}</td>
+                            <td style="padding:13px 14px;border-bottom:1px solid #F2F2F4;font-size:13px;color:#71717A;white-space:nowrap">{{ row.cat }}</td>
+                            <td style="padding:13px 14px;border-bottom:1px solid #F2F2F4;white-space:nowrap"><span style="{{ row.pillStyle }}"><span style="{{ row.dotStyle }}"></span>{{ row.statusLabel }}</span><sc-if value="{{ row.hasReason }}" hint-placeholder-val="{{ false }}"><span style="margin-left:8px;font-size:11.5px;color:#9A9AA2;font-weight:500">{{ row.reason }}</span></sc-if></td>
+                          </tr>
+                        </sc-for>
+                      </tbody>
+                    </table>
+                    <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+                      <div style="padding:48px 20px;text-align:center;color:#9A9AA2;font-size:14px">No views match your search.</div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+
+              <!-- ARCHIVED LOG -->
+              <sc-if value="{{ isArchived }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:10px;max-width:900px">
+                  <sc-for list="{{ archived }}" as="a" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid #ECECEF;border-radius:16px;padding:14px 16px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+                      <span style="{{ a.chipStyle }}">
+                        <sc-if value="{{ a.isOk }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></sc-if>
+                        <sc-if value="{{ a.isBad }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></sc-if>
+                        <sc-if value="{{ a.isWarn }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round"><path d="M12 7v5"/><path d="M12 15.5v.02"/><circle cx="12" cy="12" r="9"/></svg></sc-if>
+                      </span>
+                      <div style="min-width:0;flex:1">
+                        <div style="font-size:14px;font-weight:600;color:#27272A">{{ a.a }}</div>
+                        <div style="font-size:12.5px;color:#8A8A90;margin-top:2px">{{ a.m }}</div>
+                      </div>
+                      <div style="font-family:'JetBrains Mono';font-size:12px;color:#9A9AA2;white-space:nowrap">{{ a.t }}</div>
+                      <span style="{{ a.pillStyle }}">{{ a.pillLabel }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+              <!-- CONFIG RULES -->
+              <sc-if value="{{ isConfig }}" hint-placeholder-val="{{ false }}">
+                <div style="background:#fff;border:1px solid #ECECEF;border-radius:20px;overflow:hidden;max-width:780px;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -14px rgba(24,24,27,.12)">
+                  <div style="padding:17px 20px;border-bottom:1px solid #F0F0F2">
+                    <div style="font-size:15px;font-weight:700;color:#18181B">Standard enforcement rules</div>
+                    <div style="font-size:13px;color:#8A8A90;margin-top:2px">Control how the Lumina standard is validated during review.</div>
+                  </div>
+                  <sc-for list="{{ rules }}" as="r" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-top:1px solid #F2F2F4">
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:14px;font-weight:600;color:#27272A">{{ r.label }}</div>
+                        <div style="font-size:12.5px;color:#8A8A90;margin-top:2px">{{ r.desc }}</div>
+                      </div>
+                      <div onClick="{{ r.onToggle }}" style="{{ r.trackStyle }}"><span style="{{ r.knobStyle }}"></span></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+
+            </div>
+          </main>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div style="height:64px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;background:#F1F1F3;border-top:1px solid #E4E4E8">
+        <div style="display:flex;align-items:center;gap:9px">
+          <button onClick="{{ onPrimary }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border:none;border-radius:12px;background:#18181B;color:#fff;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px -2px rgba(24,24,27,.45)" style-hover="background:#000"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;stroke:none"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>Run check</button>
+          <button onClick="{{ onSecondary }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border:1px solid #DEDEE2;border-radius:12px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#FAFAFB;border-color:#CFCFD5"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 8h9"/><path d="M17 8h3"/><path d="M4 16h3"/><path d="M11 16h9"/><circle cx="15" cy="8" r="2.2"/><circle cx="7" cy="16" r="2.2"/></svg>Configure</button>
+          <button onClick="{{ onSuccess }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border:none;border-radius:12px;background:#ECECEF;color:#27272A;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#E2E2E6"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg>Approve</button>
+          <button onClick="{{ onDanger }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 15px;border:none;border-radius:12px;background:transparent;color:#52525B;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#EDEDEF;color:#18181B"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M4 7h16"/><path d="M9.5 7V5.3A1.3 1.3 0 0 1 10.8 4h2.4a1.3 1.3 0 0 1 1.3 1.3V7"/><path d="M6.5 7l1 12.2A1.5 1.5 0 0 0 9 20.6h6a1.5 1.5 0 0 0 1.5-1.4L17.5 7"/></svg>Delete</button>
+          <button onClick="{{ onAccent }}" style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border:1px solid #DEDEE2;border-radius:12px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#FAFAFB;border-color:#CFCFD5"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M12 4v10"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>Export</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:999px;background:#22A85C;animation:pulseDot 2.4s infinite"></span><span style="font-size:13px;font-weight:600;color:#27272A">System status: <span style="color:#157038;font-weight:700">Fully compliant</span></span></div>
+          <span style="width:1px;height:18px;background:#DEDEE2"></span>
+          <span style="font-size:12px;color:#9A9AA2">© 2026 T3Lab · v2.4</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:11px;padding:13px 19px;background:#18181B;color:#fff;border-radius:13px;box-shadow:0 18px 44px -10px rgba(24,24,27,.55);font-size:13.5px;font-weight:500;z-index:200;animation:toastIn .25s ease">
+      <span style="width:8px;height:8px;border-radius:999px;background:#fff"></span>
+      <span>{{ toast }}</span>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.options = ['First standard option', 'Strict naming preset', 'Lumina 2026 ruleset', 'Legacy 2024 mapping'];
+    this.baseRows = [
+      ['104231', '01_Plan_Mặt bằng định vị cột', 'Floor Plan', 'ok', ''],
+      ['104232', '02_Plan_Mặt bằng kích thước cột', 'Floor Plan', 'ok', ''],
+      ['104235', 'Detail_Chi tiết nối thép cột', 'Detail View', 'ok', ''],
+      ['104240', '3D_Phối cảnh tổng thể', '3D View', 'bad', 'Template'],
+      ['104245', 'Section_Mặt cắt đứng dọc nhà', 'Section', 'ok', ''],
+      ['104250', 'Elevation_Mặt đứng trục A-D', 'Elevation', 'ok', ''],
+      ['104255', 'Schedule_Thống kê cốt thép dầm', 'Schedule', 'ok', ''],
+      ['104260', 'Legend_Ký hiệu ghi chú chung', 'Legend', 'ok', ''],
+      ['104265', 'Drafting_Chi tiết cấu tạo sê nô', 'Drafting View', 'bad', 'Naming'],
+      ['104268', 'Plan_Mặt bằng kết cấu tầng 3', 'Floor Plan', 'ok', ''],
+      ['104272', 'Section_Mặt cắt thang bộ', 'Section', 'warn', 'Review'],
+      ['104277', 'Detail_Chi tiết liên kết dầm-cột', 'Detail View', 'ok', ''],
+    ];
+    this.archived = [
+      { t: 'Today · 09:42', a: 'Batch sheet renumber completed', m: '24 sheets · H. Nguyễn', type: 'ok' },
+      { t: 'Today · 08:15', a: 'Full compliance scan finished', m: '198 of 227 views passed', type: 'ok' },
+      { t: 'Yesterday · 17:30', a: '2 views flagged non-compliant', m: 'Template + naming issues', type: 'bad' },
+      { t: 'Yesterday · 14:02', a: 'Configuration ruleset updated', m: 'Rule “line weights” disabled', type: 'warn' },
+      { t: 'Mon · 11:20', a: 'Audit report exported to Excel', m: 'Lumina_Audit_2026.xlsx', type: 'ok' },
+      { t: 'Mon · 09:05', a: 'Project workspace re-indexed', m: '245 projects · 4 disciplines', type: 'ok' },
+    ];
+    this.state = {
+      tab: 'active', input: '', dropdownOpen: false, dropdown: 'First standard option',
+      radio: 'A', accept: true, dark: false, expander: false, slider: 62, autoTag: true, snap: false,
+      filter: 'all', query: '', selected: { '104231': true, '104232': true, '104235': true },
+      themePref: 'light',
+      rules: [
+        { id: 'r1', label: 'Enforce view naming convention', desc: 'Reject views that don’t match the T3 standard.', on: true },
+        { id: 'r2', label: 'Require title block on every sheet', desc: 'Flag sheets missing an approved title block.', on: true },
+        { id: 'r3', label: 'Restrict non-standard line weights', desc: 'Allow only line weights 1–8 from the template.', on: false },
+        { id: 'r4', label: 'Auto-tag detail callouts', desc: 'Apply callout tags when a detail is placed.', on: true },
+        { id: 'r5', label: 'Validate dimension styles', desc: 'Check dimensions against the Lumina style set.', on: false },
+        { id: 'r6', label: 'Lock shared template parameters', desc: 'Prevent edits to project-wide parameters.', on: true },
+      ],
+      toast: null,
+    };
+  }
+  componentDidMount() {
+    this._doc = (e) => { if (this.state.dropdownOpen && this.ddRef && !this.ddRef.contains(e.target)) this.setState({ dropdownOpen: false }); };
+    document.addEventListener('mousedown', this._doc);
+  }
+  componentWillUnmount() { document.removeEventListener('mousedown', this._doc); clearTimeout(this._t); }
+  ddRefCb = (el) => { this.ddRef = el; };
+  getFiltered() {
+    const s = this.state; let list = this.baseRows;
+    if (s.filter === 'ok') list = list.filter(r => r[3] === 'ok');
+    else if (s.filter === 'issues') list = list.filter(r => r[3] !== 'ok');
+    const q = s.query.trim().toLowerCase();
+    if (q) list = list.filter(r => r[0].includes(q) || r[1].toLowerCase().includes(q) || r[2].toLowerCase().includes(q));
+    return list;
+  }
+  pill(type) {
+    if (type === 'ok') return { label: 'Compliant', style: { background: '#0F8A66', border: '1px solid transparent', color: '#FFFFFF' }, dot: '#B6F2D8' };
+    if (type === 'bad') return { label: 'Non-Compliant', style: { background: '#1F1F23', border: '1px solid transparent', color: '#FFFFFF' }, dot: '#F87171' };
+    return { label: 'Needs Review', style: { background: '#8A6308', border: '1px solid transparent', color: '#FFFFFF' }, dot: '#F5CE5A' };
+  }
+  showToast(m) { this.setState({ toast: m }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: null }), 2400); }
+  toggleRow(id) { this.setState(s => ({ selected: { ...s.selected, [id]: !s.selected[id] } })); }
+  toggleAll() {
+    const ids = this.getFiltered().map(r => r[0]);
+    const all = ids.length > 0 && ids.every(id => this.state.selected[id]);
+    this.setState(s => { const sel = { ...s.selected }; ids.forEach(id => { if (all) delete sel[id]; else sel[id] = true; }); return { selected: sel }; });
+  }
+  toggleRule(id) { this.setState(s => ({ rules: s.rules.map(r => r.id === id ? { ...r, on: !r.on } : r) })); }
+  startSlide(e) {
+    e.preventDefault();
+    const track = e.currentTarget; const rect = track.getBoundingClientRect();
+    const set = (x) => { let p = (x - rect.left) / rect.width; p = Math.max(0, Math.min(1, p)); this.setState({ slider: Math.round(p * 100) }); };
+    set(e.clientX);
+    const mv = (ev) => set(ev.clientX);
+    const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+  }
+  renderVals() {
+    const s = this.state;
+    const INK = '#18181B';
+    const pillBase = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 11px 4px 9px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' };
+    const dotBase = { width: 7, height: 7, borderRadius: 999, flex: 'none' };
+    const checkBoxBase = { width: 18, height: 18, borderRadius: 6, border: '1.5px solid #D4D4DA', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', transition: 'all .15s', cursor: 'pointer' };
+    const radioBase = { width: 20, height: 20, borderRadius: 999, border: '2px solid #D4D4DA', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', transition: 'all .15s' };
+    const trackBase = { width: 42, height: 24, borderRadius: 999, padding: 2, display: 'flex', alignItems: 'center', transition: 'background .2s', flex: 'none', cursor: 'pointer' };
+    const knobBase = { width: 20, height: 20, borderRadius: 999, background: '#fff', boxShadow: '0 1px 3px rgba(24,24,27,.3)', transition: 'transform .2s' };
+    const chipBase = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 9, border: 'none', fontFamily: "'Hanken Grotesk'", fontSize: 13, cursor: 'pointer', transition: 'all .15s' };
+    const badgeBase = { fontSize: 11, fontWeight: 700, padding: '0 6px', borderRadius: 999, lineHeight: '16px', minWidth: 16, textAlign: 'center' };
+
+    const filtered = this.getFiltered();
+    const ids = filtered.map(r => r[0]);
+    const allSel = ids.length > 0 && ids.every(id => s.selected[id]);
+    const someSel = ids.some(id => s.selected[id]);
+    const selectedCount = ids.filter(id => s.selected[id]).length;
+
+    const rows = filtered.map(r => {
+      const [id, name, cat, type, reason] = r; const p = this.pill(type); const selected = !!s.selected[id];
+      return {
+        id, name, cat, reason, hasReason: !!reason, statusLabel: p.label,
+        pillStyle: { ...pillBase, ...p.style }, dotStyle: { ...dotBase, background: p.dot },
+        selected, onClick: () => this.toggleRow(id),
+        rowStyle: { background: selected ? '#F7F7F9' : '#fff', boxShadow: selected ? 'inset 3px 0 0 #18181B' : 'none', cursor: 'pointer', transition: 'background .12s' },
+        boxStyle: { ...checkBoxBase, background: selected ? INK : '#fff', borderColor: selected ? INK : '#D4D4DA' },
+      };
+    });
+
+    const counts = { all: this.baseRows.length, ok: this.baseRows.filter(r => r[3] === 'ok').length, issues: this.baseRows.filter(r => r[3] !== 'ok').length };
+    const mkchip = (k, label) => ({
+      key: k, label, count: counts[k], onClick: () => this.setState({ filter: k }),
+      style: { ...chipBase, background: s.filter === k ? '#fff' : 'transparent', color: s.filter === k ? INK : '#71717A', boxShadow: s.filter === k ? '0 1px 2px rgba(24,24,27,.12)' : 'none', fontWeight: s.filter === k ? 600 : 500 },
+      badgeStyle: { ...badgeBase, background: s.filter === k ? INK : '#DCDCE0', color: s.filter === k ? '#fff' : '#71717A' },
+    });
+    const filterChips = [mkchip('all', 'All'), mkchip('ok', 'Compliant'), mkchip('issues', 'Issues')];
+
+    const options = this.options.map(o => ({
+      label: o, selected: o === s.dropdown, onSelect: () => this.setState({ dropdownOpen: false, dropdown: o }),
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', padding: '10px 12px', background: o === s.dropdown ? '#F3F3F5' : 'transparent', border: 'none', borderRadius: 10, fontFamily: "'Hanken Grotesk'", fontSize: 14, fontWeight: o === s.dropdown ? 600 : 500, color: o === s.dropdown ? INK : '#3F3F46', cursor: 'pointer', textAlign: 'left' },
+    }));
+
+    const rules = s.rules.map(r => ({
+      ...r,
+      trackStyle: { ...trackBase, background: r.on ? INK : '#DCDCE2' },
+      knobStyle: { ...knobBase, transform: r.on ? 'translateX(18px)' : 'translateX(0)' },
+      onToggle: () => this.toggleRule(r.id),
+    }));
+
+    const archived = this.archived.map(a => {
+      const p = this.pill(a.type);
+      const chipColors = a.type === 'ok' ? { background: '#EAF8F0', color: '#157038' } : a.type === 'bad' ? { background: '#FDECEC', color: '#D23B3B' } : { background: '#FFF6E6', color: '#B5791A' };
+      return {
+        ...a, isOk: a.type === 'ok', isBad: a.type === 'bad', isWarn: a.type === 'warn',
+        chipStyle: { width: 34, height: 34, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', ...chipColors },
+        pillStyle: { ...pillBase, ...p.style }, pillLabel: p.label,
+      };
+    });
+
+    const tabBtn = (active) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 15px', border: 'none', borderRadius: 10, fontFamily: "'Hanken Grotesk'", fontSize: 14, fontWeight: active ? 600 : 500, cursor: 'pointer', background: active ? '#fff' : 'transparent', color: active ? INK : '#8A8A90', boxShadow: active ? '0 1px 2px rgba(24,24,27,.10)' : 'none', transition: 'all .15s' });
+    const tabsData = [
+      { k: 'active', label: 'Active View List', count: this.baseRows.length },
+      { k: 'archived', label: 'Archived Log', count: this.archived.length },
+      { k: 'config', label: 'Configuration Rules', count: s.rules.filter(r => r.on).length },
+    ];
+    const tabs = tabsData.map(t => ({
+      ...t, active: s.tab === t.k, onClick: () => this.setState({ tab: t.k }), style: tabBtn(s.tab === t.k),
+      badgeStyle: { fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: s.tab === t.k ? INK : '#DCDCE0', color: s.tab === t.k ? '#fff' : '#8A8A90' },
+    }));
+
+    const themePill = (active) => ({ padding: '6px 16px', border: 'none', borderRadius: 999, fontFamily: "'Hanken Grotesk'", fontSize: 13, fontWeight: active ? 600 : 500, cursor: 'pointer', background: active ? '#fff' : 'transparent', color: active ? INK : '#9A9AA2', boxShadow: active ? '0 1px 2px rgba(24,24,27,.10)' : 'none', transition: 'all .15s' });
+
+    return {
+      onCmd: () => this.showToast('Command palette — ⌘K'),
+      setLight: () => this.setState({ themePref: 'light' }), setDark: () => this.showToast('Dark theme coming soon'),
+      lightPillStyle: themePill(s.themePref === 'light'), darkPillStyle: themePill(s.themePref === 'dark'),
+      input: s.input, onInput: (e) => this.setState({ input: e.target.value }), clearInput: () => this.setState({ input: '' }), hasInput: s.input.length > 0,
+      dropdown: s.dropdown, dropdownOpen: s.dropdownOpen, toggleDropdown: () => this.setState(x => ({ dropdownOpen: !x.dropdownOpen })), options, ddRefCb: this.ddRefCb,
+      chevronStyle: { transform: s.dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform .18s', width: 18, height: 18, fill: 'none', stroke: '#71717A', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', flex: 'none' },
+      radioA: s.radio === 'A', radioB: s.radio === 'B', setRadioA: () => this.setState({ radio: 'A' }), setRadioB: () => this.setState({ radio: 'B' }),
+      radioABox: { ...radioBase, borderColor: s.radio === 'A' ? INK : '#D4D4DA' }, radioBBox: { ...radioBase, borderColor: s.radio === 'B' ? INK : '#D4D4DA' },
+      accept: s.accept, dark: s.dark, toggleAccept: () => this.setState(x => ({ accept: !x.accept })), toggleDark: () => this.setState(x => ({ dark: !x.dark })),
+      acceptBox: { ...checkBoxBase, background: s.accept ? INK : '#fff', borderColor: s.accept ? INK : '#D4D4DA' },
+      darkBox: { ...checkBoxBase, background: s.dark ? INK : '#fff', borderColor: s.dark ? INK : '#D4D4DA' },
+      expander: s.expander, toggleExpander: () => this.setState(x => ({ expander: !x.expander })),
+      expIconStyle: { transform: s.expander ? 'rotate(180deg)' : 'none', transition: 'transform .2s', width: 18, height: 18, fill: 'none', stroke: INK, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+      autoTag: s.autoTag, snap: s.snap,
+      autoTagTrack: { ...trackBase, width: 38, height: 22, background: s.autoTag ? INK : '#DCDCE2' }, autoTagKnob: { ...knobBase, width: 18, height: 18, transform: s.autoTag ? 'translateX(16px)' : 'translateX(0)' }, toggleAutoTag: () => this.setState(x => ({ autoTag: !x.autoTag })),
+      snapTrack: { ...trackBase, width: 38, height: 22, background: s.snap ? INK : '#DCDCE2' }, snapKnob: { ...knobBase, width: 18, height: 18, transform: s.snap ? 'translateX(16px)' : 'translateX(0)' }, toggleSnap: () => this.setState(x => ({ snap: !x.snap })),
+      slider: s.slider, sliderLabel: s.slider + '%',
+      sliderFill: { width: s.slider + '%', height: '100%', background: '#C2410C', borderRadius: 999 },
+      sliderThumb: { position: 'absolute', top: '50%', left: s.slider + '%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: 999, background: '#fff', border: '2px solid #C2410C', boxShadow: '0 2px 6px rgba(194,65,12,.4)', cursor: 'grab' },
+      startSlide: (e) => this.startSlide(e),
+      progFill: { width: '75%', height: '100%', background: '#C2410C', borderRadius: 999, position: 'relative', overflow: 'hidden' },
+      tabs, isActive: s.tab === 'active', isArchived: s.tab === 'archived', isConfig: s.tab === 'config',
+      filterChips, query: s.query, onQuery: (e) => this.setState({ query: e.target.value }), rows, rowCount: filtered.length, noRows: filtered.length === 0,
+      allSel, someSel, headDash: someSel && !allSel, headBox: { ...checkBoxBase, background: (allSel || someSel) ? INK : '#fff', borderColor: (allSel || someSel) ? INK : '#D4D4DA' }, onToggleAll: () => this.toggleAll(), selectedCount, hasSelection: selectedCount > 0,
+      archived, rules,
+      onPrimary: () => this.showToast('Compliance check started'), onSecondary: () => this.showToast('Settings panel opened'), onSuccess: () => this.showToast('24 sheets renumbered successfully'), onDanger: () => this.showToast('2 non-compliant views removed'), onAccent: () => this.showToast('Audit exported to Excel'),
+      toast: s.toast, hasToast: !!s.toast,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -27,9 +27,9 @@ doc = __revit__.ActiveUIDocument.Document
 
 try:
     # Import core modules
-    from core.revit_service import RevitService
-    from core.data_models import ChangeTracker
-    from core.main_window import MainWindow
+    from sheet_core.revit_service import RevitService
+    from sheet_core.data_models import ChangeTracker
+    from sheet_core.main_window import MainWindow
     
     # Initialize services
     revit_service = RevitService(doc)

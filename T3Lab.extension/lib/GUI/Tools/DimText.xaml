@@ -84,7 +84,6 @@
                                         BorderBrush="#F1F5F9"
                                         BorderThickness="0,0,0,1">
                                     <ContentPresenter ContentSource="Header"
-                                                      RecognizeAccessKey="True"
                                                       TextBlock.FontSize="12"
                                                       TextBlock.FontWeight="Bold"
                                                       TextBlock.Foreground="#0F172A"/>

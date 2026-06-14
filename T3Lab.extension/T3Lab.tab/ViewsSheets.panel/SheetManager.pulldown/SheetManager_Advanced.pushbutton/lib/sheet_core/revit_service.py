@@ -17,7 +17,7 @@ class RevitService(object):
     
     def get_all_sheets(self):
         """Get all sheets in the document"""
-        from core.data_models import SheetModel
+        from sheet_core.data_models import SheetModel
         
         collector = FilteredElementCollector(self.doc).OfClass(ViewSheet)
         sheets = []
