@@ -405,7 +405,7 @@
                         <Grid x:Name="templateRoot" Background="Transparent" SnapsToDevicePixels="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
-                                <Grid.ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Border x:Name="radioBorder" 
                                     Grid.Column="0"
@@ -508,7 +508,7 @@
                     <RowDefinition Height="Auto"/> <!-- Button 2 -->
                     <RowDefinition Height="Auto"/> <!-- Button 3 -->
                     <RowDefinition Height="Auto"/> <!-- Button 4 -->
-                    <Grid.RowDefinition Height="*"/>    <!-- Spacer -->
+                    <RowDefinition Height="*"/>    <!-- Spacer -->
                     <RowDefinition Height="Auto"/> <!-- Theme/Settings -->
                 </Grid.RowDefinitions>
 
@@ -823,8 +823,8 @@
                         <Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="12,10" Margin="0,0,0,16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <Grid.ColumnDefinition Width="Auto"/>
-                                    <Grid.ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10" Background="#18181B" VerticalAlignment="Top" Margin="0,1,8,0">
                                     <Path Data="M12 11 V16.5 M12 7.6 V7.62" Stroke="White" StrokeThickness="2.1" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
@@ -840,8 +840,8 @@
                         <Border Background="#EAF8F0" BorderBrush="#CDEBD9" BorderThickness="1" CornerRadius="14" Padding="12,10" Margin="0,0,0,16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <Grid.ColumnDefinition Width="Auto"/>
-                                    <Grid.ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10" Background="#22A85C" VerticalAlignment="Top" Margin="0,1,8,0">
                                     <Path Data="M5 12 L9.5 16.5 L19 7" Stroke="White" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
