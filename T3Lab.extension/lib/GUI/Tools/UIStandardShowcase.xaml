@@ -1,0 +1,476 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="T3Lab UI Standard Showcase"
+        Height="720" Width="1000"
+        WindowStartupLocation="CenterScreen"
+        Background="White"
+        FontFamily="Inter"
+        FontSize="12"
+        ResizeMode="CanResizeWithGrip">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
+        <SolidColorBrush x:Key="T3SlateBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3AccentBrush" Color="#3B82F6"/>
+        <SolidColorBrush x:Key="T3SuccessBrush" Color="#10B981"/>
+        <SolidColorBrush x:Key="T3DangerBrush" Color="#EF4444"/>
+        <SolidColorBrush x:Key="T3WarningBrush" Color="#F59E0B"/>
+        <SolidColorBrush x:Key="T3TextDarkBrush" Color="#0F172A"/>
+        <SolidColorBrush x:Key="T3TextMutedBrush" Color="#64748B"/>
+        <SolidColorBrush x:Key="T3BorderLightBrush" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="T3BgLightBrush" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="T3LightBlueHighlightBrush" Color="#EBF5FB"/>
+
+        <!-- Sleek Modern Input Field -->
+        <Style x:Key="T3InputField" TargetType="TextBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#0F172A"/>
+            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Inter"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Premium Modern GroupBox Card -->
+        <Style x:Key="T3PremiumCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <!-- Card Header -->
+                                <Border Grid.Row="0" 
+                                        Background="White"
+                                        Padding="16,12"
+                                        BorderBrush="#F1F5F9"
+                                        BorderThickness="0,0,0,1">
+                                    <ContentPresenter ContentSource="Header"
+                                                      RecognizeAccessKey="True"
+                                                      TextBlock.FontSize="12"
+                                                      TextBlock.FontWeight="Bold"
+                                                      TextBlock.Foreground="#0F172A"/>
+                                </Border>
+                                <!-- Card Content -->
+                                <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Top Navigation Tab Style -->
+        <Style x:Key="T3TopNavTabStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,2" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter Property="Foreground" Value="#0F172A"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#3B82F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- PRIMARY BUTTON - solid deep slate, white text -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="#0F172A"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1E293B"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#0F172A"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
+            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Inter"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush"     Value="#0F172A"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F1F5F9"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- SUCCESS BUTTON - emerald green -->
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#10B981"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#059669"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DANGER BUTTON - rose red -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EF4444"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#DC2626"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B91C1C"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ACCENT BUTTON - refined blue -->
+        <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#3B82F6"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2563EB"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#1D4ED8"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Foreground" Value="#94A3B8"/>
+                    <Setter Property="Cursor"     Value="Arrow"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- WINDOW CONTROL BUTTON -->
+        <Style x:Key="WinCtrlButton" TargetType="Button">
+            <Setter Property="Width"           Value="40"/>
+            <Setter Property="Height"          Value="32"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#0F172A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F1F5F9"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
+        <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EF4444"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64"/>       <!-- Row 0: Title Header -->
+            <RowDefinition Height="Auto"/>     <!-- Row 1: Summary Cards -->
+            <RowDefinition Height="*"/>        <!-- Row 2: Content Area -->
+            <RowDefinition Height="Auto"/>     <!-- Row 3: Action Buttons / Footer -->
+        </Grid.RowDefinitions>
+
+        <!-- ═══ ROW 0: TITLE HEADER ═══ -->
+        <Grid Grid.Row="0" Background="White">
+            <StackPanel Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A"
+                               VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                    <TextBlock Text="UI Standard Showcase" FontSize="18" FontWeight="Bold"
+                               Foreground="#0F172A"/>
+                </StackPanel>
+                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
+                <TextBlock Text="Lumina Design Standard Compliance Reviewer - Revit 2024-2026"
+                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                        Click="minimize_button_clicked" ToolTip="Minimize">
+                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                </Button>
+                <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                        Click="maximize_button_clicked" ToolTip="Maximize">
+                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                </Button>
+                <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                        Click="close_button_clicked" ToolTip="Close">
+                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                </Button>
+            </StackPanel>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
+        </Grid>
+
+        <!-- ═══ ROW 1: SUMMARY CARDS ═══ -->
+        <Grid Grid.Row="1" Margin="16,16,16,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Card 1: TOTAL -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="TOTAL PROJECTS" FontSize="9" Foreground="#64748B" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                    <TextBlock Text="245" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card 2: ACTIVE -->
+            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="ACTIVE VIEWS" FontSize="9" Foreground="#64748B" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                    <TextBlock Text="18" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card 3: SUCCESS -->
+            <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,8,0">
+                <StackPanel>
+                    <TextBlock Text="COMPLETED ITEMS" FontSize="9" Foreground="#64748B" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                    <TextBlock Text="198" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Card 4: WARNINGS -->
+            <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="12,8" Margin="0,0,0,0">
+                <StackPanel>
+                    <TextBlock Text="PENDING ISSUES" FontSize="9" Foreground="#64748B" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                    <TextBlock Text="29" FontSize="22" FontWeight="Bold" Foreground="#F59E0B"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ═══ ROW 2: CONTENT AREA ═══ -->
+        <Grid Grid.Row="2" Margin="16,6,16,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Form Panel -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,12,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="COMPONENTS &amp; CONTROLS" FontSize="11" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,12"/>
+
+                        <!-- Text Field -->
+                        <TextBlock Text="Input TextBox (T3InputField)" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,0,4"/>
+                        <TextBox Style="{StaticResource T3InputField}" Text="Sample input text..." Margin="0,0,0,12"/>
+
+                        <!-- ComboBox -->
+                        <TextBlock Text="Dropdown ComboBox" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,0,4"/>
+                        <ComboBox Height="28" Margin="0,0,0,12" SelectedIndex="0">
+                            <ComboBoxItem Content="First standard option"/>
+                            <ComboBoxItem Content="Second option"/>
+                            <ComboBoxItem Content="Third option"/>
+                        </ComboBox>
+
+                        <!-- Radio Buttons -->
+                        <TextBlock Text="Radio Selection Group" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,0,4"/>
+                        <StackPanel Margin="0,0,0,12">
+                            <RadioButton Content="Option A (Checked)" IsChecked="True" Margin="0,0,0,4"/>
+                            <RadioButton Content="Option B (Unchecked)"/>
+                        </StackPanel>
+
+                        <!-- Checkboxes -->
+                        <TextBlock Text="Checkbox Options" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="0,0,0,4"/>
+                        <StackPanel Margin="0,0,0,12">
+                            <CheckBox Content="Accept standard guidelines" IsChecked="True" Margin="0,0,0,4"/>
+                            <CheckBox Content="Enable dark accent colors"/>
+                        </StackPanel>
+
+                        <!-- GroupBox Card Sample -->
+                        <GroupBox Header="GroupBox Title (T3PremiumCard)" Style="{StaticResource T3PremiumCard}" Padding="10" Margin="0,4,0,4">
+                            <TextBlock Text="Premium GroupBox card with integrated title separator." FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Right Data Panel -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Top Navigation Tab Selection Simulator -->
+                <Border Grid.Row="0" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton Content="Active View List" Style="{StaticResource T3TopNavTabStyle}" IsChecked="True"/>
+                        <RadioButton Content="Archived Log" Style="{StaticResource T3TopNavTabStyle}"/>
+                        <RadioButton Content="Configuration Rules" Style="{StaticResource T3TopNavTabStyle}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- DataGrid standard style -->
+                <DataGrid x:Name="sample_grid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True"
+                          Background="White" BorderBrush="#E2E8F0" GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#F1F5F9" RowBackground="White" AlternatingRowBackground="#F8FAFC">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Element ID" Binding="{Binding id}" Width="100"/>
+                        <DataGridTextColumn Header="Name" Binding="{Binding name}" Width="220"/>
+                        <DataGridTextColumn Header="Standard Category" Binding="{Binding category}" Width="150"/>
+                        <DataGridTextColumn Header="Compliance Status" Binding="{Binding status}" Width="130"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Grid>
+
+        <!-- ═══ ROW 3: ACTION BUTTONS / FOOTER ═══ -->
+        <!-- Standard Status Bar -->
+        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,8">
+            <Grid>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <!-- Standard Buttons Palette Showcase -->
+                    <Button Content="Primary Button" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                    <Button Content="Secondary Button" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                    <Button Content="Success Button" Style="{StaticResource SuccessButton}" Margin="0,0,8,0"/>
+                    <Button Content="Danger Button" Style="{StaticResource DangerButton}" Margin="0,0,8,0"/>
+                    <Button Content="Accent Button" Style="{StaticResource AccentButton}"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,150,0">
+                    <TextBlock Text="System Status: " FontWeight="SemiBold" Foreground="#64748B"/>
+                    <TextBlock Text="Fully Compliant" Foreground="#10B981" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Copyright Notice -->
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="4"/>
+    </Grid>
+</Window>
