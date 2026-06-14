@@ -4,8 +4,8 @@
     Title="DQT BCF Reader"
     Width="1200" Height="780"
     WindowStartupLocation="CenterScreen"
-    Background="#F8FAFC"
-    FontFamily="Segoe UI">
+    Background="White"
+    FontFamily="Inter">
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
@@ -522,5 +522,8 @@
                            FontSize="10" FontWeight="SemiBold"/>
             </Grid>
         </Border>
+
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

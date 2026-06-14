@@ -3,10 +3,19 @@
         Title="Excel Column Mapping - T3Lab"
         Height="520" Width="650"
         WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC"
+        Background="White"
         FontFamily="Inter"
         FontSize="12"
         ResizeMode="NoResize">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
@@ -367,5 +376,8 @@
                 <Button Grid.Column="2" x:Name="btnMapCancel" Content="Cancel" Style="{StaticResource SecondaryButton}" Width="90" Height="32"/>
             </Grid>
         </Border>
+
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

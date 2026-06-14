@@ -4,10 +4,18 @@
         Width="1100" Height="700"
         MinWidth="900" MinHeight="550"
         WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC"
+        Background="White"
         FontFamily="Inter"
         FontSize="12">
-    
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
@@ -471,12 +479,12 @@
         <Grid Grid.Row="4" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="💡 Double-click to zoom | Shift+Click for range | Ctrl+Click for multi-select" 
+            <TextBlock Grid.Column="0" Text="💡 Double-click to zoom | Shift+Click for range | Ctrl+Click for multi-select"
                        FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Text="Copyright © 2026 T3Lab &amp; DQT" 
-                       FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center"/>
         </Grid>
+
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

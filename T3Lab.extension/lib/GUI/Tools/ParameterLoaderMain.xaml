@@ -4,10 +4,18 @@
         Height="800" Width="1050"
         MinHeight="600" MinWidth="850"
         WindowStartupLocation="CenterScreen"
-        Background="#F8FAFC"
+        Background="White"
         FontFamily="Inter"
         FontSize="12">
-    
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
@@ -289,7 +297,6 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
         <!-- Header -->
@@ -475,9 +482,7 @@
             </Grid>
         </Border>
         
-        <!-- Footer -->
-        <Border Grid.Row="5" Background="#0F172A" CornerRadius="6" Padding="12,8">
-            <TextBlock Text="IFC-SG Parameter Loader | T3Lab &amp; DQT (c) 2026" FontSize="10" Foreground="#94A3B8" HorizontalAlignment="Center"/>
-        </Border>
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

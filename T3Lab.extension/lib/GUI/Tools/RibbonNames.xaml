@@ -3,9 +3,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Ribbon Name Manager - T3Lab" Height="560" Width="560"
     WindowStartupLocation="CenterScreen" ResizeMode="CanResize"
-    Background="#F8FAFC"
+    Background="White"
     FontFamily="Inter"
     FontSize="12">
+
+  <WindowChrome.WindowChrome>
+      <WindowChrome CaptionHeight="64"
+                    ResizeBorderThickness="5"
+                    GlassFrameThickness="0"
+                    CornerRadius="8"
+                    UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
 
   <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
@@ -329,10 +337,10 @@
           <Button x:Name="BtnReset"   Content="Reset"        Style="{StaticResource SecondaryButton}" Margin="0,0,4,0"/>
           <Button x:Name="BtnClose"   Content="Close"        Style="{StaticResource SecondaryButton}"/>
         </StackPanel>
-        <TextBlock Text="Copyright © 2026 T3Lab"
-                   Foreground="#64748B" FontSize="10" FontWeight="SemiBold"
-                   HorizontalAlignment="Right" Margin="0,6,0,0"/>
       </StackPanel>
     </Border>
+
+    <!-- Copyright added automatically -->
+    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
   </Grid>
 </Window>

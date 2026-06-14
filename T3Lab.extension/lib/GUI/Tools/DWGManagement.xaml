@@ -391,7 +391,7 @@
                         ToolTip="Minimize"
                         Click="minimize_button_clicked">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="10" Foreground="#0F172A"/>
+                               FontSize="10"/>
                 </Button>
 
                 <Button x:Name="btn_maximize"
@@ -399,7 +399,7 @@
                         ToolTip="Maximize"
                         Click="maximize_button_clicked">
                     <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="10" Foreground="#0F172A"/>
+                               FontSize="10"/>
                 </Button>
 
                 <Button x:Name="btn_close"
@@ -407,17 +407,7 @@
                         ToolTip="Close"
                         Click="close_button_clicked">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="10" Foreground="#0F172A">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                               FontSize="10"/>
                 </Button>
 
             </StackPanel>

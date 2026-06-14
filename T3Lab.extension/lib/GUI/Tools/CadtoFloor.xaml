@@ -4,9 +4,18 @@
         Width="820" Height="750"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        Background="#F8FAFC"
+        Background="White"
         FontFamily="Inter"
         FontSize="12">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
@@ -290,7 +299,6 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         
         <!-- HEADER -->
@@ -534,10 +542,7 @@
             </Grid>
         </Border>
         
-        <!-- COPYRIGHT FOOTER -->
-        <Border Grid.Row="7" Background="#0F172A" Padding="8,6">
-            <TextBlock Text="Copyright (c) 2026 T3Lab. All rights reserved." 
-                       FontSize="9" Foreground="#FFFFFF" HorizontalAlignment="Center" FontStyle="Italic"/>
-        </Border>
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

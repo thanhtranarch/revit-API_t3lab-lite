@@ -6,9 +6,19 @@
     SizeToContent="Height"
     MinHeight="480" MaxHeight="720"
     WindowStartupLocation="CenterScreen"
-    ResizeMode="NoResize"
+    Background="White"
+    ResizeMode="CanResizeWithGrip"
     FontFamily="Inter"
     FontSize="12">
+
+  <WindowChrome.WindowChrome>
+      <WindowChrome CaptionHeight="64"
+                    ResizeBorderThickness="5"
+                    GlassFrameThickness="0"
+                    CornerRadius="8"
+                    UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
+
   <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
@@ -283,8 +293,7 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
   </Window.Resources>
 
-  <Border Background="#F8FAFC">
-    <Grid>
+  <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
@@ -389,7 +398,7 @@
       </StackPanel>
 
       <!-- FOOTER -->
-      <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,10">
+      <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Background="#F8FAFC" Padding="14,8">
         <Grid>
           <Grid.ColumnDefinitions>
             <GridColumnDefinition Width="*"/>
@@ -397,8 +406,6 @@
             <GridColumnDefinition Width="8"/>
             <GridColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="T3Lab (c) 2026"
-                     FontSize="9" Foreground="#94A3B8" VerticalAlignment="Center"/>
           <Button x:Name="RunButton" Grid.Column="1"
                   Content="▶  Write Volume" Width="140"
                   Style="{StaticResource PrimaryButton}"/>
@@ -408,6 +415,7 @@
         </Grid>
       </Border>
 
-    </Grid>
-  </Border>
+      <!-- Copyright added automatically -->
+      <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+  </Grid>
 </Window>

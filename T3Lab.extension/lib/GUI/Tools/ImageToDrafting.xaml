@@ -6,7 +6,7 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         Background="White"
-        FontFamily="Segoe UI"
+        FontFamily="Inter"
         KeyDown="Window_KeyDown">
 
     <WindowChrome.WindowChrome>
@@ -311,7 +311,7 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#3B82F6" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
                     <TextBlock Text="Image To Drafting" FontSize="18" FontWeight="Bold"
                                Foreground="#0F172A"/>
                 </StackPanel>
@@ -511,5 +511,8 @@
             <Button Grid.Row="3" x:Name="CreateBtn" Content="▶  Create Drafting View"
                     Height="42" Style="{StaticResource PrimaryButton}" Click="Create_Click"/>
         </Grid>
+
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

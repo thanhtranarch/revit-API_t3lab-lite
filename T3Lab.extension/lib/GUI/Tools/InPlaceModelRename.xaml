@@ -1,10 +1,19 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Batch Rename" Height="420" Width="450" 
+        Title="Batch Rename" Height="420" Width="450"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
-        Background="#F8FAFC"
+        Background="White"
         FontFamily="Inter"
         FontSize="12">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Terra v2 System) -->
@@ -342,5 +351,8 @@
             <Button x:Name="btnCancel" Content="Cancel" Style="{StaticResource SecondaryButton}" Width="70" Margin="0,0,8,0"/>
             <Button x:Name="btnApply" Content="Apply" Style="{StaticResource PrimaryButton}" Width="70"/>
         </StackPanel>
+
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>

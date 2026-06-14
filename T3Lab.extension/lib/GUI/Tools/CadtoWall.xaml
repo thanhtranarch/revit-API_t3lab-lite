@@ -5,9 +5,17 @@
     Width="750" Height="720"
     MinWidth="650" MinHeight="550"
     WindowStartupLocation="CenterScreen"
-    Background="#F8FAFC"
+    Background="White"
     FontFamily="Inter"
     FontSize="12">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="64"
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="8"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
@@ -290,7 +298,6 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -411,10 +418,7 @@
             <TextBlock x:Name="txtStatus" Text="Ready" FontSize="10" Foreground="#64748B" TextWrapping="Wrap"/>
         </Border>
 
-        <!-- Footer -->
-        <Border Grid.Row="5" Background="#0F172A" CornerRadius="6" Padding="10,6">
-            <TextBlock Text="Copyright T3Lab (c) 2026"
-                       FontSize="10" Foreground="#FFFFFF" HorizontalAlignment="Center"/>
-        </Border>
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
     </Grid>
 </Window>
