@@ -31,7 +31,7 @@ clr.AddReference("System.Xml")
 
 import System
 from System import IO, Text, Windows
-from System.Windows import Window, MessageBox, MessageBoxButton, MessageBoxResult, MessageBoxImage
+from System.Windows import Window, MessageBox, MessageBoxButton, MessageBoxResult, MessageBoxImage, WindowState
 from System.Windows import Visibility, HorizontalAlignment, VerticalAlignment, TextAlignment
 from System.Windows import Thickness, GridLength, GridUnitType, RoutedEventArgs
 from System.Windows.Controls import (

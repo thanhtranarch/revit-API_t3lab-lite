@@ -17,7 +17,7 @@ clr.AddReference("WindowsBase")
 import System
 from System.IO import MemoryStream
 from System.Text import Encoding
-from System.Windows import Window, Thickness, Visibility
+from System.Windows import Window, Thickness, Visibility, WindowState
 from System.Windows import MessageBox as WPFMessageBox
 from System.Windows import MessageBoxButton, MessageBoxResult, MessageBoxImage
 from System.Windows.Markup import XamlReader

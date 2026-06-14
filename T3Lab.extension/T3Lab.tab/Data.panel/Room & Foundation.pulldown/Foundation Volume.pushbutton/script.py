@@ -32,7 +32,7 @@ from System import Array
 from System.IO import MemoryStream
 from System.Text import Encoding
 from System.Windows.Markup import XamlReader
-from System.Windows import Window, Thickness
+from System.Windows import Window, Thickness, WindowState
 from System.Windows.Controls import ListBoxItem
 
 import Autodesk.Revit.DB as DB

@@ -34,7 +34,7 @@ import sys
 import os
 import codecs
 import System
-from System.Windows import Window, Thickness, HorizontalAlignment, VerticalAlignment, TextWrapping, Visibility
+from System.Windows import Window, Thickness, HorizontalAlignment, VerticalAlignment, TextWrapping, Visibility, WindowState
 from System.Windows import RoutedEventArgs, MessageBox as WPFMessageBox, MessageBoxButton, MessageBoxResult, MessageBoxImage
 from System.Windows.Controls import *
 from System.Windows.Media import SolidColorBrush, BrushConverter

@@ -40,7 +40,7 @@ import System
 from System.IO import MemoryStream, File, Path as IOPath, StreamReader
 from System.IO.Compression import ZipFile
 from System.Text import Encoding
-from System.Windows import (
+from System.Windows import , WindowState
     Thickness, HorizontalAlignment, VerticalAlignment,
     TextWrapping, FontStyles, FontWeights, CornerRadius,
     GridLength, GridUnitType

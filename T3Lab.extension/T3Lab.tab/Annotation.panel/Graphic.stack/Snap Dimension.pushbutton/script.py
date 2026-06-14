@@ -1,3 +1,4 @@
+from System.Windows import WindowState
 # -*- coding: utf-8 -*-
 """Snap to Grid v12 - Round wall/column/beam distances to nearest gridline.
 

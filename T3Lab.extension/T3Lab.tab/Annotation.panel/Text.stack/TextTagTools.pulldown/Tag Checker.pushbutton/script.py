@@ -44,7 +44,7 @@ from System.Collections.Generic import List
 import System
 from System.IO import MemoryStream
 from System.Text import Encoding
-from System.Windows import Window, WindowStartupLocation
+from System.Windows import Window, WindowStartupLocation, WindowState
 from System.Windows import Thickness, Visibility, HorizontalAlignment
 from System.Windows import MessageBox as WPFMessageBox
 from System.Windows.Markup import XamlReader

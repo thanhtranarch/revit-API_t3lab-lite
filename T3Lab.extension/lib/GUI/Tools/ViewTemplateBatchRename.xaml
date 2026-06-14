@@ -1,17 +1,16 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Image To Drafting View - T3Lab" 
-        Height="540" Width="460"
-        MinWidth="400" MinHeight="480"
+        Title="Batch Rename View Templates"
+        Height="570" Width="600"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanResizeWithGrip"
         Background="White"
         FontFamily="Inter"
-        KeyDown="Window_KeyDown">
+        FontSize="12"
+        ResizeMode="CanResizeWithGrip">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
-                      ResizeBorderThickness="5"
+                      ResizeBorderThickness="0"
                       GlassFrameThickness="0"
                       CornerRadius="8"
                       UseAeroCaptionButtons="False"/>
@@ -86,7 +85,7 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A"
                                VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="Image To Drafting View - T3Lab" FontSize="18" FontWeight="Bold"
+                    <TextBlock Text="Batch Rename View Templates" FontSize="18" FontWeight="Bold"
                                Foreground="#0F172A"/>
                 </StackPanel>
                 <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
@@ -315,229 +314,176 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="1"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="64"/>       <!-- Row 0: Title Header -->
+            <RowDefinition Height="*"/>        <!-- Row 1: TabControl -->
+            <RowDefinition Height="150"/>      <!-- Row 2: Preview -->
+            <RowDefinition Height="Auto"/>     <!-- Row 3: Action Buttons -->
         </Grid.RowDefinitions>
 
-        <!-- Custom Title Bar -->
-        <Grid Grid.Row="0" Background="White" Height="64">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- Title -->
-            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
+        <!-- ═══ ROW 0: TITLE HEADER ═══ -->
+        <Grid Grid.Row="0" Background="White">
+            <StackPanel Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="Image To Drafting" FontSize="18" FontWeight="Bold"
+                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A"
+                               VerticalAlignment="Bottom" Margin="0,0,6,3"/>
+                    <TextBlock Text="Batch Rename Templates" FontSize="18" FontWeight="Bold"
                                Foreground="#0F172A"/>
                 </StackPanel>
                 <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Convert images or clipboard screenshots to detail vector lines"
+                <TextBlock x:Name="info_text" Text="0 template(s) selected for renaming"
                            FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
 
-            <!-- Window Control Buttons -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0"
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <!-- Profile circular icon from design image -->
-                <Border Width="32" Height="32" CornerRadius="16" Background="#F3F4F6" BorderBrush="#E5E7EB" BorderThickness="1" 
-                        VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="User Profile">
-                    <Grid>
-                        <!-- Stylized modern human head outline -->
-                        <Ellipse Width="10" Height="10" Fill="#9CA3AF" VerticalAlignment="Top" Margin="0,6,0,0"/>
-                        <Path Data="M 6,24 A 10,10 0 0,1 26,24 Z" Fill="#9CA3AF" Stretch="Fill" VerticalAlignment="Bottom" Height="10" Margin="4,0,4,3"/>
-                    </Grid>
-                </Border>
-                <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
-                        ToolTip="Minimize" Click="minimize_button_clicked">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-                <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
-                        ToolTip="Maximize" Click="maximize_button_clicked">
-                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
                 <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
-                        ToolTip="Close" Click="close_button_clicked">
+                        Click="close_button_clicked" ToolTip="Close">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
         </Grid>
 
-        <!-- Header Separator -->
-        <Border Grid.Row="1" Background="#ECF0F1"/>
-
-        <!-- Main Content -->
-        <Grid Grid.Row="2" Margin="16,16,16,16">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <!-- Settings Row -->
-            <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                <!-- Group 1: General Settings -->
-                <Grid Margin="0,0,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Drafting View Name" FontWeight="SemiBold" FontSize="11"
-                                   Foreground="#0F172A" Margin="0,0,0,4"/>
-                        <TextBox x:Name="ViewNameInput" Style="{StaticResource T3InputField}"
-                                 Text="Image Import"/>
+        <!-- ═══ ROW 1: TABS ═══ -->
+        <TabControl x:Name="tab_control" Grid.Row="1" Margin="16,10,16,10">
+            <!-- prefix/suffix -->
+            <TabItem Header="Prefix/Suffix">
+                <StackPanel Margin="10">
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,10">
+                        <TextBlock Text="Prefix:" Width="80" VerticalAlignment="Center"/>
+                        <TextBox x:Name="prefix_box" Width="350" Padding="5"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Output Width (mm)" FontWeight="SemiBold" FontSize="11"
-                                   Foreground="#0F172A" Margin="0,0,0,4"/>
-                        <TextBox x:Name="WidthInput" Style="{StaticResource T3InputField}"
-                                 Text="300"
-                                 ToolTip="Target width in Revit (mm). Height scales proportionally."/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Suffix:" Width="80" VerticalAlignment="Center"/>
+                        <TextBox x:Name="suffix_box" Width="350" Padding="5"/>
                     </StackPanel>
-                </Grid>
+                </StackPanel>
+            </TabItem>
 
-                <!-- Group 2: Algorithm Settings -->
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    
-                    <!-- Col 0: Tracing Mode -->
-                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
-                        <TextBlock Text="Tracing Mode" FontWeight="SemiBold" FontSize="11"
-                                   Foreground="#0F172A" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="TracingModeInput" Height="32" SelectedIndex="0" VerticalContentAlignment="Center" FontSize="13" SelectionChanged="TracingMode_SelectionChanged">
-                            <ComboBoxItem Content="Centerline (Auto-Thinning)"/>
-                            <ComboBoxItem Content="Outline (Boundary)"/>
+            <!-- find/replace -->
+            <TabItem Header="Find/Replace">
+                <StackPanel Margin="10">
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,10">
+                        <TextBlock Text="Find:" Width="80" VerticalAlignment="Center"/>
+                        <TextBox x:Name="find_box" Width="350" Padding="5"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Replace:" Width="80" VerticalAlignment="Center"/>
+                        <TextBox x:Name="replace_box" Width="350" Padding="5"/>
+                    </StackPanel>
+                    <CheckBox x:Name="case_check" Content="Case sensitive" Margin="80,0,0,0"/>
+                </StackPanel>
+            </TabItem>
+
+            <!-- remove -->
+            <TabItem Header="Remove">
+                <StackPanel Margin="10">
+                    <CheckBox x:Name="remove_numbers_check" Content="Remove numbers (0-9)" Margin="0,5,0,5"/>
+                    <CheckBox x:Name="remove_special_check" Content="Remove special characters (!@#$%^&amp;*)" Margin="0,0,0,5"/>
+                    <CheckBox x:Name="remove_spaces_check" Content="Remove spaces" Margin="0,0,0,10"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Remove custom:" Width="100" VerticalAlignment="Center"/>
+                        <TextBox x:Name="remove_custom_box" Width="250" Padding="5"/>
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+
+            <!-- case -->
+            <TabItem Header="Change Case">
+                <StackPanel Margin="10">
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,10">
+                        <TextBlock Text="Change to:" Width="80" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="case_combo" Width="200" Padding="5" SelectedIndex="0">
+                            <ComboBoxItem Content="No Change"/>
+                            <ComboBoxItem Content="UPPERCASE"/>
+                            <ComboBoxItem Content="lowercase"/>
+                            <ComboBoxItem Content="Title Case"/>
+                            <ComboBoxItem Content="Sentence case"/>
                         </ComboBox>
                     </StackPanel>
-                    
-                    <!-- Col 2: Line Thickness / Pruning -->
-                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,8">
-                        <TextBlock x:Name="lbl_thickness" Text="Pruning Length (px)" FontWeight="SemiBold" FontSize="11"
-                                   Foreground="#0F172A" Margin="0,0,0,4"/>
-                        <TextBox x:Name="ThicknessInput" Style="{StaticResource T3InputField}"
-                                 Text="2"
-                                 ToolTip="Pruning length (Centerline) or Erosion width (Outline)."/>
+                </StackPanel>
+            </TabItem>
+
+            <!-- numbering -->
+            <TabItem Header="Numbering">
+                <StackPanel Margin="10">
+                    <CheckBox x:Name="numbering_check" Content="Add numbering to names" Margin="0,5,0,15"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Start at:" Width="100" VerticalAlignment="Center"/>
+                        <TextBox x:Name="start_number_box" Text="1" Width="80" Padding="5"/>
                     </StackPanel>
-                    
-                    <!-- Col 0 Row 1: Threshold Mode -->
-                    <StackPanel Grid.Row="1" Grid.Column="0">
-                        <TextBlock Text="Threshold Mode" FontWeight="SemiBold" FontSize="11"
-                                   Foreground="#0F172A" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="ThresholdModeInput" Height="32" SelectedIndex="1" VerticalContentAlignment="Center" FontSize="13" SelectionChanged="ThresholdMode_SelectionChanged">
-                            <ComboBoxItem Content="Auto (Otsu's Method)"/>
-                            <ComboBoxItem Content="Manual Threshold"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Padding (digits):" Width="100" VerticalAlignment="Center"/>
+                        <TextBox x:Name="padding_box" Text="2" Width="80" Padding="5"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Position:" Width="100" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="number_position_combo" Width="150" Padding="5" SelectedIndex="0">
+                            <ComboBoxItem Content="Prefix"/>
+                            <ComboBoxItem Content="Suffix"/>
                         </ComboBox>
                     </StackPanel>
-                    
-                    <!-- Col 2 Row 1: Threshold Value / RDP -->
-                    <Grid Grid.Row="1" Grid.Column="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock x:Name="lbl_manual_threshold" Text="Threshold" FontWeight="SemiBold" FontSize="11"
-                                       Foreground="#0F172A" Margin="0,0,0,4" Opacity="1.0"/>
-                            <TextBox x:Name="ManualThresholdInput" Style="{StaticResource T3InputField}"
-                                     Text="210" IsEnabled="True"
-                                     ToolTip="Manual grayscale threshold (0-255). Ignored in Auto."/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="Tolerance" FontWeight="SemiBold" FontSize="11"
-                                       Foreground="#0F172A" Margin="0,0,0,4"/>
-                            <TextBox x:Name="RdpToleranceInput" Style="{StaticResource T3InputField}"
-                                     Text="1.0"
-                                     ToolTip="Simplification tolerance (px). Higher = straighter lines, lower = more detailed curves."/>
-                        </StackPanel>
-                    </Grid>
-                </Grid>
-
-                <!-- Options checkboxes -->
-                <Grid Margin="0,8,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.5*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <CheckBox x:Name="InvertInput" Grid.Column="0" Content="Invert Colors (Dark Mode)" 
-                              FontWeight="SemiBold" FontSize="11" Foreground="#0F172A" VerticalAlignment="Center"
-                              ToolTip="Invert colors for light-on-dark images (e.g. AutoCAD/Revit dark mode screenshots)."/>
-                    
-                    <!-- PDF options if any -->
-                    <Border x:Name="sp_pdf_options" Grid.Column="1" Visibility="Collapsed"
-                            Background="#EBF5FB" BorderBrush="#3B82F6"
-                            BorderThickness="1" CornerRadius="6"
-                            Padding="8,4">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="📄 Page:" FontWeight="SemiBold" FontSize="11"
-                                       Foreground="#0F172A" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBox x:Name="txt_pdf_page" Style="{StaticResource T3InputField}"
-                                     Text="1" Width="30" Height="24" Padding="4,0" FontSize="11" Margin="0,0,4,0"/>
-                            <TextBlock x:Name="lbl_pdf_pages" Text="of ? pages" FontSize="10"
-                                       Foreground="#64748B" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
-            </StackPanel>
-
-            <!-- Drag & Drop Area / Preview -->
-            <Border Grid.Row="1" BorderBrush="#3B82F6" BorderThickness="1.5" CornerRadius="6"
-                    Background="#F8FAFC" AllowDrop="True" Drop="Border_Drop" Margin="0,0,0,16">
-                <Grid>
-                    <!-- Background instruction -->
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="0" Margin="20">
-                        <TextBlock Text="📎" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,8" Foreground="#94A3B8"/>
-                        <TextBlock Text="Paste Image (Ctrl+V) or Drag &amp; Drop Here"
-                                   HorizontalAlignment="Center" FontWeight="Medium"
-                                   Foreground="#64748B" FontSize="13" TextAlignment="Center"/>
-                        <TextBlock Text="Supports JPG, PNG, BMP, PDF"
-                                   HorizontalAlignment="Center" Margin="0,4,0,0"
-                                   Foreground="#94A3B8" FontSize="11" TextAlignment="Center"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Separator:" Width="100" VerticalAlignment="Center"/>
+                        <TextBox x:Name="number_separator_box" Text="_" Width="80" Padding="5"/>
                     </StackPanel>
-                    <!-- Preview Image -->
-                    <Image x:Name="ImagePreview" Stretch="Uniform" Panel.ZIndex="1" Margin="8"/>
-                </Grid>
-            </Border>
+                </StackPanel>
+            </TabItem>
 
-            <!-- Control Buttons -->
-            <Grid Grid.Row="2" Margin="0,0,0,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Button Grid.Column="0" Content="📂  Browse File..." Height="36"
-                        Style="{StaticResource SecondaryButton}" Click="Browse_Click"/>
-                <Button Grid.Column="2" Content="✕  Clear Image" Height="36"
-                        Style="{StaticResource SecondaryButton}" Click="Clear_Click"/>
+            <!-- template info -->
+            <TabItem Header="Template Info">
+                <StackPanel Margin="10">
+                    <TextBlock Text="Add template properties to name:" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                    <CheckBox x:Name="add_viewtype_check" Content="Add View Type (FloorPlan, Section...)" Margin="0,5,0,5"/>
+                    <CheckBox x:Name="add_scale_check" Content="Add Scale (1:100, 1:50...)" Margin="0,0,0,10"/>
+                    <CheckBox x:Name="remove_current_name_check" Content="Remove current name (use only template info)" Margin="0,5,0,15" Foreground="#EF4444"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Position:" Width="80" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="info_position_combo" Width="150" Padding="5" SelectedIndex="1">
+                            <ComboBoxItem Content="Prefix"/>
+                            <ComboBoxItem Content="Suffix"/>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Brackets:" Width="80" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="info_bracket_combo" Width="150" Padding="5" SelectedIndex="1">
+                            <ComboBoxItem Content="None"/>
+                            <ComboBoxItem Content="(Parentheses)"/>
+                            <ComboBoxItem Content="_Underscore_"/>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Separator:" Width="80" VerticalAlignment="Center"/>
+                        <TextBox x:Name="info_separator_box" Text="_" Width="80" Padding="5"/>
+                    </StackPanel>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <!-- ═══ ROW 2: PREVIEW ═══ -->
+        <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Margin="16,0,16,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="28"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="PREVIEW" FontSize="10" FontWeight="SemiBold" Padding="10,6" Background="#F8FAFC" Foreground="#0F172A"/>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="White">
+                    <TextBlock x:Name="preview_text" Text="Preview will appear here..." Padding="10" FontFamily="Consolas" FontSize="11"/>
+                </ScrollViewer>
             </Grid>
+        </Border>
 
-            <!-- Run Button -->
-            <Button Grid.Row="3" x:Name="CreateBtn" Content="▶  Create Drafting View"
-                    Height="42" Style="{StaticResource PrimaryButton}" Click="Create_Click"/>
-        </Grid>
+        <!-- ═══ ROW 3: BUTTONS ═══ -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,16,16">
+            <Button x:Name="apply_btn" Content="Apply Rename" Style="{StaticResource SuccessButton}" Width="120" Height="35" Margin="0,0,10,0"/>
+            <Button x:Name="cancel_btn" Content="Cancel" Style="{StaticResource SecondaryButton}" Width="100" Height="35" Click="close_button_clicked"/>
+        </StackPanel>
 
+        <!-- Copyright Notice -->
         
-            
-        
-        <!-- Copyright added automatically -->
+            <!-- Copyright added automatically -->
         <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 </Grid>
 </Window>

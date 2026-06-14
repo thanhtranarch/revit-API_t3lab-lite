@@ -321,6 +321,21 @@ class JsonInputDialog(forms.WPFWindow):
 
 # MAIN SCRIPT
 # ==============================================================================
+
+
+    def minimize_button_clicked(self, sender, e):
+        self.WindowState = WindowState.Minimized
+
+    def maximize_button_clicked(self, sender, e):
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+            self.btn_maximize.ToolTip = "Maximize"
+        else:
+            self.WindowState = WindowState.Maximized
+            self.btn_maximize.ToolTip = "Restore"
+
+    def close_button_clicked(self, sender, e):
+        self.Close()
 if __name__ == "__main__":
     logger.info("JSON to Family script started")
 

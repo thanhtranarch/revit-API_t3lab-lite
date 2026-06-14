@@ -1,3 +1,4 @@
+from System.Windows import WindowState
 # -*- coding: utf-8 -*-
 """
 DQT - Ribbon Name Manager

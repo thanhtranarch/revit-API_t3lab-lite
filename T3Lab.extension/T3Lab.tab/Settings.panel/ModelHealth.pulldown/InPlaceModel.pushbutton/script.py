@@ -1,3 +1,4 @@
+from System.Windows import WindowState
 # -*- coding: utf-8 -*-
 """In-Place Model Manager v1.7 - Full Features
 Author: Dang Quoc Truong (DQT)

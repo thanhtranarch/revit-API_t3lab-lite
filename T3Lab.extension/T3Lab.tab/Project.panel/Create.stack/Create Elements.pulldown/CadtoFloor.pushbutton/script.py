@@ -36,7 +36,7 @@ from System import EventHandler
 from System.Collections.Generic import List
 from System.IO import StringReader
 from System.Xml import XmlReader
-from System.Windows import Window, MessageBox, MessageBoxButton, MessageBoxResult, MessageBoxImage
+from System.Windows import Window, MessageBox, MessageBoxButton, MessageBoxResult, MessageBoxImage, WindowState
 from System.Windows import Visibility, Thickness, HorizontalAlignment, VerticalAlignment, TextAlignment, FontWeights
 from System.Windows.Controls import *
 from System.Windows.Media import BrushConverter

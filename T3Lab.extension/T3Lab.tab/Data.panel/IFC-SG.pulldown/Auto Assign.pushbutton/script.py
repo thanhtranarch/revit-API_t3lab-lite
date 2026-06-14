@@ -32,7 +32,7 @@ import System
 from System.IO import MemoryStream
 from System.Text import Encoding
 from System.Windows.Markup import XamlReader
-from System.Windows import Window, MessageBox as WPFMessageBox
+from System.Windows import Window, MessageBox as WPFMessageBox, WindowState
 from System.Windows import MessageBoxButton, MessageBoxResult, MessageBoxImage
 from System.Windows.Forms import OpenFileDialog, DialogResult as WFDialogResult
 from System.Data import DataTable

@@ -312,7 +312,7 @@
                                Foreground="#0F172A"/>
                 </StackPanel>
                 <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Export CAD blocks or generate parametric Door/Window families"
+                <TextBlock Text="&#xE8BB;"
                            FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
 
@@ -708,7 +708,10 @@
             </StackPanel>
         </Border>
 
+        
+            
+        
         <!-- Copyright added automatically -->
         <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
-    </Grid>
+</Grid>
 </Window>

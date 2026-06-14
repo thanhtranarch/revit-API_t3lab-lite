@@ -25,7 +25,7 @@ clr.AddReference('System.Xml')
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *
 import System
-from System.Windows import *
+from System.Windows import *, WindowState
 from System.Windows.Controls import *
 from System.Windows.Media import *
 from System.Windows.Markup import XamlReader
