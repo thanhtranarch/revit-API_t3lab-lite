@@ -1,8 +1,6 @@
 title: CAD to BIM
 layout:
-  - CadtoWall
-  - CadtoFloor
-  - Beam
+  - CADToElements
   - RoomToFloor
   - DoorThreshold
   - PointCloud
