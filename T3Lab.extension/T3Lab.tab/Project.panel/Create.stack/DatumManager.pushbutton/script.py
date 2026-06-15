@@ -14,11 +14,12 @@ import __builtin__
 
 from System.Windows import (Window, WindowStartupLocation, Thickness,
                             HorizontalAlignment, VerticalAlignment,
-                            FontWeights, TextWrapping, ResizeMode)
+                            FontWeights, TextWrapping, ResizeMode,
+                            GridLength, GridUnitType)
 from System.Windows.Controls import (Grid, RowDefinition, TabControl, TabItem,
-                                     StackPanel, TextBlock, Button, ScrollViewer)
+                                     StackPanel, TextBlock, Button, ScrollViewer,
+                                     Border)
 from System.Windows.Media import BrushConverter, FontFamily
-from System.Windows import GridLength, GridUnitType
 
 from pyrevit import forms
 
@@ -33,8 +34,7 @@ def _make_btn(label, desc, handler):
     b = Button()
     b.Content = label
     b.Height = 36
-    b.HorizontalAlignment = HorizontalAlignment.Left
-    b.MinWidth = 200
+    b.HorizontalAlignment = HorizontalAlignment.Stretch
     b.Background = _brush("#0F172A")
     b.Foreground = _brush("#FFFFFF")
     b.FontWeight = FontWeights.SemiBold
@@ -67,6 +67,7 @@ class DatumManagerWindow(Window):
         root = Grid()
         root.RowDefinitions.Add(RowDefinition(Height=GridLength(52)))
         root.RowDefinitions.Add(RowDefinition(Height=GridLength(1, GridUnitType.Star)))
+        root.RowDefinitions.Add(RowDefinition(Height=GridLength(34)))
 
         # Header
         hdr_sp = StackPanel()
@@ -95,7 +96,7 @@ class DatumManagerWindow(Window):
         grids_tab.Header = "Grids"
 
         grids_inner = StackPanel()
-        grids_inner.Margin = Thickness(16, 12, 16, 12)
+        grids_inner.Margin = Thickness(16, 14, 16, 14)
         grids_inner.Children.Add(_make_btn(
             "Save Grids",
             "Snapshot current grid head/tail positions in this view",
@@ -126,7 +127,7 @@ class DatumManagerWindow(Window):
         levels_tab.Header = "Levels"
 
         levels_inner = StackPanel()
-        levels_inner.Margin = Thickness(16, 12, 16, 12)
+        levels_inner.Margin = Thickness(16, 14, 16, 14)
         levels_inner.Children.Add(_make_btn(
             "Align Levels",
             "Align 2D level extents to a reference line",
@@ -141,6 +142,33 @@ class DatumManagerWindow(Window):
         tabs.Items.Add(grids_tab)
         tabs.Items.Add(levels_tab)
         root.Children.Add(tabs)
+
+        # Status bar
+        status_border = Border()
+        status_border.Background = _brush("#F8FAFC")
+        status_border.BorderBrush = _brush("#E2E8F0")
+        status_border.BorderThickness = Thickness(0, 1, 0, 0)
+        status_border.Padding = Thickness(14, 6)
+        status_lbl = TextBlock()
+        status_lbl.Text = "Click a button above to launch the tool"
+        status_lbl.FontSize = 11
+        status_lbl.FontStyle = System.Windows.FontStyles.Italic
+        status_lbl.Foreground = _brush("#64748B")
+        status_border.Child = status_lbl
+        Grid.SetRow(status_border, 2)
+        root.Children.Add(status_border)
+
+        # Copyright overlay
+        copyright = TextBlock()
+        copyright.Text = "© Copyright by T3Lab"
+        copyright.HorizontalAlignment = HorizontalAlignment.Right
+        copyright.VerticalAlignment = VerticalAlignment.Bottom
+        copyright.Margin = Thickness(0, 0, 14, 8)
+        copyright.Foreground = _brush("#F59E0B")
+        copyright.FontSize = 11
+        copyright.IsHitTestVisible = False
+        root.Children.Add(copyright)
+
         self.Content = root
 
     def _launch(self, rel_path):
@@ -157,15 +185,15 @@ class DatumManagerWindow(Window):
     # Grids handlers
     def _on_save_grids(self, sender, e):
         self._launch(
-            "../../../../Annotation.panel/Graphic 2.stack/Grids.pulldown/Save Grids.pushbutton/script.py")
+            "../../../Annotation.panel/Graphic 2.stack/Grids.pulldown/Save Grids.pushbutton/script.py")
 
     def _on_restore_grids(self, sender, e):
         self._launch(
-            "../../../../Annotation.panel/Graphic 2.stack/Grids.pulldown/Restore Grids.pushbutton/script.py")
+            "../../../Annotation.panel/Graphic 2.stack/Grids.pulldown/Restore Grids.pushbutton/script.py")
 
     def _on_restore_all_grids(self, sender, e):
         self._launch(
-            "../../../../Annotation.panel/Graphic 2.stack/Grids.pulldown/Restore All Grids.pushbutton/script.py")
+            "../../../Annotation.panel/Graphic 2.stack/Grids.pulldown/Restore All Grids.pushbutton/script.py")
 
     def _on_align_gridlines(self, sender, e):
         self._launch(

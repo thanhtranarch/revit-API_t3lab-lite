@@ -13,9 +13,11 @@ import System
 import __builtin__
 
 from System.Windows import (Window, WindowStartupLocation, Thickness,
-                            HorizontalAlignment, FontWeights, TextWrapping, ResizeMode)
+                            HorizontalAlignment, FontWeights, FontStyles,
+                            TextWrapping, ResizeMode)
 from System.Windows.Controls import (Grid, RowDefinition, TabControl, TabItem,
-                                     StackPanel, TextBlock, Button, ScrollViewer)
+                                     StackPanel, TextBlock, Button, ScrollViewer,
+                                     Border)
 from System.Windows.Media import BrushConverter, FontFamily
 from System.Windows import GridLength, GridUnitType
 
@@ -32,8 +34,7 @@ def _make_btn(label, desc, handler):
     b = Button()
     b.Content = label
     b.Height = 36
-    b.HorizontalAlignment = HorizontalAlignment.Left
-    b.MinWidth = 200
+    b.HorizontalAlignment = HorizontalAlignment.Stretch
     b.Background = _brush("#0F172A")
     b.Foreground = _brush("#FFFFFF")
     b.FontWeight = FontWeights.SemiBold
@@ -57,7 +58,7 @@ class ToolWindow(Window):
     def __init__(self):
         self.Title = "Family Manager"
         self.Width = 440
-        self.Height = 280
+        self.Height = 314
         self.ResizeMode = ResizeMode.CanResizeWithGrip
         self.WindowStartupLocation = WindowStartupLocation.CenterScreen
         self.Background = _brush("#F8FAFC")
@@ -66,6 +67,7 @@ class ToolWindow(Window):
         root = Grid()
         root.RowDefinitions.Add(RowDefinition(Height=GridLength(52)))
         root.RowDefinitions.Add(RowDefinition(Height=GridLength(1, GridUnitType.Star)))
+        root.RowDefinitions.Add(RowDefinition(Height=GridLength(34)))
 
         # ── Header ──────────────────────────────────────────────────────────────
         hdr_sp = StackPanel()
@@ -98,7 +100,7 @@ class ToolWindow(Window):
         tab1 = TabItem()
         tab1.Header = "Family Management"
         sv1 = ScrollViewer()
-        sv1.Padding = Thickness(16, 12, 16, 12)
+        sv1.Padding = Thickness(16, 14, 16, 14)
         panel1 = StackPanel()
         panel1.Children.Add(_make_btn(
             "Open Family Management",
@@ -113,7 +115,7 @@ class ToolWindow(Window):
         tab2 = TabItem()
         tab2.Header = "Load Family"
         sv2 = ScrollViewer()
-        sv2.Padding = Thickness(16, 12, 16, 12)
+        sv2.Padding = Thickness(16, 14, 16, 14)
         panel2 = StackPanel()
         panel2.Children.Add(_make_btn(
             "Load Family",
@@ -125,7 +127,35 @@ class ToolWindow(Window):
         tabs.Items.Add(tab2)
 
         root.Children.Add(tabs)
+
+        # ── Status bar ──────────────────────────────────────────────────────────
+        status_border = Border()
+        status_border.Background = _brush("#F8FAFC")
+        status_border.BorderBrush = _brush("#E2E8F0")
+        status_border.BorderThickness = Thickness(0, 1, 0, 0)
+        status_border.Padding = Thickness(14, 6)
+        Grid.SetRow(status_border, 2)
+
+        status_tb = TextBlock()
+        status_tb.Text = "Click a button above to launch the tool"
+        status_tb.FontSize = 11
+        status_tb.Foreground = _brush("#64748B")
+        status_tb.FontStyle = FontStyles.Italic
+        status_border.Child = status_tb
+        root.Children.Add(status_border)
+
         self.Content = root
+
+        # ── Copyright overlay ────────────────────────────────────────────────────
+        copyright_tb = TextBlock()
+        copyright_tb.Text = "© Copyright by T3Lab"
+        copyright_tb.HorizontalAlignment = HorizontalAlignment.Right
+        copyright_tb.VerticalAlignment = System.Windows.VerticalAlignment.Bottom
+        copyright_tb.Margin = Thickness(0, 0, 14, 8)
+        copyright_tb.Foreground = _brush("#F59E0B")
+        copyright_tb.FontSize = 11
+        copyright_tb.IsHitTestVisible = False
+        root.Children.Add(copyright_tb)
 
     # ── Launch helpers ───────────────────────────────────────────────────────
 

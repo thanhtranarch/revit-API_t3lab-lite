@@ -14,11 +14,12 @@ import __builtin__
 
 from System.Windows import (Window, WindowStartupLocation, Thickness,
                             HorizontalAlignment, VerticalAlignment,
-                            FontWeights, TextWrapping, ResizeMode)
+                            FontWeights, FontStyles, TextWrapping, ResizeMode,
+                            GridLength, GridUnitType)
 from System.Windows.Controls import (Grid, RowDefinition, TabControl, TabItem,
-                                     StackPanel, TextBlock, Button, ScrollViewer)
+                                     StackPanel, TextBlock, Button, ScrollViewer,
+                                     Border)
 from System.Windows.Media import BrushConverter, FontFamily
-from System.Windows import GridLength, GridUnitType
 
 from pyrevit import forms
 
@@ -33,8 +34,7 @@ def _make_btn(label, desc, handler, bg="#0F172A"):
     b = Button()
     b.Content = label
     b.Height = 36
-    b.HorizontalAlignment = HorizontalAlignment.Left
-    b.MinWidth = 200
+    b.HorizontalAlignment = HorizontalAlignment.Stretch
     b.Background = _brush(bg)
     b.Foreground = _brush("#FFFFFF")
     b.FontFamily = FontFamily("Hanken Grotesk, Inter")
@@ -56,19 +56,54 @@ def _make_btn(label, desc, handler, bg="#0F172A"):
     return sp
 
 
+def _make_tab(header, content_panel):
+    item = TabItem()
+    item.Header = header
+    sv = ScrollViewer()
+    sv.Padding = Thickness(16, 14, 16, 14)
+    sv.Content = content_panel
+    item.Content = sv
+    return item
+
+
 class CADToElementsWindow(Window):
     def __init__(self):
         self.Title = "CAD to Elements"
         self.Width = 440
-        self.Height = 280
-        self.ResizeMode = ResizeMode.NoResize
+        self.Height = 340
+        self.ResizeMode = ResizeMode.CanResizeWithGrip
         self.WindowStartupLocation = WindowStartupLocation.CenterScreen
         self.FontFamily = FontFamily("Hanken Grotesk, Inter")
-        self.Background = _brush("#FFFFFF")
+        self.Background = _brush("#F8FAFC")
 
         root = Grid()
-        root.Margin = Thickness(16, 16, 16, 16)
+        # 3 rows: header [52], content [*], status bar [34]
+        root.RowDefinitions.Add(RowDefinition(Height=GridLength(52)))
+        root.RowDefinitions.Add(RowDefinition(Height=GridLength(1, GridUnitType.Star)))
+        root.RowDefinitions.Add(RowDefinition(Height=GridLength(34)))
 
+        # --- Header ---
+        hdr_sp = StackPanel()
+        hdr_sp.Margin = Thickness(16, 10, 16, 8)
+
+        t1 = TextBlock()
+        t1.Text = "T3Lab"
+        t1.FontSize = 9
+        t1.FontWeight = FontWeights.Bold
+        t1.Foreground = _brush("#64748B")
+        hdr_sp.Children.Add(t1)
+
+        t2 = TextBlock()
+        t2.Text = "CAD to Elements"
+        t2.FontSize = 15
+        t2.FontWeight = FontWeights.Bold
+        t2.Foreground = _brush("#0F172A")
+        hdr_sp.Children.Add(t2)
+
+        Grid.SetRow(hdr_sp, 0)
+        root.Children.Add(hdr_sp)
+
+        # --- Tabs ---
         tabs = TabControl()
         tabs.Background = _brush("#FFFFFF")
         tabs.BorderBrush = _brush("#E2E8F0")
@@ -76,9 +111,8 @@ class CADToElementsWindow(Window):
         tabs.FontFamily = FontFamily("Hanken Grotesk, Inter")
         tabs.FontSize = 12
 
-        # ── Tab: Walls ──────────────────────────────────────────────────────
+        # Tab: Walls
         walls_panel = StackPanel()
-        walls_panel.Margin = Thickness(12, 12, 12, 12)
         walls_panel.Children.Add(
             _make_btn(
                 "Convert to Walls",
@@ -86,21 +120,10 @@ class CADToElementsWindow(Window):
                 self._on_cad_to_wall,
             )
         )
+        tabs.Items.Add(_make_tab("Walls", walls_panel))
 
-        walls_scroll = ScrollViewer()
-        walls_scroll.Content = walls_panel
-        walls_scroll.VerticalScrollBarVisibility = (
-            System.Windows.Controls.ScrollBarVisibility.Auto
-        )
-
-        tab_walls = TabItem()
-        tab_walls.Header = "Walls"
-        tab_walls.Content = walls_scroll
-        tabs.Items.Add(tab_walls)
-
-        # ── Tab: Floors ─────────────────────────────────────────────────────
+        # Tab: Floors
         floors_panel = StackPanel()
-        floors_panel.Margin = Thickness(12, 12, 12, 12)
         floors_panel.Children.Add(
             _make_btn(
                 "Convert to Floors",
@@ -108,21 +131,10 @@ class CADToElementsWindow(Window):
                 self._on_cad_to_floor,
             )
         )
+        tabs.Items.Add(_make_tab("Floors", floors_panel))
 
-        floors_scroll = ScrollViewer()
-        floors_scroll.Content = floors_panel
-        floors_scroll.VerticalScrollBarVisibility = (
-            System.Windows.Controls.ScrollBarVisibility.Auto
-        )
-
-        tab_floors = TabItem()
-        tab_floors.Header = "Floors"
-        tab_floors.Content = floors_scroll
-        tabs.Items.Add(tab_floors)
-
-        # ── Tab: Beams ──────────────────────────────────────────────────────
+        # Tab: Beams
         beams_panel = StackPanel()
-        beams_panel.Margin = Thickness(12, 12, 12, 12)
         beams_panel.Children.Add(
             _make_btn(
                 "Convert to Beams",
@@ -130,19 +142,39 @@ class CADToElementsWindow(Window):
                 self._on_cad_to_beam,
             )
         )
+        tabs.Items.Add(_make_tab("Beams", beams_panel))
 
-        beams_scroll = ScrollViewer()
-        beams_scroll.Content = beams_panel
-        beams_scroll.VerticalScrollBarVisibility = (
-            System.Windows.Controls.ScrollBarVisibility.Auto
-        )
-
-        tab_beams = TabItem()
-        tab_beams.Header = "Beams"
-        tab_beams.Content = beams_scroll
-        tabs.Items.Add(tab_beams)
-
+        Grid.SetRow(tabs, 1)
         root.Children.Add(tabs)
+
+        # --- Status bar ---
+        status_border = Border()
+        status_border.Background = _brush("#F8FAFC")
+        status_border.BorderBrush = _brush("#E2E8F0")
+        status_border.BorderThickness = Thickness(0, 1, 0, 0)
+        status_border.Padding = Thickness(14, 6, 14, 6)
+
+        status_tb = TextBlock()
+        status_tb.Text = "Click a button above to launch the tool"
+        status_tb.FontSize = 11
+        status_tb.Foreground = _brush("#64748B")
+        status_tb.FontStyle = FontStyles.Italic
+        status_border.Child = status_tb
+
+        Grid.SetRow(status_border, 2)
+        root.Children.Add(status_border)
+
+        # --- Copyright overlay ---
+        copyright_tb = TextBlock()
+        copyright_tb.Text = "© Copyright by T3Lab"
+        copyright_tb.HorizontalAlignment = HorizontalAlignment.Right
+        copyright_tb.VerticalAlignment = VerticalAlignment.Bottom
+        copyright_tb.Margin = Thickness(0, 0, 14, 8)
+        copyright_tb.Foreground = _brush("#F59E0B")
+        copyright_tb.FontSize = 11
+        copyright_tb.IsHitTestVisible = False
+        root.Children.Add(copyright_tb)
+
         self.Content = root
 
     # ── Launch helpers ───────────────────────────────────────────────────────

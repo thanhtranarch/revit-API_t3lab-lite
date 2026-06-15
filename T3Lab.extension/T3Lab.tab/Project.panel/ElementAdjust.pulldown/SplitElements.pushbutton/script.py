@@ -14,11 +14,12 @@ import __builtin__
 
 from System.Windows import (Window, WindowStartupLocation, Thickness,
                             HorizontalAlignment, VerticalAlignment,
-                            FontWeights, TextWrapping, ResizeMode)
+                            FontWeights, TextWrapping, ResizeMode,
+                            GridLength, GridUnitType)
 from System.Windows.Controls import (Grid, RowDefinition, TabControl, TabItem,
-                                     StackPanel, TextBlock, Button, ScrollViewer)
+                                     StackPanel, TextBlock, Button, ScrollViewer,
+                                     Border)
 from System.Windows.Media import BrushConverter, FontFamily
-from System.Windows import GridLength, GridUnitType
 
 from pyrevit import forms
 
@@ -33,8 +34,7 @@ def _make_btn(label, desc, handler):
     b = Button()
     b.Content = label
     b.Height = 36
-    b.HorizontalAlignment = HorizontalAlignment.Left
-    b.MinWidth = 200
+    b.HorizontalAlignment = HorizontalAlignment.Stretch
     b.Background = _brush("#0F172A")
     b.Foreground = _brush("#FFFFFF")
     b.FontWeight = FontWeights.SemiBold
@@ -58,7 +58,7 @@ class SplitElementsWindow(Window):
     def __init__(self):
         self.Title = "Split Elements"
         self.Width = 440
-        self.Height = 280
+        self.Height = 320
         self.ResizeMode = ResizeMode.CanResizeWithGrip
         self.WindowStartupLocation = WindowStartupLocation.CenterScreen
         self.Background = _brush("#F8FAFC")
@@ -67,6 +67,7 @@ class SplitElementsWindow(Window):
         root = Grid()
         root.RowDefinitions.Add(RowDefinition(Height=GridLength(52)))
         root.RowDefinitions.Add(RowDefinition(Height=GridLength(1, GridUnitType.Star)))
+        root.RowDefinitions.Add(RowDefinition(Height=GridLength(34)))
 
         # Header
         hdr_sp = StackPanel()
@@ -95,7 +96,7 @@ class SplitElementsWindow(Window):
         walls_tab.Header = "Walls"
 
         walls_inner = StackPanel()
-        walls_inner.Margin = Thickness(16, 12, 16, 12)
+        walls_inner.Margin = Thickness(16, 14, 16, 14)
         walls_inner.Children.Add(_make_btn(
             "Split Walls",
             "Split walls at selected levels, preserving hosted elements",
@@ -108,7 +109,7 @@ class SplitElementsWindow(Window):
         columns_tab.Header = "Columns"
 
         columns_inner = StackPanel()
-        columns_inner.Margin = Thickness(16, 12, 16, 12)
+        columns_inner.Margin = Thickness(16, 14, 16, 14)
         columns_inner.Children.Add(_make_btn(
             "Split Columns",
             "Split structural columns at selected levels",
@@ -121,7 +122,7 @@ class SplitElementsWindow(Window):
         floors_tab.Header = "Floors"
 
         floors_inner = StackPanel()
-        floors_inner.Margin = Thickness(16, 12, 16, 12)
+        floors_inner.Margin = Thickness(16, 14, 16, 14)
         floors_inner.Children.Add(_make_btn(
             "Split Floors",
             "Split floors with multiple disconnected boundaries into separate floors",
@@ -133,6 +134,33 @@ class SplitElementsWindow(Window):
         tabs.Items.Add(columns_tab)
         tabs.Items.Add(floors_tab)
         root.Children.Add(tabs)
+
+        # Status bar
+        status_border = Border()
+        status_border.Background = _brush("#F8FAFC")
+        status_border.BorderBrush = _brush("#E2E8F0")
+        status_border.BorderThickness = Thickness(0, 1, 0, 0)
+        status_border.Padding = Thickness(14, 6)
+        status_lbl = TextBlock()
+        status_lbl.Text = "Click a button above to launch the tool"
+        status_lbl.FontSize = 11
+        status_lbl.FontStyle = System.Windows.FontStyles.Italic
+        status_lbl.Foreground = _brush("#64748B")
+        status_border.Child = status_lbl
+        Grid.SetRow(status_border, 2)
+        root.Children.Add(status_border)
+
+        # Copyright overlay
+        copyright = TextBlock()
+        copyright.Text = "© Copyright by T3Lab"
+        copyright.HorizontalAlignment = HorizontalAlignment.Right
+        copyright.VerticalAlignment = VerticalAlignment.Bottom
+        copyright.Margin = Thickness(0, 0, 14, 8)
+        copyright.Foreground = _brush("#F59E0B")
+        copyright.FontSize = 11
+        copyright.IsHitTestVisible = False
+        root.Children.Add(copyright)
+
         self.Content = root
 
     def _launch(self, rel_path):
