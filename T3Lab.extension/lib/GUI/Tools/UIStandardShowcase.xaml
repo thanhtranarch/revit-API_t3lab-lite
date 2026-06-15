@@ -514,42 +514,42 @@
 
                 <!-- Logo Icon -->
                 <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13" Background="#F4F4F6" HorizontalAlignment="Center" Margin="0,0,0,24">
-                    <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16" 
+                    <Path Stretch="Uniform" Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16" 
                           Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
                           Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 
                 <!-- Button 1 (Active) -->
                 <Border Grid.Row="1" Width="42" Height="42" CornerRadius="13" Background="#18181B" HorizontalAlignment="Center" Margin="0,0,0,8">
-                    <Path Data="M4 4 h7 v7 h-7 z M13 4 h7 v7 h-7 z M4 13 h7 v7 h-7 z M13 13 h7 v7 h-7 z"
+                    <Path Stretch="Uniform" Data="M4 4 h7 v7 h-7 z M13 4 h7 v7 h-7 z M4 13 h7 v7 h-7 z M13 13 h7 v7 h-7 z"
                           Stroke="#FFFFFF" StrokeThickness="1.8" StrokeLineJoin="Round"
                           Width="19" Height="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Border>
 
                 <!-- Button 2 (Inactive) -->
                 <Button Grid.Row="2" Width="42" Height="42" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" Margin="0,0,0,8" Cursor="Hand" ToolTip="Views">
-                    <Path Data="M4 5 h16 v14 h-16 z M4 10 h16 M10 10 v9"
+                    <Path Stretch="Uniform" Data="M4 5 h16 v14 h-16 z M4 10 h16 M10 10 v9"
                           Stroke="#71717A" StrokeThickness="1.8" StrokeLineJoin="Round"
                           Width="19" Height="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
 
                 <!-- Button 3 (Inactive) -->
                 <Button Grid.Row="3" Width="42" Height="42" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" Margin="0,0,0,8" Cursor="Hand" ToolTip="Rules">
-                    <Path Data="M4 8 h9 M17 8 h3 M4 16 h3 M11 16 h9"
+                    <Path Stretch="Uniform" Data="M4 8 h9 M17 8 h3 M4 16 h3 M11 16 h9"
                           Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                           Width="19" Height="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
 
                 <!-- Button 4 (Inactive) -->
                 <Button Grid.Row="4" Width="42" Height="42" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" Margin="0,0,0,8" Cursor="Hand" ToolTip="Schedules">
-                    <Path Data="M4 5 h16 v15 h-16 z M4 9 h16 M8 3 v4 M16 3 v4"
+                    <Path Stretch="Uniform" Data="M4 5 h16 v15 h-16 z M4 9 h16 M8 3 v4 M16 3 v4"
                           Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                           Width="19" Height="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
 
                 <!-- Theme Toggle Button at the bottom -->
                 <Button Grid.Row="6" Width="42" Height="42" Background="Transparent" BorderThickness="0" HorizontalAlignment="Center" Cursor="Hand" ToolTip="Theme Toggle">
-                    <Path Data="M12 12 A3 3 0 1 0 12 12.01 M12 3 v2.5 M12 18.5 v2.5 M3 12 h2.5 M18.5 12 h2.5 M5.6 5.6 l1.8 1.8 M16.6 16.6 l1.8 1.8 M18.4 5.6 l-1.8 1.8 M7.4 16.6 l-1.8 1.8"
+                    <Path Stretch="Uniform" Data="M12 12 A3 3 0 1 0 12 12.01 M12 3 v2.5 M12 18.5 v2.5 M3 12 h2.5 M18.5 12 h2.5 M5.6 5.6 l1.8 1.8 M16.6 16.6 l1.8 1.8 M18.4 5.6 l-1.8 1.8 M7.4 16.6 l-1.8 1.8"
                           Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                           Width="19" Height="19" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
@@ -571,14 +571,14 @@
             </StackPanel>
 
             <!-- Search Bar Simulator -->
-            <Border Grid.Column="1" Width="320" Height="36" Background="#F4F4F6" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="999" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="12,0,12,0">
+            <Border Grid.Column="1" Width="320" Height="36" Background="#F4F4F6" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="999" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="12,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <!-- Search Icon -->
-                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
+                    <Path Stretch="Uniform" Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
                           Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                           Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBlock Grid.Column="1" Text="Search views, sheets, or commands…" Foreground="#71717A" FontSize="13.5" VerticalAlignment="Center" IsHitTestVisible="False"/>
@@ -586,7 +586,7 @@
             </Border>
 
             <!-- Right Controls -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0" WindowChrome.IsHitTestVisibleInChrome="True">
                 <!-- Theme Toggle Pill Simulator -->
                 <Border Background="#F4F4F6" CornerRadius="999" Padding="3" Margin="0,0,12,0" Height="30" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
@@ -602,7 +602,7 @@
                 <!-- Notification Bell -->
                 <Border Width="36" Height="36" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="11" Margin="0,0,12,0" SnapsToDevicePixels="True">
                     <Grid>
-                        <Path Data="M6 9 A6 6 0 0 1 18 9 C18 14 20.5 15 20.5 15 H3.5 S6 14 6 9 Z M10 19 A2 2 0 0 0 14 19" 
+                        <Path Stretch="Uniform" Data="M6 9 A6 6 0 0 1 18 9 C18 14 20.5 15 20.5 15 H3.5 S6 14 6 9 Z M10 19 A2 2 0 0 0 14 19" 
                               Stroke="#18181B" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                               Width="17" Height="17" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         <Ellipse Width="7" Height="7" Fill="#C2410C" Stroke="White" StrokeThickness="2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,9,0"/>
@@ -658,7 +658,7 @@
                     <Grid Grid.Row="0">
                         <TextBlock Text="TOTAL PROJECTS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2"/>
                         <Border Width="30" Height="30" CornerRadius="10" Background="#F4F4F6" HorizontalAlignment="Right">
-                            <Path Data="M3 7.5 A2 2 0 0 1 5 5.5 H8.5 A2 2 0 0 1 10 6.2 L10.9 7.2 A2 2 0 0 0 12.4 7.8 H19 A2 2 0 0 1 21 9.8 V16 A2 2 0 0 1 19 18 H5 A2 2 0 0 1 3 16 Z" 
+                            <Path Stretch="Uniform" Data="M3 7.5 A2 2 0 0 1 5 5.5 H8.5 A2 2 0 0 1 10 6.2 L10.9 7.2 A2 2 0 0 0 12.4 7.8 H19 A2 2 0 0 1 21 9.8 V16 A2 2 0 0 1 19 18 H5 A2 2 0 0 1 3 16 Z" 
                                   Stroke="#71717A" StrokeThickness="1.7" StrokeLineJoin="Round"
                                   Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -679,7 +679,7 @@
                     <Grid Grid.Row="0">
                         <TextBlock Text="ACTIVE VIEWS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2"/>
                         <Border Width="30" Height="30" CornerRadius="10" Background="#F4F4F6" HorizontalAlignment="Right">
-                            <Path Data="M2.5 12 S6 5.5 12 5.5 S21.5 12 21.5 12 S18 18.5 12 18.5 S2.5 12 2.5 12 Z M12 15 A3 3 0 1 0 12 9 A3 3 0 0 0 12 15 Z" 
+                            <Path Stretch="Uniform" Data="M2.5 12 S6 5.5 12 5.5 S21.5 12 21.5 12 S18 18.5 12 18.5 S2.5 12 2.5 12 Z M12 15 A3 3 0 1 0 12 9 A3 3 0 0 0 12 15 Z" 
                                   Stroke="#71717A" StrokeThickness="1.7" StrokeLineJoin="Round"
                                   Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -701,7 +701,7 @@
                     <Grid Grid.Row="0">
                         <TextBlock Text="COMPLETED ITEMS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2"/>
                         <Border Width="30" Height="30" CornerRadius="10" Background="#F4F4F6" HorizontalAlignment="Right">
-                            <Path Data="M12 21 A9 9 0 1 0 12 3 A9 9 0 0 0 12 21 Z M8.4 12.2 L10.8 14.6 L15.6 9.6" 
+                            <Path Stretch="Uniform" Data="M12 21 A9 9 0 1 0 12 3 A9 9 0 0 0 12 21 Z M8.4 12.2 L10.8 14.6 L15.6 9.6" 
                                   Stroke="#71717A" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -723,7 +723,7 @@
                     <Grid Grid.Row="0">
                         <TextBlock Text="PENDING ISSUES" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2"/>
                         <Border Width="30" Height="30" CornerRadius="10" Background="White" HorizontalAlignment="Right">
-                            <Path Data="M12 4.5 L20.2 18.7 H3.8 Z M12 10.2 V14.2 M12 16.8 V16.82" 
+                            <Path Stretch="Uniform" Data="M12 4.5 L20.2 18.7 H3.8 Z M12 10.2 V14.2 M12 16.8 V16.82" 
                                   Stroke="#18181B" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -751,7 +751,7 @@
                         <!-- Header -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
                             <Border Width="34" Height="34" CornerRadius="11" Background="#18181B" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16" 
+                                <Path Stretch="Uniform" Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16" 
                                       Stroke="White" StrokeThickness="1.8" StrokeLineJoin="Round"
                                       Width="17" Height="17" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
@@ -769,7 +769,7 @@
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border Background="{TemplateBinding Background}" CornerRadius="8">
-                                            <Path Data="M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5" Stroke="#71717A" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                            <Path Stretch="Uniform" Data="M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5" Stroke="#71717A" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                                   Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                     </ControlTemplate>
@@ -807,7 +807,7 @@
                                 <Border BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1" Padding="12,10">
                                     <StackPanel Orientation="Horizontal">
                                         <Border Width="24" Height="24" CornerRadius="7" Background="#1AFFFFFF">
-                                            <Path Data="M12 3.5 L14.3 8.4 L19.6 9 L15.7 12.7 L16.7 18 L12 15.4 L7.3 18 L8.3 12.7 L4.4 9 L9.7 8.4 Z" 
+                                            <Path Stretch="Uniform" Data="M12 3.5 L14.3 8.4 L19.6 9 L15.7 12.7 L16.7 18 L12 15.4 L7.3 18 L8.3 12.7 L4.4 9 L9.7 8.4 Z" 
                                                   Fill="White" Width="13" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Border>
                                         <TextBlock Text="Premium group box" FontSize="13.5" FontWeight="Bold" Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
@@ -827,7 +827,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10" Background="#18181B" VerticalAlignment="Top" Margin="0,1,8,0">
-                                    <Path Data="M12 11 V16.5 M12 7.6 V7.62" Stroke="White" StrokeThickness="2.1" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                    <Path Stretch="Uniform" Data="M12 11 V16.5 M12 7.6 V7.62" Stroke="White" StrokeThickness="2.1" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                           Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <TextBlock Grid.Column="1" Text="Hold Shift while selecting rows in the data grid to pick a range." 
@@ -844,7 +844,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10" Background="#22A85C" VerticalAlignment="Top" Margin="0,1,8,0">
-                                    <Path Data="M5 12 L9.5 16.5 L19 7" Stroke="White" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                    <Path Stretch="Uniform" Data="M5 12 L9.5 16.5 L19 7" Stroke="White" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                           Width="11" Height="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <TextBlock Grid.Column="1" Text="24 sheets renumbered. All views now follow the standard." 
@@ -949,7 +949,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
+                                    <Path Stretch="Uniform" Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
                                           Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                           Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <TextBox Grid.Column="1" Style="{StaticResource T3InputField}" Text="" Tag="Search views, IDs, categories…" Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Center" Height="24" FontSize="13.5"/>
@@ -1024,14 +1024,14 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
                     <Button Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Padding="16,10">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M8 5 L18 12 L8 19 Z" Fill="White" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <Path Stretch="Uniform" Data="M8 5 L18 12 L8 19 Z" Fill="White" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Run check" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
                     <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="16,9">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M4 8 h9 M17 8 h3 M4 16 h3 M11 16 h9" 
+                            <Path Stretch="Uniform" Data="M4 8 h9 M17 8 h3 M4 16 h3 M11 16 h9" 
                                   Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Configure" VerticalAlignment="Center"/>
@@ -1040,7 +1040,7 @@
 
                     <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="16,9">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M5 12 L9.5 16.5 L19 7" 
+                            <Path Stretch="Uniform" Data="M5 12 L9.5 16.5 L19 7" 
                                   Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Approve" VerticalAlignment="Center"/>
@@ -1049,7 +1049,7 @@
 
                     <Button Style="{StaticResource GhostButton}" Margin="0,0,8,0" Padding="14,10">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M4 7 h16 M9.5 7 V5 H14.5 V7 M6.5 7 l1 13 A1.5 1.5 0 0 0 9 21.5 h6 a1.5 1.5 0 0 0 1.5-1.5 L17.5 7" 
+                            <Path Stretch="Uniform" Data="M4 7 h16 M9.5 7 V5 H14.5 V7 M6.5 7 l1 13 A1.5 1.5 0 0 0 9 21.5 h6 a1.5 1.5 0 0 0 1.5-1.5 L17.5 7" 
                                   Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Delete" VerticalAlignment="Center"/>
@@ -1058,7 +1058,7 @@
 
                     <Button Style="{StaticResource SecondaryButton}" Padding="16,9">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M12 4 V14 M8 11 L12 15 L16 11 M5 19 H19" 
+                            <Path Stretch="Uniform" Data="M12 4 V14 M8 11 L12 15 L16 11 M5 19 H19" 
                                   Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Export" VerticalAlignment="Center"/>
