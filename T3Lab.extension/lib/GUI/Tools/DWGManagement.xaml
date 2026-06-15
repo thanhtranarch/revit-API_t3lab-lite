@@ -197,14 +197,14 @@
                             </Grid.ColumnDefinitions>
                             
                             <ContentPresenter x:Name="contentPresenter" 
-                                               Grid.Column="0" 
-                                               Focusable="False" 
-                                               HorizontalAlignment="Left" 
-                                               VerticalAlignment="Center"
-                                               Margin="{TemplateBinding Padding}" 
-                                               RecognizesAccessKey="True" 
-                                               SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
-                                               
+                                              Grid.Column="0" 
+                                              Focusable="False" 
+                                              HorizontalAlignment="Left" 
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" 
+                                              RecognizesAccessKey="True" 
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                                              
                             <!-- Toggle Track -->
                             <Border x:Name="toggleTrack" 
                                     Grid.Column="1"
@@ -650,13 +650,13 @@
                                       Visibility="Collapsed"/>
                             </Border>
                             <ContentPresenter x:Name="contentPresenter" 
-                                               Grid.Column="1" 
-                                               Focusable="False" 
-                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
-                                               Margin="{TemplateBinding Padding}" 
-                                               RecognizesAccessKey="True" 
-                                               SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
-                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                              Grid.Column="1" 
+                                              Focusable="False" 
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
+                                              Margin="{TemplateBinding Padding}" 
+                                              RecognizesAccessKey="True" 
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
@@ -711,13 +711,13 @@
                                          VerticalAlignment="Center"/>
                             </Border>
                             <ContentPresenter x:Name="contentPresenter" 
-                                               Grid.Column="1" 
-                                               Focusable="False" 
-                                               HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
-                                               Margin="{TemplateBinding Padding}" 
-                                               RecognizesAccessKey="True" 
-                                               SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
-                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                                              Grid.Column="1" 
+                                              Focusable="False" 
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
+                                              Margin="{TemplateBinding Padding}" 
+                                              RecognizesAccessKey="True" 
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
@@ -795,7 +795,6 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-
         <!-- SIDEBAR TOGGLE BUTTON (for icon-only sidebar filter/nav) -->
         <Style x:Key="T3SidebarToggle" TargetType="ToggleButton">
             <Setter Property="Background"      Value="Transparent"/>
@@ -837,6 +836,7 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
         <!-- Filter tag toggle button style -->
         <Style x:Key="FilterToggleButton" TargetType="ToggleButton">
