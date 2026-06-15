@@ -62,14 +62,14 @@
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphic.stack\\Snap Dimension.pushbutton\\script.py"
     }, 
     "SheetManager.pushbutton": {
-      "panel": "ViewsSheets.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\SheetManager.pushbutton\\script.py", 
       "button": "SheetManager.pushbutton", 
+      "panel": "ViewsSheets.panel", 
+      "title": "SheetManager", 
       "keywords": [
         "sheetmanager"
       ], 
-      "title": "SheetManager", 
-      "intent": "open_sheetmanager"
+      "intent": "open_sheetmanager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\SheetManager.pushbutton\\script.py"
     }, 
     "InPlaceModel.pushbutton": {
       "button": "InPlaceModel.pushbutton", 
@@ -278,6 +278,20 @@
       "intent": "open_selectsimilar_type_inview", 
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar_Type_InView.pushbutton\\script.py"
     }, 
+    "SelectOnSheets.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectOnSheets.pushbutton\\script.py", 
+      "button": "SelectOnSheets.pushbutton", 
+      "keywords": [
+        "on sheets: select", 
+        "selectonsheets", 
+        "sheets", 
+        "select", 
+        "on"
+      ], 
+      "title": "On Sheets: Select", 
+      "intent": "open_selectonsheets"
+    }, 
     "Tag Checker.pushbutton": {
       "button": "Tag Checker.pushbutton", 
       "panel": "Annotation.panel", 
@@ -409,6 +423,19 @@
       ], 
       "intent": "open_select_linked", 
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select Linked.pushbutton\\script.py"
+    }, 
+    "StyleManager.pushbutton": {
+      "panel": "Settings.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\StyleManager.pushbutton\\script.py", 
+      "button": "StyleManager.pushbutton", 
+      "keywords": [
+        "style manager", 
+        "stylemanager", 
+        "manager", 
+        "style"
+      ], 
+      "title": "Style Manager", 
+      "intent": "open_stylemanager"
     }, 
     "AdvancedPurge.pushbutton": {
       "button": "AdvancedPurge.pushbutton", 
@@ -677,14 +704,14 @@
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Datum.pulldown\\Level.pulldown\\ConvertLevel.pushbutton\\script.py"
     }, 
     "UIStandard.pushbutton": {
-      "panel": "Standard.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Standard.panel\\UIStandard.pushbutton\\script.py", 
       "button": "UIStandard.pushbutton", 
+      "panel": "Standard.panel", 
+      "title": "UIStandard", 
       "keywords": [
         "uistandard"
       ], 
-      "title": "UIStandard", 
-      "intent": "open_uistandard"
+      "intent": "open_uistandard", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Standard.panel\\UIStandard.pushbutton\\script.py"
     }, 
     "Beam.pushbutton": {
       "button": "Beam.pushbutton", 
@@ -710,6 +737,19 @@
       ], 
       "intent": "open_bcf_reader", 
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\BCF Reader.pushbutton\\script.py"
+    }, 
+    "WorksetManager.pushbutton": {
+      "panel": "Project.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\WorksetManager.pushbutton\\script.py", 
+      "button": "WorksetManager.pushbutton", 
+      "keywords": [
+        "workset manager", 
+        "worksetmanager", 
+        "workset", 
+        "manager"
+      ], 
+      "title": "Workset Manager", 
+      "intent": "open_worksetmanager"
     }, 
     "ModelChecker.pushbutton": {
       "button": "ModelChecker.pushbutton", 
@@ -763,6 +803,19 @@
       ], 
       "intent": "open_align_level", 
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Datum.pulldown\\Level.pulldown\\Align Level.pushbutton\\script.py"
+    }, 
+    "SelectSimilar.pushbutton": {
+      "panel": "Annotation.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar.pushbutton\\script.py", 
+      "button": "SelectSimilar.pushbutton", 
+      "keywords": [
+        "select similar", 
+        "selectsimilar", 
+        "similar", 
+        "select"
+      ], 
+      "title": "Select Similar", 
+      "intent": "open_selectsimilar"
     }, 
     "Ribbon Names.pushbutton": {
       "button": "Ribbon Names.pushbutton", 
@@ -1080,6 +1133,19 @@
       "intent": "open_wall_adjust_base", 
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\Wall_Adjust Base.pushbutton\\script.py"
     }, 
+    "ScheduleManager.pushbutton": {
+      "panel": "Data.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Excel Schedules.pulldown\\ScheduleManager.pushbutton\\script.py", 
+      "button": "ScheduleManager.pushbutton", 
+      "keywords": [
+        "schedule manager", 
+        "schedulemanager", 
+        "schedule", 
+        "manager"
+      ], 
+      "title": "Schedule Manager", 
+      "intent": "open_schedulemanager"
+    }, 
     "Warning.pushbutton": {
       "button": "Warning.pushbutton", 
       "panel": "Settings.panel", 
@@ -1103,6 +1169,19 @@
       ], 
       "intent": "open_align_left", 
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartAlign.stack\\Horizontal.pulldown\\Align Left.pushbutton\\script.py"
+    }, 
+    "MCPControl.pushbutton": {
+      "panel": "AI Connection.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\AI Connection.panel\\MCPControl.pushbutton\\script.py", 
+      "button": "MCPControl.pushbutton", 
+      "keywords": [
+        "mcp control", 
+        "mcpcontrol", 
+        "control", 
+        "mcp"
+      ], 
+      "title": "MCP Control", 
+      "intent": "open_mcpcontrol"
     }, 
     "CAD To Family.pushbutton": {
       "button": "CAD To Family.pushbutton", 
@@ -1288,9 +1367,9 @@
       "script_path": "D:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\BG Theme.pushbutton\\script.py"
     }, 
     "ViewManager.pushbutton": {
-      "panel": "ViewsSheets.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewManager.stack\\ViewManager.pushbutton\\script.py", 
       "button": "ViewManager.pushbutton", 
+      "panel": "ViewsSheets.panel", 
+      "title": "Advanced View Manager", 
       "keywords": [
         "advanced view manager", 
         "viewmanager", 
@@ -1298,8 +1377,8 @@
         "manager", 
         "view"
       ], 
-      "title": "Advanced View Manager", 
-      "intent": "open_viewmanager"
+      "intent": "open_viewmanager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewManager.stack\\ViewManager.pushbutton\\script.py"
     }
   }
 }
