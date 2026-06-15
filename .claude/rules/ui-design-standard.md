@@ -1,7 +1,7 @@
 # UI Design Standard — Lumina Architecture System
 
 All pyRevit tool windows **MUST** follow the **Lumina Architecture System** design system
-(Deep Slate + Refined Blue). The canonical reference is **`BulkFamilyExport.xaml`**.
+(Deep Slate + Refined Blue). The canonical reference is **`UIStandardShowcase.xaml`**.
 
 > Lumina replaces the old navy "Kinetix" palette and the teal/amber "Terra (v2)" palette.
 > If you see old navy/teal/amber colors (#083D56, #0F766E, #F59E0B etc.) in a file
@@ -9,7 +9,7 @@ All pyRevit tool windows **MUST** follow the **Lumina Architecture System** desi
 > it has not been migrated — flag it.
 
 ## Design Reference Files
-- **Canonical UI (reference)**: `T3Lab.extension/lib/GUI/Tools/BulkFamilyExport.xaml`
+- **Canonical UI (reference)**: `.claude/standard/UIStandardShowcase.xaml`
 - **Master shared styles**: `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml`
 - **Style sync script**: `dev/sync_wpf_styles.py` (see "Shared Styles" below)
 - **All XAML files**: `T3Lab.extension/lib/GUI/Tools/`
@@ -23,7 +23,7 @@ The codebase has **two distinct XAML root patterns**. Pick the one that matches 
 ### Variant A — Standard Tool Window (default)
 - Root is `<Window>` and the XAML defines its own chrome and title bar.
 - Loaded from Python via `forms.WPFWindow.__init__(self, xaml_path)`.
-- **Use this for every new tool.** Examples: `BulkFamilyExport.xaml`, `AutoDimension.xaml`, `DWGManagement.xaml`.
+- **Use this for every new tool.** Examples: `UIStandardShowcase.xaml`, `AutoDimension.xaml`, `DWGManagement.xaml`.
 
 ### Variant B — Modal Dialog Content (rare, 3 existing files)
 - Root is `<Grid>`; the XAML provides only the content. The hosting Python class creates a `Window` with `WindowStyle=NoStyle`, `AllowsTransparency=True`, then assigns the parsed Grid to `self.Content`.
@@ -73,13 +73,13 @@ The rest of this document targets **Variant A** unless otherwise noted.
 
 ## Typography
 
-- **All text**: `Inter` (body, labels, headings — all use Inter)
-- **Root Window**: `FontFamily="Inter"` on `<Window>` element
+- **All text**: `Hanken Grotesk` (body, labels, headings — as featured in the `UIStandardShowcase.xaml` benchmark. `Inter` is allowed as a secondary/fallback font).
+- **Root Window**: `FontFamily="Hanken Grotesk"` (or `Inter`) on `<Window>` or `<Grid>` element.
 - **Never** use `Manrope` or `Segoe UI` for body text. `Segoe MDL2 Assets` is allowed **only** for icon glyphs.
 
 ## Window Structure (every tool)
 
-1. `<Window>` with `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Inter"`
+1. `<Window>` with `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Hanken Grotesk"` (or `Inter`)
 2. **WindowChrome — multi-line form is required.** All five attributes below must be present together:
    ```xml
    <WindowChrome.WindowChrome>

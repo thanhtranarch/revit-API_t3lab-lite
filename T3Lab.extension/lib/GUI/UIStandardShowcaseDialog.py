@@ -28,8 +28,9 @@ from System.Collections.ObjectModel import ObservableCollection
 from pyrevit import revit, DB, forms
 
 # XAML Path
-GUI_DIR = os.path.dirname(__file__)
-XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'UIStandardShowcase.xaml')
+GUI_DIR = os.path.dirname(__file__)  # [repo]/T3Lab.extension/lib/GUI
+REPO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(GUI_DIR)))  # [repo]
+XAML_FILE = os.path.join(REPO_DIR, '.claude', 'standard', 'UIStandardShowcase.xaml')
 
 
 class ShowcaseItem(object):
@@ -69,7 +70,7 @@ class UIStandardShowcaseWindow(forms.WPFWindow):
             # Resolve the pushbutton's icon.png path relative to this file
             current_dir = os.path.dirname(__file__)  # lib/GUI
             extension_dir = os.path.dirname(os.path.dirname(current_dir))  # T3Lab.extension
-            icon_path = os.path.join(extension_dir, "T3Lab.tab", "Support.panel", "UIStandard.pushbutton", "icon.png")
+            icon_path = os.path.join(extension_dir, "T3Lab.tab", "Standard.panel", "UIStandard.pushbutton", "icon.png")
             if os.path.exists(icon_path):
                 self.set_icon(icon_path)
             else:
@@ -104,7 +105,8 @@ class UIStandardShowcaseWindow(forms.WPFWindow):
             ShowcaseItem("104250", "Elevation_Mặt đứng trục A-D", "Elevation", "Compliant"),
             ShowcaseItem("104255", "Schedule_Thống kê cốt thép dầm", "Schedule", "Compliant"),
             ShowcaseItem("104260", "Legend_Ký hiệu ghi chú chung", "Legend", "Compliant"),
-            ShowcaseItem("104265", "Drafting_Chi tiết cấu tạo sê nô", "Drafting View", "Non-Compliant (Naming standard)")
+            ShowcaseItem("104265", "Drafting_Chi tiết cấu tạo sê nô", "Drafting View", "Non-Compliant (Naming standard)"),
+            ShowcaseItem("104272", "Elevation_Mặt đứng trục E-H", "Elevation", "Needs Review")
         ]
         self.sample_grid.ItemsSource = ObservableCollection[object](items)
 

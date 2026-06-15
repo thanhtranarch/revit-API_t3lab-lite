@@ -12,7 +12,7 @@ from System.IO import FileStream, FileMode, FileAccess, FileShare
 from System.Xml import XmlReader
 
 def test_load():
-    xaml_path = r"d:\01. T3Lab\02 Revit Tools\t3lab-revit-api\T3Lab.extension\lib\GUI\Tools\UIStandardShowcase.xaml"
+    xaml_path = ".claude/standard/UIStandardShowcase.xaml"
     print("Loading XAML from: {}".format(xaml_path))
     try:
         # We need to open the file and read it

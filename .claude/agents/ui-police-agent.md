@@ -11,7 +11,7 @@ tools: Read, Edit, Write, Glob, Grep
 Scan every `.xaml` file in `T3Lab.extension/lib/GUI/Tools/`, compare it against the T3Lab Lumina design standard, report all violations with file + line number, then patch each file so it complies.
 
 **Authoritative standard**: `.claude/rules/ui-design-standard.md`
-**Canonical reference**: `T3Lab.extension/lib/GUI/Tools/BulkFamilyExport.xaml`
+**Canonical reference**: `.claude/standard/UIStandardShowcase.xaml`
 
 ---
 
@@ -43,7 +43,7 @@ Severity levels:
 |-------|----------|-------------------|
 | `Background` on `<Window>` | `"White"` | MAJOR |
 | `ResizeMode` on `<Window>` | `"CanResizeWithGrip"` | MINOR |
-| `FontFamily` on `<Window>` | `"Inter"` | MAJOR |
+| `FontFamily` on `<Window>` | `"Hanken Grotesk"` (or fallback `"Inter"`) | MAJOR |
 
 ### 2.2 WindowChrome
 The `<WindowChrome>` **must** use the multi-line form with **all five** attributes present:
@@ -116,8 +116,8 @@ Violations:
 
 ### 2.7 Font Consistency
 Search the whole file for:
-- `FontFamily="Manrope"` → MAJOR (replace with `Inter`)
-- `FontFamily="Segoe UI"` → MAJOR (replace with `Inter`; exception: `Segoe MDL2 Assets` on glyph TextBlocks is allowed)
+- `FontFamily="Manrope"` → MAJOR (replace with `Hanken Grotesk` or fallback `Inter`)
+- `FontFamily="Segoe UI"` → MAJOR (replace with `Hanken Grotesk` or fallback `Inter`; exception: `Segoe MDL2 Assets` on glyph TextBlocks is allowed)
 
 ### 2.8 Forbidden Elements
 - `<Image Source="…T3Lab_logo.png"/>` → CRITICAL (logo was removed; delete the element and any surrounding container added only to hold the logo)
@@ -133,7 +133,7 @@ If a named style is referenced but **not defined** in `Window.Resources` → CRI
 | `Background` | `"White"` | MINOR |
 | `BorderBrush` | `"#E2E8F0"` | MINOR |
 | `AlternatingRowBackground` | `"#F8FAFC"` | MINOR |
-| `FontFamily` | `"Inter"` | MAJOR |
+| `FontFamily` | `"Hanken Grotesk"` (or fallback `"Inter"`) | MAJOR |
 | Header `Background` | `"#F8FAFC"` | MINOR |
 | Header `Foreground` | `"#0F172A"` | MINOR |
 
@@ -161,7 +161,7 @@ Replace `Content="&#x2212;"` or `Content="-"` on the minimize button with the ca
 Replace `Content="&#x25A1;"` or `Content="□"` with the canonical TextBlock child form.
 
 **Font: Manrope / Segoe UI**
-`replace_all=true` for `FontFamily="Manrope"` → `FontFamily="Inter"` and `FontFamily="Segoe UI"` → `FontFamily="Inter"`. Do NOT touch `Segoe MDL2 Assets`.
+`replace_all=true` for `FontFamily="Manrope"` → `FontFamily="Hanken Grotesk"` (or fallback `Inter`) and `FontFamily="Segoe UI"` → `FontFamily="Hanken Grotesk"` (or fallback `Inter`). Do NOT touch `Segoe MDL2 Assets`.
 
 **Missing/wrong copyright**
 If missing: add the verbatim snippet as the last child of root `<Grid>`.
@@ -175,7 +175,11 @@ Delete the entire `<Image Source="…T3Lab_logo.png" …/>` element.
 Replace with `Background="#F8FAFC"`.
 
 **Style not defined in Window.Resources**
-If a named button style key is referenced but not in `Window.Resources`, add the complete style definition (copy verbatim from BulkFamilyExport.xaml's `Window.Resources` block).
+If a named button style key is referenced but not in `Window.Resources`, add the complete style definition (copy verbatim from `UIStandardShowcase.xaml`'s `Window.Resources` block).
+
+### 2.11 Portable Relative Paths (CRITICAL)
+- All file paths in agent instructions and markdown documentation **MUST** be relative (e.g. `T3Lab.extension/...`) instead of absolute machine-specific paths (like `C:\Users\...` or `D:\...`).
+- This ensures the project remains fully portable across different developer machines and git clones.
 
 ### Edit discipline
 - Make **one Edit call per distinct violation** to keep diffs small and reviewable.

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  *::-webkit-scrollbar { width: 12px; height: 12px; }
+  *::-webkit-scrollbar-thumb { background: #D9D9DE; border-radius: 999px; border: 3px solid transparent; background-clip: padding-box; }
+  *::-webkit-scrollbar-thumb:hover { background: #C4C4CB; background-clip: padding-box; }
+  ::selection { background: #18181B; color: #fff; }
+  @keyframes shimmerDS { from { transform: translateX(-120%); } to { transform: translateX(360%); } }
+</style>
+</helmet>
+
+<div style="min-height:100vh;width:100%;background:#ECECEF;font-family:'Hanken Grotesk', -apple-system, system-ui, sans-serif;color:#27272A;-webkit-font-smoothing:antialiased;padding:0 0 80px">
+
+  <!-- HERO HEADER -->
+  <div style="background:#161618;color:#fff;padding:54px 56px 48px">
+    <div style="max-width:1180px;margin:0 auto">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:30px">
+        <div style="width:46px;height:46px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="width:23px;height:23px;fill:none;stroke:#161618;stroke-width:1.8;stroke-linejoin:round"><path d="M12 4l8 4-8 4-8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 16l8 4 8-4"/></svg></div>
+        <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.02em">T3Lab UI Standard</div>
+        <span style="margin-left:auto;font-family:'JetBrains Mono';font-size:12px;color:rgba(255,255,255,.55);padding:5px 12px;border:1px solid rgba(255,255,255,.18);border-radius:999px">v2.4 · 2026</span>
+      </div>
+      <h1 style="margin:0;font-size:54px;font-weight:800;letter-spacing:-.03em;line-height:1.02">Design System</h1>
+      <p style="margin:16px 0 0;font-size:17px;line-height:1.6;color:rgba(255,255,255,.62);max-width:560px">The complete token and component reference for the Lumina Compliance Reviewer — a modern, monochrome desktop UI built on a disciplined neutral scale and flat status semantics.</p>
+      <div style="display:flex;gap:30px;margin-top:34px">
+        <div><div style="font-size:30px;font-weight:700;letter-spacing:-.02em">12</div><div style="font-size:12.5px;color:rgba(255,255,255,.5);margin-top:3px">Components</div></div>
+        <div style="width:1px;background:rgba(255,255,255,.14)"></div>
+        <div><div style="font-size:30px;font-weight:700;letter-spacing:-.02em">2</div><div style="font-size:12.5px;color:rgba(255,255,255,.5);margin-top:3px">Typefaces</div></div>
+        <div style="width:1px;background:rgba(255,255,255,.14)"></div>
+        <div><div style="font-size:30px;font-weight:700;letter-spacing:-.02em">1</div><div style="font-size:12.5px;color:rgba(255,255,255,.5);margin-top:3px">Accent · Dark Orange</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1180px;margin:0 auto;padding:0 56px">
+
+    <!-- ============ FOUNDATIONS ============ -->
+    <div style="display:flex;align-items:center;gap:14px;margin:48px 0 22px">
+      <span style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:#9A9AA2">01</span>
+      <h2 style="margin:0;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#71717A">Foundations</h2>
+      <span style="flex:1;height:1px;background:#DCDCE0"></span>
+    </div>
+
+    <!-- NEUTRAL SCALE -->
+    <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;margin-bottom:18px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+      <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:3px">Neutral scale</div>
+      <div style="font-size:13.5px;color:#8A8A90;margin-bottom:22px">The monochrome spine of the system — ink for text and primary actions, greys for hierarchy, near-whites for surfaces.</div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px">
+        <sc-for list="{{ neutrals }}" as="c" hint-placeholder-count="12">
+          <div>
+            <div style="{{ c.sw }}"></div>
+            <div style="font-size:12.5px;font-weight:600;color:#27272A;margin-top:9px">{{ c.name }}</div>
+            <div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2;margin-top:1px">{{ c.hex }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ACCENT + STATUS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:3px">Accent · Dark Orange</div>
+        <div style="font-size:13.5px;color:#8A8A90;margin-bottom:22px">Reserved for progress, sliders and live measurement — never for chrome.</div>
+        <div style="display:flex;gap:12px">
+          <div style="flex:1"><div style="height:74px;border-radius:14px;background:#C2410C"></div><div style="font-size:12.5px;font-weight:600;margin-top:9px">Accent</div><div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2">#C2410C</div></div>
+          <div style="flex:1"><div style="height:74px;border-radius:14px;background:#EA580C"></div><div style="font-size:12.5px;font-weight:600;margin-top:9px">Accent Hover</div><div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2">#EA580C</div></div>
+          <div style="flex:1"><div style="height:74px;border-radius:14px;background:#FBEAE0;border:1px solid #F3D9CB"></div><div style="font-size:12.5px;font-weight:600;margin-top:9px">Accent Soft</div><div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2">#FBEAE0</div></div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:3px">Status semantics</div>
+        <div style="font-size:13.5px;color:#8A8A90;margin-bottom:22px">Solid, saturated chips with white text and a soft accent dot.</div>
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <sc-for list="{{ statuses }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:14px">
+              <span style="{{ s.pill }}"><span style="{{ s.dot }}"></span>{{ s.label }}</span>
+              <span style="font-family:'JetBrains Mono';font-size:11.5px;color:#9A9AA2">{{ s.hex }}</span>
+              <span style="margin-left:auto;font-size:12.5px;color:#8A8A90">{{ s.use }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPOGRAPHY -->
+    <div style="display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-bottom:18px">
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:3px">Type scale</div>
+        <div style="font-size:13.5px;color:#8A8A90;margin-bottom:20px">Hanken Grotesk across the board, with tightened tracking on large sizes.</div>
+        <div style="display:flex;flex-direction:column">
+          <div style="display:flex;align-items:baseline;gap:16px;padding:13px 0;border-bottom:1px solid #F2F2F4"><span style="font-size:35px;font-weight:700;letter-spacing:-.025em;color:#18181B;line-height:1">Display</span><span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11.5px;color:#9A9AA2">35 / 700</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px;padding:13px 0;border-bottom:1px solid #F2F2F4"><span style="font-size:22px;font-weight:700;letter-spacing:-.01em;color:#18181B;line-height:1">Heading</span><span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11.5px;color:#9A9AA2">22 / 700</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px;padding:13px 0;border-bottom:1px solid #F2F2F4"><span style="font-size:16px;font-weight:700;color:#18181B;line-height:1">Title</span><span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11.5px;color:#9A9AA2">16 / 700</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px;padding:13px 0;border-bottom:1px solid #F2F2F4"><span style="font-size:14px;font-weight:500;color:#27272A;line-height:1">Body — the quick brown fox</span><span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11.5px;color:#9A9AA2">14 / 500</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px;padding:13px 0;border-bottom:1px solid #F2F2F4"><span style="font-size:12.5px;font-weight:500;color:#8A8A90;line-height:1">Caption text for secondary info</span><span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11.5px;color:#9A9AA2">12.5 / 500</span></div>
+          <div style="display:flex;align-items:baseline;gap:16px;padding:13px 0"><span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;line-height:1">Micro Label</span><span style="margin-left:auto;font-family:'JetBrains Mono';font-size:11.5px;color:#9A9AA2">11 / 600 · caps</span></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:24px 26px;box-shadow:0 1px 2px rgba(24,24,27,.03);flex:1">
+          <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:18px">Typefaces</div>
+          <div style="padding:16px 0;border-bottom:1px solid #F2F2F4">
+            <div style="font-size:30px;font-weight:700;color:#18181B;letter-spacing:-.02em">Aa Gg</div>
+            <div style="font-size:13px;font-weight:600;color:#27272A;margin-top:8px">Hanken Grotesk</div>
+            <div style="font-size:12px;color:#9A9AA2">UI · 400 / 500 / 600 / 700 / 800</div>
+          </div>
+          <div style="padding:16px 0 0">
+            <div style="font-family:'JetBrains Mono';font-size:28px;font-weight:600;color:#18181B">104231</div>
+            <div style="font-size:13px;font-weight:600;color:#27272A;margin-top:8px">JetBrains Mono</div>
+            <div style="font-size:12px;color:#9A9AA2">IDs & numerics · 400 / 500 / 600</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RADII / SHADOWS / SPACING -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:18px">
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:20px">Radii</div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <sc-for list="{{ radii }}" as="r" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="{{ r.box }}"></div>
+              <div><div style="font-size:13px;font-weight:600;color:#27272A">{{ r.name }}</div><div style="font-family:'JetBrains Mono';font-size:11px;color:#9A9AA2">{{ r.val }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:20px">Elevation</div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div><div style="height:48px;border-radius:14px;background:#fff;border:1px solid #ECECEF;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -12px rgba(24,24,27,.12)"></div><div style="font-size:12.5px;font-weight:600;color:#27272A;margin-top:11px">Card · resting</div></div>
+          <div><div style="height:48px;border-radius:14px;background:#fff;box-shadow:0 16px 38px -10px rgba(24,24,27,.26)"></div><div style="font-size:12.5px;font-weight:600;color:#27272A;margin-top:11px">Popover · floating</div></div>
+          <div><div style="height:48px;border-radius:14px;background:#18181B;box-shadow:0 18px 44px -10px rgba(24,24,27,.55)"></div><div style="font-size:12.5px;font-weight:600;color:#27272A;margin-top:11px">Toast · overlay</div></div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:20px">Spacing</div>
+        <div style="display:flex;flex-direction:column;gap:13px">
+          <sc-for list="{{ spacing }}" as="sp" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:64px;display:flex;justify-content:flex-end"><div style="{{ sp.bar }}"></div></div>
+              <div style="font-family:'JetBrains Mono';font-size:11.5px;color:#71717A">{{ sp.val }}</div>
+              <div style="margin-left:auto;font-size:12px;color:#9A9AA2">{{ sp.use }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ COMPONENTS ============ -->
+    <div style="display:flex;align-items:center;gap:14px;margin:48px 0 22px">
+      <span style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:#9A9AA2">02</span>
+      <h2 style="margin:0;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#71717A">Components</h2>
+      <span style="flex:1;height:1px;background:#DCDCE0"></span>
+    </div>
+
+    <!-- BUTTONS -->
+    <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;margin-bottom:18px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+      <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:3px">Buttons</div>
+      <div style="font-size:13.5px;color:#8A8A90;margin-bottom:22px">A four-tier hierarchy — solid ink for the primary action, descending to a quiet ghost.</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:18px">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:13px;padding:20px;background:#F7F7F9;border-radius:14px">
+          <button style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border:none;border-radius:12px;background:#18181B;color:#fff;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px -2px rgba(24,24,27,.45)" style-hover="background:#000"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor"><path d="M8 5.5l11 6.5-11 6.5z"/></svg>Run check</button>
+          <div style="font-size:12px;font-weight:600;color:#52525B">Solid · Primary</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:13px;padding:20px;background:#F7F7F9;border-radius:14px">
+          <button style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border:1px solid #DEDEE2;border-radius:12px;background:#fff;color:#27272A;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#FAFAFB;border-color:#CFCFD5">Configure</button>
+          <div style="font-size:12px;font-weight:600;color:#52525B">Outline · Secondary</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:13px;padding:20px;background:#F7F7F9;border-radius:14px">
+          <button style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 17px;border:none;border-radius:12px;background:#ECECEF;color:#27272A;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#E2E2E6">Approve</button>
+          <div style="font-size:12px;font-weight:600;color:#52525B">Soft · Tertiary</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:13px;padding:20px;background:#F7F7F9;border-radius:14px">
+          <button style="display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 15px;border:none;border-radius:12px;background:transparent;color:#52525B;font-family:'Hanken Grotesk';font-size:13.5px;font-weight:600;cursor:pointer" style-hover="background:#EDEDEF;color:#18181B">Delete</button>
+          <div style="font-size:12px;font-weight:600;color:#52525B">Ghost · Quiet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM CONTROLS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+
+      <!-- inputs + dropdown -->
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:20px">Text input & select</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:8px">Default</div>
+        <input value="Sample input text" readOnly style="width:100%;height:44px;padding:0 15px;border:1px solid #E6E6EA;border-radius:13px;background:#F4F4F6;font-family:'Hanken Grotesk';font-size:14px;font-weight:500;color:#18181B;outline:none;margin-bottom:16px" />
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:8px">Focused</div>
+        <div style="width:100%;height:44px;padding:0 15px;display:flex;align-items:center;border:1px solid #18181B;border-radius:13px;background:#fff;box-shadow:0 0 0 3px rgba(24,24,27,.08);font-size:14px;font-weight:500;color:#18181B;margin-bottom:16px">Focused field<span style="width:1.5px;height:18px;background:#18181B;margin-left:1px;animation:shimmerDS 1s steps(1) infinite"></span></div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:8px">Select</div>
+        <div style="width:100%;height:44px;padding:0 13px 0 15px;border:1px solid #E6E6EA;border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:500;color:#18181B">Lumina 2026 ruleset<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:none;stroke:#71717A;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M6 9l6 6 6-6"/></svg></div>
+      </div>
+
+      <!-- selection controls -->
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:20px">Selection controls</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 16px">
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:12px">Radio</div>
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px"><span style="width:20px;height:20px;border-radius:999px;border:2px solid #18181B;display:flex;align-items:center;justify-content:center;flex:none"><span style="width:9px;height:9px;border-radius:999px;background:#18181B"></span></span><span style="font-size:14px;color:#3F3F46;font-weight:500">Selected</span></div>
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:20px;height:20px;border-radius:999px;border:2px solid #D4D4DA;flex:none"></span><span style="font-size:14px;color:#3F3F46;font-weight:500">Default</span></div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:12px">Checkbox</div>
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px"><span style="width:18px;height:18px;border-radius:6px;background:#18181B;display:flex;align-items:center;justify-content:center;flex:none"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></span><span style="font-size:14px;color:#3F3F46;font-weight:500">Checked</span></div>
+            <div style="display:flex;align-items:center;gap:11px"><span style="width:18px;height:18px;border-radius:6px;border:1.5px solid #D4D4DA;flex:none"></span><span style="font-size:14px;color:#3F3F46;font-weight:500">Default</span></div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:12px">Toggle</div>
+            <div style="display:flex;align-items:center;gap:14px">
+              <div onClick="{{ toggleDemo }}" style="{{ demoTrack }}"><span style="{{ demoKnob }}"></span></div>
+              <span style="font-size:13px;color:#8A8A90">{{ demoLabel }}</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:12px">Slider</div>
+            <div onMouseDown="{{ startSlide }}" style="position:relative;height:18px;display:flex;align-items:center;cursor:pointer">
+              <div style="position:relative;width:100%;height:6px;background:#E4E4E8;border-radius:999px">
+                <div style="{{ sliderFill }}"></div>
+                <div style="{{ sliderThumb }}"></div>
+              </div>
+            </div>
+            <div style="font-family:'JetBrains Mono';font-size:11.5px;color:#C2410C;font-weight:600;margin-top:9px">{{ sliderLabel }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEGMENTED + TABS + PROGRESS -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:20px">Tabs & segmented</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:10px">Tab group</div>
+        <div style="display:inline-flex;gap:4px;padding:4px;background:#E6E6EA;border-radius:14px;margin-bottom:22px">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ t.onClick }}" style="{{ t.style }}"><span>{{ t.label }}</span><span style="{{ t.badge }}">{{ t.count }}</span></button>
+          </sc-for>
+        </div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:10px">Segmented · theme</div>
+        <div style="display:inline-flex;gap:3px;padding:3px;background:#E6E6EA;border-radius:999px">
+          <button onClick="{{ setSegLight }}" style="{{ segLight }}">Light</button>
+          <button onClick="{{ setSegDark }}" style="{{ segDark }}">Dark</button>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+        <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:20px">Progress & meters</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px"><span style="font-size:13px;font-weight:500;color:#3F3F46">Export to Excel</span><span style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:#C2410C">75%</span></div>
+        <div style="height:8px;background:#ECECEF;border-radius:999px;overflow:hidden;margin-bottom:22px"><div style="width:75%;height:100%;background:#C2410C;border-radius:999px;position:relative;overflow:hidden"><span style="position:absolute;top:0;left:0;height:100%;width:40%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:shimmerDS 1.9s infinite"></span></div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px"><span style="font-size:13px;font-weight:500;color:#3F3F46">Reviewed</span><span style="font-family:'JetBrains Mono';font-size:12px;font-weight:600;color:#C2410C">87%</span></div>
+        <div style="height:8px;background:#ECECEF;border-radius:999px;overflow:hidden;margin-bottom:22px"><div style="width:87%;height:100%;background:#C2410C;border-radius:999px"></div></div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A9AA2;margin-bottom:10px">Indeterminate</div>
+        <div style="height:8px;background:#ECECEF;border-radius:999px;overflow:hidden;position:relative"><span style="position:absolute;top:0;left:0;height:100%;width:35%;background:#C2410C;border-radius:999px;animation:shimmerDS 1.4s infinite"></span></div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;margin-bottom:18px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+      <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:3px">Alerts & messaging</div>
+      <div style="font-size:13.5px;color:#8A8A90;margin-bottom:22px">Neutral info on grey, success on a soft green, and the dark toast for transient confirmation.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="display:flex;gap:11px;padding:14px 15px;background:#F4F4F6;border:1px solid #ECECEF;border-radius:14px">
+          <span style="width:22px;height:22px;border-radius:999px;background:#18181B;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px"><svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:none;stroke:#fff;stroke-width:2.1;stroke-linecap:round"><path d="M12 11v5.5"/><path d="M12 7.6v.02"/></svg></span>
+          <div style="font-size:13px;line-height:1.5;color:#3F3F46"><b style="font-weight:700;color:#18181B">Tip.</b> Hold Shift while selecting rows to pick a range.</div>
+        </div>
+        <div style="display:flex;gap:11px;padding:14px 15px;background:#EAF8F0;border:1px solid #CDEBD9;border-radius:14px">
+          <span style="width:22px;height:22px;border-radius:999px;background:#22A85C;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round"><path d="M5 12l4.5 4.5L19 7"/></svg></span>
+          <div style="font-size:13px;line-height:1.5;color:#1B7A45"><b style="font-weight:700;color:#157038">24 sheets renumbered.</b> All views follow the standard.</div>
+        </div>
+      </div>
+      <div style="display:inline-flex;align-items:center;gap:11px;padding:13px 19px;background:#18181B;color:#fff;border-radius:13px;box-shadow:0 18px 44px -10px rgba(24,24,27,.4);font-size:13.5px;font-weight:500;margin-top:14px"><span style="width:8px;height:8px;border-radius:999px;background:#fff"></span>Audit exported to Excel</div>
+    </div>
+
+    <!-- CARDS -->
+    <div style="background:#fff;border:1px solid #E4E4E8;border-radius:20px;padding:26px 28px;box-shadow:0 1px 2px rgba(24,24,27,.03)">
+      <div style="font-size:16px;font-weight:700;color:#18181B;margin-bottom:3px">Cards & containers</div>
+      <div style="font-size:13.5px;color:#8A8A90;margin-bottom:22px">KPI tiles, the inverted group box, and table-row status all share the 20px radius family.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:16px;align-items:start">
+        <!-- KPI -->
+        <div style="background:#fff;border:1px solid #ECECEF;border-radius:20px;padding:19px 21px;box-shadow:0 1px 2px rgba(24,24,27,.03), 0 8px 20px -12px rgba(24,24,27,.12)">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between">
+            <span style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#9A9AA2">Pending</span>
+            <span style="width:34px;height:34px;border-radius:11px;background:#18181B;color:#fff;display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" style="width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round"><path d="M12 4.5l8.2 14.2H3.8z"/><path d="M12 10.2v4"/><path d="M12 16.8v.02"/></svg></span>
+          </div>
+          <div style="font-size:34px;font-weight:700;letter-spacing:-.025em;color:#18181B;margin-top:13px;line-height:1">29</div>
+          <div style="font-size:12.5px;color:#8A8A90;margin-top:9px">Awaiting review</div>
+        </div>
+        <!-- GROUP -->
+        <div style="border-radius:16px;overflow:hidden;background:#18181B">
+          <div style="display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid rgba(255,255,255,.08)">
+            <div style="width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;color:#fff;flex:none"><svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor"><path d="M12 3.5l2.3 4.9 5.3.6-3.9 3.7 1 5.3-4.7-2.6-4.7 2.6 1-5.3L4.4 9l5.3-.6z"/></svg></div>
+            <div style="font-size:13.5px;font-weight:700;color:#fff">Group box</div>
+          </div>
+          <div style="padding:13px 15px;font-size:13px;line-height:1.55;color:rgba(255,255,255,.6)">Inverted container for grouped settings with a titled header.</div>
+        </div>
+        <!-- ROW SAMPLE -->
+        <div style="border:1px solid #ECECEF;border-radius:16px;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;background:#F8F8FA;border-bottom:1px solid #ECECEF;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#9A9AA2">Table row · status</div>
+          <sc-for list="{{ sampleRows }}" as="row" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid #F2F2F4">
+              <span style="font-family:'JetBrains Mono';font-size:12.5px;color:#71717A">{{ row.id }}</span>
+              <span style="{{ row.pill }}"><span style="{{ row.dot }}"></span>{{ row.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:40px;font-size:12.5px;color:#9A9AA2">T3Lab UI Standard · Design System v2.4 — © 2026</div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { demo: true, slider: 62, seg: 'light', tab: 'active' };
+  startSlide(e) {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const set = (x) => { let p = (x - rect.left) / rect.width; p = Math.max(0, Math.min(1, p)); this.setState({ slider: Math.round(p * 100) }); };
+    set(e.clientX);
+    const mv = (ev) => set(ev.clientX);
+    const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+  }
+  renderVals() {
+    const s = this.state;
+    const INK = '#18181B', ACCENT = '#C2410C';
+    const sw = (bg, border) => ({ height: 56, borderRadius: 12, background: bg, border: border ? '1px solid ' + border : '1px solid transparent' });
+    const neutrals = [
+      ['Ink', '#18181B', '#18181B'], ['Rail', '#161618', '#161618'], ['Slate 800', '#27272A', '#27272A'],
+      ['Slate 700', '#3F3F46', '#3F3F46'], ['Slate 600', '#52525B', '#52525B'], ['Slate 500', '#71717A', '#71717A'],
+      ['Slate 400', '#8A8A90', '#8A8A90'], ['Slate 300', '#9A9AA2', '#9A9AA2'], ['Border', '#D4D4DA', '#D4D4DA'],
+      ['Line', '#ECECEF', '#ECECEF'], ['Canvas', '#F1F1F3', '#E4E4E8'], ['Surface', '#FFFFFF', '#E4E4E8'],
+    ].map(c => ({ name: c[0], hex: c[1], sw: sw(c[2], (c[1] === '#FFFFFF' || c[1] === '#F1F1F3' || c[1] === '#ECECEF') ? '#E4E4E8' : null) }));
+
+    const pillBase = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '4px 11px 4px 9px', borderRadius: 999, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' };
+    const dotBase = { width: 7, height: 7, borderRadius: 999, flex: 'none' };
+    const stData = [
+      { label: 'Compliant', hex: '#0F8A66', use: 'Pass', bg: '#0F8A66', dot: '#B6F2D8' },
+      { label: 'Non-Compliant', hex: '#1F1F23', use: 'Fail', bg: '#1F1F23', dot: '#F87171' },
+      { label: 'Needs Review', hex: '#8A6308', use: 'Pending', bg: '#8A6308', dot: '#F5CE5A' },
+    ];
+    const statuses = stData.map(d => ({ label: d.label, hex: d.hex, use: d.use, pill: { ...pillBase, background: d.bg, color: '#fff' }, dot: { ...dotBase, background: d.dot } }));
+
+    const radiiData = [['Control', '6px', 6], ['Button / input', '12–13px', 13], ['Card', '20px', 20], ['Window', '22px', 22], ['Pill', '999px', 18]];
+    const radii = radiiData.map(r => ({ name: r[0], val: r[1], box: { width: 40, height: 40, flex: 'none', background: '#18181B', borderRadius: r[2] } }));
+
+    const spData = [['4px', 'Inline gap', 4], ['8px', 'Control gap', 8], ['16px', 'Card gap', 16], ['18px', 'Section pad', 18], ['28px', 'Card pad', 28]];
+    const spacing = spData.map(p => ({ val: p[0], use: p[1], bar: { width: p[2], height: 14, background: '#C2410C', borderRadius: 3 } }));
+
+    const trackBase = { width: 42, height: 24, borderRadius: 999, padding: 2, display: 'flex', alignItems: 'center', transition: 'background .2s', flex: 'none', cursor: 'pointer' };
+    const knobBase = { width: 20, height: 20, borderRadius: 999, background: '#fff', boxShadow: '0 1px 3px rgba(24,24,27,.3)', transition: 'transform .2s' };
+
+    const tabBtn = (a) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 15px', border: 'none', borderRadius: 10, fontFamily: "'Hanken Grotesk'", fontSize: 14, fontWeight: a ? 600 : 500, cursor: 'pointer', background: a ? '#fff' : 'transparent', color: a ? INK : '#8A8A90', boxShadow: a ? '0 1px 2px rgba(24,24,27,.10)' : 'none', transition: 'all .15s' });
+    const tabsData = [['active', 'Active', 12], ['archived', 'Archived', 6], ['config', 'Rules', 4]];
+    const tabs = tabsData.map(t => ({ label: t[1], count: t[2], onClick: () => this.setState({ tab: t[0] }), style: tabBtn(s.tab === t[0]), badge: { fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999, background: s.tab === t[0] ? INK : '#DCDCE0', color: s.tab === t[0] ? '#fff' : '#8A8A90' } }));
+
+    const segBtn = (a) => ({ padding: '6px 16px', border: 'none', borderRadius: 999, fontFamily: "'Hanken Grotesk'", fontSize: 13, fontWeight: a ? 600 : 500, cursor: 'pointer', background: a ? '#fff' : 'transparent', color: a ? INK : '#9A9AA2', boxShadow: a ? '0 1px 2px rgba(24,24,27,.10)' : 'none', transition: 'all .15s' });
+
+    const sampleRows = [
+      { id: '104231', label: 'Compliant', bg: '#0F8A66', dot: '#B6F2D8' },
+      { id: '104240', label: 'Non-Compliant', bg: '#1F1F23', dot: '#F87171' },
+      { id: '104272', label: 'Needs Review', bg: '#8A6308', dot: '#F5CE5A' },
+    ].map(r => ({ id: r.id, label: r.label, pill: { ...pillBase, marginLeft: 'auto', background: r.bg, color: '#fff' }, dot: { ...dotBase, background: r.dot } }));
+
+    return {
+      neutrals, statuses, radii, spacing, tabs, sampleRows,
+      toggleDemo: () => this.setState(x => ({ demo: !x.demo })),
+      demoTrack: { ...trackBase, background: s.demo ? INK : '#DCDCE2' },
+      demoKnob: { ...knobBase, transform: s.demo ? 'translateX(18px)' : 'translateX(0)' },
+      demoLabel: s.demo ? 'On' : 'Off',
+      startSlide: (e) => this.startSlide(e), sliderLabel: s.slider + '%',
+      sliderFill: { width: s.slider + '%', height: '100%', background: ACCENT, borderRadius: 999 },
+      sliderThumb: { position: 'absolute', top: '50%', left: s.slider + '%', transform: 'translate(-50%,-50%)', width: 18, height: 18, borderRadius: 999, background: '#fff', border: '2px solid ' + ACCENT, boxShadow: '0 2px 6px rgba(194,65,12,.4)', cursor: 'grab' },
+      setSegLight: () => this.setState({ seg: 'light' }), setSegDark: () => this.setState({ seg: 'dark' }),
+      segLight: segBtn(s.seg === 'light'), segDark: segBtn(s.seg === 'dark'),
+    };
+  }
+}
+</script>
+</body>
+</html>

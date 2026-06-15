@@ -157,7 +157,7 @@ t3lab-revit-api/
 19 reusable IronPython patterns covering: annotations, bounding boxes, context managers, unit conversion, element manipulation, Excel integration, filtered element collectors, groups, lines, graphics overrides, revisions, selection, sheets, text, views, and more.
 
 ### `lib/GUI/Resources/WPF_styles.xaml`
-Single source of truth for all shared button styles (T3Lab Terra design system). Propagated to every tool XAML with `python3 dev/sync_wpf_styles.py`.
+Single source of truth for all shared button styles (T3Lab Lumina design system). Propagated to every tool XAML with `python3 dev/sync_wpf_styles.py`.
 
 ### `checks/`
 | Script | Description |
@@ -190,7 +190,7 @@ Single source of truth for all shared button styles (T3Lab Terra design system).
 | `scripts/clear_pyrevit_cache.ps1` | Clear pyRevit compiled cache |
 | `scripts/fix_pyrevit_reload.ps1` | Fix pyRevit reload issues |
 
-UI design standard: `.claude/rules/ui-design-standard.md` (T3Lab Terra palette — deep teal `#0F766E` + amber `#F59E0B`)
+UI design standard: `.claude/rules/ui-design-standard.md` (T3Lab Lumina palette — deep slate `#0F172A` + accent blue `#3B82F6`)
 
 ---
 

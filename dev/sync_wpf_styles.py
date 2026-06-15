@@ -56,7 +56,8 @@ def main():
     # Block includes both marker lines so the markers themselves stay canonical.
     master_block = master_lines[span[0]:span[1] + 1]
 
-    xaml_files = sorted(glob.glob(os.path.join(TOOLS_DIR, "*.xaml")))
+    xaml_files = [p for p in sorted(glob.glob(os.path.join(TOOLS_DIR, "*.xaml")))
+                  if "UIStandardShowcase.xaml" not in p]
     if not xaml_files:
         raise SystemExit("No XAML files found in %s" % TOOLS_DIR)
 

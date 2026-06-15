@@ -3,17 +3,17 @@
         Title="T3Lab - Point Cloud to Model"
         Width="900" Height="720"
         MinWidth="820" MinHeight="560"
-        Background="White"
+        Background="#E4E4E7"
         ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen"
-        FontFamily="Inter">
+        FontFamily="Hanken Grotesk">
 
-    <WindowChrome.WindowChrome>
+        <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
-                      ResizeBorderThickness="5"
-                      GlassFrameThickness="0"
-                      CornerRadius="8"
-                      UseAeroCaptionButtons="False"/>
+                       ResizeBorderThickness="5"
+                       GlassFrameThickness="0"
+                       CornerRadius="22"
+                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
@@ -289,7 +289,9 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
     </Window.Resources>
 
-    <Grid>
+    
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+<Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>    <!-- Row 0: Title bar -->
             <RowDefinition Height="Auto"/>  <!-- Row 1: Setup panel -->
@@ -301,37 +303,39 @@
         </Grid.RowDefinitions>
 
         <!-- ═══ ROW 0 — TITLE BAR ═══ -->
-        <Grid Grid.Row="0" Height="64" Background="White">
-            <StackPanel Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
+        <!-- ═══ TITLE BAR ═══ -->
+        <Grid Grid.Row="0" Height="64" Background="#F4F4F6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A"
-                               VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="Point Cloud to Model" FontSize="18" FontWeight="Bold"
-                               Foreground="#0F172A"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Detect and create building elements from point cloud data"
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+                <TextBlock Text="Point Cloud to Model" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Detect and create building elements from point cloud data" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True"
+                        Style="{StaticResource WinCtrlButton}"
                         Click="minimize_button_clicked" ToolTip="Minimize">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
-                <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True"
+                        Style="{StaticResource WinCtrlButton}"
                         Click="maximize_button_clicked" ToolTip="Maximize">
                     <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
-                <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                <Button x:Name="btn_close" WindowChrome.IsHitTestVisibleInChrome="True"
+                        Style="{StaticResource CloseButton}"
                         Click="close_button_clicked" ToolTip="Close">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
 
-            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
         </Grid>
 
         <!-- ═══ ROW 1 — SETUP PANEL ═══ -->
@@ -375,12 +379,12 @@
                     <TextBlock Text="Scan Region" FontSize="11" FontWeight="SemiBold"
                                Foreground="#64748B" Margin="0,0,0,4"/>
                     <RadioButton x:Name="rb_full_extent" IsChecked="True"
-                                 FontFamily="Inter" FontSize="12" Foreground="#0F172A"
+                                 FontFamily="Hanken Grotesk" FontSize="12" Foreground="#0F172A"
                                  Content="Full Cloud Extent (recommended)"
                                  Margin="0,0,0,4"
                                  Checked="rb_full_extent_checked"/>
                     <RadioButton x:Name="rb_custom_region"
-                                 FontFamily="Inter" FontSize="12" Foreground="#0F172A"
+                                 FontFamily="Hanken Grotesk" FontSize="12" Foreground="#0F172A"
                                  Content="Custom Region — pick 2 corners"
                                  Margin="0,0,0,6"
                                  Checked="rb_custom_region_checked"/>
@@ -397,7 +401,7 @@
                 <StackPanel Grid.Column="4" Margin="16,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="Sampling Density" FontSize="11" FontWeight="SemiBold"
                                Foreground="#64748B" Margin="0,0,0,4"/>
-                    <ComboBox x:Name="cmb_density" FontFamily="Inter" FontSize="12"
+                    <ComboBox x:Name="cmb_density" FontFamily="Hanken Grotesk" FontSize="12"
                               Padding="6,4" BorderBrush="#CBD5E1" SelectedIndex="1">
                         <ComboBoxItem Content="Low — 5,000 pts"/>
                         <ComboBoxItem Content="Medium — 20,000 pts"/>
@@ -422,42 +426,42 @@
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_wall" Text="0 Walls" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_floor" Text="0 Floors" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_ceiling" Text="0 Ceilings" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_door" Text="0 Doors" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_window" Text="0 Windows" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_column" Text="0 Columns" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_stair" Text="0 Stairs" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
             <Border Background="#EFF6F5" BorderBrush="#BFDBD7" BorderThickness="1"
                     CornerRadius="12" Padding="8,4" Margin="0,0,6,4">
                 <TextBlock x:Name="badge_roof" Text="0 Roofs" FontSize="11"
-                           FontFamily="Inter" FontWeight="SemiBold" Foreground="#0F172A"/>
+                           FontFamily="Hanken Grotesk" FontWeight="SemiBold" Foreground="#0F172A"/>
             </Border>
         </WrapPanel>
 
@@ -483,7 +487,7 @@
             <DataGrid x:Name="results_grid" Visibility="Collapsed"
                       AutoGenerateColumns="False" CanUserAddRows="False"
                       Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                      AlternatingRowBackground="#F8FAFC" FontFamily="Inter" FontSize="12"
+                      AlternatingRowBackground="#F8FAFC" FontFamily="Hanken Grotesk" FontSize="12"
                       HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                       HorizontalGridLinesBrush="#EFF2F2" SelectionMode="Single"
                       VerticalScrollBarVisibility="Auto">
@@ -529,7 +533,7 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding ConfidenceText}"
-                                           FontFamily="Inter" FontSize="12"
+                                           FontFamily="Hanken Grotesk" FontSize="12"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"/>
                             </DataTemplate>
@@ -546,7 +550,7 @@
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#x26A0;" Foreground="#EF4444" Margin="0,0,6,0" FontSize="13"/>
                     <TextBlock Text="No elements detected. Try increasing point density or using a custom scan region."
-                               Foreground="#EF4444" FontFamily="Inter" FontSize="11" TextWrapping="Wrap"/>
+                               Foreground="#EF4444" FontFamily="Hanken Grotesk" FontSize="11" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
@@ -593,10 +597,15 @@
             </Grid>
         </Border>
 
-        
-            
-        
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <!-- Copyright: T3Lab -->
+        <Border CornerRadius="10" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
+                <TextBlock Text="&#169; 2026 T3Lab" FontSize="10" Foreground="#9A9AA2" HorizontalAlignment="Right"/>
+                <TextBlock Text="&#169; Copyright by T3Lab" FontSize="10" Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+            </StackPanel>
+        </Border>
 </Grid>
+
+    </Border>
+
 </Window>

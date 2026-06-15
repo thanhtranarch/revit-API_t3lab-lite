@@ -6,15 +6,15 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
-        Background="White"
-        FontFamily="Inter">
+        Background="#E4E4E7"
+        FontFamily="Hanken Grotesk">
 
-    <WindowChrome.WindowChrome>
+        <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
-                      ResizeBorderThickness="5"
-                      GlassFrameThickness="0"
-                      CornerRadius="8"
-                      UseAeroCaptionButtons="False"/>
+                       ResizeBorderThickness="5"
+                       GlassFrameThickness="0"
+                       CornerRadius="22"
+                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
@@ -383,12 +383,83 @@
         </Style>
     </Window.Resources>
 
-    <Grid>
+    
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+<Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>    <!-- Col 0: Sidebar -->
+                <ColumnDefinition Width="*"/>     <!-- Col 1: Content -->
+            </Grid.ColumnDefinitions>
+
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>       <!-- Header -->
             <RowDefinition Height="*"/>        <!-- Content -->
             <RowDefinition Height="28"/>       <!-- Footer status -->
         </Grid.RowDefinitions>
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- COL 0: LEFT SIDEBAR ICON RAIL (all rows)                    -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <Border Grid.Column="0" Grid.RowSpan="99"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+                <Grid Margin="0,16,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Logo -->
+                        <RowDefinition Height="Auto"/> <!-- Tab 1 -->
+                        <RowDefinition Height="Auto"/> <!-- Tab 2 -->
+                        <RowDefinition Height="Auto"/> <!-- Tab 3 -->
+                        <RowDefinition Height="*"/>    <!-- Spacer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Logo icon -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M4 6 h16 M4 10 h12 M4 14 h8 M4 18 h10"
+                              Stroke="#18181B" StrokeThickness="1.6" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="16" Height="16" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Tab: Dimensions -->
+                    <ToggleButton x:Name="nav_dim" Grid.Row="1"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8" IsChecked="True"
+                                  ToolTip="Dimensions" Click="True">
+                        <Path Data="M3 20 H21 M7 20 V8 M17 20 V8 M7 8 H17 M7 14 H17"
+                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="17" Height="17" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                    <!-- Tab: Text Notes -->
+                    <ToggleButton x:Name="nav_txt" Grid.Row="2"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Text Notes" Click="nav_textnotes_checked">
+                        <Path Data="M4 7 h16 M4 12 h16 M4 17 h10 M12 4 H4 V6"
+                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="17" Height="17" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                    <!-- Tab: Settings -->
+                    <ToggleButton x:Name="nav_settings" Grid.Row="3"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Settings" Click="nav_settings_checked">
+                        <Path Data="M12 15 A3 3 0 1 0 12 9 A3 3 0 0 0 12 15 M12 4 V6 M12 18 V20 M4.2 6.2 L5.6 7.6 M18.4 17.8 L19.8 19.2 M4 12 H6 M18 12 H20"
+                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="17" Height="17" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
 
         <!-- ═══ HEADER ═══ -->
         <Grid Grid.Row="0" Background="White">
@@ -402,7 +473,7 @@
             <Border Grid.ColumnSpan="3" Height="1" Background="#E2E8F0" VerticalAlignment="Bottom"/>
 
             <!-- Left: Logo & Title -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Vertical">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="{StaticResource PrimaryBlue}" Margin="0,0,6,0" VerticalAlignment="Bottom"/>
@@ -414,13 +485,8 @@
             </StackPanel>
 
             <!-- Right Controls Panel -->
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Stretch" WindowChrome.IsHitTestVisibleInChrome="True">
+            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Stretch" WindowChrome.IsHitTestVisibleInChrome="True">
                 <!-- Navigation Tabs (RadioButtons styled as tabs) -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
-                    <RadioButton x:Name="nav_dim" Content="Dimensions" Style="{StaticResource T3TopNavTabStyle}" IsChecked="True" Checked="nav_dimensions_checked"/>
-                    <RadioButton x:Name="nav_txt" Content="Text Notes" Style="{StaticResource T3TopNavTabStyle}" Checked="nav_textnotes_checked"/>
-                    <RadioButton x:Name="nav_settings" Content="Settings" Style="{StaticResource T3TopNavTabStyle}" Checked="nav_settings_checked"/>
-                </StackPanel>
 
                 <!-- Custom Minimize, Maximize, Close Buttons -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0">
@@ -455,7 +521,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- DIMENSION SIDEBAR -->
-                    <Grid Grid.Column="0" Background="White">
+                    <Grid Grid.Column="1" Background="White">
                         <Border BorderBrush="{StaticResource BorderLight}" BorderThickness="0,0,1,0"/>
                         <Grid Margin="16,16,16,16">
                             <Grid.RowDefinitions>
@@ -481,9 +547,9 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="8,0,6,0"/>
-                                    <TextBox x:Name="dim_sidebar_search" Grid.Column="1" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="12"/>
-                                    <TextBlock x:Name="dim_sidebar_placeholder" Grid.Column="1" IsHitTestVisible="False" Text="Search" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                    <TextBlock Grid.Column="1" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                                    <TextBox x:Name="dim_sidebar_search" Grid.Column="2" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="12"/>
+                                    <TextBlock x:Name="dim_sidebar_placeholder" Grid.Column="2" IsHitTestVisible="False" Text="Search" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
                                 </Grid>
                             </Border>
 
@@ -499,7 +565,7 @@
                     </Grid>
 
                     <!-- DIMENSION MAIN CONTENT AREA -->
-                    <Grid Grid.Column="1" Margin="20,16,20,12">
+                    <Grid Grid.Column="2" Margin="20,16,20,12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>       <!-- Search Row -->
                             <RowDefinition Height="*"/>          <!-- DataGrid -->
@@ -515,31 +581,31 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <!-- Search box -->
-                            <Border Grid.Column="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
+                            <Border Grid.Column="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <!-- Search icon -->
-                                    <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                                    <TextBlock Grid.Column="1" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="10,0,6,0"/>
                                     <!-- Keyword TextBox -->
-                                    <TextBox x:Name="dim_kw" Grid.Column="1" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="13"/>
+                                    <TextBox x:Name="dim_kw" Grid.Column="2" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="13"/>
                                     <!-- Placeholder text -->
-                                    <TextBlock x:Name="dim_kw_placeholder" Grid.Column="1" IsHitTestVisible="False" Text="Search annotations..." FontSize="13" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                    <TextBlock x:Name="dim_kw_placeholder" Grid.Column="2" IsHitTestVisible="False" Text="Search annotations..." FontSize="13" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
                                 </Grid>
                             </Border>
 
                             <!-- Advanced Filters Button -->
-                            <Button x:Name="btn_dim_advanced_filters" Grid.Column="1" Height="36" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0">
+                            <Button x:Name="btn_dim_advanced_filters" Grid.Column="2" Height="36" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Advanced Filters" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Grid.Column="1" Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
 
                             <!-- Quick Refresh -->
-                            <Button Grid.Column="2" Content="⟳" ToolTip="Refresh List" Height="36" Width="36" FontSize="14" FontWeight="Bold" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Click="dim_refresh"/>
+                            <Button Grid.Column="3" Content="⟳" ToolTip="Refresh List" Height="36" Width="36" FontSize="14" FontWeight="Bold" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Click="dim_refresh"/>
                         </Grid>
 
                         <!-- Results DataGrid (With explicitly declared modern columns) -->
@@ -621,12 +687,12 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
+                                <StackPanel Grid.Column="1">
                                     <TextBlock Text="Auto-Rename All Dimension Types" FontWeight="Bold" Foreground="{StaticResource TextDark}" FontSize="12"/>
                                     <TextBlock FontSize="10" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"
                                                Text="Generates: LB_[discipline]_[size]_[font]_[factor]_[bg]_[color]_[prefix]_[centerline]_[elevation/top/bottom]_[rounding]"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="Rename All" Width="110" Style="{StaticResource OrangeButton}" Click="dim_rename_all" VerticalAlignment="Center"/>
+                                <Button Grid.Column="2" Content="Rename All" Width="110" Style="{StaticResource OrangeButton}" Click="dim_rename_all" VerticalAlignment="Center"/>
                             </Grid>
                         </Border>
                     </Grid>
@@ -642,7 +708,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- TEXT NOTES SIDEBAR -->
-                    <Grid Grid.Column="0" Background="White">
+                    <Grid Grid.Column="1" Background="White">
                         <Border BorderBrush="{StaticResource BorderLight}" BorderThickness="0,0,1,0"/>
                         <Grid Margin="16,16,16,16">
                             <Grid.RowDefinitions>
@@ -668,9 +734,9 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="8,0,6,0"/>
-                                    <TextBox x:Name="txt_sidebar_search" Grid.Column="1" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="12"/>
-                                    <TextBlock x:Name="txt_sidebar_placeholder" Grid.Column="1" IsHitTestVisible="False" Text="Search" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                    <TextBlock Grid.Column="1" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                                    <TextBox x:Name="txt_sidebar_search" Grid.Column="2" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="12"/>
+                                    <TextBlock x:Name="txt_sidebar_placeholder" Grid.Column="2" IsHitTestVisible="False" Text="Search" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
                                 </Grid>
                             </Border>
 
@@ -686,7 +752,7 @@
                     </Grid>
 
                     <!-- TEXT NOTES MAIN CONTENT AREA -->
-                    <Grid Grid.Column="1" Margin="20,16,20,12">
+                    <Grid Grid.Column="2" Margin="20,16,20,12">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>       <!-- Search Row -->
                             <RowDefinition Height="*"/>          <!-- DataGrid -->
@@ -702,31 +768,31 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <!-- Search box -->
-                            <Border Grid.Column="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
+                            <Border Grid.Column="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4" Background="White" Height="36">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <!-- Search icon -->
-                                    <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="10,0,6,0"/>
+                                    <TextBlock Grid.Column="1" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="10,0,6,0"/>
                                     <!-- Keyword TextBox -->
-                                    <TextBox x:Name="txt_kw" Grid.Column="1" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="13"/>
+                                    <TextBox x:Name="txt_kw" Grid.Column="2" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="13"/>
                                     <!-- Placeholder text -->
-                                    <TextBlock x:Name="txt_kw_placeholder" Grid.Column="1" IsHitTestVisible="False" Text="Search annotations..." FontSize="13" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                    <TextBlock x:Name="txt_kw_placeholder" Grid.Column="2" IsHitTestVisible="False" Text="Search annotations..." FontSize="13" Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="2,0,0,0"/>
                                 </Grid>
                             </Border>
 
                             <!-- Advanced Filters Button -->
-                            <Button x:Name="btn_txt_advanced_filters" Grid.Column="1" Height="36" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0">
+                            <Button x:Name="btn_txt_advanced_filters" Grid.Column="2" Height="36" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Advanced Filters" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Grid.Column="1" Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
 
                             <!-- Quick Refresh -->
-                            <Button Grid.Column="2" Content="⟳" ToolTip="Refresh List" Height="36" Width="36" FontSize="14" FontWeight="Bold" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Click="txt_refresh"/>
+                            <Button Grid.Column="3" Content="⟳" ToolTip="Refresh List" Height="36" Width="36" FontSize="14" FontWeight="Bold" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Click="txt_refresh"/>
                         </Grid>
 
                         <!-- Results DataGrid (With explicitly declared modern columns) -->
@@ -808,12 +874,12 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
+                                <StackPanel Grid.Column="1">
                                     <TextBlock Text="Auto-Rename All Text Note Types" FontWeight="Bold" Foreground="{StaticResource TextDark}" FontSize="12"/>
                                     <TextBlock FontSize="10" Foreground="{StaticResource TextMuted}" TextWrapping="Wrap" Margin="0,4,0,0"
                                                Text="Generates: LB_[discipline]_[size]_[font]_[factor]_[bg]_[color]_[border]_[B/U/I]"/>
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="Rename All" Width="110" Style="{StaticResource OrangeButton}" Click="txt_rename_all" VerticalAlignment="Center"/>
+                                <Button Grid.Column="2" Content="Rename All" Width="110" Style="{StaticResource OrangeButton}" Click="txt_rename_all" VerticalAlignment="Center"/>
                             </Grid>
                         </Border>
                     </Grid>
@@ -829,7 +895,7 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- Left Card: General Preferences -->
-                    <Border Grid.Column="0" Background="White" BorderBrush="{StaticResource BorderLight}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,12,0">
+                    <Border Grid.Column="1" Background="White" BorderBrush="{StaticResource BorderLight}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,12,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -855,7 +921,7 @@
                     </Border>
 
                     <!-- Right Card: About & Info -->
-                    <Border Grid.Column="1" Background="White" BorderBrush="{StaticResource BorderLight}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="12,0,0,0">
+                    <Border Grid.Column="2" Background="White" BorderBrush="{StaticResource BorderLight}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="12,0,0,0">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -897,15 +963,21 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="status" Grid.Column="0" FontSize="11" Foreground="{StaticResource TextMuted}" Text="Ready." VerticalAlignment="Center"/>
+                <TextBlock x:Name="status" Grid.Column="1" FontSize="11" Foreground="{StaticResource TextMuted}" Text="Ready." VerticalAlignment="Center"/>
             </Grid>
         </Border>
 
         <!-- Mandatory Copyright Compliance Footer (Foreground="#F59E0B", FontSize="11", IsHitTestVisible="False") -->
-        
-            
-        
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+
+        <!-- Copyright: T3Lab -->
+        <Border CornerRadius="10" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
+                <TextBlock Text="&#169; 2026 T3Lab" FontSize="10" Foreground="#9A9AA2" HorizontalAlignment="Right"/>
+                <TextBlock Text="&#169; Copyright by T3Lab" FontSize="10" Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+            </StackPanel>
+        </Border>
 </Grid>
+
+    </Border>
+
 </Window>

@@ -221,18 +221,17 @@ class DWGManagementWindow(forms.WPFWindow):
     def filter_button_clicked(self, sender, e):
         # Enforce radio-button behavior: one filter active at a time
         sender.IsChecked = True  # prevent de-checking on re-click
-        label = sender.Content if sender.Content else ""
 
         try:
-            self.FilterAll.IsChecked     = (label == "All")
-            self.FilterImports.IsChecked = (label == "Imports Only")
-            self.FilterLinks.IsChecked   = (label == "Links Only")
+            self.FilterAll.IsChecked     = (sender == self.FilterAll)
+            self.FilterImports.IsChecked = (sender == self.FilterImports)
+            self.FilterLinks.IsChecked   = (sender == self.FilterLinks)
         except Exception:
             pass
 
-        if label == "Imports Only":
+        if sender == self.FilterImports:
             self._active_filter = FILTER_IMPORTS
-        elif label == "Links Only":
+        elif sender == self.FilterLinks:
             self._active_filter = FILTER_LINKS
         else:
             self._active_filter = FILTER_ALL

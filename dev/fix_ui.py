@@ -76,13 +76,31 @@ def fix_xaml_file(path):
     original = content
     modified = False
     
-    # 1. FontFamily replacement (except Segoe MDL2 Assets)
-    # Convert Manrope or Segoe UI to Inter
-    for font in ["Manrope", "Segoe UI"]:
+    # 1. FontFamily replacement (except Segoe MDL2 Assets / Consolas / JetBrains Mono)
+    for font in ["Manrope", "Segoe UI", "Inter"]:
         pattern = re.compile(r'\bFontFamily="' + re.escape(font) + r'"', re.IGNORECASE)
         if pattern.search(content):
-            content = pattern.sub('FontFamily="Inter"', content)
+            content = pattern.sub('FontFamily="Hanken Grotesk"', content)
             modified = True
+    # Restore Segoe MDL2 / Consolas / JetBrains Mono if mistakenly overwritten
+    for restore_font in ["Segoe MDL2 Assets", "Consolas", "JetBrains Mono"]:
+        bad = 'FontFamily="Hanken Grotesk"'
+        orig = f'FontFamily="{restore_font}"'
+        # The above regex won't touch these because we only replaced exact font names;
+        # this guard is a no-op but kept for safety.
+
+    # Temporarily extract resources blocks to prevent matching Grid.Row="0" inside them
+    resources_pattern = re.compile(r'(<(\w+)\.Resources>.*?</\2\.Resources>)', re.DOTALL | re.IGNORECASE)
+    resources_blocks = []
+    
+    while True:
+        match = resources_pattern.search(content)
+        if not match:
+            break
+        block = match.group(1)
+        placeholder = f"<!-- RESOURCES_PLACEHOLDER_{len(resources_blocks)} -->"
+        content = content.replace(block, placeholder)
+        resources_blocks.append(block)
 
     # 2. Remove T3Lab_logo.png references and their empty hosting borders
     # Standard format: <Border Height="60" ...> <Image Source="...T3Lab_logo.png".../> </Border>
@@ -106,32 +124,32 @@ def fix_xaml_file(path):
             modified = True
 
     if not is_variant_b:
-        # 3. Root Window attributes: Background="White", ResizeMode="CanResizeWithGrip", FontFamily="Inter"
+        # 3. Root Window attributes: Background="White", ResizeMode="CanResizeWithGrip", FontFamily="Hanken Grotesk"
         window_match = re.search(r'<Window\b([^>]*?)>', content, re.DOTALL)
         if window_match:
             window_attrs = window_match.group(1)
             new_attrs = window_attrs
             
-            # Background
+            # Background — Lumina standard is #E4E4E7 (zinc-200 app shell)
             bg = extract_attribute(window_attrs, "Background")
             if not bg:
-                new_attrs += '\n        Background="White"'
-            elif bg.lower() not in ["white", "#ffffff"]:
-                new_attrs = re.sub(r'\bBackground="[^"]*"', 'Background="White"', new_attrs)
-                
+                new_attrs += '\n        Background="#E4E4E7"'
+            elif bg.lower() not in ["#e4e4e7"]:
+                new_attrs = re.sub(r'\bBackground="[^"]*"', 'Background="#E4E4E7"', new_attrs)
+
             # ResizeMode
             rm = extract_attribute(window_attrs, "ResizeMode")
             if not rm:
                 new_attrs += '\n        ResizeMode="CanResizeWithGrip"'
             elif rm != "CanResizeWithGrip":
                 new_attrs = re.sub(r'\bResizeMode="[^"]*"', 'ResizeMode="CanResizeWithGrip"', new_attrs)
-                
+
             # FontFamily
             ff = extract_attribute(window_attrs, "FontFamily")
             if not ff:
-                new_attrs += '\n        FontFamily="Inter"'
-            elif ff != "Inter":
-                new_attrs = re.sub(r'\bFontFamily="[^"]*"', 'FontFamily="Inter"', new_attrs)
+                new_attrs += '\n        FontFamily="Hanken Grotesk"'
+            elif ff != "Hanken Grotesk":
+                new_attrs = re.sub(r'\bFontFamily="[^"]*"', 'FontFamily="Hanken Grotesk"', new_attrs)
                 
             if new_attrs != window_attrs:
                 content = content[:window_match.start(1)] + new_attrs + content[window_match.end(1):]
@@ -142,16 +160,16 @@ def fix_xaml_file(path):
         chrome_match = chrome_pattern.search(content)
         standard_chrome = """    <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
-                      ResizeBorderThickness="5"
-                      GlassFrameThickness="0"
-                      CornerRadius="8"
-                      UseAeroCaptionButtons="False"/>
+                       ResizeBorderThickness="5"
+                       GlassFrameThickness="0"
+                       CornerRadius="22"
+                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>"""
     
         if chrome_match:
             # Check if it needs reformatting
             chrome_body = chrome_match.group(0)
-            if "CaptionHeight=\"64\"" not in chrome_body or "CornerRadius=\"8\"" not in chrome_body:
+            if "CaptionHeight=\"64\"" not in chrome_body or "CornerRadius=\"22\"" not in chrome_body:
                 content = chrome_pattern.sub(standard_chrome, content)
                 modified = True
         else:
@@ -204,45 +222,49 @@ def fix_xaml_file(path):
                     tb_matches = re.finditer(r'<TextBlock\s+([^>]*?)>', title_block)
                     texts = []
                     for m in tb_matches:
+                        attrs = m.group(1)
+                        if "Segoe MDL2" in attrs:
+                            continue
                         t = extract_attribute(m.group(0), "Text")
-                        if t and t not in ["T3Lab", tool_name]:
+                        if t and t not in ["T3Lab", tool_name] and not t.startswith("&#x"):
                             texts.append(t)
                     if texts:
-                        sub_text = texts[-1]
+                        sub_text = texts[0]
                 
-                # Construct standard title bar
+                # Construct standard title bar (Lumina: #F4F4F6 bg, CornerRadius 22)
                 std_title_bar = """<!-- ═══ TITLE BAR ═══ -->
-        <Grid Grid.Row="0" Height="64" Background="White">
-            <StackPanel Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
+        <Grid Grid.Row="0" Height="64" Background="#F4F4F6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A"
-                               VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="{tool_name}" FontSize="18" FontWeight="Bold"
-                               Foreground="#0F172A"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="{sub_text}"
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+                <TextBlock Text="{tool_name}" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="{sub_text}" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True"
+                        Style="{StaticResource WinCtrlButton}"
                         Click="minimize_button_clicked" ToolTip="Minimize">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
-                <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True"
+                        Style="{StaticResource WinCtrlButton}"
                         Click="maximize_button_clicked" ToolTip="Maximize">
                     <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
-                <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                <Button x:Name="btn_close" WindowChrome.IsHitTestVisibleInChrome="True"
+                        Style="{StaticResource CloseButton}"
                         Click="close_button_clicked" ToolTip="Close">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
 
-            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
         </Grid>""".replace("{tool_name}", tool_name).replace("{sub_text}", sub_text)
                 
                 # Replace the title grid
@@ -300,24 +322,93 @@ def fix_xaml_file(path):
                     content = content[:start_idx] + new_attrs + content[end_idx:]
                     modified = True
 
-    # 7. Copyright Block injection
-    # Remove any existing copyright text block
-    copyright_pattern = re.compile(r'<!--\s*Copyright\s+added\s+automatically\s*-->\s*<TextBlock\s+[^>]*?Copyright by T3Lab[^>]*?/>', re.IGNORECASE)
-    content = copyright_pattern.sub('', content)
-    
-    copyright_pattern2 = re.compile(r'<TextBlock\s+[^>]*?Copyright by T3Lab[^>]*?/>', re.IGNORECASE)
-    content = copyright_pattern2.sub('', content)
-    
-    copyright_pattern3 = re.compile(r'<TextBlock\s+[^>]*?Copyright by T3Lab[^>]*?>.*?</TextBlock>', re.IGNORECASE | re.DOTALL)
-    content = copyright_pattern3.sub('', content)
+    # 7. Copyright Block — remove old floating copyright, embed in footer status bar
+    # Remove any existing floating copyright TextBlock (Panel.ZIndex=999 style)
+    old_copyright_patterns = [
+        re.compile(r'\s*<\!--\s*Copyright\s+added\s+automatically\s*-->\s*<TextBlock[^>]*?Copyright by T3Lab[^>]*?/>', re.IGNORECASE | re.DOTALL),
+        re.compile(r'\s*<TextBlock[^>]*?Panel\.ZIndex\s*=\s*"999"[^>]*?Copyright by T3Lab[^>]*?/>', re.IGNORECASE | re.DOTALL),
+        re.compile(r'\s*<TextBlock[^>]*?Copyright by T3Lab[^>]*?Panel\.ZIndex[^>]*?/>', re.IGNORECASE | re.DOTALL),
+    ]
+    for pat in old_copyright_patterns:
+        new_content = pat.sub('', content)
+        if new_content != content:
+            content = new_content
+            modified = True
 
-    # Insert verbatim block right before last </Grid>
-    last_grid_idx = content.rfind("</Grid>")
-    if last_grid_idx != -1:
-        canonical_copyright = """        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>"""
-        content = content[:last_grid_idx] + canonical_copyright + "\n" + content[last_grid_idx:]
-        modified = True
+    # Inject copyright into the last status/footer Border if not already present
+    # We look for the last Border that wraps action buttons or a status area
+    copyright_embedded = ('Copyright by T3Lab' in content or
+                          'Copyright: T3Lab' in content or
+                          '&#169;' in content or
+                          '\u00a9' in content)
+    if not copyright_embedded:
+        # Find last <Border ...Background="#F4F4F6"... or #F8FAFC... near </Window>
+        # Strategy: inject before the last </StackPanel> that comes before </Border> near </Window>
+        # Simpler: append inside the last Grid before </Window>
+        footer_copyright_block = """
+        <!-- Copyright: T3Lab -->
+        <Border CornerRadius="10" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8">
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
+                <TextBlock Text="&#169; 2026 T3Lab" FontSize="10" Foreground="#9A9AA2" HorizontalAlignment="Right"/>
+                <TextBlock Text="&#169; Copyright by T3Lab" FontSize="10" Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+            </StackPanel>
+        </Border>"""
+        # Find last </Grid> before </Window>
+        window_close = content.rfind('</Window>')
+        if window_close != -1:
+            search_area = content[:window_close]
+            last_grid_close = search_area.rfind('</Grid>')
+            if last_grid_close != -1:
+                content = content[:last_grid_close] + footer_copyright_block + '\n' + content[last_grid_close:]
+                modified = True
+
+    # Restore resources blocks FIRST (needed so </Window.Resources> is visible for border wrap)
+    for i in range(len(resources_blocks)):
+        placeholder = f"<!-- RESOURCES_PLACEHOLDER_{i} -->"
+        content = content.replace(placeholder, resources_blocks[i])
+
+    # 8. Outer Border wrapper — add ClipToBounds border if not already wrapped
+    # Must run AFTER resources are restored so </Window.Resources> is in content
+    outer_border_marker = 'ClipToBounds="True"'
+    if outer_border_marker not in content:
+        # Strategy: find first non-blank line after </Window.Resources>
+        # That line starts the root content element (Grid or Border)
+        res_end_idx = content.rfind('</Window.Resources>')
+        if res_end_idx == -1:
+            res_end_idx = content.rfind('</WindowChrome.WindowChrome>')
+        if res_end_idx != -1:
+            after_res = content[res_end_idx + len('</Window.Resources>'):]
+            # Find first <Grid or <Border (the root layout element)
+            root_match = re.search(r'\n(\s*)(<(?:Grid|Border)\b[^>]*>)', after_res)
+            if root_match:
+                root_tag_name = re.match(r'<(\w+)', root_match.group(2)).group(1)
+                root_indent = root_match.group(1)
+
+                # The root element ends just before </Window>
+                # Find the last matching </Grid> or </Border> before </Window>
+                window_close = content.rfind('</Window>')
+                if window_close != -1:
+                    search_region = content[:window_close]
+                    last_close = search_region.rfind(f'</{root_tag_name}>')
+                    if last_close != -1:
+                        root_start_abs = res_end_idx + len('</Window.Resources>') + root_match.start(2)
+                        root_end_abs = last_close + len(f'</{root_tag_name}>')
+                        inner = content[root_start_abs:root_end_abs]
+                        outer_open = f'{root_indent}<Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">\n'
+                        outer_close = f'{root_indent}</Border>\n'
+                        content = (
+                            content[:root_start_abs]
+                            + outer_open
+                            + inner
+                            + '\n' + outer_close
+                            + content[root_end_abs:]
+                        )
+                        modified = True
+
+
+
+
+
 
     if modified or content != original:
         with io.open(path, "w", encoding="utf-8") as f:

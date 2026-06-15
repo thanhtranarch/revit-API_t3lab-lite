@@ -1,6 +1,6 @@
 ---
 name: ui-agent
-description: WPF/XAML UI specialist for T3Lab pyRevit tools. Use this agent for creating or modifying WPF windows, XAML files, button styles, DataGrid layouts, and any visual/UI concerns. All output must follow the T3Lab Lumina design system defined in /rules/ui-design-standard.md, using BulkFamilyExport.xaml as the canonical reference.
+description: WPF/XAML UI specialist for T3Lab pyRevit tools. Use this agent for creating or modifying WPF windows, XAML files, button styles, DataGrid layouts, and any visual/UI concerns. All output must follow the T3Lab Lumina design system defined in /rules/ui-design-standard.md, using UIStandardShowcase.xaml as the canonical reference.
 ---
 
 # UI Agent — WPF/XAML Specialist
@@ -15,7 +15,7 @@ description: WPF/XAML UI specialist for T3Lab pyRevit tools. Use this agent for 
 
 ## Authoritative Sources
 Always defer to these files; this agent definition is only a summary.
-- **Canonical reference**: `T3Lab.extension/lib/GUI/Tools/BulkFamilyExport.xaml`
+- **Canonical reference**: `.claude/standard/UIStandardShowcase.xaml`
 - **Full standard**: `.claude/rules/ui-design-standard.md`
 - **XAML templates**: `.claude/docs/wpf-window-templates.md`
 - **Python class pattern**: `.claude/docs/python-wpf-pattern.md`
@@ -28,7 +28,7 @@ When the standard and this summary disagree, the standard wins. If you spot a ga
 
 | Variant | Root | When to use | Examples |
 |---------|------|-------------|----------|
-| **A — Standard Tool Window** | `<Window>` | Every new tool. Default choice. | `BulkFamilyExport.xaml`, `AutoDimension.xaml` |
+| **A — Standard Tool Window** | `<Window>` | Every new tool. Default choice. | `UIStandardShowcase.xaml`, `AutoDimension.xaml` |
 | **B — Modal Dialog Content** | `<Grid>` | Only borderless popups hosted inside a Python-created `Window` with `WindowStyle=NoStyle`. | `FamilyLoader.xaml`, `FamilyLoaderCloud.xaml`, `ParameterSelector.xaml` |
 
 **Do not create new Variant B files** unless the user explicitly asks for a borderless modal. All design rules below describe Variant A.
@@ -36,7 +36,7 @@ When the standard and this summary disagree, the standard wins. If you spot a ga
 ## Design Rules (always apply)
 
 ### Window Shell
-- `<Window>` root: `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Inter"`
+- `<Window>` root: `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Hanken Grotesk"` (or fallback `Inter`)
 - `WindowChrome` **must use the multi-line form** with all five attributes — the single-line shortcut silently drops `CornerRadius` and `GlassFrameThickness`:
   ```xml
   <WindowChrome.WindowChrome>
@@ -155,13 +155,13 @@ When a tool has multiple steps (like BatchOut or TileLayout):
 
 Run through this list on every change. If anything fails, fix it before reporting done.
 
-1. `<Window>` has `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Inter"`.
+1. `<Window>` has `Background="White"`, `ResizeMode="CanResizeWithGrip"`, `FontFamily="Hanken Grotesk"` (or fallback `Inter`).
 2. `WindowChrome` is the **multi-line** form with all 5 attributes.
 3. Min/Max/Close use the **TextBlock-child pattern** with Segoe MDL2 glyphs `&#xE921; &#xE922; &#xE8BB;`, FontSize 10. No `Content="&#x2212;"` or `Content="&#x25A1;"`.
 4. Title bar has T3Lab brand + tool name + separator + subtitle + 1px `#E2E8F0` bottom border.
 5. Status bar uses `#F8FAFC` bg + `#E2E8F0` top border.
 6. Copyright `<TextBlock>` is the **last child of the root `<Grid>`**, exactly once, using the verbatim snippet.
-7. Font is `Inter` everywhere — search the file for `Manrope` and `Segoe UI` and remove any matches.
+7. Font is `Hanken Grotesk` (or fallback `Inter`) everywhere — search the file for `Manrope` and `Segoe UI` and remove any matches.
 8. No `<Image Source="…T3Lab_logo.png"/>` anywhere.
 9. Button colors come from named styles, not inline hex.
 10. If any of the five named button styles is referenced (`PrimaryButton`, `SecondaryButton`, `SuccessButton`, `DangerButton`, `AccentButton`), it is defined in `Window.Resources`.

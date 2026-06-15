@@ -4,7 +4,7 @@ This document is the official design specification for T3Lab Revit extension too
 
 > [!IMPORTANT]
 > **Definitive Master Reference UI (Source of Truth)**:
-> The official **UI Standard Showcase** window (defined in [UIStandardShowcase.xaml](file:///d:/01. T3Lab/02 Revit Tools/t3lab-revit-api/T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml) and launched via [UIStandardShowcaseDialog.py](file:///d:/01. T3Lab/02 Revit Tools/t3lab-revit-api/T3Lab.extension/lib/GUI/UIStandardShowcaseDialog.py)) is the master visual benchmark for the entire T3Lab extension. All existing and future tool designs, layout structures, spacing definitions, and component styling must align exactly with this showcase window.
+> The official **UI Standard Showcase** window (defined in [UIStandardShowcase.xaml](.claude/standard/UIStandardShowcase.xaml) and launched via [UIStandardShowcaseDialog.py](T3Lab.extension/lib/GUI/UIStandardShowcaseDialog.py)) is the master visual benchmark for the entire T3Lab extension. All existing and future tool designs, layout structures, spacing definitions, and component styling must align exactly with this showcase window.
 
 ---
 
@@ -12,7 +12,7 @@ This document is the official design specification for T3Lab Revit extension too
 1. **Developer-Utility Aesthetic**: Premium dark mode accents, highly structured layout with minimal distractions.
 2. **Visual Hierarchy**: Consistent, clear visual cards, statistics displays, and structured controls.
 3. **No Fluff**: No custom logos or empty placeholders. Maximum space allocated for user data.
-4. **Benchmark Reference**: The [UI Standard Showcase](file:///d:/01. T3Lab/02 Revit Tools/t3lab-revit-api/T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml) acts as the living style guide. Any styling modifications, new controls, or design improvements must be prototyped and approved in the Showcase before being applied to other extension tools.
+4. **Benchmark Reference**: The [UI Standard Showcase](.claude/standard/UIStandardShowcase.xaml) acts as the living style guide. Any styling modifications, new controls, or design improvements must be prototyped and approved in the Showcase before being applied to other extension tools.
 
 ---
 
@@ -36,7 +36,7 @@ All tool windows must use the following unified color scheme:
 | `Input Border` | `#CBD5E1` | TextBox and ComboBox borders |
 
 ### 2. Typography
-- **Primary Font Family**: `Inter` (applied globally to the `<Window>` or `<Grid>` root).
+- **Primary Font Family**: `Hanken Grotesk` (applied globally to the `<Window>` or `<Grid>` root; `Inter` is allowed as a secondary/fallback font).
 - **Secondary Icon Font**: `Segoe MDL2 Assets` (strictly for title bar minimize/maximize/close icons).
 - **Weights**:
   - Titles & Primary Buttons: `SemiBold` (WPF: `FontWeights.SemiBold` or `FontWeights.Bold`)

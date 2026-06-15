@@ -1,347 +1,168 @@
 # WPF Window Templates
 
-> **Reference**: All templates below match `BulkFamilyExport.xaml` — the canonical UI standard.
+> **IMPORTANT**:
+> All templates below align with [UIStandardShowcase.xaml](.claude/standard/UIStandardShowcase.xaml) — the definitive master visual standard. 
+> To ensure the codebase is portable and works across different developer machines and directory locations, **never use absolute file paths** (such as `file:///C:/...` or `D:\...`) in documentation, code references, or agent prompts. Always write paths relatively (e.g. `.claude/standard/UIStandardShowcase.xaml`).
 
-## Window Structure
+## Variant A — Standard Tool Window Template
 
-Every tool window must include:
+Every new standard tool window should follow this layout. It includes the multi-line `WindowChrome` definition, standard window control button text blocks, and the copyright overlay:
 
-### 1. Window Root + WindowChrome
 ```xml
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="T3Lab - Tool Name"
         Width="1100" Height="680"
         MinWidth="860" MinHeight="500"
-        Background="White"
+        Background="#E4E4E7"
         ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen"
-        FontFamily="Inter">
+        FontFamily="Hanken Grotesk"
+        FontSize="14">
 
+    <!-- Custom Title Bar Chrome (Multiline tag is required) -->
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
-```
 
-### 2. Title Bar Row (64px, white)
-```xml
-<Grid Grid.Row="0" Height="64" Background="White">
-    <StackPanel Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
-                WindowChrome.IsHitTestVisibleInChrome="True">
-        <StackPanel Orientation="Horizontal">
-            <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A"
-                       VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-            <TextBlock Text="Tool Name" FontSize="18" FontWeight="Bold"
-                       Foreground="#0F172A"/>
-        </StackPanel>
-        <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-        <TextBlock Text="Short description of the tool"
-                   FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
-    </StackPanel>
+    <Window.Resources>
+        <!-- Paste shared styles here from T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml -->
+    </Window.Resources>
 
-    <!-- Right: Window control buttons -->
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
-                WindowChrome.IsHitTestVisibleInChrome="True">
-        <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
-                Click="minimize_button_clicked" ToolTip="Minimize">
-            <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-        </Button>
-        <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
-                Click="maximize_button_clicked" ToolTip="Maximize">
-            <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-        </Button>
-        <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
-                Click="close_button_clicked" ToolTip="Close">
-            <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-        </Button>
-    </StackPanel>
+    <!-- Outer border to separate window from white Revit worksheets -->
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>     <!-- Left Sidebar Icon Rail -->
+                <ColumnDefinition Width="*"/>      <!-- Right main content area -->
+            </Grid.ColumnDefinitions>
 
-    <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
-</Grid>
-```
+            <Grid.RowDefinitions>
+                <RowDefinition Height="64"/>       <!-- Row 0: Title Header / Top Bar -->
+                <RowDefinition Height="*"/>        <!-- Row 1: Content Area -->
+                <RowDefinition Height="Auto"/>     <!-- Row 2: Footer / Status Bar -->
+            </Grid.RowDefinitions>
 
-### 3. Status Bar Row
-```xml
-<Border Grid.Row="N" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-        Padding="14,8">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <TextBlock x:Name="status_text" Grid.Column="0" FontSize="11"
-                   Foreground="#64748B" Text="Ready"/>
-        <TextBlock x:Name="count_text" Grid.Column="1" FontSize="11"
-                   Foreground="#E2E8F0" Text="0 items"/>
-    </Grid>
-</Border>
-```
+            <!-- ═══ HEADER ROW (Row 0, Column 1) ═══ -->
+            <Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-### 4. Copyright (always before closing root Grid)
-```xml
-    <!-- Copyright added automatically -->
-    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
-</Grid>
-```
+                <!-- Title & Subtitle -->
+                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Tool Name" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Lumina Suite · Revit 2024–2026" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
+                </StackPanel>
 
----
+                <!-- Window controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WinCtrlButton}" Click="minimize_button_clicked" ToolTip="Minimize">
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WinCtrlButton}" Click="maximize_button_clicked" ToolTip="Maximize">
+                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="btn_close" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource CloseButton}" Click="close_button_clicked" ToolTip="Close">
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                </StackPanel>
+                
+                <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
+            </Grid>
 
-## Button Styles
+            <!-- ═══ CONTENT AREA (Row 1, Column 1) ═══ -->
+            <Grid Grid.Row="1" Grid.Column="1" Margin="18,18,18,10">
+                <!-- Add your controls here -->
+            </Grid>
 
-Define these as `Window.Resources`:
+            <!-- ═══ FOOTER ROW (Row 2, Column 1) ═══ -->
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-```xml
-<!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
-<!-- PRIMARY BUTTON - solid deep slate, white text -->
-<Style x:Key="PrimaryButton" TargetType="Button">
-    <Setter Property="Background"      Value="#0F172A"/>
-    <Setter Property="Foreground"      Value="White"/>
-    <Setter Property="Padding"         Value="14,7"/>
-    <Setter Property="FontSize"        Value="12"/>
-    <Setter Property="FontFamily"      Value="Inter"/>
-    <Setter Property="FontWeight"      Value="SemiBold"/>
-    <Setter Property="Cursor"          Value="Hand"/>
-    <Setter Property="BorderThickness" Value="0"/>
-    <Setter Property="Template">
-        <Setter.Value>
-            <ControlTemplate TargetType="Button">
-                <Border Background="{TemplateBinding Background}" CornerRadius="6"
-                        Padding="{TemplateBinding Padding}">
-                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-            </ControlTemplate>
-        </Setter.Value>
-    </Setter>
-    <Style.Triggers>
-        <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#1E293B"/>
-        </Trigger>
-        <Trigger Property="IsPressed" Value="True">
-            <Setter Property="Background" Value="#0F172A"/>
-        </Trigger>
-        <Trigger Property="IsEnabled" Value="False">
-            <Setter Property="Background" Value="#E2E8F0"/>
-            <Setter Property="Foreground" Value="#94A3B8"/>
-            <Setter Property="Cursor"     Value="Arrow"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
+                    <!-- Left: Action buttons -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Button Style="{StaticResource PrimaryButton}" Content="Execute" Margin="0,0,8,0" Padding="16,10"/>
+                        <Button Style="{StaticResource SecondaryButton}" Content="Cancel" Padding="16,9"/>
+                    </StackPanel>
 
-<!-- SECONDARY BUTTON - ghost style, border and text deep slate -->
-<Style x:Key="SecondaryButton" TargetType="Button">
-    <Setter Property="Background"      Value="Transparent"/>
-    <Setter Property="Foreground"      Value="#0F172A"/>
-    <Setter Property="Padding"         Value="14,7"/>
-    <Setter Property="FontSize"        Value="12"/>
-    <Setter Property="FontFamily"      Value="Inter"/>
-    <Setter Property="FontWeight"      Value="SemiBold"/>
-    <Setter Property="Cursor"          Value="Hand"/>
-    <Setter Property="BorderThickness" Value="1"/>
-    <Setter Property="BorderBrush"     Value="#0F172A"/>
-    <Setter Property="Template">
-        <Setter.Value>
-            <ControlTemplate TargetType="Button">
-                <Border Background="{TemplateBinding Background}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                        CornerRadius="6" Padding="{TemplateBinding Padding}">
-                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-            </ControlTemplate>
-        </Setter.Value>
-    </Setter>
-    <Style.Triggers>
-        <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#F1F5F9"/>
-        </Trigger>
-        <Trigger Property="IsPressed" Value="True">
-            <Setter Property="Background" Value="#E2E8F0"/>
-        </Trigger>
-        <Trigger Property="IsEnabled" Value="False">
-            <Setter Property="Foreground" Value="#94A3B8"/>
-            <Setter Property="BorderBrush" Value="#E2E8F0"/>
-            <Setter Property="Cursor"     Value="Arrow"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
-
-<!-- SUCCESS BUTTON - emerald green -->
-<Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="Background" Value="#10B981"/>
-    <Style.Triggers>
-        <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#059669"/>
-        </Trigger>
-        <Trigger Property="IsPressed" Value="True">
-            <Setter Property="Background" Value="#047857"/>
-        </Trigger>
-        <Trigger Property="IsEnabled" Value="False">
-            <Setter Property="Background" Value="#E2E8F0"/>
-            <Setter Property="Foreground" Value="#94A3B8"/>
-            <Setter Property="Cursor"     Value="Arrow"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
-
-<!-- DANGER BUTTON - rose red -->
-<Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="Background" Value="#EF4444"/>
-    <Style.Triggers>
-        <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#DC2626"/>
-        </Trigger>
-        <Trigger Property="IsPressed" Value="True">
-            <Setter Property="Background" Value="#B91C1C"/>
-        </Trigger>
-        <Trigger Property="IsEnabled" Value="False">
-            <Setter Property="Background" Value="#E2E8F0"/>
-            <Setter Property="Foreground" Value="#94A3B8"/>
-            <Setter Property="Cursor"     Value="Arrow"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
-
-<!-- ACCENT BUTTON - refined blue -->
-<Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-    <Setter Property="Background" Value="#3B82F6"/>
-    <Style.Triggers>
-        <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#2563EB"/>
-        </Trigger>
-        <Trigger Property="IsPressed" Value="True">
-            <Setter Property="Background" Value="#1D4ED8"/>
-        </Trigger>
-        <Trigger Property="IsEnabled" Value="False">
-            <Setter Property="Background" Value="#E2E8F0"/>
-            <Setter Property="Foreground" Value="#94A3B8"/>
-            <Setter Property="Cursor"     Value="Arrow"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
-
-<!-- WINDOW CONTROL BUTTON -->
-<Style x:Key="WinCtrlButton" TargetType="Button">
-    <Setter Property="Width"           Value="40"/>
-    <Setter Property="Height"          Value="32"/>
-    <Setter Property="Background"      Value="Transparent"/>
-    <Setter Property="Foreground"      Value="#0F172A"/>
-    <Setter Property="BorderThickness" Value="0"/>
-    <Setter Property="Cursor"          Value="Hand"/>
-    <Setter Property="Template">
-        <Setter.Value>
-            <ControlTemplate TargetType="Button">
-                <Border x:Name="bd" Background="{TemplateBinding Background}">
-                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                </Border>
-            </ControlTemplate>
-        </Setter.Value>
-    </Setter>
-    <Style.Triggers>
-        <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#F1F5F9"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
-
-<!-- CLOSE BUTTON - rose red on hover, glyph flips to white -->
-<Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource WinCtrlButton}">
-    <Style.Triggers>
-        <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="#EF4444"/>
-            <Setter Property="Foreground" Value="White"/>
-        </Trigger>
-    </Style.Triggers>
-</Style>
-<!-- ═══ END T3LAB SHARED STYLES ═══ -->
+                    <!-- Right: System status and copyright in separate vertical lines -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Ellipse Width="8" Height="8" Fill="#22A85C" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="System status: " FontSize="13.5" Foreground="#27272A" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <TextBlock Text="Ready" FontSize="13.5" Foreground="#157038" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="18" Background="#DEDEE2" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                            <TextBlock Text="© 2026 T3Lab · v2.4" FontSize="11" Foreground="#9A9AA2" HorizontalAlignment="Left"/>
+                            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Left"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
 ```
 
 ---
 
-## DataGrid Style
+## Variant B — Modal Dialog Content Template
+
+Use this format **only** when parsing a Grid directly to the content of a borderless modal window generated inside Python code.
 
 ```xml
-<DataGrid Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-          AlternatingRowBackground="#F8FAFC" FontFamily="Inter" FontSize="12"
-          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-          HorizontalGridLinesBrush="#F1F5F9">
-    <DataGrid.ColumnHeaderStyle>
-        <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background"      Value="#F8FAFC"/>
-            <Setter Property="Foreground"      Value="#0F172A"/>
-            <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Padding"         Value="8,6"/>
-            <Setter Property="BorderBrush"     Value="#E2E8F0"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="Height"          Value="34"/>
-        </Style>
-    </DataGrid.ColumnHeaderStyle>
-    <DataGrid.RowStyle>
-        <Style TargetType="DataGridRow">
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F1F5F9"/>
-                </Trigger>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#E2E8F0"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-    </DataGrid.RowStyle>
-</DataGrid>
-```
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Width="480" Height="320"
+      Background="#FFFFFF"
+      FontFamily="Hanken Grotesk"
+      FontSize="14">
 
----
+    <Grid.Resources>
+        <!-- Paste shared styles here from T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml -->
+    </Grid.Resources>
 
-## Info / Tip Box
+    <!-- Outer border to separate dialog from drawing environment -->
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="16" Background="#FFFFFF">
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Header -->
+                <RowDefinition Height="*"/>    <!-- Content -->
+                <RowDefinition Height="Auto"/> <!-- Footer -->
+            </Grid.RowDefinitions>
 
-```xml
-<Border BorderBrush="#CBD5E1" BorderThickness="1" Background="#F8FAFC"
-        CornerRadius="4" Padding="10">
-    <StackPanel Orientation="Horizontal">
-        <TextBlock Text="Tip:" FontWeight="Bold" Foreground="#3B82F6" Margin="0,0,5,0"/>
-        <TextBlock Text="Your message here." Foreground="#0F172A" TextWrapping="Wrap"/>
-    </StackPanel>
-</Border>
-```
+            <!-- Header -->
+            <TextBlock Grid.Row="0" Text="Select Parameter" FontSize="15" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,12"/>
 
----
+            <!-- Content -->
+            <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                <!-- Inputs go here -->
+            </StackPanel>
 
-## Progress Bar (for long-running tasks)
-
-```xml
-<!-- Place inside Status Bar, Visibility="Collapsed" when idle -->
-<Grid x:Name="progress_panel" Visibility="Collapsed" Margin="0,0,0,6">
-    <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
-        <ColumnDefinition Width="8"/>
-        <ColumnDefinition Width="64"/>
-        <ColumnDefinition Width="4"/>
-        <ColumnDefinition Width="52"/>
-    </Grid.ColumnDefinitions>
-
-    <ProgressBar x:Name="pb_export" Grid.Column="0"
-                 Height="8" Minimum="0" Maximum="100" Value="0"
-                 Foreground="#3B82F6" Background="#E2E8F0"
-                 BorderThickness="0" VerticalAlignment="Center"/>
-
-    <!-- Pause / Resume button -->
-    <Button x:Name="btn_pause_export" Grid.Column="2"
-            Content="⏸  Pause" Height="22" FontSize="10" FontFamily="Inter"
-            Click="pause_resume_clicked" Cursor="Hand"
-            BorderThickness="1" BorderBrush="#CBD5E1" VerticalAlignment="Center">
-        <!-- Use inline secondary-like style -->
-    </Button>
-
-    <!-- Stop button -->
-    <Button x:Name="btn_stop_export" Grid.Column="4"
-            Content="■  Stop" Height="22" FontSize="10" FontFamily="Inter"
-            Click="stop_export_clicked" Cursor="Hand"
-            BorderThickness="0" VerticalAlignment="Center">
-        <!-- Use inline danger-like style: Bg=#EF4444, hover=#DC2626 -->
-    </Button>
+            <!-- Footer -->
+            <Grid Grid.Row="2" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Style="{StaticResource SecondaryButton}" Content="Cancel" Margin="0,0,8,0"/>
+                    <Button Style="{StaticResource PrimaryButton}" Content="Select"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
 </Grid>
 ```

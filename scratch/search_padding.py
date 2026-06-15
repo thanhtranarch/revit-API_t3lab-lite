@@ -7,7 +7,7 @@ def show_stackpanel_contexts():
     except:
         pass
         
-    path = r"d:\01. T3Lab\02 Revit Tools\t3lab-revit-api\T3Lab.extension\lib\GUI\Tools\UIStandardShowcase.xaml"
+    path = ".claude/standard/UIStandardShowcase.xaml"
     with open(path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
         

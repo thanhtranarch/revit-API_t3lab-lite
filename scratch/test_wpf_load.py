@@ -26,7 +26,7 @@ class DummyWindow(Window):
         pass
 
 def test_load():
-    xaml_path = r"d:\01. T3Lab\02 Revit Tools\t3lab-revit-api\T3Lab.extension\lib\GUI\Tools\UIStandardShowcase.xaml"
+    xaml_path = ".claude/standard/UIStandardShowcase.xaml"
     try:
         win = DummyWindow(xaml_path)
         print("DummyWindow loaded successfully!")

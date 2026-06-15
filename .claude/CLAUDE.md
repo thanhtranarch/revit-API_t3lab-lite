@@ -4,11 +4,12 @@ pyRevit extension for Revit automation.
 Framework: IronPython 2.7 + WPF + Revit API
 
 ## Rules
-- Always follow `.claude/rules/ui-design-standard.md` for any UI work (T3Lab Terra design system)
+- Always follow `.claude/rules/ui-design-standard.md` for any UI work (T3Lab Lumina design system, utilizing Hanken Grotesk and ultra-thin scrollbars)
 - XAML files go in `T3Lab.extension/lib/GUI/Tools/`
 - Python dialog classes stay in `T3Lab.extension/lib/GUI/`
 - Keep Revit API logic separate from WPF/UI code
 - Shared button styles live in `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` and are propagated into every tool XAML with `python3 dev/sync_wpf_styles.py` (`--check` to verify) — never hand-edit the marked style block inside a tool XAML
+- **Path Portability Rule**: All file paths in agent definitions and documentation must be relative to the repository workspace (e.g. `T3Lab.extension/...`) to ensure portability.
 
 ## Agents
 
@@ -36,7 +37,7 @@ Agent definitions: `.claude/agents/`
 
 | Resource | Path |
 |----------|------|
-| Canonical UI | `T3Lab.extension/T3Lab.tab/Export.panel/BatchOut.pushbutton/` |
+| Canonical UI | `.claude/standard/UIStandardShowcase.xaml` |
 | All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
 | Shared styles | `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` |
 | Logo asset | `T3Lab.extension/lib/GUI/T3Lab_logo.png` |
