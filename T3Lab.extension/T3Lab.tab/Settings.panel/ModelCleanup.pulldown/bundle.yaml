@@ -1,5 +1,3 @@
 title: Model Cleanup
 layout:
-  - SmartPurge
-  - AdvancedPurge
-  - SmartDelete
+  - CleanupManager

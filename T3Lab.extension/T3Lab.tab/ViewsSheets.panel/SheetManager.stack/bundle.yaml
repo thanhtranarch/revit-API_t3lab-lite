@@ -1,5 +1,4 @@
 title: Sheet Manager
 layout:
-  - SheetManager
-  - Sheet re-number
+  - SheetHub
   - Linked Element Box
