@@ -18,6 +18,10 @@ class FamilyManagerWindow(forms.WPFWindow):
         self.btn_family_management.Click += self._open_family_management
         self.btn_load_family.Click += self._open_load_family
 
+        self.btn_minimize.Click += self._minimize
+        self.btn_maximize.Click += self._maximize
+        self.btn_close_chrome.Click += self._close_chrome
+
     def _launch(self, rel_path):
         script_path = os.path.normpath(os.path.join(self._script_dir, rel_path))
         self.Close()
@@ -33,6 +37,20 @@ class FamilyManagerWindow(forms.WPFWindow):
 
     def _open_load_family(self, sender, e):
         self._launch("../Family Work 2.stack/Load Family.pushbutton/script.py")
+
+    def _minimize(self, sender, e):
+        import System.Windows
+        self.WindowState = System.Windows.WindowState.Minimized
+
+    def _maximize(self, sender, e):
+        import System.Windows
+        if self.WindowState == System.Windows.WindowState.Maximized:
+            self.WindowState = System.Windows.WindowState.Normal
+        else:
+            self.WindowState = System.Windows.WindowState.Maximized
+
+    def _close_chrome(self, sender, e):
+        self.Close()
 
 
 def show_family_manager(script_dir, revit):

@@ -23,6 +23,10 @@ class DatumManagerWindow(forms.WPFWindow):
         self.btn_align_levels.Click += self._on_align_levels
         self.btn_convert_level.Click += self._on_convert_level
 
+        self.btn_minimize.Click += self._minimize
+        self.btn_maximize.Click += self._maximize
+        self.btn_close_chrome.Click += self._close_chrome
+
     def _launch(self, rel_path):
         script_path = os.path.normpath(os.path.join(self._script_dir, rel_path))
         self.Close()
@@ -53,6 +57,20 @@ class DatumManagerWindow(forms.WPFWindow):
 
     def _on_convert_level(self, sender, e):
         self._launch("../Datum.pulldown/Level.pulldown/ConvertLevel.pushbutton/script.py")
+
+    def _minimize(self, sender, e):
+        import System.Windows
+        self.WindowState = System.Windows.WindowState.Minimized
+
+    def _maximize(self, sender, e):
+        import System.Windows
+        if self.WindowState == System.Windows.WindowState.Maximized:
+            self.WindowState = System.Windows.WindowState.Normal
+        else:
+            self.WindowState = System.Windows.WindowState.Maximized
+
+    def _close_chrome(self, sender, e):
+        self.Close()
 
 
 def show_datum_manager(script_dir, revit):

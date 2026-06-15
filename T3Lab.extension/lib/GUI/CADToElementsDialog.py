@@ -19,6 +19,10 @@ class CADToElementsWindow(forms.WPFWindow):
         self.btn_cad_to_floor.Click += self._on_cad_to_floor
         self.btn_cad_to_beam.Click += self._on_cad_to_beam
 
+        self.btn_minimize.Click += self._minimize
+        self.btn_maximize.Click += self._maximize
+        self.btn_close_chrome.Click += self._close_chrome
+
     def _launch(self, rel_path):
         script_path = os.path.normpath(os.path.join(self._script_dir, rel_path))
         self.Close()
@@ -37,6 +41,20 @@ class CADToElementsWindow(forms.WPFWindow):
 
     def _on_cad_to_beam(self, sender, e):
         self._launch("../Beam.pushbutton/script.py")
+
+    def _minimize(self, sender, e):
+        import System.Windows
+        self.WindowState = System.Windows.WindowState.Minimized
+
+    def _maximize(self, sender, e):
+        import System.Windows
+        if self.WindowState == System.Windows.WindowState.Maximized:
+            self.WindowState = System.Windows.WindowState.Normal
+        else:
+            self.WindowState = System.Windows.WindowState.Maximized
+
+    def _close_chrome(self, sender, e):
+        self.Close()
 
 
 def show_cad_to_elements(script_dir, revit):

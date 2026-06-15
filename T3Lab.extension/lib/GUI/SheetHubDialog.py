@@ -18,6 +18,10 @@ class SheetHubWindow(forms.WPFWindow):
         self.btn_sheet_manager.Click += self._on_sheet_manager
         self.btn_sheet_renumber.Click += self._on_sheet_renumber
 
+        self.btn_minimize.Click += self._minimize
+        self.btn_maximize.Click += self._maximize
+        self.btn_close_chrome.Click += self._close_chrome
+
     def _launch(self, rel_path):
         script_path = os.path.normpath(os.path.join(self._script_dir, rel_path))
         self.Close()
@@ -33,6 +37,20 @@ class SheetHubWindow(forms.WPFWindow):
 
     def _on_sheet_renumber(self, sender, e):
         self._launch("../Sheet re-number.pushbutton/script.py")
+
+    def _minimize(self, sender, e):
+        import System.Windows
+        self.WindowState = System.Windows.WindowState.Minimized
+
+    def _maximize(self, sender, e):
+        import System.Windows
+        if self.WindowState == System.Windows.WindowState.Maximized:
+            self.WindowState = System.Windows.WindowState.Normal
+        else:
+            self.WindowState = System.Windows.WindowState.Maximized
+
+    def _close_chrome(self, sender, e):
+        self.Close()
 
 
 def show_sheet_hub(script_dir, revit):
