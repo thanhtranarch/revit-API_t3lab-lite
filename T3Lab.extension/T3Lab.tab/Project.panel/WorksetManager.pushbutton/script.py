@@ -11,6 +11,7 @@ clr.AddReference('WindowsBase')
 
 import os
 import __builtin__
+import System
 
 from System.Windows import Window, WindowStartupLocation, WindowStyle, ResizeMode, Thickness
 from System.Windows.Controls import (
