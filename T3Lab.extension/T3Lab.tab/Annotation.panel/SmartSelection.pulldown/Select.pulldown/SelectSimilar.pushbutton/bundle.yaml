@@ -1,0 +1,5 @@
+title: "Select\nSimilar"
+tooltip: |
+  Select elements similar to the current selection.
+  Choose match mode (Category / Family / Type) and scope (View / Model).
+author: "Dang Quoc Truong - DQT"
