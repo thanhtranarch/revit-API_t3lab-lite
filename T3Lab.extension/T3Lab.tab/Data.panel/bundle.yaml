@@ -1,8 +1,7 @@
 title: Data & IFC-SG
 layout:
-  - Excel Schedules
-  - Parameter Tools
+  - ScheduleManager
+  - ParameterManager
   - Room & Foundation
   - IFC-SG
-  - BCF Reader
-  - ContainsManager
+  - Data

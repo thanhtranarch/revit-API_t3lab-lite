@@ -34,13 +34,13 @@ class ViewHubWindow(forms.WPFWindow):
             forms.alert("Error launching tool:\n{}".format(ex))
 
     def _on_view_manager(self, sender, e):
-        self._launch("../ViewManager.pushbutton/script.py")
+        self._launch("../ViewManager/script.py")
 
     def _on_view_templates(self, sender, e):
-        self._launch("../ViewTemplate.pushbutton/script.py")
+        self._launch("../ViewTemplate/script.py")
 
     def _on_room_plans(self, sender, e):
-        self._launch("../Create Room Plan.pushbutton/script.py")
+        self._launch("../Create Room Plan/script.py")
 
     def _minimize(self, sender, e):
         import System.Windows

@@ -33,10 +33,10 @@ class SheetHubWindow(forms.WPFWindow):
             forms.alert("Error launching tool:\n{}".format(ex))
 
     def _on_sheet_manager(self, sender, e):
-        self._launch("../SheetManager.pushbutton/script.py")
+        self._launch("../SheetManager/script.py")
 
     def _on_sheet_renumber(self, sender, e):
-        self._launch("../Sheet re-number.pushbutton/script.py")
+        self._launch("../Sheet re-number/script.py")
 
     def _minimize(self, sender, e):
         import System.Windows

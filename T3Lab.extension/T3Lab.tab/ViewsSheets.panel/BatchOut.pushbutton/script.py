@@ -955,6 +955,47 @@ class ExportManagerWindow(forms.WPFWindow):
 
         return ("Use Sheet Size", orientation)
 
+    def get_paper_format_enum(self, size_str):
+        """Map paper size string (e.g. A0, A1, A2, A3, A4, ISO_A3) to Autodesk.Revit.DB.ExportPaperFormat enum."""
+        if not size_str:
+            return DB.ExportPaperFormat.Default
+            
+        s = size_str.upper().strip()
+        if s == "A0" or "ISO_A0" in s:
+            return DB.ExportPaperFormat.ISO_A0
+        elif s == "A1" or "ISO_A1" in s:
+            return DB.ExportPaperFormat.ISO_A1
+        elif s == "A2" or "ISO_A2" in s:
+            return DB.ExportPaperFormat.ISO_A2
+        elif s == "A3" or "ISO_A3" in s:
+            return DB.ExportPaperFormat.ISO_A3
+        elif s == "A4" or "ISO_A4" in s:
+            return DB.ExportPaperFormat.ISO_A4
+        elif "ANSI_A" in s or "ANSI A" in s:
+            return DB.ExportPaperFormat.ANSI_A
+        elif "ANSI_B" in s or "ANSI B" in s:
+            return DB.ExportPaperFormat.ANSI_B
+        elif "ANSI_C" in s or "ANSI C" in s:
+            return DB.ExportPaperFormat.ANSI_C
+        elif "ANSI_D" in s or "ANSI D" in s:
+            return DB.ExportPaperFormat.ANSI_D
+        elif "ANSI_E" in s or "ANSI E" in s:
+            return DB.ExportPaperFormat.ANSI_E
+        elif "ARCH_A" in s or "ARCH A" in s:
+            return DB.ExportPaperFormat.ARCH_A
+        elif "ARCH_B" in s or "ARCH B" in s:
+            return DB.ExportPaperFormat.ARCH_B
+        elif "ARCH_C" in s or "ARCH C" in s:
+            return DB.ExportPaperFormat.ARCH_C
+        elif "ARCH_D" in s or "ARCH D" in s:
+            return DB.ExportPaperFormat.ARCH_D
+        elif "ARCH_E" in s or "ARCH E" in s:
+            return DB.ExportPaperFormat.ARCH_E
+        elif "ARCH_E1" in s or "ARCH E1" in s:
+            return DB.ExportPaperFormat.ARCH_E1
+        
+        return DB.ExportPaperFormat.Default
+
     def get_sheet_paper_size_and_orientation(self, sheet):
         """Auto-detect paper size and orientation from Title Block parameters.
 
@@ -1049,12 +1090,17 @@ class ExportManagerWindow(forms.WPFWindow):
 
             self.sheet_set_checklist.Children.Clear()
 
+            # Get the T3CheckBox style from the window resources
+            t3_cb_style = self.FindResource("T3CheckBox")
+
             # "All Sheets/Views" checkbox — checked by default
             all_cb = CheckBox()
             all_cb.Content = "All Sheets/Views"
             all_cb.IsChecked = True
             all_cb.Tag = None
             all_cb.Margin = Thickness(4, 3, 4, 3)
+            if t3_cb_style:
+                all_cb.Style = t3_cb_style
             all_cb.Checked += self._sheet_set_all_checked
             self._sheet_set_all_checkbox = all_cb
             self.sheet_set_checklist.Children.Add(all_cb)
@@ -1073,6 +1119,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     cb.IsChecked = False
                     cb.Tag = set_name
                     cb.Margin = Thickness(4, 3, 4, 3)
+                    if t3_cb_style:
+                        cb.Style = t3_cb_style
                     cb.Checked += self._sheet_set_item_changed
                     cb.Unchecked += self._sheet_set_item_changed
                     self.sheet_set_checklist.Children.Add(cb)
@@ -1978,6 +2026,8 @@ class ExportManagerWindow(forms.WPFWindow):
         try:
             # Import the parameter selector dialog
             sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+            if 'ParameterSelectorDialog' in sys.modules:
+                del sys.modules['ParameterSelectorDialog']
             from ParameterSelectorDialog import ParameterSelectorDialog
 
             # Determine element type based on current selection mode
@@ -2026,6 +2076,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Import the parameter selector dialog
             sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
+            if 'ParameterSelectorDialog' in sys.modules:
+                del sys.modules['ParameterSelectorDialog']
             from ParameterSelectorDialog import ParameterSelectorDialog
 
             # Determine element type based on current selection mode
@@ -2067,52 +2119,51 @@ class ExportManagerWindow(forms.WPFWindow):
         self.filtered_sheets.reverse()
         self.update_sheets_list()
 
-    def nav_item_clicked(self, sender, e):
-        """Handle direct navigation when clicking items in the footer."""
+    def nav_toggle_clicked(self, sender, e):
+        """Handle sidebar toggle clicks."""
         try:
             target_index = -1
-            if sender.Name == "nav_border_selection": target_index = 0
-            elif sender.Name == "nav_border_format": target_index = 1
-            elif sender.Name == "nav_border_queue": target_index = 2
+            if sender.Name == "nav_toggle_selection": target_index = 0
+            elif sender.Name == "nav_toggle_format": target_index = 1
+            elif sender.Name == "nav_toggle_queue": target_index = 2
             if target_index != -1:
                 self.switch_to_view(target_index)
         except Exception as ex:
-            logger.debug("Error in nav_item_clicked: {}".format(ex))
+            logger.debug("Error in nav_toggle_clicked: {}".format(ex))
 
     def switch_to_view(self, index):
         """Switch to the given wizard tab (0=Selection, 1=Format, 2=Queue+Settings)."""
         try:
+            # Enforce validation when navigating away from the Selection tab (index 0) to other tabs
+            if index > 0 and self.main_tabs.SelectedIndex == 0:
+                if self.selection_mode == "sheets":
+                    selected_items = [s for s in self.all_sheets if s.IsSelected]
+                    if not selected_items:
+                        forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
+                        self.sync_navigation_footer(0)
+                        return
+                else:  # views mode
+                    selected_items = [v for v in self.all_views if v.IsSelected]
+                    if not selected_items:
+                        forms.alert("Please select at least one view to export.", title="No Views Selected")
+                        self.sync_navigation_footer(0)
+                        return
+
             self.main_tabs.SelectedIndex = index
             self.update_navigation_buttons(index)
         except Exception as ex:
             logger.debug("Error in switch_to_view: {}".format(ex))
 
     def sync_navigation_footer(self, index=None):
-        """Update the visual state of the 3-item bottom navigation bar."""
+        """Update the visual state of the sidebar navigation toggles."""
         try:
             if index is None:
                 index = self.main_tabs.SelectedIndex
 
-            from System.Windows.Media import SolidColorBrush, Color
-            active_bg = SolidColorBrush(Color.FromRgb(0xF0, 0xF8, 0xFF))
-            active_fg = SolidColorBrush(Color.FromRgb(0x00, 0x5B, 0x82))
-            inactive_bg = SolidColorBrush(Color.FromArgb(0, 255, 255, 255))
-            inactive_fg = SolidColorBrush(Color.FromRgb(0x7F, 0x8C, 0x8D))
-
-            for idx, name in enumerate(['selection', 'format', 'queue']):
-                border = getattr(self, 'nav_border_' + name)
-                icon = getattr(self, 'nav_icon_' + name)
-                text = getattr(self, 'nav_text_' + name)
-                if idx == index:
-                    border.Background = active_bg
-                    icon.Foreground = active_fg
-                    text.Foreground = active_fg
-                    text.FontWeight = System.Windows.FontWeights.Bold
-                else:
-                    border.Background = inactive_bg
-                    icon.Foreground = inactive_fg
-                    text.Foreground = inactive_fg
-                    text.FontWeight = System.Windows.FontWeights.Normal
+            # Set the active toggle button to checked, and all others to unchecked
+            self.nav_toggle_selection.IsChecked = (index == 0)
+            self.nav_toggle_format.IsChecked = (index == 1)
+            self.nav_toggle_queue.IsChecked = (index == 2)
         except Exception as ex:
             logger.debug("Error syncing navigation footer: {}".format(ex))
 
@@ -2174,11 +2225,6 @@ class ExportManagerWindow(forms.WPFWindow):
         """Advance to next tab or start export on the final tab."""
         idx = self.main_tabs.SelectedIndex
         if idx == 0:
-            if self.selection_mode == "sheets":
-                selected_items = [s for s in self.all_sheets if s.IsSelected]
-                if not selected_items:
-                    forms.alert("Please select at least one sheet to export.", title="No Sheets Selected")
-                    return
             self.switch_to_view(1)
         elif idx == 1:
             self.switch_to_view(2)
@@ -2225,18 +2271,23 @@ class ExportManagerWindow(forms.WPFWindow):
         # Check if auto-detect is enabled
         is_auto_detect = self.pdf_auto_detect_size.IsChecked if hasattr(self, 'pdf_auto_detect_size') and self.pdf_auto_detect_size.IsChecked is not None else False
 
+        # Get selected manual paper size
+        manual_size = "Use Sheet Size"
+        if hasattr(self, 'pdf_paper_size') and self.pdf_paper_size.SelectedItem:
+            manual_size = self.pdf_paper_size.SelectedItem.Content
+
         # Build preview items
         self.export_items = []
         for item in selected_items:
             # Determine paper size and orientation for this item
-            if is_auto_detect and self.selection_mode == "sheets" and hasattr(item, 'Sheet'):
-                # Auto-detect from Title Block
+            if (is_auto_detect or manual_size == "Use Sheet Size") and self.selection_mode == "sheets" and hasattr(item, 'Sheet'):
+                # Auto-detect from Title Block / Use Sheet Size
                 detected_size, detected_orientation = self.get_sheet_paper_size_and_orientation(item.Sheet)
                 size = detected_size
                 orientation = detected_orientation
             else:
                 # Use manual settings
-                size = item.Size if hasattr(item, 'Size') else "-"
+                size = manual_size
                 orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
 
             for fmt in formats:
@@ -2846,7 +2897,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     if self.api_adapter:
                         pdf_options = self.api_adapter.configure_pdf_options(
                             pdf_options,
-                            hide_scope_boxes=self.pdf_hide_ref_planes.IsChecked,
+                            hide_ref_planes=self.pdf_hide_ref_planes.IsChecked,
+                            hide_scope_boxes=self.pdf_hide_scope_boxes.IsChecked,
                             hide_crop_boundaries=self.pdf_hide_crop_boundaries.IsChecked,
                             hide_unreferenced_tags=self.pdf_hide_unreferenced_tags.IsChecked
                         )
@@ -2854,21 +2906,58 @@ class ExportManagerWindow(forms.WPFWindow):
                         # Fallback to manual configuration
                         try:
                             if self.pdf_hide_ref_planes.IsChecked:
+                                pdf_options.HideReferencePlane = True
+                        except Exception as ex:
+                            logger.debug("HideReferencePlane not supported in Revit {}: {}".format(REVIT_VERSION, ex))
+
+                        try:
+                            if self.pdf_hide_scope_boxes.IsChecked:
                                 pdf_options.HideScopeBoxes = True
-                        except:
-                            logger.debug("HideScopeBoxes not supported in Revit {}".format(REVIT_VERSION))
+                        except Exception as ex:
+                            logger.debug("HideScopeBoxes not supported in Revit {}: {}".format(REVIT_VERSION, ex))
 
                         try:
                             if self.pdf_hide_crop_boundaries.IsChecked:
                                 pdf_options.HideCropBoundaries = True
-                        except:
-                            logger.debug("HideCropBoundaries not supported in Revit {}".format(REVIT_VERSION))
+                        except Exception as ex:
+                            logger.debug("HideCropBoundaries not supported in Revit {}: {}".format(REVIT_VERSION, ex))
 
                         try:
                             if self.pdf_hide_unreferenced_tags.IsChecked:
                                 pdf_options.HideUnreferencedViewTags = True
-                        except:
-                            logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
+                        except Exception as ex:
+                            logger.debug("HideUnreferencedViewTags not supported in Revit {}: {}".format(REVIT_VERSION, ex))
+
+                    # Configure paper size, orientation, and zoom for combined PDF
+                    is_auto = self.pdf_auto_detect_size.IsChecked
+                    manual_size = self.pdf_paper_size.SelectedItem.Content if self.pdf_paper_size.SelectedItem else "Use Sheet Size"
+                    
+                    if not is_auto and manual_size != "Use Sheet Size":
+                        try:
+                            pdf_options.PaperFormat = self.get_paper_format_enum(manual_size)
+                        except Exception as ex:
+                            logger.debug("Failed to set combined PDF paper format: {}".format(ex))
+                            
+                        try:
+                            pdf_options.PaperOrientation = DB.PageOrientationType.Landscape if self.pdf_landscape.IsChecked else DB.PageOrientationType.Portrait
+                        except Exception as ex:
+                            logger.debug("Failed to set combined PDF orientation: {}".format(ex))
+                            
+                        # Only set Zoom if PaperFormat is not Default
+                        try:
+                            if self.pdf_fit_to_page.IsChecked:
+                                pdf_options.ZoomType = DB.ZoomType.FitToPage
+                            else:
+                                pdf_options.ZoomType = DB.ZoomType.Zoom
+                                pdf_options.ZoomPercentage = 100
+                        except Exception as ex:
+                            logger.debug("Failed to set combined PDF zoom: {}".format(ex))
+                    else:
+                        # Auto-detect or Use Sheet Size: Use Default format so Revit uses sheet size
+                        try:
+                            pdf_options.PaperFormat = DB.ExportPaperFormat.Default
+                        except Exception as ex:
+                            logger.debug("Failed to set combined PDF paper format to Default: {}".format(ex))
 
                     # VERSION-AWARE: Export using Revit's native PDF export
                     # Use Smart API Adapter if available for intelligent export (handles method overload resolution)
@@ -2939,7 +3028,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         if self.api_adapter:
                             pdf_options = self.api_adapter.configure_pdf_options(
                                 pdf_options,
-                                hide_scope_boxes=self.pdf_hide_ref_planes.IsChecked,
+                                hide_ref_planes=self.pdf_hide_ref_planes.IsChecked,
+                                hide_scope_boxes=self.pdf_hide_scope_boxes.IsChecked,
                                 hide_crop_boundaries=self.pdf_hide_crop_boundaries.IsChecked,
                                 hide_unreferenced_tags=self.pdf_hide_unreferenced_tags.IsChecked
                             )
@@ -2947,21 +3037,70 @@ class ExportManagerWindow(forms.WPFWindow):
                             # Fallback to manual configuration
                             try:
                                 if self.pdf_hide_ref_planes.IsChecked:
+                                    pdf_options.HideReferencePlane = True
+                            except Exception as ex:
+                                logger.debug("HideReferencePlane not supported in Revit {}: {}".format(REVIT_VERSION, ex))
+
+                            try:
+                                if self.pdf_hide_scope_boxes.IsChecked:
                                     pdf_options.HideScopeBoxes = True
-                            except:
-                                logger.debug("HideScopeBoxes not supported in Revit {}".format(REVIT_VERSION))
+                            except Exception as ex:
+                                logger.debug("HideScopeBoxes not supported in Revit {}: {}".format(REVIT_VERSION, ex))
 
                             try:
                                 if self.pdf_hide_crop_boundaries.IsChecked:
                                     pdf_options.HideCropBoundaries = True
-                            except:
-                                logger.debug("HideCropBoundaries not supported in Revit {}".format(REVIT_VERSION))
+                            except Exception as ex:
+                                logger.debug("HideCropBoundaries not supported in Revit {}: {}".format(REVIT_VERSION, ex))
 
                             try:
                                 if self.pdf_hide_unreferenced_tags.IsChecked:
                                     pdf_options.HideUnreferencedViewTags = True
-                            except:
-                                logger.debug("HideUnreferencedViewTags not supported in Revit {}".format(REVIT_VERSION))
+                            except Exception as ex:
+                                logger.debug("HideUnreferencedViewTags not supported in Revit {}: {}".format(REVIT_VERSION, ex))
+
+                        # Determine paper size and orientation for this individual sheet/view item
+                        is_auto = self.pdf_auto_detect_size.IsChecked
+                        manual_size = self.pdf_paper_size.SelectedItem.Content if self.pdf_paper_size.SelectedItem else "Use Sheet Size"
+                        
+                        sheet_size = None
+                        sheet_orientation = None
+                        
+                        if (is_auto or manual_size == "Use Sheet Size") and hasattr(item, 'Sheet'):
+                            # Auto-detect
+                            detected_size, detected_orientation = self.get_sheet_paper_size_and_orientation(item.Sheet)
+                            sheet_size = detected_size
+                            sheet_orientation = detected_orientation
+                        else:
+                            sheet_size = manual_size
+                            sheet_orientation = "Landscape" if self.pdf_landscape.IsChecked else "Portrait"
+                            
+                        # Apply to options
+                        if sheet_size and sheet_size != "Use Sheet Size":
+                            try:
+                                pdf_options.PaperFormat = self.get_paper_format_enum(sheet_size)
+                            except Exception as ex:
+                                logger.debug("Failed to set individual PDF paper format: {}".format(ex))
+                                
+                            try:
+                                pdf_options.PaperOrientation = DB.PageOrientationType.Landscape if sheet_orientation == "Landscape" else DB.PageOrientationType.Portrait
+                            except Exception as ex:
+                                logger.debug("Failed to set individual PDF orientation: {}".format(ex))
+                                
+                            # Set Zoom
+                            try:
+                                if self.pdf_fit_to_page.IsChecked:
+                                    pdf_options.ZoomType = DB.ZoomType.FitToPage
+                                else:
+                                    pdf_options.ZoomType = DB.ZoomType.Zoom
+                                    pdf_options.ZoomPercentage = 100
+                            except Exception as ex:
+                                logger.debug("Failed to set individual PDF zoom: {}".format(ex))
+                        else:
+                            try:
+                                pdf_options.PaperFormat = DB.ExportPaperFormat.Default
+                            except Exception as ex:
+                                logger.debug("Failed to set individual PDF paper format to Default: {}".format(ex))
 
                         # Create System.Collections.Generic.List for element IDs
                         element_ids = List[DB.ElementId]()

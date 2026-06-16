@@ -1,5 +1,5 @@
 title: Views & Sheets
 layout:
-  - ViewManager
+  - ViewHub
   - SheetManager
   - BatchOut

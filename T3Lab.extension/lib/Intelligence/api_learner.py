@@ -380,11 +380,12 @@ class SmartAPIAdapter(object):
         except:
             return options
 
-    def configure_pdf_options(self, options, hide_scope_boxes=False, hide_crop_boundaries=False, hide_unreferenced_tags=False):
+    def configure_pdf_options(self, options, hide_ref_planes=False, hide_scope_boxes=False, hide_crop_boundaries=False, hide_unreferenced_tags=False):
         """Configure PDFExportOptions with version-appropriate settings.
 
         Args:
             options: PDFExportOptions object
+            hide_ref_planes: Hide reference/work planes
             hide_scope_boxes: Hide scope boxes
             hide_crop_boundaries: Hide crop boundaries
             hide_unreferenced_tags: Hide unreferenced view tags
@@ -395,6 +396,12 @@ class SmartAPIAdapter(object):
         try:
             # Check property availability
             pdf_opts = self.learner.api_info.get('pdf_export_options', {})
+
+            if hide_ref_planes:
+                try:
+                    options.HideReferencePlane = True
+                except AttributeError:
+                    pass
 
             if hide_scope_boxes and pdf_opts.get('hide_scope_boxes', {}).get('available', True):
                 options.HideScopeBoxes = True

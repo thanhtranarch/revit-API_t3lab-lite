@@ -1,6 +1,7 @@
-title: System & Support
+title: AI & Support
 layout:
-  - CloudLinks
+  - T3LabAssistant
+  - MCPControl
   - UI
-  - BatchOut
+  - CloudLinks
   - Feedback

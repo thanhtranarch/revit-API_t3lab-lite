@@ -38,8 +38,8 @@
         <!-- Semantic & Status Brushes -->
         <SolidColorBrush x:Key="T3SuccessBgBrush" Color="#EAF8F0"/>
         <SolidColorBrush x:Key="T3SuccessTextBrush" Color="#157038"/>
-        <SolidColorBrush x:Key="T3SuccessBorderBrush" Color="#1B7A45"/>
-        <SolidColorBrush x:Key="T3SuccessAccentBrush" Color="#22A85C"/>
+        <SolidColorBrush x:Key="T3SuccessBorderBrush" Color="#09734B"/>
+        <SolidColorBrush x:Key="T3SuccessAccentBrush" Color="#0B8A5A"/>
         
         <SolidColorBrush x:Key="T3WarningBgBrush" Color="#FFF6E6"/>
         <SolidColorBrush x:Key="T3WarningTextBrush" Color="#8A6308"/>
@@ -523,13 +523,14 @@
 
         <!-- SUCCESS BUTTON -->
         <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-            <Setter Property="Background" Value="#22A85C"/>
+            <Setter Property="Background" Value="#0B8A5A"/>
+            <Setter Property="FontWeight" Value="Bold"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#0F8A66"/>
+                    <Setter Property="Background" Value="#09734B"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#22A85C"/>
+                    <Setter Property="Background" Value="#0B8A5A"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -841,7 +842,214 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        <!-- Sleek Modern ComboBox Small -->
+        <Style x:Key="T3ComboBoxSmall" TargetType="ComboBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#18181B"/>
+            <Setter Property="BorderBrush" Value="#E6E6EA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,0,10,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                                      Margin="{TemplateBinding Padding}"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left"
+                                                      IsHitTestVisible="False"/>
+                                    <ToggleButton Grid.Column="0" Grid.ColumnSpan="2"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <Path Grid.Column="1"
+                                          Data="M6 9 L12 15 L18 9"
+                                          Stroke="#71717A"
+                                          StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Width="10" Height="10"
+                                          Stretch="Uniform"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup"
+                                    AllowsTransparency="true"
+                                    IsOpen="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                    Placement="Bottom"
+                                    PopupAnimation="Slide">
+                                <Border x:Name="dropDownBorder"
+                                        Background="White"
+                                        BorderBrush="#E6E6EA"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer x:Name="DropDownScrollViewer">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="false">
+                                <Setter TargetName="dropDownBorder" Property="Height" Value="95"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
+
+        <!-- Sleek Modern ComboBox Small ToggleButton -->
+        <Style x:Key="T3ComboBoxSmallToggle" TargetType="ToggleButton">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#18181B"/>
+            <Setter Property="BorderBrush" Value="#E6E6EA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,0,10,0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <Grid.ColumnDefinition Width="*"/>
+                                    <Grid.ColumnDefinition Width="28"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="0"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Left"
+                                                  IsHitTestVisible="False"/>
+                                <Path Grid.Column="1"
+                                      Data="M6 9 L12 15 L18 9"
+                                      Stroke="#71717A"
+                                      StrokeThickness="1.5"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Width="10" Height="10"
+                                      Stretch="Uniform"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      IsHitTestVisible="False"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Sleek Modern Input Field Small -->
+        <Style x:Key="T3InputFieldSmall" TargetType="TextBox">
+            <Setter Property="Background" Value="#F4F4F6"/>
+            <Setter Property="Foreground" Value="#27272A"/>
+            <Setter Property="BorderBrush" Value="#E6E6EA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,0,10,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#18181B"/>
+                                <Setter Property="Background" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Flat ProgressBar Style (Lumina Standard) -->
+        <Style x:Key="T3ProgressBar" TargetType="ProgressBar">
+            <Setter Property="Background" Value="#ECECEF"/>
+            <Setter Property="Foreground" Value="#C2410C"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Height" Value="8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid x:Name="TemplateRoot">
+                            <Border x:Name="BackgroundBorder" Background="{TemplateBinding Background}" CornerRadius="4"/>
+                            <Border x:Name="PART_Track" ClipToBounds="True" CornerRadius="4" Background="Transparent">
+                                <Border x:Name="PART_Indicator" HorizontalAlignment="Left" Background="{TemplateBinding Foreground}" CornerRadius="4"/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Queue Item ProgressBar Style with complete trigger -->
+        <Style x:Key="QueueProgressBarStyle" TargetType="ProgressBar" BasedOn="{StaticResource T3ProgressBar}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Progress}" Value="100">
+                    <Setter Property="Foreground" Value="#10B981"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
     </Window.Resources>

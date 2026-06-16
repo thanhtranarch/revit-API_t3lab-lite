@@ -34,13 +34,13 @@ class ParameterManagerWindow(forms.WPFWindow):
             forms.alert("Error launching tool:\n{}".format(ex))
 
     def _open_transfer_params(self, sender, e):
-        self._launch("../Transfer Para.pushbutton/script.py")
+        self._launch("../Transfer Para/script.py")
 
     def _open_text_to_element(self, sender, e):
-        self._launch("../Text to element.pushbutton/script.py")
+        self._launch("../Text to element/script.py")
 
     def _open_values_to_region(self, sender, e):
-        self._launch("../Values to Filled Region .pushbutton/script.py")
+        self._launch("../Values to Filled Region /script.py")
 
     def _minimize(self, sender, e):
         import System.Windows

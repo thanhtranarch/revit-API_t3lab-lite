@@ -38,7 +38,7 @@ class ToolRegistry:
             "workset_manager": {
                 "name": "Workset Manager",
                 "description": "List, rename, and manage user worksets; remove unused worksets via a checklist.",
-                "rel_path": "Project.panel/Workset.stack/Workset.pushbutton/script.py"
+                "rel_path": "Project.panel/Work.stack/WorksetManager.pushbutton/script.py"
             },
             "batch_export": {
                 "name": "BatchOut",
@@ -58,7 +58,7 @@ class ToolRegistry:
             "create_plan_views": {
                 "name": "Create Plan Views",
                 "description": "Batch-generate individual floor plan views for each room with custom naming and template assignment.",
-                "rel_path": "ViewsSheets.panel/ViewManager.stack/Create Room Plan.pushbutton/script.py"
+                "rel_path": "ViewsSheets.panel/Create Room Plan/script.py"
             }
         }
 

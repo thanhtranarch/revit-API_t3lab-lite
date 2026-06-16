@@ -1,7 +1,6 @@
 title: Standards & Settings
 layout:
-  - ModelHealth
-  - ModelCleanup
-  - ParaManager
-  - ColorSplasher
-  - StyleManager
+  - ModelAuditor
+  - LocationManager
+  - CleanupManager
+  - Settings

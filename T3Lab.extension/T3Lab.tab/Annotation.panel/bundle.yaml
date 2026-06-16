@@ -1,8 +1,8 @@
 title: Annotation & Select
 layout:
-  - Graphic
-  - Graphic 2
+  - Graphics
   - SmartAlign
   - Text
+  - Grids
   - DWG Management
   - SmartSelection
