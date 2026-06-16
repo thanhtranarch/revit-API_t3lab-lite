@@ -2490,6 +2490,30 @@ class ExportManagerWindow(forms.WPFWindow):
         except:
             pass
 
+    def _flush_ui(self):
+        """Force WPF to process pending render operations so progress shows in realtime."""
+        try:
+            self.Dispatcher.Invoke(DispatcherPriority.Render, Action(lambda: None))
+        except Exception:
+            pass
+
+    def _update_progress(self, value, text):
+        """Update progress bar value, status label, and percentage label, then repaint."""
+        try:
+            self.overall_progress.Value = value
+            self.progress_text.Text = text
+            pct = int(value)
+            self.progress_percent.Text = "{}%".format(pct) if pct > 0 else ""
+            if pct >= 100:
+                from System.Windows.Media import SolidColorBrush, Color
+                self.progress_percent.Foreground = SolidColorBrush(Color.FromArgb(0xFF, 0x10, 0xB9, 0x81))
+            else:
+                from System.Windows.Media import SolidColorBrush, Color
+                self.progress_percent.Foreground = SolidColorBrush(Color.FromArgb(0xFF, 0xC2, 0x41, 0x0C))
+            self._flush_ui()
+        except Exception:
+            pass
+
     def start_export(self):
         """Start the export process."""
         try:
@@ -2544,9 +2568,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    progress_percent = int((current_item * 100.0) / total_items)
-                    self.overall_progress.Value = progress_percent
-                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+                    self._update_progress(
+                        int((current_item * 100.0) / total_items),
+                        "DWG: {} exported".format(count)
+                    )
 
             if self.export_pdf.IsChecked:
                 folder = os.path.join(output_folder, "PDF") if split_by_format else output_folder
@@ -2556,9 +2581,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    progress_percent = int((current_item * 100.0) / total_items)
-                    self.overall_progress.Value = progress_percent
-                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+                    self._update_progress(
+                        int((current_item * 100.0) / total_items),
+                        "PDF: {} exported".format(count)
+                    )
 
             if self.export_dwf.IsChecked:
                 folder = os.path.join(output_folder, "DWF") if split_by_format else output_folder
@@ -2568,9 +2594,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    progress_percent = int((current_item * 100.0) / total_items)
-                    self.overall_progress.Value = progress_percent
-                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+                    self._update_progress(
+                        int((current_item * 100.0) / total_items),
+                        "DWF: {} exported".format(count)
+                    )
 
             if self.export_dgn.IsChecked:
                 folder = os.path.join(output_folder, "DGN") if split_by_format else output_folder
@@ -2580,9 +2607,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    progress_percent = int((current_item * 100.0) / total_items)
-                    self.overall_progress.Value = progress_percent
-                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+                    self._update_progress(
+                        int((current_item * 100.0) / total_items),
+                        "DGN: {} exported".format(count)
+                    )
 
             if self.export_nwd.IsChecked:
                 folder = os.path.join(output_folder, "NWC") if split_by_format else output_folder
@@ -2592,9 +2620,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    progress_percent = int((current_item * 100.0) / total_items)
-                    self.overall_progress.Value = progress_percent
-                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+                    self._update_progress(
+                        int((current_item * 100.0) / total_items),
+                        "NWC: {} exported".format(count)
+                    )
 
             if self.export_ifc.IsChecked:
                 folder = os.path.join(output_folder, "IFC") if split_by_format else output_folder
@@ -2604,9 +2633,10 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    progress_percent = int((current_item * 100.0) / total_items)
-                    self.overall_progress.Value = progress_percent
-                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+                    self._update_progress(
+                        int((current_item * 100.0) / total_items),
+                        "IFC: {} exported".format(count)
+                    )
 
             if self.export_img.IsChecked:
                 folder = os.path.join(output_folder, "Images") if split_by_format else output_folder
@@ -2616,13 +2646,13 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
                 current_item += count
                 if total_items > 0:
-                    progress_percent = int((current_item * 100.0) / total_items)
-                    self.overall_progress.Value = progress_percent
-                    self.progress_text.Text = "Completed {}%".format(progress_percent)
+                    self._update_progress(
+                        int((current_item * 100.0) / total_items),
+                        "Images: {} exported".format(count)
+                    )
 
             self.status_text.Text = "Export complete! {} files exported".format(total_exported)
-            self.progress_text.Text = "Export complete! {} files exported".format(total_exported)
-            self.overall_progress.Value = 100
+            self._update_progress(100, "Export complete! {} files exported".format(total_exported))
             self.next_button.IsEnabled = True
             self.back_button.IsEnabled = True
 
@@ -2734,6 +2764,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     # Update progress text to show current item and format
                     self.progress_text.Text = "Exporting {} to DWG...".format(element_name)
+                    self._flush_ui()
 
                     filename = item.CustomFilename or self.get_export_filename(item)
 
@@ -2803,6 +2834,7 @@ class ExportManagerWindow(forms.WPFWindow):
                         continue
 
                     self.progress_text.Text = "Exporting {} to DGN...".format(element_name)
+                    self._flush_ui()
 
                     filename = item.CustomFilename or self.get_export_filename(item)
                     if filename.lower().endswith('.dgn'):
@@ -2855,6 +2887,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 try:
                     # Update progress text
                     self.progress_text.Text = "Exporting combined PDF with {} items...".format(len(items))
+                    self._flush_ui()
 
                     # Generate combined filename using live names
                     if len(items) > 0:
@@ -3005,6 +3038,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                         # Update progress text to show current item and format
                         self.progress_text.Text = "Exporting {} to PDF...".format(element_name)
+                        self._flush_ui()
 
                         filename = item.CustomFilename or self.get_export_filename(item)
 
@@ -3175,6 +3209,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     # Update progress text to show current item and format
                     self.progress_text.Text = "Exporting {} to DWF...".format(element_name)
+                    self._flush_ui()
 
                     filename = item.CustomFilename or self.get_export_filename(item)
 
@@ -3239,6 +3274,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     # Update progress text to show current item and format
                     self.progress_text.Text = "Exporting {} to NWC...".format(element_name)
+                    self._flush_ui()
 
                     filename = item.CustomFilename or self.get_export_filename(item)
                     filepath = os.path.join(output_folder, filename + ".nwc")
@@ -3292,6 +3328,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 try:
                     # Update progress text to show IFC export
                     self.progress_text.Text = "Exporting entire model to IFC..."
+                    self._flush_ui()
 
                     # Generate filename using naming pattern similar to combined PDF
                     # Use first and last item for combined exports
@@ -3372,6 +3409,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     # Update progress text to show current item and format
                     self.progress_text.Text = "Exporting {} to Image...".format(element_name)
+                    self._flush_ui()
 
                     filename = item.CustomFilename or self.get_export_filename(item)
 

@@ -836,6 +836,7 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
         <!-- Sleek Modern ComboBox Small -->
         <Style x:Key="T3ComboBoxSmall" TargetType="ComboBox">
             <Setter Property="Background" Value="White"/>
@@ -948,8 +949,8 @@
                                 CornerRadius="8">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <Grid.ColumnDefinition Width="*"/>
-                                    <Grid.ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="28"/>
                                 </Grid.ColumnDefinitions>
                                 <ContentPresenter Grid.Column="0"
                                                   Margin="{TemplateBinding Padding}"

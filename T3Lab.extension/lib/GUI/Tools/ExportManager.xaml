@@ -843,6 +843,7 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
         <!-- Sleek Modern ComboBox Small -->
         <Style x:Key="T3ComboBoxSmall" TargetType="ComboBox">
             <Setter Property="Background" Value="White"/>
@@ -955,8 +956,8 @@
                                 CornerRadius="8">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <Grid.ColumnDefinition Width="*"/>
-                                    <Grid.ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="28"/>
                                 </Grid.ColumnDefinitions>
                                 <ContentPresenter Grid.Column="0"
                                                   Margin="{TemplateBinding Padding}"
@@ -1117,28 +1118,40 @@
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
 
-                    <!-- Tab: Selection -->
+                    <!-- Tab: Selection — stacked sheets/layers -->
                     <ToggleButton x:Name="nav_toggle_selection" Grid.Row="1"
                                   Style="{StaticResource T3SidebarToggle}"
                                   Margin="0,0,0,8" IsChecked="True"
                                   ToolTip="Selection" Click="nav_toggle_clicked">
-                        <TextBlock Text="&#xE14C;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </ToggleButton>
 
-                    <!-- Tab: Format -->
+                    <!-- Tab: Format — document/file format -->
                     <ToggleButton x:Name="nav_toggle_format" Grid.Row="2"
                                   Style="{StaticResource T3SidebarToggle}"
                                   Margin="0,0,0,8"
                                   ToolTip="Format" Click="nav_toggle_clicked">
-                        <TextBlock Text="&#xE1DC;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <Path Data="M4 2 h10 l5 5 v14 H4 z M14 2 v5 h5 M7 12 h8 M7 16 h5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </ToggleButton>
 
-                    <!-- Tab: Queue -->
+                    <!-- Tab: Queue — list with send arrow -->
                     <ToggleButton x:Name="nav_toggle_queue" Grid.Row="3"
                                   Style="{StaticResource T3SidebarToggle}"
                                   Margin="0,0,0,8"
                                   ToolTip="Queue &amp; Export" Click="nav_toggle_clicked">
-                        <TextBlock Text="&#xE914;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <Path Data="M2 4 h10 M2 9 h10 M2 14 h7 M15 9 h6 M18 6 l3 3 l-3 3"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </ToggleButton>
                 </Grid>
             </Border>
@@ -1916,14 +1929,26 @@
                         </Border>
 
                         <StackPanel Grid.Row="2" Margin="0,8,0,0">
-                            <TextBlock x:Name="progress_text" Text="Ready to export"
-                                       FontSize="12" Foreground="#64748B"/>
-                            <ProgressBar x:Name="overall_progress" Height="8" Minimum="0" Maximum="100" Value="0" Margin="0,8,0,5">
+                            <!-- Status row: label left, percentage right (UIStandardShowcase pattern) -->
+                            <Grid Margin="0,0,0,6">
+                                <TextBlock x:Name="progress_text"
+                                           Text="Ready to export"
+                                           FontSize="12" Foreground="#64748B"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock x:Name="progress_percent"
+                                           Text=""
+                                           HorizontalAlignment="Right"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#C2410C"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                            <ProgressBar x:Name="overall_progress"
+                                         Height="8" Minimum="0" Maximum="100" Value="0">
                                 <ProgressBar.Style>
                                     <Style TargetType="ProgressBar" BasedOn="{StaticResource T3ProgressBar}">
                                         <Style.Triggers>
                                             <Trigger Property="Value" Value="100">
-                                                <Setter Property="Foreground" Value="#0B8A5A"/>
+                                                <Setter Property="Foreground" Value="#10B981"/>
                                             </Trigger>
                                         </Style.Triggers>
                                     </Style>
