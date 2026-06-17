@@ -2484,11 +2484,13 @@ class ExportManagerWindow(forms.WPFWindow):
                         item.Status = status
                     elif progress == 100:
                         item.Status = "Successfully Completed"
-                    # Refresh the ListView to show updated progress
+                    elif progress > 0:
+                        item.Status = ""
                     self.export_preview_list.Items.Refresh()
                     break
         except:
             pass
+        self._flush_ui()
 
     def _flush_ui(self):
         """Force WPF to process pending render operations so progress shows in realtime."""
@@ -2555,10 +2557,10 @@ class ExportManagerWindow(forms.WPFWindow):
             self.back_button.IsEnabled = False
             self.status_text.Text = "Exporting..."
 
-            # Export to each format
+            # Export to each format — overall progress tracked per-sheet via _overall_counter
             total_exported = 0
-            total_items = len(self.export_items)
-            current_item = 0
+            self._overall_total = len(self.export_items)
+            self._overall_counter = 0
 
             if self.export_dwg.IsChecked:
                 folder = os.path.join(output_folder, "DWG") if split_by_format else output_folder
@@ -2566,12 +2568,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     os.makedirs(folder)
                 count = self.export_to_dwg(selected_items, folder)
                 total_exported += count
-                current_item += count
-                if total_items > 0:
-                    self._update_progress(
-                        int((current_item * 100.0) / total_items),
-                        "DWG: {} exported".format(count)
-                    )
 
             if self.export_pdf.IsChecked:
                 folder = os.path.join(output_folder, "PDF") if split_by_format else output_folder
@@ -2579,12 +2575,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     os.makedirs(folder)
                 count = self.export_to_pdf(selected_items, folder)
                 total_exported += count
-                current_item += count
-                if total_items > 0:
-                    self._update_progress(
-                        int((current_item * 100.0) / total_items),
-                        "PDF: {} exported".format(count)
-                    )
 
             if self.export_dwf.IsChecked:
                 folder = os.path.join(output_folder, "DWF") if split_by_format else output_folder
@@ -2592,12 +2582,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     os.makedirs(folder)
                 count = self.export_to_dwf(selected_items, folder)
                 total_exported += count
-                current_item += count
-                if total_items > 0:
-                    self._update_progress(
-                        int((current_item * 100.0) / total_items),
-                        "DWF: {} exported".format(count)
-                    )
 
             if self.export_dgn.IsChecked:
                 folder = os.path.join(output_folder, "DGN") if split_by_format else output_folder
@@ -2605,12 +2589,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     os.makedirs(folder)
                 count = self.export_to_dgn(selected_items, folder)
                 total_exported += count
-                current_item += count
-                if total_items > 0:
-                    self._update_progress(
-                        int((current_item * 100.0) / total_items),
-                        "DGN: {} exported".format(count)
-                    )
 
             if self.export_nwd.IsChecked:
                 folder = os.path.join(output_folder, "NWC") if split_by_format else output_folder
@@ -2618,12 +2596,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     os.makedirs(folder)
                 count = self.export_to_nwd(selected_items, folder)
                 total_exported += count
-                current_item += count
-                if total_items > 0:
-                    self._update_progress(
-                        int((current_item * 100.0) / total_items),
-                        "NWC: {} exported".format(count)
-                    )
 
             if self.export_ifc.IsChecked:
                 folder = os.path.join(output_folder, "IFC") if split_by_format else output_folder
@@ -2631,12 +2603,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     os.makedirs(folder)
                 count = self.export_to_ifc(selected_items, folder)
                 total_exported += count
-                current_item += count
-                if total_items > 0:
-                    self._update_progress(
-                        int((current_item * 100.0) / total_items),
-                        "IFC: {} exported".format(count)
-                    )
 
             if self.export_img.IsChecked:
                 folder = os.path.join(output_folder, "Images") if split_by_format else output_folder
@@ -2644,12 +2610,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     os.makedirs(folder)
                 count = self.export_to_images(selected_items, folder)
                 total_exported += count
-                current_item += count
-                if total_items > 0:
-                    self._update_progress(
-                        int((current_item * 100.0) / total_items),
-                        "Images: {} exported".format(count)
-                    )
 
             self.status_text.Text = "Export complete! {} files exported".format(total_exported)
             self._update_progress(100, "Export complete! {} files exported".format(total_exported))
@@ -2762,9 +2722,12 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         continue
 
-                    # Update progress text to show current item and format
-                    self.progress_text.Text = "Exporting {} to DWG...".format(element_name)
-                    self._flush_ui()
+                    # Mark as in-progress (orange) before the export call
+                    self.update_export_item_progress(item.SheetNumber, "DWG", 50, "Exporting...")
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exporting {} to DWG...".format(element_name)
+                    )
 
                     filename = item.CustomFilename or self.get_export_filename(item)
 
@@ -2795,7 +2758,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     expected_file = os.path.join(output_folder, filename + ".dwg")
                     if os.path.exists(expected_file):
                         exported_count += 1
-                        # Update progress for this export item
+                        self._overall_counter += 1
+                        self._update_progress(
+                            int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                            "Exported {} to DWG".format(element_name)
+                        )
                         self.update_export_item_progress(item.SheetNumber, "DWG", 100)
 
                 except Exception as ex:
@@ -2833,8 +2800,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         continue
 
-                    self.progress_text.Text = "Exporting {} to DGN...".format(element_name)
-                    self._flush_ui()
+                    self.update_export_item_progress(item.SheetNumber, "DGN", 50, "Exporting...")
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exporting {} to DGN...".format(element_name)
+                    )
 
                     filename = item.CustomFilename or self.get_export_filename(item)
                     if filename.lower().endswith('.dgn'):
@@ -2848,6 +2818,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     expected_file = os.path.join(output_folder, filename + ".dgn")
                     if os.path.exists(expected_file):
                         exported_count += 1
+                        self._overall_counter += 1
+                        self._update_progress(
+                            int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                            "Exported {} to DGN".format(element_name)
+                        )
                         self.update_export_item_progress(item.SheetNumber, "DGN", 100)
 
                 except Exception as ex:
@@ -2885,9 +2860,13 @@ class ExportManagerWindow(forms.WPFWindow):
             if combine_pdf:
                 # Export all items to a single PDF
                 try:
-                    # Update progress text
-                    self.progress_text.Text = "Exporting combined PDF with {} items...".format(len(items))
-                    self._flush_ui()
+                    # Mark all items as in-progress (orange) before combined export
+                    for item in items:
+                        self.update_export_item_progress(item.SheetNumber, "PDF", 50, "Exporting...")
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exporting combined PDF with {} items...".format(len(items))
+                    )
 
                     # Generate combined filename using live names
                     if len(items) > 0:
@@ -3015,7 +2994,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     expected_file = os.path.join(output_folder, filename + ".pdf")
                     if os.path.exists(expected_file) or new_pdfs:
                         exported_count = 1
-                        # Update progress for all items in combined PDF
+                        self._overall_counter += len(items)
+                        self._update_progress(
+                            int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                            "PDF combined: {} sheets exported".format(len(items))
+                        )
                         for item in items:
                             self.update_export_item_progress(item.SheetNumber, "PDF", 100)
 
@@ -3036,9 +3019,11 @@ class ExportManagerWindow(forms.WPFWindow):
                         else:
                             continue
 
-                        # Update progress text to show current item and format
-                        self.progress_text.Text = "Exporting {} to PDF...".format(element_name)
-                        self._flush_ui()
+                        self.update_export_item_progress(item.SheetNumber, "PDF", 50, "Exporting...")
+                        self._update_progress(
+                            int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                            "Exporting {} to PDF...".format(element_name)
+                        )
 
                         filename = item.CustomFilename or self.get_export_filename(item)
 
@@ -3163,7 +3148,11 @@ class ExportManagerWindow(forms.WPFWindow):
                         expected_file = os.path.join(output_folder, filename + ".pdf")
                         if os.path.exists(expected_file) or new_pdfs:
                             exported_count += 1
-                            # Update progress for this export item
+                            self._overall_counter += 1
+                            self._update_progress(
+                                int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                                "Exported {} to PDF".format(element_name)
+                            )
                             self.update_export_item_progress(item.SheetNumber, "PDF", 100)
 
                     except Exception as ex:
@@ -3207,9 +3196,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         continue
 
-                    # Update progress text to show current item and format
-                    self.progress_text.Text = "Exporting {} to DWF...".format(element_name)
-                    self._flush_ui()
+                    self.update_export_item_progress(item.SheetNumber, "DWF", 50, "Exporting...")
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exporting {} to DWF...".format(element_name)
+                    )
 
                     filename = item.CustomFilename or self.get_export_filename(item)
 
@@ -3228,7 +3219,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     expected_file = os.path.join(output_folder, filename + ".dwf")
                     if os.path.exists(expected_file):
                         exported_count += 1
-                        # Update progress for this export item
+                        self._overall_counter += 1
+                        self._update_progress(
+                            int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                            "Exported {} to DWF".format(element_name)
+                        )
                         self.update_export_item_progress(item.SheetNumber, "DWF", 100)
 
                 except Exception as ex:
@@ -3272,9 +3267,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         continue
 
-                    # Update progress text to show current item and format
-                    self.progress_text.Text = "Exporting {} to NWC...".format(element_name)
-                    self._flush_ui()
+                    self.update_export_item_progress(item.SheetNumber, "NWC", 50, "Exporting...")
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exporting {} to NWC...".format(element_name)
+                    )
 
                     filename = item.CustomFilename or self.get_export_filename(item)
                     filepath = os.path.join(output_folder, filename + ".nwc")
@@ -3286,7 +3283,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.doc.Export(output_folder, filename, nwd_options)
 
                     exported_count += 1
-                    # Update progress for this export item
+                    self._overall_counter += 1
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exported {} to NWC".format(element_name)
+                    )
                     self.update_export_item_progress(item.SheetNumber, "NWC", 100)
 
                 except Exception as ex:
@@ -3326,9 +3327,12 @@ class ExportManagerWindow(forms.WPFWindow):
             # Note: IFC export requires a transaction (unique requirement compared to other formats)
             if len(items) > 0:
                 try:
-                    # Update progress text to show IFC export
-                    self.progress_text.Text = "Exporting entire model to IFC..."
-                    self._flush_ui()
+                    for item in items:
+                        self.update_export_item_progress(item.SheetNumber, "IFC", 50, "Exporting...")
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exporting entire model to IFC..."
+                    )
 
                     # Generate filename using naming pattern similar to combined PDF
                     # Use first and last item for combined exports
@@ -3366,7 +3370,11 @@ class ExportManagerWindow(forms.WPFWindow):
                         trans.Commit()
 
                     exported_count = 1
-                    # Update progress for all IFC export items
+                    self._overall_counter += len(items)
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "IFC exported"
+                    )
                     for item in items:
                         self.update_export_item_progress(item.SheetNumber, "IFC", 100)
                 except Exception as ex:
@@ -3407,9 +3415,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     else:
                         continue
 
-                    # Update progress text to show current item and format
-                    self.progress_text.Text = "Exporting {} to Image...".format(element_name)
-                    self._flush_ui()
+                    self.update_export_item_progress(item.SheetNumber, "IMG", 50, "Exporting...")
+                    self._update_progress(
+                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                        "Exporting {} to Image...".format(element_name)
+                    )
 
                     filename = item.CustomFilename or self.get_export_filename(item)
 
@@ -3508,7 +3518,11 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     if os.path.exists(expected_file):
                         exported_count += 1
-                        # Update progress for this export item
+                        self._overall_counter += 1
+                        self._update_progress(
+                            int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                            "Exported {} to Image".format(element_name)
+                        )
                         self.update_export_item_progress(item.SheetNumber, "IMG", 100)
 
                 except Exception as ex:

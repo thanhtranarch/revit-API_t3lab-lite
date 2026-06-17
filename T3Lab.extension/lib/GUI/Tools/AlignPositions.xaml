@@ -3,7 +3,7 @@
         Title="Align Positions"
         Width="780" Height="600"
         MinWidth="620" MinHeight="480"
-        Background="#E4E4E7"
+        Background="White"
         ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen"
         FontFamily="Hanken Grotesk">
@@ -12,7 +12,7 @@
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="22"
+                       CornerRadius="8"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1264,9 +1264,8 @@
             <TextBlock x:Name="status_text" FontSize="11" Foreground="#64748B"
                        FontFamily="Hanken Grotesk" Text="Ready"/>
         </Border>
-
         <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

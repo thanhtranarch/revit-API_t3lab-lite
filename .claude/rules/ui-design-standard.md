@@ -74,7 +74,8 @@ The rest of this document targets **Variant A** unless otherwise noted.
 ## Typography
 
 - **All text**: `Hanken Grotesk` (body, labels, headings — as featured in the `UIStandardShowcase.xaml` benchmark. `Inter` is allowed as a secondary/fallback font).
-- **Root Window**: `FontFamily="Hanken Grotesk"` (or `Inter`) on `<Window>` or `<Grid>` element.
+- **Variant A** (`<Window>` root): add `FontFamily="Hanken Grotesk"` on the `<Window>` element — valid because `Window` inherits from `Control`.
+- **Variant B** (`<Grid>` root): do **NOT** add `FontFamily` to the root `<Grid>` — `Grid` is a `Panel`, not a `Control`, and setting it causes a XAML crash. Set font per-element or via `Style` in resources instead.
 - **Never** use `Manrope` or `Segoe UI` for body text. `Segoe MDL2 Assets` is allowed **only** for icon glyphs.
 
 ## Window Structure (every tool)
@@ -209,11 +210,11 @@ When a tool has multiple steps (BatchOut / TileLayout / ExportManager):
 
 ```xml
 <!-- Copyright added automatically -->
-<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 ```
 
 - Do **not** embed it inside the status bar, action bar, or any other content `<Border>` / `<StackPanel>` — it must float as an overlay.
-- Do **not** add `Grid.Row`, `Grid.Column`, or `Grid.RowSpan` attributes.
+- `Grid.RowSpan="99"` and `Grid.ColumnSpan="99"` are **required** — without them WPF confines the element to Row 0 only (the 64px title bar), so `VerticalAlignment="Bottom"` lands inside the header instead of the window bottom.
 - Do **not** use `&#169;` — use the literal `©` character.
 - Do **not** duplicate it.
 

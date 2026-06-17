@@ -13,7 +13,8 @@
       "WebFetch(domain:github.com)",
       "mcp__visualize__read_me",
       "mcp__visualize__show_widget",
-      "PowerShell(\\(Get-Content \"D:\\\\01. T3Lab\\\\02 Revit Tools\\\\t3lab-revit-api\\\\T3Lab.extension\\\\lib\\\\GUI\\\\Tools\\\\ExportManager.xaml\"\\).Count)"
+      "PowerShell(\\(Get-Content \"D:\\\\01. T3Lab\\\\02 Revit Tools\\\\t3lab-revit-api\\\\T3Lab.extension\\\\lib\\\\GUI\\\\Tools\\\\ExportManager.xaml\"\\).Count)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tran_tienthanh\\\\OneDrive - Woh Hup \\(Private\\) Limited\\\\Documents\\\\T3Lab Architect\\\\t3lab-revit-api\\\\T3Lab.extension\\\\T3Lab.tab\" -Directory)"
     ]
   }
 }

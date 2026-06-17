@@ -11,6 +11,17 @@ Framework: IronPython 2.7 + WPF + Revit API
 - Shared button styles live in `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` and are propagated into every tool XAML with `python3 dev/sync_wpf_styles.py` (`--check` to verify) — never hand-edit the marked style block inside a tool XAML
 - **Path Portability Rule**: All file paths in agent definitions and documentation must be relative to the repository workspace (e.g. `T3Lab.extension/...`) to ensure portability.
 
+## UI-Frozen Files (DO NOT MODIFY UI)
+
+The following XAML files are **UI-locked** — their visual design is finalized and must never be altered by any UI sweep, agent, or style sync operation. Logic/script changes are still allowed, but the XAML UI must remain untouched:
+
+| File | Reason |
+|------|--------|
+| `T3Lab.extension/lib/GUI/Tools/DWGManagement.xaml` | Finalized custom design — UI locked |
+| `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` | Finalized custom design (BatchOut) — UI locked |
+
+**All agents** (`@ui-agent`, `@ui-police-agent`, `@tool-builder-agent`, `@script-frame-agent`) must skip these files entirely during any UI-related task. Do not run `sync_wpf_styles.py` against them. Do not include them in bulk XAML audits.
+
 ## Agents
 
 Spawn the appropriate agent based on the task:

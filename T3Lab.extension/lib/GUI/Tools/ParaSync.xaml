@@ -1807,6 +1807,5 @@
                     Background="#10B981"/>
         </Grid>
     </Border>
-    <!-- Copyright added automatically -->
-    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+
 </Grid>

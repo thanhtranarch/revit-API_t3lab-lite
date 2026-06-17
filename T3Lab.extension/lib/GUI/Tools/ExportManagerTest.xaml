@@ -13,7 +13,7 @@
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="22"
+                       CornerRadius="8"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1859,7 +1859,7 @@
                                                     </Grid.RowDefinitions>
                                                     <ProgressBar Grid.Row="0" Value="{Binding Progress}" Height="18" Minimum="0" Maximum="100" Margin="0,0,0,2">
                                                         <ProgressBar.Style>
-                                                            <Style TargetType="ProgressBar">
+                                                            <Style TargetType="ProgressBar" BasedOn="{StaticResource T3ProgressBar}">
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding Progress}" Value="100">
                                                                         <Setter Property="Foreground" Value="#10B981"/>
@@ -1891,7 +1891,7 @@
                     <!-- Progress Info -->
                     <StackPanel Grid.Row="3" Margin="0,10,0,0">
                         <TextBlock x:Name="progress_text" Text="Ready to export" FontSize="12" Foreground="#64748B"/>
-                        <ProgressBar x:Name="overall_progress" Height="25" Minimum="0" Maximum="100" Value="0" Margin="0,5"/>
+                        <ProgressBar x:Name="overall_progress" Style="{StaticResource T3ProgressBar}" Height="25" Minimum="0" Maximum="100" Value="0" Margin="0,5"/>
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -1976,9 +1976,8 @@
                 </Border>
             </Grid>
         </Border>
-
         <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
+        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>
