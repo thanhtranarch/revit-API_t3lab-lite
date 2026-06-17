@@ -1054,10 +1054,8 @@
         </ResourceDictionary>
     </Grid.Resources>
 
-    <Grid.Background>
-        <SolidColorBrush Color="#F8FAFC"/>
-    </Grid.Background>
-
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True">
+    <Grid Background="#F8FAFC">
     <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
@@ -1238,5 +1236,7 @@
                     Width="80" Height="30" FontWeight="SemiBold"
                     Background="#0F172A" Foreground="White" BorderThickness="0"/>
         </Grid>
+    </Border>
+    </Grid>
     </Border>
 </Grid>
