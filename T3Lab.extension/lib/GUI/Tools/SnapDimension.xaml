@@ -1184,7 +1184,6 @@
                 <Button x:Name="btnClose" Grid.Column="4" Content="Close" Style="{StaticResource SecondaryButton}" Width="80"/>
             </Grid>
         </Border>
-
         <!-- Copyright added automatically -->
         <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>

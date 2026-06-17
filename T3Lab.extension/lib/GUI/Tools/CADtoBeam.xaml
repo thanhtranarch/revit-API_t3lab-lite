@@ -1152,16 +1152,24 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
+                
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
                 <TextBlock x:Name="lbl_status" Grid.Column="0" Text="Ready" VerticalAlignment="Center"
-                           Foreground="#64748B" FontSize="12"/>
+                           Foreground="#64748B" FontSize="12" Grid.Column="0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                </StackPanel>
+            </Grid>
+
                 <Button x:Name="btn_generate" Grid.Column="1" Content="START MODELING BEAMS"
                         Style="{StaticResource PrimaryButton}" Click="generate_clicked"/>
             </Grid>
-        </Border>
-
-        <!-- Copyright added automatically -->
-        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
-</Grid>
+        </Border></Grid>
 
     </Border>
 

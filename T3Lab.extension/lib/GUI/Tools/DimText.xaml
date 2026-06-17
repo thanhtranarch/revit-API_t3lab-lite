@@ -1317,13 +1317,21 @@
         <!-- ═══ STATUS BAR ═══ -->
         <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
                 Padding="14,8">
-            <TextBlock x:Name="lbl_status" Text="Ready — select dimensions in Revit then click Apply"
-                       FontSize="11" Foreground="#64748B"/>
-        </Border>
+            
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="lbl_status" Text="Ready — select dimensions in Revit then click Apply"
+                       FontSize="11" Foreground="#64748B" Grid.Column="0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                </StackPanel>
+            </Grid>
 
-        <!-- Copyright added automatically -->
-        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
-</Grid>
+        </Border></Grid>
 
     </Border>
 

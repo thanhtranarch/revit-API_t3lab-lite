@@ -1297,8 +1297,20 @@
         
         <!-- STATUS -->
         <Border Grid.Row="5" Margin="12,8,12,0">
-            <TextBlock x:Name="txt_status" Text="Select a CAD file and click 'Scan Layers' to begin." 
-                       FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+            
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="txt_status" Text="Select a CAD file and click 'Scan Layers' to begin." 
+                       FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Grid.Column="0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                </StackPanel>
+            </Grid>
+
         </Border>
         
         <!-- ACTION BUTTONS -->
@@ -1319,11 +1331,7 @@
                 <Button x:Name="btn_close" Grid.Column="4" Content="Close"
                         Style="{StaticResource SecondaryButton}" Width="90"/>
             </Grid>
-        </Border>
-
-        <!-- Copyright added automatically -->
-        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
-</Grid>
+        </Border></Grid>
     
     </Border>
 
