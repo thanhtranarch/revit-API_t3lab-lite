@@ -3,7 +3,7 @@
         Title="IFC-SG Auto Assign - T3Lab"
         Width="480" Height="380"
         WindowStartupLocation="CenterScreen"
-        Background="#E4E4E7"
+        Background="White"
         FontFamily="Hanken Grotesk"
         FontSize="12"
         ResizeMode="CanResizeWithGrip">
@@ -12,7 +12,7 @@
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="22"
+                       CornerRadius="8"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 

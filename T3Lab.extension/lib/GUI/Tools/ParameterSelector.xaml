@@ -3,7 +3,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    FontFamily="Hanken Grotesk">
 
     <Grid.Resources>
         <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -1224,6 +1225,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <!-- Preview Text -->
@@ -1232,12 +1234,13 @@
                        VerticalAlignment="Center"
                        Foreground="#64748B" FontStyle="Italic"/>
 
+            <!-- Copyright -->
+            <TextBlock Grid.Column="1" Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,12,0"/>
+
             <!-- Ok Button -->
-            <Button x:Name="button_ok" Grid.Column="1" Content="Ok"
+            <Button x:Name="button_ok" Grid.Column="2" Content="Ok"
                     Width="80" Height="30" FontWeight="SemiBold"
                     Background="#0F172A" Foreground="White" BorderThickness="0"/>
         </Grid>
     </Border>
-    <!-- Copyright added automatically -->
-    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 </Grid>

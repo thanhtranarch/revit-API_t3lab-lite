@@ -2,7 +2,6 @@
 """Family Manager — event handling for the Family Manager launcher window."""
 
 import os
-import __builtin__
 
 from pyrevit import forms
 
@@ -21,22 +20,23 @@ class FamilyManagerWindow(forms.WPFWindow):
         self.btn_minimize.Click += self._minimize
         self.btn_maximize.Click += self._maximize
         self.btn_close_chrome.Click += self._close_chrome
-
-    def _launch(self, rel_path):
-        script_path = os.path.normpath(os.path.join(self._script_dir, rel_path))
-        self.Close()
-        g = {'__name__': '__main__', '__file__': script_path,
-             '__builtins__': __builtin__, '__revit__': self._revit}
-        try:
-            execfile(script_path, g)
-        except Exception as ex:
-            forms.alert("Error launching tool:\n{}".format(ex))
+        self.PreviewKeyDown += self._on_key_down
 
     def _open_family_management(self, sender, e):
-        self._launch("../Family Work 2.stack/Family Management.pushbutton/script.py")
+        self.Close()
+        try:
+            from GUI.FamilyManagementDialog import show_family_management
+            show_family_management()
+        except Exception as ex:
+            forms.alert("Error opening Family Management:\n{}".format(ex))
 
     def _open_load_family(self, sender, e):
-        self._launch("../Family Work 2.stack/Load Family.pushbutton/script.py")
+        self.Close()
+        try:
+            from GUI.FamilyLoaderDialog import show_family_loader
+            show_family_loader()
+        except Exception as ex:
+            forms.alert("Error opening Family Loader:\n{}".format(ex))
 
     def _minimize(self, sender, e):
         import System.Windows
@@ -51,6 +51,11 @@ class FamilyManagerWindow(forms.WPFWindow):
 
     def _close_chrome(self, sender, e):
         self.Close()
+
+    def _on_key_down(self, sender, e):
+        import System.Windows.Input as WI
+        if e.Key == WI.Key.Escape:
+            self.Close()
 
 
 def show_family_manager(script_dir, revit):
