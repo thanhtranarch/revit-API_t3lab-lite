@@ -10,7 +10,10 @@
       "WebFetch(domain:www.youtube.com)",
       "Bash(gh repo *)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "mcp__visualize__read_me",
+      "mcp__visualize__show_widget",
+      "PowerShell(\\(Get-Content \"D:\\\\01. T3Lab\\\\02 Revit Tools\\\\t3lab-revit-api\\\\T3Lab.extension\\\\lib\\\\GUI\\\\Tools\\\\ExportManager.xaml\"\\).Count)"
     ]
   }
 }

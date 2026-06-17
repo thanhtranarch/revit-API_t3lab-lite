@@ -1067,7 +1067,7 @@
                                Foreground="#0F172A"/>
                 </StackPanel>
                 <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="&#xE8BB;"
+                <TextBlock Text="Browse, filter and manage Revit family files"
                            FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
             </StackPanel>
 

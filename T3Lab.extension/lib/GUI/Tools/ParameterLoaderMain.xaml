@@ -1258,13 +1258,8 @@
             </Grid>
         </Border>
 
-        <!-- Copyright: T3Lab -->
-        <Border CornerRadius="10" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8">
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
-                <TextBlock Text="&#169; 2026 T3Lab" FontSize="10" Foreground="#9A9AA2" HorizontalAlignment="Right"/>
-                <TextBlock Text="&#169; Copyright by T3Lab" FontSize="10" Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
-            </StackPanel>
-        </Border>
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 </Grid>
     
     </Border>

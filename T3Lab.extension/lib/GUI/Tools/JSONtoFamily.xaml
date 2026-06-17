@@ -1146,17 +1146,7 @@
                         Style="{StaticResource CloseButton}"
                         ToolTip="Close"
                         Click="close_button_clicked">
-                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
-                                        <Setter Property="Foreground" Value="White"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
             <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
@@ -1213,13 +1203,8 @@
             </Grid>
         </Border>
 
-        <!-- Copyright: T3Lab -->
-        <Border CornerRadius="10" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8">
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
-                <TextBlock Text="&#169; 2026 T3Lab" FontSize="10" Foreground="#9A9AA2" HorizontalAlignment="Right"/>
-                <TextBlock Text="&#169; Copyright by T3Lab" FontSize="10" Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
-            </StackPanel>
-        </Border>
+        <!-- Copyright added automatically -->
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>
 </Grid>
 
     </Border>
