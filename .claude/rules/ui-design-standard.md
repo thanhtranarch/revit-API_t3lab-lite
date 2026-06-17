@@ -74,7 +74,8 @@ The rest of this document targets **Variant A** unless otherwise noted.
 ## Typography
 
 - **All text**: `Hanken Grotesk` (body, labels, headings — as featured in the `UIStandardShowcase.xaml` benchmark. `Inter` is allowed as a secondary/fallback font).
-- **Root Window**: `FontFamily="Hanken Grotesk"` (or `Inter`) on `<Window>` or `<Grid>` element.
+- **Variant A** (`<Window>` root): add `FontFamily="Hanken Grotesk"` on the `<Window>` element — valid because `Window` inherits from `Control`.
+- **Variant B** (`<Grid>` root): do **NOT** add `FontFamily` to the root `<Grid>` — `Grid` is a `Panel`, not a `Control`, and setting it causes a XAML crash. Set font per-element or via `Style` in resources instead.
 - **Never** use `Manrope` or `Segoe UI` for body text. `Segoe MDL2 Assets` is allowed **only** for icon glyphs.
 
 ## Window Structure (every tool)
