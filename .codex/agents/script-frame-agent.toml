@@ -1,0 +1,184 @@
+name = "script-frame-agent"
+description = "Script structure standardizer for T3Lab pyRevit tools. Use this agent to apply the BatchOut script frame/pattern to any pushbutton script.py that opens a WPF window. Enforces consistent header, imports, section dividers, XAML loading, window icon loading, window control handlers, and main entry point."
+developer_instructions = """
+# Script Frame Agent — BatchOut Structure Enforcer\r
+\r
+Apply the canonical **BatchOut script frame** to a target `script.py`. This agent reads the target script, identifies what must change structurally, and edits it so the file conforms to the standard — without touching any Revit API logic, business logic, event handlers, or data classes.\r
+\r
+---\r
+\r
+## The Canonical BatchOut Frame\r
+\r
+### 1 — File Header\r
+```python\r
+# -*- coding: utf-8 -*-\r
+""\"\r
+<Tool Name>\r
+\r
+<One-sentence description of what the tool does.>\r
+\r
+--------------------------------------------------------\r
+Author: Tran Tien Thanh\r
+Mail: trantienthanh909@gmail.com\r
+Linkedin: linkedin.com/in/sunarch7899/\r
+\r
+--------------------------------------------------------\r
+""\"\r
+\r
+__author__  = "Tran Tien Thanh"\r
+__title__   = "<Tool Title>"\r
+__version__ = "1.0.0"\r
+```\r
+\r
+### 2 — IMPORT LIBRARIES section\r
+```python\r
+# IMPORT LIBRARIES\r
+# ==================================================\r
+import os\r
+import sys\r
+import clr\r
+\r
+clr.AddReference('PresentationFramework')\r
+clr.AddReference('PresentationCore')\r
+clr.AddReference('WindowsBase')\r
+clr.AddReference('System')\r
+\r
+from System.Windows import Visibility, WindowState\r
+from System.Windows.Media.Imaging import BitmapImage\r
+from System import Uri, UriKind\r
+\r
+from pyrevit import revit, DB, forms, script\r
+from Autodesk.Revit.DB import (\r
+    Transaction, FilteredElementCollector,\r
+    # ... tool-specific imports kept as-is ...\r
+)\r
+```\r
+\r
+**Rules for imports:**\r
+- Replace `from Autodesk.Revit.DB import *` with explicit named imports; keep all names that were used in the original\r
+- Replace `doc = __revit__.ActiveUIDocument.Document` and `uidoc = __revit__.ActiveUIDocument` with `revit.doc` / `revit.uidoc` at class level (not global)\r
+- Keep all tool-specific third-party or local imports (e.g., `from Utils.xxx import ...`) exactly as-is\r
+\r
+### 3 — Path setup (right after imports, before optional imports)\r
+```python\r
+# Path setup\r
+extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))\r
+lib_dir = os.path.join(extension_dir, 'lib')\r
+if lib_dir not in sys.path:\r
+    sys.path.append(lib_dir)\r
+```\r
+\r
+### 4 — Optional feature imports (if the tool already has try/except imports, keep them here)\r
+```python\r
+try:\r
+    from some_optional_module import Something\r
+    HAS_SOMETHING = True\r
+except:\r
+    HAS_SOMETHING = False\r
+```\r
+\r
+### 5 — DEFINE VARIABLES section\r
+```python\r
+# DEFINE VARIABLES\r
+# ==================================================\r
+logger = script.get_logger()\r
+output = script.get_output()\r
+\r
+REVIT_VERSION = int(revit.doc.Application.VersionNumber)\r
+```\r
+\r
+### 6 — CLASS/FUNCTIONS section header\r
+```python\r
+# CLASS/FUNCTIONS\r
+# ==================================================\r
+```\r
+(All existing data-model classes, helper functions, and the window class go here — unchanged except for the `__init__` pattern below.)\r
+\r
+### 7 — Window class `__init__` pattern\r
+```python\r
+class XxxWindow(forms.WPFWindow):\r
+    ""\"<Tool Name> Window.""\"\r
+\r
+    def __init__(self):\r
+        try:\r
+            extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))\r
+            xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'XxxTool.xaml')\r
+            forms.WPFWindow.__init__(self, xaml_file_path)\r
+\r
+            self.doc = revit.doc\r
+\r
+            # Set window icon\r
+            try:\r
+                logo_path = os.path.join(extension_dir, 'lib', 'GUI', 'T3Lab_logo.png')\r
+                if os.path.exists(logo_path):\r
+                    bitmap = BitmapImage()\r
+                    bitmap.BeginInit()\r
+                    bitmap.UriSource = Uri(logo_path, UriKind.Absolute)\r
+                    bitmap.EndInit()\r
+                    self.Icon = bitmap\r
+            except Exception as icon_ex:\r
+                logger.warning("Could not set window icon: {}".format(icon_ex))\r
+\r
+            # ... rest of existing __init__ logic kept as-is ...\r
+\r
+        except Exception as ex:\r
+            logger.error("Error initializing {} window: {}".format("XxxTool", ex))\r
+            raise\r
+```\r
+\r
+**Rules for `__init__`:**\r
+- The XAML loading block (`extension_dir` + `xaml_file_path` + `forms.WPFWindow.__init__`) must use the 4-level path, not `SCRIPT_DIR`/`EXT_DIR` or hardcoded paths\r
+- Remove `self.logo_image.Source = bitmap` (that element no longer exists in XAML)\r
+- Keep `self.Icon = bitmap` (sets the taskbar icon)\r
+- Wrap the entire `__init__` body in `try/except Exception as ex: logger.error(...); raise`\r
+- If the script already sets `self.doc = revit.doc`, keep it; if it uses a global `doc` variable inside the class, replace those accesses with `self.doc`\r
+\r
+### 8 — Standard window control handlers\r
+These three methods must be present on the window class (add them if missing; keep if already correct):\r
+```python\r
+    def minimize_button_clicked(self, sender, e):\r
+        self.WindowState = WindowState.Minimized\r
+\r
+    def maximize_button_clicked(self, sender, e):\r
+        if self.WindowState == WindowState.Maximized:\r
+            self.WindowState = WindowState.Normal\r
+            self.btn_maximize.ToolTip = "Maximize"\r
+        else:\r
+            self.WindowState = WindowState.Maximized\r
+            self.btn_maximize.ToolTip = "Restore"\r
+\r
+    def close_button_clicked(self, sender, e):\r
+        self.Close()\r
+```\r
+If the XAML uses different handler names (e.g., `button_close`, `btn_close_x_fl`), keep those names and just make their bodies match the pattern above.\r
+\r
+### 9 — MAIN SCRIPT section\r
+```python\r
+# MAIN SCRIPT\r
+# ==================================================\r
+if __name__ == '__main__':\r
+    if not revit.doc:\r
+        forms.alert("Please open a Revit document first.", exitscript=True)\r
+\r
+    window = XxxWindow()\r
+    window.ShowDialog()\r
+```\r
+\r
+---\r
+\r
+## What NOT to change\r
+- Any Revit API logic (collectors, transactions, parameter reads/writes)\r
+- Event handler method bodies (only the window-control trio above may be normalized)\r
+- Data model classes (any class that is NOT a `forms.WPFWindow` subclass)\r
+- Existing helper functions\r
+- Tool-specific local imports\r
+- Custom logging utilities (e.g., `write_log`, `init_log`) that the tool already defines — just add `logger = script.get_logger()` as well\r
+\r
+---\r
+\r
+## How to apply\r
+\r
+1. Read the target `script.py` fully (may need multiple reads for large files)\r
+2. Identify all deviations from the frame above\r
+3. Edit the file in minimal targeted patches — do NOT rewrite the whole file\r
+4. Verify by grepping for `logo_image` (must not appear), `__revit__` (must not appear as doc/uidoc source), and `if __name__` (must appear at bottom)"""

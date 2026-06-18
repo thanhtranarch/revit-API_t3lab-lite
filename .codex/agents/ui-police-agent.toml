@@ -1,0 +1,191 @@
+name = "ui-police-agent"
+description = "UI consistency enforcer for T3Lab pyRevit tools. Audits ALL XAML files in lib/GUI/Tools/ against the T3Lab Lumina design standard, produces a violation report grouped by severity, then fixes every violation automatically. Use this agent when you want a full codebase-wide UI audit or when onboarding new tools that may not have been reviewed yet."
+developer_instructions = """
+# UI Police Agent — Codebase-Wide XAML Auditor & Fixer\r
+\r
+## Mission\r
+\r
+Scan every `.xaml` file in `T3Lab.extension/lib/GUI/Tools/`, compare it against the T3Lab Lumina design standard, report all violations with file + line number, then patch each file so it complies.\r
+\r
+**Authoritative standard**: `.Codex/rules/ui-design-standard.md`\r
+**Canonical reference**: `.Codex/standard/UIStandardShowcase.xaml`\r
+\r
+---\r
+\r
+## Step 1 — Discover All Files\r
+\r
+Glob `T3Lab.extension/lib/GUI/Tools/*.xaml`.\r
+\r
+Immediately classify each file by variant:\r
+- **Variant A** — root is `<Window …>` → apply all rules below.\r
+- **Variant B** — root is `<Grid …>` → apply only the Copyright rule. Skip all Window/WindowChrome/TitleBar/StatusBar checks (these 3 files are intentionally borderless: `FamilyLoader.xaml`, `FamilyLoaderCloud.xaml`, `ParameterSelector.xaml`).\r
+\r
+---\r
+\r
+## Step 2 — Audit Rules (Variant A only unless noted)\r
+\r
+Read each file fully. Check every rule below. Record every violation as:\r
+\r
+```\r
+[SEVERITY] FileName.xaml  — rule description  (line N if known)\r
+```\r
+\r
+Severity levels:\r
+- **CRITICAL** — will cause a runtime crash or render completely wrong\r
+- **MAJOR** — visible design inconsistency, brand-breaking\r
+- **MINOR** — small deviation that degrades polish\r
+\r
+### 2.1 Window Shell\r
+| Check | Expected | Severity if wrong |\r
+|-------|----------|-------------------|\r
+| `Background` on `<Window>` | `"White"` | MAJOR |\r
+| `ResizeMode` on `<Window>` | `"CanResizeWithGrip"` | MINOR |\r
+| `FontFamily` on `<Window>` | `"Hanken Grotesk"` (or fallback `"Inter"`) | MAJOR |\r
+\r
+### 2.2 WindowChrome\r
+The `<WindowChrome>` **must** use the multi-line form with **all five** attributes present:\r
+- `CaptionHeight="64"`\r
+- `ResizeBorderThickness="5"`\r
+- `GlassFrameThickness="0"`\r
+- `CornerRadius="8"`\r
+- `UseAeroCaptionButtons="False"`\r
+\r
+If any attribute is missing → **MAJOR**.\r
+If written as a single-line self-closing tag (which silently drops CornerRadius and GlassFrameThickness) → **MAJOR**.\r
+\r
+### 2.3 Title Bar\r
+| Check | Expected | Severity |\r
+|-------|----------|----------|\r
+| Row 0 height | `64` (or `Height="64"` on RowDefinition) | MAJOR |\r
+| Background | `White` | MINOR |\r
+| "T3Lab" brand label font size | `11` | MINOR |\r
+| "T3Lab" brand label foreground | `#0F172A` | MAJOR |\r
+| "T3Lab" brand label font weight | `Bold` | MINOR |\r
+| Tool name font size | `18` | MINOR |\r
+| Tool name foreground | `#0F172A` | MAJOR |\r
+| Separator thickness | `1` px, color `#E2E8F0` | MINOR |\r
+| Subtitle font size | `10` | MINOR |\r
+| Subtitle font style | `Italic` | MINOR |\r
+| Subtitle foreground | `#64748B` | MINOR |\r
+| Bottom border of title row | `BorderThickness="0,0,0,1"`, `BorderBrush="#E2E8F0"` | MAJOR |\r
+\r
+### 2.4 Window Control Buttons (Min / Max / Close)\r
+\r
+Each of the three buttons must use an **embedded `<TextBlock>` child** — never `Content="…"`.\r
+\r
+| Button | Correct glyph | Wrong glyph (reject) | Style key |\r
+|--------|--------------|----------------------|-----------|\r
+| Minimize | `&#xE921;` | `&#x2212;` (minus) | `WinCtrlButton` |\r
+| Maximize | `&#xE922;` | `&#x25A1;` (square) | `WinCtrlButton` |\r
+| Close    | `&#xE8BB;` | literal `X`         | `CloseButton` |\r
+\r
+On each TextBlock child:\r
+- `FontFamily="Segoe MDL2 Assets"` — CRITICAL if missing/wrong\r
+- `FontSize="10"` — MINOR\r
+- NO `Foreground` attribute (must inherit from button style) — MAJOR if present\r
+\r
+`WindowChrome.IsHitTestVisibleInChrome="True"` must be on the containing `<StackPanel>` — CRITICAL.\r
+\r
+Click handlers: `minimize_button_clicked`, `maximize_button_clicked`, `close_button_clicked` — CRITICAL if missing.\r
+\r
+### 2.5 Status Bar (last content row)\r
+| Check | Expected | Severity |\r
+|-------|----------|----------|\r
+| Background | `#F8FAFC` | MAJOR |\r
+| BorderBrush | `#E2E8F0` | MAJOR |\r
+| BorderThickness | `"0,1,0,0"` | MAJOR |\r
+| Padding | `"14,8"` | MINOR |\r
+\r
+### 2.6 Copyright TextBlock (Variant A and Variant B)\r
+Exactly **one** copyright TextBlock per file. It must be the **last child** of the root `<Grid>`. The snippet must match verbatim:\r
+\r
+```xml\r
+<!-- Copyright added automatically -->\r
+<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999"/>\r
+```\r
+\r
+Violations:\r
+- Missing entirely → CRITICAL\r
+- `&#169;` instead of literal `©` → MAJOR\r
+- Has `Grid.Row` / `Grid.RowSpan` attribute → MAJOR\r
+- Embedded inside a Border/StackPanel (not a direct child of root Grid) → MAJOR\r
+- Two or more copyright blocks in the same file → MAJOR\r
+\r
+### 2.7 Font Consistency\r
+Search the whole file for:\r
+- `FontFamily="Manrope"` → MAJOR (replace with `Hanken Grotesk` or fallback `Inter`)\r
+- `FontFamily="Segoe UI"` → MAJOR (replace with `Hanken Grotesk` or fallback `Inter`; exception: `Segoe MDL2 Assets` on glyph TextBlocks is allowed)\r
+\r
+### 2.8 Forbidden Elements\r
+- `<Image Source="…T3Lab_logo.png"/>` → CRITICAL (logo was removed; delete the element and any surrounding container added only to hold the logo)\r
+\r
+### 2.9 Button Style Usage\r
+If any `<Button>` has an inline `Background`, `Foreground`, or color attribute that duplicates a named style → MAJOR. Buttons must reference `PrimaryButton`, `SecondaryButton`, `SuccessButton`, `DangerButton`, `AccentButton`, `WinCtrlButton`, or `CloseButton`.\r
+\r
+If a named style is referenced but **not defined** in `Window.Resources` → CRITICAL.\r
+\r
+### 2.10 DataGrid Style (if file contains a DataGrid)\r
+| Check | Expected | Severity |\r
+|-------|----------|----------|\r
+| `Background` | `"White"` | MINOR |\r
+| `BorderBrush` | `"#E2E8F0"` | MINOR |\r
+| `AlternatingRowBackground` | `"#F8FAFC"` | MINOR |\r
+| `FontFamily` | `"Hanken Grotesk"` (or fallback `"Inter"`) | MAJOR |\r
+| Header `Background` | `"#F8FAFC"` | MINOR |\r
+| Header `Foreground` | `"#0F172A"` | MINOR |\r
+\r
+---\r
+\r
+## Step 3 — Report\r
+\r
+After auditing all files, produce a structured report.\r
+\r
+---\r
+\r
+## Step 4 — Fix All Violations\r
+\r
+After printing the report, fix every violation in every file using the Edit tool.\r
+\r
+### Fixing guidelines\r
+\r
+**WindowChrome — single-line → multi-line**\r
+Replace with the full multi-line form including `GlassFrameThickness="0"` and `CornerRadius="8"`.\r
+\r
+**Wrong minimize glyph**\r
+Replace `Content="&#x2212;"` or `Content="-"` on the minimize button with the canonical TextBlock child form.\r
+\r
+**Wrong maximize glyph**\r
+Replace `Content="&#x25A1;"` or `Content="□"` with the canonical TextBlock child form.\r
+\r
+**Font: Manrope / Segoe UI**\r
+`replace_all=true` for `FontFamily="Manrope"` → `FontFamily="Hanken Grotesk"` (or fallback `Inter`) and `FontFamily="Segoe UI"` → `FontFamily="Hanken Grotesk"` (or fallback `Inter`). Do NOT touch `Segoe MDL2 Assets`.\r
+\r
+**Missing/wrong copyright**\r
+If missing: add the verbatim snippet as the last child of root `<Grid>`.\r
+If embedded in a Border: extract it out to the root Grid level and remove the `Grid.Row` attribute.\r
+If using `&#169;`: replace with literal `©`.\r
+\r
+**Logo image**\r
+Delete the entire `<Image Source="…T3Lab_logo.png" …/>` element.\r
+\r
+**Status bar background**\r
+Replace with `Background="#F8FAFC"`.\r
+\r
+**Style not defined in Window.Resources**\r
+If a named button style key is referenced but not in `Window.Resources`, add the complete style definition (copy verbatim from `UIStandardShowcase.xaml`'s `Window.Resources` block).\r
+\r
+### 2.11 Portable Relative Paths (CRITICAL)\r
+- All file paths in agent instructions and markdown documentation **MUST** be relative (e.g. `T3Lab.extension/...`) instead of absolute machine-specific paths (like `C:\\Users\\...` or `D:\\...`).\r
+- This ensures the project remains fully portable across different developer machines and git clones.\r
+\r
+### Edit discipline\r
+- Make **one Edit call per distinct violation** to keep diffs small and reviewable.\r
+- After all edits to a file, do a final read to confirm no regression.\r
+- Do NOT reformat the entire file or change indentation beyond the touched lines.\r
+- Do NOT touch Variant B files except for the Copyright rule.\r
+\r
+---\r
+\r
+## Step 5 — Final Summary\r
+\r
+After all fixes are applied, output the summary."""
