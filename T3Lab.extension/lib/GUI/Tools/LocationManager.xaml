@@ -1160,12 +1160,11 @@
                 </Setter.Value>
             </Setter>
         </Style>
-</Window.Resources>
     </Window.Resources>
     <Border Background="White" CornerRadius="22" Margin="0">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="66"/>    <!-- Col 0: Left Sidebar Icon Rail -->
+                <ColumnDefinition Width="120"/>   <!-- Col 0: Left Sidebar Nav Rail -->
                 <ColumnDefinition Width="*"/>     <!-- Col 1: Main content area -->
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
@@ -1183,15 +1182,13 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Logo: Location pin -->
                     <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
                             Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
-                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                            HorizontalAlignment="Center" Margin="0,0,0,16">
                         <Path Data="M12 2 C8 2 4 6 4 10 C4 16 12 22 12 22 C12 22 20 16 20 10 C20 6 16 2 12 2 Z M12 13 A3 3 0 1 1 12 7 A3 3 0 1 1 12 13 Z"
                               Stroke="#18181B" StrokeThickness="1.6" StrokeLineJoin="Round"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round"
@@ -1199,49 +1196,131 @@
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
 
-                    <!-- Tab: Current View -->
+                    <!-- Nav: Current View -->
                     <RadioButton x:Name="rb_current_view" Grid.Row="1"
-                                 GroupName="SourceMode" Style="{StaticResource T3SidebarRadio}"
-                                 Margin="0,0,0,8" IsChecked="True"
-                                 ToolTip="Current View" Checked="mode_changed">
-                        <Path Data="M4 7 H20 M4 12 H20 M4 17 H20"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="17" Height="17" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                 GroupName="SourceMode"
+                                 Width="104" Height="Auto" Padding="0,10"
+                                 HorizontalAlignment="Center"
+                                 IsChecked="True" Checked="mode_changed"
+                                 ToolTip="Load all elements from the active view">
+                        <RadioButton.Style>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="#71717A"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                                    CornerRadius="12" Padding="{TemplateBinding Padding}">
+                                                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                                                    <Path Data="M4 7 H20 M4 12 H20 M4 17 H20"
+                                                          x:Name="icon"
+                                                          Stroke="{TemplateBinding Foreground}"
+                                                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Width="16" Height="16" Stretch="Uniform"
+                                                          HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="Current View"
+                                                               FontSize="9.5" FontFamily="Hanken Grotesk"
+                                                               FontWeight="Medium"
+                                                               Foreground="{TemplateBinding Foreground}"
+                                                               HorizontalAlignment="Center"
+                                                               TextAlignment="Center"
+                                                               TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#18181B"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                                <MultiTrigger>
+                                                    <MultiTrigger.Conditions>
+                                                        <Condition Property="IsChecked" Value="False"/>
+                                                        <Condition Property="IsMouseOver" Value="True"/>
+                                                    </MultiTrigger.Conditions>
+                                                    <Setter TargetName="bd" Property="Background" Value="#E6E6EA"/>
+                                                    <Setter Property="Foreground" Value="#18181B"/>
+                                                </MultiTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </RadioButton.Style>
                     </RadioButton>
 
-                    <!-- Tab: By Level -->
+                    <!-- Nav: By Level -->
                     <RadioButton x:Name="rb_by_level" Grid.Row="2"
-                                 GroupName="SourceMode" Style="{StaticResource T3SidebarRadio}"
-                                 Margin="0,0,0,8"
-                                 ToolTip="By Level" Checked="mode_changed">
-                        <Path Data="M4 4 H20 M12 4 V20 M4 12 H20 M4 20 H20"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"
-                              StrokeThickness="1.8" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="17" Height="17" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                 GroupName="SourceMode"
+                                 Width="104" Height="Auto" Padding="0,10"
+                                 HorizontalAlignment="Center"
+                                 Margin="0,4,0,0"
+                                 Checked="mode_changed"
+                                 ToolTip="Load elements by level">
+                        <RadioButton.Style>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="#71717A"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                                    CornerRadius="12" Padding="{TemplateBinding Padding}">
+                                                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                                                    <Path Data="M4 4 H20 M12 4 V20 M4 12 H20 M4 20 H20"
+                                                          x:Name="icon"
+                                                          Stroke="{TemplateBinding Foreground}"
+                                                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Width="16" Height="16" Stretch="Uniform"
+                                                          HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                                                    <TextBlock Text="By Level"
+                                                               FontSize="9.5" FontFamily="Hanken Grotesk"
+                                                               FontWeight="Medium"
+                                                               Foreground="{TemplateBinding Foreground}"
+                                                               HorizontalAlignment="Center"
+                                                               TextAlignment="Center"
+                                                               TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#18181B"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                                <MultiTrigger>
+                                                    <MultiTrigger.Conditions>
+                                                        <Condition Property="IsChecked" Value="False"/>
+                                                        <Condition Property="IsMouseOver" Value="True"/>
+                                                    </MultiTrigger.Conditions>
+                                                    <Setter TargetName="bd" Property="Background" Value="#E6E6EA"/>
+                                                    <Setter Property="Foreground" Value="#18181B"/>
+                                                </MultiTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </RadioButton.Style>
                     </RadioButton>
-
-                    <!-- Tab: Refresh -->
-                    <Button x:Name="btn_sidebar_refresh" Grid.Row="3"
-                            Style="{StaticResource T3SidebarButton}"
-                            Width="42" Height="42"
-                            Click="refresh_clicked" ToolTip="Refresh elements">
-                        <Path Data="M12 4 V2 M12 4 H14.5 M17.7 7.3 L19 6 M19 12 H21 M17.7 16.7 L19 18 M12 20 V22 M12 20 H10.5 M6.3 16.7 L5 18 M5 12 H3 M6.3 7.3 L5 6"
-                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                              StrokeThickness="1.6" StrokeLineJoin="Round"
-                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Width="17" Height="17" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Button>
                 </Grid>
             </Border>
 
             <!-- COL 1: MAIN CONTENT AREA -->
-            <Grid Grid.Column="1">
+            <Grid Grid.Column="1" Grid.RowSpan="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="64"/>      <!-- Row 0: Title bar -->
+                    <RowDefinition Height="46"/>      <!-- Row 1: Toolbar -->
+                    <RowDefinition Height="*"/>       <!-- Row 2: Content -->
+                    <RowDefinition Height="32"/>      <!-- Row 3: Status bar -->
+                </Grid.RowDefinitions>
 
 <!-- TITLE BAR (64px, #F4F4F6) -->
             <Grid Grid.Row="0" Background="#F4F4F6" Height="64">
@@ -1336,31 +1415,6 @@
 
                     <WrapPanel Grid.Column="0" VerticalAlignment="Center">
 
-                        <Border BorderBrush="#DEDEE2" BorderThickness="1"
-                                CornerRadius="10" Height="32"
-                                Margin="0,0,8,0" VerticalAlignment="Center">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <RadioButton Grid.Column="0"
-                                             Content="Current View"
-                                             IsChecked="True" GroupName="SourceMode"
-                                             Style="{StaticResource ModeSegment}"
-                                             Checked="mode_changed"
-                                             ToolTip="Load all elements from the active view"/>
-                                <Border Grid.Column="0" Width="1" Background="#DEDEE2"
-                                        HorizontalAlignment="Right"/>
-                                <RadioButton Grid.Column="1"
-                                             Content="By Level"
-                                             GroupName="SourceMode"
-                                             Style="{StaticResource ModeSegment}"
-                                             Checked="mode_changed"
-                                             ToolTip="Load all elements assigned to a chosen level"/>
-                            </Grid>
-                        </Border>
-
                         <ComboBox x:Name="cmb_level"
                                   DisplayMemberPath="Name"
                                   Visibility="Collapsed"
@@ -1370,7 +1424,8 @@
                                   SelectionChanged="level_selection_changed"
                                   ToolTip="Select a level to load elements from"/>
 
-                        <Rectangle Width="1" Fill="#E2E8F0" Margin="6,4,8,4" VerticalAlignment="Stretch"/>
+                        <Rectangle Width="1" Fill="#E2E8F0" Margin="0,4,8,4" VerticalAlignment="Stretch"
+                                   Visibility="{Binding Visibility, ElementName=cmb_level}"/>
 
                         <Button x:Name="btn_refresh" Content="Refresh"
                                 Style="{StaticResource SecondaryButton}" Margin="0,0,4,0"
