@@ -1,1440 +1,1010 @@
 {
-  "version": 1, 
+  "version": 1,
   "tools": {
-    "ViewManager": {
-      "button": "ViewManager", 
-      "panel": "ViewsSheets.panel", 
-      "title": "Advanced View Manager", 
-      "keywords": [
-        "advanced view manager", 
-        "viewmanager", 
-        "advanced", 
-        "manager", 
-        "view"
-      ], 
-      "intent": "open_viewmanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewManager\\script.py"
-    }, 
-    "SelectSimilar_Family_InView.pushbutton": {
-      "button": "SelectSimilar_Family_InView.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Similar Family (View)", 
-      "keywords": [
-        "select similar family (view)", 
-        "selectsimilar_family_inview", 
-        "selectsimilar", 
-        "similar", 
-        "family", 
-        "inview", 
-        "select", 
-        "view"
-      ], 
-      "intent": "open_selectsimilar_family_inview", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar_Family_InView.pushbutton\\script.py"
-    }, 
     "Snap Dimension.pushbutton": {
-      "button": "SnapDimension.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Snap to Grid", 
+      "button": "SnapDimension.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Snap to Grid",
       "keywords": [
-        "snap dimension", 
-        "snap to grid", 
-        "dimension", 
-        "grid", 
-        "snap", 
+        "snap dimension",
+        "snap to grid",
+        "dimension",
+        "grid",
+        "snap",
         "to"
-      ], 
-      "intent": "open_snap_dimension", 
+      ],
+      "intent": "open_snap_dimension",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\SnapDimension.pushbutton\\script.py"
-    }, 
+    },
     "ModelAuditor.pushbutton": {
-      "button": "ModelAuditor.pushbutton", 
-      "panel": "Settings.panel", 
-      "title": "Model Auditor", 
+      "button": "ModelAuditor.pushbutton",
+      "panel": "Settings.panel",
+      "title": "Model Auditor",
       "keywords": [
-        "model auditor", 
-        "health check", 
-        "model checker", 
-        "warnings", 
-        "inplace model", 
-        "material list", 
+        "model auditor",
+        "health check",
+        "model checker",
+        "warnings",
+        "inplace model",
+        "material list",
         "auditor"
-      ], 
-      "intent": "open_model_auditor", 
+      ],
+      "intent": "open_model_auditor",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\ModelAuditor.pushbutton\\script.py"
-    }, 
-    "Sheet re-number": {
-      "button": "Sheet re-number", 
-      "panel": "ViewsSheets.panel", 
-      "title": "Sheet re-number", 
-      "keywords": [
-        "sheet re-number", 
-        "number", 
-        "sheet", 
-        "re"
-      ], 
-      "intent": "open_sheet_re_number", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\Sheet re-number\\script.py"
-    }, 
-    "SplitElements.pushbutton": {
-      "button": "SplitElements.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Split Elements", 
-      "keywords": [
-        "split elements", 
-        "splitelements", 
-        "elements", 
-        "split"
-      ], 
-      "intent": "open_splitelements", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\SplitElements.pushbutton\\script.py"
-    }, 
+    },
     "InPlaceModel.pushbutton": {
-      "button": "InPlaceModel", 
-      "panel": "Settings.panel", 
-      "title": "In-Place Manager", 
+      "button": "InPlaceModel",
+      "panel": "Settings.panel",
+      "title": "In-Place Manager",
       "keywords": [
-        "in-place manager", 
-        "inplacemodel", 
-        "manager", 
-        "place", 
+        "in-place manager",
+        "inplacemodel",
+        "manager",
+        "place",
         "in"
-      ], 
-      "intent": "open_inplacemodel", 
+      ],
+      "intent": "open_inplacemodel",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\InPlaceModel\\script.py"
-    }, 
-    "ParaManager.pushbutton": {
-      "button": "ParaManager.pushbutton", 
-      "panel": "Settings.panel", 
-      "title": "Parameter Manage", 
-      "keywords": [
-        "parameter manage", 
-        "paramanager", 
-        "parameter", 
-        "manage"
-      ], 
-      "intent": "open_paramanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\Settings.stack\\ParaManager.pushbutton\\script.py"
-    }, 
-    "Schedule_Copy.pushbutton": {
-      "button": "Schedule_Copy", 
-      "panel": "Data.panel", 
-      "title": "Schedule_Copy", 
-      "keywords": [
-        "schedule_copy", 
-        "schedule", 
-        "copy"
-      ], 
-      "intent": "open_schedule_copy", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Schedule_Copy\\script.py"
-    }, 
+    },
     "SmartDelete.pushbutton": {
-      "button": "SmartDelete", 
-      "panel": "Settings.panel", 
-      "title": "Smart Delete", 
+      "button": "SmartDelete",
+      "panel": "Settings.panel",
+      "title": "Smart Delete",
       "keywords": [
-        "smart delete", 
-        "smartdelete", 
-        "delete", 
+        "smart delete",
+        "smartdelete",
+        "delete",
         "smart"
-      ], 
-      "intent": "open_smartdelete", 
+      ],
+      "intent": "open_smartdelete",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\SmartDelete\\script.py"
-    }, 
-    "Linked Element Box.pushbutton": {
-      "button": "Linked Element Box.pushbutton", 
-      "panel": "ViewsSheets.panel", 
-      "title": "Linked Element Box", 
-      "keywords": [
-        "linked element box", 
-        "element", 
-        "linked", 
-        "box"
-      ], 
-      "intent": "open_linked_element_box", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\Linked Element Box.pushbutton\\script.py"
-    }, 
+    },
     "ConvertGridline.pushbutton": {
-      "button": "ConvertGridline.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Grid Swap", 
+      "button": "ConvertGridline.pushbutton",
+      "panel": "Project.panel",
+      "title": "Grid Swap",
       "keywords": [
-        "convertgridline", 
-        "grid swap", 
-        "swap", 
+        "convertgridline",
+        "grid swap",
+        "swap",
         "grid"
-      ], 
-      "intent": "open_convertgridline", 
+      ],
+      "intent": "open_convertgridline",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Datum.pulldown\\Gridline.pulldown\\ConvertGridline.pushbutton\\script.py"
-    }, 
-    "Values to Filled Region .pushbutton": {
-      "button": "Values to Filled Region", 
-      "panel": "Data.panel", 
-      "title": "Opening Assign Values", 
-      "keywords": [
-        "values to filled region ", 
-        "opening assign values", 
-        "opening", 
-        "region", 
-        "values", 
-        "assign", 
-        "filled", 
-        "to"
-      ], 
-      "intent": "open_values_to_filled_region", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Values to Filled Region\\script.py"
-    }, 
+    },
     "AutoDimension.pushbutton": {
-      "button": "AutoDimension.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Auto Dimension", 
+      "button": "AutoDimension.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Auto Dimension",
       "keywords": [
-        "auto dimension", 
-        "autodimension", 
-        "dimension", 
+        "auto dimension",
+        "autodimension",
+        "dimension",
         "auto"
-      ], 
-      "intent": "open_autodimension", 
+      ],
+      "intent": "open_autodimension",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\AutoDimension.pushbutton\\script.py"
-    }, 
-    "DatumManager.pushbutton": {
-      "button": "DatumManager.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Datum Manager", 
-      "keywords": [
-        "datum manager", 
-        "datummanager", 
-        "manager", 
-        "datum"
-      ], 
-      "intent": "open_datummanager", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\DatumManager.pushbutton\\script.py"
-    }, 
-    "SnapDimension.pushbutton": {
-      "button": "SnapDimension.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Snap to Grid", 
-      "keywords": [
-        "snapdimension", 
-        "snap to grid", 
-        "grid", 
-        "snap", 
-        "to"
-      ], 
-      "intent": "open_snapdimension", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\SnapDimension.pushbutton\\script.py"
-    }, 
-    "SelectSimilar_Category_InModel.pushbutton": {
-      "button": "SelectSimilar_Category_InModel.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Similar Category (Model)", 
-      "keywords": [
-        "select similar category (model)", 
-        "selectsimilar_category_inmodel", 
-        "selectsimilar", 
-        "category", 
-        "similar", 
-        "inmodel", 
-        "select", 
-        "model"
-      ], 
-      "intent": "open_selectsimilar_category_inmodel", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar_Category_InModel.pushbutton\\script.py"
-    }, 
-    "CadtoFloor.pushbutton": {
-      "button": "CadtoFloor.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "CAD to Floor", 
-      "keywords": [
-        "cad to floor", 
-        "cadtofloor", 
-        "floor", 
-        "cad", 
-        "to"
-      ], 
-      "intent": "open_cadtofloor", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\CadtoFloor.pushbutton\\script.py"
-    }, 
-    "SelectSimilar_Type_InView.pushbutton": {
-      "button": "SelectSimilar_Type_InView.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Similar Type (View)", 
-      "keywords": [
-        "select similar type (view)", 
-        "selectsimilar_type_inview", 
-        "selectsimilar", 
-        "similar", 
-        "inview", 
-        "select", 
-        "view", 
-        "type"
-      ], 
-      "intent": "open_selectsimilar_type_inview", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar_Type_InView.pushbutton\\script.py"
-    }, 
+    },
     "SelectOnSheets.pushbutton": {
-      "button": "SelectOnSheets.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "On Sheets: Select", 
+      "button": "SelectOnSheets.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "On Sheets: Select",
       "keywords": [
-        "on sheets: select", 
-        "selectonsheets", 
-        "sheets", 
-        "select", 
+        "on sheets: select",
+        "selectonsheets",
+        "sheets",
+        "select",
         "on"
-      ], 
-      "intent": "open_selectonsheets", 
+      ],
+      "intent": "open_selectonsheets",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectOnSheets.pushbutton\\script.py"
-    }, 
+    },
     "Tag Checker.pushbutton": {
-      "button": "Tag Checker.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Tag Checker", 
+      "button": "Tag Checker.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Tag Checker",
       "keywords": [
-        "tag checker", 
-        "checker", 
+        "tag checker",
+        "checker",
         "tag"
-      ], 
-      "intent": "open_tag_checker", 
+      ],
+      "intent": "open_tag_checker",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Text.stack\\TextTagTools.pulldown\\Tag Checker.pushbutton\\script.py"
-    }, 
+    },
     "Material List.pushbutton": {
-      "button": "MaterialList", 
-      "panel": "Settings.panel", 
-      "title": "Material Manage", 
+      "button": "MaterialList",
+      "panel": "Settings.panel",
+      "title": "Material Manage",
       "keywords": [
-        "material manage", 
-        "material list", 
-        "material", 
-        "manage", 
+        "material manage",
+        "material list",
+        "material",
+        "manage",
         "list"
-      ], 
-      "intent": "open_material_list", 
+      ],
+      "intent": "open_material_list",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\MaterialList\\script.py"
-    }, 
-    "Auto Assign.pushbutton": {
-      "button": "Auto Assign.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "Auto Assign IFC Class", 
-      "keywords": [
-        "auto assign ifc class", 
-        "auto assign", 
-        "assign", 
-        "class", 
-        "auto", 
-        "ifc"
-      ], 
-      "intent": "open_auto_assign", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\Auto Assign.pushbutton\\script.py"
-    }, 
+    },
     "Copy Annotation.pushbutton": {
-      "button": "Copy Annotation.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Copy Annotations", 
+      "button": "Copy Annotation.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Copy Annotations",
       "keywords": [
-        "copy annotations", 
-        "copy annotation", 
-        "annotations", 
-        "annotation", 
+        "copy annotations",
+        "copy annotation",
+        "annotations",
+        "annotation",
         "copy"
-      ], 
-      "intent": "open_copy_annotation", 
+      ],
+      "intent": "open_copy_annotation",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Text.stack\\TextTagTools.pulldown\\Copy Annotation.pushbutton\\script.py"
-    }, 
-    "Save Grids.pushbutton": {
-      "button": "Save Grids.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Save Grids", 
-      "keywords": [
-        "save grids", 
-        "grids", 
-        "save"
-      ], 
-      "intent": "open_save_grids", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Grids.pulldown\\Save Grids.pushbutton\\script.py"
-    }, 
+    },
     "RoomToFloor.pushbutton": {
-      "button": "RoomToFloor.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Room To Floor", 
+      "button": "RoomToFloor.pushbutton",
+      "panel": "Project.panel",
+      "title": "Room To Floor",
       "keywords": [
-        "room to floor", 
-        "roomtofloor", 
-        "floor", 
-        "room", 
+        "room to floor",
+        "roomtofloor",
+        "floor",
+        "room",
         "to"
-      ], 
-      "intent": "open_roomtofloor", 
+      ],
+      "intent": "open_roomtofloor",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\RoomToFloor.pushbutton\\script.py"
-    }, 
+    },
     "Tile Layout.pushbutton": {
-      "button": "Tile Layout.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Tile Layout", 
+      "button": "Tile Layout.pushbutton",
+      "panel": "Project.panel",
+      "title": "Tile Layout",
       "keywords": [
-        "tile layout", 
-        "layout", 
+        "tile layout",
+        "layout",
         "tile"
-      ], 
-      "intent": "open_tile_layout", 
+      ],
+      "intent": "open_tile_layout",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Tile Layout.pushbutton\\script.py"
-    }, 
+    },
     "Select Linked.pushbutton": {
-      "button": "Select Linked.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Linked", 
+      "button": "Select Linked.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Select Linked",
       "keywords": [
-        "select linked", 
-        "linked", 
+        "select linked",
+        "linked",
         "select"
-      ], 
-      "intent": "open_select_linked", 
+      ],
+      "intent": "open_select_linked",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select Linked.pushbutton\\script.py"
-    }, 
-    "StyleManager.pushbutton": {
-      "button": "StyleManager.pushbutton", 
-      "panel": "Settings.panel", 
-      "title": "Style Manager", 
-      "keywords": [
-        "style manager", 
-        "stylemanager", 
-        "manager", 
-        "style"
-      ], 
-      "intent": "open_stylemanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\Settings.stack\\StyleManager.pushbutton\\script.py"
-    }, 
+    },
     "AdvancedPurge.pushbutton": {
-      "button": "AdvancedPurge", 
-      "panel": "Settings.panel", 
-      "title": "Advanced Purge", 
+      "button": "AdvancedPurge",
+      "panel": "Settings.panel",
+      "title": "Advanced Purge",
       "keywords": [
-        "advanced purge", 
-        "advancedpurge", 
-        "advanced", 
+        "advanced purge",
+        "advancedpurge",
+        "advanced",
         "purge"
-      ], 
-      "intent": "open_advancedpurge", 
+      ],
+      "intent": "open_advancedpurge",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\AdvancedPurge\\script.py"
-    }, 
-    "Manual Assign.pushbutton": {
-      "button": "Manual Assign.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "Manual Assign IFC Class", 
-      "keywords": [
-        "manual assign ifc class", 
-        "manual assign", 
-        "assign", 
-        "manual", 
-        "class", 
-        "ifc"
-      ], 
-      "intent": "open_manual_assign", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\Manual Assign.pushbutton\\script.py"
-    }, 
-    "ViewHub.pushbutton": {
-      "button": "ViewHub.pushbutton", 
-      "panel": "ViewsSheets.panel", 
-      "title": "View Hub", 
-      "keywords": [
-        "view hub", 
-        "viewhub", 
-        "view", 
-        "hub"
-      ], 
-      "intent": "open_viewhub", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewHub.pushbutton\\script.py"
-    }, 
+    },
     "IFCSG Subtype Definer.pushbutton": {
-      "button": "IFCSG Subtype Definer.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "IFC-SG Subtype", 
+      "button": "IFCSG Subtype Definer.pushbutton",
+      "panel": "Data.panel",
+      "title": "IFC-SG Subtype",
       "keywords": [
-        "ifcsg subtype definer", 
-        "ifc-sg subtype", 
-        "definer", 
-        "subtype", 
-        "ifcsg", 
-        "ifc", 
+        "ifcsg subtype definer",
+        "ifc-sg subtype",
+        "definer",
+        "subtype",
+        "ifcsg",
+        "ifc",
         "sg"
-      ], 
-      "intent": "open_ifcsg_subtype_definer", 
+      ],
+      "intent": "open_ifcsg_subtype_definer",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\IFCSG Subtype Definer.pushbutton\\script.py"
-    }, 
-    "SelectOnSheets_TitleBlocks.pushbutton": {
-      "button": "SelectOnSheets_TitleBlocks.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "On Sheets: TitleBlocks", 
-      "keywords": [
-        "selectonsheets_titleblocks", 
-        "on sheets: titleblocks", 
-        "selectonsheets", 
-        "titleblocks", 
-        "sheets", 
-        "on"
-      ], 
-      "intent": "open_selectonsheets_titleblocks", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectOnSheets_TitleBlocks.pushbutton\\script.py"
-    }, 
+    },
     "ImageToDrafting.pushbutton": {
-      "button": "ImageToDrafting.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Image To Drafting", 
+      "button": "ImageToDrafting.pushbutton",
+      "panel": "Project.panel",
+      "title": "Image To Drafting",
       "keywords": [
-        "image to drafting", 
-        "imagetodrafting", 
-        "drafting", 
-        "image", 
+        "image to drafting",
+        "imagetodrafting",
+        "drafting",
+        "image",
         "to"
-      ], 
-      "intent": "open_imagetodrafting", 
+      ],
+      "intent": "open_imagetodrafting",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\ImageToDrafting.pushbutton\\script.py"
-    }, 
+    },
     "DoorThreshold.pushbutton": {
-      "button": "DoorThreshold.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Door Threshold", 
+      "button": "DoorThreshold.pushbutton",
+      "panel": "Project.panel",
+      "title": "Door Threshold",
       "keywords": [
-        "door threshold", 
-        "doorthreshold", 
-        "threshold", 
+        "door threshold",
+        "doorthreshold",
+        "threshold",
         "door"
-      ], 
-      "intent": "open_doorthreshold", 
+      ],
+      "intent": "open_doorthreshold",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\DoorThreshold.pushbutton\\script.py"
-    }, 
-    "SelectSimilar_Category_InView.pushbutton": {
-      "button": "SelectSimilar_Category_InView.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Similar Category (View)", 
-      "keywords": [
-        "select similar category (view)", 
-        "selectsimilar_category_inview", 
-        "selectsimilar", 
-        "category", 
-        "similar", 
-        "inview", 
-        "select", 
-        "view"
-      ], 
-      "intent": "open_selectsimilar_category_inview", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar_Category_InView.pushbutton\\script.py"
-    }, 
+    },
     "ContainsManager.pushbutton": {
-      "button": "ContainsManager.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "Contains Manager", 
+      "button": "ContainsManager.pushbutton",
+      "panel": "Data.panel",
+      "title": "Contains Manager",
       "keywords": [
-        "contains manager", 
-        "containsmanager", 
-        "contains", 
+        "contains manager",
+        "containsmanager",
+        "contains",
         "manager"
-      ], 
-      "intent": "open_containsmanager", 
+      ],
+      "intent": "open_containsmanager",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Data.stack\\ContainsManager.pushbutton\\script.py"
-    }, 
+    },
     "Align Gridline.pushbutton": {
-      "button": "Align Gridline.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Align Grids", 
+      "button": "Align Gridline.pushbutton",
+      "panel": "Project.panel",
+      "title": "Align Grids",
       "keywords": [
-        "align gridline", 
-        "align grids", 
-        "gridline", 
-        "align", 
+        "align gridline",
+        "align grids",
+        "gridline",
+        "align",
         "grids"
-      ], 
-      "intent": "open_align_gridline", 
+      ],
+      "intent": "open_align_gridline",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Datum.pulldown\\Gridline.pulldown\\Align Gridline.pushbutton\\script.py"
-    }, 
-    "Restore All Grids.pushbutton": {
-      "button": "Restore All Grids.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Restore All Grids", 
-      "keywords": [
-        "restore all grids", 
-        "restore", 
-        "grids", 
-        "all"
-      ], 
-      "intent": "open_restore_all_grids", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Grids.pulldown\\Restore All Grids.pushbutton\\script.py"
-    }, 
+    },
     "HealthCheck.pushbutton": {
-      "button": "HealthCheck", 
-      "panel": "Settings.panel", 
-      "title": "Model Health", 
+      "button": "HealthCheck",
+      "panel": "Settings.panel",
+      "title": "Model Health",
       "keywords": [
-        "model health", 
-        "healthcheck", 
-        "health", 
+        "model health",
+        "healthcheck",
+        "health",
         "model"
-      ], 
-      "intent": "open_healthcheck", 
+      ],
+      "intent": "open_healthcheck",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\HealthCheck\\script.py"
-    }, 
+    },
     "PointCloud.pushbutton": {
-      "button": "PointCloud.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Point Cloud to Model", 
+      "button": "PointCloud.pushbutton",
+      "panel": "Project.panel",
+      "title": "Point Cloud to Model",
       "keywords": [
-        "point cloud to model", 
-        "pointcloud", 
-        "cloud", 
-        "model", 
-        "point", 
+        "point cloud to model",
+        "pointcloud",
+        "cloud",
+        "model",
+        "point",
         "to"
-      ], 
-      "intent": "open_pointcloud", 
+      ],
+      "intent": "open_pointcloud",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\PointCloud.pushbutton\\script.py"
-    }, 
+    },
     "AutoWork.pushbutton": {
-      "button": "AutoWork.pushbutton", 
-      "panel": "Standard.panel", 
-      "title": "Auto Work", 
+      "button": "AutoWork.pushbutton",
+      "panel": "Standard.panel",
+      "title": "Auto Work",
       "keywords": [
-        "auto work", 
-        "autowork", 
-        "auto", 
+        "auto work",
+        "autowork",
+        "auto",
         "work"
-      ], 
-      "intent": "open_autowork", 
+      ],
+      "intent": "open_autowork",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Standard.panel\\AutoWork.pushbutton\\script.py"
-    }, 
+    },
     "Wall Cut Profile.pushbutton": {
-      "button": "Wall Cut Profile.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Wall Profile Cut from Link", 
+      "button": "Wall Cut Profile.pushbutton",
+      "panel": "Project.panel",
+      "title": "Wall Profile Cut from Link",
       "keywords": [
-        "wall profile cut from link", 
-        "wall cut profile", 
-        "profile", 
-        "wall", 
-        "link", 
-        "from", 
+        "wall profile cut from link",
+        "wall cut profile",
+        "profile",
+        "wall",
+        "link",
+        "from",
         "cut"
-      ], 
-      "intent": "open_wall_cut_profile", 
+      ],
+      "intent": "open_wall_cut_profile",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\Wall Cut Profile.pushbutton\\script.py"
-    }, 
+    },
     "Wall_Split.pushbutton": {
-      "button": "Wall_Split.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Split Walls", 
+      "button": "Wall_Split.pushbutton",
+      "panel": "Project.panel",
+      "title": "Split Walls",
       "keywords": [
-        "split walls", 
-        "wall_split", 
-        "split", 
-        "walls", 
+        "split walls",
+        "wall_split",
+        "split",
+        "walls",
         "wall"
-      ], 
-      "intent": "open_wall_split", 
+      ],
+      "intent": "open_wall_split",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\Split.pulldown\\Wall_Split.pushbutton\\script.py"
-    }, 
+    },
     "JSON To Family.pushbutton": {
-      "button": "JSON To Family", 
-      "panel": "Project.panel", 
-      "title": "JSON to Family", 
+      "button": "JSON To Family",
+      "panel": "Project.panel",
+      "title": "JSON to Family",
       "keywords": [
-        "json to family", 
-        "family", 
-        "json", 
+        "json to family",
+        "family",
+        "json",
         "to"
-      ], 
-      "intent": "open_json_to_family", 
+      ],
+      "intent": "open_json_to_family",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\JSON To Family\\script.py"
-    }, 
-    "ParameterLoader.pushbutton": {
-      "button": "ParameterLoader.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "IFC-SG Loader", 
-      "keywords": [
-        "parameterloader", 
-        "ifc-sg loader", 
-        "loader", 
-        "ifc", 
-        "sg"
-      ], 
-      "intent": "open_parameterloader", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\ParameterLoader.pushbutton\\script.py"
-    }, 
+    },
     "ConvertLevel.pushbutton": {
-      "button": "ConvertLevel.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Level Swap", 
+      "button": "ConvertLevel.pushbutton",
+      "panel": "Project.panel",
+      "title": "Level Swap",
       "keywords": [
-        "convertlevel", 
-        "level swap", 
-        "level", 
+        "convertlevel",
+        "level swap",
+        "level",
         "swap"
-      ], 
-      "intent": "open_convertlevel", 
+      ],
+      "intent": "open_convertlevel",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Datum.pulldown\\Level.pulldown\\ConvertLevel.pushbutton\\script.py"
-    }, 
+    },
     "UIStandard.pushbutton": {
-      "button": "UIStandard.pushbutton", 
-      "panel": "Standard.panel", 
-      "title": "UIStandard", 
+      "button": "UIStandard.pushbutton",
+      "panel": "Standard.panel",
+      "title": "UIStandard",
       "keywords": [
         "uistandard"
-      ], 
-      "intent": "open_uistandard", 
+      ],
+      "intent": "open_uistandard",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Standard.panel\\UIStandard.pushbutton\\script.py"
-    }, 
-    "CADToElements.pushbutton": {
-      "button": "CADToElements.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "CAD to Elements", 
-      "keywords": [
-        "cad to elements", 
-        "cadtoelements", 
-        "elements", 
-        "cad", 
-        "to"
-      ], 
-      "intent": "open_cadtoelements", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\CADToElements.pushbutton\\script.py"
-    }, 
-    "Beam.pushbutton": {
-      "button": "Beam.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "CAD To Beam", 
-      "keywords": [
-        "cad to beam", 
-        "beam", 
-        "cad", 
-        "to"
-      ], 
-      "intent": "open_beam", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\Beam.pushbutton\\script.py"
-    }, 
+    },
     "BCF Reader.pushbutton": {
-      "button": "BCF Reader.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "BCF Reader", 
+      "button": "BCF Reader.pushbutton",
+      "panel": "Data.panel",
+      "title": "BCF Reader",
       "keywords": [
-        "bcf reader", 
-        "reader", 
+        "bcf reader",
+        "reader",
         "bcf"
-      ], 
-      "intent": "open_bcf_reader", 
+      ],
+      "intent": "open_bcf_reader",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Data.stack\\BCF Reader.pushbutton\\script.py"
-    }, 
-    "WorksetManager.pushbutton": {
-      "button": "WorksetManager.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Workset Manager", 
-      "keywords": [
-        "workset manager", 
-        "worksetmanager", 
-        "workset", 
-        "manager"
-      ], 
-      "intent": "open_worksetmanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Work.stack\\WorksetManager.pushbutton\\script.py"
-    }, 
+    },
     "SmartAlign.pushbutton": {
-      "button": "SmartAlign.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Smart Align", 
+      "button": "SmartAlign.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Smart Align",
       "keywords": [
-        "smart align", 
-        "align", 
-        "distribute", 
-        "horizontal", 
+        "smart align",
+        "align",
+        "distribute",
+        "horizontal",
         "vertical"
-      ], 
-      "intent": "open_smart_align", 
+      ],
+      "intent": "open_smart_align",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartAlign.pushbutton\\script.py"
-    }, 
+    },
     "ModelChecker.pushbutton": {
-      "button": "ModelChecker", 
-      "panel": "Settings.panel", 
-      "title": "Model Checker", 
+      "button": "ModelChecker",
+      "panel": "Settings.panel",
+      "title": "Model Checker",
       "keywords": [
-        "model checker", 
-        "modelchecker", 
-        "checker", 
+        "model checker",
+        "modelchecker",
+        "checker",
         "model"
-      ], 
-      "intent": "open_modelchecker", 
+      ],
+      "intent": "open_modelchecker",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\ModelChecker\\script.py"
-    }, 
-    "CadtoWall.pushbutton": {
-      "button": "CadtoWall.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "CAD to Wall", 
-      "keywords": [
-        "cad to wall", 
-        "cadtowall", 
-        "wall", 
-        "cad", 
-        "to"
-      ], 
-      "intent": "open_cadtowall", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\CadtoWall.pushbutton\\script.py"
-    }, 
-    "SheetHub.pushbutton": {
-      "button": "SheetHub.pushbutton", 
-      "panel": "ViewsSheets.panel", 
-      "title": "Sheet Hub", 
-      "keywords": [
-        "sheet hub", 
-        "sheethub", 
-        "sheet", 
-        "hub"
-      ], 
-      "intent": "open_sheethub", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\SheetHub.pushbutton\\script.py"
-    }, 
-    "Family Management.pushbutton": {
-      "button": "Family Management.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Family Management", 
-      "keywords": [
-        "family management", 
-        "management", 
-        "family"
-      ], 
-      "intent": "open_family_management", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Family Work 2.stack\\Family Management.pushbutton\\script.py"
-    }, 
-    "IFCSG_Assign.pushbutton": {
-      "button": "IFCSG_Assign.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "IFC-SG Assign", 
-      "keywords": [
-        "ifc-sg assign", 
-        "ifcsg_assign", 
-        "assign", 
-        "ifcsg", 
-        "ifc", 
-        "sg"
-      ], 
-      "intent": "open_ifcsg_assign", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\IFCSG_Assign.pushbutton\\script.py"
-    }, 
-    "ResetOverrides.pushbutton": {
-      "button": "ResetOverrides.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Reset Overrides", 
-      "keywords": [
-        "reset overrides", 
-        "resetoverrides", 
-        "overrides", 
-        "reset"
-      ], 
-      "intent": "open_resetoverrides", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\ResetOverrides.pushbutton\\script.py"
-    }, 
+    },
     "Align Level.pushbutton": {
-      "button": "Align Level.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Align Levels", 
+      "button": "Align Level.pushbutton",
+      "panel": "Project.panel",
+      "title": "Align Levels",
       "keywords": [
-        "align levels", 
-        "align level", 
-        "levels", 
-        "align", 
+        "align levels",
+        "align level",
+        "levels",
+        "align",
         "level"
-      ], 
-      "intent": "open_align_level", 
+      ],
+      "intent": "open_align_level",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Datum.pulldown\\Level.pulldown\\Align Level.pushbutton\\script.py"
-    }, 
-    "ParameterManager.pushbutton": {
-      "button": "ParameterManager.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "Parameter Manager", 
-      "keywords": [
-        "parameter manager", 
-        "parametermanager", 
-        "parameter", 
-        "manager"
-      ], 
-      "intent": "open_parametermanager", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\ParameterManager.pushbutton\\script.py"
-    }, 
+    },
     "SelectSimilar.pushbutton": {
-      "button": "SelectSimilar.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Similar", 
+      "button": "SelectSimilar.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Select Similar",
       "keywords": [
-        "select similar", 
-        "selectsimilar", 
-        "similar", 
+        "select similar",
+        "selectsimilar",
+        "similar",
         "select"
-      ], 
-      "intent": "open_selectsimilar", 
+      ],
+      "intent": "open_selectsimilar",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar.pushbutton\\script.py"
-    }, 
+    },
     "Ribbon Names.pushbutton": {
-      "button": "Ribbon Names.pushbutton", 
-      "panel": "Support.panel", 
-      "title": "Ribbon Name Manager", 
+      "button": "Ribbon Names.pushbutton",
+      "panel": "Support.panel",
+      "title": "Ribbon Name Manager",
       "keywords": [
-        "ribbon name manager", 
-        "ribbon names", 
-        "manager", 
-        "ribbon", 
-        "names", 
+        "ribbon name manager",
+        "ribbon names",
+        "manager",
+        "ribbon",
+        "names",
         "name"
-      ], 
-      "intent": "open_ribbon_names", 
+      ],
+      "intent": "open_ribbon_names",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\Ribbon Names.pushbutton\\script.py"
-    }, 
-    "SelectSimilar_Family_InModel.pushbutton": {
-      "button": "SelectSimilar_Family_InModel.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Similar Family (Model)", 
-      "keywords": [
-        "select similar family (model)", 
-        "selectsimilar_family_inmodel", 
-        "selectsimilar", 
-        "similar", 
-        "inmodel", 
-        "family", 
-        "select", 
-        "model"
-      ], 
-      "intent": "open_selectsimilar_family_inmodel", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar_Family_InModel.pushbutton\\script.py"
-    }, 
+    },
     "Floor_Split.pushbutton": {
-      "button": "Floor_Split.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Split Floor", 
+      "button": "Floor_Split.pushbutton",
+      "panel": "Project.panel",
+      "title": "Split Floor",
       "keywords": [
-        "split floor", 
-        "floor_split", 
-        "split", 
+        "split floor",
+        "floor_split",
+        "split",
         "floor"
-      ], 
-      "intent": "open_floor_split", 
+      ],
+      "intent": "open_floor_split",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\Split.pulldown\\Floor_Split.pushbutton\\script.py"
-    }, 
+    },
     "DeselectGroupedElements.pushbutton": {
-      "button": "DeselectGroupedElements.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Deselect Grouped", 
+      "button": "DeselectGroupedElements.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Deselect Grouped",
       "keywords": [
-        "deselectgroupedelements", 
-        "deselect grouped", 
-        "deselect", 
+        "deselectgroupedelements",
+        "deselect grouped",
+        "deselect",
         "grouped"
-      ], 
-      "intent": "open_deselectgroupedelements", 
+      ],
+      "intent": "open_deselectgroupedelements",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\DeselectGroupedElements.pushbutton\\script.py"
-    }, 
-    "Load Family.pushbutton": {
-      "button": "Load Family.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Load Family", 
-      "keywords": [
-        "load family", 
-        "family", 
-        "load"
-      ], 
-      "intent": "open_load_family", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Family Work 2.stack\\Load Family.pushbutton\\script.py"
-    }, 
+    },
     "Column_Split.pushbutton": {
-      "button": "Column_Split.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Split Columns", 
+      "button": "Column_Split.pushbutton",
+      "panel": "Project.panel",
+      "title": "Split Columns",
       "keywords": [
-        "split columns", 
-        "column_split", 
-        "columns", 
-        "column", 
+        "split columns",
+        "column_split",
+        "columns",
+        "column",
         "split"
-      ], 
-      "intent": "open_column_split", 
+      ],
+      "intent": "open_column_split",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\Split.pulldown\\Column_Split.pushbutton\\script.py"
-    }, 
+    },
     "SelectAllInPlaceElements.pushbutton": {
-      "button": "SelectAllInPlaceElements.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select In-Place", 
+      "button": "SelectAllInPlaceElements.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Select In-Place",
       "keywords": [
-        "selectallinplaceelements", 
-        "select in-place", 
-        "select", 
-        "place", 
+        "selectallinplaceelements",
+        "select in-place",
+        "select",
+        "place",
         "in"
-      ], 
-      "intent": "open_selectallinplaceelements", 
+      ],
+      "intent": "open_selectallinplaceelements",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectAllInPlaceElements.pushbutton\\script.py"
-    }, 
-    "SelectSimilar_Type_InModel.pushbutton": {
-      "button": "SelectSimilar_Type_InModel.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select Similar Type (Model)", 
-      "keywords": [
-        "select similar type (model)", 
-        "selectsimilar_type_inmodel", 
-        "selectsimilar", 
-        "inmodel", 
-        "similar", 
-        "select", 
-        "model", 
-        "type"
-      ], 
-      "intent": "open_selectsimilar_type_inmodel", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectSimilar_Type_InModel.pushbutton\\script.py"
-    }, 
-    "DWG Management.pushbutton": {
-      "button": "DWG Management.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "DWG Manager", 
-      "keywords": [
-        "dwg management", 
-        "dwg manager", 
-        "management", 
-        "manager", 
-        "dwg"
-      ], 
-      "intent": "open_dwg_management", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\DWG Management.pushbutton\\script.py"
-    }, 
-    "SelectOnSheets_DWG.pushbutton": {
-      "button": "SelectOnSheets_DWG.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "On Sheets: DWGs", 
-      "keywords": [
-        "selectonsheets_dwg", 
-        "on sheets: dwgs", 
-        "selectonsheets", 
-        "sheets", 
-        "dwgs", 
-        "dwg", 
-        "on"
-      ], 
-      "intent": "open_selectonsheets_dwg", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectOnSheets_DWG.pushbutton\\script.py"
-    }, 
-    "ScheduleExportImportPro.pushbutton": {
-      "button": "ScheduleExportImportPro", 
-      "panel": "Data.panel", 
-      "title": "Schedule Link Pro", 
-      "keywords": [
-        "scheduleexportimportpro", 
-        "schedule link pro", 
-        "schedule", 
-        "link", 
-        "pro"
-      ], 
-      "intent": "open_scheduleexportimportpro", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\ScheduleExportImportPro\\script.py"
-    }, 
-    "LocationManager.pushbutton": {
-      "button": "LocationManager.pushbutton", 
-      "panel": "Settings.panel", 
-      "title": "Location Manager", 
-      "keywords": [
-        "location manager", 
-        "locationmanager", 
-        "location", 
-        "manager"
-      ], 
-      "intent": "open_locationmanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\LocationManager.pushbutton\\script.py"
-    }, 
-    "Create Room Plan": {
-      "button": "Create Room Plan", 
-      "panel": "ViewsSheets.panel", 
-      "title": "Create Plan Views", 
-      "keywords": [
-        "create plan views", 
-        "create room plan", 
-        "create", 
-        "views", 
-        "plan", 
-        "room"
-      ], 
-      "intent": "open_create_room_plan", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\Create Room Plan\\script.py"
-    }, 
+    },
     "AutoJoin.pushbutton": {
-      "button": "AutoJoin.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "AutoJoin", 
+      "button": "AutoJoin.pushbutton",
+      "panel": "Project.panel",
+      "title": "AutoJoin",
       "keywords": [
         "autojoin"
-      ], 
-      "intent": "open_autojoin", 
+      ],
+      "intent": "open_autojoin",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Work.stack\\AutoJoin.pushbutton\\script.py"
-    }, 
-    "Tab Manager.pushbutton": {
-      "button": "Tab Manager.pushbutton", 
-      "panel": "Support.panel", 
-      "title": "Tab Manager", 
-      "keywords": [
-        "tab manager", 
-        "manager", 
-        "tab"
-      ], 
-      "intent": "open_tab_manager", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\Tab Manager.pushbutton\\script.py"
-    }, 
+    },
     "SelectByCategory.pushbutton": {
-      "button": "SelectByCategory.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Select By Category", 
+      "button": "SelectByCategory.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Select By Category",
       "keywords": [
-        "select by category", 
-        "selectbycategory", 
-        "category", 
-        "select", 
+        "select by category",
+        "selectbycategory",
+        "category",
+        "select",
         "by"
-      ], 
-      "intent": "open_selectbycategory", 
+      ],
+      "intent": "open_selectbycategory",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Select.pulldown\\SelectByCategory.pushbutton\\script.py"
-    }, 
-    "RoomDataCollector.pushbutton": {
-      "button": "RoomDataCollector.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "Room Data Collector", 
-      "keywords": [
-        "room data collector", 
-        "roomdatacollector", 
-        "collector", 
-        "room", 
-        "data"
-      ], 
-      "intent": "open_roomdatacollector", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Room & Foundation.pulldown\\RoomDataCollector.pushbutton\\script.py"
-    }, 
+    },
     "CentralFile.pushbutton": {
-      "button": "CentralFile.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Central File", 
+      "button": "CentralFile.pushbutton",
+      "panel": "Project.panel",
+      "title": "Central File",
       "keywords": [
-        "central file", 
-        "centralfile", 
-        "central", 
+        "central file",
+        "centralfile",
+        "central",
         "file"
-      ], 
-      "intent": "open_centralfile", 
+      ],
+      "intent": "open_centralfile",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Workset.stack\\CentralFile.pushbutton\\script.py"
-    }, 
-    "Restore Grids.pushbutton": {
-      "button": "Restore Grids.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Restore Grids", 
-      "keywords": [
-        "restore grids", 
-        "restore", 
-        "grids"
-      ], 
-      "intent": "open_restore_grids", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Grids.pulldown\\Restore Grids.pushbutton\\script.py"
-    }, 
-    "PDF import.pushbutton": {
-      "panel": "Support.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\PDF import.pushbutton\\script.py", 
-      "button": "PDF import.pushbutton", 
-      "keywords": [
-        "pdf to selected views", 
-        "pdf import", 
-        "selected", 
-        "import", 
-        "views", 
-        "pdf", 
-        "to"
-      ], 
-      "title": "PDF To Selected Views", 
-      "intent": "open_pdf_import"
-    }, 
+    },
     "ColorSplasher.pushbutton": {
-      "button": "ColorSplasher.pushbutton", 
-      "panel": "Settings.panel", 
-      "title": "Color Splasher", 
+      "button": "ColorSplasher.pushbutton",
+      "panel": "Settings.panel",
+      "title": "Color Splasher",
       "keywords": [
-        "color splasher", 
-        "colorsplasher", 
-        "splasher", 
+        "color splasher",
+        "colorsplasher",
+        "splasher",
         "color"
-      ], 
-      "intent": "open_colorsplasher", 
+      ],
+      "intent": "open_colorsplasher",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\Settings.stack\\ColorSplasher.pushbutton\\script.py"
-    }, 
-    "CleanupManager.pushbutton": {
-      "button": "CleanupManager.pushbutton", 
-      "panel": "Settings.panel", 
-      "title": "Cleanup Manager", 
-      "keywords": [
-        "cleanup manager", 
-        "cleanupmanager", 
-        "manager", 
-        "cleanup"
-      ], 
-      "intent": "open_cleanupmanager", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\CleanupManager.pushbutton\\script.py"
-    }, 
+    },
     "FamilyBatchCreator.pushbutton": {
-      "button": "FamilyBatchCreator.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Family Batch Creator", 
+      "button": "FamilyBatchCreator.pushbutton",
+      "panel": "Project.panel",
+      "title": "Family Batch Creator",
       "keywords": [
-        "family batch creator", 
-        "cad to family", 
-        "json to family", 
-        "batch", 
+        "family batch creator",
+        "cad to family",
+        "json to family",
+        "batch",
         "family"
-      ], 
-      "intent": "open_family_batch_creator", 
+      ],
+      "intent": "open_family_batch_creator",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\FamilyBatchCreator.pushbutton\\script.py"
-    }, 
-    "AnnotationManager.pushbutton": {
-      "button": "AnnotationManager.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Annotation Manager", 
-      "keywords": [
-        "annotation manager", 
-        "annotationmanager", 
-        "annotation", 
-        "manager"
-      ], 
-      "intent": "open_annotationmanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Text.stack\\AnnotationManager.pushbutton\\script.py"
-    }, 
+    },
     "Wall_Adjust Base.pushbutton": {
-      "button": "Wall_Adjust Base.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Auto Adjust Base Offset", 
+      "button": "Wall_Adjust Base.pushbutton",
+      "panel": "Project.panel",
+      "title": "Auto Adjust Base Offset",
       "keywords": [
-        "auto adjust base offset", 
-        "wall_adjust base", 
-        "adjust", 
-        "offset", 
-        "wall", 
-        "base", 
+        "auto adjust base offset",
+        "wall_adjust base",
+        "adjust",
+        "offset",
+        "wall",
+        "base",
         "auto"
-      ], 
-      "intent": "open_wall_adjust_base", 
+      ],
+      "intent": "open_wall_adjust_base",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\Wall_Adjust Base.pushbutton\\script.py"
-    }, 
-    "ScheduleManager.pushbutton": {
-      "button": "ScheduleManager.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "Schedule Manager", 
-      "keywords": [
-        "schedule manager", 
-        "schedulemanager", 
-        "schedule", 
-        "manager"
-      ], 
-      "intent": "open_schedulemanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\ScheduleManager.pushbutton\\script.py"
-    }, 
+    },
     "Warning.pushbutton": {
-      "button": "Warning", 
-      "panel": "Settings.panel", 
-      "title": "Warning Manage", 
+      "button": "Warning",
+      "panel": "Settings.panel",
+      "title": "Warning Manage",
       "keywords": [
-        "warning manage", 
-        "warning", 
+        "warning manage",
+        "warning",
         "manage"
-      ], 
-      "intent": "open_warning", 
+      ],
+      "intent": "open_warning",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\Warning\\script.py"
-    }, 
+    },
     "MCPControl.pushbutton": {
-      "button": "MCPControl.pushbutton", 
-      "panel": "AI Connection.panel", 
-      "title": "MCP Control", 
+      "button": "MCPControl.pushbutton",
+      "panel": "AI Connection.panel",
+      "title": "MCP Control",
       "keywords": [
-        "mcp control", 
-        "mcpcontrol", 
-        "control", 
+        "mcp control",
+        "mcpcontrol",
+        "control",
         "mcp"
-      ], 
-      "intent": "open_mcpcontrol", 
+      ],
+      "intent": "open_mcpcontrol",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\MCPControl.pushbutton\\script.py"
-    }, 
+    },
     "CAD To Family.pushbutton": {
-      "button": "CAD To Family", 
-      "panel": "Project.panel", 
-      "title": "CAD To Family", 
+      "button": "CAD To Family",
+      "panel": "Project.panel",
+      "title": "CAD To Family",
       "keywords": [
-        "cad to family", 
-        "family", 
-        "cad", 
+        "cad to family",
+        "family",
+        "cad",
         "to"
-      ], 
-      "intent": "open_cad_to_family", 
+      ],
+      "intent": "open_cad_to_family",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\CAD To Family\\script.py"
-    }, 
+    },
     "QuickElement.pushbutton": {
-      "button": "QuickElement.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Quick Select", 
+      "button": "QuickElement.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Quick Select",
       "keywords": [
-        "quickelement", 
-        "quick select", 
-        "select", 
+        "quickelement",
+        "quick select",
+        "select",
         "quick"
-      ], 
-      "intent": "open_quickelement", 
+      ],
+      "intent": "open_quickelement",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\QuickElement.pushbutton\\script.py"
-    }, 
-    "Transfer Para.pushbutton": {
-      "button": "Transfer Para", 
-      "panel": "Data.panel", 
-      "title": "Transfer Param Value", 
-      "keywords": [
-        "transfer param value", 
-        "transfer para", 
-        "transfer", 
-        "param", 
-        "value", 
-        "para"
-      ], 
-      "intent": "open_transfer_para", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Transfer Para\\script.py"
-    }, 
+    },
     "Material Select Element.pushbutton": {
-      "button": "Material Select Element.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Material Select Element", 
+      "button": "Material Select Element.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Material Select Element",
       "keywords": [
-        "material select element", 
-        "material", 
-        "element", 
+        "material select element",
+        "material",
+        "element",
         "select"
-      ], 
-      "intent": "open_material_select_element", 
+      ],
+      "intent": "open_material_select_element",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\SmartSelection.pulldown\\Material Select Element.pushbutton\\script.py"
-    }, 
+    },
     "SmartPurge.pushbutton": {
-      "button": "SmartPurge", 
-      "panel": "Settings.panel", 
-      "title": "Smart Purge", 
+      "button": "SmartPurge",
+      "panel": "Settings.panel",
+      "title": "Smart Purge",
       "keywords": [
-        "smart purge", 
-        "smartpurge", 
-        "smart", 
+        "smart purge",
+        "smartpurge",
+        "smart",
         "purge"
-      ], 
-      "intent": "open_smartpurge", 
+      ],
+      "intent": "open_smartpurge",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\SmartPurge\\script.py"
-    }, 
-    "Text to element.pushbutton": {
-      "button": "Text to element", 
-      "panel": "Data.panel", 
-      "title": "Text to Element", 
-      "keywords": [
-        "text to element", 
-        "element", 
-        "text", 
-        "to"
-      ], 
-      "intent": "open_text_to_element", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Text to element\\script.py"
-    }, 
-    "SheetManager": {
-      "button": "SheetManager", 
-      "panel": "ViewsSheets.panel", 
-      "title": "SheetManager", 
-      "keywords": [
-        "sheetmanager"
-      ], 
-      "intent": "open_sheetmanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\SheetManager\\script.py"
-    }, 
-    "ViewTemplate": {
-      "button": "ViewTemplate", 
-      "panel": "ViewsSheets.panel", 
-      "title": "View Template Manage", 
-      "keywords": [
-        "view template manage", 
-        "viewtemplate", 
-        "template", 
-        "manage", 
-        "view"
-      ], 
-      "intent": "open_viewtemplate", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewTemplate\\script.py"
-    }, 
-    "Foundation Volume.pushbutton": {
-      "button": "Foundation Volume.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "Foundation Volume", 
-      "keywords": [
-        "foundation volume", 
-        "foundation", 
-        "volume"
-      ], 
-      "intent": "open_foundation_volume", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Room & Foundation.pulldown\\Foundation Volume.pushbutton\\script.py"
-    }, 
+    },
     "Feedback.pushbutton": {
-      "button": "Feedback.pushbutton", 
-      "panel": "Support.panel", 
-      "title": "Send Feedback", 
+      "button": "Feedback.pushbutton",
+      "panel": "Support.panel",
+      "title": "Send Feedback",
       "keywords": [
-        "send feedback", 
-        "feedback", 
+        "send feedback",
+        "feedback",
         "send"
-      ], 
-      "intent": "open_feedback", 
+      ],
+      "intent": "open_feedback",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\Feedback.pushbutton\\script.py"
-    }, 
+    },
     "IFCSGChecker.pushbutton": {
-      "button": "IFCSGChecker.pushbutton", 
-      "panel": "Data.panel", 
-      "title": "IFC-SG Checker", 
+      "button": "IFCSGChecker.pushbutton",
+      "panel": "Data.panel",
+      "title": "IFC-SG Checker",
       "keywords": [
-        "ifc-sg checker", 
-        "ifcsgchecker", 
-        "checker", 
-        "ifc", 
+        "ifc-sg checker",
+        "ifcsgchecker",
+        "checker",
+        "ifc",
         "sg"
-      ], 
-      "intent": "open_ifcsgchecker", 
+      ],
+      "intent": "open_ifcsgchecker",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\IFCSGChecker.pushbutton\\script.py"
-    }, 
+    },
     "Renumber by spline.pushbutton": {
-      "button": "Renumber by spline.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Renumber Along Spline", 
+      "button": "Renumber by spline.pushbutton",
+      "panel": "Annotation.panel",
+      "title": "Renumber Along Spline",
       "keywords": [
-        "renumber along spline", 
-        "renumber by spline", 
-        "renumber", 
-        "spline", 
-        "along", 
+        "renumber along spline",
+        "renumber by spline",
+        "renumber",
+        "spline",
+        "along",
         "by"
-      ], 
-      "intent": "open_renumber_by_spline", 
+      ],
+      "intent": "open_renumber_by_spline",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Text.stack\\TextTagTools.pulldown\\Renumber by spline.pushbutton\\script.py"
-    }, 
+    },
     "BG Theme.pushbutton": {
-      "button": "BG Theme.pushbutton", 
-      "panel": "Support.panel", 
-      "title": "Background Theme", 
+      "button": "BG Theme.pushbutton",
+      "panel": "Support.panel",
+      "title": "Background Theme",
       "keywords": [
-        "background theme", 
-        "background", 
-        "bg theme", 
-        "theme", 
+        "background theme",
+        "background",
+        "bg theme",
+        "theme",
         "bg"
-      ], 
-      "intent": "open_bg_theme", 
+      ],
+      "intent": "open_bg_theme",
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\BG Theme.pushbutton\\script.py"
-    }, 
-    "FamilyManager.pushbutton": {
-      "button": "FamilyManager.pushbutton", 
-      "panel": "Project.panel", 
-      "title": "Family Manager", 
+    },
+    "ResetOverrides.pushbutton": {
+      "button": "ResetOverrides.pushbutton",
+      "panel": "Annotation.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\ResetOverrides.pushbutton\\script.py",
+      "title": "Reset Overrides",
+      "intent": "open_resetoverrides",
       "keywords": [
-        "family manager", 
-        "familymanager", 
-        "manager", 
+        "reset overrides",
+        "resetoverrides",
+        "overrides",
+        "reset"
+      ]
+    },
+    "SnapDimension.pushbutton": {
+      "button": "SnapDimension.pushbutton",
+      "panel": "Annotation.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\SnapDimension.pushbutton\\script.py",
+      "title": "Snap to Grid",
+      "intent": "open_snapdimension",
+      "keywords": [
+        "snapdimension",
+        "snap to grid",
+        "grid",
+        "snap",
+        "to"
+      ]
+    },
+    "ManaDWG.pushbutton": {
+      "button": "ManaDWG.pushbutton",
+      "panel": "Annotation.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\ManaDWG.pushbutton\\script.py",
+      "title": "DWG Manager",
+      "intent": "open_manadwg",
+      "keywords": [
+        "dwg manager",
+        "manager",
+        "manadwg",
+        "dwg"
+      ]
+    },
+    "ManaAnnotations.pushbutton": {
+      "button": "ManaAnnotations.pushbutton",
+      "panel": "Annotation.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Text.stack\\ManaAnnotations.pushbutton\\script.py",
+      "title": "Annotation Manager",
+      "intent": "open_manaannotations",
+      "keywords": [
+        "annotation manager",
+        "manaannotations",
+        "annotation",
+        "manager"
+      ]
+    },
+    "Foundation Volume.pushbutton": {
+      "button": "Foundation Volume.pushbutton",
+      "panel": "Data.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\Data.stack\\Foundation Volume.pushbutton\\script.py",
+      "title": "Foundation Volume",
+      "intent": "open_foundation_volume",
+      "keywords": [
+        "foundation volume",
+        "foundation",
+        "volume"
+      ]
+    },
+    "IFCSG_Assign.pushbutton": {
+      "button": "IFCSG_Assign.pushbutton",
+      "panel": "Data.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\IFCSG_Assign.pushbutton\\script.py",
+      "title": "IFC-SG Assign",
+      "intent": "open_ifcsg_assign",
+      "keywords": [
+        "ifc-sg assign",
+        "ifcsg_assign",
+        "assign",
+        "ifcsg",
+        "ifc",
+        "sg"
+      ]
+    },
+    "ManaParameters.pushbutton": {
+      "button": "ManaParameters.pushbutton",
+      "panel": "Data.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\ManaParameters.pushbutton\\script.py",
+      "title": "Parameter Manager",
+      "intent": "open_manaparameters",
+      "keywords": [
+        "parameter manager",
+        "manaparameters",
+        "parameter",
+        "manager"
+      ]
+    },
+    "ManaSchedules.pushbutton": {
+      "button": "ManaSchedules.pushbutton",
+      "panel": "Data.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\ManaSchedules.pushbutton\\script.py",
+      "title": "Schedule Manager",
+      "intent": "open_manaschedules",
+      "keywords": [
+        "schedule manager",
+        "manaschedules",
+        "schedule",
+        "manager"
+      ]
+    },
+    "CADToElements.pushbutton": {
+      "button": "CADToElements.pushbutton",
+      "panel": "Project.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\CADToElements.pushbutton\\script.py",
+      "title": "CAD to Elements",
+      "intent": "open_cadtoelements",
+      "keywords": [
+        "cad to elements",
+        "cadtoelements",
+        "elements",
+        "cad",
+        "to"
+      ]
+    },
+    "ManaDatums.pushbutton": {
+      "button": "ManaDatums.pushbutton",
+      "panel": "Project.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\ManaDatums.pushbutton\\script.py",
+      "title": "Datum Manager",
+      "intent": "open_manadatums",
+      "keywords": [
+        "datum manager",
+        "manadatums",
+        "manager",
+        "datum"
+      ]
+    },
+    "SplitElements.pushbutton": {
+      "button": "SplitElements.pushbutton",
+      "panel": "Project.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\SplitElements.pushbutton\\script.py",
+      "title": "Split Elements",
+      "intent": "open_splitelements",
+      "keywords": [
+        "split elements",
+        "splitelements",
+        "elements",
+        "split"
+      ]
+    },
+    "ManaFamilies.pushbutton": {
+      "button": "ManaFamilies.pushbutton",
+      "panel": "Project.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ManaFamilies.pushbutton\\script.py",
+      "title": "Family Manager",
+      "intent": "open_manafamilies",
+      "keywords": [
+        "family manager",
+        "manafamilies",
+        "manager",
         "family"
-      ], 
-      "intent": "open_familymanager", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\FamilyManager.pushbutton\\script.py"
+      ]
+    },
+    "Text to Element.pushbutton": {
+      "button": "Text to Element.pushbutton",
+      "panel": "Project.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Text to Element.pushbutton\\script.py",
+      "title": "Text to Element",
+      "intent": "open_text_to_element",
+      "keywords": [
+        "text to element",
+        "element",
+        "text",
+        "to"
+      ]
+    },
+    "ManaWorksets.pushbutton": {
+      "button": "ManaWorksets.pushbutton",
+      "panel": "Project.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Work.stack\\ManaWorksets.pushbutton\\script.py",
+      "title": "Workset Manager",
+      "intent": "open_manaworksets",
+      "keywords": [
+        "workset manager",
+        "manaworksets",
+        "workset",
+        "manager"
+      ]
+    },
+    "ManaCleanup.pushbutton": {
+      "button": "ManaCleanup.pushbutton",
+      "panel": "Settings.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\ManaCleanup.pushbutton\\script.py",
+      "title": "Cleanup Manager",
+      "intent": "open_manacleanup",
+      "keywords": [
+        "cleanup manager",
+        "manacleanup",
+        "cleanup",
+        "manager"
+      ]
+    },
+    "ManaLocations.pushbutton": {
+      "button": "ManaLocations.pushbutton",
+      "panel": "Settings.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\ManaLocations.pushbutton\\script.py",
+      "title": "Location Manager",
+      "intent": "open_manalocations",
+      "keywords": [
+        "location manager",
+        "manalocations",
+        "location",
+        "manager"
+      ]
+    },
+    "ManaStyles.pushbutton": {
+      "button": "ManaStyles.pushbutton",
+      "panel": "Settings.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\Settings.stack\\ManaStyles.pushbutton\\script.py",
+      "title": "Style Manager",
+      "intent": "open_manastyles",
+      "keywords": [
+        "style manager",
+        "manastyles",
+        "manager",
+        "style"
+      ]
+    },
+    "PDF import.pushbutton": {
+      "button": "PDF import.pushbutton",
+      "panel": "Support.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\PDF import.pushbutton\\script.py",
+      "title": "PDF Import",
+      "intent": "open_pdf_import",
+      "keywords": [
+        "pdf import",
+        "import",
+        "pdf"
+      ]
+    },
+    "ManaTabs.pushbutton": {
+      "button": "ManaTabs.pushbutton",
+      "panel": "Support.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\ManaTabs.pushbutton\\script.py",
+      "title": "ManaTabs",
+      "intent": "open_manatabs",
+      "keywords": [
+        "manatabs"
+      ]
+    },
+    "ManaSheets.pushbutton": {
+      "button": "ManaSheets.pushbutton",
+      "panel": "ViewsSheets.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ManaSheets.pushbutton\\script.py",
+      "title": "Sheet Manager",
+      "intent": "open_manasheets",
+      "keywords": [
+        "sheet manager",
+        "manasheets",
+        "manager",
+        "sheet"
+      ]
+    },
+    "ManaViews.pushbutton": {
+      "button": "ManaViews.pushbutton",
+      "panel": "ViewsSheets.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ManaViews.pushbutton\\script.py",
+      "title": "View Manager",
+      "intent": "open_manaviews",
+      "keywords": [
+        "view manager",
+        "manaviews",
+        "manager",
+        "view"
+      ]
+    },
+    "CreateRoomPlan.pushbutton": {
+      "button": "CreateRoomPlan.pushbutton",
+      "panel": "ViewsSheets.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewTools.stack\\CreateRoomPlan.pushbutton\\script.py",
+      "title": "CreateRoomPlan",
+      "intent": "open_createroomplan",
+      "keywords": [
+        "createroomplan"
+      ]
+    },
+    "LinkedElementBox.pushbutton": {
+      "button": "LinkedElementBox.pushbutton",
+      "panel": "ViewsSheets.panel",
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewTools.stack\\LinkedElementBox.pushbutton\\script.py",
+      "title": "LinkedElementBox",
+      "intent": "open_linkedelementbox",
+      "keywords": [
+        "linkedelementbox"
+      ]
     }
   }
 }

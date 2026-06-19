@@ -1,5 +1,5 @@
-title: "Contains\nManager"
-tooltip: Find elements in Rooms/Areas/Spaces and assign parameter values
+title: "ManaContains"
+tooltip: Find elements in Rooms/Areas/Spaces/Zones/Masses/Scope Boxes and assign values, or collect element data into spatial elements.
 author: Dang Quoc Truong (DQT)
 min_revit_ver: 2020
 max_revit_ver: 2025

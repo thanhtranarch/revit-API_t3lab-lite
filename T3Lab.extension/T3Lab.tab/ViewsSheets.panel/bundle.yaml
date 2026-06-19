@@ -1,5 +1,6 @@
 title: Views & Sheets
 layout:
-  - ViewHub
-  - SheetManager
+  - ManaViews
+  - ManaSheets
+  - CreateRoomPlan
   - BatchOut

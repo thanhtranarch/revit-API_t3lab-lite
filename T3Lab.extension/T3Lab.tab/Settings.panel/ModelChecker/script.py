@@ -33,7 +33,7 @@ clr.AddReference('System.Xml')
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI import *
 import System
-from System.Windows import *, WindowState
+from System.Windows import *
 from System.Windows.Controls import *
 from System.Windows.Media import *
 from System.Windows.Markup import XamlReader
@@ -1502,8 +1502,19 @@ class ModelCheckerWindow:
         self.rule_items = []
         
         # Parse XAML
-        xr = XmlReader.Create(StringReader(XAML_STR))
-        self.window = XamlReader.Load(xr)
+        # Find lib directory relative to script
+        script_dir = os.path.dirname(__file__)
+        xaml_path = os.path.normpath(os.path.join(script_dir, "../../../../lib/GUI/Tools/ModelChecker.xaml"))
+        if not os.path.exists(xaml_path):
+            # Fallback path if loaded inside library path
+            xaml_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "Tools", "ModelChecker.xaml"))
+            
+        from System.IO import FileStream, FileMode, FileAccess
+        fs = FileStream(xaml_path, FileMode.Open, FileAccess.Read)
+        try:
+            self.window = XamlReader.Load(fs)
+        finally:
+            fs.Close()
         
         # Get controls
         self._get_controls()
@@ -2194,9 +2205,10 @@ class ModelCheckerWindow:
 # =====================================================================
 # MAIN ENTRY POINT
 # =====================================================================
-try:
-    window = ModelCheckerWindow()
-    window.show()
-except Exception as e:
-    print("Error: {}".format(str(e)))
-    print(traceback.format_exc())
+if __name__ == '__main__':
+    try:
+        window = ModelCheckerWindow()
+        window.show()
+    except Exception as e:
+        print("Error: {}".format(str(e)))
+        print(traceback.format_exc())

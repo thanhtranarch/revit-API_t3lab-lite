@@ -1,4 +1,4 @@
-﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="T3Lab — Model Auditor"
         Width="480" Height="380"
@@ -1043,15 +1043,48 @@
             </Style.Triggers>
         </Style>
 
+        <!-- Tab Pill RadioButton Style -->
+        <Style x:Key="TabPillRadioButton" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="TabPills"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="White"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E2E2E6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
     </Window.Resources>
 
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="64"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="30"/>
+                <RowDefinition Height="64"/>   <!-- Row 0: Title Bar -->
+                <RowDefinition Height="Auto"/> <!-- Row 1: Pill Tab Navigation Bar -->
+                <RowDefinition Height="*"/>    <!-- Row 2: Active Tab Content -->
+                <RowDefinition Height="30"/>   <!-- Row 3: Status Bar / Footer -->
             </Grid.RowDefinitions>
 
             <!-- TITLE BAR -->
@@ -1094,59 +1127,71 @@
                 <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
             </Grid>
 
-            <!-- CONTENT: Tabs -->
-            <TabControl Grid.Row="1" Margin="0">
-                <TabItem Header="Audits &amp; Checks">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="16,12,16,12">
-                            <StackPanel Margin="0,0,0,16">
-                                <Button x:Name="btn_health_check" Content="Launch Health Check" Style="{StaticResource PrimaryButton}"/>
-                                <TextBlock Text="Analyze overall model health with a color-coded metrics dashboard."
-                                           FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                            <StackPanel Margin="0,0,0,12">
-                                <Button x:Name="btn_model_checker" Content="Launch Model Checker" Style="{StaticResource PrimaryButton}"/>
-                                <TextBlock Text="BIM compliance checking using customizable JSON checksets."
-                                           FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
+            <!-- PILL NAV BAR -->
+            <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="14,10">
+                <Border Background="#F4F4F6" CornerRadius="18" Padding="4" Height="36" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="btn_tab_health" Style="{StaticResource TabPillRadioButton}" Content="Health Dashboard" IsChecked="True"/>
+                        <RadioButton x:Name="btn_tab_compliance" Style="{StaticResource TabPillRadioButton}" Content="Compliance Checker"/>
+                        <RadioButton x:Name="btn_tab_warning" Style="{StaticResource TabPillRadioButton}" Content="Warning Manager"/>
+                        <RadioButton x:Name="btn_tab_elements" Style="{StaticResource TabPillRadioButton}" Content="Special Audits"/>
+                    </StackPanel>
+                </Border>
+            </Border>
+
+            <!-- CONTENT: TabControl with hidden headers -->
+            <TabControl x:Name="main_tab_control" Grid.Row="2" Margin="0" BorderThickness="0" Background="Transparent">
+                <TabControl.ItemContainerStyle>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                    </Style>
+                </TabControl.ItemContainerStyle>
+                <TabItem>
+                    <Grid x:Name="grid_health_check" Background="Transparent"/>
                 </TabItem>
-                <TabItem Header="Warnings">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="16,12,16,12">
-                            <StackPanel Margin="0,0,0,12">
-                                <Button x:Name="btn_warning_manager" Content="Launch Warning Manager" Style="{StaticResource PrimaryButton}"/>
-                                <TextBlock Text="Manage, locate, and fix Revit warning groups."
-                                           FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
+                <TabItem>
+                    <Grid x:Name="grid_model_checker" Background="Transparent"/>
                 </TabItem>
-                <TabItem Header="Special Audits">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="16,12,16,12">
-                            <StackPanel Margin="0,0,0,16">
-                                <Button x:Name="btn_inplace_model" Content="Launch In-Place Models" Style="{StaticResource PrimaryButton}"/>
-                                <TextBlock Text="Locate, rename, and manage in-place family components."
-                                           FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                <TabItem>
+                    <Grid x:Name="grid_warning_manager" Background="Transparent"/>
+                </TabItem>
+                <TabItem>
+                    <!-- Special Audits will contain a nested horizontal layout or split selection for In-Place / Material List -->
+                    <Grid x:Name="grid_special_audits" Background="Transparent">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <!-- Nested toggle buttons to choose between In-Place and Material List -->
+                        <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="14,6">
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton x:Name="btn_sub_inplace" Content="In-Place Models" IsChecked="True" Margin="0,0,12,0" FontWeight="SemiBold"/>
+                                <RadioButton x:Name="btn_sub_material" Content="Material List" FontWeight="SemiBold"/>
                             </StackPanel>
-                            <StackPanel Margin="0,0,0,12">
-                                <Button x:Name="btn_material_list" Content="Launch Material List" Style="{StaticResource PrimaryButton}"/>
-                                <TextBlock Text="Export and analyze model material usage data."
-                                           FontSize="11" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </ScrollViewer>
+                        </Border>
+                        <TabControl x:Name="sub_tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent">
+                            <TabControl.ItemContainerStyle>
+                                <Style TargetType="TabItem">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </Style>
+                            </TabControl.ItemContainerStyle>
+                            <TabItem>
+                                <Grid x:Name="grid_inplace_model"/>
+                            </TabItem>
+                            <TabItem>
+                                <Grid x:Name="grid_material_list"/>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
                 </TabItem>
             </TabControl>
 
             <!-- STATUS BAR -->
-            <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,6">
-                <TextBlock Text="Click a button above to run the selected auditor"
+            <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,6">
+                <TextBlock x:Name="status_text" Text="Ready"
                            FontSize="11" Foreground="#64748B" FontStyle="Italic"/>
             </Border>        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+            <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
         </Grid>
     </Border>
 </Window>

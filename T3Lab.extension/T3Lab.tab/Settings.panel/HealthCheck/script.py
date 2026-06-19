@@ -1605,13 +1605,14 @@ class ModelHealthWindow(Window):
 # ============================================================
 # MAIN
 # ============================================================
-try:
-    doc = __revit__.ActiveUIDocument.Document
-    uidoc = __revit__.ActiveUIDocument
-    window = ModelHealthWindow(doc, uidoc)
-    window.ShowDialog()
-except Exception as e:
-    from pyrevit import forms
-    forms.alert("Error launching Model Health Check:\n{}".format(str(e)),
-                title="Model Health Check - DQT",
-                exitscript=True)
+if __name__ == '__main__':
+    try:
+        doc = __revit__.ActiveUIDocument.Document
+        uidoc = __revit__.ActiveUIDocument
+        window = ModelHealthWindow(doc, uidoc)
+        window.ShowDialog()
+    except Exception as e:
+        from pyrevit import forms
+        forms.alert("Error launching Model Health Check:\n{}".format(str(e)),
+                    title="Model Health Check - DQT",
+                    exitscript=True)

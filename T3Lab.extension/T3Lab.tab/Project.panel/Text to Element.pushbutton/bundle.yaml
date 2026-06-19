@@ -1,0 +1,5 @@
+title: "Text to\nElement"
+tooltip: |
+  Text to Element — Transfer the text content of Text Notes to element parameters
+  based on spatial intersection (bounding box overlap) in the active view.
+author: "Tran Tien Thanh"

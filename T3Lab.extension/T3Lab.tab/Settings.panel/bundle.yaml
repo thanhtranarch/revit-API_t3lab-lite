@@ -1,6 +1,6 @@
 title: Standards & Settings
 layout:
   - ModelAuditor
-  - LocationManager
-  - CleanupManager
-  - Settings
+  - ManaLocations
+  - ManaCleanup
+  - VisualSettings

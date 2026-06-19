@@ -5,5 +5,7 @@ layout:
   - Areas
   - ElementAdjust
   - Family Work
-  - FamilyManager
-  - WorksetManager
+  - ManaFamilies
+  - ManaWorksets
+  - Text to Element
+  - Opening Assign Values

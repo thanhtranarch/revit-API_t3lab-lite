@@ -1,0 +1,8 @@
+title: ManaDWG
+tooltip: Manage CAD imports and CAD links (Collab with DQT)
+description: |
+  Manage CAD imports and CAD links in the current project.
+  List, rename, and delete DWG imports and links from a single interface.
+  Developed in collaboration with Dang Quoc Truong.
+author: Tran Tien Thanh & Dang Quoc Truong
+version: 1.1.0

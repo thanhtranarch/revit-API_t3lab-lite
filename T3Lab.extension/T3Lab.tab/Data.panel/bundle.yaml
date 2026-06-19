@@ -1,7 +1,6 @@
 title: Data & IFC-SG
 layout:
-  - ScheduleManager
-  - ParameterManager
-  - Room & Foundation
+  - ManaSchedules
+  - ManaParameters
   - IFC-SG
   - Data

@@ -1,4 +1,4 @@
-title: PDF Import
+title: "PDF\nImport"
 tooltip: Import PDF pages into selected Revit views sequentially
 description: |
   Opens a UI to pick a PDF file and select target views.
