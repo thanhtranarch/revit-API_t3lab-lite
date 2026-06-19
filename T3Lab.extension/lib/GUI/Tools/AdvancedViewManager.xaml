@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="View Manager"
+        Title="T3Lab — View Manager"
         Height="700" Width="1150"
         WindowStartupLocation="CenterScreen"
         Background="White"

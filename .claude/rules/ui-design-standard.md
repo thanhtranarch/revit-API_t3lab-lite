@@ -225,3 +225,4 @@ When a tool has multiple steps (BatchOut / TileLayout / ExportManager):
 - Non-embedded text or wrong Segoe icons on control buttons.
 - Hardcoded button background hexes.
 - Copyright block embedded inside templates instead of direct root Grid child.
+- **Dot-notation definitions**: Never use `<Grid.ColumnDefinition ... />` or `<Grid.RowDefinition ... />`. Always use standard `<ColumnDefinition ... />` and `<RowDefinition ... />` inside definition blocks. The dot-notation is parsed as an empty property element and will cause the runtime crash `Unexpected 'EMPTYPROPERTYELEMENT'`.

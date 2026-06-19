@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Sheet Hub"
+        Title="T3Lab — Sheet Hub"
         Width="460" Height="340"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"

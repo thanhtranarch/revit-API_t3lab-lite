@@ -1,8 +1,8 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-    Title="Auto Join"
+    Title="T3Lab — Auto Join"
     Height="620" Width="560"
     MinWidth="520" MinHeight="540"
     WindowStartupLocation="CenterScreen"

@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Auto Work - T3Lab"
+        Title="T3Lab — Auto Work"
         Width="620" Height="700"
         MinWidth="560" MinHeight="580"
         WindowStartupLocation="CenterScreen"

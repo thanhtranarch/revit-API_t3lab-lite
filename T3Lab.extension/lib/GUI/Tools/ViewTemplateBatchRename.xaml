@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Batch Rename View Templates"
+        Title="T3Lab — View Template Manager"
         Height="570" Width="600"
         WindowStartupLocation="CenterScreen"
         Background="#E4E4E7"

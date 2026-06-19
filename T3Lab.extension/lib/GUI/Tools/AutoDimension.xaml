@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Auto Dimension"
+        Title="T3Lab — Auto Dimension"
         Width="520" Height="820"
         MinWidth="480" MinHeight="600"
         WindowStartupLocation="CenterScreen"

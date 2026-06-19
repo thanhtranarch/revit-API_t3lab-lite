@@ -1,7 +1,7 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="DQT BCF Reader"
+    Title="T3Lab — BCF Reader"
     Width="1200" Height="780"
     WindowStartupLocation="CenterScreen"
     Background="#E4E4E7"

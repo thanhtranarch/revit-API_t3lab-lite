@@ -77,17 +77,17 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\Sheet re-number\\script.py"
     }, 
     "SplitElements.pushbutton": {
-      "panel": "Project.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\SplitElements.pushbutton\\script.py", 
       "button": "SplitElements.pushbutton", 
+      "panel": "Project.panel", 
+      "title": "Split Elements", 
       "keywords": [
         "split elements", 
         "splitelements", 
         "elements", 
         "split"
       ], 
-      "title": "Split Elements", 
-      "intent": "open_splitelements"
+      "intent": "open_splitelements", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\ElementAdjust.pulldown\\SplitElements.pushbutton\\script.py"
     }, 
     "InPlaceModel.pushbutton": {
       "button": "InPlaceModel", 
@@ -198,22 +198,22 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\AutoDimension.pushbutton\\script.py"
     }, 
     "DatumManager.pushbutton": {
-      "panel": "Project.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\DatumManager.pushbutton\\script.py", 
       "button": "DatumManager.pushbutton", 
+      "panel": "Project.panel", 
+      "title": "Datum Manager", 
       "keywords": [
         "datum manager", 
         "datummanager", 
         "manager", 
         "datum"
       ], 
-      "title": "Datum Manager", 
-      "intent": "open_datummanager"
+      "intent": "open_datummanager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\DatumManager.pushbutton\\script.py"
     }, 
     "SnapDimension.pushbutton": {
-      "panel": "Annotation.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\SnapDimension.pushbutton\\script.py", 
       "button": "SnapDimension.pushbutton", 
+      "panel": "Annotation.panel", 
+      "title": "Snap to Grid", 
       "keywords": [
         "snapdimension", 
         "snap to grid", 
@@ -221,8 +221,8 @@
         "snap", 
         "to"
       ], 
-      "title": "Snap to Grid", 
-      "intent": "open_snapdimension"
+      "intent": "open_snapdimension", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\SnapDimension.pushbutton\\script.py"
     }, 
     "SelectSimilar_Category_InModel.pushbutton": {
       "button": "SelectSimilar_Category_InModel.pushbutton", 
@@ -433,17 +433,17 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\Manual Assign.pushbutton\\script.py"
     }, 
     "ViewHub.pushbutton": {
-      "panel": "ViewsSheets.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewHub.pushbutton\\script.py", 
       "button": "ViewHub.pushbutton", 
+      "panel": "ViewsSheets.panel", 
+      "title": "View Hub", 
       "keywords": [
         "view hub", 
         "viewhub", 
         "view", 
         "hub"
       ], 
-      "title": "View Hub", 
-      "intent": "open_viewhub"
+      "intent": "open_viewhub", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\ViewHub.pushbutton\\script.py"
     }, 
     "IFCSG Subtype Definer.pushbutton": {
       "button": "IFCSG Subtype Definer.pushbutton", 
@@ -682,9 +682,9 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Standard.panel\\UIStandard.pushbutton\\script.py"
     }, 
     "CADToElements.pushbutton": {
-      "panel": "Project.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\CADToElements.pushbutton\\script.py", 
       "button": "CADToElements.pushbutton", 
+      "panel": "Project.panel", 
+      "title": "CAD to Elements", 
       "keywords": [
         "cad to elements", 
         "cadtoelements", 
@@ -692,8 +692,8 @@
         "cad", 
         "to"
       ], 
-      "title": "CAD to Elements", 
-      "intent": "open_cadtoelements"
+      "intent": "open_cadtoelements", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\CADToElements.pushbutton\\script.py"
     }, 
     "Beam.pushbutton": {
       "button": "Beam.pushbutton", 
@@ -775,17 +775,17 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Create Elements.pulldown\\CadtoWall.pushbutton\\script.py"
     }, 
     "SheetHub.pushbutton": {
-      "panel": "ViewsSheets.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\SheetHub.pushbutton\\script.py", 
       "button": "SheetHub.pushbutton", 
+      "panel": "ViewsSheets.panel", 
+      "title": "Sheet Hub", 
       "keywords": [
         "sheet hub", 
         "sheethub", 
         "sheet", 
         "hub"
       ], 
-      "title": "Sheet Hub", 
-      "intent": "open_sheethub"
+      "intent": "open_sheethub", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\ViewsSheets.panel\\SheetManager.stack\\SheetHub.pushbutton\\script.py"
     }, 
     "Family Management.pushbutton": {
       "button": "Family Management.pushbutton", 
@@ -800,9 +800,9 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Family Work 2.stack\\Family Management.pushbutton\\script.py"
     }, 
     "IFCSG_Assign.pushbutton": {
-      "panel": "Data.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\IFCSG_Assign.pushbutton\\script.py", 
       "button": "IFCSG_Assign.pushbutton", 
+      "panel": "Data.panel", 
+      "title": "IFC-SG Assign", 
       "keywords": [
         "ifc-sg assign", 
         "ifcsg_assign", 
@@ -811,21 +811,21 @@
         "ifc", 
         "sg"
       ], 
-      "title": "IFC-SG Assign", 
-      "intent": "open_ifcsg_assign"
+      "intent": "open_ifcsg_assign", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\IFC-SG.pulldown\\IFCSG_Assign.pushbutton\\script.py"
     }, 
     "ResetOverrides.pushbutton": {
-      "panel": "Annotation.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\ResetOverrides.pushbutton\\script.py", 
       "button": "ResetOverrides.pushbutton", 
+      "panel": "Annotation.panel", 
+      "title": "Reset Overrides", 
       "keywords": [
         "reset overrides", 
         "resetoverrides", 
         "overrides", 
         "reset"
       ], 
-      "title": "Reset Overrides", 
-      "intent": "open_resetoverrides"
+      "intent": "open_resetoverrides", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Graphics.stack\\ResetOverrides.pushbutton\\script.py"
     }, 
     "Align Level.pushbutton": {
       "button": "Align Level.pushbutton", 
@@ -842,17 +842,17 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Create.stack\\Datum.pulldown\\Level.pulldown\\Align Level.pushbutton\\script.py"
     }, 
     "ParameterManager.pushbutton": {
-      "panel": "Data.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\ParameterManager.pushbutton\\script.py", 
       "button": "ParameterManager.pushbutton", 
+      "panel": "Data.panel", 
+      "title": "Parameter Manager", 
       "keywords": [
         "parameter manager", 
         "parametermanager", 
         "parameter", 
         "manager"
       ], 
-      "title": "Parameter Manager", 
-      "intent": "open_parametermanager"
+      "intent": "open_parametermanager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Data.panel\\ParameterManager.pushbutton\\script.py"
     }, 
     "SelectSimilar.pushbutton": {
       "button": "SelectSimilar.pushbutton", 
@@ -1065,16 +1065,16 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\Work.stack\\AutoJoin.pushbutton\\script.py"
     }, 
     "Tab Manager.pushbutton": {
-      "panel": "Support.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\Tab Manager.pushbutton\\script.py", 
       "button": "Tab Manager.pushbutton", 
+      "panel": "Support.panel", 
+      "title": "Tab Manager", 
       "keywords": [
         "tab manager", 
         "manager", 
         "tab"
       ], 
-      "title": "Tab Manager", 
-      "intent": "open_tab_manager"
+      "intent": "open_tab_manager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\Tab Manager.pushbutton\\script.py"
     }, 
     "SelectByCategory.pushbutton": {
       "button": "SelectByCategory.pushbutton", 
@@ -1129,6 +1129,22 @@
       "intent": "open_restore_grids", 
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Grids.pulldown\\Restore Grids.pushbutton\\script.py"
     }, 
+    "PDF import.pushbutton": {
+      "panel": "Support.panel", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\PDF import.pushbutton\\script.py", 
+      "button": "PDF import.pushbutton", 
+      "keywords": [
+        "pdf to selected views", 
+        "pdf import", 
+        "selected", 
+        "import", 
+        "views", 
+        "pdf", 
+        "to"
+      ], 
+      "title": "PDF To Selected Views", 
+      "intent": "open_pdf_import"
+    }, 
     "ColorSplasher.pushbutton": {
       "button": "ColorSplasher.pushbutton", 
       "panel": "Settings.panel", 
@@ -1143,30 +1159,17 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\Settings.stack\\ColorSplasher.pushbutton\\script.py"
     }, 
     "CleanupManager.pushbutton": {
-      "panel": "Settings.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\CleanupManager.pushbutton\\script.py", 
       "button": "CleanupManager.pushbutton", 
+      "panel": "Settings.panel", 
+      "title": "Cleanup Manager", 
       "keywords": [
         "cleanup manager", 
         "cleanupmanager", 
         "manager", 
         "cleanup"
       ], 
-      "title": "Cleanup Manager", 
-      "intent": "open_cleanupmanager"
-    }, 
-    "AnnotationManager.pushbutton": {
-      "button": "AnnotationManager.pushbutton", 
-      "panel": "Annotation.panel", 
-      "title": "Annotation Manager", 
-      "keywords": [
-        "annotation manager", 
-        "annotationmanager", 
-        "annotation", 
-        "manager"
-      ], 
-      "intent": "open_annotationmanager", 
-      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Text.stack\\AnnotationManager.pushbutton\\script.py"
+      "intent": "open_cleanupmanager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Settings.panel\\CleanupManager.pushbutton\\script.py"
     }, 
     "FamilyBatchCreator.pushbutton": {
       "button": "FamilyBatchCreator.pushbutton", 
@@ -1181,6 +1184,19 @@
       ], 
       "intent": "open_family_batch_creator", 
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\FamilyBatchCreator.pushbutton\\script.py"
+    }, 
+    "AnnotationManager.pushbutton": {
+      "button": "AnnotationManager.pushbutton", 
+      "panel": "Annotation.panel", 
+      "title": "Annotation Manager", 
+      "keywords": [
+        "annotation manager", 
+        "annotationmanager", 
+        "annotation", 
+        "manager"
+      ], 
+      "intent": "open_annotationmanager", 
+      "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Annotation.panel\\Text.stack\\AnnotationManager.pushbutton\\script.py"
     }, 
     "Wall_Adjust Base.pushbutton": {
       "button": "Wall_Adjust Base.pushbutton", 
@@ -1408,17 +1424,17 @@
       "script_path": "d:\\01. T3Lab\\02 Revit Tools\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Support.panel\\UI.stack\\BG Theme.pushbutton\\script.py"
     }, 
     "FamilyManager.pushbutton": {
-      "panel": "Project.panel", 
-      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\FamilyManager.pushbutton\\script.py", 
       "button": "FamilyManager.pushbutton", 
+      "panel": "Project.panel", 
+      "title": "Family Manager", 
       "keywords": [
         "family manager", 
         "familymanager", 
         "manager", 
         "family"
       ], 
-      "title": "Family Manager", 
-      "intent": "open_familymanager"
+      "intent": "open_familymanager", 
+      "script_path": "C:\\Users\\tran_tienthanh\\OneDrive - Woh Hup (Private) Limited\\Documents\\T3Lab Architect\\t3lab-revit-api\\T3Lab.extension\\T3Lab.tab\\Project.panel\\FamilyManager.pushbutton\\script.py"
     }
   }
 }

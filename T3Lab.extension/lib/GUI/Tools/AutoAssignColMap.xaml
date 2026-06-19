@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Column Mapping - IFC-SG Auto Assign - T3Lab"
+        Title="T3Lab — IFC-SG Auto Assign"
         Width="560" Height="500"
         WindowStartupLocation="CenterScreen"
         Background="White"

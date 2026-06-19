@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       Title="Create Room Plan - T3Lab"
+       Title="T3Lab — Create Room Plan"
        Width="750" Height="700"
        MinWidth="600" MinHeight="550"
        WindowStartupLocation="CenterScreen"

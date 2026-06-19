@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="IFC-SG Subtype Definer - T3Lab"
+        Title="T3Lab — IFC-SG Subtype Definer"
         Width="1150" Height="740"
         WindowStartupLocation="CenterScreen"
         Background="#E4E4E7"

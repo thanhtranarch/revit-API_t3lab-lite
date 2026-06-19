@@ -508,6 +508,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def minimize_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
 
+    def maximize_clicked(self, sender, e):
+        from System.Windows import WindowState
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+        else:
+            self.WindowState = WindowState.Maximized
+
     def undo_clicked(self, sender, e):
         """Undo the last Revit transaction."""
         try:
@@ -540,13 +547,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
         btn = Button()
         btn.Content = title
         btn.Margin = Thickness(0, 0, 8, 4)
-        btn.Padding = Thickness(10, 4, 10, 4)
         btn.Cursor = System.Windows.Input.Cursors.Hand
         
-        # Simple styling
-        from System.Windows.Media import SolidColorBrush, Color
-        btn.Background = SolidColorBrush(Color.FromRgb(236, 240, 241))
-        btn.BorderBrush = SolidColorBrush(Color.FromRgb(189, 195, 199))
+        try:
+            btn.Style = self.FindResource('TertiaryButton')
+        except Exception:
+            # Fallback styling if TertiaryButton isn't loaded for some reason
+            from System.Windows.Media import SolidColorBrush, Color
+            btn.Background = SolidColorBrush(Color.FromRgb(236, 240, 241))
+            btn.BorderBrush = SolidColorBrush(Color.FromRgb(189, 195, 199))
         
         def _on_click(s, e):
             self._run_tool(intent, u"Mở " + title)

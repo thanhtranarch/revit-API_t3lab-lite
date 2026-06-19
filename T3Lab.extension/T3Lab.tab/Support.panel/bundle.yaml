@@ -1,8 +1,8 @@
 title: AI & Support
 layout:
+  - CloudLinks
+  - UI
+  - PDF import
   - T3LabAssistant
   - MCPControl
-  - UI
-  - CloudLinks
   - Feedback
-  - PDF import

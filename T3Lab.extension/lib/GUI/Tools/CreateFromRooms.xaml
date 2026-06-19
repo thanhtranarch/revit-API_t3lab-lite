@@ -1,7 +1,7 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Create From Rooms"
+    Title="T3Lab — Create From Rooms"
     Height="500" Width="420"
     MinWidth="400" MinHeight="460"
     WindowStartupLocation="CenterScreen"

@@ -13,7 +13,7 @@ Author: Tran Tien Thanh & Dang Quoc Truong
 """
 
 __author__  = "Tran Tien Thanh & Dang Quoc Truong"
-__title__   = "AutoJoin"
+__title__   = "Auto\nJoin"
 __version__ = "1.1.0"
 
 # IMPORT LIBRARIES

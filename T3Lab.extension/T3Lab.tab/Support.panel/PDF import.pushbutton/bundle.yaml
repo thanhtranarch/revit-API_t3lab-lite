@@ -1,9 +1,9 @@
-﻿title: Send Feedback
-tooltip: Send feedback or suggestions to the T3Lab team
+title: PDF Import
+tooltip: Import PDF pages into selected Revit views sequentially
 description: |
-  Opens a popup to write feedback or suggestions.
-  The message is sent by email to trantienthanh909@gmail.com
-  using a consistent, clearly formatted subject line.
+  Opens a UI to pick a PDF file and select target views.
+  Imports each PDF page into the corresponding view in order.
+  Supports resolution control (150 / 300 / 600 DPI).
 
 author: Tran Tien Thanh
-version: 1.0.0
+version: 2.0.0

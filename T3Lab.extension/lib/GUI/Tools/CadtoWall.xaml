@@ -1,7 +1,7 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="CAD to Wall - T3Lab"
+    Title="T3Lab — CAD to Wall"
     Width="750" Height="720"
     MinWidth="650" MinHeight="550"
     WindowStartupLocation="CenterScreen"

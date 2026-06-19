@@ -1,7 +1,7 @@
-<Window
+﻿<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Tag Checker - T3Lab"
+    Title="T3Lab — Tag Checker"
     Width="640" Height="760"
     WindowStartupLocation="CenterScreen"
     ResizeMode="CanResizeWithGrip"

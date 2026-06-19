@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Property Line Tool - T3Lab"
+        Title="T3Lab — Property Line"
         Width="1000" Height="760"
         MinWidth="800" MinHeight="680"
         WindowStartupLocation="CenterScreen"
@@ -10,11 +10,11 @@
         FontFamily="Hanken Grotesk"
         FontSize="12">
 
-        <WindowChrome.WindowChrome>
+    <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="8"
+                       CornerRadius="22"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1056,45 +1056,40 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
+
     </Window.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="64"/>    <!-- Modern Title bar -->
-            <RowDefinition Height="*"/>     <!-- 2-Column Content -->
-            <RowDefinition Height="Auto"/>  <!-- Bottom Action + Status bar -->
-        </Grid.RowDefinitions>
+    <!-- ═══ Outer Border: CornerRadius + ClipToBounds (Lumina standard) ═══ -->
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>    <!-- Col 0: Left Sidebar Icon Rail -->
+                <ColumnDefinition Width="*"/>     <!-- Col 1: Main content area -->
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="64"/>    <!-- Modern Title bar -->
+                <RowDefinition Height="*"/>     <!-- 2-Column Content -->
+                <RowDefinition Height="Auto"/>  <!-- Bottom Action + Status bar -->
+            </Grid.RowDefinitions>
 
         <!-- ═══════════════════════════════════════════════════════════ MODERN TITLE BAR -->
-        <Grid Grid.Row="0" Background="White" Height="64">
+        <Grid Grid.Column="1" Grid.Row="0" Background="#F4F4F6" Height="64">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <!-- T3Lab Title + Subtitle Brand layout -->
-            <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center" Margin="24,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,2"/>
-                    <TextBlock Text="Property Line Tool" FontSize="18" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Bottom"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Lookup and create property line boundaries from cadastral data" FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="24,0,0,0" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
+                <TextBlock Text="Property Line Tool" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Lookup and create property line boundaries from cadastral data" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <!-- Window controls + Profile Icon -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 
-                <!-- Profile circular icon from design image -->
-                <Border Width="32" Height="32" CornerRadius="16" Background="#F3F4F6" BorderBrush="#E5E7EB" BorderThickness="1" 
-                        VerticalAlignment="Center" Margin="0,0,16,0" ToolTip="User Profile">
-                    <Grid>
-                        <!-- Stylized modern human head outline -->
-                        <Ellipse Width="10" Height="10" Fill="#9CA3AF" VerticalAlignment="Top" Margin="0,6,0,0"/>
-                        <Path Data="M 6,24 A 10,10 0 0,1 26,24 Z" Fill="#9CA3AF" Stretch="Fill" VerticalAlignment="Bottom" Height="10" Margin="4,0,4,3"/>
-                    </Grid>
-                </Border>
+
 
                 <!-- Minimize -->
                 <Button x:Name="btn_minimize"
@@ -1125,23 +1120,430 @@
             
             <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
         </Grid>
+        
+        <!-- ═══════════════════════════════════════════════════════════ LEFT SIDEBAR ICON RAIL -->
+        <Border Grid.Column="0" Grid.RowSpan="3" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+            <Grid Margin="0,16,0,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/> <!-- Logo -->
+                    <RowDefinition Height="Auto"/> <!-- Search Tab Toggle -->
+                    <RowDefinition Height="Auto"/> <!-- API Tab Toggle -->
+                    <RowDefinition Height="*"/>    <!-- Spacer -->
+                </Grid.RowDefinitions>
 
-        <!-- ═══════════════════════════════════════════════════════════ CONTENT (2-COLUMN) -->
-        <Grid Grid.Row="1" Background="White">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="340"/> <!-- Left column: API Config & Details -->
-                <ColumnDefinition Width="*"/>   <!-- Right column: Search & Results -->
-            </Grid.ColumnDefinitions>
+                <!-- Logo: Property Line document icon -->
+                <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                        Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                        HorizontalAlignment="Center" Margin="0,0,0,20">
+                    <Path Data="M6 14 L12 4 L22 8 L18 20 L8 18 Z"
+                          Stroke="#18181B" StrokeThickness="1.6" StrokeLineJoin="Round"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Width="16" Height="16" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
 
-            <!-- LEFT COLUMN (Scrollable details and configuration) -->
-            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="24,20,12,20">
-                <StackPanel>
+                <!-- Tab: Search -->
+                <ToggleButton x:Name="btn_tab_search" Grid.Row="1"
+                              Style="{StaticResource T3SidebarToggle}"
+                              Margin="0,0,0,8" IsChecked="True"
+                              ToolTip="Search Parcels" Click="btn_tab_search_Click">
+                    <Path Data="M12 4 A6 6 0 1 0 12 16 A6 6 0 1 0 12 4 M18 18 L15 15"
+                          Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Width="17" Height="17" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+
+                <!-- Tab: API Settings -->
+                <ToggleButton x:Name="btn_tab_api" Grid.Row="2"
+                              Style="{StaticResource T3SidebarToggle}"
+                              Margin="0,0,0,8"
+                              ToolTip="API Settings" Click="btn_tab_api_Click">
+                    <Path Data="M8 12 A3 3 0 1 0 8 6 A3 3 0 1 0 8 12 M11 9 L17 9 M15 9 L15 12 M17 9 L17 12"
+                          Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Width="17" Height="17" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+            </Grid>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════════════ MAIN CONTENT AREA -->
+        <Grid Grid.Column="1" Grid.Row="1" Background="White">
+            
+            <!-- ─── SEARCH TAB CONTENT ─── -->
+            <Grid x:Name="grid_search_tab" Visibility="Visible">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>   <!-- Main column: Search, Map, Results, Options -->
+                    <ColumnDefinition Width="Auto"/> <!-- Details column: APN Details, Setbacks, Project Data -->
+                </Grid.ColumnDefinitions>
+
+                <!-- MAIN COLUMN (Scrollable search, map, results, creation options) -->
+                <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="24,20,12,20">
+                    <StackPanel>
+                        
+                        <!-- ─── ADDRESS SEARCH CARD ─── -->
+                        <GroupBox Header="Search Property by Address" Style="{StaticResource T3PremiumCard}">
+                            <StackPanel>
+                                <TextBlock Text="US Property Address" Style="{StaticResource FieldLabel}"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="txt_address"
+                                             Grid.Column="0"
+                                             Style="{StaticResource T3InputField}"
+                                             KeyDown="txt_address_KeyDown"
+                                             ToolTip="e.g. 123 Main St, Los Angeles, CA 90001"
+                                             Margin="0,0,8,0"/>
+                                    <Button x:Name="btn_search"
+                                            Grid.Column="1"
+                                            Content="Search"
+                                            Width="100"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Click="btn_search_Click"/>
+                                </Grid>
+                                
+                                <!-- Inline address validation warning -->
+                                <TextBlock x:Name="txt_address_warning"
+                                           Foreground="#B45309" FontSize="11"
+                                           Margin="0,0,0,6" TextWrapping="Wrap"
+                                           Visibility="Collapsed"/>
+                                <TextBlock Text="Example: 2255 Erwin Ah B., Ossana Mululerd, Carstore, CA 23062"
+                                           Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- ─── SEARCH RESULTS CARD (MAP + RADIO BUTTONS) ─── -->
+                        <GroupBox Header="Search Results" Style="{StaticResource T3PremiumCard}">
+                            <Grid Height="300">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.3*"/> <!-- Map view -->
+                                    <ColumnDefinition Width="1.7*"/> <!-- Address radio list -->
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Column 0: Map Container -->
+                                <Border Grid.Column="0" Background="#F3F4F6" CornerRadius="6" BorderBrush="#E5E7EB" BorderThickness="1" ClipToBounds="True" Margin="0,0,20,0">
+                                    <Grid>
+                                        <!-- Beautiful Vector Road Line Placeholder -->
+                                        <Canvas Opacity="0.3">
+                                            <Path Stroke="#FFFFFF" StrokeThickness="16" Data="M -50,80 L 400,120 M 120,-50 L 160,400 M -20,200 L 350,80"/>
+                                            <Path Stroke="#E5E7EB" StrokeThickness="8" Data="M -50,80 L 400,120 M 120,-50 L 160,400 M -20,200 L 350,80"/>
+                                            <Path Stroke="#FFFFFF" StrokeThickness="10" Data="M 40,-50 Q 70,100 280,260"/>
+                                            <Path Stroke="#E5E7EB" StrokeThickness="5" Data="M 40,-50 Q 70,100 280,260"/>
+                                        </Canvas>
+                                        
+                                        <!-- Dynamic Loaded Map Image -->
+                                        <Image x:Name="img_map_preview" Stretch="UniformToFill"/>
+                                        
+                                        <!-- Centered Location Pin Overlay -->
+                                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" Margin="0,0,0,14">
+                                            <Ellipse Fill="#3B82F6" Width="14" Height="14" VerticalAlignment="Top" HorizontalAlignment="Center"/>
+                                            <Ellipse Fill="White" Width="5" Height="5" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                            <Path Fill="#3B82F6" Data="M 6,10 L 12,6 L 12,9 Z" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="14" Width="12" Stretch="Fill" Margin="0,8,0,0"/>
+                                        </Grid>
+                                        
+                                        <!-- Map Preview Watermark Label in bottom-left -->
+                                        <Border Background="White" CornerRadius="3" Padding="8,4" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" BorderBrush="#E5E7EB" BorderThickness="1">
+                                            <TextBlock Text="Map Preview" FontSize="10" Foreground="#4B5563" FontWeight="SemiBold"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Column 1: Selection Lists & Placeholders -->
+                                <Grid Grid.Column="1">
+                                    <!-- Empty state text helper -->
+                                    <Border x:Name="border_no_results"
+                                            Background="Transparent" 
+                                            VerticalAlignment="Center" 
+                                            HorizontalAlignment="Center"
+                                            Padding="16">
+                                        <TextBlock Text="Enter an address above and click Search to find parcels"
+                                                   Foreground="#9CA3AF" 
+                                                   TextWrapping="Wrap" 
+                                                   HorizontalAlignment="Center"
+                                                   TextAlignment="Center"
+                                                   FontSize="12"
+                                                   FontStyle="Italic"/>
+                                    </Border>
+
+                                    <!-- Custom Radio Button Style List View -->
+                                    <ListView x:Name="lv_parcels"
+                                              Background="Transparent"
+                                              BorderThickness="0"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                              SelectionMode="Single"
+                                              Visibility="Collapsed"
+                                              SelectionChanged="lv_parcels_SelectionChanged">
+                                        <ListView.ItemContainerStyle>
+                                            <Style TargetType="ListViewItem">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Padding" Value="8,10"/>
+                                                <Setter Property="Margin" Value="0,2"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ListViewItem">
+                                                            <Border Background="{TemplateBinding Background}"
+                                                                    Padding="{TemplateBinding Padding}"
+                                                                    CornerRadius="4"
+                                                                    Cursor="Hand">
+                                                                <ContentPresenter/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="#F3F4F6"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsSelected" Value="True">
+                                                                    <Setter Property="Background" Value="#EFF6FF"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ListView.ItemContainerStyle>
+
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Custom Radio Circle visual matches standard RadioButton -->
+                                                    <Grid Grid.Column="0" Width="18" Height="18" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                        <Ellipse Stroke="#D1D5DB" StrokeThickness="2" Fill="White" x:Name="outerRing"/>
+                                                        <Ellipse Fill="#3B82F6" Width="8" Height="8" Visibility="Collapsed" x:Name="dot"/>
+                                                    </Grid>
+
+                                                    <TextBlock Grid.Column="1" 
+                                                               Text="{Binding display_address}" 
+                                                               FontSize="13" 
+                                                               Foreground="#1F2937" 
+                                                               VerticalAlignment="Center"
+                                                               TextWrapping="Wrap"/>
+                                                </Grid>
+
+                                                <!-- Trigger to checked radio button visuals upon selection -->
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                                        <Setter TargetName="outerRing" Property="Stroke" Value="#3B82F6"/>
+                                                        <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                            </Grid>
+                        </GroupBox>
+
+                        <!-- ─── REVIT CREATION OPTIONS CARD ─── -->
+                        <GroupBox Header="Revit Creation Options" Style="{StaticResource T3PremiumCard}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                    <TextBlock Text="Elevation (ft)" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="txt_elevation" Text="0.0"
+                                             Style="{StaticResource T3InputField}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                    <TextBlock Text="Line Category" Style="{StaticResource FieldLabel}"/>
+                                    <ComboBox x:Name="cmb_line_type"
+                                              Style="{StaticResource T3ComboBox}"
+                                              ToolTip="Note: Revit API does not support direct PropertyLine creation.">
+                                        <ComboBoxItem Content="Model Lines" IsSelected="True"/>
+                                        <ComboBoxItem Content="Detail Lines"/>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Origin" Style="{StaticResource FieldLabel}"/>
+                                    <ComboBox x:Name="cmb_origin"
+                                              Style="{StaticResource T3ComboBox}">
+                                        <ComboBoxItem Content="Project Base Point" IsSelected="True"/>
+                                        <ComboBoxItem Content="Survey Point"/>
+                                        <ComboBoxItem Content="World Origin (0,0,0)"/>
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- DETAILS COLUMN (Scrollable details and configuration, collapsed by default) -->
+                <ScrollViewer x:Name="scroll_details" Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="12,20,24,20" Width="360" Visibility="Collapsed">
+                    <StackPanel>
+
+                        <!-- ─── SELECTED PARCEL DETAILS CARD (Collapsed initially) ─── -->
+                        <GroupBox x:Name="grp_parcel_details"
+                                  Header="Selected Parcel Details"
+                                  Style="{StaticResource T3PremiumCard}"
+                                  Visibility="Collapsed">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0">
+                                    <TextBlock Text="Parcel ID (APN)" Style="{StaticResource FieldLabel}"/>
+                                    <TextBlock x:Name="txt_detail_id" Foreground="#1F2937" FontSize="13" Margin="0,0,0,12" FontWeight="Medium"/>
+
+                                    <TextBlock Text="Address" Style="{StaticResource FieldLabel}"/>
+                                    <TextBlock x:Name="txt_detail_address" Foreground="#1F2937" FontSize="13" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="County" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_county" Foreground="#1F2937" FontSize="13"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="State" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_state" Foreground="#1F2937" FontSize="13"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1">
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Zoning Code" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_zoning" Foreground="#D97706" FontSize="13" FontWeight="Bold"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="Area" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_area" Foreground="#10B981" FontSize="13" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Vertices" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_vertices" Foreground="#4B5563" FontSize="13"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="Flood Zone (FEMA)" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_flood" Foreground="#4B5563" FontSize="13"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <TextBlock Text="Land Use" Style="{StaticResource FieldLabel}"/>
+                                    <TextBlock x:Name="txt_detail_land_use" Foreground="#4B5563" FontSize="13" Margin="0,0,0,12"/>
+
+                                    <TextBlock Text="Legal Description" Style="{StaticResource FieldLabel}"/>
+                                    <TextBlock x:Name="txt_detail_legal" Foreground="#4B5563" Margin="0,0,0,14" TextWrapping="Wrap" FontSize="11" LineHeight="15"/>
+                                </StackPanel>
+
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="btn_download_map"
+                                            Grid.Column="0"
+                                            Content="🗺  Save Map"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="btn_download_map_Click"
+                                            ToolTip="Export parcel map view overlay as high-res PNG file."/>
+                                    <Button x:Name="btn_google_maps"
+                                            Grid.Column="2"
+                                            Content="📍  Google Maps"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="btn_google_maps_Click"
+                                            ToolTip="Open this parcel's location in Google Maps."/>
+                                </Grid>
+                            </Grid>
+                        </GroupBox>
+
+                        <!-- ─── SETBACK LINES CARD (Collapsed initially) ─── -->
+                        <GroupBox x:Name="grp_setback"
+                                  Header="Setback Information"
+                                  Style="{StaticResource T3PremiumCard}"
+                                  Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Setback distances from parcel data (read-only):"
+                                           Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
+                                <TextBlock x:Name="txt_setback_info"
+                                           Foreground="#1F2937" FontSize="13" FontWeight="SemiBold"
+                                           TextWrapping="Wrap" LineHeight="18"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- ─── PROJECT DATA PREVIEW CARD (Collapsed initially) ─── -->
+                        <GroupBox x:Name="grp_project_data"
+                                  Header="Project Data"
+                                  Style="{StaticResource T3PremiumCard}"
+                                  Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Auto-generated from parcel registry."
+                                           Foreground="#9CA3AF" FontSize="10" FontStyle="Italic"
+                                           Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                <Border Background="#F9FAFB" CornerRadius="4" Padding="12"
+                                        BorderBrush="#E5E7EB" BorderThickness="1"
+                                        Margin="0,0,0,12">
+                                    <TextBlock x:Name="txt_project_data"
+                                               Foreground="#374151"
+                                               FontFamily="Consolas, Courier New, monospace"
+                                               FontSize="11"
+                                               TextWrapping="Wrap"
+                                               LineHeight="16"/>
+                                </Border>
+                                <Button x:Name="btn_copy_project_data"
+                                    Content="Copy to Clipboard"
+                                    HorizontalAlignment="Stretch"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="btn_copy_project_data_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid> <!-- Closes grid_search_tab -->
+
+        <!-- ─── API TAB CONTENT ─── -->
+        <Grid x:Name="grid_api_tab" Visibility="Collapsed">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20,24,20">
+                <StackPanel MaxWidth="600" HorizontalAlignment="Left">
                     
-                    <!-- ─── API KEY CARD ─── -->
-                    <GroupBox Header="API Configuration" Style="{StaticResource T3PremiumCard}">
+                    <!-- Header / Title for Settings -->
+                    <TextBlock Text="API Settings" FontSize="18" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,8"/>
+                    <TextBlock Text="Configure your Lightbox RE integration here to search and fetch cadastral properties."
+                               FontSize="13" Foreground="#64748B" Margin="0,0,0,24"/>
+
+                    <!-- API Key card -->
+                    <GroupBox Header="Lightbox RE API Key" Style="{StaticResource T3PremiumCard}">
                         <StackPanel>
-                            <TextBlock Text="Lightbox API Key" Style="{StaticResource FieldLabel}"/>
-                            <Grid Margin="0,0,0,8">
+                            <TextBlock Text="This key is used to authenticate requests to Lightbox RE API." FontSize="12.5" Foreground="#64748B" Margin="0,0,0,16" TextWrapping="Wrap"/>
+                            
+                            <TextBlock Text="API Key" Style="{StaticResource FieldLabel}"/>
+                            <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -1153,427 +1555,133 @@
                                          Margin="0,0,8,0"/>
                                 <Button x:Name="btn_save_key"
                                         Grid.Column="1"
-                                        Content="Save"
+                                        Content="Save Key"
                                         Style="{StaticResource SecondaryButton}"
                                         Click="btn_save_key_Click"/>
                             </Grid>
-                            <TextBlock x:Name="txt_api_status"
-                                       Text="No API key configured"
-                                       Foreground="#EF4444"
-                                       FontSize="11"
-                                       FontWeight="Medium"/>
-                        </StackPanel>
-                    </GroupBox>
-
-                    <!-- ─── SELECTED PARCEL DETAILS CARD (Collapsed initially) ─── -->
-                    <GroupBox x:Name="grp_parcel_details"
-                              Header="Selected Parcel Details"
-                              Style="{StaticResource T3PremiumCard}"
-                              Visibility="Collapsed">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <StackPanel Grid.Row="0">
-                                <TextBlock Text="Parcel ID (APN)" Style="{StaticResource FieldLabel}"/>
-                                <TextBlock x:Name="txt_detail_id" Foreground="#1F2937" FontSize="13" Margin="0,0,0,12" FontWeight="Medium"/>
-
-                                <TextBlock Text="Address" Style="{StaticResource FieldLabel}"/>
-                                <TextBlock x:Name="txt_detail_address" Foreground="#1F2937" FontSize="13" Margin="0,0,0,12" TextWrapping="Wrap"/>
-
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="County" Style="{StaticResource FieldLabel}"/>
-                                        <TextBlock x:Name="txt_detail_county" Foreground="#1F2937" FontSize="13"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="State" Style="{StaticResource FieldLabel}"/>
-                                        <TextBlock x:Name="txt_detail_state" Foreground="#1F2937" FontSize="13"/>
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="1">
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Zoning Code" Style="{StaticResource FieldLabel}"/>
-                                        <TextBlock x:Name="txt_detail_zoning" Foreground="#D97706" FontSize="13" FontWeight="Bold"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Area" Style="{StaticResource FieldLabel}"/>
-                                        <TextBlock x:Name="txt_detail_area" Foreground="#10B981" FontSize="13" FontWeight="Bold"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Vertices" Style="{StaticResource FieldLabel}"/>
-                                        <TextBlock x:Name="txt_detail_vertices" Foreground="#4B5563" FontSize="13"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Flood Zone (FEMA)" Style="{StaticResource FieldLabel}"/>
-                                        <TextBlock x:Name="txt_detail_flood" Foreground="#4B5563" FontSize="13"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <TextBlock Text="Land Use" Style="{StaticResource FieldLabel}"/>
-                                <TextBlock x:Name="txt_detail_land_use" Foreground="#4B5563" FontSize="13" Margin="0,0,0,12"/>
-
-                                <TextBlock Text="Legal Description" Style="{StaticResource FieldLabel}"/>
-                                <TextBlock x:Name="txt_detail_legal" Foreground="#4B5563" Margin="0,0,0,14" TextWrapping="Wrap" FontSize="11" LineHeight="15"/>
-                            </StackPanel>
-
-                            <Button x:Name="btn_download_map"
-                                    Grid.Row="2"
-                                    Content="🗺  Save Parcel Map PNG"
-                                    HorizontalAlignment="Stretch"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Click="btn_download_map_Click"
-                                    ToolTip="Export parcel map view overlay as high-res PNG file."/>
-                        </Grid>
-                    </GroupBox>
-
-                    <!-- ─── SETBACK LINES CARD (Collapsed initially) ─── -->
-                    <GroupBox x:Name="grp_setback"
-                              Header="Setback Information"
-                              Style="{StaticResource T3PremiumCard}"
-                              Visibility="Collapsed">
-                        <StackPanel>
-                            <TextBlock Text="Setback distances from parcel data (read-only):"
-                                       Style="{StaticResource FieldLabel}" Margin="0,0,0,8"/>
-                            <TextBlock x:Name="txt_setback_info"
-                                       Foreground="#1F2937" FontSize="13" FontWeight="SemiBold"
-                                       TextWrapping="Wrap" LineHeight="18"/>
-                        </StackPanel>
-                    </GroupBox>
-
-                    <!-- ─── PROJECT DATA PREVIEW CARD (Collapsed initially) ─── -->
-                    <GroupBox x:Name="grp_project_data"
-                              Header="Project Data"
-                              Style="{StaticResource T3PremiumCard}"
-                              Visibility="Collapsed">
-                        <StackPanel>
-                            <TextBlock Text="Auto-generated from parcel registry."
-                                       Foreground="#9CA3AF" FontSize="10" FontStyle="Italic"
-                                       Margin="0,0,0,8" TextWrapping="Wrap"/>
-                            <Border Background="#F9FAFB" CornerRadius="4" Padding="12"
-                                    BorderBrush="#E5E7EB" BorderThickness="1"
-                                    Margin="0,0,0,12">
-                                <TextBlock x:Name="txt_project_data"
-                                           Foreground="#374151"
-                                           FontFamily="Consolas, Courier New, monospace"
-                                           FontSize="11"
-                                           TextWrapping="Wrap"
-                                           LineHeight="16"/>
-                            </Border>
-                            <Button x:Name="btn_copy_project_data"
-                                    Content="Copy to Clipboard"
-                                    HorizontalAlignment="Stretch"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Click="btn_copy_project_data_Click"/>
-                        </StackPanel>
-                    </GroupBox>
-                </StackPanel>
-            </ScrollViewer>
-
-            <!-- RIGHT COLUMN (Scrollable search, map, parcel lists, creation options) -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="12,20,24,20">
-                <StackPanel>
-                    
-                    <!-- ─── ADDRESS SEARCH CARD ─── -->
-                    <GroupBox Header="Search Property by Address" Style="{StaticResource T3PremiumCard}">
-                        <StackPanel>
-                            <TextBlock Text="US Property Address" Style="{StaticResource FieldLabel}"/>
-                            <Grid Margin="0,0,0,8">
+                            
+                            <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox x:Name="txt_address"
-                                         Grid.Column="0"
-                                         Style="{StaticResource T3InputField}"
-                                         KeyDown="txt_address_KeyDown"
-                                         ToolTip="e.g. 123 Main St, Los Angeles, CA 90001"
-                                         Margin="0,0,8,0"/>
-                                <Button x:Name="btn_search"
+                                <TextBlock x:Name="txt_api_status"
+                                           Grid.Column="0"
+                                           Text="No API key configured"
+                                           Foreground="#EF4444"
+                                           FontSize="12"
+                                           FontWeight="Medium"
+                                           VerticalAlignment="Center"/>
+                                <!-- Standard Button styled as a link -->
+                                <Button x:Name="btn_get_api_key"
                                         Grid.Column="1"
-                                        Content="Search"
-                                        Width="100"
-                                        Style="{StaticResource PrimaryButton}"
-                                        Click="btn_search_Click"/>
+                                        Content="Get API Key"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Foreground="#3B82F6"
+                                        Cursor="Hand"
+                                        VerticalAlignment="Center"
+                                        Click="btn_get_api_key_Click">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <TextBlock Text="{TemplateBinding Content}" TextDecorations="Underline" Foreground="{TemplateBinding Foreground}"/>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
                             </Grid>
-                            
-                            <!-- Inline address validation warning -->
-                            <TextBlock x:Name="txt_address_warning"
-                                       Foreground="#B45309" FontSize="11"
-                                       Margin="0,0,0,6" TextWrapping="Wrap"
-                                       Visibility="Collapsed"/>
-                            <TextBlock Text="Example: 2255 Erwin Ah B., Ossana Mululerd, Carstore, CA 23062"
-                                       Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
                         </StackPanel>
                     </GroupBox>
 
-                    <!-- ─── SEARCH RESULTS CARD (MAP + RADIO BUTTONS) ─── -->
-                    <GroupBox Header="Search Results" Style="{StaticResource T3PremiumCard}">
-                        <Grid Height="300">
-                            <Grid.ColumnDefinitions>
-                                <Grid.ColumnDefinition Width="1.3*"/> <!-- Map view -->
-                                <Grid.ColumnDefinition Width="1.7*"/> <!-- Address radio list -->
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Column 0: Map Container -->
-                            <Border Grid.Column="0" Background="#F3F4F6" CornerRadius="6" BorderBrush="#E5E7EB" BorderThickness="1" ClipToBounds="True" Margin="0,0,20,0">
-                                <Grid>
-                                    <!-- Beautiful Vector Road Line Placeholder -->
-                                    <Canvas Opacity="0.3">
-                                        <Path Stroke="#FFFFFF" StrokeThickness="16" Data="M -50,80 L 400,120 M 120,-50 L 160,400 M -20,200 L 350,80"/>
-                                        <Path Stroke="#E5E7EB" StrokeThickness="8" Data="M -50,80 L 400,120 M 120,-50 L 160,400 M -20,200 L 350,80"/>
-                                        <Path Stroke="#FFFFFF" StrokeThickness="10" Data="M 40,-50 Q 70,100 280,260"/>
-                                        <Path Stroke="#E5E7EB" StrokeThickness="5" Data="M 40,-50 Q 70,100 280,260"/>
-                                    </Canvas>
-                                    
-                                    <!-- Dynamic Loaded Map Image -->
-                                    <Image x:Name="img_map_preview" Stretch="UniformToFill"/>
-                                    
-                                    <!-- Centered Location Pin Overlay -->
-                                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="32" Height="32" Margin="0,0,0,14">
-                                        <Ellipse Fill="#3B82F6" Width="14" Height="14" VerticalAlignment="Top" HorizontalAlignment="Center"/>
-                                        <Ellipse Fill="White" Width="5" Height="5" VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                        <Path Fill="#3B82F6" Data="M 6,10 L 12,6 L 12,9 Z" HorizontalAlignment="Center" VerticalAlignment="Bottom" Height="14" Width="12" Stretch="Fill" Margin="0,8,0,0"/>
-                                    </Grid>
-                                    
-                                    <!-- Map Preview Watermark Label in bottom-left -->
-                                    <Border Background="White" CornerRadius="3" Padding="8,4" Margin="10" HorizontalAlignment="Left" VerticalAlignment="Bottom" BorderBrush="#E5E7EB" BorderThickness="1">
-                                        <TextBlock Text="Map Preview" FontSize="10" Foreground="#4B5563" FontWeight="SemiBold"/>
-                                    </Border>
-                                </Grid>
-                            </Border>
-
-                            <!-- Column 1: Selection Lists & Placeholders -->
-                            <Grid Grid.Column="1">
-                                <!-- Empty state text helper -->
-                                <Border x:Name="border_no_results"
-                                        Background="Transparent" 
-                                        VerticalAlignment="Center" 
-                                        HorizontalAlignment="Center"
-                                        Padding="16">
-                                    <TextBlock Text="Enter an address above and click Search to find parcels"
-                                               Foreground="#9CA3AF" 
-                                               TextWrapping="Wrap" 
-                                               HorizontalAlignment="Center"
-                                               TextAlignment="Center"
-                                               FontSize="12"
-                                               FontStyle="Italic"/>
-                                </Border>
-
-                                <!-- Custom Radio Button Style List View -->
-                                <ListView x:Name="lv_parcels"
-                                          Background="Transparent"
-                                          BorderThickness="0"
-                                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                          SelectionMode="Single"
-                                          Visibility="Collapsed"
-                                          SelectionChanged="lv_parcels_SelectionChanged">
-                                    <ListView.ItemContainerStyle>
-                                        <Style TargetType="ListViewItem">
-                                            <Setter Property="Background" Value="Transparent"/>
-                                            <Setter Property="Padding" Value="8,10"/>
-                                            <Setter Property="Margin" Value="0,2"/>
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListViewItem">
-                                                        <Border Background="{TemplateBinding Background}"
-                                                                Padding="{TemplateBinding Padding}"
-                                                                CornerRadius="4"
-                                                                Cursor="Hand">
-                                                            <ContentPresenter/>
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter Property="Background" Value="#F3F4F6"/>
-                                                            </Trigger>
-                                                            <Trigger Property="IsSelected" Value="True">
-                                                                <Setter Property="Background" Value="#EFF6FF"/>
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                        </Style>
-                                    </ListView.ItemContainerStyle>
-
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-
-                                                <!-- Custom Radio Circle visual matches standard RadioButton -->
-                                                <Grid Grid.Column="0" Width="18" Height="18" Margin="0,0,12,0" VerticalAlignment="Center">
-                                                    <Ellipse Stroke="#D1D5DB" StrokeThickness="2" Fill="White" x:Name="outerRing"/>
-                                                    <Ellipse Fill="#3B82F6" Width="8" Height="8" Visibility="Collapsed" x:Name="dot"/>
-                                                </Grid>
-
-                                                <TextBlock Grid.Column="1" 
-                                                           Text="{Binding display_address}" 
-                                                           FontSize="13" 
-                                                           Foreground="#1F2937" 
-                                                           VerticalAlignment="Center"
-                                                           TextWrapping="Wrap"/>
-                                            </Grid>
-
-                                            <!-- Trigger to checked radio button visuals upon selection -->
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
-                                                    <Setter TargetName="outerRing" Property="Stroke" Value="#3B82F6"/>
-                                                    <Setter TargetName="dot" Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                            </Grid>
-                        </Grid>
-                    </GroupBox>
-
-                    <!-- ─── REVIT CREATION OPTIONS CARD ─── -->
-                    <GroupBox Header="Revit Creation Options" Style="{StaticResource T3PremiumCard}">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <Grid.ColumnDefinition Width="*"/>
-                                <Grid.ColumnDefinition Width="*"/>
-                                <Grid.ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                <TextBlock Text="Elevation (ft)" Style="{StaticResource FieldLabel}"/>
-                                <TextBox x:Name="txt_elevation" Text="0.0"
-                                         Style="{StaticResource T3InputField}"/>
+                    <!-- Informative/Alert Box -->
+                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="20,16" Margin="0,8,0,16">
+                        <StackPanel>
+                            <TextBlock Text="About Lightbox API Integration" FontSize="14" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Lightbox RE provides comprehensive coverage of US property boundaries and assessor information. Key features of this integration include:" FontSize="12.5" Foreground="#3F3F46" Margin="0,0,0,12" TextWrapping="Wrap"/>
+                            
+                            <StackPanel Margin="12,0,0,0">
+                                <TextBlock Text="• Cadastral boundary coordinates (lat/long polygons)" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4"/>
+                                <TextBlock Text="• Detailed property metadata (APN, zoning, land use, county)" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4"/>
+                                <TextBlock Text="• FEMA flood zone status and municipal setbacks" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4"/>
+                                <TextBlock Text="• OSM map imagery generation overlay" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4"/>
                             </StackPanel>
-
-                            <StackPanel Grid.Column="1" Margin="0,0,12,0">
-                                <TextBlock Text="Line Category" Style="{StaticResource FieldLabel}"/>
-                                <ComboBox x:Name="cmb_line_type"
-                                          Background="White"
-                                          Foreground="#1F2937"
-                                          BorderBrush="#D1D5DB"
-                                          Padding="10,8"
-                                          ToolTip="Note: Revit API does not support direct PropertyLine creation.">
-                                    <ComboBoxItem Content="Model Lines" IsSelected="True"/>
-                                    <ComboBoxItem Content="Detail Lines"/>
-                                </ComboBox>
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Origin" Style="{StaticResource FieldLabel}"/>
-                                <ComboBox x:Name="cmb_origin"
-                                          Background="White"
-                                          Foreground="#1F2937"
-                                          BorderBrush="#D1D5DB"
-                                          Padding="10,8">
-                                    <ComboBoxItem Content="Project Base Point" IsSelected="True"/>
-                                    <ComboBoxItem Content="Survey Point"/>
-                                    <ComboBoxItem Content="World Origin (0,0,0)"/>
-                                </ComboBox>
-                            </StackPanel>
-                        </Grid>
-                    </GroupBox>
-
+                        </StackPanel>
+                    </Border>
+                    
                 </StackPanel>
             </ScrollViewer>
         </Grid>
 
+        </Grid> <!-- Closes parent Content Grid -->
+
         <!-- ═══════════════════════════════════════════════════════════ COMBINED BOTTOM BAR -->
-        <Border Grid.Row="2" Background="#F8FAFC"
-                BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                Padding="24,16">
+        <Border Grid.Column="1" Grid.Row="2" Background="#F4F4F6"
+                BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
+                Padding="20,14">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Status panel on the left -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="txt_status"
-                               Text="Ready. Enter an address to begin."
-                               Foreground="#4B5563"
-                               FontSize="12"
-                               VerticalAlignment="Center" Grid.Column="0"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                </StackPanel>
-            </Grid>
+                <!-- Left: Action Buttons -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Button x:Name="btn_create"
+                            Style="{StaticResource PrimaryButton}"
+                            IsEnabled="False"
+                            Click="btn_create_Click"
+                            Padding="20,10"
+                            Margin="0,0,8,0"
+                            BorderBrush="White"
+                            BorderThickness="2">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Location pin Segoe glyph inside blue button text -->
+                            <TextBlock Text="&#xE707;"
+                                       FontFamily="Segoe MDL2 Assets"
+                                       FontSize="12"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="White"/>
+                            <TextBlock Text="Create Property Lines in Revit"
+                                       VerticalAlignment="Center"
+                                       FontWeight="Bold"/>
+                        </StackPanel>
+                    </Button>
 
-                    
-                    <!-- Circle status separator dot -->
-                    <Ellipse x:Name="dot_status"
-                             Width="6" Height="6"
-                             Fill="#6B7280"
-                             VerticalAlignment="Center"
-                             Margin="12,0"/>
-                    
-                    <TextBlock x:Name="txt_status_label"
-                               Text="Idle"
-                               Foreground="#4B5563"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-
-                <!-- Close & Action Buttons inline on the right -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="btn_cancel"
                             Content="Close"
                             Width="90"
                             Style="{StaticResource SecondaryButton}"
                             Click="btn_close_Click"
-                            Margin="0,0,12,0"/>
-                    
-                    <Button x:Name="btn_create"
-                            Style="{StaticResource PrimaryButton}"
-                            IsEnabled="False"
-                            Click="btn_create_Click"
-                            Padding="20,10">
-                        <StackPanel Orientation="Horizontal">
-                            <!-- Location pin Segoe glyph inside blue button text -->
-                            <TextBlock Text="&#xE707;" 
-                                       FontFamily="Segoe MDL2 Assets" 
-                                       FontSize="12" 
-                                       Margin="0,0,8,0" 
-                                       VerticalAlignment="Center"
-                                       Foreground="White"/>
-                            <TextBlock Text="Create Property Lines in Revit" 
-                                       VerticalAlignment="Center" 
-                                       FontWeight="Bold"/>
-                        </StackPanel>
-                    </Button>
+                            Margin="0,0,0,0"/>
+                </StackPanel>
+
+                <!-- Right: Status + Separator + Copyright -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Ellipse x:Name="dot_status"
+                             Width="6" Height="6"
+                             Fill="#A1A1AA"
+                             VerticalAlignment="Center"
+                             Margin="0,0,8,0"/>
+                    <TextBlock x:Name="txt_status"
+                               Text="Ready. Enter an address to begin."
+                               Foreground="#71717A"
+                               FontSize="12.5"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txt_status_label"
+                               Text="Idle"
+                               Foreground="#71717A"
+                               FontSize="12.5"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="6,0,0,0"/>
+                    <Border Width="1" Height="18" Background="#DEDEE2" Margin="16,0,16,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="© Copyright by T3Lab"
+                               FontSize="11"
+                               Foreground="#F59E0B"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
-        </Border></Grid>
+        </Border>
+    </Grid>
+    </Border>
 </Window>

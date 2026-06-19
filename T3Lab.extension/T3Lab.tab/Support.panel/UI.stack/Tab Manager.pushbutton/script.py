@@ -11,15 +11,11 @@ __copyright__ = "Copyright (c) 2025 by Dang Quoc Truong (DQT)"
 tool_name = "Extension Tab Manager"
 
 # System library
-from pyrevit.forms import SelectFromList, alert, TemplateListItem
+from pyrevit.forms import alert, TemplateListItem
 from pyrevit.api import AdWindows
 import os
 import codecs
 from System import DateTime
-
-# Autodesk library
-
-# External library
 
 # General info
 uidoc = __revit__.ActiveUIDocument
@@ -30,8 +26,6 @@ date = DateTime.Now.ToString("yyMMdd")
 revit_version = int(app.VersionNumber)
 
 userName = app.Username
-
-# User define
 
 def TempMemory(tool_name, bool):
     output = []
@@ -84,7 +78,6 @@ def CheckBoxForListItem(nameLst, activeLst):
         currentLst.append(item)
     return currentLst
 
-
 # Starting
 def main_task():
     # Danh sach cac tab REVIT BUILT-IN - se bo qua khong hien thi
@@ -108,47 +101,33 @@ def main_task():
     visibleTabNameLst = []
     
     for tab in AdWindows.ComponentManager.Ribbon.Tabs:
-        # Chi lay cac tab KHONG NAM trong danh sach ignore (tuc la Extension/Add-in)
         if tab.Title not in ignoreTabNameLst:
             extensionTabLst.append(tab)
             extensionTabNameLst.append(tab.Title)
             if tab.IsVisible:
                 visibleTabNameLst.append(tab.Title)
 
-    # Kiem tra neu khong co tab extension nao
     if len(extensionTabNameLst) == 0:
         alert("No Extension/Add-in tabs found!", title="Extension Tab Manager")
         return
 
-    # Tao checkbox list
     currentLst = CheckBoxForListItem(extensionTabNameLst, visibleTabNameLst)
     
-    # Hien thi dialog voi ban quyen
-    dialog_title = "Extension Tab Manager - Select Tabs to Show\nCopyright (c) 2025 by Dang Quoc Truong (DQT)"
+    # Import custom Tab Manager Dialog from lib/GUI
+    from GUI.TabManagerDialog import show_tab_manager_dialog
     
-    selectedTabNameLst = SelectFromList.show(
-        currentLst, 
-        title=dialog_title,
-        multiselect=True, 
-        width=500, 
-        height=400, 
-        button_name="Apply"
-    )
+    selectedTabNameLst = show_tab_manager_dialog(currentLst)
 
     if selectedTabNameLst is not None:
-        # Tao danh sach cac tab can an
         hideTabNameLst = []
         for i in extensionTabNameLst:
             if i not in selectedTabNameLst:
                 hideTabNameLst.append(i)
 
-        # Tao file luu tru
         memory_data_path = TempMemory(tool_name, True)[5]
 
-        # Ap dung thay doi va luu data
         try:
             with codecs.open(memory_data_path, "w", encoding="utf-8") as textfile:
-                # Ghi thong tin ban quyen vao file
                 textfile.write("# Extension Tab Manager\n")
                 textfile.write("# Copyright (c) 2025 by Dang Quoc Truong (DQT)\n")
                 textfile.write("# Hidden Tabs:\n")
@@ -160,8 +139,7 @@ def main_task():
                         textfile.write("\n")
                     else:
                         tab.IsVisible = True
-            
-            # Thong bao
+                        
             visible_count = len(selectedTabNameLst)
             hidden_count = len(hideTabNameLst)
             alert("Extension Tab Manager completed!\n\nVisible: {}\nHidden: {}\n\nCopyright (c) 2025 by Dang Quoc Truong (DQT)".format(
@@ -169,7 +147,6 @@ def main_task():
                 title="Extension Tab Manager")
         except Exception as e:
             alert("Error: {}".format(str(e)), title="Error")
-
 
 if __name__ == "__main__":
     main_task()

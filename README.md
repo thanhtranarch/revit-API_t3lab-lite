@@ -103,7 +103,7 @@ Three layers form a self-sustaining ecosystem for architectural intelligence:
 
 - **BatchOut**: Bulk PDF, DWG, NWD, and IFC exporter with revision tracking.
 - **UI Customizer** (Pulldown): Background Theme, Ribbon Names, Tab Manager.
-- **Cloud Links** (Pulldown): ACC Platform, BIM 360 Health, Bluebeam Health.
+- **Cloud Links** (Pulldown): Autodesk Forma, Autodesk Health, Bluebeam Status.
 - **Auto Work**: Automation recorder & player.
 - **Help & Feedback**: Send Feedback, Documentation.
 

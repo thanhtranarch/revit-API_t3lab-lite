@@ -1091,13 +1091,30 @@ def create_property_lines_in_revit(doc, coordinates, elevation_ft=0.0,
 
 
 def _create_native_property_lines(doc, pts):
-    """Draw property boundary as Model Lines.
+    """Create native PropertyLine elements in Revit.
 
-    Note: Autodesk.Revit.DB.PropertyLine has no public Create() factory method
-    in any Revit API version (confirmed through 2026, tracked as CF-1612).
-    The only supported workflow is to create Model Lines and then use Revit's
-    'Pick Lines' tool to convert them to PropertyLine elements interactively.
+    Starting from Revit 2022, DB.PropertyLine.Create(doc, curve_loop) is available.
+    If unavailable or fails, we fall back to creating Model Lines.
     """
+    try:
+        if hasattr(DB.PropertyLine, "Create"):
+            curve_loop = DB.CurveLoop()
+            for i in range(len(pts) - 1):
+                start = pts[i]
+                end = pts[i + 1]
+                if start.DistanceTo(end) < 0.001:
+                    continue
+                line = DB.Line.CreateBound(start, end)
+                curve_loop.Append(line)
+            
+            # Draw native PropertyLine
+            prop_line = DB.PropertyLine.Create(doc, curve_loop)
+            if prop_line:
+                return len(pts) - 1
+    except Exception as ex:
+        logger.warning("Failed to create native PropertyLine, falling back to Model Lines: {}".format(ex))
+
+    # Fallback: Model Lines
     return _create_model_lines_from_pts(doc, pts, pts[0].Z)
 
 
@@ -1210,6 +1227,18 @@ class PropertyLineDialog(forms.WPFWindow):
         if e.LeftButton == MouseButtonState.Pressed:
             self.DragMove()
 
+    def btn_tab_search_Click(self, sender, e):
+        self.btn_tab_search.IsChecked = True
+        self.btn_tab_api.IsChecked = False
+        self.grid_search_tab.Visibility = Visibility.Visible
+        self.grid_api_tab.Visibility = Visibility.Collapsed
+
+    def btn_tab_api_Click(self, sender, e):
+        self.btn_tab_search.IsChecked = False
+        self.btn_tab_api.IsChecked = True
+        self.grid_search_tab.Visibility = Visibility.Collapsed
+        self.grid_api_tab.Visibility = Visibility.Visible
+
     def btn_minimize_Click(self, sender, e):
         import System.Windows
         self.WindowState = System.Windows.WindowState.Minimized
@@ -1226,6 +1255,12 @@ class PropertyLineDialog(forms.WPFWindow):
             self._update_api_status(True, "API key saved successfully")
         else:
             self._update_api_status(False, "Failed to save API key")
+
+    def btn_get_api_key_Click(self, sender, e):
+        try:
+            Diagnostics.Process.Start("https://developer.lightboxre.com")
+        except Exception as ex:
+            logger.error("Failed to open Lightbox developer portal: {}".format(ex))
 
     def txt_address_KeyDown(self, sender, e):
         if e.Key == Key.Return:
@@ -1333,6 +1368,7 @@ class PropertyLineDialog(forms.WPFWindow):
             self.btn_create.IsEnabled = False
             self.grp_parcel_details.Visibility = Visibility.Collapsed
             self.grp_setback.Visibility = Visibility.Collapsed
+            self.scroll_details.Visibility = Visibility.Collapsed
             try:
                 self.img_map_preview.Source = None
             except Exception:
@@ -1341,6 +1377,7 @@ class PropertyLineDialog(forms.WPFWindow):
 
         self._selected_parcel = item
         self._zoning_data = None
+        self.scroll_details.Visibility = Visibility.Visible
         self._show_parcel_details(item)
         self.btn_create.IsEnabled = True
 
@@ -1539,6 +1576,25 @@ class PropertyLineDialog(forms.WPFWindow):
         self._set_status("Map generation failed: {}".format(error_msg), error=True)
         logger.error("Parcel map error: {}".format(error_msg))
 
+    def btn_google_maps_Click(self, sender, e):
+        if not self._selected_parcel:
+            return
+
+        coords = get_polygon_coords(self._selected_parcel.geometry)
+        if not coords:
+            self._set_status("No geometry available for this parcel.", error=True)
+            return
+
+        try:
+            centroid_lat, centroid_lon = compute_centroid(coords)
+            url = "https://www.google.com/maps/search/?api=1&query={},{}".format(centroid_lat, centroid_lon)
+            psi = Diagnostics.ProcessStartInfo(url)
+            psi.UseShellExecute = True
+            Diagnostics.Process.Start(psi)
+            self._set_status("Opened Google Maps in browser.", success=True)
+        except Exception as ex:
+            self._set_status("Failed to open Google Maps: {}".format(ex), error=True)
+
     def _get_min_setback(self):
         """Return the smallest positive value among the three setback fields, or None."""
         values = []
@@ -1643,14 +1699,16 @@ class PropertyLineDialog(forms.WPFWindow):
 
 
     def minimize_button_clicked(self, sender, e):
-        self.WindowState = WindowState.Minimized
+        import System.Windows
+        self.WindowState = System.Windows.WindowState.Minimized
 
     def maximize_button_clicked(self, sender, e):
-        if self.WindowState == WindowState.Maximized:
-            self.WindowState = WindowState.Normal
+        import System.Windows
+        if self.WindowState == System.Windows.WindowState.Maximized:
+            self.WindowState = System.Windows.WindowState.Normal
             self.btn_maximize.ToolTip = "Maximize"
         else:
-            self.WindowState = WindowState.Maximized
+            self.WindowState = System.Windows.WindowState.Maximized
             self.btn_maximize.ToolTip = "Restore"
 
     def close_button_clicked(self, sender, e):

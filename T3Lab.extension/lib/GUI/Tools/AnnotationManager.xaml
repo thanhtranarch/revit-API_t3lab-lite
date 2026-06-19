@@ -1,6 +1,6 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab - Annotation Manager"
+        Title="T3Lab — Annotation Manager"
         Width="1100" Height="780"
         MinWidth="950" MinHeight="680"
         WindowStartupLocation="CenterScreen"
