@@ -1,0 +1,10 @@
+title: "Mana\nSelect"
+tooltip: Unified element selection, matching, and quick filter manager.
+description: |
+  Consolidated smart selection manager with 4 modes:
+  - Quick Select: filter elements by parameter value or text content
+  - Select Similar: select elements matching type, family, or category
+  - Select on Sheets: locate title blocks and CAD imports across sheets
+  - Quick Filters sidebar: instantly narrow selection by link, in-place, category, group, or material
+
+author: Tran Tien Thanh

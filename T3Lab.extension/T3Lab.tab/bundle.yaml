@@ -1,8 +1,9 @@
 layout:
-  - Annotation
-  - Project
-  - ViewsSheets
-  - Data
-  - Settings
+  - Standards & Settings
+  - Annotation & Select
+  - Modeling & Datum
+  - Views & Sheets
+  - Data & IFC-SG
   - Support
   - Standard
+

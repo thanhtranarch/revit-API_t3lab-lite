@@ -1,0 +1,10 @@
+title: "IFC-SG\nChecker"
+tooltip: Check IFC-SG required parameters against Autodesk XML or Excel rule files.
+description: |
+  IFC-SG compliance checker based on CORENET X Code of Practice (3rd Edition):
+  - Import parameter rules from Autodesk Model Checker XML configuration files
+  - Import rules from Excel parameter mapping files (LTA/BCA format)
+  - Check that required IFC+SG parameters exist and have values on model elements
+  - Generate a compliance report with pass/fail status per element category
+
+author: Dang Quoc Truong

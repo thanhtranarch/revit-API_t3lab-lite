@@ -1,17 +1,679 @@
 # -*- coding: utf-8 -*-
-"""Model Auditor — event handling for the Model Auditor launcher window."""
+"""Model Auditor — Consolidated logic and event handlers for the Model Auditor dashboard."""
 
 import os
 import sys
-import imp
-import __builtin__
+import json
+import codecs
+import datetime
+import re
+import csv
+import traceback
+from collections import OrderedDict, defaultdict
 
-from pyrevit import forms
-from System.Windows import WindowState
+import clr
+clr.AddReference('System')
+clr.AddReference('PresentationCore')
+clr.AddReference('PresentationFramework')
+clr.AddReference('WindowsBase')
+clr.AddReference('RevitAPI')
+clr.AddReference('RevitAPIUI')
+
+import System
+from System.Windows import (WindowState, MessageBox, MessageBoxButton, MessageBoxImage, Visibility, Thickness)
+from System.Windows.Controls import (TabControl, TabItem, RadioButton, ComboBox, ListBox, DataGrid)
+from System.Collections.ObjectModel import ObservableCollection
+from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
+
+from pyrevit import forms, DB, script, revit
+from Autodesk.Revit.DB import (
+    FilteredElementCollector, BuiltInCategory, BuiltInParameter, ElementId,
+    Transaction, TransactionGroup, FamilyInstance, ImportInstance, RevitLinkInstance,
+    View, ViewSheet, Group, DesignOption, ReferencePlane, CurveElement, FilledRegion,
+    Material, BasePoint, StartingViewSettings, ElementClassFilter, BoundingBoxIntersectsFilter,
+    Outline, IndependentTag, Dimension
+)
 
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ModelAuditor.xaml')
+_XAML = os.path.normpath(_XAML)
 
+# ============================================================================
+# REVIT VERSION COMPATIBILITY (2024 - 2027)
+# ============================================================================
+def _eid_int(eid):
+    """Get integer value from ElementId - compatible with Revit 2024-2027+"""
+    if eid is None:
+        return -1
+    try:
+        return eid.Value  # Revit 2025+ (64-bit Int64)
+    except AttributeError:
+        return eid.IntegerValue  # Revit 2024 and earlier
 
+def _make_eid(value):
+    """Construct an ElementId from an int, safe for Revit 2024-2027."""
+    try:
+        return ElementId(value)
+    except:
+        try:
+            from System import Int64
+            return ElementId(Int64(value))
+        except:
+            return ElementId(int(value))
+
+# ============================================================================
+# METRIC THRESHOLDS FOR HEALTH CHECK
+# ============================================================================
+METRIC_THRESHOLDS = OrderedDict([
+    ("file_size_mb", {
+        "label": "File Size (MB)",
+        "thresholds": [100, 250, 500, 750, 1000],
+        "tooltip": "Model file size. Large files slow loading and sync.",
+        "unit": "MB",
+        "selectable": False,
+        "weight": 4,
+        "recommendation": "Purge unused families, remove imported CAD files, audit model."
+    }),
+    ("warnings", {
+        "label": "Warnings",
+        "thresholds": [100, 500, 1000, 2000, 5000],
+        "tooltip": "Total warnings. High count = model instability.",
+        "unit": "",
+        "selectable": False,
+        "weight": 5,
+        "recommendation": "Review and resolve warnings. Start with most frequent types."
+    }),
+    ("cad_imports", {
+        "label": "CAD Imports",
+        "thresholds": [0, 2, 5, 7, 10],
+        "tooltip": "Imported CAD (not linked). Bloats file size significantly.",
+        "unit": "",
+        "selectable": True,
+        "weight": 5,
+        "recommendation": "Delete imported CAD. Use linked CAD instead."
+    }),
+    ("in_place_families", {
+        "label": "In-Place Families",
+        "thresholds": [5, 15, 30, 60, 100],
+        "tooltip": "In-Place families can't be reused, increase file size.",
+        "unit": "",
+        "selectable": True,
+        "weight": 4,
+        "recommendation": "Convert In-Place to loadable families."
+    }),
+    ("rvt_links", {
+        "label": "RVT Links",
+        "thresholds": [10, 20, 35, 50, 80],
+        "tooltip": "Linked Revit files. Too many = slow performance.",
+        "unit": "",
+        "selectable": True,
+        "weight": 2,
+        "recommendation": "Review if all RVT links are necessary. Unload unused."
+    }),
+    ("worksets", {
+        "label": "Worksets",
+        "thresholds": [10, 20, 30, 40, 50],
+        "tooltip": "User worksets. Excessive worksets complicate management.",
+        "unit": "",
+        "selectable": False,
+        "weight": 1,
+        "recommendation": "Consolidate worksets if possible."
+    }),
+    ("cad_links", {
+        "label": "CAD Links",
+        "thresholds": [10, 25, 50, 80, 120],
+        "tooltip": "Linked CAD files. Many links degrade navigation.",
+        "unit": "",
+        "selectable": True,
+        "weight": 3,
+        "recommendation": "Minimize CAD links. Convert to native Revit elements."
+    }),
+    ("views", {
+        "label": "Views",
+        "thresholds": [200, 500, 1000, 2000, 4000],
+        "tooltip": "Total views. Too many slow file open/save.",
+        "unit": "",
+        "selectable": True,
+        "weight": 3,
+        "recommendation": "Delete unused views. Use View Templates."
+    }),
+    ("sheets", {
+        "label": "Sheets",
+        "thresholds": [100, 200, 400, 600, 1000],
+        "tooltip": "Total sheets with placed views increase file size.",
+        "unit": "",
+        "selectable": True,
+        "weight": 2,
+        "recommendation": "Archive completed sheets. Remove test sheets."
+    }),
+    ("groups", {
+        "label": "Groups",
+        "thresholds": [20, 50, 100, 200, 500],
+        "tooltip": "Model and Detail Groups cause performance issues.",
+        "unit": "",
+        "selectable": True,
+        "weight": 3,
+        "recommendation": "Ungroup where possible. Use families instead."
+    }),
+    ("design_options", {
+        "label": "Design Options",
+        "thresholds": [3, 5, 8, 15, 20],
+        "tooltip": "Design Options add complexity and memory usage.",
+        "unit": "",
+        "selectable": True,
+        "weight": 1,
+        "recommendation": "Finalize and accept primary design options."
+    }),
+    ("reference_planes", {
+        "label": "Ref. Planes",
+        "thresholds": [100, 200, 500, 800, 1500],
+        "tooltip": "Leftover reference planes clutter the model.",
+        "unit": "",
+        "selectable": True,
+        "weight": 1,
+        "recommendation": "Delete unnamed/unnecessary reference planes."
+    }),
+    ("detail_lines", {
+        "label": "Detail Lines",
+        "thresholds": [1000, 5000, 10000, 25000, 50000],
+        "tooltip": "Excessive detail lines = drafting overuse.",
+        "unit": "",
+        "selectable": True,
+        "weight": 2,
+        "recommendation": "Review detail lines. Use line-based detail components."
+    }),
+    ("filled_regions", {
+        "label": "Filled Regions",
+        "thresholds": [100, 500, 1000, 3000, 5000],
+        "tooltip": "Many filled regions slow view rendering.",
+        "unit": "",
+        "selectable": True,
+        "weight": 2,
+        "recommendation": "Minimize filled regions. Use material hatching."
+    }),
+    ("rooms_unplaced", {
+        "label": "Unplaced Rooms",
+        "thresholds": [0, 5, 15, 30, 50],
+        "tooltip": "Unplaced rooms cause errors in schedules.",
+        "unit": "",
+        "selectable": True,
+        "weight": 2,
+        "recommendation": "Place or delete unplaced rooms."
+    }),
+    ("linked_dwg_not_pinned", {
+        "label": "Unpinned Links",
+        "thresholds": [0, 3, 8, 15, 30],
+        "tooltip": "Unpinned links can be accidentally moved.",
+        "unit": "",
+        "selectable": True,
+        "weight": 2,
+        "recommendation": "Pin all linked files to prevent accidental movement."
+    }),
+    ("duplicate_elements", {
+        "label": "Duplicate Elements",
+        "thresholds": [0, 10, 30, 60, 100],
+        "tooltip": "Elements of same type overlapping at same location.",
+        "unit": "",
+        "selectable": True,
+        "weight": 4,
+        "recommendation": "Review and delete overlapping duplicate elements."
+    })
+])
+
+# ============================================================================
+# MODEL HEALTH ANALYZER
+# ============================================================================
+class ModelHealthAnalyzer(object):
+    def __init__(self, doc):
+        self.doc = doc
+        self.metrics = OrderedDict()
+        self.element_ids = {}
+
+    def analyze(self):
+        self._file_size()
+        self._warnings()
+        self._cad_imports()
+        self._in_place_families()
+        self._rvt_links()
+        self._worksets()
+        self._cad_links()
+        self._views()
+        self._sheets()
+        self._groups()
+        self._design_options()
+        self._reference_planes()
+        self._detail_lines()
+        self._filled_regions()
+        self._unplaced_rooms()
+        self._unpinned_links()
+        self._duplicate_elements()
+        return self.metrics
+
+    def _store_ids(self, key, elements):
+        self.element_ids[key] = [_eid_int(el.Id) for el in elements if el]
+
+    def _file_size(self):
+        try:
+            path = self.doc.PathName
+            if path and os.path.exists(path):
+                self.metrics["file_size_mb"] = round(os.path.getsize(path) / (1024.0 * 1024.0), 1)
+            else:
+                self.metrics["file_size_mb"] = 0
+        except:
+            self.metrics["file_size_mb"] = 0
+
+    def _warnings(self):
+        try:
+            w = self.doc.GetWarnings()
+            self.metrics["warnings"] = len(w) if w else 0
+        except:
+            self.metrics["warnings"] = 0
+
+    def _cad_imports(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(ImportInstance).WhereElementIsNotElementType()
+            elems = [inst for inst in col if not inst.IsLinked]
+            self.metrics["cad_imports"] = len(elems)
+            self._store_ids("cad_imports", elems)
+        except:
+            self.metrics["cad_imports"] = 0
+
+    def _in_place_families(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(FamilyInstance).WhereElementIsNotElementType()
+            elems = [fi for fi in col if fi.Symbol and fi.Symbol.Family and fi.Symbol.Family.IsInPlace]
+            self.metrics["in_place_families"] = len(elems)
+            self._store_ids("in_place_families", elems)
+        except:
+            self.metrics["in_place_families"] = 0
+
+    def _rvt_links(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(RevitLinkInstance).WhereElementIsNotElementType()
+            elems = list(col)
+            self.metrics["rvt_links"] = len(elems)
+            self._store_ids("rvt_links", elems)
+        except:
+            self.metrics["rvt_links"] = 0
+
+    def _worksets(self):
+        try:
+            if self.doc.IsWorkshared:
+                from Autodesk.Revit.DB import FilteredWorksetCollector, WorksetKind
+                ws = FilteredWorksetCollector(self.doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
+                self.metrics["worksets"] = ws.Count
+            else:
+                self.metrics["worksets"] = 0
+        except:
+            self.metrics["worksets"] = 0
+
+    def _cad_links(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(ImportInstance).WhereElementIsNotElementType()
+            elems = [inst for inst in col if inst.IsLinked]
+            self.metrics["cad_links"] = len(elems)
+            self._store_ids("cad_links", elems)
+        except:
+            self.metrics["cad_links"] = 0
+
+    def _views(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(View).WhereElementIsNotElementType()
+            elems = [v for v in col if not v.IsTemplate and v.ViewType != DB.ViewType.Internal]
+            self.metrics["views"] = len(elems)
+            self._store_ids("views", elems)
+        except:
+            self.metrics["views"] = 0
+
+    def _sheets(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(ViewSheet).WhereElementIsNotElementType()
+            elems = list(col)
+            self.metrics["sheets"] = len(elems)
+            self._store_ids("sheets", elems)
+        except:
+            self.metrics["sheets"] = 0
+
+    def _groups(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(Group).WhereElementIsNotElementType()
+            elems = list(col)
+            self.metrics["groups"] = len(elems)
+            self._store_ids("groups", elems)
+        except:
+            self.metrics["groups"] = 0
+
+    def _design_options(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(DesignOption).WhereElementIsNotElementType()
+            elems = list(col)
+            self.metrics["design_options"] = len(elems)
+            self._store_ids("design_options", elems)
+        except:
+            self.metrics["design_options"] = 0
+
+    def _reference_planes(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(ReferencePlane).WhereElementIsNotElementType()
+            elems = list(col)
+            self.metrics["reference_planes"] = len(elems)
+            self._store_ids("reference_planes", elems)
+        except:
+            self.metrics["reference_planes"] = 0
+
+    def _detail_lines(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(CurveElement).WhereElementIsNotElementType()
+            elems = []
+            for ce in col:
+                try:
+                    cat = ce.Category
+                    if cat and "Lines" in cat.Name:
+                        elems.append(ce)
+                except: pass
+            self.metrics["detail_lines"] = len(elems)
+            self._store_ids("detail_lines", elems)
+        except:
+            self.metrics["detail_lines"] = 0
+
+    def _filled_regions(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfClass(FilledRegion).WhereElementIsNotElementType()
+            elems = list(col)
+            self.metrics["filled_regions"] = len(elems)
+            self._store_ids("filled_regions", elems)
+        except:
+            self.metrics["filled_regions"] = 0
+
+    def _unplaced_rooms(self):
+        try:
+            col = FilteredElementCollector(self.doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType()
+            elems = [rm for rm in col if rm.Location is None]
+            self.metrics["rooms_unplaced"] = len(elems)
+            self._store_ids("rooms_unplaced", elems)
+        except:
+            self.metrics["rooms_unplaced"] = 0
+
+    def _unpinned_links(self):
+        try:
+            elems = []
+            for link in FilteredElementCollector(self.doc).OfClass(RevitLinkInstance).WhereElementIsNotElementType():
+                if not link.Pinned:
+                    elems.append(link)
+            for inst in FilteredElementCollector(self.doc).OfClass(ImportInstance).WhereElementIsNotElementType():
+                if inst.IsLinked and not inst.Pinned:
+                    elems.append(inst)
+            self.metrics["linked_dwg_not_pinned"] = len(elems)
+            self._store_ids("linked_dwg_not_pinned", elems)
+        except:
+            self.metrics["linked_dwg_not_pinned"] = 0
+
+    def _duplicate_elements(self):
+        try:
+            warnings = self.doc.GetWarnings()
+            dupe_ids_set = set()
+            if warnings:
+                for warning in warnings:
+                    try:
+                        desc = warning.GetDescriptionText()
+                        if "identical instances" in desc.lower() and "same place" in desc.lower():
+                            failing = warning.GetFailingElements()
+                            additional = warning.GetAdditionalElements()
+                            if failing:
+                                for eid in failing: dupe_ids_set.add(_eid_int(eid))
+                            if additional:
+                                for eid in additional: dupe_ids_set.add(_eid_int(eid))
+                    except: pass
+            self.metrics["duplicate_elements"] = len(dupe_ids_set)
+            self.element_ids["duplicate_elements"] = list(dupe_ids_set)
+        except:
+            self.metrics["duplicate_elements"] = 0
+
+# ============================================================================
+# COMPLIANCE CHECKER RULE ENGINE
+# ============================================================================
+class RuleEngine(object):
+    def __init__(self, doc):
+        self.doc = doc
+        self.app = doc.Application
+
+    def run_checkset(self, checkset_data):
+        results = []
+        rules = checkset_data.get("rules", [])
+        for rule in rules:
+            if not rule.get("enabled", True):
+                results.append({
+                    "id": rule.get("id", ""),
+                    "category": rule.get("category", ""),
+                    "severity": rule.get("severity", ""),
+                    "name": rule.get("name", ""),
+                    "status": "Skipped",
+                    "message": "Rule is disabled"
+                })
+                continue
+            try:
+                result = self._execute_rule(rule)
+                results.append(result)
+            except Exception as e:
+                results.append({
+                    "id": rule.get("id", ""),
+                    "category": rule.get("category", ""),
+                    "severity": rule.get("severity", ""),
+                    "name": rule.get("name", ""),
+                    "status": "Error",
+                    "message": str(e)
+                })
+        return results
+
+    def _execute_rule(self, rule):
+        rule_type = rule.get("type", "")
+        params = rule.get("params", {})
+        
+        status = "Pass"
+        message = ""
+
+        if rule_type == "value_match":
+            expected = params.get("expected_version", "")
+            actual = str(self.app.VersionNumber)
+            if expected in actual:
+                message = "Revit version matches: {}".format(actual)
+            else:
+                status = "Fail"
+                message = "Expected {}, found {}".format(expected, actual)
+
+        elif rule_type == "not_empty":
+            fields = params.get("fields", [])
+            pi = self.doc.ProjectInformation
+            empty = []
+            for field in fields:
+                param = pi.LookupParameter(field)
+                if not param or not param.HasValue or not str(param.AsString()).strip():
+                    empty.append(field)
+            if empty:
+                status = "Fail"
+                message = "Empty fields: {}".format(", ".join(empty))
+            else:
+                message = "All required fields are filled"
+
+        elif rule_type == "coordinate_match":
+            point_type = params.get("point_type", "survey")
+            axis = params.get("axis", "NS")
+            expected = params.get("expected_value", 0.0)
+            tolerance = params.get("tolerance", 0.001)
+
+            collector = FilteredElementCollector(self.doc).OfClass(BasePoint)
+            actual_value = None
+            for bp in collector:
+                is_survey = bp.IsShared
+                if (point_type == "survey" and is_survey) or (point_type == "base" and not is_survey):
+                    pos = bp.Position
+                    if axis == "NS": actual_value = pos.Y
+                    elif axis == "EW": actual_value = pos.X
+                    elif axis == "Elev": actual_value = pos.Z
+                    break
+            
+            if actual_value is None:
+                status = "Fail"
+                message = "Could not find point"
+            else:
+                diff = abs(actual_value - expected)
+                if diff <= tolerance:
+                    message = "Coord {} matches within tolerance ({:.4f})".format(axis, actual_value)
+                else:
+                    status = "Fail"
+                    message = "Coord {} is {:.4f} (expected: {}, diff: {:.4f})".format(axis, actual_value, expected, diff)
+
+        elif rule_type == "count_check":
+            target = params.get("target", "")
+            max_count = params.get("max_count", 0)
+            
+            count = 0
+            if target == "design_options":
+                count = FilteredElementCollector(self.doc).OfClass(DesignOption).GetElementCount()
+            elif target == "warnings":
+                count = len(self.doc.GetWarnings())
+                
+            if count > max_count:
+                status = "Warning" if rule.get("severity") == "warning" else "Fail"
+                message = "Found {} items (max allowed: {})".format(count, max_count)
+            else:
+                message = "Count: {} (max: {})".format(count, max_count)
+
+        elif rule_type == "exists_check":
+            target = params.get("target", "")
+            if target == "starting_view":
+                try:
+                    sv = StartingViewSettings.GetStartingViewSettings(self.doc)
+                    if sv and sv.ViewId != ElementId.InvalidElementId:
+                        view = self.doc.GetElement(sv.ViewId)
+                        message = "Starting view set to: {}".format(view.Name if view else "Unknown")
+                    else:
+                        status = "Fail"
+                        message = "No starting view is configured"
+                except:
+                    status = "Fail"
+                    message = "No starting view is configured"
+
+        elif rule_type == "value_match_numeric":
+            target = params.get("target", "")
+            expected = params.get("expected_value", 0.0)
+            tolerance = params.get("tolerance", 0.01)
+            if target == "true_north":
+                try:
+                    pl = self.doc.ActiveProjectLocation
+                    pos = pl.GetProjectPosition(DB.XYZ.Zero)
+                    angle = pos.Angle * 180.0 / 3.14159265358979
+                    diff = abs(angle - expected)
+                    if diff <= tolerance:
+                        message = "True North angle matches: {:.2f} deg".format(angle)
+                    else:
+                        status = "Fail"
+                        message = "True North angle is {:.2f} deg (expected: {})".format(angle, expected)
+                except:
+                    status = "Fail"
+                    message = "Failed to retrieve True North"
+
+        else:
+            status = "Skipped"
+            message = "Rule type '{}' not implemented".format(rule_type)
+
+        return {
+            "id": rule.get("id", ""),
+            "category": rule.get("category", ""),
+            "severity": rule.get("severity", ""),
+            "name": rule.get("name", ""),
+            "status": status,
+            "message": message
+        }
+
+# ============================================================================
+# SMART DELETE DEPENDENCY ANALYSIS HELPERS
+# ============================================================================
+class DepInfo(object):
+    def __init__(self, eid, name, dep_type, severity, desc="", view_name=""):
+        self.eid = eid
+        self.name = name
+        self.dep_type = dep_type
+        self.severity = severity
+        self.desc = desc
+        self.view_name = view_name
+
+    def to_string(self):
+        v = " [{}]".format(self.view_name) if self.view_name else ""
+        return "{:<10} | {:<20} | {:<20} | {:<10} | {}{}".format(
+            self.eid, self.name[:20], self.dep_type[:20], self.severity, self.desc, v
+        )
+
+def analyze_element(element, document):
+    deps = []
+    el_id = element.Id
+
+    # 1. Group
+    try:
+        gid = element.GroupId
+        if gid and gid != ElementId.InvalidElementId:
+            g = document.GetElement(gid)
+            if g:
+                deps.append(DepInfo(_eid_int(gid), g.Name or "Group", "Group", "Critical", "In group"))
+    except: pass
+
+    # 2. Hosted elements
+    try:
+        bb = element.get_BoundingBox(None)
+        if bb:
+            ol = Outline(bb.Min, bb.Max)
+            bbf = BoundingBoxIntersectsFilter(ol)
+            nearby = FilteredElementCollector(document).OfClass(FamilyInstance).WherePasses(bbf)
+            n = 0
+            for fi in nearby:
+                if n >= 15 or fi.Id == el_id: continue
+                try:
+                    h = fi.Host
+                    if h and h.Id == el_id:
+                        cn = fi.Category.Name if fi.Category else "Hosted"
+                        deps.append(DepInfo(_eid_int(fi.Id), fi.Name or "Hosted", "Hosted ({})".format(cn), "Critical", "DELETED with host"))
+                        n += 1
+                except: continue
+    except: pass
+
+    # 3. Dimensions
+    try:
+        dim_filter = ElementClassFilter(Dimension)
+        dim_ids = element.GetDependentElements(dim_filter)
+        if dim_ids:
+            for did in dim_ids:
+                if did == el_id: continue
+                d = document.GetElement(did)
+                if d:
+                    val = d.ValueString or ""
+                    vn = ""
+                    if d.OwnerViewId != ElementId.InvalidElementId:
+                        v = document.GetElement(d.OwnerViewId)
+                        if v: vn = v.Name
+                    deps.append(DepInfo(_eid_int(did), "Dim: {}".format(val) if val else "Dim", "Dimension", "High", "Will be deleted", vn))
+    except: pass
+
+    # 4. Tags
+    try:
+        tag_filter = ElementClassFilter(IndependentTag)
+        tag_ids = element.GetDependentElements(tag_filter)
+        if tag_ids:
+            for tid in tag_ids:
+                if tid == el_id: continue
+                t = document.GetElement(tid)
+                if t:
+                    tt = t.TagText or ""
+                    vn = ""
+                    if t.OwnerViewId != ElementId.InvalidElementId:
+                        v = document.GetElement(t.OwnerViewId)
+                        if v: vn = v.Name
+                    deps.append(DepInfo(_eid_int(tid), tt or "Tag", "Tag", "Medium", "Will be deleted", vn))
+    except: pass
+
+    return deps
+
+# ============================================================================
+# MAIN AUDITOR WINDOW
+# ============================================================================
 class ModelAuditorWindow(forms.WPFWindow):
     def __init__(self, script_dir, revit):
         forms.WPFWindow.__init__(self, _XAML)
@@ -20,121 +682,81 @@ class ModelAuditorWindow(forms.WPFWindow):
         self.doc = revit.ActiveUIDocument.Document
         self.uidoc = revit.ActiveUIDocument
 
-        # Dynamic imports and panel instantiation
-        self._init_sub_panels()
-
-        # Connect top tab navigation events
+        # Save instances of health and warning collectors
+        self.health_analyzer = ModelHealthAnalyzer(self.doc)
+        self.health_results = {}
+        
+        # Connect tab navigation events
         self.btn_tab_health.Checked += self._on_tab_changed
         self.btn_tab_compliance.Checked += self._on_tab_changed
         self.btn_tab_warning.Checked += self._on_tab_changed
+        self.btn_tab_cleanup.Checked += self._on_tab_changed
         self.btn_tab_elements.Checked += self._on_tab_changed
 
         # Connect sub-tab navigation events
         self.btn_sub_inplace.Checked += self._on_sub_tab_changed
         self.btn_sub_material.Checked += self._on_sub_tab_changed
+        self.btn_sub_smart_purge.Checked += self._on_sub_tab_changed
+        self.btn_sub_advanced_purge.Checked += self._on_sub_tab_changed
+        self.btn_sub_smart_delete.Checked += self._on_sub_tab_changed
 
         # Chrome actions
         self.btn_minimize.Click += self._minimize
         self.btn_maximize.Click += self._maximize
         self.btn_close_chrome.Click += self._close_chrome
 
-    def _init_sub_panels(self):
-        """Import sub-tools and load their grids into the tabs."""
-        # Find Settings.panel directory path
-        gui_dir = os.path.dirname(__file__)
-        lib_dir = os.path.dirname(gui_dir)
-        ext_dir = os.path.dirname(lib_dir)
-        panel_dir = os.path.join(ext_dir, "T3Lab.tab", "Settings.panel")
+        # Hook button events
+        # 1. Health tab
+        self.btn_health_run.Click += self.on_health_run
+        self.btn_health_select.Click += self.on_health_select
+        
+        # 2. Compliance tab
+        self.btn_checker_run.Click += self.on_checker_run
+        self.btn_checker_export.Click += self.on_checker_export
+        self._init_checksets()
 
-        # 1. Load Health Check
-        try:
-            hc_dir = os.path.join(panel_dir, "HealthCheck")
-            hc_mod = imp.load_source("health_check", os.path.join(hc_dir, "script.py"))
-            self._health_check_win = hc_mod.ModelHealthWindow(self.doc, self.uidoc)
-            
-            # Extract content and host it
-            grid_content = self._health_check_win.Content
-            self._health_check_win.Content = None
-            self.grid_health_check.Children.Add(grid_content)
-            
-            # Override Close method
-            self._health_check_win.Close = self.Close
-        except Exception as ex:
-            print("Error loading Health Check Panel: {}".format(ex))
-            import traceback
-            traceback.print_exc()
+        # 3. Warnings tab
+        self.btn_warning_reload.Click += self.on_warning_reload
+        self.btn_warning_autofix.Click += self.on_warning_autofix
+        self.btn_warning_export.Click += self.on_warning_export
+        self.btn_warning_select_elements.Click += self.on_warning_select_elements
+        self.dg_warning_groups.SelectionChanged += self.on_warning_group_changed
 
-        # 2. Load Model Checker
-        try:
-            mc_dir = os.path.join(panel_dir, "ModelChecker")
-            mc_mod = imp.load_source("model_checker", os.path.join(mc_dir, "script.py"))
-            self._model_checker_win = mc_mod.ModelCheckerWindow()
-            
-            # Extract content and host it (ModelCheckerWindow wraps window in self.window)
-            grid_content = self._model_checker_win.window.Content
-            self._model_checker_win.window.Content = None
-            self.grid_model_checker.Children.Add(grid_content)
-            
-            # Override Close method
-            self._model_checker_win.window.Close = self.Close
-        except Exception as ex:
-            print("Error loading Model Checker Panel: {}".format(ex))
-            import traceback
-            traceback.print_exc()
+        # 4. Cleanup tab
+        self.btn_smart_purge_check_all.Click += self.on_smart_purge_check_all
+        self.btn_smart_purge_uncheck_all.Click += self.on_smart_purge_uncheck_all
+        self.btn_smart_purge_run.Click += self.on_smart_purge_run
+        self.btn_adv_purge_run.Click += self.on_adv_purge_run
+        self.btn_delete_analyze.Click += self.on_delete_analyze
+        self.btn_delete_run.Click += self.on_delete_run
 
-        # 3. Load Warning Manager
-        try:
-            warning_dir = os.path.join(panel_dir, "Warning")
-            warning_mod = imp.load_source("warning_manager", os.path.join(warning_dir, "script.py"))
-            self._warning_win = warning_mod.WarningManager()
-            
-            # Extract content and host it
-            grid_content = self._warning_win.Content
-            self._warning_win.Content = None
-            self.grid_warning_manager.Children.Add(grid_content)
-            
-            # Override Close method
-            self._warning_win.Close = self.Close
-        except Exception as ex:
-            print("Error loading Warning Manager Panel: {}".format(ex))
-            import traceback
-            traceback.print_exc()
+        # 5. Special Audits tab
+        self.btn_special_inplace_reload.Click += self.on_inplace_reload
+        self.btn_special_inplace_select.Click += self.on_inplace_select
+        self.btn_special_inplace_delete.Click += self.on_inplace_delete
+        self.btn_special_materials_reload.Click += self.on_materials_reload
+        self.btn_special_materials_export.Click += self.on_materials_export
 
-        # 4. Load In-Place Models
-        try:
-            inplace_dir = os.path.join(panel_dir, "InPlaceModel")
-            inplace_mod = imp.load_source("inplace_model", os.path.join(inplace_dir, "script.py"))
-            self._inplace_win = inplace_mod.InPlaceManagerWindow()
-            
-            # Extract content and host it
-            grid_content = self._inplace_win.Content
-            self._inplace_win.Content = None
-            self.grid_inplace_model.Children.Add(grid_content)
-            
-            # Override Close method
-            self._inplace_win.Close = self.Close
-        except Exception as ex:
-            print("Error loading In-Place Model Panel: {}".format(ex))
-            import traceback
-            traceback.print_exc()
+        # Run initial diagnostics
+        self.on_health_run(None, None)
+        self.on_warning_reload(None, None)
 
-        # 5. Load Material List
-        try:
-            material_dir = os.path.join(panel_dir, "MaterialList")
-            material_mod = imp.load_source("material_list", os.path.join(material_dir, "script.py"))
-            self._material_win = material_mod.MaterialManagerWindow()
-            
-            # Extract content and host it
-            grid_content = self._material_win.Content
-            self._material_win.Content = None
-            self.grid_material_list.Children.Add(grid_content)
-            
-            # Override Close method
-            self._material_win.Close = self.Close
-        except Exception as ex:
-            print("Error loading Material List Panel: {}".format(ex))
-            import traceback
-            traceback.print_exc()
+    # ========================================================================
+    # WINDOW CONTROL ACTIONS
+    # ========================================================================
+    def _minimize(self, sender, e):
+        self.WindowState = WindowState.Minimized
+
+    def _maximize(self, sender, e):
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+            self.btn_maximize.ToolTip = "Maximize"
+        else:
+            self.WindowState = WindowState.Maximized
+            self.btn_maximize.ToolTip = "Restore"
+
+    def _close_chrome(self, sender, e):
+        self.Close()
 
     def _on_tab_changed(self, sender, e):
         """Switch active tab in TabControl when a RadioButton is checked."""
@@ -147,37 +769,677 @@ class ModelAuditorWindow(forms.WPFWindow):
         elif sender == self.btn_tab_warning:
             self.main_tab_control.SelectedIndex = 2
             self.status_text.Text = "Warning Manager — Warnings impact analysis and auto-fixing"
-        elif sender == self.btn_tab_elements:
+        elif sender == self.btn_tab_cleanup:
             self.main_tab_control.SelectedIndex = 3
-            # Set sub-tab status text
-            if self.btn_sub_inplace.IsChecked:
-                self.status_text.Text = "In-Place Model Auditor — Manage in-place family instances"
-            else:
-                self.status_text.Text = "Material List Auditor — Export and analyze model material usage data"
+            self._update_cleanup_status()
+        elif sender == self.btn_tab_elements:
+            self.main_tab_control.SelectedIndex = 4
+            self._update_special_status()
 
     def _on_sub_tab_changed(self, sender, e):
-        """Switch sub-tab for Special Audits (In-Place vs Material List)."""
-        if not hasattr(self, 'sub_tab_control'):
-            return
-        if sender == self.btn_sub_inplace:
+        """Switch sub-tab for Special Audits and Cleanup."""
+        if sender == self.btn_sub_smart_purge:
+            self.cleanup_tab_control.SelectedIndex = 0
+            self._update_cleanup_status()
+        elif sender == self.btn_sub_advanced_purge:
+            self.cleanup_tab_control.SelectedIndex = 1
+            self._update_cleanup_status()
+        elif sender == self.btn_sub_smart_delete:
+            self.cleanup_tab_control.SelectedIndex = 2
+            self._update_cleanup_status()
+        elif sender == self.btn_sub_inplace:
             self.sub_tab_control.SelectedIndex = 0
-            self.status_text.Text = "In-Place Model Auditor — Manage in-place family instances"
+            self._update_special_status()
         elif sender == self.btn_sub_material:
             self.sub_tab_control.SelectedIndex = 1
-            self.status_text.Text = "Material List Auditor — Export and analyze model material usage data"
+            self._update_special_status()
 
-    def _minimize(self, sender, e):
-        self.WindowState = WindowState.Minimized
+    def _update_cleanup_status(self):
+        if self.btn_sub_smart_purge.IsChecked:
+            self.status_text.Text = "Smart Purge — Scan and safely delete unused model families/elements"
+            if not self.dg_smart_purge.ItemsSource:
+                self.load_smart_purge()
+        elif self.btn_sub_advanced_purge.IsChecked:
+            self.status_text.Text = "Advanced Purge — Select deep model types to purge"
+        elif self.btn_sub_smart_delete.IsChecked:
+            self.status_text.Text = "Smart Delete — Analyze dependencies of elements before deleting"
 
-    def _maximize(self, sender, e):
-        if self.WindowState == WindowState.Maximized:
-            self.WindowState = WindowState.Normal
-        else:
-            self.WindowState = WindowState.Maximized
+    def _update_special_status(self):
+        if self.btn_sub_inplace.IsChecked:
+            self.status_text.Text = "In-Place Model Auditor — Manage in-place family instances in the project"
+            if not self.dg_special_inplace.ItemsSource:
+                self.on_inplace_reload(None, None)
+        elif self.btn_sub_material.IsChecked:
+            self.status_text.Text = "Material List Auditor — Volume and area calculation for project materials"
+            if not self.dg_special_materials.ItemsSource:
+                self.on_materials_reload(None, None)
 
-    def _close_chrome(self, sender, e):
-        self.Close()
+    # ========================================================================
+    # TAB 1: HEALTH DASHBOARD
+    # ========================================================================
+    def on_health_run(self, sender, e):
+        self.status_text.Text = "Running model health analysis..."
+        self.health_results = self.health_analyzer.analyze()
+        
+        # Calculate score and grade
+        weighted_total = 0
+        weight_sum = 0
+        for key, value in self.health_results.items():
+            if key in METRIC_THRESHOLDS:
+                t = METRIC_THRESHOLDS[key]["thresholds"]
+                w = METRIC_THRESHOLDS[key].get("weight", 1)
+                if value <= t[0]: s = 100
+                elif value <= t[1]: s = 80
+                elif value <= t[2]: s = 60
+                elif value <= t[3]: s = 40
+                elif value <= t[4]: s = 20
+                else: s = 0
+                weighted_total += s * w
+                weight_sum += w
+        
+        score = round(weighted_total / max(weight_sum, 1), 1)
+        self.txt_health_score.Text = str(score)
+        
+        grade = "F"
+        desc = "Critical"
+        if score >= 90: grade, desc = "A", "Excellent"
+        elif score >= 75: grade, desc = "B", "Good"
+        elif score >= 60: grade, desc = "C", "Fair"
+        elif score >= 40: grade, desc = "D", "Poor"
+        self.txt_health_grade.Text = "{} - {}".format(grade, desc)
+        
+        # Update text info
+        doc_name = os.path.basename(self.doc.PathName) if self.doc.PathName else "Unsaved Project"
+        self.txt_health_doc_name.Text = "Model: {}".format(doc_name)
+        self.txt_health_doc_size.Text = "Size: {} MB".format(self.health_results.get("file_size_mb", 0))
+        self.txt_health_doc_warnings.Text = "Warnings: {}".format(self.health_results.get("warnings", 0))
+        self.txt_health_last_run.Text = "Last Checked: {}".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
+        # Load metrics data to DataGrid
+        grid_data = []
+        for key, value in self.health_results.items():
+            if key in METRIC_THRESHOLDS:
+                m_info = METRIC_THRESHOLDS[key]
+                t = m_info["thresholds"]
+                
+                status_str = "Good"
+                if value <= t[0]: status_str = "Good"
+                elif value <= t[1]: status_str = "Acceptable"
+                elif value <= t[2]: status_str = "Warning"
+                elif value <= t[3]: status_str = "Concerning"
+                elif value <= t[4]: status_str = "Critical"
+                else: status_str = "Severe"
+
+                val_str = "{}{}".format(value, " " + m_info["unit"] if m_info["unit"] else "")
+                grid_data.append({
+                    "key": key,
+                    "label": m_info["label"],
+                    "value_str": val_str,
+                    "status": status_str,
+                    "recommendation": m_info["recommendation"]
+                })
+        
+        self.dg_health_metrics.ItemsSource = grid_data
+        self.status_text.Text = "Health analysis complete. Score: {}".format(score)
+
+    def on_health_select(self, sender, e):
+        selected = self.dg_health_metrics.SelectedItem
+        if not selected:
+            forms.alert("Please select a metric in the list first.", title="Model Health")
+            return
+        
+        key = selected.get("key")
+        ids = self.health_analyzer.element_ids.get(key)
+        if not ids:
+            forms.alert("No elements to select for metric: {}".format(selected.get("label")), title="Model Health")
+            return
+        
+        element_ids = [ElementId(int(eid)) for eid in ids]
+        self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](element_ids))
+        self.uidoc.ShowElements(System.Collections.Generic.List[ElementId](element_ids))
+        self.status_text.Text = "Selected {} elements for {}".format(len(ids), selected.get("label"))
+
+    # ========================================================================
+    # TAB 2: COMPLIANCE CHECKER
+    # ========================================================================
+    def _init_checksets(self):
+        try:
+            checksets_dir = os.path.join(os.path.dirname(__file__), "..", "Services", "ModelAuditor", "checksets")
+            checksets_dir = os.path.normpath(checksets_dir)
+            if os.path.exists(checksets_dir):
+                checksets = [f for f in os.listdir(checksets_dir) if f.endswith(".json")]
+                self.cb_checkset.ItemsSource = [os.path.splitext(f)[0] for f in checksets]
+                self.cb_checkset.SelectedIndex = 0
+        except Exception as ex:
+            print("Error initializing checksets: {}".format(ex))
+
+    def on_checker_run(self, sender, e):
+        checkset_name = self.cb_checkset.SelectedItem
+        if not checkset_name:
+            forms.alert("Please select a checkset.", title="Compliance Checker")
+            return
+        
+        self.status_text.Text = "Running compliance audits on checkset '{}'...".format(checkset_name)
+        try:
+            checksets_dir = os.path.join(os.path.dirname(__file__), "..", "Services", "ModelAuditor", "checksets")
+            checksets_dir = os.path.normpath(checksets_dir)
+            checkset_path = os.path.join(checksets_dir, checkset_name + ".json")
+            
+            with codecs.open(checkset_path, "r", "utf-8") as f:
+                checkset_data = json.load(f)
+            
+            engine = RuleEngine(self.doc)
+            results = engine.run_checkset(checkset_data)
+            self.dg_checker_results.ItemsSource = results
+            
+            fails = sum(1 for r in results if r["status"] == "Fail")
+            self.status_text.Text = "Compliance check complete. Rules run: {}, Fails: {}".format(len(results), fails)
+        except Exception as ex:
+            forms.alert("Failed to run compliance check:\n{}".format(ex), title="Error")
+            traceback.print_exc()
+
+    def on_checker_export(self, sender, e):
+        items = self.dg_checker_results.ItemsSource
+        if not items:
+            forms.alert("No check results to export.", title="Compliance Checker")
+            return
+        
+        filepath = forms.save_file(file_ext="csv", default_name="compliance_report.csv")
+        if not filepath:
+            return
+        
+        try:
+            with open(filepath, "wb") as f:
+                writer = csv.writer(f)
+                writer.writerow(["ID", "Category", "Severity", "Rule Name", "Result", "Details"])
+                for item in items:
+                    writer.writerow([
+                        item.get("id", "").encode("utf-8") if isinstance(item.get("id"), unicode) else item.get("id", ""),
+                        item.get("category", "").encode("utf-8") if isinstance(item.get("category"), unicode) else item.get("category", ""),
+                        item.get("severity", "").encode("utf-8") if isinstance(item.get("severity"), unicode) else item.get("severity", ""),
+                        item.get("name", "").encode("utf-8") if isinstance(item.get("name"), unicode) else item.get("name", ""),
+                        item.get("status", "").encode("utf-8") if isinstance(item.get("status"), unicode) else item.get("status", ""),
+                        item.get("message", "").encode("utf-8") if isinstance(item.get("message"), unicode) else item.get("message", "")
+                    ])
+            forms.alert("Report exported successfully to:\n\n{}".format(filepath), title="Compliance Checker")
+        except Exception as ex:
+            forms.alert("Failed to export report:\n{}".format(ex))
+
+    # ========================================================================
+    # TAB 3: WARNING MANAGER
+    # ========================================================================
+    def on_warning_reload(self, sender, e):
+        self.status_text.Text = "Collecting Revit warnings..."
+        try:
+            warnings = self.doc.GetWarnings()
+            self.warning_groups_dict = defaultdict(list)
+            
+            if warnings:
+                for w in warnings:
+                    desc = w.GetDescriptionText()
+                    elements = list(w.GetFailingElements())
+                    self.warning_groups_dict[desc].extend(elements)
+            
+            # Format for DataGrid
+            grid_data = []
+            for desc, elements in self.warning_groups_dict.items():
+                grid_data.append({
+                    "description": desc,
+                    "count": len(elements),
+                    "element_ids": [eid.IntegerValue for eid in elements]
+                })
+            
+            self.dg_warning_groups.ItemsSource = sorted(grid_data, key=lambda x: x["count"], reverse=True)
+            self.lst_warning_elements.ItemsSource = []
+            self.status_text.Text = "Loaded {} warnings in {} unique groups".format(len(warnings), len(grid_data))
+        except Exception as ex:
+            print("Error loading warnings: {}".format(ex))
+            traceback.print_exc()
+
+    def on_warning_group_changed(self, sender, e):
+        selected = self.dg_warning_groups.SelectedItem
+        if not selected:
+            return
+        
+        ids = selected.get("element_ids", [])
+        list_items = []
+        for id_val in ids:
+            try:
+                el = self.doc.GetElement(ElementId(id_val))
+                name = el.Name if el else "Unknown"
+                cat_name = el.Category.Name if el and el.Category else "Element"
+                list_items.append("{} : {} [{}]".format(cat_name, name, id_val))
+            except:
+                list_items.append("Element [{}]".format(id_val))
+                
+        self.lst_warning_elements.ItemsSource = list_items
+
+    def on_warning_select_elements(self, sender, e):
+        selected_items = self.lst_warning_elements.SelectedItems
+        if not selected_items:
+            forms.alert("Please select one or more elements in the list first.", title="Warning Manager")
+            return
+        
+        elem_ids = []
+        for item in selected_items:
+            # Extract id in brackets [12345]
+            match = re.search(r'\[(\d+)\]', item)
+            if match:
+                elem_ids.append(ElementId(int(match.group(1))))
+        
+        if elem_ids:
+            self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](elem_ids))
+            self.uidoc.ShowElements(System.Collections.Generic.List[ElementId](elem_ids))
+            self.status_text.Text = "Selected {} elements in model".format(len(elem_ids))
+
+    def on_warning_autofix(self, sender, e):
+        self.status_text.Text = "Resolving identical instances in same place warnings..."
+        try:
+            warnings = self.doc.GetWarnings()
+            overlapping_pairs = []
+            if warnings:
+                for w in warnings:
+                    desc = w.GetDescriptionText()
+                    if "identical instances" in desc.lower() and "same place" in desc.lower():
+                        overlapping_pairs.append(list(w.GetFailingElements()))
+            
+            if not overlapping_pairs:
+                forms.alert("No overlapping duplicate warnings found in model.", title="Warning Manager")
+                return
+            
+            to_delete = set()
+            for pair in overlapping_pairs:
+                if len(pair) >= 2:
+                    # Keep the first, delete the rest
+                    for i in range(1, len(pair)):
+                        to_delete.add(pair[i])
+            
+            if to_delete:
+                t = Transaction(self.doc, "Resolve Overlapping Duplicates")
+                t.Start()
+                count = 0
+                for eid in to_delete:
+                    try:
+                        self.doc.Delete(eid)
+                        count += 1
+                    except: pass
+                t.Commit()
+                
+                forms.alert("Successfully deleted {} duplicate elements.".format(count), title="Warning Manager")
+                self.on_warning_reload(None, None)
+            else:
+                forms.alert("No duplicate elements could be collected for deletion.", title="Warning Manager")
+        except Exception as ex:
+            forms.alert("Error resolving duplicates:\n{}".format(ex))
+            traceback.print_exc()
+
+    def on_warning_export(self, sender, e):
+        groups = self.dg_warning_groups.ItemsSource
+        if not groups:
+            forms.alert("No warnings to export.", title="Warning Manager")
+            return
+        
+        filepath = forms.save_file(file_ext="csv", default_name="warnings_report.csv")
+        if not filepath:
+            return
+        
+        try:
+            with open(filepath, "wb") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Warning Description", "Count", "Element IDs"])
+                for g in groups:
+                    ids_str = ";".join([str(eid) for eid in g.get("element_ids", [])])
+                    writer.writerow([
+                        g.get("description", "").encode("utf-8") if isinstance(g.get("description"), unicode) else g.get("description", ""),
+                        g.get("count", 0),
+                        ids_str
+                    ])
+            forms.alert("Warnings report exported successfully.", title="Warning Manager")
+        except Exception as ex:
+            forms.alert("Failed to export report:\n{}".format(ex))
+
+    # ========================================================================
+    # TAB 4: MODEL CLEANUP
+    # ========================================================================
+    def load_smart_purge(self):
+        self.status_text.Text = "Scanning unused families and styles..."
+        try:
+            # Dynamically import scanners from local packages
+            from Services.ModelAuditor.smart_purge.purge_categories_v2 import create_purge_categories
+            from Services.ModelAuditor.smart_purge.purge_scanner import create_scanner
+            
+            self.purge_items = []
+            categories = create_purge_categories()
+            for cat in categories:
+                try:
+                    scanner = create_scanner(cat.scanner_class, self.doc)
+                    if scanner:
+                        result = scanner.scan()
+                        if result:
+                            for item in result:
+                                item["is_selected"] = False
+                                item["count"] = 1
+                                self.purge_items.append(item)
+                except Exception as ex:
+                    print("Error scanning category {}: {}".format(cat.name, ex))
+            
+            self.dg_smart_purge.ItemsSource = ObservableCollection[object](self.purge_items)
+            self.status_text.Text = "Smart Purge scan complete. Unused items found: {}".format(len(self.purge_items))
+        except Exception as ex:
+            forms.alert("Failed to load smart purge elements:\n{}".format(ex))
+            traceback.print_exc()
+
+    def on_smart_purge_check_all(self, sender, e):
+        if hasattr(self, 'purge_items') and self.purge_items:
+            for item in self.purge_items:
+                item["is_selected"] = True
+            self.dg_smart_purge.Items.Refresh()
+
+    def on_smart_purge_uncheck_all(self, sender, e):
+        if hasattr(self, 'purge_items') and self.purge_items:
+            for item in self.purge_items:
+                item["is_selected"] = False
+            self.dg_smart_purge.Items.Refresh()
+
+    def on_smart_purge_run(self, sender, e):
+        if not hasattr(self, 'purge_items') or not self.purge_items:
+            return
+        
+        selected_ids = []
+        for item in self.purge_items:
+            if item.get("is_selected", False) and item.get("can_delete", True):
+                selected_ids.append(ElementId(item["id"]))
+        
+        if not selected_ids:
+            forms.alert("No valid elements selected for purging.", title="Smart Purge")
+            return
+        
+        try:
+            t = Transaction(self.doc, "Smart Purge Unused Elements")
+            t.Start()
+            deleted = self.doc.Delete(System.Collections.Generic.List[ElementId](selected_ids))
+            t.Commit()
+            
+            forms.alert("Successfully purged {} elements (including sub-elements).".format(len(deleted)), title="Smart Purge")
+            self.load_smart_purge()
+        except Exception as ex:
+            forms.alert("Error executing purge:\n{}".format(ex))
+            traceback.print_exc()
+
+    def on_adv_purge_run(self, sender, e):
+        # Gather selections
+        purge_views = self.chk_adv_views.IsChecked
+        purge_templates = self.chk_adv_templates.IsChecked
+        purge_filters = self.chk_adv_filters.IsChecked
+        purge_materials = self.chk_adv_materials.IsChecked
+        purge_dwg = self.chk_adv_dwg.IsChecked
+        purge_styles = self.chk_adv_styles.IsChecked
+
+        if not any([purge_views, purge_templates, purge_filters, purge_materials, purge_dwg, purge_styles]):
+            forms.alert("Please check at least one deep category to purge.", title="Advanced Purge")
+            return
+        
+        self.status_text.Text = "Deep scanning advanced categories..."
+        to_delete_ids = []
+        
+        try:
+            # 1. Views
+            if purge_views:
+                views = FilteredElementCollector(self.doc).OfClass(View).WhereElementIsNotElementType().ToElements()
+                for v in views:
+                    if not v.IsTemplate and v.ViewType != DB.ViewType.Internal and not v.ViewType == DB.ViewType.ProjectBrowser:
+                        if hasattr(v, "ViewSheetId") and v.ViewSheetId == ElementId.InvalidElementId:
+                            to_delete_ids.append(v.Id)
+            
+            # 2. View Templates
+            if purge_templates:
+                views = FilteredElementCollector(self.doc).OfClass(View).WhereElementIsNotElementType().ToElements()
+                used_templates = set()
+                templates = []
+                for v in views:
+                    if v.IsTemplate:
+                        templates.append(v)
+                    elif v.ViewTemplateId != ElementId.InvalidElementId:
+                        used_templates.add(_eid_int(v.ViewTemplateId))
+                for t in templates:
+                    if _eid_int(t.Id) not in used_templates:
+                        to_delete_ids.append(t.Id)
+
+            # 3. View Filters
+            if purge_filters:
+                from Services.ModelAuditor.smart_purge.purge_scanner import FilterScanner
+                scanner = FilterScanner(self.doc)
+                result = scanner.scan()
+                if result:
+                    to_delete_ids.extend([ElementId(item["id"]) for item in result])
+
+            # 4. Materials
+            if purge_materials:
+                from Services.ModelAuditor.smart_purge.purge_scanner import MaterialScanner
+                scanner = MaterialScanner(self.doc)
+                result = scanner.scan()
+                if result:
+                    to_delete_ids.extend([ElementId(item["id"]) for item in result])
+
+            # 5. DWG Imports / Links
+            if purge_dwg:
+                dwgs = FilteredElementCollector(self.doc).OfClass(ImportInstance).WhereElementIsNotElementType().ToElements()
+                to_delete_ids.extend([el.Id for el in dwgs])
+
+            # 6. Line Styles / Fill Patterns
+            if purge_styles:
+                from Services.ModelAuditor.smart_purge.purge_scanner import FillPatternScanner
+                scanner = FillPatternScanner(self.doc)
+                result = scanner.scan()
+                if result:
+                    to_delete_ids.extend([ElementId(item["id"]) for item in result])
+
+            if not to_delete_ids:
+                forms.alert("No unused items found in the selected categories.", title="Advanced Purge")
+                return
+            
+            # Delete elements
+            t = Transaction(self.doc, "Advanced Purge")
+            t.Start()
+            deleted = self.doc.Delete(System.Collections.Generic.List[ElementId](to_delete_ids))
+            t.Commit()
+            
+            forms.alert("Deep Purge Complete!\n\nDeleted elements: {}".format(len(deleted)), title="Advanced Purge")
+            self.status_text.Text = "Deep Purge complete. Deleted: {}".format(len(deleted))
+        except Exception as ex:
+            forms.alert("Advanced Purge failed:\n{}".format(ex))
+            traceback.print_exc()
+
+    def on_delete_analyze(self, sender, e):
+        id_str = self.tb_delete_ids.Text.strip()
+        if not id_str:
+            forms.alert("Please input one or more element IDs to analyze.", title="Smart Delete")
+            return
+        
+        self.status_text.Text = "Analyzing element dependency tree..."
+        self.delete_elements_ids = []
+        deps_list = []
+        
+        try:
+            ids = [int(x.strip()) for x in id_str.split(",") if x.strip().isdigit()]
+            for id_val in ids:
+                el = self.doc.GetElement(ElementId(id_val))
+                if el:
+                    self.delete_elements_ids.append(el.Id)
+                    name = el.Name or "Element"
+                    cat = el.Category.Name if el.Category else "System"
+                    deps_list.append("TARGET: {} [{}] ({})".format(name, id_val, cat))
+                    
+                    children = analyze_element(el, self.doc)
+                    for dep in children:
+                        deps_list.append("  ↳ " + dep.to_string())
+                        self.delete_elements_ids.append(ElementId(dep.eid))
+            
+            self.lst_delete_dependencies.ItemsSource = deps_list
+            self.btn_delete_run.IsEnabled = len(self.delete_elements_ids) > 0
+            self.status_text.Text = "Dependency check complete. Found {} total elements (including targets).".format(len(self.delete_elements_ids))
+        except Exception as ex:
+            forms.alert("Dependency check failed:\n{}".format(ex))
+            traceback.print_exc()
+
+    def on_delete_run(self, sender, e):
+        if not hasattr(self, 'delete_elements_ids') or not self.delete_elements_ids:
+            return
+        
+        confirm = forms.MessageBox.show(
+            "Are you sure you want to delete these {} elements?\nThis action cannot be selectively undone.".format(len(self.delete_elements_ids)),
+            title="Confirm Safe Delete",
+            yes=True, no=True
+        )
+        if not confirm:
+            return
+            
+        try:
+            t = Transaction(self.doc, "Smart Delete Elements")
+            t.Start()
+            deleted = self.doc.Delete(System.Collections.Generic.List[ElementId](self.delete_elements_ids))
+            t.Commit()
+            
+            forms.alert("Smart Delete complete! Deleted: {} elements".format(len(deleted)), title="Smart Delete")
+            self.tb_delete_ids.Text = ""
+            self.lst_delete_dependencies.ItemsSource = []
+            self.btn_delete_run.IsEnabled = False
+        except Exception as ex:
+            forms.alert("Delete failed:\n{}".format(ex))
+            traceback.print_exc()
+
+    # ========================================================================
+    # TAB 5: SPECIAL AUDITS
+    # ========================================================================
+    def on_inplace_reload(self, sender, e):
+        self.status_text.Text = "Auditing In-Place families..."
+        self.inplace_items = []
+        try:
+            for el in FilteredElementCollector(self.doc).OfClass(FamilyInstance).WhereElementIsNotElementType():
+                try:
+                    if el.Symbol and el.Symbol.Family and el.Symbol.Family.IsInPlace:
+                        self.inplace_items.append({
+                            "id": el.Id.IntegerValue,
+                            "category": el.Category.Name if el.Category else "N/A",
+                            "family_name": el.Symbol.Family.Name,
+                            "type_name": el.Name
+                        })
+                except: pass
+            
+            self.dg_special_inplace.ItemsSource = self.inplace_items
+            self.status_text.Text = "In-Place Model audit complete. Found: {}".format(len(self.inplace_items))
+        except Exception as ex:
+            print("Error loading in-place models: {}".format(ex))
+
+    def on_inplace_select(self, sender, e):
+        selected = self.dg_special_inplace.SelectedItems
+        if not selected:
+            forms.alert("Please select in-place models in the list first.", title="In-Place Auditor")
+            return
+        
+        ids = [ElementId(item["id"]) for item in selected]
+        self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](ids))
+        self.uidoc.ShowElements(System.Collections.Generic.List[ElementId](ids))
+
+    def on_inplace_delete(self, sender, e):
+        selected = self.dg_special_inplace.SelectedItems
+        if not selected:
+            return
+        
+        confirm = forms.MessageBox.show("Delete these {} selected in-place families?".format(len(selected)), yes=True, no=True)
+        if not confirm:
+            return
+            
+        try:
+            ids = [ElementId(item["id"]) for item in selected]
+            t = Transaction(self.doc, "Delete In-Place Families")
+            t.Start()
+            self.doc.Delete(System.Collections.Generic.List[ElementId](ids))
+            t.Commit()
+            
+            self.on_inplace_reload(None, None)
+        except Exception as ex:
+            forms.alert("Failed to delete families:\n{}".format(ex))
+
+    def on_materials_reload(self, sender, e):
+        self.status_text.Text = "Calculating material volume & area usage..."
+        self.material_items = []
+        try:
+            materials = FilteredElementCollector(self.doc).OfClass(Material).ToElements()
+            material_map = {m.Id.IntegerValue: m for m in materials}
+            
+            material_volume = {}
+            material_area = {}
+            
+            categories = [
+                BuiltInCategory.OST_Walls,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Roofs,
+                BuiltInCategory.OST_Ceilings,
+                BuiltInCategory.OST_StructuralColumns,
+                BuiltInCategory.OST_StructuralFraming,
+                BuiltInCategory.OST_Stairs,
+                BuiltInCategory.OST_Ramps
+            ]
+            
+            for cat in categories:
+                try:
+                    col = FilteredElementCollector(self.doc).OfCategory(cat).WhereElementIsNotElementType().ToElements()
+                    for el in col:
+                        el_materials = el.GetMaterialIds(False)
+                        for mat_id in el_materials:
+                            mat_val = mat_id.IntegerValue
+                            try:
+                                vol = el.GetMaterialVolume(mat_id)
+                                area = el.GetMaterialArea(mat_id)
+                                material_volume[mat_val] = material_volume.get(mat_val, 0) + vol
+                                material_area[mat_val] = material_area.get(mat_val, 0) + area
+                            except: pass
+                except: pass
+            
+            for mat_id_val, mat in material_map.items():
+                vol = material_volume.get(mat_id_val, 0)
+                area = material_area.get(mat_id_val, 0)
+                if vol > 0 or area > 0:
+                    vol_m3 = round(vol * 0.0283168, 3)
+                    area_m2 = round(area * 0.092903, 2)
+                    self.material_items.append({
+                        "category": mat.MaterialCategory or "General",
+                        "name": mat.Name,
+                        "volume_str": str(vol_m3),
+                        "area_str": str(area_m2)
+                    })
+            
+            self.dg_special_materials.ItemsSource = sorted(self.material_items, key=lambda x: x["name"])
+            self.status_text.Text = "Material list generated successfully."
+        except Exception as ex:
+            print("Error loading materials: {}".format(ex))
+            traceback.print_exc()
+
+    def on_materials_export(self, sender, e):
+        items = self.dg_special_materials.ItemsSource
+        if not items:
+            forms.alert("No materials to export.", title="Material List")
+            return
+        
+        filepath = forms.save_file(file_ext="csv", default_name="material_quantity_report.csv")
+        if not filepath:
+            return
+            
+        try:
+            with open(filepath, "wb") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Category", "Material Name", "Volume (m3)", "Area (m2)"])
+                for item in items:
+                    writer.writerow([
+                        item.get("category", "").encode("utf-8") if isinstance(item.get("category"), unicode) else item.get("category", ""),
+                        item.get("name", "").encode("utf-8") if isinstance(item.get("name"), unicode) else item.get("name", ""),
+                        item.get("volume_str", ""),
+                        item.get("area_str", "")
+                    ])
+            forms.alert("Material list exported successfully.", title="Material List")
+        except Exception as ex:
+            forms.alert("Export failed:\n{}".format(ex))
 
 def show_model_auditor(script_dir, revit):
     ModelAuditorWindow(script_dir, revit).ShowDialog()

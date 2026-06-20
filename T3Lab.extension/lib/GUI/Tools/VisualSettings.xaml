@@ -1145,10 +1145,382 @@
                     </Style>
                 </TabControl.ItemContainerStyle>
                 <TabItem>
-                    <Grid x:Name="grid_style_manager" Background="Transparent"/>
+                    <Grid x:Name="grid_style_manager" Background="Transparent">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Sub-tab pill navigation bar -->
+                        <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="14,10">
+                            <Border Background="#F4F4F6" CornerRadius="18" Padding="4" Height="36" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="btn_sub_line_styles" Style="{StaticResource TabPillRadioButton}" Content="Line Styles" IsChecked="True" GroupName="StyleSubTabs"/>
+                                    <RadioButton x:Name="btn_sub_line_patterns" Style="{StaticResource TabPillRadioButton}" Content="Line Patterns" GroupName="StyleSubTabs"/>
+                                    <RadioButton x:Name="btn_sub_fill_patterns" Style="{StaticResource TabPillRadioButton}" Content="Fill Patterns" GroupName="StyleSubTabs"/>
+                                </StackPanel>
+                            </Border>
+                        </Border>
+
+                        <TabControl x:Name="style_tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent">
+                            <TabControl.ItemContainerStyle>
+                                <Style TargetType="TabItem">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </Style>
+                            </TabControl.ItemContainerStyle>
+
+                            <!-- SUB-TAB 0: Line Styles -->
+                            <TabItem>
+                                <Grid Margin="14">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Filters bar -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="txt_search_style" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search line styles..." Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_style_calc_usage" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Calculate Usage" Height="32" Padding="12,0" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_style_refresh" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="32" Padding="12,0"/>
+                                    </Grid>
+
+                                    <!-- Table -->
+                                    <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                        <DataGrid x:Name="grid_style" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5">
+                                            <DataGrid.ColumnHeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader">
+                                                    <Setter Property="Background" Value="#F8FAFC"/>
+                                                    <Setter Property="Foreground" Value="#0F172A"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    <Setter Property="Padding" Value="10,8"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                </Style>
+                                            </DataGrid.ColumnHeaderStyle>
+                                            <DataGrid.RowStyle>
+                                                <Style TargetType="DataGridRow">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#F1F5F9"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </DataGrid.RowStyle>
+                                            <DataGrid.Columns>
+                                                <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                                                    <DataGridCheckBoxColumn.ElementStyle>
+                                                        <Style TargetType="CheckBox" BasedOn="{StaticResource T3CheckBox}"/>
+                                                    </DataGridCheckBoxColumn.ElementStyle>
+                                                    <DataGridCheckBoxColumn.EditingElementStyle>
+                                                        <Style TargetType="CheckBox" BasedOn="{StaticResource T3CheckBox}"/>
+                                                    </DataGridCheckBoxColumn.EditingElementStyle>
+                                                </DataGridCheckBoxColumn>
+                                                <DataGridTextColumn Header="Name" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Color" Binding="{Binding color}" Width="100" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Weight" Binding="{Binding weight}" Width="80" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Pattern" Binding="{Binding pattern}" Width="150" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Usage" Binding="{Binding usage_count}" Width="80" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </Border>
+
+                                    <!-- Bottom Actions -->
+                                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <Button x:Name="btn_style_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="34" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_style_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="34" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_style_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="34"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="txt_stats_style" Grid.Column="1" Text="Showing 0 / 0 items" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#71717A" FontSize="12" FontStyle="Italic"/>
+                                        <Button x:Name="btn_style_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="34" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_style_delete" Grid.Column="3" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="34" Width="130"/>
+                                    </Grid>
+                                </Grid>
+                            </TabItem>
+
+                            <!-- SUB-TAB 1: Line Patterns -->
+                            <TabItem>
+                                <Grid Margin="14">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Filters bar -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="txt_search_pattern" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search line patterns..." Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_pattern_refresh" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="32" Padding="12,0"/>
+                                    </Grid>
+
+                                    <!-- Table -->
+                                    <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                        <DataGrid x:Name="grid_pattern" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5">
+                                            <DataGrid.ColumnHeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader">
+                                                    <Setter Property="Background" Value="#F8FAFC"/>
+                                                    <Setter Property="Foreground" Value="#0F172A"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    <Setter Property="Padding" Value="10,8"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                </Style>
+                                            </DataGrid.ColumnHeaderStyle>
+                                            <DataGrid.RowStyle>
+                                                <Style TargetType="DataGridRow">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#F1F5F9"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </DataGrid.RowStyle>
+                                            <DataGrid.Columns>
+                                                <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                                                    <DataGridCheckBoxColumn.ElementStyle>
+                                                        <Style TargetType="CheckBox" BasedOn="{StaticResource T3CheckBox}"/>
+                                                    </DataGridCheckBoxColumn.ElementStyle>
+                                                    <DataGridCheckBoxColumn.EditingElementStyle>
+                                                        <Style TargetType="CheckBox" BasedOn="{StaticResource T3CheckBox}"/>
+                                                    </DataGridCheckBoxColumn.EditingElementStyle>
+                                                </DataGridCheckBoxColumn>
+                                                <DataGridTextColumn Header="Name" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Segments Count" Binding="{Binding segment_count}" Width="120" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Segments Type" Binding="{Binding segments_type}" Width="150" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Segments Value" Binding="{Binding segments_value}" Width="200" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </Border>
+
+                                    <!-- Bottom Actions -->
+                                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <Button x:Name="btn_pattern_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="34" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_pattern_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="34" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_pattern_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="34"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="txt_stats_pattern" Grid.Column="1" Text="Showing 0 / 0 items" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#71717A" FontSize="12" FontStyle="Italic"/>
+                                        <Button x:Name="btn_pattern_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="34" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_pattern_duplicate" Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Duplicate" Height="34" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_pattern_delete" Grid.Column="4" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="34" Width="130"/>
+                                    </Grid>
+                                </Grid>
+                            </TabItem>
+
+                            <!-- SUB-TAB 2: Fill Patterns -->
+                            <TabItem>
+                                <Grid Margin="14">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Filters bar -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="150"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="txt_search_fill" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search fill patterns..." Margin="0,0,8,0"/>
+                                        <ComboBox x:Name="cmb_type_fill" Grid.Column="1" Style="{StaticResource T3ComboBoxSmall}" Height="32" Margin="0,0,8,0">
+                                            <ComboBoxItem Content="All" IsSelected="True"/>
+                                            <ComboBoxItem Content="Drafting"/>
+                                            <ComboBoxItem Content="Model"/>
+                                        </ComboBox>
+                                        <Button x:Name="btn_fill_refresh" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="32" Padding="12,0"/>
+                                    </Grid>
+
+                                    <!-- Table -->
+                                    <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                        <DataGrid x:Name="grid_fill" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5">
+                                            <DataGrid.ColumnHeaderStyle>
+                                                <Style TargetType="DataGridColumnHeader">
+                                                    <Setter Property="Background" Value="#F8FAFC"/>
+                                                    <Setter Property="Foreground" Value="#0F172A"/>
+                                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                                    <Setter Property="Padding" Value="10,8"/>
+                                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                    <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                </Style>
+                                            </DataGrid.ColumnHeaderStyle>
+                                            <DataGrid.RowStyle>
+                                                <Style TargetType="DataGridRow">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#F1F5F9"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </DataGrid.RowStyle>
+                                            <DataGrid.Columns>
+                                                <DataGridCheckBoxColumn Header="" Binding="{Binding is_selected, UpdateSourceTrigger=PropertyChanged}" Width="40">
+                                                    <DataGridCheckBoxColumn.ElementStyle>
+                                                        <Style TargetType="CheckBox" BasedOn="{StaticResource T3CheckBox}"/>
+                                                    </DataGridCheckBoxColumn.ElementStyle>
+                                                    <DataGridCheckBoxColumn.EditingElementStyle>
+                                                        <Style TargetType="CheckBox" BasedOn="{StaticResource T3CheckBox}"/>
+                                                    </DataGridCheckBoxColumn.EditingElementStyle>
+                                                </DataGridCheckBoxColumn>
+                                                <DataGridTextColumn Header="Name" Binding="{Binding name}" Width="*" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Pattern Type" Binding="{Binding pattern_type}" Width="120" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Settings" Binding="{Binding settings}" Width="250" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Grid Lines" Binding="{Binding grid_count}" Width="100" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </Border>
+
+                                    <!-- Bottom Actions -->
+                                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                            <Button x:Name="btn_fill_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="34" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_fill_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="34" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_fill_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="34"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="txt_stats_fill" Grid.Column="1" Text="Showing 0 / 0 items" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#71717A" FontSize="12" FontStyle="Italic"/>
+                                        <Button x:Name="btn_fill_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="34" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_fill_duplicate" Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Duplicate" Height="34" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_fill_delete" Grid.Column="4" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="34" Width="130"/>
+                                    </Grid>
+                                </Grid>
+                            </TabItem>
+                        </TabControl>
+                    </Grid>
                 </TabItem>
                 <TabItem>
-                    <Grid x:Name="grid_color_splasher" Background="Transparent"/>
+                    <Grid x:Name="grid_color_splasher" Background="Transparent" Margin="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="280"/>
+                            <ColumnDefinition Width="14"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left Panel: Selector -->
+                        <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Source selection -->
+                                <TextBlock Grid.Row="0" Text="SOURCE" FontSize="11" FontWeight="Bold" Foreground="#71717A" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="cbSource" Grid.Row="1" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,12"/>
+
+                                <!-- Category selection -->
+                                <TextBlock Grid.Row="2" Text="CATEGORY" FontSize="11" FontWeight="Bold" Foreground="#71717A" Margin="0,0,0,4"/>
+                                <ComboBox x:Name="cbCat" Grid.Row="3" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,12"/>
+
+                                <!-- Search parameters -->
+                                <TextBlock Grid.Row="4" Text="SEARCH PARAMETER" FontSize="11" FontWeight="Bold" Foreground="#71717A" Margin="0,0,0,4"/>
+                                <TextBox x:Name="txtSearch" Grid.Row="5" Style="{StaticResource T3InputFieldSmall}" Tag="Search parameter name..." Margin="0,0,0,8"/>
+
+                                <!-- Parameters list -->
+                                <Border Grid.Row="6" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
+                                    <ListBox x:Name="lbParams" BorderThickness="0" Background="Transparent" FontSize="12.5" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+                                </Border>
+
+                                <TextBlock x:Name="txtStatus" Grid.Row="7" Text="Ready" FontSize="11" Foreground="#71717A" FontStyle="Italic" Margin="0,8,0,0"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Right Panel: Values Legend -->
+                        <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Header info -->
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="PARAMETER VALUES" Grid.Column="0" FontSize="12" FontWeight="Bold" Foreground="#18181B" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="txtVC" Grid.Column="1" Text="0 unique values" FontSize="11" Foreground="#71717A" VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Selection Summary -->
+                                <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="10" Margin="0,0,0,12">
+                                    <TextBlock x:Name="txtSum" Text="Select a category and parameter to analyze values." FontSize="12.5" TextWrapping="Wrap" Foreground="#27272A"/>
+                                </Border>
+
+                                <!-- Legend List -->
+                                <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel x:Name="spLeg" Padding="8"/>
+                                    </ScrollViewer>
+                                </Border>
+
+                                <!-- Palette Colors Buttons -->
+                                <UniformGrid Grid.Row="3" Columns="4" Margin="0,12,0,12">
+                                    <Button x:Name="btnGradient" Style="{StaticResource SecondaryButton}" Content="Gradient" Height="36" Margin="0,0,6,0"/>
+                                    <Button x:Name="btnRandom" Style="{StaticResource SecondaryButton}" Content="Random" Height="36" Margin="0,0,6,0"/>
+                                    <Button x:Name="btnLegend" Style="{StaticResource SecondaryButton}" Content="Create Legend" Height="36" Margin="0,0,6,0"/>
+                                    <Button x:Name="btnFilters" Style="{StaticResource SecondaryButton}" Content="View Filters" Height="36"/>
+                                </UniformGrid>
+
+                                <!-- Bottom actions -->
+                                <Border Grid.Row="4" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="0,12,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="txtFooterStatus" Grid.Column="0" Text="Active View: -" FontSize="11" Foreground="#71717A" FontStyle="Italic" VerticalAlignment="Center"/>
+                                        <Button x:Name="btnReset" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Reset overrides" Height="38" Width="130" Margin="0,0,8,0"/>
+                                        <Button x:Name="btnApply" Grid.Column="2" Style="{StaticResource SuccessButton}" Content="Apply Colors" Height="38" Width="140"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </TabItem>
             </TabControl>
 

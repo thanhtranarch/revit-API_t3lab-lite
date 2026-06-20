@@ -28,17 +28,17 @@ class ToolRegistry:
             "cad_to_beam": {
                 "name": "CAD to Beam",
                 "description": "Converts CAD lines to Revit beams with AI dimension detection from nearby TextNotes.",
-                "rel_path": "Project.panel/Create.stack/Create Elements.pulldown/Beam.pushbutton/script.py"
+                "rel_path": "Modeling & Datum.panel/Create.stack/Create Elements.pulldown/Beam.pushbutton/script.py"
             },
             "annotation_manager": {
                 "name": "Annotation Manager",
                 "description": "Unified tool for managing Dimensions and Text Notes — find, delete, and auto-rename types and instances.",
-                "rel_path": "Annotation.panel/Text.stack/AnnotationManager.pushbutton/script.py"
+                "rel_path": "Annotation & Select.panel/Text.stack/AnnotationManager.pushbutton/script.py"
             },
             "workset_manager": {
                 "name": "Workset Manager",
                 "description": "List, rename, and manage user worksets; remove unused worksets via a checklist.",
-                "rel_path": "Project.panel/Work.stack/WorksetManager.pushbutton/script.py"
+                "rel_path": "Standards & Settings.panel/WorksetManager.pushbutton/script.py"
             },
             "batch_export": {
                 "name": "BatchOut",
@@ -48,17 +48,17 @@ class ToolRegistry:
             "load_family": {
                 "name": "Load Family",
                 "description": "Browse and load Revit families from local disk or Cloud (Vercel API).",
-                "rel_path": "Project.panel/Family Work 2.stack/Load Family.pushbutton/script.py"
+                "rel_path": "Modeling & Datum.panel/Family Work 2.stack/Load Family.pushbutton/script.py"
             },
             "room_to_area": {
                 "name": "Room to Area",
                 "description": "Automatically convert room boundaries to area boundaries in the active area plan.",
-                "rel_path": "Project.panel/Areas.stack/Room to Area.pushbutton/script.py"
+                "rel_path": "Modeling & Datum.panel/Areas.stack/Room to Area.pushbutton/script.py"
             },
             "create_plan_views": {
                 "name": "Create Plan Views",
                 "description": "Batch-generate individual floor plan views for each room with custom naming and template assignment.",
-                "rel_path": "ViewsSheets.panel/Create Room Plan/script.py"
+                "rel_path": "Views & Sheets.panel/Create Room Plan/script.py"
             }
         }
 

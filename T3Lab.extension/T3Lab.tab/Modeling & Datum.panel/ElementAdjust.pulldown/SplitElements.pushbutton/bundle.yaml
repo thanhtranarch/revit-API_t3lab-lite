@@ -1,0 +1,10 @@
+title: "Split\nElements"
+tooltip: Split Walls, Columns, or Floors at selected levels.
+description: |
+  Structural element splitter:
+  - Select Walls, Columns, or Floors to split
+  - Choose one or more target levels as split planes
+  - Generates separate elements above and below each cut plane
+  - Preserves parameters and constraints from the original element
+
+author: Dang Quoc Truong

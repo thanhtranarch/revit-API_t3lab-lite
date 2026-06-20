@@ -1,0 +1,11 @@
+title: "Mana\nSheets"
+tooltip: Manage sheets, sync with Excel, place views, create sets, and re-number sheets in one unified interface.
+description: |
+  Unified sheet manager:
+  - Browse and filter sheets with live search
+  - Sync sheet data to/from Excel
+  - Place views on sheets at defined locations
+  - Create and manage sheet sets
+  - Renumber sheets sequentially or by custom pattern
+
+author: Tran Tien Thanh & Dang Quoc Truong

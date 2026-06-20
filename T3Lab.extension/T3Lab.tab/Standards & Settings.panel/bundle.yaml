@@ -1,0 +1,6 @@
+title: Standards & Settings
+layout:
+  - ModelAuditor
+  - ManaLocations
+  - VisualSettings
+  - WorksetManager

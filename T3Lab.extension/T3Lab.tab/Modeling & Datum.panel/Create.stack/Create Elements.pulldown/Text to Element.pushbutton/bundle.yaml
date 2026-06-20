@@ -1,0 +1,11 @@
+title: "Text to\nElement"
+tooltip: Transfer Text Note content to element parameters via bounding-box overlap in the active view.
+description: |
+  Spatial text-to-parameter assignment tool:
+  - Detects which elements each Text Note overlaps in the active view
+  - Maps the note's text content to a chosen instance or type parameter
+  - Supports bounding-box intersection matching for accurate spatial assignment
+  - Batch-processes all matching notes in a single operation
+  - No selection required — runs across the entire active view
+
+author: Tran Tien Thanh

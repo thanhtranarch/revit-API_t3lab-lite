@@ -1,7 +1,3 @@
-tooltip:
-  en_us: |-
-    Manage tab, turn off the visible of unwanted tabs.
-
-title:
-  en_us: |-
-    ManaTabs
+title: ManaTabs
+tooltip: Manage Revit ribbon tabs — hide or show unwanted tabs to reduce clutter.
+author: Dang Quoc Truong

@@ -1,0 +1,7 @@
+title: "IFC-SG\nSuite"
+tooltip: Unified IFC-SG manager: Assign subtypes and verify parameter compliance.
+description: |
+  Comprehensive suite for IFC-SG submission preparation:
+  - Subtype Assigner: load mapping rules from Excel, map element classifications, and assign IFC Export Class & Predefined Type parameters.
+  - Compliance Checker: verify required parameters exist and contain non-empty values based on CORENET X rules.
+author: T3Lab

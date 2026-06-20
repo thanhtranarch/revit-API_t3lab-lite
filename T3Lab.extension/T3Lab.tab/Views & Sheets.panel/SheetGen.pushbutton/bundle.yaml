@@ -1,0 +1,10 @@
+title: SheetGen
+tooltip: Create floor-plan views from a room list with a WPF selection interface.
+description: |
+  Batch plan-view generator from rooms:
+  - Browse and filter all rooms in the project with live search
+  - Select one or more rooms from the list
+  - Choose a View Family Type and a naming template
+  - Creates a floor-plan view for each selected room in one transaction
+
+author: Tran Tien Thanh

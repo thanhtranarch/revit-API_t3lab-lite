@@ -1,5 +1,10 @@
 title: "MCP\nControl"
-tooltip: |
-  AI Connection & MCP Control Panel.
-  Start/Stop the MCP server and manage connection settings.
-author: "T3Lab & Dang Quoc Truong"
+tooltip: AI Connection & MCP Control Panel — Start/Stop the MCP server and manage connection settings.
+description: |
+  Unified control panel for the T3Lab MCP server:
+  - Start or stop the local MCP server process
+  - View server status and active connection info
+  - Configure host, port, and authentication settings
+  - Enables Claude AI (and other MCP clients) to interact directly with Revit
+
+author: Tran Tien Thanh & Dang Quoc Truong

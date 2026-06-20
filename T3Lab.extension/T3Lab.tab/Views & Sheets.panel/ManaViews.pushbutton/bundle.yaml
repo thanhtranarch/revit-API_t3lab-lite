@@ -1,0 +1,10 @@
+title: "Mana\nViews"
+tooltip: Manage views, rename views, and update view templates in one unified interface.
+description: |
+  Unified view manager:
+  - Browse and filter all views by type, template, or name
+  - Rename views in bulk using naming rules and patterns
+  - Update view templates across multiple views at once
+  - Remove unused views and manage view duplicates
+
+author: Tran Tien Thanh & Dang Quoc Truong

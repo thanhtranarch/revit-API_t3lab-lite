@@ -1,0 +1,10 @@
+title: "Image to\nDrafting"
+tooltip: Creates a new Drafting View and imports an image into it.
+description: |
+  Quick image-to-Drafting View importer:
+  - Select an image file from disk (PNG, JPG, BMP, TIFF)
+  - Or paste directly from clipboard (Ctrl+V) for instant capture
+  - Creates a dedicated Drafting View and places the image at model scale
+  - Useful for reference sketches, photos, and scanned drawings
+
+author: Tran Tien Thanh

@@ -1,16 +1,3 @@
-tooltip:
-  en_us: |-
-    DQT - Background Theme
-
-    Set the Revit model-view background colour from a themed picker:
-    presets (Black / Charcoal / Gray / White / Dark Blue / Studio),
-    RGB sliders, HEX input and a live preview. Last choice is remembered.
-    SHIFT + Click = quick cycle Black -> Gray -> White.
-
-    Works on Revit 2024 / 2025 / 2026 / 2027.
-    Dang Quoc Truong - DQT (c) 2026
-
-title:
-  en_us: |-
-    BG
-    Theme
+title: "BG\nTheme"
+tooltip: Set the Revit model-view background colour from a themed picker. Presets (Black / Charcoal / Gray / White / Dark Blue / Studio), RGB sliders, HEX input, and live preview. SHIFT+Click cycles Black → Gray → White.
+author: Dang Quoc Truong

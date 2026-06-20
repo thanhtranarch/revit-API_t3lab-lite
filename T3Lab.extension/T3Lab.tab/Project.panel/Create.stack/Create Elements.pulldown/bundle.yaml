@@ -1,7 +1,0 @@
-title: CAD to BIM
-layout:
-  - CADToElements
-  - RoomToFloor
-  - DoorThreshold
-  - PointCloud
-  - ImageToDrafting

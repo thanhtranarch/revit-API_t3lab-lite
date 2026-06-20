@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<rect x="5" y="5" width="46" height="52" rx="4" fill="#1E2A3A"/>
+<rect x="9" y="9" width="38" height="34" rx="2" fill="#EEF2F7"/>
+<rect x="11" y="11" width="20" height="16" rx="1" fill="#D8E4EF" stroke="#5A7290" stroke-width="1.2" stroke-dasharray="3,2"/>
+<line x1="13" y1="16" x2="29" y2="16" stroke="#B0BEC5" stroke-width="0.8"/>
+<line x1="13" y1="20" x2="25" y2="20" stroke="#B0BEC5" stroke-width="0.8"/>
+<line x1="33" y1="19" x2="37" y2="19" stroke="#C2440C" stroke-width="1.8" stroke-linecap="round"/>
+<polyline points="35,16 38,19 35,22" stroke="#C2440C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<rect x="11" y="31" width="32" height="7" rx="1" fill="#C8D8EB" stroke="#4A6278" stroke-width="1.2"/>
+<line x1="14" y1="31" x2="11" y2="34" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="18" y1="31" x2="12" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="22" y1="31" x2="16" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="26" y1="31" x2="20" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="30" y1="31" x2="24" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="34" y1="31" x2="28" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="38" y1="31" x2="32" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="42" y1="31" x2="36" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="43" y1="34" x2="40" y2="37" stroke="#7A93A8" stroke-width="0.8"/>
+<line x1="9" y1="44" x2="47" y2="44" stroke="#2D3F52" stroke-width="1"/>
+<rect x="9" y="45" width="38" height="12" fill="#0D1825"/>
+<line x1="26" y1="44" x2="26" y2="57" stroke="#2D3F52" stroke-width="0.8"/>
+<circle cx="49" cy="49" r="12" fill="#C2440C"/>
+<line x1="49" y1="41" x2="49" y2="51" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+<polyline points="44,48 49,53 54,48" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<rect x="41" y="53" width="16" height="3" rx="1" fill="white"/>
+</svg>

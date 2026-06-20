@@ -1,0 +1,11 @@
+title: "Door\nThreshold"
+tooltip: Creates threshold floor elements at the base of selected doors.
+description: |
+  Auto-generates threshold floor slabs at door openings:
+  - Select doors or target an entire level at once
+  - Threshold width matches the door opening width
+  - Depth matches the host wall thickness
+  - Adjustable front and back extensions for custom threshold sizes
+  - Assigns a chosen floor type to all generated threshold elements
+
+author: Tran Tien Thanh

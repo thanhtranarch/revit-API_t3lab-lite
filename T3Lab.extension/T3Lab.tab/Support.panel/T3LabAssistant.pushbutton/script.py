@@ -123,7 +123,7 @@ def _get_tool_script_dir(*parts):
 
     Usage:
         _get_tool_script_dir('Export.panel', 'BatchOut.pushbutton')
-        _get_tool_script_dir('Annotation.panel', 'Text.stack', 'DimText.pushbutton')
+        _get_tool_script_dir('Annotation & Select.panel', 'Text.stack', 'DimText.pushbutton')
     """
     # __file__ = .../T3Lab_Lite.tab/AI Connection.panel/T3LabAssistant.pushbutton/script.py
     # dirname x1 = T3LabAssistant.pushbutton/
@@ -228,7 +228,7 @@ def launch_export_direct(config, progress_cb=None):
 def launch_parasync():
     """Open the ParaSync parameter sync tool."""
     try:
-        script_path = _get_tool_script_dir('Project.panel', 'ParaSync.pushbutton')
+        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'ParaSync.pushbutton')
         mod = _load_script('parasync_script', script_path)
         if mod is None:
             raise RuntimeError("Could not load ParaSync module from: {}".format(script_path))
@@ -265,7 +265,7 @@ def launch_loadfamily_cloud():
 def launch_projectname():
     """Open the Project Name tool."""
     try:
-        script_path = _get_tool_script_dir('Project.panel', 'ProjectName.pushbutton')
+        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'ProjectName.pushbutton')
         mod = _load_script('projectname_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -276,7 +276,7 @@ def launch_projectname():
 def launch_workset():
     """Open the Workset manager."""
     try:
-        script_path = _get_tool_script_dir('Project.panel', 'Workset.pushbutton')
+        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'Workset.pushbutton')
         mod = _load_script('workset_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -287,7 +287,7 @@ def launch_workset():
 def launch_dimtext():
     """Run the Dim Text tool on current selection."""
     try:
-        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'TextTagTools.pulldown', 'DimText.pushbutton')
+        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Text.stack', 'TextTagTools.pulldown', 'DimText.pushbutton')
         mod = _load_script('dimtext_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -298,7 +298,7 @@ def launch_dimtext():
 def launch_upperall():
     """Run the Upper All Text tool on current selection."""
     try:
-        script_path = _get_tool_script_dir('Annotation.panel', 'Text.stack', 'TextTagTools.pulldown', 'UpperAll.pushbutton')
+        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Text.stack', 'TextTagTools.pulldown', 'UpperAll.pushbutton')
         mod = _load_script('upperall_script', script_path)
         if mod and hasattr(mod, 'main'):
             mod.main()
@@ -311,7 +311,7 @@ def launch_upperall():
 def launch_resetoverrides():
     """Run the Reset Overrides tool on the active view."""
     try:
-        script_path = _get_tool_script_dir('Annotation.panel', 'Graphic 2.stack', 'Reset Overrides.pushbutton')
+        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Graphic 2.stack', 'Reset Overrides.pushbutton')
         mod = _load_script('resetoverrides_script', script_path)
         return mod is not None
     except Exception as ex:
@@ -322,7 +322,7 @@ def launch_resetoverrides():
 def launch_cadtobeam():
     """Open the CAD to Beam tool."""
     try:
-        script_path = _get_tool_script_dir('Project.panel', 'Create.stack', 'Create Elements.pulldown', 'Beam.pushbutton')
+        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'Create.stack', 'Create Elements.pulldown', 'Beam.pushbutton')
         mod = _load_script('cadtobeam_script', script_path)
         if mod:
             window = mod.CADtoBeamWindow()

@@ -1,0 +1,10 @@
+title: "IFC-SG\nAssign"
+tooltip: Auto or manual assignment of IFC export classes to model elements.
+description: |
+  IFC export class assignment tool for IFC-SG workflows:
+  - Auto mode: assign IFC export classes by category mapping rules
+  - Manual mode: select elements and assign a specific IFC class directly
+  - Supports all IFC entity types required by the Singapore BIM standard
+  - Preview assignments before committing to the model
+
+author: Dang Quoc Truong

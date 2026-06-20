@@ -1,0 +1,6 @@
+title: Views & Sheets
+layout:
+  - ManaViews
+  - ManaSheets
+  - SheetGen
+  - BatchOut

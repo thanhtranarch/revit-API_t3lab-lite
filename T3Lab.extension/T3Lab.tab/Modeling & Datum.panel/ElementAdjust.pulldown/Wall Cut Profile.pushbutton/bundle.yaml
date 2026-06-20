@@ -1,0 +1,12 @@
+title: "Wall\nCut Profile"
+tooltip: Cut wall profiles or create openings based on intersecting linked model elements.
+description: |
+  Detect intersections between host walls and elements in linked models,
+  then automatically create openings or profile cuts at each intersection zone.
+
+  - Scans all linked models for elements intersecting host walls
+  - Creates void openings or sketch-based profile cuts
+  - Supports linked structural members, MEP penetrations, and floors
+  - Preview intersections before committing changes
+
+author: Dang Quoc Truong
