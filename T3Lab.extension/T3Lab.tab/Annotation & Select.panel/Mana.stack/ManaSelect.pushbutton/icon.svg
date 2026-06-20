@@ -1,16 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<rect x="5" y="5" width="46" height="52" rx="4" fill="#1E2A3A"/>
-<rect x="9" y="9" width="38" height="34" rx="2" fill="#EEF2F7"/>
-<rect x="13" y="13" width="30" height="24" rx="1" fill="none" stroke="#5A7290" stroke-width="1.5" stroke-dasharray="4,3"/>
-<rect x="17" y="17" width="6" height="6" rx="1" fill="#2D3F52" opacity="0.7"/>
-<rect x="26" y="17" width="6" height="6" rx="1" fill="#2D3F52" opacity="0.7"/>
-<rect x="35" y="17" width="5" height="6" rx="1" fill="#2D3F52" opacity="0.25"/>
-<rect x="17" y="27" width="6" height="6" rx="1" fill="#2D3F52" opacity="0.25"/>
-<rect x="26" y="27" width="6" height="6" rx="1" fill="#2D3F52" opacity="0.7"/>
-<rect x="35" y="27" width="5" height="6" rx="1" fill="#2D3F52" opacity="0.7"/>
-<line x1="9" y1="44" x2="47" y2="44" stroke="#2D3F52" stroke-width="1"/>
-<rect x="9" y="45" width="38" height="12" fill="#0D1825"/>
-<line x1="26" y1="44" x2="26" y2="57" stroke="#2D3F52" stroke-width="0.8"/>
-<circle cx="49" cy="49" r="12" fill="#C2440C"/>
-<polygon points="43,42 43,56 47,52 50,58 53,57 50,51 56,51" fill="white"/>
+<!-- Selected elements (dark blocks) -->
+<rect x="6" y="8" width="18" height="14" rx="3" fill="#1E2A3A"/>
+<rect x="28" y="8" width="14" height="14" rx="3" fill="#253344"/>
+<rect x="6" y="28" width="22" height="14" rx="3" fill="#253344"/>
+<rect x="32" y="28" width="16" height="14" rx="3" fill="#334155"/>
+<rect x="10" y="46" width="30" height="12" rx="3" fill="#1E2A3A"/>
+<!-- Orange dashed selection marquee -->
+<rect x="3" y="5" width="50" height="44" rx="5" fill="none" stroke="#C2440C" stroke-width="3" stroke-dasharray="8,4"/>
+<!-- Bold orange cursor arrow (bottom-right) -->
+<polygon points="44,40 44,58 49,53 54,62 58,60 53,51 60,51" fill="#C2440C"/>
+<polygon points="44,40 44,58 49,53 54,62 58,60 53,51 60,51" fill="none" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
 </svg>
