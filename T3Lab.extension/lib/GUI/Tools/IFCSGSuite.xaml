@@ -1420,9 +1420,11 @@
                                     </Grid>
                                     
                                     <!-- Results list -->
-                                    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="4">
-                                        <StackPanel x:Name="spResults"/>
-                                    </ScrollViewer>
+                                    <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="4">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <StackPanel x:Name="spResults"/>
+                                        </ScrollViewer>
+                                    </Border>
                                 </Grid>
                             </Border>
                         </Grid>
