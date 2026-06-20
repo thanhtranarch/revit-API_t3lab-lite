@@ -1,30 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<rect x="5" y="5" width="46" height="52" rx="4" fill="#1E2A3A"/>
-<rect x="9" y="9" width="38" height="34" rx="2" fill="#EEF2F7"/>
-<!-- Ribbon bar with labeled panels -->
-<rect x="10" y="10" width="36" height="10" rx="1.5" fill="#1E2A3A" opacity="0.85"/>
-<!-- Tab indicators on ribbon -->
-<rect x="12" y="11" width="8" height="5" rx="1" fill="#3B82F6"/>
-<rect x="22" y="11" width="8" height="5" rx="1" fill="#4A6278" opacity="0.7"/>
-<rect x="32" y="11" width="8" height="5" rx="1" fill="#4A6278" opacity="0.7"/>
-<!-- Ribbon panel name area -->
-<line x1="10" y1="20" x2="46" y2="20" stroke="#CBD5E1" stroke-width="1"/>
-<!-- Button grid in panel -->
-<rect x="12" y="22" width="8" height="8" rx="1.5" fill="#D8E4EF" stroke="#B0BEC5" stroke-width="0.8"/>
-<rect x="22" y="22" width="8" height="8" rx="1.5" fill="#D8E4EF" stroke="#B0BEC5" stroke-width="0.8"/>
-<rect x="32" y="22" width="8" height="8" rx="1.5" fill="#D8E4EF" stroke="#B0BEC5" stroke-width="0.8"/>
-<!-- Label name bars below buttons -->
-<rect x="12" y="32" width="8" height="2" rx="1" fill="#B0BEC5"/>
-<rect x="22" y="32" width="8" height="2" rx="1" fill="#C2440C" opacity="0.7"/>
-<rect x="32" y="32" width="8" height="2" rx="1" fill="#B0BEC5"/>
-<!-- Pencil / edit indicator on active -->
-<rect x="23" y="23" width="6" height="6" rx="1" fill="#3B82F6" opacity="0.3"/>
-<line x1="24" y1="27" x2="28" y2="23" stroke="#3B82F6" stroke-width="1.2" stroke-linecap="round"/>
-<line x1="9" y1="44" x2="47" y2="44" stroke="#2D3F52" stroke-width="1"/>
-<rect x="9" y="45" width="38" height="12" fill="#0D1825"/>
-<line x1="26" y1="44" x2="26" y2="57" stroke="#2D3F52" stroke-width="0.8"/>
-<circle cx="49" cy="49" r="12" fill="#C2440C"/>
-<!-- Text "T" label badge -->
-<line x1="43" y1="43" x2="55" y2="43" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
-<line x1="49" y1="43" x2="49" y2="55" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+<!-- Ribbon bar (dark, top) -->
+<rect x="2" y="2" width="60" height="22" rx="5" fill="#1E2A3A"/>
+<!-- 3 panel sections in ribbon -->
+<rect x="4" y="4" width="16" height="18" rx="3" fill="#253344"/>
+<rect x="22" y="4" width="16" height="18" rx="3" fill="#253344"/>
+<rect x="40" y="4" width="20" height="18" rx="3" fill="#253344"/>
+<!-- Orange active panel highlight -->
+<rect x="22" y="4" width="16" height="18" rx="3" fill="#C2440C" opacity="0.3"/>
+<rect x="22" y="20" width="16" height="4" rx="0" fill="#C2440C"/>
+<!-- Button icons inside panels (small dots) -->
+<rect x="7" y="8" width="10" height="5" rx="1.5" fill="#5A7290" opacity="0.6"/>
+<rect x="7" y="15" width="10" height="3" rx="1" fill="#5A7290" opacity="0.4"/>
+<rect x="25" y="8" width="10" height="5" rx="1.5" fill="white" opacity="0.7"/>
+<rect x="25" y="15" width="10" height="3" rx="1" fill="white" opacity="0.5"/>
+<rect x="43" y="8" width="14" height="5" rx="1.5" fill="#5A7290" opacity="0.6"/>
+<rect x="43" y="15" width="14" height="3" rx="1" fill="#5A7290" opacity="0.4"/>
+<!-- Label editing area (lower half) -->
+<rect x="2" y="28" width="60" height="34" rx="5" fill="#EEF2F7"/>
+<!-- Editable label lines -->
+<rect x="8" y="34" width="48" height="5" rx="2.5" fill="#1E2A3A" opacity="0.6"/>
+<rect x="8" y="43" width="32" height="3.5" rx="1.7" fill="#B0BEC5"/>
+<rect x="8" y="50" width="40" height="3.5" rx="1.7" fill="#CBD5E1"/>
+<!-- Orange edit cursor -->
+<line x1="40" y1="43" x2="40" y2="50" stroke="#C2440C" stroke-width="2" stroke-linecap="round"/>
 </svg>

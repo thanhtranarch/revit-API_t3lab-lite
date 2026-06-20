@@ -13,7 +13,7 @@
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="8"
+                       CornerRadius="22"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1078,60 +1078,143 @@
         </Style>
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+        
+        <!-- Sidebar Navigation RadioButton Style -->
+        <Style x:Key="T3SidebarRadioButton" TargetType="RadioButton">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#71717A"/>
+            <Setter Property="Width"           Value="42"/>
+            <Setter Property="Height"          Value="42"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#27272A"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
         <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>     <!-- Column 0: Left Sidebar Icon Rail -->
+                <ColumnDefinition Width="*"/>      <!-- Column 1: Right main content area -->
+            </Grid.ColumnDefinitions>
+
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/> <!-- Row 0: Window Header -->
-                <RowDefinition Height="Auto"/> <!-- Row 1: Pill Tab Navigation Bar -->
-                <RowDefinition Height="*"/>    <!-- Row 2: TabControl Content -->
+                <RowDefinition Height="64"/>       <!-- Row 0: Title Header / Top Bar -->
+                <RowDefinition Height="*"/>        <!-- Row 1: TabControl Content -->
             </Grid.RowDefinitions>
 
-            <!-- ═══ TITLE BAR ═══ -->
-            <Grid Grid.Row="0" Height="64" Background="#F4F4F6">
+            <!-- ═══ COLUMN 0: LEFT SIDEBAR ICON RAIL ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+                <Grid Margin="0,16,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Logo -->
+                        <RowDefinition Height="Auto"/> <!-- Button 1 (Active) - btn_tab_assigner -->
+                        <RowDefinition Height="Auto"/> <!-- Button 2 (Inactive) - btn_tab_checker -->
+                        <RowDefinition Height="*"/>    <!-- Spacer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Logo Icon -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,24">
+                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16" 
+                              Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Button 1 (Active) - btn_tab_assigner -->
+                    <RadioButton x:Name="btn_tab_assigner" Grid.Row="1" Style="{StaticResource T3SidebarRadioButton}" Margin="0,0,0,8" ToolTip="Subtype Assigner" IsChecked="True">
+                        <Path Data="M4 4 h7 v7 h-7 z M13 4 h7 v7 h-7 z M4 13 h7 v7 h-7 z M13 13 h7 v7 h-7 z"
+                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </RadioButton>
+
+                    <!-- Button 2 (Inactive) - btn_tab_checker -->
+                    <RadioButton x:Name="btn_tab_checker" Grid.Row="2" Style="{StaticResource T3SidebarRadioButton}" Margin="0,0,0,8" ToolTip="Compliance Checker">
+                        <Path Data="M4 8 h9 M17 8 h3 M4 16 h3 M11 16 h9"
+                              Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
+            <!-- ═══ COLUMN 1, ROW 0: TITLE HEADER / TOP BAR ═══ -->
+            <Grid Grid.Column="1" Grid.Row="0" Background="#F4F4F6">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/> <!-- Title and Subtitle -->
+                    <ColumnDefinition Width="*"/>    <!-- Search Bar -->
+                    <ColumnDefinition Width="Auto"/> <!-- Right Actions and Window Controls -->
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
-                            WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="IFC-SG Suite - T3Lab" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+
+                <!-- Title and Subtitle -->
+                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="IFC-SG Suite" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
                     <TextBlock Text="Unified IFC-SG Assignment &amp; Compliance Suite" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
-                            WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True"
-                            Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
+                <!-- Search Bar Simulator -->
+                <Border Grid.Column="1" Width="320" Height="36" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="18" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="12,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- Search Icon -->
+                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
+                               Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                               Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Grid.Column="1" Text="Search IFC parameters, types, or rules…" Foreground="#71717A" FontSize="13.5" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    </Grid>
+                </Border>
+
+                <!-- Right Controls -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <!-- Standard Win Control Buttons -->
+                    <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
                         <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True"
-                            Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
+                    <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
                         <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_close_chrome" WindowChrome.IsHitTestVisibleInChrome="True"
-                            Style="{StaticResource CloseButton}" ToolTip="Close">
+                    <Button x:Name="btn_close_chrome" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource CloseButton}" ToolTip="Close">
                         <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                 </StackPanel>
-
+                
                 <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
             </Grid>
 
-            <!-- ═══ PILL NAV BAR ═══ -->
-            <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="14,10">
-                <Border Background="#F4F4F6" CornerRadius="18" Padding="4" Height="36" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="btn_tab_assigner" Style="{StaticResource TabPillRadioButton}" Content="Subtype Assigner" IsChecked="True"/>
-                        <RadioButton x:Name="btn_tab_checker" Style="{StaticResource TabPillRadioButton}" Content="Compliance Checker"/>
-                    </StackPanel>
-                </Border>
-            </Border>
-
-            <!-- ═══ TAB CONTROL WITH HIDDEN HEADERS ═══ -->
-            <TabControl x:Name="main_tab_control" Grid.Row="2" Margin="0" BorderThickness="0" Background="Transparent">
+            <!-- ═══ COLUMN 1, ROW 1: TAB CONTROL CONTENT ═══ -->
+            <TabControl x:Name="main_tab_control" Grid.Column="1" Grid.Row="1" Margin="0" BorderThickness="0" Background="Transparent">
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -1144,10 +1227,11 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/> <!-- Row 0: Excel Import & Auto-Assign Bar -->
                             <RowDefinition Height="*"/>    <!-- Row 1: Left Component List & Right Type Details Grid -->
+                            <RowDefinition Height="Auto"/> <!-- Row 2: Footer Bar -->
                         </Grid.RowDefinitions>
 
                         <!-- Row 0: Excel Import Bar -->
-                        <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
+                        <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="16,10" Margin="0,0,0,16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -1157,14 +1241,14 @@
                                 </Grid.ColumnDefinitions>
                                 
                                 <TextBlock Grid.Column="0" Text="Industry Mapping Excel:" FontWeight="Bold" 
-                                           FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#0F172A"/>
+                                           FontSize="13.5" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#0F172A"/>
                                 <TextBlock x:Name="txtHeader" Grid.Column="1" Text="Load Industry Mapping Excel to start" 
-                                           FontSize="12.5" Foreground="#71717A" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
+                                           FontSize="13.5" Foreground="#64748B" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
                                 
                                 <Button x:Name="btnLoadExcel" Grid.Column="2" Content="📁 Load Excel" 
-                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="32" Width="120"/>
+                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="32" MinWidth="120"/>
                                 <Button x:Name="btnAutoAssign" Grid.Column="3" Content="⚡ Auto Assign" 
-                                        Style="{StaticResource SuccessButton}" Margin="6,0,0,0" Height="32" Width="130"/>
+                                        Style="{StaticResource SuccessButton}" Margin="6,0,0,0" Height="32" MinWidth="130"/>
                             </Grid>
                         </Border>
 
@@ -1177,7 +1261,7 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- LEFT PANEL - COMPONENTS -->
-                            <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Background="White">
+                            <Border Grid.Column="0" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Background="White">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="40"/>
@@ -1185,13 +1269,13 @@
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" CornerRadius="5,5,0,0" Padding="12,0">
-                                        <TextBlock Text="IFC-SG Components" Foreground="#0F172A" FontWeight="Bold" FontSize="12" VerticalAlignment="Center"/>
+                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" CornerRadius="15,15,0,0" Padding="12,0">
+                                        <TextBlock Text="IFC-SG Components" Foreground="#0F172A" FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center"/>
                                     </Border>
-                                    <TextBox x:Name="txtFilter" Grid.Row="1" Style="{StaticResource T3InputField}" Margin="12,12,12,8" Height="32" Tag="Filter components..."/>
+                                    <TextBox x:Name="txtFilter" Grid.Row="1" Style="{StaticResource T3InputFieldSmall}" Margin="12,12,12,8" Height="32" Tag="Filter components..."/>
                                     <ListBox x:Name="lstComponents" Grid.Row="2" BorderThickness="0" Background="Transparent" Margin="6,0"/>
-                                    <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" CornerRadius="0,0,5,5" Padding="12,8">
-                                        <TextBlock x:Name="txtSummary" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                                    <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" CornerRadius="0,0,15,15" Padding="12,8">
+                                        <TextBlock x:Name="txtSummary" FontSize="11.5" Foreground="#64748B" TextWrapping="Wrap"/>
                                     </Border>
                                 </Grid>
                             </Border>
@@ -1201,11 +1285,10 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <!-- Info + Assign bar -->
-                                <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16,12" Margin="0,0,0,12">
+                                <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="16,14" Margin="0,0,0,16">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -1217,25 +1300,25 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel>
-                                                <TextBlock x:Name="txtCompName" FontSize="16" FontWeight="Bold" Foreground="#0F172A" Text="Select a component from the left panel"/>
-                                                <TextBlock x:Name="txtCompInfo" FontSize="12" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                                <TextBlock x:Name="txtCompName" FontSize="16.5" FontWeight="Bold" Foreground="#0F172A" Text="Select a component from the left panel"/>
+                                                <TextBlock x:Name="txtCompInfo" FontSize="13" Foreground="#64748B" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                             </StackPanel>
-                                            <TextBlock x:Name="txtAgencies" Grid.Column="1" FontSize="11" Foreground="#64748B" TextAlignment="Right" VerticalAlignment="Top"/>
+                                            <TextBlock x:Name="txtAgencies" Grid.Column="1" FontSize="12" Foreground="#64748B" TextAlignment="Right" VerticalAlignment="Top"/>
                                         </Grid>
                                         
-                                        <Border Grid.Row="1" BorderBrush="#F1F5F9" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,12,0,0">
+                                        <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="0,14,0,0" Padding="0,14,0,0">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Assign Subtype:" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" Foreground="#0F172A"/>
-                                                <ComboBox x:Name="cmbSubtype" Width="300" Height="32" VerticalAlignment="Center"/>
-                                                <Button x:Name="btnApply" Content="Apply to Selected" Style="{StaticResource AccentButton}" Margin="12,0,0,0" Height="32"/>
-                                                <Button x:Name="btnApplyAll" Content="Apply to ALL" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Height="32"/>
+                                                <TextBlock Text="Assign Subtype:" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                                <ComboBox x:Name="cmbSubtype" Style="{StaticResource T3ComboBoxSmall}" Width="300" Height="32" VerticalAlignment="Center"/>
+                                                <Button x:Name="btnApply" Content="Apply to Selected" Style="{StaticResource AccentButton}" Margin="12,0,0,0" Height="32" MinWidth="140"/>
+                                                <Button x:Name="btnApplyAll" Content="Apply to ALL" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Height="32" MinWidth="110"/>
                                             </StackPanel>
                                         </Border>
                                     </Grid>
                                 </Border>
 
                                 <!-- DataGrid -->
-                                <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Background="White">
+                                <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Background="White" Padding="6">
                                     <DataGrid x:Name="dgTypes" AutoGenerateColumns="False"
                                               IsReadOnly="True" SelectionMode="Extended"
                                               CanUserSortColumns="True"
@@ -1243,18 +1326,32 @@
                                               HorizontalGridLinesBrush="#F1F5F9"
                                               BorderThickness="0" RowHeaderWidth="0"
                                               AlternatingRowBackground="#F8FAFC"
-                                              HeadersVisibility="Column" Margin="8"/>
+                                              HeadersVisibility="Column" Margin="4">
+                                        <DataGrid.Resources>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#F8FAFC"/>
+                                                <Setter Property="Foreground" Value="#0F172A"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                                <Setter Property="FontSize" Value="12"/>
+                                                <Setter Property="Padding" Value="10,8"/>
+                                                <Setter Property="BorderBrush" Value="#CBD5E1"/>
+                                                <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                            </Style>
+                                        </DataGrid.Resources>
+                                    </DataGrid>
                                 </Border>
-
-                                <!-- Bottom controls -->
-                                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,12,0,0">
-                                    <CheckBox x:Name="chkApplyType" Content="Apply to Type" IsChecked="True" FontSize="12" Margin="0,0,20,0" Foreground="#0F172A"/>
-                                    <CheckBox x:Name="chkApplyEntity" Content="Also set IFC Entity" IsChecked="True" FontSize="12" Margin="0,0,20,0" Foreground="#0F172A"/>
-                                    <CheckBox x:Name="chkSetObjectType" Content="Set ObjectType for USERDEFINED" IsChecked="True" FontSize="12" Foreground="#0F172A"/>
-                                    <TextBlock Text="  |  Ctrl+Click to multi-select in grid" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                                </StackPanel>
                             </Grid>
                         </Grid>
+
+                        <!-- Row 2: Bottom Status & Actions Footer -->
+                        <Border Grid.Row="2" Background="#F8FAFC" Padding="16,12" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,120,0">
+                                <CheckBox x:Name="chkApplyType" Style="{StaticResource T3CheckBox}" Content="Apply to Type" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
+                                <CheckBox x:Name="chkApplyEntity" Style="{StaticResource T3CheckBox}" Content="Also set IFC Entity" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
+                                <CheckBox x:Name="chkSetObjectType" Style="{StaticResource T3CheckBox}" Content="Set ObjectType for USERDEFINED" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
+                                <TextBlock Text="|  Ctrl+Click to multi-select in grid" FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </TabItem>
 
@@ -1269,7 +1366,7 @@
                         </Grid.RowDefinitions>
 
                         <!-- Row 0: Config Import Bar -->
-                        <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
+                        <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="12,8" Margin="0,0,0,16">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -1281,22 +1378,22 @@
                                 </Grid.ColumnDefinitions>
                                 
                                 <TextBlock Grid.Column="0" Text="Config:" FontWeight="Bold" 
-                                           FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#0F172A"/>
-                                <ComboBox x:Name="cmbConfig" Grid.Column="1" Height="32" FontSize="12"/>
+                                           FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#0F172A"/>
+                                <ComboBox x:Name="cmbConfig" Grid.Column="1" Style="{StaticResource T3ComboBoxSmall}" Height="32" FontSize="12.5"/>
                                 
                                 <Button x:Name="btnImportXML" Grid.Column="2" Content="Import XML" 
-                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="32" Width="100"/>
+                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="32" MinWidth="100"/>
                                 <Button x:Name="btnImportExcel" Grid.Column="3" Content="Import Excel" 
-                                        Style="{StaticResource PrimaryButton}" Margin="6,0,0,0" Height="32" Width="100"/>
+                                        Style="{StaticResource PrimaryButton}" Margin="6,0,0,0" Height="32" MinWidth="110"/>
                                 <Button x:Name="btnSaveConfig" Grid.Column="4" Content="Save JSON" 
-                                        Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Height="32" Width="90"/>
+                                        Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Height="32" MinWidth="100"/>
                                 <Button x:Name="btnDeleteConfig" Grid.Column="5" Content="Delete" 
-                                        Style="{StaticResource DangerButton}" Margin="6,0,0,0" Height="32" Width="80"/>
+                                        Style="{StaticResource DangerButton}" Margin="6,0,0,0" Height="32" MinWidth="80"/>
                             </Grid>
                         </Border>
 
                         <!-- Row 1: Summary Cards -->
-                        <Grid Grid.Row="1" Margin="0,0,0,12">
+                        <Grid Grid.Row="1" Margin="0,0,0,16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="*"/>
@@ -1306,46 +1403,99 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,4,0">
-                                <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock x:Name="txtTotalParams" Text="0" FontSize="22" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Parameters" FontSize="10" Foreground="#64748B" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
+                            <!-- Card 1: Parameters -->
+                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14,12" Margin="0,0,6,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="#3B82F6" Margin="0,0,6,0"/>
+                                        <TextBlock Text="PARAMETERS" FontSize="10.5" FontWeight="Bold" Foreground="#64748B"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="txtTotalParams" Grid.Row="1" Text="0" FontFamily="JetBrains Mono" FontSize="26" FontWeight="Bold" Foreground="#0F172A" Margin="0,6,0,0"/>
+                                </Grid>
                             </Border>
-                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="4,0">
-                                <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock x:Name="txtCategories" Text="0" FontSize="22" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Categories" FontSize="10" Foreground="#64748B" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
+
+                            <!-- Card 2: Categories -->
+                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14,12" Margin="4,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="#0F172A" Margin="0,0,6,0"/>
+                                        <TextBlock Text="CATEGORIES" FontSize="10.5" FontWeight="Bold" Foreground="#64748B"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="txtCategories" Grid.Row="1" Text="0" FontFamily="JetBrains Mono" FontSize="26" FontWeight="Bold" Foreground="#0F172A" Margin="0,6,0,0"/>
+                                </Grid>
                             </Border>
-                            <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="4,0">
-                                <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock x:Name="txtPassed" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Passed" FontSize="10" Foreground="#10B981" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
+
+                            <!-- Card 3: Passed -->
+                            <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14,12" Margin="4,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="#10B981" Margin="0,0,6,0"/>
+                                        <TextBlock Text="PASSED" FontSize="10.5" FontWeight="Bold" Foreground="#10B981"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="txtPassed" Grid.Row="1" Text="0" FontFamily="JetBrains Mono" FontSize="26" FontWeight="Bold" Foreground="#10B981" Margin="0,6,0,0"/>
+                                </Grid>
                             </Border>
-                            <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="4,0">
-                                <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock x:Name="txtFailed" Text="0" FontSize="22" FontWeight="Bold" Foreground="#EF4444" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Failed" FontSize="10" Foreground="#EF4444" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
+
+                            <!-- Card 4: Failed -->
+                            <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14,12" Margin="4,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="#EF4444" Margin="0,0,6,0"/>
+                                        <TextBlock Text="FAILED" FontSize="10.5" FontWeight="Bold" Foreground="#EF4444"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="txtFailed" Grid.Row="1" Text="0" FontFamily="JetBrains Mono" FontSize="26" FontWeight="Bold" Foreground="#EF4444" Margin="0,6,0,0"/>
+                                </Grid>
                             </Border>
-                            <Border Grid.Column="4" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="4,0">
-                                <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock x:Name="txtWarning" Text="0" FontSize="22" FontWeight="Bold" Foreground="#F59E0B" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="Partial" FontSize="10" Foreground="#F59E0B" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
+
+                            <!-- Card 5: Partial -->
+                            <Border Grid.Column="4" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14,12" Margin="4,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="#F59E0B" Margin="0,0,6,0"/>
+                                        <TextBlock Text="PARTIAL" FontSize="10.5" FontWeight="Bold" Foreground="#F59E0B"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="txtWarning" Grid.Row="1" Text="0" FontFamily="JetBrains Mono" FontSize="26" FontWeight="Bold" Foreground="#F59E0B" Margin="0,6,0,0"/>
+                                </Grid>
                             </Border>
-                            <Border Grid.Column="5" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="4,0,0,0">
-                                <StackPanel HorizontalAlignment="Center">
-                                    <TextBlock x:Name="txtNoElem" Text="0" FontSize="22" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center"/>
-                                    <TextBlock Text="No Elem" FontSize="10" Foreground="#64748B" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-                                </StackPanel>
+
+                            <!-- Card 6: No Element -->
+                            <Border Grid.Column="5" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14,12" Margin="4,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="#94A3B8" Margin="0,0,6,0"/>
+                                        <TextBlock Text="NO ELEM" FontSize="10.5" FontWeight="Bold" Foreground="#94A3B8"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="txtNoElem" Grid.Row="1" Text="0" FontFamily="JetBrains Mono" FontSize="26" FontWeight="Bold" Foreground="#64748B" Margin="0,6,0,0"/>
+                                </Grid>
                             </Border>
                         </Grid>
 
                         <!-- Row 2: Main Content (Tree + Results) -->
-                        <Grid Grid.Row="2" Margin="0,0,0,12">
+                        <Grid Grid.Row="2" Margin="0,0,0,16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="280"/>
                                 <ColumnDefinition Width="16"/>
@@ -1353,7 +1503,7 @@
                             </Grid.ColumnDefinitions>
                             
                             <!-- Left: Discipline/Category tree -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -1362,23 +1512,23 @@
                                     </Grid.RowDefinitions>
                                     
                                     <TextBlock Grid.Row="0" Text="Disciplines / Categories" FontWeight="Bold" 
-                                               FontSize="12" Foreground="#0F172A" Margin="0,0,0,8"/>
+                                               FontSize="13.5" Foreground="#0F172A" Margin="0,0,0,10"/>
                                     
-                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+                                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
                                         <Button x:Name="btnExpandAll" Content="Expand All" 
-                                                Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11" Margin="0,0,6,0"/>
+                                                Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11" Margin="0,0,6,0" Height="28"/>
                                         <Button x:Name="btnCollapseAll" Content="Collapse All" 
-                                                Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11"/>
+                                                Style="{StaticResource SecondaryButton}" Padding="8,4" FontSize="11" Height="28"/>
                                     </StackPanel>
                                     
                                     <TreeView x:Name="tvCategories" Grid.Row="2" 
-                                              BorderBrush="#CBD5E1" BorderThickness="1" Background="White">
+                                              BorderBrush="#E2E8F0" BorderThickness="1" Background="White">
                                     </TreeView>
                                 </Grid>
                             </Border>
                             
                             <!-- Right: Results -->
-                            <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12">
+                            <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -1387,10 +1537,10 @@
                                     </Grid.RowDefinitions>
                                     
                                     <TextBlock Grid.Row="0" x:Name="txtResultHeader" Text="Load a config and click Run Check" 
-                                               FontWeight="Bold" FontSize="12" Foreground="#0F172A" Margin="0,0,0,8"/>
+                                               FontWeight="Bold" FontSize="13.5" Foreground="#0F172A" Margin="0,0,0,10"/>
                                     
                                     <!-- Filter bar -->
-                                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid Grid.Row="1" Margin="0,0,0,10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -1402,25 +1552,25 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="150"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Filter:" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Grid.Column="0" Text="Filter:" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#64748B" FontWeight="Bold"/>
                                         <Button Grid.Column="1" x:Name="btnFilterAll" Content="All" Style="{StaticResource SecondaryButton}" 
-                                                Padding="8,4" FontSize="11" Margin="0,0,4,0"/>
+                                                Padding="10,4" FontSize="11" Margin="0,0,4,0" Height="28"/>
                                         <Button Grid.Column="2" x:Name="btnFilterFail" Content="Failed" Style="{StaticResource DangerButton}" 
-                                                Padding="8,4" FontSize="11" Margin="0,0,4,0"/>
+                                                Padding="10,4" FontSize="11" Margin="0,0,4,0" Height="28"/>
                                         <Button Grid.Column="3" x:Name="btnFilterWarn" Content="Partial" Style="{StaticResource SecondaryButton}" 
-                                                Padding="8,4" FontSize="11" Margin="0,0,4,0"/>
+                                                Padding="10,4" FontSize="11" Margin="0,0,4,0" Height="28"/>
                                         <Button Grid.Column="4" x:Name="btnFilterPass" Content="Passed" Style="{StaticResource SecondaryButton}" 
-                                                Padding="8,4" FontSize="11" Margin="0,0,8,0"/>
+                                                Padding="10,4" FontSize="11" Margin="0,0,8,0" Height="28"/>
                                         <Button Grid.Column="5" x:Name="btnSelectAllFailed" Content="Select All Failed" 
-                                                Style="{StaticResource DangerButton}" Padding="8,4" FontSize="11" 
-                                                IsEnabled="False"/>
+                                                Style="{StaticResource DangerButton}" Padding="10,4" FontSize="11" 
+                                                IsEnabled="False" Height="28"/>
                                         
-                                        <TextBlock Grid.Column="7" Text="Search:" FontSize="11" VerticalAlignment="Center" Margin="16,0,8,0" Foreground="#64748B" FontWeight="Bold"/>
-                                        <TextBox Grid.Column="8" x:Name="txtSearch" Style="{StaticResource T3InputField}" Height="32"/>
+                                        <TextBlock Grid.Column="7" Text="Search:" FontSize="12" VerticalAlignment="Center" Margin="16,0,8,0" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBox Grid.Column="8" x:Name="txtSearch" Style="{StaticResource T3InputFieldSmall}" Height="28"/>
                                     </Grid>
                                     
                                     <!-- Results list -->
-                                    <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="4">
+                                    <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="8" Background="#F8FAFC">
                                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                                             <StackPanel x:Name="spResults"/>
                                         </ScrollViewer>
@@ -1430,24 +1580,22 @@
                         </Grid>
 
                         <!-- Row 3: Action Buttons & Bottom Status -->
-                        <Border Grid.Row="3" Background="#F8FAFC" Padding="0,12" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
-                            <Grid>
+                        <Border Grid.Row="3" Background="#F8FAFC" Padding="16,12" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                            <Grid Margin="0,0,120,0">
                                 <Grid.ColumnDefinitions>
-                                    <Grid.ColumnDefinition Width="*"/>
-                                    <Grid.ColumnDefinition Width="Auto"/>
-                                    <Grid.ColumnDefinition Width="Auto"/>
-                                    <Grid.ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 
-                                <TextBlock x:Name="txtStatus" Grid.Column="0" Text="Ready. Import a config or select saved config." 
-                                           FontSize="12" Foreground="#64748B" VerticalAlignment="Center" FontWeight="Medium"/>
+                                <Button x:Name="btnRunCheck" Grid.Column="0" Content="▶ Run Check" 
+                                        Style="{StaticResource SuccessButton}" Margin="0,0,8,0" IsEnabled="False" MinWidth="120" Height="32"/>
+                                <Button x:Name="btnExportExcel" Grid.Column="1" Content="📊 Export Excel" 
+                                        Style="{StaticResource PrimaryButton}" Margin="0,0,16,0" IsEnabled="False" MinWidth="130" Height="32"/>
                                 
-                                <Button x:Name="btnRunCheck" Grid.Column="1" Content="▶ Run Check" 
-                                        Style="{StaticResource SuccessButton}" Margin="0,0,8,0" IsEnabled="False" Width="120" Height="32"/>
-                                <Button x:Name="btnExportExcel" Grid.Column="2" Content="📊 Export Excel" 
-                                        Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" IsEnabled="False" Width="130" Height="32"/>
-                                <Button x:Name="btnClose" Grid.Column="3" Content="Close" 
-                                        Style="{StaticResource SecondaryButton}" Width="80" Height="32"/>
+                                <TextBlock x:Name="txtStatus" Grid.Column="2" Text="Ready. Import a config or select saved config." 
+                                           FontSize="13" Foreground="#64748B" VerticalAlignment="Center" FontWeight="Medium"
+                                           HorizontalAlignment="Right"/>
                             </Grid>
                         </Border>
                     </Grid>

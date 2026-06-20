@@ -1,20 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<rect x="5" y="5" width="46" height="52" rx="4" fill="#1E2A3A"/>
-<rect x="9" y="9" width="38" height="34" rx="2" fill="#EEF2F7"/>
-<rect x="19" y="11" width="16" height="28" rx="2" fill="#4A6278" opacity="0.65"/>
-<line x1="9" y1="32" x2="45" y2="32" stroke="#5A7290" stroke-width="1.5"/>
-<rect x="9" y="29" width="6" height="5" rx="0.5" fill="#D8E4EF" stroke="#5A7290" stroke-width="0.8"/>
-<line x1="9" y1="39" x2="45" y2="39" stroke="#C2440C" stroke-width="1.5" stroke-dasharray="4,2"/>
-<rect x="9" y="37" width="6" height="4" rx="0.5" fill="#FDDEC0" stroke="#C2440C" stroke-width="0.8"/>
-<line x1="43" y1="33" x2="43" y2="38" stroke="#C2440C" stroke-width="1.5" stroke-linecap="round"/>
-<polyline points="41,36 43,39 45,36" stroke="#C2440C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-<line x1="9" y1="44" x2="47" y2="44" stroke="#2D3F52" stroke-width="1"/>
-<rect x="9" y="45" width="38" height="12" fill="#0D1825"/>
-<line x1="26" y1="44" x2="26" y2="57" stroke="#2D3F52" stroke-width="0.8"/>
-<circle cx="49" cy="49" r="12" fill="#C2440C"/>
-<line x1="41" y1="45" x2="57" y2="45" stroke="white" stroke-width="2" stroke-linecap="round"/>
-<line x1="41" y1="53" x2="57" y2="53" stroke="white" stroke-width="2" stroke-linecap="round"/>
-<line x1="49" y1="46" x2="49" y2="52" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
-<polyline points="46,48 49,45 52,48" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-<polyline points="46,50 49,53 52,50" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<!-- Wall body (tall, left-of-center) -->
+<rect x="18" y="6" width="22" height="46" rx="3" fill="#1E2A3A"/>
+<!-- Wall internal texture -->
+<rect x="22" y="10" width="14" height="3" rx="1.5" fill="#EEF2F7" opacity="0.3"/>
+<rect x="22" y="16" width="10" height="3" rx="1.5" fill="#EEF2F7" opacity="0.2"/>
+<!-- Original base level line (solid, grey) -->
+<line x1="4" y1="36" x2="60" y2="36" stroke="#5A7290" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="4" y="33" width="8" height="5" rx="1.5" fill="#5A7290"/>
+<!-- Adjusted base level (orange, offset) -->
+<line x1="4" y1="52" x2="60" y2="52" stroke="#C2440C" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="4" y="49" width="8" height="5" rx="1.5" fill="#C2440C"/>
+<!-- Offset arrow showing adjustment -->
+<line x1="52" y1="36" x2="52" y2="52" stroke="#C2440C" stroke-width="2.5" stroke-linecap="round"/>
+<polygon points="48,48 52,54 56,48" fill="#C2440C"/>
+<!-- Ground/floor at new base -->
+<rect x="4" y="54" width="56" height="8" rx="3" fill="#334155"/>
 </svg>

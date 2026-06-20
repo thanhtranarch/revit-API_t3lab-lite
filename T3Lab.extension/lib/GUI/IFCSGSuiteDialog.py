@@ -33,7 +33,7 @@ from System.Windows.Controls import (
     ListBoxItem, Border, Orientation, DockPanel
 )
 from System.Windows.Data import Binding
-from System.Windows.Forms import OpenFileDialog, DialogResult as WFDialogResult
+from System.Windows.Forms import OpenFileDialog, SaveFileDialog, DialogResult as WFDialogResult
 from System.Xml import XmlReader
 
 import Autodesk.Revit.DB as DB
@@ -1087,7 +1087,6 @@ class IFCSGSuiteWindow(forms.WPFWindow):
         self.txtStatus = self.FindName("txtStatus")
         self.btnRunCheck = self.FindName("btnRunCheck")
         self.btnExportExcel = self.FindName("btnExportExcel")
-        self.btnClose = self.FindName("btnClose")
 
         # Event Handlers for Tab 2
         self.btnImportXML.Click += self._on_import_xml
@@ -1105,7 +1104,6 @@ class IFCSGSuiteWindow(forms.WPFWindow):
         self.btnSelectAllFailed.Click += self._on_select_all_failed
         self.btnRunCheck.Click += self._on_run_check
         self.btnExportExcel.Click += self._on_export_excel
-        self.btnClose.Click += lambda s, e: self.Close()
 
         # State variables for Tab 2
         self.config = None
@@ -1177,8 +1175,8 @@ class IFCSGSuiteWindow(forms.WPFWindow):
             from System.Windows.Controls import Control
             
             style = WPFStyle(DataGridColumnHeader)
-            style.Setters.Add(Setter(Control.BackgroundProperty, bc.ConvertFromString("#0F172A")))
-            style.Setters.Add(Setter(Control.ForegroundProperty, bc.ConvertFromString("#FFFFFF")))
+            style.Setters.Add(Setter(Control.BackgroundProperty, bc.ConvertFromString("#F8FAFC")))
+            style.Setters.Add(Setter(Control.ForegroundProperty, bc.ConvertFromString("#0F172A")))
             style.Setters.Add(Setter(Control.FontWeightProperty, System.Windows.FontWeights.SemiBold))
             style.Setters.Add(Setter(Control.PaddingProperty, Thickness(10, 8, 10, 8)))
             style.Setters.Add(Setter(Control.BorderBrushProperty, bc.ConvertFromString("#CBD5E1")))
@@ -1285,7 +1283,7 @@ class IFCSGSuiteWindow(forms.WPFWindow):
         row1 = DockPanel()
 
         badge = WPFBorder()
-        badge.Background = bc.ConvertFromString("#E8DCC8")
+        badge.Background = bc.ConvertFromString("#E2E8F0")
         badge.CornerRadius = System.Windows.CornerRadius(8)
         badge.Padding = WPFThickness(6, 1, 6, 1)
         badge.Margin = WPFThickness(4, 0, 0, 0)
@@ -1293,7 +1291,7 @@ class IFCSGSuiteWindow(forms.WPFWindow):
         badge_text = WPFTextBlock()
         badge_text.Text = str(count)
         badge_text.FontSize = 9.5
-        badge_text.Foreground = bc.ConvertFromString("#5D4E37")
+        badge_text.Foreground = bc.ConvertFromString("#0F172A")
         badge_text.HorizontalAlignment = HorizontalAlignment.Center
         badge.Child = badge_text
         row1.Children.Add(badge)
@@ -1302,7 +1300,7 @@ class IFCSGSuiteWindow(forms.WPFWindow):
         name_tb.Text = comp_name
         name_tb.FontSize = 12
         name_tb.FontWeight = FontWeights.SemiBold
-        name_tb.Foreground = bc.ConvertFromString("#18181B")
+        name_tb.Foreground = bc.ConvertFromString("#0F172A")
         name_tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
         row1.Children.Add(name_tb)
 
@@ -1317,7 +1315,7 @@ class IFCSGSuiteWindow(forms.WPFWindow):
             info_tb = WPFTextBlock()
             info_tb.Text = "  ".join(info_parts)
             info_tb.FontSize = 10
-            info_tb.Foreground = bc.ConvertFromString("#71717A")
+            info_tb.Foreground = bc.ConvertFromString("#64748B")
             info_tb.Margin = WPFThickness(0, 1, 0, 0)
             info_tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
             sp.Children.Add(info_tb)
@@ -1462,12 +1460,12 @@ class IFCSGSuiteWindow(forms.WPFWindow):
                         type_ok = True
                         debug_lines.append("[OK] {} '{}' -> {} on {} (id:{})".format(
                             target_label, row.Family + ":" + row.TypeName,
-                            pdt_value, target_label, target.Id.IntegerValue))
+                            pdt_value, target_label, _eid_int(target.Id)))
                         break
                     else:
                         debug_lines.append("[FAIL] {} '{}' entity={} pdt={} on {} (id:{})".format(
                             target_label, row.Family + ":" + row.TypeName,
-                            entity_ok, pdt_ok, target_label, target.Id.IntegerValue))
+                            entity_ok, pdt_ok, target_label, _eid_int(target.Id)))
 
                 if type_ok:
                     ok += 1
@@ -1701,7 +1699,7 @@ class IFCSGSuiteWindow(forms.WPFWindow):
     def _on_save_config(self, sender, args):
         if not self.config:
             return
-        dlg = OpenFileDialog()
+        dlg = SaveFileDialog()
         dlg.Filter = "JSON Files (*.json)|*.json"
         dlg.Title = "Save Config"
         dlg.InitialDirectory = self.configs_dir
@@ -2186,7 +2184,7 @@ class IFCSGSuiteWindow(forms.WPFWindow):
         if not self.results or not self.config:
             return
         
-        dlg = OpenFileDialog()
+        dlg = SaveFileDialog()
         dlg.Filter = "Excel Files (*.xlsx)|*.xlsx"
         dlg.Title = "Export Compliance Report"
         dlg.InitialDirectory = self.reports_dir

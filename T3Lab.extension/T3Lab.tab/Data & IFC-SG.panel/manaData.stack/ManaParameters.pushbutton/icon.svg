@@ -1,6 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-  <rect x="3" y="3" width="18" height="18" rx="2"/>
-  <line x1="3" y1="9" x2="21" y2="9"/>
-  <line x1="9" y1="9" x2="9" y2="21"/>
-  <line x1="15" y1="9" x2="15" y2="21"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Parameter list panel (dark) -->
+<rect x="2" y="2" width="60" height="60" rx="6" fill="#1E2A3A"/>
+<!-- Header row (orange) -->
+<rect x="2" y="2" width="60" height="14" rx="6" fill="#C2440C"/>
+<rect x="2" y="10" width="60" height="6" fill="#C2440C"/>
+<!-- Header key/value labels -->
+<rect x="8" y="6" width="18" height="3" rx="1.5" fill="white" opacity="0.8"/>
+<line x1="36" y1="2" x2="36" y2="16" stroke="#A83300" stroke-width="1.5"/>
+<rect x="40" y="6" width="16" height="3" rx="1.5" fill="white" opacity="0.6"/>
+<!-- Row 1 -->
+<rect x="2" y="18" width="60" height="8" rx="0" fill="#253344"/>
+<rect x="8" y="21" width="20" height="2.5" rx="1.2" fill="#7A93A8"/>
+<line x1="36" y1="18" x2="36" y2="26" stroke="#334155" stroke-width="1"/>
+<rect x="40" y="21" width="14" height="2.5" rx="1.2" fill="#5A7290"/>
+<!-- Row 2 (highlighted — active parameter) -->
+<rect x="2" y="28" width="60" height="8" rx="0" fill="#C2440C" opacity="0.15"/>
+<rect x="8" y="31" width="22" height="2.5" rx="1.2" fill="#C2440C"/>
+<line x1="36" y1="28" x2="36" y2="36" stroke="#334155" stroke-width="1"/>
+<rect x="40" y="31" width="18" height="2.5" rx="1.2" fill="#C2440C" opacity="0.7"/>
+<!-- Row 3 -->
+<rect x="2" y="38" width="60" height="8" rx="0" fill="#253344"/>
+<rect x="8" y="41" width="16" height="2.5" rx="1.2" fill="#7A93A8"/>
+<line x1="36" y1="38" x2="36" y2="46" stroke="#334155" stroke-width="1"/>
+<rect x="40" y="41" width="20" height="2.5" rx="1.2" fill="#5A7290"/>
+<!-- Row 4 -->
+<rect x="2" y="48" width="60" height="8" rx="0" fill="#1E2A3A"/>
+<rect x="8" y="51" width="24" height="2.5" rx="1.2" fill="#5A7290"/>
+<line x1="36" y1="48" x2="36" y2="56" stroke="#334155" stroke-width="1"/>
+<rect x="40" y="51" width="12" height="2.5" rx="1.2" fill="#334155"/>
+<!-- Bottom corner radius fix -->
+<rect x="2" y="56" width="60" height="6" rx="0" fill="#1E2A3A"/>
+<rect x="2" y="56" width="60" height="6" rx="6" fill="#1E2A3A"/>
 </svg>

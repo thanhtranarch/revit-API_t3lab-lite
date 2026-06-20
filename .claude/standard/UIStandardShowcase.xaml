@@ -898,30 +898,6 @@
 
             <!-- Right Controls -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                <!-- Notification Bell -->
-                <Border Width="36" Height="36" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="11" Margin="0,0,12,0" SnapsToDevicePixels="True" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Grid>
-                        <Path Data="M6 9 A6 6 0 0 1 18 9 C18 14 20.5 15 20.5 15 H3.5 S6 14 6 9 Z M10 19 A2 2 0 0 0 14 19" 
-                               Stroke="#18181B" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                               Width="17" Height="17" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <Ellipse Width="7" Height="7" Fill="#C2410C" Stroke="White" StrokeThickness="2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,9,0"/>
-                    </Grid>
-                </Border>
-
-                <!-- User Profile -->
-                <Border Height="36" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="18" Padding="4,4,12,4" Margin="0,0,16,0" SnapsToDevicePixels="True" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <StackPanel Orientation="Horizontal">
-                        <!-- Initials Badge -->
-                        <Border Width="28" Height="28" CornerRadius="14" Background="#18181B" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="HN" FontSize="10" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <StackPanel Orientation="Vertical" Margin="8,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="H. Nguyễn" FontSize="11.5" FontWeight="SemiBold" Foreground="#27272A"/>
-                            <TextBlock Text="Reviewer" FontSize="9.5" Foreground="#71717A" Margin="0,1,0,0"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
                 <!-- Standard Win Control Buttons -->
                 <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WinCtrlButton}" Click="minimize_button_clicked" ToolTip="Minimize">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>

@@ -1,23 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<rect x="5" y="5" width="46" height="52" rx="4" fill="#1E2A3A"/>
-<rect x="9" y="9" width="38" height="34" rx="2" fill="#EEF2F7"/>
-<!-- Server rack -->
-<rect x="12" y="12" width="32" height="7" rx="1.5" fill="#4A6278"/>
-<rect x="13" y="13" width="22" height="5" rx="1" fill="#7A93A8" opacity="0.5"/>
-<circle cx="40" cy="15.5" r="2" fill="#10B981"/>
-<rect x="12" y="21" width="32" height="7" rx="1.5" fill="#4A6278"/>
-<rect x="13" y="22" width="22" height="5" rx="1" fill="#7A93A8" opacity="0.5"/>
-<circle cx="40" cy="24.5" r="2" fill="#10B981"/>
-<rect x="12" y="30" width="32" height="7" rx="1.5" fill="#334155"/>
-<rect x="13" y="31" width="22" height="5" rx="1" fill="#7A93A8" opacity="0.3"/>
-<circle cx="40" cy="33.5" r="2" fill="#EF4444"/>
-<line x1="9" y1="44" x2="47" y2="44" stroke="#2D3F52" stroke-width="1"/>
-<rect x="9" y="45" width="38" height="12" fill="#0D1825"/>
-<line x1="26" y1="44" x2="26" y2="57" stroke="#2D3F52" stroke-width="0.8"/>
-<circle cx="49" cy="49" r="12" fill="#C2440C"/>
-<!-- Network/plug icon -->
-<circle cx="49" cy="49" r="4" fill="none" stroke="white" stroke-width="2"/>
-<line x1="44" y1="43" x2="46" y2="45" stroke="white" stroke-width="2" stroke-linecap="round"/>
-<line x1="54" y1="43" x2="52" y2="45" stroke="white" stroke-width="2" stroke-linecap="round"/>
-<line x1="49" y1="53" x2="49" y2="57" stroke="white" stroke-width="2" stroke-linecap="round"/>
+<!-- Server rack units (3 rows) -->
+<rect x="4" y="6" width="56" height="14" rx="4" fill="#1E2A3A"/>
+<rect x="8" y="9" width="32" height="8" rx="2" fill="#253344"/>
+<circle cx="50" cy="13" r="4" fill="#10B981"/>
+<circle cx="42" cy="13" r="3" fill="#334155"/>
+<rect x="4" y="24" width="56" height="14" rx="4" fill="#253344"/>
+<rect x="8" y="27" width="32" height="8" rx="2" fill="#1E2A3A"/>
+<circle cx="50" cy="31" r="4" fill="#10B981"/>
+<circle cx="42" cy="31" r="3" fill="#334155"/>
+<rect x="4" y="42" width="56" height="14" rx="4" fill="#334155"/>
+<rect x="8" y="45" width="32" height="8" rx="2" fill="#253344"/>
+<circle cx="50" cy="49" r="4" fill="#EF4444"/>
+<circle cx="42" cy="49" r="3" fill="#1E2A3A"/>
+<!-- Orange connection indicator on bottom rack (active/problem) -->
+<rect x="4" y="42" width="5" height="14" rx="2" fill="#C2440C"/>
+<!-- Rack rails -->
+<rect x="2" y="4" width="4" height="56" rx="2" fill="#0D1825"/>
+<rect x="58" y="4" width="4" height="56" rx="2" fill="#0D1825"/>
 </svg>

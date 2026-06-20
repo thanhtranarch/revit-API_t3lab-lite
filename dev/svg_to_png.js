@@ -17,6 +17,8 @@ const targets = [
   { panel: 'Support.panel', tools: ['T3LabAssistant.pushbutton', 'MCPControl.pushbutton', 'PDF import.pushbutton', 'Feedback.pushbutton'] },
   { panel: 'Support.panel/CloudLinks.stack', tools: ['Autodesk Forma.urlbutton', 'Autodesk Health.urlbutton', 'Bluebeam Status.urlbutton'] },
   { panel: 'Support.panel/UI.stack', tools: ['BG Theme.pushbutton', 'ManaTabs.pushbutton', 'Ribbon Names.pushbutton'] },
+  { panel: 'Data & IFC-SG.panel', tools: ['BCF Reader.pushbutton', 'Foundation Volume.pushbutton', 'IFC-SG.pushbutton'] },
+  { panel: 'Data & IFC-SG.panel/manaData.stack', tools: ['ContainsManager.pushbutton', 'ManaParameters.pushbutton', 'ManaSchedules.pushbutton'] },
 ];
 
 for (const { panel, tools } of targets) {

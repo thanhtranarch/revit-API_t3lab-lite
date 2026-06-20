@@ -1,21 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<rect x="5" y="5" width="46" height="52" rx="4" fill="#1E2A3A"/>
-<rect x="9" y="9" width="38" height="34" rx="2" fill="#EEF2F7"/>
-<!-- Message bubble -->
-<rect x="12" y="12" width="32" height="22" rx="3" fill="#D8E4EF" stroke="#5A7290" stroke-width="1.2"/>
-<polygon points="16,34 16,38 22,34" fill="#D8E4EF" stroke="#5A7290" stroke-width="1"/>
-<!-- Star rating lines -->
-<line x1="15" y1="19" x2="43" y2="19" stroke="#B0BEC5" stroke-width="1.2"/>
-<!-- 3 small stars -->
-<polygon points="21,24 22.5,21.5 24,24 21.2,22.2 22.8,22.2" fill="#F59E0B"/>
-<polygon points="28,24 29.5,21.5 31,24 28.2,22.2 29.8,22.2" fill="#F59E0B"/>
-<polygon points="35,24 36.5,21.5 38,24 35.2,22.2 36.8,22.2" fill="#F59E0B"/>
-<!-- Text lines in bubble -->
-<rect x="15" y="16" width="18" height="2" rx="1" fill="#7A93A8" opacity="0.7"/>
-<line x1="9" y1="44" x2="47" y2="44" stroke="#2D3F52" stroke-width="1"/>
-<rect x="9" y="45" width="38" height="12" fill="#0D1825"/>
-<line x1="26" y1="44" x2="26" y2="57" stroke="#2D3F52" stroke-width="0.8"/>
-<circle cx="49" cy="49" r="12" fill="#C2440C"/>
-<!-- Star badge -->
-<polygon points="49,41 50.5,46 56,46 51.5,49.5 53,55 49,51.5 45,55 46.5,49.5 42,46 47.5,46" fill="white"/>
+<!-- Orange base card -->
+<rect x="2" y="2" width="60" height="60" rx="10" fill="#C2440C"/>
+<!-- White speech bubble -->
+<rect x="8" y="8" width="48" height="36" rx="6" fill="white"/>
+<!-- Bubble tail -->
+<polygon points="12,44 12,54 24,44" fill="white"/>
+<!-- Stars (5 stars, 3 filled yellow, 2 outline) -->
+<polygon points="16,30 17.5,25 19,30 15,27 21,27" fill="#F59E0B"/>
+<polygon points="24,30 25.5,25 27,30 23,27 29,27" fill="#F59E0B"/>
+<polygon points="32,30 33.5,25 35,30 31,27 37,27" fill="#F59E0B"/>
+<polygon points="40,30 41.5,25 43,30 39,27 45,27" fill="#1E2A3A" opacity="0.2"/>
+<polygon points="48,30 49.5,25 51,30 47,27 53,27" fill="#1E2A3A" opacity="0.2"/>
+<!-- Text lines inside bubble -->
+<rect x="12" y="14" width="40" height="4" rx="2" fill="#1E2A3A" opacity="0.7"/>
+<rect x="12" y="21" width="28" height="3" rx="1.5" fill="#1E2A3A" opacity="0.4"/>
 </svg>
