@@ -1433,7 +1433,7 @@
                                         <DataTemplate>
                                             <Border CornerRadius="8" Padding="7,2" HorizontalAlignment="Left"
                                                     Background="#F4F4F6" Margin="4,4">
-                                                <TextBlock Text="{Binding ViewType}" FontSize="11"
+                                                <TextBlock Text="{Binding Type}" FontSize="11"
                                                            FontWeight="SemiBold" Foreground="#52525B"/>
                                             </Border>
                                         </DataTemplate>
