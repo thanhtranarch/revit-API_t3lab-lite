@@ -43,6 +43,9 @@ class PDFImportDialog(forms.WPFWindow):
         self._items     = []
         self._loading   = False  # blocks re-entrant checkbox events during DataGrid updates
         forms.WPFWindow.__init__(self, _XAML)
+        self.Loaded += self._on_loaded
+
+    def _on_loaded(self, sender, args):
         self._load_views()
 
     # ── Data ──────────────────────────────────────────────────────────────────
