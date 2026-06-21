@@ -1492,7 +1492,9 @@ class BCFManagerWindow(WPFWindow):
     def on_weblink_click(self, sender, e):
         try:
             import System.Diagnostics
-            System.Diagnostics.Process.Start("https://ifc.t3lab.space/")
+            psi = System.Diagnostics.ProcessStartInfo("https://ifc.t3lab.space/")
+            psi.UseShellExecute = True
+            System.Diagnostics.Process.Start(psi)
             self.set_status("Opening web extraction link...")
         except Exception as ex:
             TaskDialog.Show("BCF Reader", "Failed to open web link:\n" + str(ex))
