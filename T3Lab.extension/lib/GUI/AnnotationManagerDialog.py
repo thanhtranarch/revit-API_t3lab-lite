@@ -50,7 +50,6 @@ if lib_dir not in sys.path:
 if os.path.dirname(__file__) not in sys.path:
     sys.path.append(os.path.dirname(__file__))
 
-import TagCheckerDialog
 import DimTextDialog
 import Utils.UpperAll as UpperAll
 import Utils.RenumberAlongSpline as RenumberAlongSpline
@@ -306,8 +305,10 @@ class AnnotationManagerWindow(forms.WPFWindow):
             self._load_all_txts()
             self._load_sidebar_lists()
 
-            # Nest sub-panels and register utility button click events
-            self._init_sub_panels()
+            # DimText state
+            self._dimtext_rules = []
+
+            # Register utility button click events
             self.btn_util_copy_anno.Click += self._on_launch_copier
             self.btn_util_renumber_spline.Click += self._on_launch_renumber
             self.btn_util_upper_all.Click += self._on_launch_upper_all
@@ -1084,51 +1085,8 @@ class AnnotationManagerWindow(forms.WPFWindow):
 
     # ── Top Horizontal Navigation Tab Event Handlers ─────────────────────────
 
-    def _init_sub_panels(self):
-        """Loads sub-tool grids and collapses their headers to avoid duplicates."""
-        # 1. Tag Checker
-        try:
-            self._tag_checker_win = TagCheckerDialog.TagCheckerWindow()
-            tag_checker_border = self._tag_checker_win.window.Content
-            self._tag_checker_win.window.Content = None
-            self.grid_tag_checker.Children.Add(tag_checker_border)
-            
-            try:
-                tag_checker_grid = tag_checker_border.Child if hasattr(tag_checker_border, "Child") else tag_checker_border
-                if hasattr(tag_checker_grid, "RowDefinitions") and tag_checker_grid.RowDefinitions.Count > 0:
-                    tag_checker_grid.RowDefinitions[0].Height = System.Windows.GridLength(0)
-                if hasattr(tag_checker_grid, "RowDefinitions") and tag_checker_grid.RowDefinitions.Count > 2:
-                    tag_checker_grid.RowDefinitions[2].Height = System.Windows.GridLength(0)
-            except Exception:
-                pass
-            
-            # Re-wire close
-            self._tag_checker_win.window.Close = self.Close
-        except Exception as ex:
-            print("Error loading Tag Checker panel: {}".format(ex))
-
-        # 2. DimText
-        try:
-            self._dim_text_win = DimTextDialog.DimTextWindow()
-            dim_text_grid = self._dim_text_win.Content
-            self._dim_text_win.Content = None
-            self.grid_dimtext.Children.Add(dim_text_grid)
-            
-            try:
-                if hasattr(dim_text_grid, "RowDefinitions") and dim_text_grid.RowDefinitions.Count > 0:
-                    dim_text_grid.RowDefinitions[0].Height = System.Windows.GridLength(0)
-                if hasattr(dim_text_grid, "RowDefinitions") and dim_text_grid.RowDefinitions.Count > 2:
-                    dim_text_grid.RowDefinitions[2].Height = System.Windows.GridLength(0)
-            except Exception:
-                pass
-            
-            # Re-wire close
-            self._dim_text_win.Close = self.Close
-        except Exception as ex:
-            print("Error loading DimText panel: {}".format(ex))
-
     def _update_nav_states(self, active_btn):
-        for btn in (self.nav_dim, self.nav_txt, self.nav_tag, self.nav_dimtext, self.nav_utils, self.nav_settings):
+        for btn in (self.nav_dim, self.nav_txt, self.nav_dimtext, self.nav_utils, self.nav_settings):
             try:
                 btn.IsChecked = (btn == active_btn)
             except Exception:
@@ -1144,25 +1102,20 @@ class AnnotationManagerWindow(forms.WPFWindow):
         if hasattr(self, 'main_tabs'):
             self.main_tabs.SelectedIndex = 1
 
-    def nav_tag_checked(self, sender, args):
-        self._update_nav_states(self.nav_tag)
-        if hasattr(self, 'main_tabs'):
-            self.main_tabs.SelectedIndex = 2
-
     def nav_dimtext_checked(self, sender, args):
         self._update_nav_states(self.nav_dimtext)
         if hasattr(self, 'main_tabs'):
-            self.main_tabs.SelectedIndex = 3
+            self.main_tabs.SelectedIndex = 2
 
     def nav_utils_checked(self, sender, args):
         self._update_nav_states(self.nav_utils)
         if hasattr(self, 'main_tabs'):
-            self.main_tabs.SelectedIndex = 4
+            self.main_tabs.SelectedIndex = 3
 
     def nav_settings_checked(self, sender, args):
         self._update_nav_states(self.nav_settings)
         if hasattr(self, 'main_tabs'):
-            self.main_tabs.SelectedIndex = 5
+            self.main_tabs.SelectedIndex = 4
 
     def _on_launch_copier(self, sender, e):
         self.Hide()
@@ -1184,6 +1137,194 @@ class AnnotationManagerWindow(forms.WPFWindow):
             UpperAll.run()
         finally:
             self.Show()
+
+    # ── DimText tab handlers ─────────────────────────────────────────────────
+
+    def dimtext_preset_below(self, sender, args):
+        self.txt_below.Text = sender.Tag
+
+    def dimtext_clear_fields(self, sender, args):
+        for n in ("txt_prefix", "txt_suffix", "txt_above", "txt_below", "txt_override"):
+            ctrl = self.FindName(n)
+            if ctrl is not None:
+                ctrl.Text = ""
+        self._status("DimText: fields cleared.")
+
+    def dimtext_filter_toggle(self, sender, args):
+        from System.Windows import Visibility
+        vis = Visibility.Visible if self.chk_filter_enable.IsChecked else Visibility.Collapsed
+        self.sp_filter_config.Visibility = vis
+
+    def dimtext_add_rule(self, sender, args):
+        rd = self._dimtext_create_rule_row()
+        self._dimtext_rules.append(rd)
+        self.sp_rules.Children.Add(rd["panel"])
+
+    def dimtext_apply(self, sender, args):
+        prefix   = self.txt_prefix.Text.strip()
+        suffix   = self.txt_suffix.Text.strip()
+        above    = self.txt_above.Text.strip()
+        below    = self.txt_below.Text.strip()
+        override = self.txt_override.Text.strip()
+        leader_off = bool(self.chk_leader.IsChecked)
+        filter_fn  = self._dimtext_build_filter_fn()
+
+        if self.rb_view.IsChecked:
+            dims = DimTextDialog._get_dims_in_view()
+            scope = "view"
+        else:
+            dims = DimTextDialog._get_selected_dims()
+            scope = "selection"
+
+        if not dims:
+            self._status("DimText: no dimensions found in {}.".format(scope))
+            return
+
+        from Autodesk.Revit.DB import Transaction
+        with Transaction(doc, "Dim Text Override") as t:
+            t.Start()
+            for dim in dims:
+                DimTextDialog._set_dim_text(dim, prefix, suffix, above, below, override, filter_fn)
+                if leader_off:
+                    DimTextDialog._turn_off_leader(dim)
+            t.Commit()
+
+        note = " (filter active)" if filter_fn else ""
+        self._status("DimText: applied to {} dim(s) in {}{}.".format(len(dims), scope, note))
+
+    def _dimtext_build_filter_fn(self):
+        if not self.chk_filter_enable.IsChecked or not self._dimtext_rules:
+            return None
+        parsed = []
+        for rd in self._dimtext_rules:
+            op = rd["combo"].SelectedItem.Content if rd["combo"].SelectedItem else None
+            if op is None:
+                continue
+            v1 = v2 = 0.0
+            if op not in DimTextDialog._NO_VALUE_OPS:
+                try:
+                    v1 = float(rd["txt1"].Text.strip() or "0")
+                except ValueError:
+                    v1 = 0.0
+            if op in DimTextDialog._TWO_VALUE_OPS:
+                try:
+                    v2 = float(rd["txt2"].Text.strip() or "0")
+                except ValueError:
+                    v2 = 0.0
+            parsed.append((op, v1, v2))
+        if not parsed:
+            return None
+        use_and = (self.combo_combine.SelectedIndex == 0)
+        def filter_fn(length_mm):
+            if length_mm is None:
+                return False
+            results = []
+            for op, v1, v2 in parsed:
+                if   op == "equals":                      results.append(abs(length_mm - v1) < 0.5)
+                elif op == "does not equal":              results.append(abs(length_mm - v1) >= 0.5)
+                elif op == "is greater than":             results.append(length_mm >  v1)
+                elif op == "is greater than or equal to": results.append(length_mm >= v1)
+                elif op == "is less than":                results.append(length_mm <  v1)
+                elif op == "is less than or equal to":    results.append(length_mm <= v1)
+                elif op == "between":                     results.append(min(v1, v2) <= length_mm <= max(v1, v2))
+                elif op == "has a value":                 results.append(True)
+                elif op == "has no value":                results.append(False)
+            if not results:
+                return True
+            return all(results) if use_and else any(results)
+        return filter_fn
+
+    def _dimtext_create_rule_row(self):
+        from System.Windows import Thickness, Visibility, VerticalAlignment
+        from System.Windows.Controls import (
+            StackPanel, ComboBox, ComboBoxItem, TextBox, Button, TextBlock
+        )
+        from System.Windows.Controls import Orientation as WPFOrientation
+        from System.Windows.Media import SolidColorBrush, Color
+        from System.Windows.Media import FontFamily as WPFFontFamily
+
+        rd = {}
+        row = StackPanel()
+        row.Orientation = WPFOrientation.Horizontal
+        row.Margin = Thickness(0, 0, 0, 6)
+        rd["panel"] = row
+
+        combo = ComboBox()
+        combo.Width = 185; combo.Height = 28
+        combo.FontFamily = WPFFontFamily("Inter"); combo.FontSize = 12
+        combo.Margin = Thickness(0, 0, 6, 0)
+        for op in DimTextDialog._OPERATORS:
+            item = ComboBoxItem(); item.Content = op; combo.Items.Add(item)
+        combo.SelectedIndex = 0
+        combo.SelectionChanged += self._dimtext_make_op_handler(rd)
+        rd["combo"] = combo; row.Children.Add(combo)
+
+        txt1 = TextBox()
+        txt1.Width = 72; txt1.Height = 28; txt1.FontSize = 12
+        txt1.Padding = Thickness(6, 4, 6, 4); txt1.Margin = Thickness(0, 0, 4, 0)
+        txt1.BorderBrush = SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1))
+        txt1.BorderThickness = Thickness(1)
+        rd["txt1"] = txt1; row.Children.Add(txt1)
+
+        lbl_mm = TextBlock()
+        lbl_mm.Text = "mm"; lbl_mm.FontSize = 11
+        lbl_mm.Foreground = SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B))
+        lbl_mm.Margin = Thickness(0, 0, 8, 0); lbl_mm.VerticalAlignment = VerticalAlignment.Center
+        rd["lbl_mm"] = lbl_mm; row.Children.Add(lbl_mm)
+
+        lbl_and = TextBlock()
+        lbl_and.Text = "and"; lbl_and.FontSize = 11
+        lbl_and.Foreground = SolidColorBrush(Color.FromRgb(0x0F, 0x17, 0x2A))
+        lbl_and.Margin = Thickness(0, 0, 6, 0); lbl_and.VerticalAlignment = VerticalAlignment.Center
+        lbl_and.Visibility = Visibility.Collapsed
+        rd["lbl_and"] = lbl_and; row.Children.Add(lbl_and)
+
+        txt2 = TextBox()
+        txt2.Width = 72; txt2.Height = 28; txt2.FontSize = 12
+        txt2.Padding = Thickness(6, 4, 6, 4); txt2.Margin = Thickness(0, 0, 4, 0)
+        txt2.BorderBrush = SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1))
+        txt2.BorderThickness = Thickness(1); txt2.Visibility = Visibility.Collapsed
+        rd["txt2"] = txt2; row.Children.Add(txt2)
+
+        lbl_mm2 = TextBlock()
+        lbl_mm2.Text = "mm"; lbl_mm2.FontSize = 11
+        lbl_mm2.Foreground = SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B))
+        lbl_mm2.Margin = Thickness(0, 0, 8, 0); lbl_mm2.VerticalAlignment = VerticalAlignment.Center
+        lbl_mm2.Visibility = Visibility.Collapsed
+        rd["lbl_mm2"] = lbl_mm2; row.Children.Add(lbl_mm2)
+
+        btn = Button()
+        btn.Content = u"−"; btn.Width = 26; btn.Height = 26; btn.FontSize = 14
+        btn.Background = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
+        btn.BorderThickness = Thickness(1)
+        btn.BorderBrush = SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44))
+        btn.Foreground = SolidColorBrush(Color.FromRgb(0xEF, 0x44, 0x44))
+        btn.Click += self._dimtext_make_remove_handler(rd)
+        row.Children.Add(btn)
+
+        return rd
+
+    def _dimtext_make_op_handler(self, rd):
+        from System.Windows import Visibility
+        def handler(sender, args):
+            op = sender.SelectedItem.Content if sender.SelectedItem else ""
+            no_val  = op in DimTextDialog._NO_VALUE_OPS
+            two_val = op in DimTextDialog._TWO_VALUE_OPS
+            v1_vis = Visibility.Collapsed if no_val else Visibility.Visible
+            rd["txt1"].Visibility   = v1_vis
+            rd["lbl_mm"].Visibility = v1_vis
+            v2_vis = Visibility.Visible if two_val else Visibility.Collapsed
+            rd["lbl_and"].Visibility = v2_vis
+            rd["txt2"].Visibility    = v2_vis
+            rd["lbl_mm2"].Visibility = v2_vis
+        return handler
+
+    def _dimtext_make_remove_handler(self, rd):
+        def handler(sender, args):
+            self.sp_rules.Children.Remove(rd["panel"])
+            if rd in self._dimtext_rules:
+                self._dimtext_rules.remove(rd)
+        return handler
 
     # ── Sidebar Browsing & Live Filtering List Event Handlers ────────────────
 

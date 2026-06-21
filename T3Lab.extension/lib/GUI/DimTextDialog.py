@@ -113,6 +113,13 @@ class DimTextWindow(forms.WPFWindow):
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_PATH)
         self._rules = []  # list of dicts: {panel, combo, txt1, txt2, lbl_and, lbl_mm2}
+        # Pre-cache all named controls immediately so they remain accessible after
+        # the content grid is detached from this Window and embedded into a parent.
+        for _n in ("txt_prefix", "txt_suffix", "txt_above", "txt_below", "txt_override",
+                   "wrap_presets", "chk_leader", "rb_selection", "rb_view",
+                   "chk_filter_enable", "sp_filter_config", "combo_combine",
+                   "sp_rules", "btn_clear_fields", "btn_cancel", "btn_apply", "lbl_status"):
+            setattr(self, _n, self.FindName(_n))
 
     # ── window chrome ──────────────────────────────────────────────────────────
     def minimize_button_clicked(self, sender, args):

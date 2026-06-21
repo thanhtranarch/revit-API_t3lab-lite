@@ -502,14 +502,9 @@ class FamilyCreatorDialog(forms.WPFWindow):
 
         self._init_cad_panel()
 
-        self.mode_cad.Checked  += self.mode_cad_checked
-        self.mode_json.Checked += self.mode_json_checked
-
         if initial_mode == 'json':
-            self.mode_json.IsChecked = True
             self._show_panel('json')
         else:
-            self.mode_cad.IsChecked = True
             self._show_panel('cad')
 
     # ── Window chrome ────────────────────────────────────────────────────────
@@ -530,15 +525,34 @@ class FamilyCreatorDialog(forms.WPFWindow):
 
     # ── Mode switching ───────────────────────────────────────────────────────
 
-    def _show_panel(self, mode):
-        self.panel_cad.Visibility  = WinVis.Visible if mode == 'cad'  else WinVis.Collapsed
-        self.panel_json.Visibility = WinVis.Visible if mode == 'json' else WinVis.Collapsed
-
-    def mode_cad_checked(self, sender, e):
+    def nav_cad_clicked(self, sender, e):
+        """Handle cad toggle click."""
         self._show_panel('cad')
 
-    def mode_json_checked(self, sender, e):
+    def nav_json_clicked(self, sender, e):
+        """Handle json toggle click."""
         self._show_panel('json')
+
+    def _show_panel(self, mode):
+        try:
+            panel_cad = self.FindName('panel_cad') or getattr(self, 'panel_cad', None)
+            panel_json = self.FindName('panel_json') or getattr(self, 'panel_json', None)
+            
+            if panel_cad:
+                panel_cad.Visibility = WinVis.Visible if mode == 'cad' else WinVis.Collapsed
+            if panel_json:
+                panel_json.Visibility = WinVis.Visible if mode == 'json' else WinVis.Collapsed
+            
+            # Sync button checked status
+            mode_cad = self.FindName('mode_cad') or getattr(self, 'mode_cad', None)
+            mode_json = self.FindName('mode_json') or getattr(self, 'mode_json', None)
+            if mode_cad:
+                mode_cad.IsChecked = (mode == 'cad')
+            if mode_json:
+                mode_json.IsChecked = (mode == 'json')
+        except Exception as ex:
+            print("Error in _show_panel: {}".format(ex))
+            traceback.print_exc()
 
 
     # ── Status helpers ───────────────────────────────────────────────────────
