@@ -678,6 +678,10 @@ class BCFManagerWindow(WPFWindow):
         except AttributeError:
             pass
         try:
+            self.btnOpenIFC.Click += self.on_open_ifc_viewer_click
+        except AttributeError:
+            pass
+        try:
             self.btnResolved.Click += lambda s, e: self.set_filter("RESOLVED")
         except AttributeError:
             pass
@@ -1992,6 +1996,16 @@ class BCFManagerWindow(WPFWindow):
         except Exception as ex:
             TaskDialog.Show("DQT BCF Reader",
                 "PDF export failed:\n" + str(ex) + "\n\n" + traceback.format_exc())
+
+    def on_open_ifc_viewer_click(self, sender, e):
+        try:
+            from System.Diagnostics import Process, ProcessStartInfo
+            psi = ProcessStartInfo()
+            psi.FileName = "https://ifc.t3lab.space/"
+            psi.UseShellExecute = True
+            Process.Start(psi)
+        except Exception as ex:
+            TaskDialog.Show("BCF", "Failed to open web link:\n" + str(ex))
 
     def export_pdf(self):
         # Suggest filename
