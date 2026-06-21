@@ -1181,31 +1181,17 @@
                     <TextBlock Text="Unified IFC-SG Assignment &amp; Compliance Suite" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
-                <!-- Search Bar Simulator -->
-                <Border Grid.Column="1" Width="320" Height="36" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="18" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="12,0,12,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <!-- Search Icon -->
-                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
-                               Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                               Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <TextBlock Grid.Column="1" Text="Search IFC parameters, types, or rules…" Foreground="#71717A" FontSize="13.5" VerticalAlignment="Center" IsHitTestVisible="False"/>
-                    </Grid>
-                </Border>
-
                 <!-- Right Controls -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
                     <!-- Standard Win Control Buttons -->
-                    <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
+                    <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
                         <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
+                    <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
                         <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_close_chrome" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource CloseButton}" ToolTip="Close">
+                    <Button x:Name="btn_close_chrome" Style="{StaticResource CloseButton}" ToolTip="Close">
                         <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                 </StackPanel>
@@ -1322,20 +1308,54 @@
                                     <DataGrid x:Name="dgTypes" AutoGenerateColumns="False"
                                               IsReadOnly="True" SelectionMode="Extended"
                                               CanUserSortColumns="True"
+                                              Background="White" BorderThickness="0"
                                               GridLinesVisibility="Horizontal"
-                                              HorizontalGridLinesBrush="#F1F5F9"
-                                              BorderThickness="0" RowHeaderWidth="0"
-                                              AlternatingRowBackground="#F8FAFC"
-                                              HeadersVisibility="Column" Margin="4">
+                                              HorizontalGridLinesBrush="#F4F4F6"
+                                              RowBackground="White" AlternatingRowBackground="#FAFAFA"
+                                              FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
+                                              HeadersVisibility="Column" RowHeaderWidth="0" Margin="4">
                                         <DataGrid.Resources>
                                             <Style TargetType="DataGridColumnHeader">
-                                                <Setter Property="Background" Value="#F8FAFC"/>
-                                                <Setter Property="Foreground" Value="#0F172A"/>
-                                                <Setter Property="FontWeight" Value="SemiBold"/>
-                                                <Setter Property="FontSize" Value="12"/>
+                                                <Setter Property="Background" Value="#FFFFFF"/>
+                                                <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                <Setter Property="FontSize" Value="11"/>
                                                 <Setter Property="Padding" Value="10,8"/>
-                                                <Setter Property="BorderBrush" Value="#CBD5E1"/>
-                                                <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                            </Style>
+                                            <Style TargetType="DataGridRow">
+                                                <Setter Property="Background" Value="White"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#F4F4F6"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#F4F4F6"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                            <Style TargetType="DataGridCell">
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="DataGridCell">
+                                                            <Border Background="Transparent" Padding="0">
+                                                                <ContentPresenter VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Setter Property="Foreground" Value="#27272A"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsFocused" Value="True">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
                                             </Style>
                                         </DataGrid.Resources>
                                     </DataGrid>
@@ -1344,13 +1364,25 @@
                         </Grid>
 
                         <!-- Row 2: Bottom Status & Actions Footer -->
-                        <Border Grid.Row="2" Background="#F8FAFC" Padding="16,12" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,120,0">
-                                <CheckBox x:Name="chkApplyType" Style="{StaticResource T3CheckBox}" Content="Apply to Type" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
-                                <CheckBox x:Name="chkApplyEntity" Style="{StaticResource T3CheckBox}" Content="Also set IFC Entity" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
-                                <CheckBox x:Name="chkSetObjectType" Style="{StaticResource T3CheckBox}" Content="Set ObjectType for USERDEFINED" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
-                                <TextBlock Text="|  Ctrl+Click to multi-select in grid" FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center"/>
-                            </StackPanel>
+                        <Border Grid.Row="2" Background="#F8FAFC" Height="64" Padding="20,0" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                            <Grid VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <CheckBox x:Name="chkApplyType" Style="{StaticResource T3CheckBox}" Content="Apply to Type" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
+                                    <CheckBox x:Name="chkApplyEntity" Style="{StaticResource T3CheckBox}" Content="Also set IFC Entity" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
+                                    <CheckBox x:Name="chkSetObjectType" Style="{StaticResource T3CheckBox}" Content="Set ObjectType for USERDEFINED" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="Ctrl+Click to multi-select in grid" FontSize="11.5" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
                         </Border>
                     </Grid>
                 </TabItem>
@@ -1495,7 +1527,7 @@
                         </Grid>
 
                         <!-- Row 2: Main Content (Tree + Results) -->
-                        <Grid Grid.Row="2" Margin="0,0,0,16">
+                        <Grid Grid.Row="2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="280"/>
                                 <ColumnDefinition Width="16"/>
@@ -1565,8 +1597,45 @@
                                                 Style="{StaticResource DangerButton}" Padding="10,4" FontSize="11" 
                                                 IsEnabled="False" Height="28"/>
                                         
-                                        <TextBlock Grid.Column="7" Text="Search:" FontSize="12" VerticalAlignment="Center" Margin="16,0,8,0" Foreground="#64748B" FontWeight="Bold"/>
-                                        <TextBox Grid.Column="8" x:Name="txtSearch" Style="{StaticResource T3InputFieldSmall}" Height="28"/>
+                                         <!-- Search bar -->
+                                         <Border Grid.Column="7" Grid.ColumnSpan="2" Height="28" Width="200" Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="10,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                             <Grid>
+                                                  <Grid.ColumnDefinitions>
+                                                      <ColumnDefinition Width="Auto"/>
+                                                      <ColumnDefinition Width="*"/>
+                                                  </Grid.ColumnDefinitions>
+                                                 <!-- Search Icon -->
+                                                 <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
+                                                       Stroke="#71717A" StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                       Width="11" Height="11" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                                 <TextBox Grid.Column="1" x:Name="txtSearch"
+                                                          Background="Transparent" BorderThickness="0"
+                                                          FontFamily="Hanken Grotesk" FontSize="11.5"
+                                                          Foreground="#27272A" VerticalAlignment="Center" Padding="0" Margin="0" Height="20"
+                                                          VerticalContentAlignment="Center">
+                                                     <TextBox.Style>
+                                                         <Style TargetType="TextBox">
+                                                             <Style.Triggers>
+                                                                 <Trigger Property="Text" Value="">
+                                                                     <Setter Property="Background">
+                                                                         <Setter.Value>
+                                                                             <VisualBrush Stretch="None" AlignmentX="Left">
+                                                                                 <VisualBrush.Visual>
+                                                                                     <TextBlock Text="Search parameters..."
+                                                                                                Foreground="#9A9AA2" FontSize="11"
+                                                                                                FontFamily="Hanken Grotesk"
+                                                                                                Margin="0,0,0,0" VerticalAlignment="Center"/>
+                                                                                 </VisualBrush.Visual>
+                                                                             </VisualBrush>
+                                                                         </Setter.Value>
+                                                                     </Setter>
+                                                                 </Trigger>
+                                                             </Style.Triggers>
+                                                         </Style>
+                                                     </TextBox.Style>
+                                                 </TextBox>
+                                             </Grid>
+                                         </Border>
                                     </Grid>
                                     
                                     <!-- Results list -->
@@ -1580,12 +1649,13 @@
                         </Grid>
 
                         <!-- Row 3: Action Buttons & Bottom Status -->
-                        <Border Grid.Row="3" Background="#F8FAFC" Padding="16,12" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
-                            <Grid Margin="0,0,120,0">
+                        <Border Grid.Row="3" Background="#F8FAFC" Height="64" Padding="20,0" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                            <Grid VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 
                                 <Button x:Name="btnRunCheck" Grid.Column="0" Content="▶ Run Check" 
@@ -1594,16 +1664,18 @@
                                         Style="{StaticResource PrimaryButton}" Margin="0,0,16,0" IsEnabled="False" MinWidth="130" Height="32"/>
                                 
                                 <TextBlock x:Name="txtStatus" Grid.Column="2" Text="Ready. Import a config or select saved config." 
-                                           FontSize="13" Foreground="#64748B" VerticalAlignment="Center" FontWeight="Medium"
-                                           HorizontalAlignment="Right"/>
+                                           FontSize="12.5" Foreground="#71717A" VerticalAlignment="Center" FontWeight="Medium"
+                                           HorizontalAlignment="Right" Margin="0,0,12,0"/>
+                                           
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </Grid>
                 </TabItem>
             </TabControl>
-
-            <!-- Copyright and branding -->
-            <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
         </Grid>
     </Border>
 </Window>

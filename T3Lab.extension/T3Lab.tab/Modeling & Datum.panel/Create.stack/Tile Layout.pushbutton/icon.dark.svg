@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Sheet border (main) -->
+<rect x="4" y="4" width="56" height="56" rx="5" fill="#1A2838"/>
+<rect x="4" y="4" width="56" height="56" rx="5" fill="none" stroke="#7AB0CC" stroke-width="2.5"/>
+<!-- Orange title block at bottom -->
+<rect x="4" y="48" width="56" height="12" rx="4" fill="#EAA030"/>
+<rect x="4" y="52" width="56" height="8" fill="#EAA030"/>
+<!-- 4 viewport tiles inside sheet (2x2) -->
+<rect x="8" y="8" width="22" height="18" rx="2" fill="none" stroke="#7AB0CC" stroke-width="1.8"/>
+<rect x="34" y="8" width="22" height="18" rx="2" fill="none" stroke="#7AB0CC" stroke-width="1.8"/>
+<rect x="8" y="29" width="22" height="16" rx="2" fill="none" stroke="#7AB0CC" stroke-width="1.8"/>
+<rect x="34" y="29" width="22" height="16" rx="2" fill="none" stroke="#7AB0CC" stroke-width="1.8"/>
+<!-- Title block text lines -->
+<rect x="8" y="52" width="24" height="2.5" rx="1.2" fill="white" opacity="0.8"/>
+<rect x="8" y="57" width="16" height="2" rx="1" fill="white" opacity="0.6"/>
+</svg>

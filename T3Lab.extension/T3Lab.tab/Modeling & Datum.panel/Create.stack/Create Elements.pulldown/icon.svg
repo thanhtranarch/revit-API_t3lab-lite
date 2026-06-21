@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <!-- Floor slab at base -->
-<rect x="4" y="50" width="56" height="10" rx="3" fill="#334155"/>
+<rect x="4" y="50" width="56" height="10" rx="3" fill="#3A5C7A"/>
 <!-- Wall (left, bold) -->
-<rect x="8" y="14" width="14" height="36" rx="2" fill="#1E2A3A"/>
+<rect x="8" y="14" width="14" height="36" rx="2" fill="#182A3E"/>
 <!-- Column (center) -->
-<rect x="28" y="20" width="10" height="30" rx="2" fill="#253344"/>
+<rect x="28" y="20" width="10" height="30" rx="2" fill="#28445E"/>
 <!-- Floor slab overhang indicator -->
-<rect x="4" y="42" width="56" height="8" rx="2" fill="#2D3F52"/>
+<rect x="4" y="42" width="56" height="8" rx="2" fill="#3A5C7A"/>
 <!-- Orange "+" create indicator (top right, large) -->
-<circle cx="50" cy="14" r="14" fill="#C2440C"/>
+<circle cx="50" cy="14" r="14" fill="#D07818"/>
 <line x1="44" y1="14" x2="56" y2="14" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
 <line x1="50" y1="8" x2="50" y2="20" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
 </svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Tab bar background -->
+<rect x="2" y="2" width="60" height="14" rx="5" fill="#7AB0CC"/>
+<!-- Individual tabs -->
+<rect x="4" y="4" width="16" height="10" rx="4" fill="#EAA030"/>
+<rect x="22" y="4" width="14" height="10" rx="4" fill="#4A7898"/>
+<rect x="38" y="4" width="14" height="10" rx="4" fill="#4A7898"/>
+<!-- Active tab content panel -->
+<rect x="2" y="16" width="60" height="46" rx="5" fill="#1A2838"/>
+<rect x="2" y="16" width="60" height="6" fill="#1A2838"/>
+<!-- Orange active tab underline -->
+<rect x="4" y="14" width="16" height="4" rx="0" fill="#EAA030"/>
+<!-- Panel content lines -->
+<rect x="8" y="26" width="48" height="5" rx="2.5" fill="#7AB0CC" opacity="0.7"/>
+<rect x="8" y="35" width="36" height="3" rx="1.5" fill="#4A6880"/>
+<rect x="8" y="42" width="44" height="3" rx="1.5" fill="#2E4258"/>
+<rect x="8" y="49" width="28" height="3" rx="1.5" fill="#2E4258"/>
+<!-- Orange accent (active item) -->
+<rect x="8" y="35" width="10" height="3" rx="1.5" fill="#EAA030"/>
+</svg>

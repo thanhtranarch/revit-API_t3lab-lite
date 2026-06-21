@@ -1120,6 +1120,34 @@
             <Setter Property="Padding" Value="8,2"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
+
+        <!-- Suppress the system-default blue cell selection highlight.
+             DataGridRow style already sets row background for IsSelected/hover,
+             but without this style WPF renders an additional blue overlay on
+             each cell, conflicting with the white/gray design. -->
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border Background="Transparent" Padding="0">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="#27272A"/>
+                </Trigger>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="Background" Value="Transparent"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
     </Window.Resources>
 
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22"
@@ -1142,7 +1170,7 @@
                 <StackPanel Grid.Column="0" Margin="22,0,0,0" VerticalAlignment="Center"
                             WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="PDF Import" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                    <TextBlock Text="Import PDF pages into Revit views sequentially"
+                    <TextBlock Text="Sequential or all-pages-into-one import"
                                FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
@@ -1242,6 +1270,23 @@
                             <ComboBoxItem Content="By view type"/>
                         </ComboBox>
 
+                        <!-- Import mode toggle -->
+                        <TextBlock Text="IMPORT MODE" Style="{StaticResource FieldLabel}"/>
+                        <StackPanel Margin="0,0,0,14">
+                            <RadioButton x:Name="rb_sequential"
+                                         Content="Sequential — 1 page per view"
+                                         Style="{StaticResource T3RadioButton}"
+                                         FontSize="13"
+                                         IsChecked="True" GroupName="ImportMode"
+                                         Checked="mode_changed"/>
+                            <RadioButton x:Name="rb_all_in_one"
+                                         Content="All pages → one view"
+                                         Style="{StaticResource T3RadioButton}"
+                                         FontSize="13"
+                                         Margin="0,8,0,0" GroupName="ImportMode"
+                                         Checked="mode_changed"/>
+                        </StackPanel>
+
                         <!-- Info alert -->
                         <Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
                                 CornerRadius="14" Padding="12,10" Margin="0,4,0,0">
@@ -1259,7 +1304,7 @@
                                 </Border>
                                 <TextBlock Grid.Column="1" FontSize="12" Foreground="#3F3F46" TextWrapping="Wrap">
                                     <Run Text="Tip. " FontWeight="Bold" Foreground="#18181B"/>
-                                    <Run Text="Page 1 goes to View 1, Page 2 to View 2, etc. Check boxes to include or exclude views."/>
+                                    <Run Text="Sequential: double-click a page number to override it. All→One: one target view receives every PDF page arranged side-by-side."/>
                                 </TextBlock>
                             </Grid>
                         </Border>
@@ -1360,7 +1405,7 @@
                         <DataGrid x:Name="grid_views"
                                   AutoGenerateColumns="False" IsReadOnly="False"
                                   SelectionMode="Single" SelectionUnit="FullRow"
-                                  CanUserSortColumns="True" CanUserResizeRows="False"
+                                  CanUserSortColumns="False" CanUserResizeRows="False"
                                   CanUserAddRows="False"
                                   Background="White" BorderThickness="0"
                                   GridLinesVisibility="Horizontal"
@@ -1368,8 +1413,8 @@
                                   RowBackground="White" AlternatingRowBackground="#FAFAFA"
                                   FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
                                   HeadersVisibility="Column"
-                                  EnableRowVirtualization="True"
-                                  VirtualizingPanel.VirtualizationMode="Recycling">
+                                  EnableRowVirtualization="False"
+                                  CellEditEnding="cell_edit_ending">
                             <DataGrid.Columns>
                                 <!-- Checkbox column -->
                                 <DataGridTemplateColumn Header="" Width="42" CanUserSort="False">
@@ -1414,6 +1459,16 @@
                                             </Border>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
+                                    <DataGridTemplateColumn.CellEditingTemplate>
+                                        <DataTemplate>
+                                            <TextBox Text="{Binding PageDisplay, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                                                     BorderThickness="0" Background="Transparent"
+                                                     FontFamily="Hanken Grotesk" FontSize="11" FontWeight="Bold"
+                                                     Foreground="#18181B" TextAlignment="Center"
+                                                     Padding="4,0" VerticalContentAlignment="Center"
+                                                     FocusVisualStyle="{x:Null}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellEditingTemplate>
                                 </DataGridTemplateColumn>
 
                                 <!-- View name -->

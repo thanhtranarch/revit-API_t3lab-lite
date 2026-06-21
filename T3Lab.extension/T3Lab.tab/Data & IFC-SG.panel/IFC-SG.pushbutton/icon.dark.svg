@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Dark hexagon background (IFC style) -->
+<polygon points="32,2 58,17 58,47 32,62 6,47 6,17" fill="#7AB0CC"/>
+<!-- Building silhouette (white) inside hexagon -->
+<rect x="20" y="22" width="24" height="28" rx="2" fill="white" opacity="0.9"/>
+<!-- Roof triangle -->
+<polygon points="18,22 32,10 46,22" fill="white" opacity="0.9"/>
+<!-- Windows -->
+<rect x="23" y="26" width="6" height="5" rx="1" fill="#7AB0CC"/>
+<rect x="35" y="26" width="6" height="5" rx="1" fill="#7AB0CC"/>
+<rect x="23" y="35" width="6" height="5" rx="1" fill="#7AB0CC"/>
+<rect x="35" y="35" width="6" height="5" rx="1" fill="#7AB0CC"/>
+<!-- Door -->
+<rect x="28" y="40" width="8" height="10" rx="1" fill="#7AB0CC"/>
+<!-- Orange "SG" badge (bottom-right) -->
+<circle cx="50" cy="50" r="14" fill="#EAA030"/>
+<!-- "SG" simplified as two letter-like shapes -->
+<path d="M44,48 C44,45 46,43 50,43 C54,43 56,45 55,47 C54,49 52,49 50,49 L50,52" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+<circle cx="50" cy="54" r="1.5" fill="white"/>
+</svg>

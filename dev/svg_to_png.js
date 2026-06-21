@@ -21,16 +21,34 @@ const targets = [
   { panel: 'Data & IFC-SG.panel/manaData.stack', tools: ['ContainsManager.pushbutton', 'ManaParameters.pushbutton', 'ManaSchedules.pushbutton'] },
 ];
 
+function renderSvgToPng(svgPath, pngPath) {
+  const svg = fs.readFileSync(svgPath);
+  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 64 } });
+  const png = resvg.render().asPng();
+  fs.writeFileSync(pngPath, png);
+}
+
 for (const { panel, tools } of targets) {
   for (const tool of tools) {
-    const svgPath = path.join(tab, panel, tool, 'icon.svg');
-    const pngPath = path.join(tab, panel, tool, 'icon.png');
-    if (!fs.existsSync(svgPath)) { console.log('SKIP (no svg) ' + tool); continue; }
-    const svg = fs.readFileSync(svgPath);
-    const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 64 } });
-    const png = resvg.render().asPng();
-    fs.writeFileSync(pngPath, png);
-    console.log('OK  ' + tool);
+    const dir = path.join(tab, panel, tool);
+    const svgPath = path.join(dir, 'icon.svg');
+    const pngPath = path.join(dir, 'icon.png');
+    const darkSvgPath = path.join(dir, 'icon.dark.svg');
+    const darkPngPath = path.join(dir, 'icon.dark.png');
+
+    if (!fs.existsSync(svgPath)) {
+      console.log('SKIP (no svg)        ' + tool);
+      continue;
+    }
+
+    renderSvgToPng(svgPath, pngPath);
+
+    if (fs.existsSync(darkSvgPath)) {
+      renderSvgToPng(darkSvgPath, darkPngPath);
+      console.log('OK  [light + dark]   ' + tool);
+    } else {
+      console.log('OK  [light only]     ' + tool);
+    }
   }
 }
 console.log('Done.');

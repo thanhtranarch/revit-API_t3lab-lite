@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Column base cap -->
+<rect x="12" y="50" width="40" height="8" rx="3" fill="#4A7898"/>
+<!-- Column top cap -->
+<rect x="12" y="6" width="40" height="8" rx="3" fill="#4A7898"/>
+<!-- Column shaft top half -->
+<rect x="22" y="14" width="20" height="18" rx="2" fill="#7AB0CC"/>
+<!-- Orange horizontal cut line (bold) -->
+<line x1="4" y1="36" x2="60" y2="36" stroke="#EAA030" stroke-width="5" stroke-linecap="round"/>
+<!-- Column shaft bottom half (slightly offset to show split) -->
+<rect x="22" y="40" width="20" height="10" rx="2" fill="#5A90B8"/>
+<!-- Cut indicators (orange tick marks) -->
+<line x1="12" y1="28" x2="12" y2="44" stroke="#EAA030" stroke-width="2.5" stroke-linecap="round"/>
+<line x1="52" y1="28" x2="52" y2="44" stroke="#EAA030" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

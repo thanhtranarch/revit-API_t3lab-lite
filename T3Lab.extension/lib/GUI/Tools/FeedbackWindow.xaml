@@ -1,8 +1,8 @@
-﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="T3Lab — Send Feedback"
-        Width="600" Height="640"
-        MinWidth="520" MinHeight="560"
+        Width="600" Height="690"
+        MinWidth="520" MinHeight="610"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
@@ -1129,8 +1129,8 @@
             </Grid>
 
             <!-- ═══ ROW 1: BODY ═══ -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="18,18,18,0">
-                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="18" Margin="0,0,0,18">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="18,18,18,18">
+                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="18" Margin="0">
                     <StackPanel>
 
                         <!-- Info Alert (UIStandard pattern) -->

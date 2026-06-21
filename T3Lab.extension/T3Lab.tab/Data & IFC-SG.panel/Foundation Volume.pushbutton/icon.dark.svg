@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Sky/above ground (light) -->
+<rect x="2" y="2" width="60" height="26" rx="4" fill="#1A2838"/>
+<!-- Column above ground -->
+<rect x="24" y="4" width="16" height="22" rx="2" fill="#5A90B8"/>
+<!-- Ground line -->
+<rect x="2" y="28" width="60" height="4" rx="0" fill="#4A7898"/>
+<!-- Soil layer -->
+<rect x="2" y="32" width="60" height="30" rx="4" fill="#5A90B8"/>
+<!-- Soil texture lines -->
+<line x1="6" y1="38" x2="14" y2="38" stroke="#4A7898" stroke-width="1.2"/>
+<line x1="18" y1="38" x2="28" y2="38" stroke="#4A7898" stroke-width="1.2"/>
+<line x1="50" y1="38" x2="58" y2="38" stroke="#4A7898" stroke-width="1.2"/>
+<line x1="6" y1="44" x2="18" y2="44" stroke="#4A7898" stroke-width="1.2"/>
+<line x1="46" y1="44" x2="58" y2="44" stroke="#4A7898" stroke-width="1.2"/>
+<!-- Foundation footing (trapezoidal orange) -->
+<polygon points="16,32 48,32 54,58 10,58" fill="#EAA030"/>
+<!-- Footing inner lighter area -->
+<polygon points="22,32 42,32 46,50 18,50" fill="#D08020" opacity="0.5"/>
+<!-- Volume measurement arrows (white) -->
+<line x1="8" y1="34" x2="8" y2="56" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+<line x1="6" y1="34" x2="10" y2="34" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+<line x1="6" y1="56" x2="10" y2="56" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+</svg>

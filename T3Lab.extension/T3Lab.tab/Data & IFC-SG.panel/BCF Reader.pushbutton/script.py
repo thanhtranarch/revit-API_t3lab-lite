@@ -40,10 +40,10 @@ import System
 from System.IO import MemoryStream, File, Path as IOPath, StreamReader
 from System.IO.Compression import ZipFile
 from System.Text import Encoding
-from System.Windows import , WindowState
+from System.Windows import (
     Thickness, HorizontalAlignment, VerticalAlignment,
     TextWrapping, FontStyles, FontWeights, CornerRadius,
-    GridLength, GridUnitType
+    GridLength, GridUnitType, WindowState, Visibility
 )
 from System.Windows.Media import BrushConverter, Stretch
 from System.Windows.Media.Imaging import BitmapImage, BitmapCacheOption
@@ -83,18 +83,18 @@ uidoc = revit.uidoc
 # ---------------------------------------------------------------------------
 OUTPUT_DIR = r"C:\Temp\DQT_Purge"
 
-COLOR_HEADER_BG   = "#5D4E37"
-COLOR_HEADER_FG   = "#0F172A"
+COLOR_HEADER_BG   = "#18181B"
+COLOR_HEADER_FG   = "#FFFFFF"
 COLOR_BG          = "#F8FAFC"
-COLOR_FOOTER_BG   = "#F5F0E0"
-COLOR_CARD_BORDER = "#CBD5E1"
-COLOR_CARD_SEL    = "#5D4E37"
-COLOR_REMOVED     = "#E74C3C"
-COLOR_ADDED       = "#27AE60"
+COLOR_FOOTER_BG   = "#F4F4F6"
+COLOR_CARD_BORDER = "#E2E8F0"
+COLOR_CARD_SEL    = "#18181B"
+COLOR_REMOVED     = "#D23B3B"
+COLOR_ADDED       = "#22A85C"
 COLOR_MODIFIED    = "#F39C12"
-COLOR_OTHER       = "#95A5A6"
-COLOR_TEXT        = "#0F172A"
-COLOR_TEXT_MUTED  = "#7B6F5A"
+COLOR_OTHER       = "#71717A"
+COLOR_TEXT        = "#27272A"
+COLOR_TEXT_MUTED  = "#71717A"
 
 LABEL_COLORS = {
     "REMOVED": COLOR_REMOVED,
@@ -192,7 +192,7 @@ class ActionHandler(IExternalEventHandler):
                 self._action()
         except Exception as ex:
             try:
-                TaskDialog.Show("DQT BCF Reader",
+                TaskDialog.Show("BCF Reader",
                     "Action error:\n" + str(ex) + "\n\n" + traceback.format_exc())
             except Exception:
                 pass
@@ -200,7 +200,7 @@ class ActionHandler(IExternalEventHandler):
             self._action = None
 
     def GetName(self):
-        return "DQT BCF Action"
+        return "BCF Action"
 
 
 # ---------------------------------------------------------------------------
@@ -685,6 +685,43 @@ class BCFManagerWindow(WPFWindow):
             self.btnUnresolved.Click += lambda s, e: self.set_filter("UNRESOLVED")
         except AttributeError:
             pass
+        try:
+            self.txtSearch.TextChanged += self.on_search_changed
+        except AttributeError:
+            pass
+        try:
+            self.btnReload.Click += self.on_reload_click
+        except AttributeError:
+            pass
+        try:
+            self.btnWebLink.Click += self.on_weblink_click
+        except AttributeError:
+            pass
+
+        self.populate_cards()
+
+    # ------------------------------------------------------------------
+    # Window chrome handlers
+    # ------------------------------------------------------------------
+    def minimize_button_clicked(self, sender, e):
+        self.WindowState = WindowState.Minimized
+
+    def maximize_button_clicked(self, sender, e):
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+            try:
+                self.btn_maximize.ToolTip = "Maximize"
+            except AttributeError:
+                pass
+        else:
+            self.WindowState = WindowState.Maximized
+            try:
+                self.btn_maximize.ToolTip = "Restore"
+            except AttributeError:
+                pass
+
+    def close_button_clicked(self, sender, e):
+        self.Close()
 
     # ------------------------------------------------------------------
     # File loading
@@ -735,7 +772,7 @@ class BCFManagerWindow(WPFWindow):
             msg += ")"
             self.set_status(msg)
         except Exception as ex:
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "Failed to load BCF file:\n\n" + str(ex) + "\n\n" + traceback.format_exc())
             self.set_status("Error loading BCF")
 
@@ -745,7 +782,42 @@ class BCFManagerWindow(WPFWindow):
     def populate_cards(self):
         self.panelCards.Children.Clear()
         self.card_borders = {}
+        
+        if self.reader is None:
+            sp = StackPanel()
+            sp.Margin = Thickness(24)
+            sp.HorizontalAlignment = HorizontalAlignment.Center
+            sp.VerticalAlignment = VerticalAlignment.Center
+            
+            title = TextBlock()
+            title.Text = "Welcome to BCF Reader"
+            title.FontSize = 16
+            title.FontWeight = FontWeights.Bold
+            title.Foreground = self._brush(COLOR_TEXT)
+            title.Margin = Thickness(0, 0, 0, 8)
+            title.HorizontalAlignment = HorizontalAlignment.Center
+            sp.Children.Add(title)
+            
+            desc = TextBlock()
+            desc.Text = "To get started, click 'Load BCF' below to open a BCF file,\nor click the Globe icon on the left sidebar to extract it from the web."
+            desc.FontSize = 13
+            desc.Foreground = self._brush(COLOR_TEXT_MUTED)
+            desc.TextWrapping = TextWrapping.Wrap
+            desc.HorizontalAlignment = HorizontalAlignment.Center
+            desc.Margin = Thickness(0, 0, 0, 16)
+            sp.Children.Add(desc)
+            
+            self.panelCards.Children.Add(sp)
+            self._clear_detail()
+            return
+
         visible_count = 0
+        search_txt = ""
+        try:
+            search_txt = self.txtSearch.Text.lower().strip()
+        except Exception:
+            pass
+
         for issue in self.issues:
             if self.active_filter == "RESOLVED":
                 if not issue.resolved:
@@ -755,6 +827,17 @@ class BCFManagerWindow(WPFWindow):
                     continue
             elif self.active_filter != "ALL" and issue.label != self.active_filter:
                 continue
+
+            if search_txt:
+                t_match = search_txt in (issue.title or "").lower()
+                d_match = search_txt in (issue.description or "").lower()
+                g_match = search_txt in (issue.guid or "").lower()
+                e_match = False
+                if issue.element_id is not None:
+                    e_match = search_txt in str(issue.element_id)
+                if not (t_match or d_match or g_match or e_match):
+                    continue
+
             card = self._build_card(issue)
             self.panelCards.Children.Add(card)
             visible_count += 1
@@ -767,6 +850,16 @@ class BCFManagerWindow(WPFWindow):
             self.panelCards.Children.Add(msg)
         self._clear_detail()
         self._update_resolved_count()
+
+    def on_search_changed(self, sender, e):
+        try:
+            if self.txtSearch.Text:
+                self.lblSearchPlaceholder.Visibility = Visibility.Collapsed
+            else:
+                self.lblSearchPlaceholder.Visibility = Visibility.Visible
+        except Exception:
+            pass
+        self.populate_cards()
 
     def _update_resolved_count(self):
         try:
@@ -801,7 +894,7 @@ class BCFManagerWindow(WPFWindow):
         outer.Margin = Thickness(6)
         outer.BorderBrush = self._brush(COLOR_CARD_BORDER)
         outer.BorderThickness = Thickness(1)
-        outer.CornerRadius = CornerRadius(5)
+        outer.CornerRadius = CornerRadius(14)
         outer.Background = self._brush("#FFFFFF")
         outer.Cursor = Cursors.Hand
         outer.Tag = issue
@@ -815,7 +908,7 @@ class BCFManagerWindow(WPFWindow):
         accent = Border()
         accent_color = COLOR_ADDED if issue.resolved else LABEL_COLORS.get(issue.label, COLOR_OTHER)
         accent.Background = self._brush(accent_color)
-        accent.CornerRadius = CornerRadius(4, 0, 0, 4)
+        accent.CornerRadius = CornerRadius(14, 0, 0, 14)
         WPFGrid.SetColumn(accent, 0)
         outer_grid.Children.Add(accent)
 
@@ -834,6 +927,7 @@ class BCFManagerWindow(WPFWindow):
         thumb_border.Background = self._brush(COLOR_BG)
         thumb_border.BorderThickness = Thickness(0, 0, 0, 1)
         thumb_border.BorderBrush = self._brush(COLOR_CARD_BORDER)
+        thumb_border.CornerRadius = CornerRadius(0, 14, 0, 0)
         WPFGrid.SetRow(thumb_border, 0)
 
         thumb_grid = WPFGrid()
@@ -1384,21 +1478,38 @@ class BCFManagerWindow(WPFWindow):
         try:
             self.prompt_open()
         except Exception as ex:
-            TaskDialog.Show("DQT BCF Reader", "Open failed:\n" + str(ex))
+            TaskDialog.Show("BCF Reader", "Open failed:\n" + str(ex))
+
+    def on_reload_click(self, sender, e):
+        if self.reader and self.reader.filepath:
+            try:
+                self.load_bcf(self.reader.filepath)
+            except Exception as ex:
+                TaskDialog.Show("BCF Reader", "Reload failed:\n" + str(ex))
+        else:
+            TaskDialog.Show("BCF Reader", "No BCF file is currently loaded to reload.")
+
+    def on_weblink_click(self, sender, e):
+        try:
+            import System.Diagnostics
+            System.Diagnostics.Process.Start("https://ifc.t3lab.space/")
+            self.set_status("Opening web extraction link...")
+        except Exception as ex:
+            TaskDialog.Show("BCF Reader", "Failed to open web link:\n" + str(ex))
 
     def on_zoom_click(self, sender, e):
         if self.selected_issue is None:
-            TaskDialog.Show("DQT BCF Reader", "Please select an issue first.")
+            TaskDialog.Show("BCF Reader", "Please select an issue first.")
             return
         self.zoom_to_issue(self.selected_issue)
     def on_export_click(self, sender, e):
         if not self.issues:
-            TaskDialog.Show("DQT BCF Reader", "No issues to export.")
+            TaskDialog.Show("BCF Reader", "No issues to export.")
             return
         try:
             self.export_summary_csv()
         except Exception as ex:
-            TaskDialog.Show("DQT BCF Reader", "Export failed:\n" + str(ex))
+            TaskDialog.Show("BCF Reader", "Export failed:\n" + str(ex))
 
     # ------------------------------------------------------------------
     # Dispatch helper
@@ -1409,7 +1520,7 @@ class BCFManagerWindow(WPFWindow):
             self._action_handler.set_action(action)
             self._action_event.Raise()
         except Exception as ex:
-            TaskDialog.Show("DQT BCF Reader", "Dispatch failed:\n" + str(ex))
+            TaskDialog.Show("BCF Reader", "Dispatch failed:\n" + str(ex))
 
     # ------------------------------------------------------------------
     # Revit operations (via ExternalEvent)
@@ -1430,7 +1541,7 @@ class BCFManagerWindow(WPFWindow):
     def _select_only_impl(self, issue):
         ids_to_select = self._collect_element_ids(issue)
         if not ids_to_select:
-            TaskDialog.Show("DQT BCF Reader", "No Element ID for this issue.")
+            TaskDialog.Show("BCF Reader", "No Element ID for this issue.")
             return
 
         host_ids = []
@@ -1488,7 +1599,7 @@ class BCFManagerWindow(WPFWindow):
                     eids.Add(h)
                 uidoc.Selection.SetElementIds(eids)
         except Exception as ex:
-            TaskDialog.Show("DQT BCF Reader", "Selection failed:\n" + str(ex))
+            TaskDialog.Show("BCF Reader", "Selection failed:\n" + str(ex))
             return
 
         msg = "Selected {} element(s)".format(len(host_ids) + len(link_refs))
@@ -1507,7 +1618,7 @@ class BCFManagerWindow(WPFWindow):
 
     def _zoom_to_issue_impl(self, issue):
         if issue.element_id is None and issue.cam_viewpoint is None and issue.position is None:
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "This issue has no Element ID, position, or camera viewpoint.")
             return
 
@@ -1537,7 +1648,7 @@ class BCFManagerWindow(WPFWindow):
             if eid_int is not None:
                 self.set_status("Element {} not found - using BCF viewpoint.".format(eid_int))
             if issue.position is None and issue.cam_viewpoint is None:
-                TaskDialog.Show("DQT BCF Reader",
+                TaskDialog.Show("BCF Reader",
                     "Element ID {} not found and no viewpoint stored.".format(eid_int))
                 return
 
@@ -1773,7 +1884,7 @@ class BCFManagerWindow(WPFWindow):
 
     def _apply_section_box_impl(self, issue):
         if not isinstance(doc.ActiveView, DB.View3D):
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "Section Box requires an active 3D view.")
             return
 
@@ -1825,7 +1936,7 @@ class BCFManagerWindow(WPFWindow):
         if bbox is None:
             pos = issue.position or issue.cam_viewpoint
             if pos is None:
-                TaskDialog.Show("DQT BCF Reader",
+                TaskDialog.Show("BCF Reader",
                     "Cannot build section box: no element, clipping planes, or position.")
                 return
             cx = pos[0] * METERS_TO_FEET
@@ -1861,7 +1972,7 @@ class BCFManagerWindow(WPFWindow):
         except Exception as ex:
             if tx.HasStarted() and not tx.HasEnded():
                 tx.RollBack()
-            TaskDialog.Show("DQT BCF Reader", "Failed to apply section box:\n" + str(ex))
+            TaskDialog.Show("BCF Reader", "Failed to apply section box:\n" + str(ex))
 
     def _build_bbox_from_clipping_planes(self, issue):
         if not issue.clipping_planes:
@@ -1948,7 +2059,7 @@ class BCFManagerWindow(WPFWindow):
 
     def _isolate_element_impl(self, issue):
         if issue.element_id is None:
-            TaskDialog.Show("DQT BCF Reader", "No Element ID for this issue.")
+            TaskDialog.Show("BCF Reader", "No Element ID for this issue.")
             return
         eid_int = int(issue.element_id)
         ok, elem = self._find_in_host(eid_int)
@@ -1960,7 +2071,7 @@ class BCFManagerWindow(WPFWindow):
             if link_inst is not None:
                 target_id = link_inst.Id
         if target_id is None:
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "Element ID {} not found.".format(eid_int))
             return
 
@@ -1978,19 +2089,19 @@ class BCFManagerWindow(WPFWindow):
         except Exception as ex:
             if tx.HasStarted() and not tx.HasEnded():
                 tx.RollBack()
-            TaskDialog.Show("DQT BCF Reader", "Failed to isolate:\n" + str(ex))
+            TaskDialog.Show("BCF Reader", "Failed to isolate:\n" + str(ex))
 
     # ------------------------------------------------------------------
     # Export PDF (via HTML + Word interop, fallback browser)
     # ------------------------------------------------------------------
     def on_export_pdf_click(self, sender, e):
         if not self.issues:
-            TaskDialog.Show("DQT BCF Reader", "No issues to export.")
+            TaskDialog.Show("BCF Reader", "No issues to export.")
             return
         try:
             self.export_pdf()
         except Exception as ex:
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "PDF export failed:\n" + str(ex) + "\n\n" + traceback.format_exc())
 
     def export_pdf(self):
@@ -2060,7 +2171,7 @@ class BCFManagerWindow(WPFWindow):
 
         if pdf_ok:
             self.set_status("Exported PDF via {}: {}".format(method_used, pdf_path))
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "PDF exported via {}:\n{}".format(method_used, pdf_path))
             try:
                 System.Diagnostics.Process.Start(pdf_path)
@@ -2069,7 +2180,7 @@ class BCFManagerWindow(WPFWindow):
         else:
             # Fallback: open HTML in default browser; user prints to PDF
             self.set_status("Saved HTML report (open and print to PDF): " + html_path)
-            td = TaskDialog("DQT BCF Reader")
+            td = TaskDialog("BCF Reader")
             td.MainInstruction = "PDF conversion unavailable"
             td.MainContent = ("Microsoft Word interop not found.\n\n"
                 "HTML report saved to:\n" + html_path + "\n\n"
@@ -2457,10 +2568,10 @@ class BCFManagerWindow(WPFWindow):
     # ------------------------------------------------------------------
     def on_export_bcf_click(self, sender, e):
         if not self.issues:
-            TaskDialog.Show("DQT BCF Reader", "No issues loaded.")
+            TaskDialog.Show("BCF Reader", "No issues loaded.")
             return
         if self.reader is None or not self.reader.filepath:
-            TaskDialog.Show("DQT BCF Reader", "Original BCF file path unknown.")
+            TaskDialog.Show("BCF Reader", "Original BCF file path unknown.")
             return
 
         # Suggest filename based on source
@@ -2492,12 +2603,12 @@ class BCFManagerWindow(WPFWindow):
         try:
             self.export_bcf(out_path)
             n_resolved = sum(1 for i in self.issues if i.resolved)
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "Exported BCF with {} resolved / {} total issues.\n\nSaved to:\n{}".format(
                     n_resolved, len(self.issues), out_path))
             self.set_status("Exported BCF: " + out_path)
         except Exception as ex:
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "Export BCF failed:\n" + str(ex) + "\n\n" + traceback.format_exc())
 
     def export_bcf(self, out_path):
@@ -2805,7 +2916,7 @@ class BCFManagerWindow(WPFWindow):
         from System.IO import File as IOFile
         IOFile.WriteAllText(out_path, "\n".join(lines), Encoding.UTF8)
         self.set_status("Exported {} issues to {}".format(len(self.issues), out_path))
-        TaskDialog.Show("DQT BCF Reader",
+        TaskDialog.Show("BCF Reader",
             "Exported {} issues to:\n{}".format(len(self.issues), out_path))
 
     # ------------------------------------------------------------------
@@ -2832,15 +2943,14 @@ def main():
         xaml_file = os.path.join(current_dir, "lib", "GUI", "Tools", "BCFReaderWindow.xaml")
 
         if not os.path.exists(xaml_file):
-            TaskDialog.Show("DQT BCF Reader",
+            TaskDialog.Show("BCF Reader",
                 "BCFReaderWindow.xaml not found in central Tools folder.\n"
                 "Expected: " + xaml_file)
             return
 
         win = BCFManagerWindow(xaml_file)
 
-        # Prompt for BCF before showing window
-        win.prompt_open()
+
 
         # MODELESS via pyRevit.
         # WPFWindow.show() is modeless (non-blocking) by default - it calls
@@ -2851,7 +2961,7 @@ def main():
         # (Use show_dialog() if modal is needed.)
         win.show()
     except Exception as ex:
-        TaskDialog.Show("DQT BCF Reader",
+        TaskDialog.Show("BCF Reader",
             "Unexpected error:\n\n" + str(ex) + "\n\n" + traceback.format_exc())
 
 

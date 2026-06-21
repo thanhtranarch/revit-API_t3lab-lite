@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- PDF document body -->
+<rect x="6" y="2" width="38" height="48" rx="4" fill="#F07070"/>
+<!-- Folded corner -->
+<polygon points="32,2 44,2 44,14" fill="#D05050"/>
+<polygon points="32,2 44,14 32,14" fill="#E06060" opacity="0.7"/>
+<!-- PDF label (white band) -->
+<rect x="6" y="18" width="38" height="12" rx="0" fill="white" opacity="0.95"/>
+<!-- "PDF" text simplified as 3 bold rects -->
+<rect x="11" y="21" width="5" height="6" rx="1" fill="#F07070"/>
+<rect x="11" y="21" width="8" height="2.5" rx="1" fill="#F07070"/>
+<rect x="20" y="21" width="5" height="6" rx="1" fill="#F07070"/>
+<rect x="28" y="21" width="5" height="6" rx="1" fill="#F07070"/>
+<rect x="28" y="21" width="8" height="2.5" rx="1" fill="#F07070"/>
+<!-- Lines on document -->
+<rect x="10" y="34" width="28" height="3" rx="1.5" fill="white" opacity="0.6"/>
+<rect x="10" y="40" width="20" height="3" rx="1.5" fill="white" opacity="0.4"/>
+<!-- Bold orange import arrow (right side) -->
+<circle cx="50" cy="50" r="14" fill="#EAA030"/>
+<line x1="50" y1="40" x2="50" y2="52" stroke="white" stroke-width="3" stroke-linecap="round"/>
+<polyline points="44,48 50,55 56,48" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+<line x1="43" y1="57" x2="57" y2="57" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

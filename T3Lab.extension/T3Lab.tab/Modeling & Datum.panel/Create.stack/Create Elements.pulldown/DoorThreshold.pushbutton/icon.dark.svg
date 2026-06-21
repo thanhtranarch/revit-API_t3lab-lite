@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Wall with door opening -->
+<rect x="2" y="10" width="18" height="48" rx="3" fill="#7AB0CC"/>
+<rect x="44" y="10" width="18" height="48" rx="3" fill="#7AB0CC"/>
+<!-- Door frame arch top -->
+<rect x="20" y="10" width="24" height="4" rx="2" fill="#5A90B8"/>
+<!-- Door panel (lighter) -->
+<rect x="20" y="14" width="24" height="38" rx="1" fill="#243848"/>
+<!-- Door handle -->
+<circle cx="40" cy="34" r="2.5" fill="#5A7290"/>
+<!-- Orange threshold slab at base (bold) -->
+<rect x="14" y="52" width="36" height="10" rx="3" fill="#EAA030"/>
+<!-- Threshold step lines -->
+<line x1="14" y1="56" x2="50" y2="56" stroke="#D08020" stroke-width="1.5"/>
+<!-- Ground continuation -->
+<rect x="2" y="58" width="60" height="6" rx="2" fill="#4A7898"/>
+</svg>

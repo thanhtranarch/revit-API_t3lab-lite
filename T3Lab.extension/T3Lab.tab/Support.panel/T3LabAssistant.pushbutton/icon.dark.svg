@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Bold chat bubble (main shape) -->
+<rect x="4" y="6" width="50" height="38" rx="8" fill="#7AB0CC"/>
+<!-- Chat tail -->
+<polygon points="10,44 10,54 22,44" fill="#7AB0CC"/>
+<!-- AI circuit pattern inside bubble -->
+<circle cx="32" cy="25" r="10" fill="none" stroke="#7AB8D8" stroke-width="2"/>
+<circle cx="32" cy="25" r="4" fill="#7AB8D8"/>
+<!-- Circuit lines radiating outward -->
+<line x1="32" y1="15" x2="32" y2="10" stroke="#7AB8D8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="39" y1="18" x2="44" y2="14" stroke="#7AB8D8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="42" y1="25" x2="48" y2="25" stroke="#7AB8D8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="22" y1="25" x2="16" y2="25" stroke="#7AB8D8" stroke-width="1.5" stroke-linecap="round"/>
+<line x1="25" y1="18" x2="20" y2="14" stroke="#7AB8D8" stroke-width="1.5" stroke-linecap="round"/>
+<!-- Orange lightning badge (bottom-right, prominent) -->
+<circle cx="52" cy="52" r="12" fill="#EAA030"/>
+<polyline points="55,42 50,50 54,50 49,62" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

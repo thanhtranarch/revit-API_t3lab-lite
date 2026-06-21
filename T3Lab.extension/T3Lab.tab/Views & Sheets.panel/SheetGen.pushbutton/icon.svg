@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <!-- Orange base card — the generator -->
-<rect x="4" y="4" width="56" height="56" rx="8" fill="#C2440C"/>
+<rect x="4" y="4" width="56" height="56" rx="8" fill="#D07818"/>
 <!-- 2x2 generated sheet grid (white) -->
 <rect x="10" y="10" width="20" height="20" rx="3" fill="white" opacity="0.92"/>
 <rect x="34" y="10" width="20" height="20" rx="3" fill="white" opacity="0.92"/>
@@ -16,6 +16,6 @@
 <rect x="37" y="39" width="14" height="2" rx="1" fill="#CBD5E1"/>
 <rect x="37" y="44" width="10" height="2" rx="1" fill="#E2E8F0"/>
 <!-- Center cross grid lines -->
-<line x1="32" y1="4" x2="32" y2="60" stroke="#A83300" stroke-width="2"/>
-<line x1="4" y1="32" x2="60" y2="32" stroke="#A83300" stroke-width="2"/>
+<line x1="32" y1="4" x2="32" y2="60" stroke="#B86010" stroke-width="2"/>
+<line x1="4" y1="32" x2="60" y2="32" stroke="#B86010" stroke-width="2"/>
 </svg>

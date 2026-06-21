@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Left element block -->
+<rect x="4" y="10" width="24" height="44" rx="4" fill="#7AB0CC"/>
+<rect x="8" y="16" width="16" height="3" rx="1.5" fill="#1A2838" opacity="0.4"/>
+<rect x="8" y="22" width="12" height="3" rx="1.5" fill="#1A2838" opacity="0.3"/>
+<!-- Right element block -->
+<rect x="36" y="10" width="24" height="44" rx="4" fill="#5A90B8"/>
+<rect x="40" y="16" width="16" height="3" rx="1.5" fill="#1A2838" opacity="0.4"/>
+<rect x="40" y="22" width="12" height="3" rx="1.5" fill="#1A2838" opacity="0.3"/>
+<!-- Orange split line (bold, center) -->
+<line x1="32" y1="4" x2="32" y2="60" stroke="#EAA030" stroke-width="5" stroke-linecap="round"/>
+<!-- Split arrow indicators -->
+<polygon points="22,30 28,36 22,42" fill="#EAA030"/>
+<polygon points="42,30 36,36 42,42" fill="#EAA030"/>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Family library grid (3 rows) -->
+<!-- Row 1 -->
+<rect x="4" y="4" width="14" height="14" rx="3" fill="#7AB0CC"/>
+<rect x="22" y="4" width="14" height="14" rx="3" fill="#5A90B8"/>
+<rect x="40" y="4" width="20" height="14" rx="3" fill="#4A7898"/>
+<!-- Row 2 -->
+<rect x="4" y="22" width="20" height="14" rx="3" fill="#5A90B8"/>
+<rect x="28" y="22" width="14" height="14" rx="3" fill="#7AB0CC"/>
+<rect x="46" y="22" width="14" height="14" rx="3" fill="#4A7898"/>
+<!-- Row 3 -->
+<rect x="4" y="40" width="14" height="14" rx="3" fill="#4A7898"/>
+<rect x="22" y="40" width="14" height="14" rx="3" fill="#5A90B8"/>
+<rect x="40" y="40" width="20" height="14" rx="3" fill="#7AB0CC"/>
+<!-- Orange search circle (prominent overlay) -->
+<circle cx="46" cy="46" r="16" fill="#EAA030"/>
+<circle cx="44" cy="44" r="8" fill="none" stroke="white" stroke-width="2.5"/>
+<line x1="50" y1="50" x2="58" y2="58" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+</svg>

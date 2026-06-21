@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <!-- Wall body (tall, left-of-center) -->
-<rect x="18" y="6" width="22" height="46" rx="3" fill="#1E2A3A"/>
+<rect x="18" y="6" width="22" height="46" rx="3" fill="#182A3E"/>
 <!-- Wall internal texture -->
 <rect x="22" y="10" width="14" height="3" rx="1.5" fill="#EEF2F7" opacity="0.3"/>
 <rect x="22" y="16" width="10" height="3" rx="1.5" fill="#EEF2F7" opacity="0.2"/>
@@ -8,11 +8,11 @@
 <line x1="4" y1="36" x2="60" y2="36" stroke="#5A7290" stroke-width="2.5" stroke-linecap="round"/>
 <rect x="4" y="33" width="8" height="5" rx="1.5" fill="#5A7290"/>
 <!-- Adjusted base level (orange, offset) -->
-<line x1="4" y1="52" x2="60" y2="52" stroke="#C2440C" stroke-width="2.5" stroke-linecap="round"/>
-<rect x="4" y="49" width="8" height="5" rx="1.5" fill="#C2440C"/>
+<line x1="4" y1="52" x2="60" y2="52" stroke="#D07818" stroke-width="2.5" stroke-linecap="round"/>
+<rect x="4" y="49" width="8" height="5" rx="1.5" fill="#D07818"/>
 <!-- Offset arrow showing adjustment -->
-<line x1="52" y1="36" x2="52" y2="52" stroke="#C2440C" stroke-width="2.5" stroke-linecap="round"/>
-<polygon points="48,48 52,54 56,48" fill="#C2440C"/>
+<line x1="52" y1="36" x2="52" y2="52" stroke="#D07818" stroke-width="2.5" stroke-linecap="round"/>
+<polygon points="48,48 52,54 56,48" fill="#D07818"/>
 <!-- Ground/floor at new base -->
-<rect x="4" y="54" width="56" height="8" rx="3" fill="#334155"/>
+<rect x="4" y="54" width="56" height="8" rx="3" fill="#3A5C7A"/>
 </svg>

@@ -1175,12 +1175,13 @@ class IFCSGSuiteWindow(forms.WPFWindow):
             from System.Windows.Controls import Control
             
             style = WPFStyle(DataGridColumnHeader)
-            style.Setters.Add(Setter(Control.BackgroundProperty, bc.ConvertFromString("#F8FAFC")))
-            style.Setters.Add(Setter(Control.ForegroundProperty, bc.ConvertFromString("#0F172A")))
-            style.Setters.Add(Setter(Control.FontWeightProperty, System.Windows.FontWeights.SemiBold))
+            style.Setters.Add(Setter(Control.BackgroundProperty, bc.ConvertFromString("#FFFFFF")))
+            style.Setters.Add(Setter(Control.ForegroundProperty, bc.ConvertFromString("#9A9AA2")))
+            style.Setters.Add(Setter(Control.FontWeightProperty, System.Windows.FontWeights.Bold))
+            style.Setters.Add(Setter(Control.FontSizeProperty, 11.0))
             style.Setters.Add(Setter(Control.PaddingProperty, Thickness(10, 8, 10, 8)))
-            style.Setters.Add(Setter(Control.BorderBrushProperty, bc.ConvertFromString("#CBD5E1")))
-            style.Setters.Add(Setter(Control.BorderThicknessProperty, Thickness(0, 0, 1, 1)))
+            style.Setters.Add(Setter(Control.BorderBrushProperty, bc.ConvertFromString("#E2E8F0")))
+            style.Setters.Add(Setter(Control.BorderThicknessProperty, Thickness(0, 0, 0, 1)))
             self.dgTypes.ColumnHeaderStyle = style
         except:
             pass

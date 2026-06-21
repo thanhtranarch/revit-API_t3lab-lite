@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <!-- Dark panel background -->
-<rect x="2" y="2" width="60" height="60" rx="8" fill="#1E2A3A"/>
+<rect x="2" y="2" width="60" height="60" rx="8" fill="#182A3E"/>
 <!-- Slider track 1 -->
-<rect x="10" y="15" width="44" height="5" rx="2.5" fill="#334155"/>
-<rect x="10" y="15" width="28" height="5" rx="2.5" fill="#C2440C"/>
+<rect x="10" y="15" width="44" height="5" rx="2.5" fill="#3A5C7A"/>
+<rect x="10" y="15" width="28" height="5" rx="2.5" fill="#D07818"/>
 <circle cx="38" cy="17.5" r="7" fill="white"/>
-<circle cx="38" cy="17.5" r="3" fill="#C2440C"/>
+<circle cx="38" cy="17.5" r="3" fill="#D07818"/>
 <!-- Slider track 2 -->
-<rect x="10" y="30" width="44" height="5" rx="2.5" fill="#334155"/>
+<rect x="10" y="30" width="44" height="5" rx="2.5" fill="#3A5C7A"/>
 <rect x="10" y="30" width="18" height="5" rx="2.5" fill="#5A7290"/>
 <circle cx="28" cy="32.5" r="7" fill="white"/>
 <circle cx="28" cy="32.5" r="3" fill="#5A7290"/>
 <!-- Slider track 3 -->
-<rect x="10" y="45" width="44" height="5" rx="2.5" fill="#334155"/>
+<rect x="10" y="45" width="44" height="5" rx="2.5" fill="#3A5C7A"/>
 <rect x="10" y="45" width="36" height="5" rx="2.5" fill="#7A93A8"/>
 <circle cx="46" cy="47.5" r="7" fill="white"/>
 <circle cx="46" cy="47.5" r="3" fill="#7A93A8"/>

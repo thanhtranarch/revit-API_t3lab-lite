@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
 <!-- Full wall body (dark, fills canvas) -->
-<rect x="4" y="4" width="56" height="56" rx="5" fill="#1E2A3A"/>
+<rect x="4" y="4" width="56" height="56" rx="5" fill="#182A3E"/>
 <!-- Void / opening cut (white, centered) -->
 <rect x="16" y="16" width="32" height="32" rx="3" fill="#EEF2F7"/>
 <!-- Orange cut-profile border around void -->
-<rect x="16" y="16" width="32" height="32" rx="3" fill="none" stroke="#C2440C" stroke-width="3.5"/>
+<rect x="16" y="16" width="32" height="32" rx="3" fill="none" stroke="#D07818" stroke-width="3.5"/>
 <!-- Profile trim lines (extend beyond void corners) -->
-<line x1="16" y1="6" x2="16" y2="16" stroke="#C2440C" stroke-width="2" stroke-linecap="round"/>
-<line x1="48" y1="6" x2="48" y2="16" stroke="#C2440C" stroke-width="2" stroke-linecap="round"/>
-<line x1="16" y1="48" x2="16" y2="58" stroke="#C2440C" stroke-width="2" stroke-linecap="round"/>
-<line x1="48" y1="48" x2="48" y2="58" stroke="#C2440C" stroke-width="2" stroke-linecap="round"/>
+<line x1="16" y1="6" x2="16" y2="16" stroke="#D07818" stroke-width="2" stroke-linecap="round"/>
+<line x1="48" y1="6" x2="48" y2="16" stroke="#D07818" stroke-width="2" stroke-linecap="round"/>
+<line x1="16" y1="48" x2="16" y2="58" stroke="#D07818" stroke-width="2" stroke-linecap="round"/>
+<line x1="48" y1="48" x2="48" y2="58" stroke="#D07818" stroke-width="2" stroke-linecap="round"/>
 <!-- Detail lines inside void -->
 <line x1="22" y1="22" x2="42" y2="22" stroke="#CBD5E1" stroke-width="1.5"/>
 <line x1="22" y1="28" x2="42" y2="28" stroke="#CBD5E1" stroke-width="1"/>

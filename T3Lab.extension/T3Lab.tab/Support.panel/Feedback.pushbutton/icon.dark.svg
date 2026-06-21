@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<!-- Orange base card -->
+<rect x="2" y="2" width="60" height="60" rx="10" fill="#EAA030"/>
+<!-- White speech bubble -->
+<rect x="8" y="8" width="48" height="36" rx="6" fill="white"/>
+<!-- Bubble tail -->
+<polygon points="12,44 12,54 24,44" fill="white"/>
+<!-- Stars (5 stars, 3 filled yellow, 2 outline) -->
+<polygon points="16,30 17.5,25 19,30 15,27 21,27" fill="#EAA030"/>
+<polygon points="24,30 25.5,25 27,30 23,27 29,27" fill="#EAA030"/>
+<polygon points="32,30 33.5,25 35,30 31,27 37,27" fill="#EAA030"/>
+<polygon points="40,30 41.5,25 43,30 39,27 45,27" fill="#7AB0CC" opacity="0.2"/>
+<polygon points="48,30 49.5,25 51,30 47,27 53,27" fill="#7AB0CC" opacity="0.2"/>
+<!-- Text lines inside bubble -->
+<rect x="12" y="14" width="40" height="4" rx="2" fill="#7AB0CC" opacity="0.7"/>
+<rect x="12" y="21" width="28" height="3" rx="1.5" fill="#7AB0CC" opacity="0.4"/>
+</svg>
