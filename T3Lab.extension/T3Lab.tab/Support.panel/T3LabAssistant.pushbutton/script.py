@@ -53,7 +53,10 @@ try:
                                               learn_pattern, find_learned_match,
                                               has_local_llm, parse_command_local,
                                               get_local_model_name, parse_command_nlu,
-                                              inject_discovered_tools)
+                                              inject_discovered_tools,
+                                              get_active_provider_name,
+                                              get_provider_display_label,
+                                              _RAG_SYSTEM_PREFIX)
     HAS_NLP = True
 except Exception as e:
     logger.warning("Could not import t3lab_assistant: {}".format(e))
@@ -65,6 +68,9 @@ except Exception as e:
     def get_local_model_name(*a, **kw): return None
     def parse_command_nlu(*a, **kw): return None
     def inject_discovered_tools(*a, **kw): pass
+    def get_active_provider_name(*a, **kw): return "claude"
+    def get_provider_display_label(*a, **kw): return "AI"
+    _RAG_SYSTEM_PREFIX = u""  # fallback: no RAG prefix if NLP module unavailable
 
 # ─── Tool discovery module ────────────────────────────────────────────────────
 try:
@@ -471,14 +477,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._doc_key          = _get_doc_key() # document identifier for history
         self._persisted_msgs   = []             # flat list with timestamps, for save/load
         self._attached_files   = []             # list of file paths (images / PDFs)
+        self._models_cache     = {}             # {provider_name: [model_list]} — avoids HTTP on sidebar open
+        
+        # ── History & Typing Animation State ──────────────────────────────────
+        self._input_history    = []
+        self._history_index    = -1
+        self._current_input_temp = ""
+        self._typing_timer     = None
+        self._typing_elapsed   = 0
+
 
         # ── Logo ──────────────────────────────────────────────────────────────
 
         # ── Restore conversation from previous session ─────────────────────────
         self._restore_history()
-
-        # ── Suggested Actions ──────────────────────────────────────────────────
-        self._update_suggested_actions()
+        self._update_welcome_greeting()
 
         # ── Tool discovery (background, then inject chips into UI) ─────────────
         def _discover_and_update():
@@ -490,19 +503,128 @@ class T3LabAssistantWindow(forms.WPFWindow):
         _dt.SetApartmentState(ApartmentState.STA)
         _dt.Start()
 
-        # Update AI badge (run async so Ollama probe doesn't delay window open)
-        def _probe_and_update():
-            import time; time.sleep(0.5)   # let window render first
-            self.Dispatcher.Invoke(Action(self._update_ai_badge))
+        # Restore window geometry and sidebar state from last session
+        self._restore_window_state()
 
-        _t = Thread(ThreadStart(_probe_and_update))
+        # Update AI badge, pre-load models cache, and warm up router status in background
+        def _bg_startup_probe():
+            try:
+                import time
+                time.sleep(0.5)   # let window render first
+
+                from Intelligence.llm_router import LLMRouter
+                router = LLMRouter()
+                active = router.get_active_name()
+
+                # Update the badge display instantly from router settings
+                self.Dispatcher.Invoke(Action(self._update_ai_badge))
+
+                # Step 1: Probe the active provider first to fill cache ASAP
+                try:
+                    router.probe_provider(active)
+                    provider = router.get_provider(active)
+                    if provider:
+                        self._models_cache[active] = provider.get_models()
+                except Exception:
+                    pass
+
+                # If sidebar is open, update UI with active provider's data
+                sidebar_state = [False]
+                def _check_sidebar():
+                    sidebar_state[0] = (self.settings_sidebar.Visibility == Visibility.Visible)
+                self.Dispatcher.Invoke(Action(_check_sidebar))
+                if sidebar_state[0]:
+                    self.Dispatcher.Invoke(Action(self._update_sidebar))
+
+                # Step 2: Pre-load/cache models for all other providers in the background
+                for name in router.get_provider_names():
+                    if name == active:
+                        continue
+                    try:
+                        p = router.get_provider(name)
+                        if p and p.check_health():
+                            self._models_cache[name] = p.get_models()
+                    except Exception:
+                        pass
+
+                # Step 3: Warm up LLMRouter status cache
+                try:
+                    router.get_status(use_cache=False)
+                except Exception:
+                    pass
+
+                # Step 4: Final update to sidebar if open
+                self.Dispatcher.Invoke(Action(_check_sidebar))
+                if sidebar_state[0]:
+                    self.Dispatcher.Invoke(Action(self._update_sidebar))
+            except Exception:
+                pass
+
+        _t = Thread(ThreadStart(_bg_startup_probe))
         _t.IsBackground = True
         _t.SetApartmentState(ApartmentState.STA)
         _t.Start()
 
+    def setup_icon(self):
+        """Override pyRevit's setup_icon to remove the window icon from the title bar."""
+        pass
+
+    # ─── Window state persistence ─────────────────────────────────────────────
+
+    def _restore_window_state(self):
+        """Restore window position, size and sidebar visibility from settings."""
+        try:
+            from config.settings import T3LabAISettings
+            ws = T3LabAISettings().get_window_state()
+
+            # Restore size
+            w = ws.get('width')
+            h = ws.get('height')
+            if w and h:
+                self.Width  = float(w)
+                self.Height = float(h)
+
+            # Restore position — validate it is still on-screen
+            left = ws.get('left')
+            top  = ws.get('top')
+            if left is not None and top is not None:
+                try:
+                    import System.Windows
+                    sw = System.Windows.SystemParameters.PrimaryScreenWidth
+                    sh = System.Windows.SystemParameters.PrimaryScreenHeight
+                    left_f = float(left)
+                    top_f  = float(top)
+                    if 0 <= left_f <= sw - 100 and 0 <= top_f <= sh - 60:
+                        self.Left = left_f
+                        self.Top  = top_f
+                except Exception:
+                    pass
+
+            # Restore sidebar
+            if ws.get('sidebar_open'):
+                self.settings_sidebar.Visibility = Visibility.Visible
+                self._update_sidebar_instant()
+
+        except Exception as ex:
+            logger.debug("_restore_window_state error: {}".format(ex))
+
+    def _save_window_state(self):
+        """Persist current window geometry and sidebar state to settings."""
+        try:
+            from config.settings import T3LabAISettings
+            sidebar_open = (self.settings_sidebar.Visibility == Visibility.Visible)
+            T3LabAISettings().save_window_state(
+                self.Left, self.Top,
+                self.Width, self.Height,
+                sidebar_open,
+            )
+        except Exception as ex:
+            logger.debug("_save_window_state error: {}".format(ex))
+
     # ─── Window controls ──────────────────────────────────────────────────────
 
     def close_clicked(self, sender, e):
+        self._save_window_state()
         self.Close()
 
     def minimize_clicked(self, sender, e):
@@ -525,43 +647,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._append_bot_message(u"Không có hành động nào để hoàn tác.")
         except Exception as ex:
             logger.debug("Undo error: {}".format(ex))
-
-    def _update_suggested_actions(self):
-        """Add action chips for common tools."""
-        try:
-            self.suggested_actions_panel.Children.Clear()
-            actions = [
-                ("CAD to Beam", "open_cad_to_beam"),
-                ("Annotation Manager", "open_annotationmanager"),
-                ("BatchOut", "open_batchout"),
-                ("ParaSync", "open_parasync"),
-            ]
-            for title, intent in actions:
-                self._add_action_chip(title, intent)
-        except Exception as ex:
-            logger.debug("Suggested actions error: {}".format(ex))
-
-    def _add_action_chip(self, title, intent):
-        from System.Windows.Controls import Button
-        from System.Windows import Thickness
-        btn = Button()
-        btn.Content = title
-        btn.Margin = Thickness(0, 0, 8, 4)
-        btn.Cursor = System.Windows.Input.Cursors.Hand
-        
-        try:
-            btn.Style = self.FindResource('TertiaryButton')
-        except Exception:
-            # Fallback styling if TertiaryButton isn't loaded for some reason
-            from System.Windows.Media import SolidColorBrush, Color
-            btn.Background = SolidColorBrush(Color.FromRgb(236, 240, 241))
-            btn.BorderBrush = SolidColorBrush(Color.FromRgb(189, 195, 199))
-        
-        def _on_click(s, e):
-            self._run_tool(intent, u"Mở " + title)
-        
-        btn.Click += _on_click
-        self.suggested_actions_panel.Children.Add(btn)
 
     # ─── Tool discovery bootstrap ──────────────────────────────────────────────
 
@@ -648,13 +733,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def reset_chat_clicked(self, sender, e):
         """Clear the chat history for this document and reset the UI."""
         try:
-            # Remove all chat bubbles
-            self.chat_history_panel.Children.Clear()
+            # Remove all children except the welcome greeting panel (first child)
+            while self.chat_history_panel.Children.Count > 1:
+                self.chat_history_panel.Children.RemoveAt(1)
             # Clear in-memory state
             self._conversation_history = []
             self._persisted_msgs = []
             # Delete saved file
             clear_chat_history(self._doc_key)
+            self._update_welcome_greeting()
             # Show fresh welcome message
             self._append_bot_message(
                 u"Cuộc trò chuyện đã được làm mới! 👋\n"
@@ -663,31 +750,910 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("reset_chat error: {}".format(ex))
 
-    # ─── AI badge ─────────────────────────────────────────────────────────────
+    # ─── AI badge & provider switcher ────────────────────────────────────────
 
-    def _update_ai_badge(self):
-        """Show badge: LOCAL (Ollama) > AI (Claude) > hidden."""
+    # Provider brand colors (shared by badge + health refresh)
+    _BADGE_COLORS = {
+        "claude":    (217, 119,  87),  # Anthropic orange
+        "openai":    ( 16, 163, 127),  # OpenAI green
+        "deepseek":  ( 37,  99, 235),  # DeepSeek blue
+        "ollama":    ( 59, 130, 246),  # Ollama blue
+        "lmstudio":  (124,  58, 237),  # LM Studio purple
+    }
+    _BADGE_GRAY = (161, 161, 170)       # #A1A1AA — no provider / offline
+
+    def _update_welcome_greeting(self):
+        """Update the welcome greeting panel with time-of-day greeting and username."""
         try:
-            from System.Windows.Media import SolidColorBrush, Color
-            if HAS_NLP and has_local_llm():
-                model = get_local_model_name() or "LOCAL"
-                # Show model's short name: "qwen2.5:0.5b" → "qwen0.5b"
-                short = model.replace("qwen2.5", "qwen").replace("llama3.2", "llama").replace("phi3", "phi")
-                self.ai_status_badge.Visibility = Visibility.Visible
-                self.ai_status_badge.Background = SolidColorBrush(
-                    Color.FromRgb(39, 174, 96))   # #27AE60 green
-                self.ai_status_text.Text = "LOCAL"
-                self.ai_status_badge.ToolTip = u"Local LLM: {}".format(model)
-            elif HAS_NLP and has_api_key():
-                self.ai_status_badge.Visibility = Visibility.Visible
-                self.ai_status_badge.Background = SolidColorBrush(
-                    Color.FromRgb(52, 152, 219))  # #3498DB blue
-                self.ai_status_text.Text = "AI"
-                self.ai_status_badge.ToolTip = "Claude AI"
+            from config.settings import T3LabAISettings
+            s = T3LabAISettings()
+            name = s.get_username() or u"Thạnh"
+            
+            # Determine time of day
+            import datetime
+            now = datetime.datetime.now()
+            hour = now.hour
+            if hour < 12:
+                greet = u"Good morning"
+            elif hour < 18:
+                greet = u"Good afternoon"
             else:
-                self.ai_status_badge.Visibility = Visibility.Collapsed
+                greet = u"Good evening"
+                
+            self.welcome_greeting_text.Text = u"{}, {}".format(greet, name)
+            
+            # Control visibility based on chat history
+            if self._persisted_msgs:
+                self.welcome_greeting_panel.Visibility = Visibility.Collapsed
+            else:
+                self.welcome_greeting_panel.Visibility = Visibility.Visible
         except Exception:
             pass
+
+    def sidebar_save_username_clicked(self, sender, e):
+        """Save the configured user name and update the greeting."""
+        try:
+            from config.settings import T3LabAISettings
+            username = self.sidebar_username_box.Text.strip()
+            if not username:
+                return
+            T3LabAISettings().set_username(username)
+            self._update_welcome_greeting()
+        except Exception as ex:
+            logger.debug("sidebar_save_username_clicked error: {}".format(ex))
+
+    def _update_ai_badge(self):
+        """Render the provider pill INSTANTLY (no network). Health is refined async.
+
+        This keeps provider/model switching snappy — the old version blocked the
+        UI thread on provider.check_health() and a full router.get_status() probe.
+        """
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+            from Intelligence.llm_router import LLMRouter
+
+            # Pill is always visible so the user can always open the switcher
+            self.ai_status_badge.Visibility = Visibility.Visible
+
+            if not HAS_NLP:
+                self.ai_status_text.Text = u"No AI"
+                self.ai_provider_dot.Fill = SolidColorBrush(Color.FromRgb(*self._BADGE_GRAY))
+                self.ai_status_badge.ToolTip = "NLP module not loaded"
+                return
+
+            router = LLMRouter()
+            name   = router.get_active_name()
+            # Pure string ops — no network
+            label  = router.get_display_label()
+            rgb    = self._BADGE_COLORS.get(name, (52, 152, 219))
+
+            self.ai_status_text.Text     = label
+            self.ai_provider_dot.Fill    = SolidColorBrush(Color.FromRgb(*rgb))
+            self.ai_status_badge.ToolTip = u"{}\nClick to switch provider".format(label)
+
+            # Refine health (dot color + tooltip) on a background thread
+            self._refresh_badge_health_async()
+
+        except Exception:
+            pass
+
+    def _refresh_badge_health_async(self):
+        """Probe the active provider's health off the UI thread, then update the dot."""
+        def _work():
+            try:
+                from Intelligence.llm_router import LLMRouter
+                from System.Windows.Media import SolidColorBrush, Color
+                router   = LLMRouter()
+                name     = router.get_active_name()
+                provider = router.get_active_provider()
+                healthy  = (provider is not None and provider.check_health())
+                label    = router.get_display_label()
+                try:
+                    model = provider.get_active_model() or u"" if provider else u""
+                except Exception:
+                    model = u""
+
+                def _apply():
+                    try:
+                        if healthy:
+                            rgb = self._BADGE_COLORS.get(name, (52, 152, 219))
+                            self.ai_provider_dot.Fill = SolidColorBrush(Color.FromRgb(*rgb))
+                            self.ai_status_text.Text  = label
+                            self.ai_status_badge.ToolTip = u"{} — {}\nClick to switch provider".format(
+                                label, model) if model else (
+                                u"{}\nClick to switch provider".format(label))
+                        else:
+                            self.ai_provider_dot.Fill = SolidColorBrush(Color.FromRgb(*self._BADGE_GRAY))
+                            self.ai_status_text.Text  = u"Set up AI"
+                            self.ai_status_badge.ToolTip = (
+                                u"No AI provider configured.\n"
+                                u"Click to select Claude, GPT, or Local LLM.")
+                    except Exception:
+                        pass
+
+                self.Dispatcher.Invoke(Action(_apply))
+            except Exception:
+                pass
+
+        try:
+            t = Thread(ThreadStart(_work))
+            t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+        except Exception:
+            pass
+
+    def ai_badge_clicked(self, sender, args):
+        """Left-click on the badge → show provider switcher context menu."""
+        try:
+            from System.Windows.Controls import ContextMenu, MenuItem
+            import System.Windows.Controls.Primitives as Primitives
+            from Intelligence.llm_router import LLMRouter
+
+            router = LLMRouter()
+            status = router.get_status()
+
+            menu = ContextMenu()
+
+            for name in router.get_provider_names():
+                info      = status.get(name, {})
+                display   = info.get("display_name", name)
+                model     = info.get("model") or ""
+                available = info.get("available", False)
+                is_active = info.get("active", False)
+
+                if model:
+                    short = model.split(":")[0] if ":" in model else model
+                    header = u"{} ({})".format(display, short)
+                else:
+                    header = display
+
+                if is_active:
+                    header = u"✓  " + header
+                if not available:
+                    header = header + u"  [no key / offline]"
+
+                item          = MenuItem()
+                item.Header   = header
+                item.IsEnabled = available and not is_active
+
+                def _make_handler(n):
+                    def _handler(s, e):
+                        self._switch_provider(n)
+                    return _handler
+
+                item.Click += _make_handler(name)
+                menu.Items.Add(item)
+
+            menu.PlacementTarget = sender
+            menu.Placement       = Primitives.PlacementMode.Bottom
+            menu.IsOpen          = True
+
+        except Exception as ex:
+            logger.debug("ai_badge_clicked error: {}".format(ex))
+
+    def _switch_provider(self, name):
+        """Hot-swap the active LLM provider — instant UI, network probes in background."""
+        try:
+            from Intelligence.llm_router import LLMRouter
+            router = LLMRouter()
+            ok = router.switch_provider(name)
+            if not ok:
+                return
+
+            # Instant UI: badge + sidebar render from cached/saved data (no network)
+            self.Dispatcher.Invoke(Action(self._update_ai_badge))
+            sidebar_open = (self.settings_sidebar.Visibility == Visibility.Visible)
+            if sidebar_open:
+                self.Dispatcher.Invoke(Action(self._update_sidebar_instant))
+
+            # Background: probe the newly-active provider + refresh its model list
+            def _bg():
+                try:
+                    provider = router.get_active_provider()
+                    router.probe_provider(name)
+                    if provider:
+                        try:
+                            self._models_cache[name] = provider.get_models()
+                        except Exception:
+                            pass
+                    if sidebar_open:
+                        self.Dispatcher.Invoke(Action(self._update_sidebar))
+                except Exception:
+                    pass
+
+            t = Thread(ThreadStart(_bg))
+            t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+        except Exception as ex:
+            logger.debug("_switch_provider error: {}".format(ex))
+
+    # ─── Settings sidebar ─────────────────────────────────────────────────────
+
+    def settings_btn_clicked(self, sender, e):
+        """Toggle settings sidebar — renders instantly (zero HTTP), then probes in background."""
+        if self.settings_sidebar.Visibility == Visibility.Visible:
+            self.settings_sidebar.Visibility = Visibility.Collapsed
+            return
+
+        self.settings_sidebar.Visibility = Visibility.Visible
+        # Phase 1: instant render — no network calls, uses cached/local data
+        self._update_sidebar_instant()
+
+        # Phase 2: background probe — ACTIVE provider first (fast feedback),
+        # then the remaining providers for the full status list.
+        def _bg_probe():
+            try:
+                from Intelligence.llm_router import LLMRouter
+                router   = LLMRouter()
+                active   = router.get_active_name()
+                provider = router.get_active_provider()
+
+                # 2a. Probe only the active provider → update model list + dot ASAP
+                router.probe_provider(active)
+                if provider:
+                    try:
+                        self._models_cache[active] = provider.get_models()
+                    except Exception:
+                        pass
+                self.Dispatcher.Invoke(Action(self._update_sidebar))
+
+                # 2b. Probe everything else for the full status section
+                router.get_status(use_cache=False)
+                self.Dispatcher.Invoke(Action(self._update_sidebar))
+            except Exception:
+                pass
+
+        _pt = Thread(ThreadStart(_bg_probe))
+        _pt.IsBackground = True
+        _pt.SetApartmentState(ApartmentState.STA)
+        _pt.Start()
+
+    def sidebar_provider_changed(self, sender, e):
+        """Handle provider ComboBox selection change."""
+        try:
+            item = self.sidebar_provider_combo.SelectedItem
+            if item is None:
+                return
+            tag = item.Tag
+            if tag:
+                self._switch_provider(tag)
+        except Exception as ex:
+            logger.debug("sidebar_provider_changed error: {}".format(ex))
+
+    def sidebar_model_changed(self, sender, e):
+        """Persist the newly selected model for the active provider."""
+        try:
+            from Intelligence.llm_router import LLMRouter
+            item = self.sidebar_model_combo.SelectedItem
+            if item is None:
+                return
+            model = item.ToString()
+            router = LLMRouter()
+            name = router.get_active_name()
+            router.set_model(name, model)
+            self._update_ai_badge()
+        except Exception as ex:
+            logger.debug("sidebar_model_changed error: {}".format(ex))
+
+    def sidebar_save_model_clicked(self, sender, e):
+        """Explicitly save the selected model as default + show confirmation."""
+        try:
+            from Intelligence.llm_router import LLMRouter
+            item = self.sidebar_model_combo.SelectedItem
+            if item is None:
+                self.model_saved_hint.Text = u"Select a model first"
+                self._flash_saved_hint(clear_after=True)
+                return
+            model  = item.ToString()
+            router = LLMRouter()
+            name   = router.get_active_name()
+            router.set_model(name, model)
+            self._update_ai_badge()
+            self.model_saved_hint.Text = u"✓ Saved"
+            self._flash_saved_hint(clear_after=True)
+        except Exception as ex:
+            logger.debug("sidebar_save_model_clicked error: {}".format(ex))
+
+    def _flash_saved_hint(self, clear_after=False):
+        """Briefly show the 'Saved' hint next to MODEL, then fade it out."""
+        if not clear_after:
+            return
+        try:
+            from System.Windows.Threading import DispatcherTimer
+            from System import TimeSpan
+            timer = DispatcherTimer()
+            timer.Interval = TimeSpan.FromSeconds(2.0)
+
+            def _clear(s, ev):
+                try:
+                    self.model_saved_hint.Text = u""
+                finally:
+                    timer.Stop()
+
+            timer.Tick += _clear
+            timer.Start()
+        except Exception:
+            # Fallback: just clear immediately if timer is unavailable
+            try:
+                self.model_saved_hint.Text = u""
+            except Exception:
+                pass
+
+    def sidebar_test_clicked(self, sender, e):
+        """Send a minimal test message to the active provider and show the raw reply."""
+        from System.Windows.Media import SolidColorBrush, Color
+
+        # Show "testing..." state immediately
+        self.sidebar_test_result_border.Visibility = Visibility.Visible
+        self.sidebar_test_result_border.Background = SolidColorBrush(Color.FromRgb(249, 250, 251))
+        self.sidebar_test_result_border.BorderBrush = SolidColorBrush(Color.FromRgb(229, 231, 235))
+        self.sidebar_test_label.Text       = u"Testing…"
+        self.sidebar_test_label.Foreground = SolidColorBrush(Color.FromRgb(107, 114, 128))
+        self.sidebar_test_result.Text      = u""
+        self.sidebar_test_btn.IsEnabled    = False
+
+        def _do_test():
+            ok    = False
+            label = u"Result"
+            msg   = u""
+            try:
+                from Intelligence.llm_router import LLMRouter
+                router   = LLMRouter()
+                name     = router.get_active_name()
+                provider = router.get_active_provider()
+
+                if provider is None:
+                    msg = u"Provider '{}' not loaded.".format(name)
+                elif not provider.check_health():
+                    if name == "ollama":
+                        msg = (u"Ollama not available or no models installed.\n"
+                               u"1. Make sure Ollama is running.\n"
+                               u"2. Run: ollama pull qwen2.5:0.5b")
+                    elif name == "lmstudio":
+                        msg = (u"LM Studio not available or no model loaded.\n"
+                               u"1. Open LM Studio.\n"
+                               u"2. Load a model in LM Studio first.")
+                    else:
+                        msg = u"Provider not reachable.\nCheck API key or service status."
+                else:
+                    # Check a model is actually available before calling chat()
+                    active_model = None
+                    try:
+                        active_model = provider.get_active_model()
+                    except Exception:
+                        pass
+                    if not active_model:
+                        msg = u"No model selected. Choose a model from the Model dropdown."
+                    else:
+                        # Direct call — bypass command-parsing layer
+                        resp = provider.chat(
+                            [],
+                            u"You are a concise assistant. Do not think. Reply in one short sentence only.",
+                            u"Reply with exactly this sentence: 'Connected OK'",
+                            max_tokens=120,
+                        )
+                        if resp and resp.strip():
+                            ok    = True
+                            label = u"Connected"
+                            msg   = resp.strip()[:120]
+                        else:
+                            msg = u"Provider responded but returned an empty reply."
+            except Exception as ex:
+                msg = u"Error: {}".format(str(ex)[:100])
+
+            _ok = ok; _label = label; _msg = msg
+
+            def _update():
+                from System.Windows.Media import SolidColorBrush, Color
+                if _ok:
+                    self.sidebar_test_result_border.Background   = SolidColorBrush(Color.FromRgb(240, 253, 244))
+                    self.sidebar_test_result_border.BorderBrush  = SolidColorBrush(Color.FromRgb(187, 247, 208))
+                    self.sidebar_test_label.Foreground           = SolidColorBrush(Color.FromRgb(21, 128, 61))
+                else:
+                    self.sidebar_test_result_border.Background   = SolidColorBrush(Color.FromRgb(254, 242, 242))
+                    self.sidebar_test_result_border.BorderBrush  = SolidColorBrush(Color.FromRgb(254, 202, 202))
+                    self.sidebar_test_label.Foreground           = SolidColorBrush(Color.FromRgb(185, 28, 28))
+                self.sidebar_test_label.Text  = _label
+                self.sidebar_test_result.Text = _msg
+                self.sidebar_test_btn.IsEnabled = True
+
+            self.Dispatcher.Invoke(Action(_update))
+
+        _tt = Thread(ThreadStart(_do_test))
+        _tt.IsBackground = True
+        _tt.SetApartmentState(ApartmentState.STA)
+        _tt.Start()
+
+    def sidebar_save_key_clicked(self, sender, e):
+        """Save the typed API key for the active provider."""
+        try:
+            from config.settings import T3LabAISettings
+            from Intelligence.llm_router import LLMRouter
+            key = self.sidebar_api_key_box.Text.strip()
+            if not key or key.endswith("..."):
+                return
+            router = LLMRouter()
+            name   = router.get_active_name()
+            key_map = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
+            settings_key = key_map.get(name)
+            if settings_key:
+                T3LabAISettings().set_api_key(settings_key, key)
+
+            # Reload credentials into provider (it reads the key only at __init__)
+            # and clear the model cache so next probe fetches live from the API
+            provider = router.get_active_provider()
+            if provider and hasattr(provider, "reload_credentials"):
+                provider.reload_credentials()
+            elif provider and hasattr(provider, "invalidate_models_cache"):
+                provider.invalidate_models_cache()
+            # Also clear the script-side model cache for this provider
+            self._models_cache.pop(name, None)
+
+            # Refresh badge instantly; trigger background probe to refetch models
+            self._update_ai_badge()
+            self._update_sidebar_instant()
+
+            # Kick a background probe so model combo fills with live data
+            def _probe():
+                try:
+                    router.get_status(use_cache=False)
+                    live_models = provider.get_models() if provider else []
+                    if live_models:
+                        self._models_cache[name] = live_models
+                    self.Dispatcher.Invoke(Action(self._update_sidebar))
+                except Exception:
+                    pass
+            _kt = Thread(ThreadStart(_probe))
+            _kt.IsBackground = True
+            _kt.SetApartmentState(ApartmentState.STA)
+            _kt.Start()
+        except Exception as ex:
+            logger.debug("sidebar_save_key_clicked error: {}".format(ex))
+
+    def sidebar_save_host_clicked(self, sender, e):
+        """Save the typed local server URL for LM Studio / Ollama."""
+        try:
+            from config.settings import T3LabAISettings
+            from Intelligence.llm_router import LLMRouter
+            host = self.sidebar_host_box.Text.strip()
+            if not host:
+                return
+
+            router = LLMRouter()
+            name   = router.get_active_name()
+
+            if name == "lmstudio":
+                # LM Studio reads host from settings key "LMStudio_Host"
+                T3LabAISettings().set_api_key("LMStudio_Host", host)
+                provider = router.get_active_provider()
+                if provider and hasattr(provider, "reload_credentials"):
+                    provider.reload_credentials()
+            elif name == "ollama":
+                # Ollama provider exposes a set_host() method
+                provider = router.get_active_provider()
+                if provider and hasattr(provider, "set_host"):
+                    provider.set_host(host)
+
+            # Clear model cache so next probe fetches live data from new host
+            self._models_cache.pop(name, None)
+
+            # Refresh badge and sidebar instantly, then kick background probe
+            self._update_ai_badge()
+            self._update_sidebar_instant()
+
+            def _probe():
+                try:
+                    router.get_status(use_cache=False)
+                    provider = router.get_active_provider()
+                    live_models = provider.get_models() if provider else []
+                    if live_models:
+                        self._models_cache[name] = live_models
+                    self.Dispatcher.Invoke(Action(self._update_sidebar))
+                except Exception:
+                    pass
+            _ht = Thread(ThreadStart(_probe))
+            _ht.IsBackground = True
+            _ht.SetApartmentState(ApartmentState.STA)
+            _ht.Start()
+        except Exception as ex:
+            logger.debug("sidebar_save_host_clicked error: {}".format(ex))
+
+    # ─── Available APIs toggle ────────────────────────────────────────────────
+
+    def apis_toggle_clicked(self, sender, e):
+        """Toggle the Available APIs collapsible panel in settings sidebar."""
+        try:
+            from System.Windows import Visibility
+            from Intelligence.t3lab_agent import get_apis_text
+            if self.apis_panel.Visibility == Visibility.Visible:
+                self.apis_panel.Visibility  = Visibility.Collapsed
+                self.btn_apis_label.Text    = u"Show"
+            else:
+                if not self.apis_text.Text or self.apis_text.Text == u"Loading...":
+                    self.apis_text.Text = get_apis_text()
+                self.apis_panel.Visibility  = Visibility.Visible
+                self.btn_apis_label.Text    = u"Hide"
+        except Exception as ex:
+            logger.debug("apis_toggle_clicked error: {}".format(ex))
+
+    # ─── Command palette ──────────────────────────────────────────────────────
+
+    # All commands exposed to the AI, grouped by category.
+    # Each entry: icon (Segoe MDL2 Assets codepoint), name, example phrase (inserted into chat).
+    _COMMANDS = {
+        "export": [
+            (u"", u"Export PDF — All Sheets",       u"xuất pdf toàn bộ sheet"),
+            (u"", u"Export DWG — All Sheets",       u"xuất dwg toàn bộ sheet"),
+            (u"", u"Export G Sheets → PDF",         u"xuất pdf G sheet"),
+            (u"", u"Export A Sheets → PDF",         u"xuất pdf A sheet"),
+            (u"", u"Export IFC",                    u"xuất ifc"),
+            (u"", u"Export Image (PNG/JPEG)",       u"xuất hình ảnh sheet"),
+            (u"", u"Open BatchOut",                 u"mở batchout"),
+            (u"", u"BatchOut — G Sheet PDF",        u"mở batchout G sheet pdf"),
+            (u"", u"BatchOut — Configured",         u"mở batchout đã cấu hình"),
+        ],
+        "tools": [
+            (u"", u"ParaSync",                      u"mở parasync"),
+            (u"", u"Load Family",                   u"mở load family"),
+            (u"", u"Load Family (Cloud)",           u"mở load family cloud"),
+            (u"", u"DimText",                       u"mở dimtext"),
+            (u"", u"Upper DimText",                 u"mở upper dimtext"),
+            (u"", u"Reset Overrides",               u"reset graphic overrides"),
+            (u"", u"Workset",                       u"mở workset"),
+            (u"", u"Project Name",                  u"mở project name"),
+            (u"", u"Grids",                         u"mở grids"),
+        ],
+        "ai": [
+            (u"", u"Project Info",                  u"thông tin project hiện tại"),
+            (u"", u"Active View Info",              u"view hiện tại là gì?"),
+            (u"", u"Selected Elements",             u"thông tin element đã chọn"),
+            (u"", u"Revit Question",                u"giải thích workset trong Revit"),
+            (u"", u"Analyze Attachment",            u"phân tích tài liệu đính kèm"),
+            (u"", u"Help",                          u"trợ giúp"),
+        ],
+        # ── Revit MCP commands (revit-mcp server) ──────────────────────────
+        "query": [
+            (u"", u"View Info",             u"thong tin view hien tai la gi?"),
+            (u"", u"Elements in View",      u"lay danh sach element trong view hien tai"),
+            (u"", u"Selected Elements",     u"thong tin cac element dang duoc chon"),
+            (u"", u"Filter by Category",    u"loc tat ca tuong (OST_Walls) trong view"),
+            (u"", u"Available Families",    u"family types cua di co san trong project"),
+            (u"", u"Material Quantities",   u"tinh khoi luong vat lieu tuong trong du an"),
+            (u"", u"Model Statistics",      u"thong ke toan bo model - so element, family, view"),
+            (u"", u"Export Room Data",      u"xuat danh sach toan bo phong va dien tich"),
+            (u"", u"Query Stored Data",     u"truy van du lieu project da luu"),
+        ],
+        "create": [
+            (u"", u"Create Wall",           u"tao tuong dai 5000mm tu (0,0,0) den (5000,0,0) cao 3000mm"),
+            (u"", u"Create Floor",          u"tao san be tong 10x10m tai Level 1"),
+            (u"", u"Create Roof",           u"tao mai phang bao quanh building footprint"),
+            (u"", u"Create Room",           u"tao phong ten Phong hop so 101 tai toa do (3000,3000,0)"),
+            (u"", u"Create Grid System",    u"tao luoi truc A-F cach nhau 6000mm, 1-8 cach nhau 7200mm"),
+            (u"", u"Create Level",          u"tao tang Level 2 o do cao 4000mm"),
+            (u"", u"Create Door/Window",    u"tao cua di tai vi tri (2500,0,0) trong tuong"),
+            (u"", u"Create Furniture",      u"tao ban lam viec tai (1000,1000,0) xoay 90 do"),
+            (u"", u"Create Beam System",    u"tao he dam tai Level 2, khoang cach 1200mm, vung 10x20m"),
+        ],
+        "modify": [
+            (u"", u"Select by ID",          u"chon element co ID 123456"),
+            (u"", u"Color by Parameter",    u"to mau tuong theo loai (Type) - moi type mot mau"),
+            (u"", u"Color Rooms by Dept",   u"to mau phong theo department"),
+            (u"", u"Highlight Elements",    u"highlight do cac element co ID 111 222 333"),
+            (u"", u"Hide Elements",         u"an element co ID 444 555 trong view"),
+            (u"", u"Isolate Elements",      u"isolate tat ca cot (OST_Columns) trong view"),
+            (u"", u"Reset Visibility",      u"reset isolate - khoi phuc hien thi binh thuong"),
+            (u"", u"Delete Elements",       u"xoa element co ID 123 456 789"),
+            (u"", u"Tag All Walls",         u"gan tag tat ca tuong trong view hien tai"),
+            (u"", u"Tag All Rooms",         u"gan tag tat ca phong trong view hien tai"),
+            (u"", u"Run C# Code",           u"chay code C# trong Revit de lay ten project"),
+            (u"", u"Store Project Data",    u"luu metadata project hien tai vao database"),
+        ],
+    }
+
+    _active_cmd_cat = "export"   # current palette category
+
+    def cmd_palette_toggle_clicked(self, sender, e):
+        """Toggle the command palette panel."""
+        if self.cmd_palette.Visibility == Visibility.Visible:
+            self.cmd_palette.Visibility = Visibility.Collapsed
+        else:
+            self.cmd_palette.Visibility = Visibility.Visible
+            # Build initial category if panel was never opened
+            if not self.cmd_cards_panel.Children.Count:
+                self._build_cmd_cards(self._active_cmd_cat)
+
+    def cmd_palette_close_clicked(self, sender, e):
+        self.cmd_palette.Visibility = Visibility.Collapsed
+
+    def cmd_cat_clicked(self, sender, e):
+        """Switch the active category tab and rebuild the cards panel."""
+        try:
+            tag = sender.Tag
+            if tag:
+                self._active_cmd_cat = tag
+                self._set_active_cmd_cat(sender)
+                self._build_cmd_cards(tag)
+        except Exception as ex:
+            logger.debug("cmd_cat_clicked error: {}".format(ex))
+
+    def _set_active_cmd_cat(self, active_btn):
+        """Update category tab backgrounds/foregrounds."""
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+            _DARK = SolidColorBrush(Color.FromRgb(24, 24, 27))
+            _LITE = SolidColorBrush(Color.FromRgb(244, 244, 246))
+            _WHITE = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            _INK  = SolidColorBrush(Color.FromRgb(39, 39, 42))
+
+            for btn in (self.btn_cat_export, self.btn_cat_tools,
+                        self.btn_cat_query, self.btn_cat_create, self.btn_cat_modify,
+                        self.btn_cat_ai):
+                if btn is active_btn:
+                    btn.Background = _DARK
+                    btn.Foreground = _WHITE
+                else:
+                    btn.Background = _LITE
+                    btn.Foreground = _INK
+        except Exception as ex:
+            logger.debug("_set_active_cmd_cat error: {}".format(ex))
+
+    def _build_cmd_cards(self, category):
+        """Populate cmd_cards_panel with command cards for the given category."""
+        try:
+            self.cmd_cards_panel.Children.Clear()
+            for icon, name, example in self._COMMANDS.get(category, []):
+                card = self._make_cmd_card(icon, name, example)
+                self.cmd_cards_panel.Children.Add(card)
+        except Exception as ex:
+            logger.debug("_build_cmd_cards error: {}".format(ex))
+
+    def _make_cmd_card(self, icon, name, example):
+        """Create a single clickable command card."""
+        import System.Windows.Controls as WC
+        import System.Windows as SW
+        from System.Windows.Media import SolidColorBrush, Color, FontFamily
+        from System.Windows.Input import Cursors
+
+        _BG        = SolidColorBrush(Color.FromRgb(248, 250, 252))
+        _BG_HOVER  = SolidColorBrush(Color.FromRgb(239, 246, 255))
+        _BORDER    = SolidColorBrush(Color.FromRgb(226, 232, 240))
+        _ACCENT    = SolidColorBrush(Color.FromRgb(59, 130, 246))
+        _INK       = SolidColorBrush(Color.FromRgb(39, 39, 42))
+        _MUTED     = SolidColorBrush(Color.FromRgb(100, 116, 139))
+
+        card = WC.Border()
+        card.Width            = 186
+        card.Margin           = SW.Thickness(0, 0, 8, 8)
+        card.Padding          = SW.Thickness(11, 9, 11, 9)
+        card.CornerRadius     = SW.CornerRadius(10)
+        card.Background       = _BG
+        card.BorderBrush      = _BORDER
+        card.BorderThickness  = SW.Thickness(1)
+        card.Cursor           = Cursors.Hand
+        card.Tag              = example
+
+        sp = WC.StackPanel()
+
+        # Icon row
+        icon_row = WC.StackPanel()
+        icon_row.Orientation = WC.Orientation.Horizontal
+        icon_row.Margin      = SW.Thickness(0, 0, 0, 5)
+
+        icon_tb = WC.TextBlock()
+        icon_tb.Text       = icon
+        icon_tb.FontFamily = FontFamily(u"Segoe MDL2 Assets")
+        icon_tb.FontSize   = 13
+        icon_tb.Foreground = _ACCENT
+        icon_tb.Margin     = SW.Thickness(0, 0, 7, 0)
+        icon_tb.VerticalAlignment = SW.VerticalAlignment.Center
+
+        name_tb = WC.TextBlock()
+        name_tb.Text          = name
+        name_tb.FontSize      = 11
+        name_tb.FontWeight    = SW.FontWeights.SemiBold
+        name_tb.Foreground    = _INK
+        name_tb.FontFamily    = FontFamily(u"Hanken Grotesk")
+        name_tb.TextWrapping  = SW.TextWrapping.Wrap
+
+        icon_row.Children.Add(icon_tb)
+        icon_row.Children.Add(name_tb)
+
+        # Example phrase
+        ex_tb = WC.TextBlock()
+        ex_tb.Text         = u'"' + example + u'"'
+        ex_tb.FontSize     = 10
+        ex_tb.Foreground   = _MUTED
+        ex_tb.FontFamily   = FontFamily(u"Inter")
+        ex_tb.TextWrapping = SW.TextWrapping.Wrap
+
+        sp.Children.Add(icon_row)
+        sp.Children.Add(ex_tb)
+        card.Child = sp
+
+        card.MouseLeftButtonUp += self._cmd_card_clicked
+        card.MouseEnter += lambda s, ev: setattr(s, 'Background', _BG_HOVER)
+        card.MouseLeave += lambda s, ev: setattr(s, 'Background', _BG)
+
+        return card
+
+    def _cmd_card_clicked(self, sender, e):
+        """Insert the example phrase into the chat input and close the palette."""
+        try:
+            phrase = sender.Tag
+            if phrase:
+                self.chat_input.Text = phrase
+                self.chat_input.Focus()
+                self.chat_input.CaretIndex = len(phrase)
+            self.cmd_palette.Visibility = Visibility.Collapsed
+        except Exception as ex:
+            logger.debug("_cmd_card_clicked error: {}".format(ex))
+
+    # ── Brand colors for provider dot (Ellipse on ComboBox) ──────────────────
+    _BRAND_COLORS = {
+        "claude":   (217, 119,  87),   # Anthropic orange
+        "openai":   ( 16, 163, 127),   # OpenAI green
+        "deepseek": ( 37,  99, 235),   # DeepSeek blue
+        "ollama":   ( 59, 130, 246),   # Ollama blue
+        "lmstudio": (124,  58, 237),   # LM Studio purple
+    }
+    _PROV_INDEX = {"claude": 0, "openai": 1, "deepseek": 2, "ollama": 3, "lmstudio": 4}
+
+    def _update_sidebar_instant(self):
+        """Phase-1 sidebar render — zero HTTP, instant.  Uses cached/local data only."""
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+
+            # Username Profile Section
+            try:
+                from config.settings import T3LabAISettings
+                self.sidebar_username_box.Text = T3LabAISettings().get_username() or u"Thạnh"
+            except Exception:
+                pass
+            from Intelligence.llm_router import LLMRouter
+
+            router = LLMRouter()
+            active = router.get_active_name()
+
+            # Provider ComboBox — select active provider
+            self.sidebar_provider_combo.SelectionChanged -= self.sidebar_provider_changed
+            self.sidebar_provider_combo.SelectedIndex = self._PROV_INDEX.get(active, 0)
+            self.sidebar_provider_combo.SelectionChanged += self.sidebar_provider_changed
+
+            # Brand-color dot on the provider ComboBox
+            rgb = self._BRAND_COLORS.get(active, (161, 161, 170))
+            self.provider_brand_dot.Fill = SolidColorBrush(
+                Color.FromRgb(rgb[0], rgb[1], rgb[2]))
+
+            # API key section (from settings.json — no HTTP)
+            _KEY_LABELS = {
+                "claude":   u"Anthropic API Key (sk-ant-...)",
+                "openai":   u"OpenAI API Key (sk-...)",
+                "deepseek": u"DeepSeek API Key (sk-...)",
+                "ollama":   u"No key needed (local)",
+                "lmstudio": u"No key needed — start LM Studio first",
+            }
+            self.sidebar_key_label.Text = _KEY_LABELS.get(active, u"API Key")
+
+            needs_key = active in ("claude", "openai", "deepseek")
+            self.sidebar_api_key_box.IsEnabled  = needs_key
+            self.sidebar_save_key_btn.IsEnabled = needs_key
+
+            if needs_key:
+                try:
+                    from config.settings import T3LabAISettings
+                    k_map = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
+                    saved = T3LabAISettings().get_api_key(k_map.get(active, "")) or ""
+                    self.sidebar_api_key_box.Text = (saved[:8] + u"...") if len(saved) > 8 else saved
+                except Exception:
+                    pass
+            else:
+                self.sidebar_api_key_box.Text = u""
+
+            # Model ComboBox — use cache (no HTTP). If no cache yet, fall back to
+            # the last-used model saved in settings so the UI is instantly usable
+            # without waiting for the network model-list fetch.
+            self.sidebar_model_combo.SelectionChanged -= self.sidebar_model_changed
+            self.sidebar_model_combo.Items.Clear()
+            cached_models = list(self._models_cache.get(active, []))
+            saved_model = None
+            try:
+                from config.settings import T3LabAISettings
+                saved_model = T3LabAISettings().get_provider_model(active)
+            except Exception:
+                pass
+            # Ensure the saved model is present and shown even before live fetch
+            if saved_model and saved_model not in cached_models:
+                cached_models.insert(0, saved_model)
+            for m in cached_models:
+                self.sidebar_model_combo.Items.Add(m)
+            if saved_model and saved_model in cached_models:
+                self.sidebar_model_combo.SelectedItem = saved_model
+            elif cached_models:
+                self.sidebar_model_combo.SelectedIndex = 0
+            self.sidebar_model_combo.SelectionChanged += self.sidebar_model_changed
+
+        except Exception as ex:
+            logger.debug("_update_sidebar_instant error: {}".format(ex))
+
+    def _update_sidebar(self):
+        """Phase-2 sidebar refresh — called from background after HTTP probes complete."""
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+            from Intelligence.llm_router import LLMRouter
+
+            router = LLMRouter()
+            status = router.get_status(use_cache=True)   # cache already warm from bg probe
+            active = router.get_active_name()
+
+            _GRAY  = Color.FromRgb(230, 230, 234)
+            _MUTED = Color.FromRgb(161, 161, 170)
+            _READY = Color.FromRgb( 16, 185, 129)
+
+            # Provider ComboBox + brand dot
+            self.sidebar_provider_combo.SelectionChanged -= self.sidebar_provider_changed
+            self.sidebar_provider_combo.SelectedIndex = self._PROV_INDEX.get(active, 0)
+            self.sidebar_provider_combo.SelectionChanged += self.sidebar_provider_changed
+
+            rgb = self._BRAND_COLORS.get(active, (161, 161, 170))
+            self.provider_brand_dot.Fill = SolidColorBrush(
+                Color.FromRgb(rgb[0], rgb[1], rgb[2]))
+
+            # API key section
+            _KEY_LABELS = {
+                "claude":   u"Anthropic API Key (sk-ant-...)",
+                "openai":   u"OpenAI API Key (sk-...)",
+                "deepseek": u"DeepSeek API Key (sk-...)",
+                "ollama":   u"No key needed (local)",
+                "lmstudio": u"No key needed — start LM Studio first",
+            }
+            self.sidebar_key_label.Text = _KEY_LABELS.get(active, u"API Key")
+
+            needs_key = active in ("claude", "openai", "deepseek")
+            self.sidebar_api_key_box.IsEnabled  = needs_key
+            self.sidebar_save_key_btn.IsEnabled = needs_key
+
+            if needs_key:
+                try:
+                    from config.settings import T3LabAISettings
+                    k_map = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
+                    saved = T3LabAISettings().get_api_key(k_map.get(active, "")) or ""
+                    self.sidebar_api_key_box.Text = (saved[:8] + u"...") if len(saved) > 8 else saved
+                except Exception:
+                    pass
+            else:
+                self.sidebar_api_key_box.Text = u""
+
+            # Model ComboBox — use freshly cached list
+            self.sidebar_model_combo.SelectionChanged -= self.sidebar_model_changed
+            self.sidebar_model_combo.Items.Clear()
+            models  = self._models_cache.get(active, [])
+            current = status.get(active, {}).get("model") or ""
+            for m in models:
+                self.sidebar_model_combo.Items.Add(m)
+            if current and current in models:
+                self.sidebar_model_combo.SelectedItem = current
+            elif models:
+                self.sidebar_model_combo.SelectedIndex = 0
+            self.sidebar_model_combo.SelectionChanged += self.sidebar_model_changed
+
+            # Status dots
+            dot_rows = [
+                ("claude",   self.status_dot_claude,   self.status_text_claude),
+                ("openai",   self.status_dot_openai,   self.status_text_openai),
+                ("deepseek", self.status_dot_deepseek, self.status_text_deepseek),
+                ("ollama",   self.status_dot_ollama,   self.status_text_ollama),
+                ("lmstudio", self.status_dot_lmstudio, self.status_text_lmstudio),
+            ]
+            for name, dot, txt in dot_rows:
+                available  = status.get(name, {}).get("available", False)
+                dot.Fill   = SolidColorBrush(_READY if available else _GRAY)
+                txt.Text   = u"Ready" if available else u"Not set up"
+                txt.Foreground = SolidColorBrush(_READY if available else _MUTED)
+
+        except Exception as ex:
+            logger.debug("_update_sidebar error: {}".format(ex))
 
     # ─── Session guard & UI state ─────────────────────────────────────────────
 
@@ -697,7 +1663,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             self.send_button.IsEnabled  = not busy
             self.chat_input.IsEnabled   = not busy
-            self.btn_attach.IsEnabled   = not busy
+            # btn_attach stays locked (import file feature disabled)
         except Exception:
             pass
         for btn in self._DYNAMIC_BTNS:
@@ -705,10 +1671,33 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 btn.IsEnabled = not busy
             except Exception:
                 pass
+        
+        # Toggle top ProgressBar visibility
+        try:
+            from System.Windows import Visibility
+            if busy:
+                self.top_loading_bar.Visibility = Visibility.Visible
+            else:
+                self.top_loading_bar.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
+
         if busy:
             self._show_typing_indicator()
         else:
             self._hide_typing_indicator()
+    def _safe_update_typing_text(self, text):
+        """Thread-safe update of the typing indicator text."""
+        def action():
+            try:
+                if hasattr(self, "_typing_text_block") and self._typing_text_block is not None:
+                    self._typing_text_block.Text = text
+            except Exception:
+                pass
+        try:
+            self.Dispatcher.Invoke(Action(action))
+        except Exception:
+            pass
 
     def _show_typing_indicator(self):
         """Add an animated '● ● ●' bubble to the chat."""
@@ -718,20 +1707,58 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._typing_row = self._make_typing_row()
             self.chat_history_panel.Children.Add(self._typing_row)
             self._scroll_to_bottom()
+
+            # Start dynamic text timer
+            from System.Windows.Threading import DispatcherTimer
+            from System import TimeSpan
+            self._typing_elapsed = 0
+            self._update_typing_text() # initial text
+            
+            self._typing_timer = DispatcherTimer()
+            self._typing_timer.Interval = TimeSpan.FromSeconds(1)
+            self._typing_timer.Tick += self._on_typing_timer_tick
+            self._typing_timer.Start()
         except Exception:
             pass
 
     def _hide_typing_indicator(self):
         """Remove the typing indicator bubble."""
         try:
+            if self._typing_timer is not None:
+                self._typing_timer.Stop()
+                self._typing_timer = None
             if self._typing_row is not None:
                 self.chat_history_panel.Children.Remove(self._typing_row)
                 self._typing_row = None
+                self._typing_text_block = None
+        except Exception:
+            pass
+
+    def _on_typing_timer_tick(self, sender, e):
+        self._typing_elapsed += 1
+        self._update_typing_text()
+
+    def _update_typing_text(self):
+        try:
+            if not hasattr(self, "_typing_text_block") or self._typing_text_block is None:
+                return
+            
+            # Select Vietnamese text if the input was Vietnamese, else English
+            is_vn = _is_viet_text(self._last_raw)
+            
+            if self._typing_elapsed < 1:
+                txt = u"● ● ●  Đang đọc dữ liệu Revit..." if is_vn else "● ● ●  Reading Revit data..."
+            elif self._typing_elapsed < 3:
+                txt = u"● ● ●  Đang phân tích yêu cầu..." if is_vn else "● ● ●  Formulating response..."
+            else:
+                txt = u"● ● ●  Đang phản hồi..." if is_vn else "● ● ●  Responding..."
+                
+            self._typing_text_block.Text = txt
         except Exception:
             pass
 
     def _make_typing_row(self):
-        """Build the '● ● ●' typing indicator WPF element."""
+        """Build the typing indicator WPF element with text description."""
         from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
         from System.Windows import Thickness, CornerRadius, GridLength, HorizontalAlignment
         from System.Windows.Media import SolidColorBrush, Color
@@ -760,13 +1787,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         dots = TextBlock()
         dots.Text      = u"● ● ●"
-        dots.FontSize  = 10
+        dots.FontSize  = 12
         dots.Foreground = SolidColorBrush(Color.FromRgb(127, 140, 141))  # #7F8C8D
+        
+        self._typing_text_block = dots
 
         bubble.Child = dots
         Grid.SetColumn(bubble, 1)
         row.Children.Add(bubble)
         return row
+
 
     def _safe_append_bot(self, msg):
         """Thread-safe bot message append (can be called from background threads)."""
@@ -893,6 +1923,167 @@ class T3LabAssistantWindow(forms.WPFWindow):
         from System.Windows.Input import Key
         if e.Key == Key.Return or e.Key == Key.Enter:
             self._process_input()
+            e.Handled = True
+        elif e.Key == Key.Up:
+            if self._input_history:
+                if self._history_index == -1:
+                    self._current_input_temp = self.chat_input.Text
+                    self._history_index = len(self._input_history) - 1
+                else:
+                    self._history_index = max(0, self._history_index - 1)
+                self.chat_input.Text = self._input_history[self._history_index]
+                self.chat_input.CaretIndex = len(self.chat_input.Text)
+                e.Handled = True
+        elif e.Key == Key.Down:
+            if self._input_history and self._history_index != -1:
+                if self._history_index == len(self._input_history) - 1:
+                    self.chat_input.Text = self._current_input_temp
+                    self._history_index = -1
+                else:
+                    self._history_index += 1
+                    self.chat_input.Text = self._input_history[self._history_index]
+                self.chat_input.CaretIndex = len(self.chat_input.Text)
+                e.Handled = True
+
+    # Keyword groups for the DB-only fast path (no LLM round-trip)
+    _FAST_CTX_PROJECT = (
+        u"thông tin dự án", u"thong tin du an", u"thông tin project", u"thông tin model",
+        u"thong tin model", u"dự án này", u"du an nay", u"project info",
+        u"project information", u"about project", u"model info", u"project", u"dự án", u"du an",
+    )
+    _FAST_CTX_VIEW = (
+        u"view hiện tại", u"view hien tai", u"thông tin view", u"thong tin view",
+        u"current view", u"active view", u"view đang mở", u"view dang mo",
+        u"activeview", u"currentview", u"view",
+    )
+    _FAST_CTX_SELECTION = (
+        u"đang chọn", u"dang chon", u"đang được chọn", u"dang duoc chon",
+        u"selected element", u"selection", u"đã chọn", u"da chon",
+        u"bao nhiêu element", u"how many selected", u"sel", u"selected",
+        u"đang chọn gì", u"dang chon gi",
+    )
+    # Action verbs and terms that prevent fast-path routing (exact word-level match)
+    _FAST_CTX_EXCLUDE_WORDS = {
+        u"tạo", u"create", u"mở", u"open", u"xuất", u"export", u"in", u"print",
+        u"ẩn", u"hide", u"color", u"màu", u"xoá", u"delete", u"remove",
+        u"vẽ", u"draw", u"tag", u"add", u"thêm", u"sửa", u"edit", u"update",
+        u"chạy", u"run", u"c#", u"csharp", u"load", u"tải", u"nap",
+        u"batchout", u"parasync", u"dim", u"override", u"isolate", u"highlight"
+    }
+
+    # Substrings that prevent fast-path routing
+    _FAST_CTX_EXCLUDE_SUBS = (
+        u"batchout", u"parasync", u"override", u"isolate", u"highlight"
+    )
+
+    # Specific Revit element type and query keywords that prevent generic fast-path hijacking
+    _FAST_CTX_ELEMENT_WORDS = {
+        u"tường", u"wall", u"cửa", u"door", u"sàn", u"floor", u"mái", u"roof",
+        u"phòng", u"room", u"dầm", u"beam", u"cột", u"column", u"trần", u"ceiling",
+        u"family", u"type", u"vật liệu", u"material", u"level", u"tầng", u"grid",
+        u"lưới", u"sheet", u"bản vẽ", u"ban ve", u"parameter", u"tham số", u"tham so",
+        u"khối lượng", u"khoi luong", u"quantity", u"count", u"nhiêu", u"nhieu",
+        u"bao nhiêu", u"bao nhieu", u"how many", u"list", u"danh sách", u"danh sach"
+    }
+
+    def _try_fast_context_answer(self, raw):
+        """Answer project/view/selection questions directly from Revit (no LLM).
+
+        Returns a formatted message string if the query matches a known context
+        question, else None (so the normal NLP/LLM pipeline runs).
+        """
+        try:
+            if not raw:
+                return None
+            low = raw.lower().strip()
+
+            # Word-level and substring-level checks to prevent hijacking commands
+            words = set(low.split())
+            if (any(w in words for w in self._FAST_CTX_EXCLUDE_WORDS) 
+                    or any(s in low for s in self._FAST_CTX_EXCLUDE_SUBS)
+                    or any(e in words for e in self._FAST_CTX_ELEMENT_WORDS)):
+                return None
+
+            want_project   = any(k in low for k in self._FAST_CTX_PROJECT)
+            want_view      = any(k in low for k in self._FAST_CTX_VIEW)
+            want_selection = any(k in low for k in self._FAST_CTX_SELECTION)
+            if not (want_project or want_view or want_selection):
+                return None
+
+            ctx = ContextScout.get_active_context()
+            if not ctx or "error" in ctx:
+                return None
+
+            viet = _is_viet_text(raw)
+            lines = []
+
+            # Add premium visual badge
+            if viet:
+                lines.append(u"⚡ **Phản hồi tức thì từ Revit DB**")
+            else:
+                lines.append(u"⚡ **Instant Revit DB Answer**")
+            lines.append(u"")
+
+            if want_project:
+                p = ctx.get("project", {})
+                r = ctx.get("revit", {})
+                if viet:
+                    lines.append(u"📋 **Thông tin dự án**")
+                    lines.append(u"- Tên file: {}".format(p.get("title") or u"—"))
+                    lines.append(u"- Tên dự án: {}".format(p.get("name") or u"—"))
+                    lines.append(u"- Mã số: {}".format(p.get("number") or u"—"))
+                    lines.append(u"- Khu vực: {}".format(p.get("region") or u"—"))
+                    lines.append(u"- Revit: {}".format(r.get("version") or u"—"))
+                else:
+                    lines.append(u"📋 **Project information**")
+                    lines.append(u"- File: {}".format(p.get("title") or u"—"))
+                    lines.append(u"- Name: {}".format(p.get("name") or u"—"))
+                    lines.append(u"- Number: {}".format(p.get("number") or u"—"))
+                    lines.append(u"- Region: {}".format(p.get("region") or u"—"))
+                    lines.append(u"- Revit: {}".format(r.get("version") or u"—"))
+
+            if want_view:
+                v = ctx.get("active_view", {})
+                if len(lines) > 2:
+                    lines.append(u"")
+                if viet:
+                    lines.append(u"🖼️ **View hiện tại**")
+                    lines.append(u"- Tên: {}".format(v.get("name") or u"—"))
+                    lines.append(u"- Loại: {}".format(v.get("type") or u"—"))
+                    lines.append(u"- Tỷ lệ: {}".format(v.get("scale") or u"—"))
+                    lines.append(u"- Bộ môn: {}".format(v.get("discipline") or u"—"))
+                else:
+                    lines.append(u"🖼️ **Active view**")
+                    lines.append(u"- Name: {}".format(v.get("name") or u"—"))
+                    lines.append(u"- Type: {}".format(v.get("type") or u"—"))
+                    lines.append(u"- Scale: {}".format(v.get("scale") or u"—"))
+                    lines.append(u"- Discipline: {}".format(v.get("discipline") or u"—"))
+
+            if want_selection:
+                s = ctx.get("selection", {})
+                cnt = s.get("count", 0)
+                details = s.get("details", [])
+                if len(lines) > 2:
+                    lines.append(u"")
+                if viet:
+                    lines.append(u"🎯 **Đối tượng đang chọn: {}**".format(cnt))
+                    if details:
+                        for idx, d in enumerate(details):
+                            lines.append(u"  {}. {} (Category: {}) [ID: {}]".format(idx + 1, d["name"], d["category"], d["id"]))
+                        if cnt > len(details):
+                            lines.append(u"  *... và {} đối tượng khác.*".format(cnt - len(details)))
+                else:
+                    lines.append(u"🎯 **Selected elements: {}**".format(cnt))
+                    if details:
+                        for idx, d in enumerate(details):
+                            lines.append(u"  {}. {} (Category: {}) [ID: {}]".format(idx + 1, d["name"], d["category"], d["id"]))
+                        if cnt > len(details):
+                            lines.append(u"  *... and {} more item(s).*".format(cnt - len(details)))
+
+            return u"\n".join(lines) if len(lines) > 2 else None
+        except Exception as ex:
+            logger.debug("_try_fast_context_answer error: {}".format(ex))
+            return None
 
     def _process_input(self):
         """Read input (+ any attachments), dispatch to NLP or keyword fallback."""
@@ -904,12 +2095,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not raw and not attached:
                 return
 
+            # Record in command history
+            if raw:
+                if not self._input_history or self._input_history[-1] != raw:
+                    self._input_history.append(raw)
+                    if len(self._input_history) > 50:
+                        self._input_history.pop(0)
+                self._history_index = -1
+                self._current_input_temp = ""
+
             # ── Concurrency guard ─────────────────────────────────────────────
             if self._busy:
                 self._append_bot_message(
                     u"⏳ Đang xử lý lệnh trước, vui lòng chờ một chút..."
                 )
                 return
+
 
             self.chat_input.Text = ""
             self._last_raw = raw or u"[đính kèm tài liệu]"
@@ -953,8 +2154,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             history  = list(self._conversation_history[:-1])
 
-            use_local  = HAS_NLP and has_local_llm()
-            use_claude = HAS_NLP and has_api_key()
+            use_local        = HAS_NLP and has_local_llm()
+            use_claude       = HAS_NLP and has_api_key()   # True for any configured provider
+            _active_provider = get_active_provider_name()  # "claude" | "openai" | "ollama"
+
+            # ── 0. Fast context answer (DB-only, no LLM) ──────────────
+            # (Disabled to route all requests through the LLM client loop)
+            # if HAS_SCOUT and not has_attach:
+            #     fast = self._try_fast_context_answer(raw)
+            #     if fast:
+            #         self._hide_typing_indicator()
+            #         self._append_bot_message(fast)
+            #         self._add_to_history("assistant", fast)
+            #         self._set_busy(False)
+            #         return
 
             # ── 1. Learned patterns (skip if attachments present) ─────────────
             if HAS_NLP and not has_attach:
@@ -980,27 +2193,132 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                 def do_nlp():
                     result = None
+                    from Intelligence.llm_router import LLMRouter
+                    from Intelligence.t3lab_agent import build_system_prompt
+                    import json as _json
 
-                    # ── Priority A: Local Ollama (text only, no vision) ────────
-                    if use_local and not has_images(attached):
-                        try:
-                            query = (rag_context + u"\n\n" + captured) if rag_context else captured
-                            result = parse_command_local(query, history)
-                        except Exception as le:
-                            logger.debug("local_llm error: {}".format(le))
+                    _router = LLMRouter()
+                    _provider = _router.get_active_provider()
 
-                    # ── Priority B: Claude API (supports vision + RAG) ─────────
-                    if (result is None or result.get("intent") in (None, "unknown")) \
-                            and use_claude:
+                    # Run up to 5 iterations of tool execution
+                    max_iterations = 5
+                    current_iteration = 0
+                    current_history = list(history)
+
+                    # Initial user prompt
+                    current_query = (rag_context + u"\n\n" + captured) if rag_context else captured
+
+                    while current_iteration < max_iterations:
+                        current_iteration += 1
+
+                        # Dynamically query Revit context on each iteration
+                        _ctx_block = u""
+                        if HAS_SCOUT:
+                            try:
+                                _ctx_block = ContextScout.get_context_summary_for_ai()
+                            except Exception:
+                                pass
+
+                        # Retrieve registered tools from server.py
+                        server_tools_str = u""
                         try:
-                            result = parse_command(
-                                captured,
-                                history,
-                                attached_files=attached if has_attach else None,
-                                rag_context=rag_context if rag_context else None,
-                            )
-                        except Exception as ce:
-                            logger.debug("claude api error: {}".format(ce))
+                            from core.server import get_t3labai_server
+                            srv = get_t3labai_server()
+                            tools_list = srv._handle_tools_list().get('tools', [])
+                            if tools_list:
+                                server_tools_str = u"\n\nLocal MCP Server Tools:\n"
+                                for tool in tools_list:
+                                    server_tools_str += u"- `{}`: {} (Schema: {})\n".format(
+                                        tool['name'],
+                                        tool['description'],
+                                        _json.dumps(tool['inputSchema'])
+                                    )
+                        except Exception as tool_err:
+                            logger.debug("Failed to list server tools: {}".format(tool_err))
+
+                        system_prompt = build_system_prompt(revit_context=_ctx_block)
+                        if server_tools_str:
+                            system_prompt += server_tools_str
+
+                        if has_attach or rag_context:
+                            system_prompt = _RAG_SYSTEM_PREFIX + system_prompt
+
+                        # Perform the chat completion
+                        _resp = None
+                        try:
+                            if _provider and _provider.check_health():
+                                _resp = _provider.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200)
+                            else:
+                                _resp = _router.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200)
+                        except Exception as chat_ex:
+                            logger.debug("Router chat error: {}".format(chat_ex))
+
+                        if not _resp or not _resp.strip():
+                            break
+
+                        # Parse response JSON
+                        _cleaned = self._clean_bot_response(_resp)
+                        _parsed = None
+                        try:
+                            import re as _re
+                            _m = _re.search(r'\{[\s\S]*\}', _resp)
+                            if _m:
+                                _parsed = _json.loads(_m.group())
+                        except Exception:
+                            pass
+
+                        if _parsed and _parsed.get("intent"):
+                            intent = _parsed.get("intent")
+                            params = _parsed.get("params", {}) or {}
+                            message = _parsed.get("message", "")
+
+                            # Determine if it's a local MCP tool call
+                            is_local_tool = False
+                            if intent.startswith("revit_"):
+                                is_local_tool = True
+                            else:
+                                try:
+                                    from core.server import get_t3labai_server
+                                    srv = get_t3labai_server()
+                                    if intent in srv._tools:
+                                        is_local_tool = True
+                                except Exception:
+                                    pass
+
+                            if is_local_tool:
+                                # Update typing indicator UI to show tool execution
+                                is_vn = _is_viet_text(captured)
+                                status_msg = u"● ● ●  Đang chạy công cụ `{}`...".format(intent) if is_vn else "● ● ●  Executing tool `{}`...".format(intent)
+                                self._safe_update_typing_text(status_msg)
+
+                                # Display temporary feedback message in chat so the user is updated
+                                tool_display_msg = u"🔧 [Tool Call] `{}` (params: {})".format(intent, _json.dumps(params))
+                                if message:
+                                    tool_display_msg = u"🔧 [Tool Call] {}\nRevit tool: `{}`".format(message, intent)
+                                self._safe_append_bot(tool_display_msg)
+
+                                # Execute the tool in the Revit context using the external event handler
+                                tool_result = None
+                                try:
+                                    from core.server import get_t3labai_server
+                                    srv = get_t3labai_server()
+                                    tool_result = srv._execute_tool(intent, params)
+                                except Exception as execute_err:
+                                    tool_result = {"error": str(execute_err)}
+
+                                # Log tool call and result to current_history using portable roles
+                                current_history.append({"role": "assistant", "content": _json.dumps(_parsed, ensure_ascii=False)})
+                                current_history.append({"role": "user", "content": u"Tool `{}` returned: {}".format(intent, _json.dumps(tool_result, ensure_ascii=False))})
+
+                                # Setup subsequent query
+                                current_query = u"Tool `{}` successfully returned: {}. Please proceed to the next step or conclude if done.".format(intent, _json.dumps(tool_result, ensure_ascii=False))
+                                continue
+                            else:
+                                result = _parsed
+                                break
+                        else:
+                            result = {"intent": "chat", "message": _cleaned}
+                            break
 
                     def finish():
                         try:
@@ -1011,15 +2329,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 self._execute_result(nlu_hint)
                             else:
                                 if has_attach and not use_claude and not use_local:
-                                    # RAG available but no LLM — show extracted text
                                     if rag_context:
                                         self._append_bot_message(
                                             u"📄 Nội dung tài liệu:\n\n" + rag_context[:2000]
                                         )
                                     else:
                                         self._append_bot_message(
-                                            u"Không trích xuất được văn bản từ tài liệu. "
-                                            u"PDF có thể là dạng scan."
+                                            u"Không trích xuất được văn bản từ tài liệu. PDF có thể là dạng scan."
                                         )
                                     self._set_busy(False)
                                     return
@@ -1087,6 +2403,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Conversation (no action needed) ──────────────────────────────────
         if intent in ("help", "chat", "greet"):
             reply = params.get("answer", message) if intent == "help" else message
+            reply = self._clean_bot_response(reply) if reply else u""
             _bot(reply or u"Có thể giúp gì thêm không?")
             self._set_busy(False)
             return
@@ -1130,6 +2447,32 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._append_bot_message(u"Không thể mở công cụ. Xem console.")
             self._set_busy(False)
             return
+
+        # ── MCP Revit intents ─────────────────────────────────────────────────
+        try:
+            from Intelligence.t3lab_agent import is_mcp_intent, get_intent_info
+            if is_mcp_intent(intent):
+                cat, desc = get_intent_info(intent)
+                param_txt = u""
+                if params:
+                    param_txt = u"\n**Parameters:** " + u", ".join(
+                        u"{}={}".format(k, v) for k, v in params.items() if v is not None
+                    )
+                reply = (
+                    message + u"\n\n"
+                    if message else u""
+                ) + (
+                    u"**Revit API:** `{}`\n"
+                    u"**Action:** {}{}\n\n"
+                    u"*Requires the [revit-mcp](https://github.com/mcp-servers-for-revit/revit-mcp) "
+                    u"server running alongside Revit.*"
+                ).format(intent, desc, param_txt)
+                _learn(reply)
+                _bot(reply)
+                self._set_busy(False)
+                return
+        except Exception as _mcp_ex:
+            logger.debug("MCP intent handler error: {}".format(_mcp_ex))
 
         # ── Unknown / fallthrough ─────────────────────────────────────────────
         if intent == "unknown":
@@ -1214,8 +2557,67 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("Error adding user message: {}".format(ex))
 
+    @staticmethod
+    def _clean_bot_response(text):
+        """Strip chain-of-thought, meta-commentary, and excessive whitespace."""
+        import re as _re
+        # Remove <think>...</think> blocks (reasoning models)
+        text = _re.sub(r'<think>[\s\S]*?</think>', '', text, flags=_re.IGNORECASE)
+        # Remove lines that read like internal planning/meta-commentary
+        _skip_prefixes = (
+            u"* user", u"* role", u"* tone", u"* language", u"* option",
+            u"* the user", u"* since i am", u"* as an ai",
+            u"- user", u"- role", u"- tone", u"- option",
+            u"i am an ai", u"as an ai assistant",
+            u"let me analyze", u"let me think", u"i need to consider",
+            u"i'll analyze", u"i'll consider",
+        )
+        lines_out = []
+        for line in text.splitlines():
+            low = line.strip().lower()
+            if any(low.startswith(p) for p in _skip_prefixes):
+                continue
+            lines_out.append(line)
+        # Collapse 3+ consecutive blank lines to 1
+        text = _re.sub(r'\n{3,}', u'\n\n', u'\n'.join(lines_out))
+        return text.strip()
+
+    @staticmethod
+    def _build_md_inlines(text_block, text):
+        """
+        Populate text_block.Inlines with basic markdown rendering.
+        Handles: **bold**, bullet lines (* / -), plain text, line breaks.
+        """
+        import re as _re
+        from System.Windows.Documents import Run, LineBreak
+        from System.Windows import FontWeights
+
+        lines = text.splitlines()
+        for i, line in enumerate(lines):
+            if i > 0:
+                text_block.Inlines.Add(LineBreak())
+
+            # Bullet lines
+            stripped = line.strip()
+            if stripped.startswith(u'* ') or stripped.startswith(u'- '):
+                prefix_run = Run()
+                prefix_run.Text = u'• '   # bullet •
+                text_block.Inlines.Add(prefix_run)
+                line = stripped[2:]             # remaining text after bullet marker
+
+            # Inline **bold** spans
+            parts = _re.split(r'\*\*', line)
+            for idx, part in enumerate(parts):
+                if not part:
+                    continue
+                r = Run()
+                r.Text = part
+                if idx % 2 == 1:               # inside ** pair = bold
+                    r.FontWeight = FontWeights.SemiBold
+                text_block.Inlines.Add(r)
+
     def _append_bot_message(self, text):
-        """Add a left-aligned bot bubble with avatar (BatchOut color scheme)."""
+        """Add a left-aligned bot bubble with avatar and basic markdown rendering."""
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
@@ -1235,21 +2637,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
             Grid.SetColumn(av, 0)
             row.Children.Add(av)
 
-            # Bubble — white with BatchOut border
+            # Bubble
             bubble = Border()
-            bubble.Background     = SolidColorBrush(Color.FromRgb(255, 255, 255))
-            bubble.CornerRadius   = CornerRadius(3, 8, 8, 8)
-            bubble.Padding        = Thickness(14, 10, 14, 10)
-            bubble.BorderBrush    = SolidColorBrush(Color.FromRgb(189, 195, 199))  # #BDC3C7
+            bubble.Background      = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            bubble.CornerRadius    = CornerRadius(3, 8, 8, 8)
+            bubble.Padding         = Thickness(14, 10, 14, 10)
+            bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))
             bubble.BorderThickness = Thickness(1)
 
             msg_text = TextBlock()
-            msg_text.Text        = text
-            msg_text.FontSize    = 13
-            msg_text.Foreground  = SolidColorBrush(Color.FromRgb(44, 62, 80))     # #2C3E50
+            msg_text.FontSize     = 13
+            msg_text.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+            msg_text.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))   # #27272A
             msg_text.TextWrapping = TextWrapping.Wrap
-            bubble.Child = msg_text
+            msg_text.LineHeight   = 20
 
+            try:
+                self._build_md_inlines(msg_text, text)
+            except Exception:
+                # Fallback: plain text if inline building fails
+                msg_text.Text = text
+
+            bubble.Child = msg_text
             Grid.SetColumn(bubble, 1)
             row.Children.Add(bubble)
             self.chat_history_panel.Children.Add(row)
@@ -1267,21 +2676,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
 # MAIN SCRIPT
 # ==================================================
 
-
-
-    def minimize_button_clicked(self, sender, e):
-        self.WindowState = WindowState.Minimized
-
-    def maximize_button_clicked(self, sender, e):
-        if self.WindowState == WindowState.Maximized:
-            self.WindowState = WindowState.Normal
-            self.btn_maximize.ToolTip = "Maximize"
-        else:
-            self.WindowState = WindowState.Maximized
-            self.btn_maximize.ToolTip = "Restore"
-
-    def close_button_clicked(self, sender, e):
-        self.Close()
 if __name__ == '__main__':
     if not revit.doc:
         forms.alert("Please open a Revit document first.", exitscript=True)

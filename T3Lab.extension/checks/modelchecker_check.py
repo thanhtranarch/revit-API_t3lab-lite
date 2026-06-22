@@ -22,6 +22,8 @@ from pyrevit import revit, DB
 from pyrevit.preflight import PreflightTestCase
 from pyrevit.compat import safe_strtype
 
+from Snippets._compat import eid_value
+
 
 # webpage with explanations of bad practices in revit maybe it could be configurable in the future?
 WIKI_ARTICLE = "https://www.modelical.com/en/gdocs/revit-arc-best-practices/"
@@ -451,7 +453,7 @@ def checkModel(doc, output):
             # to support french files
             or schedName[:28] != "<Nomenclature des révisions>"):
             if schedName not in schedulesOnSheet:
-                if schedule.OwnerViewId.IntegerValue != -1:
+                if eid_value(schedule.OwnerViewId) != -1:
                     # print schedName
                     # print schedule.Id
                     schedulesOnSheet.append(schedName)
@@ -463,7 +465,7 @@ def checkModel(doc, output):
             # to support french files
             or schedName[:28] != "<Nomenclature des révisions>"):
             if schedName not in schedulesOnSheet:
-                if schedule.OwnerViewId.IntegerValue != -1:
+                if eid_value(schedule.OwnerViewId) != -1:
                     # print schedName
                     # print schedule.Id
                     schedulesOnSheet.append(schedName)
@@ -943,7 +945,7 @@ def checkModel(doc, output):
     for element in elements:
         try:
             category = element.Category.Name
-            categoryId = element.Category.Id.IntegerValue
+            categoryId = eid_value(element.Category.Id)
             # filtering out DWGs, categories from banlist
             # filtering out categories in catBanlist
             # DB.BuiltInCategory Ids are negative integers

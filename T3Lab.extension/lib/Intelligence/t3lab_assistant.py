@@ -146,14 +146,16 @@ def inject_discovered_tools(tools):
 
 
 def _build_system_prompt():
-    """Return SYSTEM_PROMPT with auto-discovered tool section injected if available."""
-    if not _EXTRA_TOOLS_SECTION:
-        return SYSTEM_PROMPT
-    # Inject before the Conversation section
-    marker = '  ── Conversation ──'
-    if marker in SYSTEM_PROMPT:
-        return SYSTEM_PROMPT.replace(marker, _EXTRA_TOOLS_SECTION + '\n\n' + marker)
-    return SYSTEM_PROMPT + '\n' + _EXTRA_TOOLS_SECTION
+    """Return the comprehensive agent-aware system prompt, with auto-discovered tools appended."""
+    try:
+        from Intelligence.t3lab_agent import build_system_prompt
+        base = build_system_prompt()
+    except Exception:
+        # Fallback to static prompt if t3lab_agent is unavailable
+        base = SYSTEM_PROMPT
+    if _EXTRA_TOOLS_SECTION:
+        base = base + u'\n' + _EXTRA_TOOLS_SECTION
+    return base
 
 
 # ─── Learned patterns ─────────────────────────────────────────────────────────
@@ -311,15 +313,11 @@ def _extract_json(text):
 
 
 def parse_command(user_input, history=None, attached_files=None, rag_context=None):
-    """Call Claude API to parse a natural-language command.
+    """Parse a natural-language command via the active LLM provider.
 
-    Supports multi-modal input:
-      - attached_files: list of file paths (images → vision; PDFs already in rag_context)
-      - rag_context: pre-extracted PDF text to prepend as context
-
-    When images are present, the user content becomes a list of content blocks
-    (text + image), triggering Claude's vision capability.
-    When only rag_context is present, it is prepended as a text block.
+    Routes through LLMRouter (Claude / OpenAI / Ollama) with automatic
+    fallback.  Vision and RAG attachments are forwarded when the active
+    provider supports them; text-only extraction is used otherwise.
 
     Args:
         user_input: The raw text the user typed.
@@ -330,27 +328,13 @@ def parse_command(user_input, history=None, attached_files=None, rag_context=Non
     Returns:
         dict with keys {intent, params, message} on success, or None on failure.
     """
-    if not HAS_HTTP:
-        return None
-    api_key = _get_api_key()
-    if not api_key:
-        return None
-
-    # Lazy import rag_processor only if attachments are provided
-    has_vision_files = False
+    # ── Build content blocks for vision / RAG ──────────────────────────────────
     content_blocks = None
-
     if attached_files or rag_context:
         try:
-            lib_dir = os.path.dirname(os.path.abspath(__file__))
-            if lib_dir not in sys.path:
-                sys.path.insert(0, lib_dir)
-            from Intelligence.rag_processor import build_vision_content_blocks, has_images
+            from Intelligence.rag_processor import build_vision_content_blocks
             files = attached_files or []
-            has_vision_files = has_images(files)
-            # build_vision_content_blocks prepends PDF text blocks + image blocks
             content_blocks = build_vision_content_blocks(user_input, files)
-            # If rag_context provided but not yet in content_blocks, prepend it
             if rag_context and not any(
                     'PDF' in b.get('text', '') for b in content_blocks
                     if b.get('type') == 'text'):
@@ -358,79 +342,66 @@ def parse_command(user_input, history=None, attached_files=None, rag_context=Non
         except Exception:
             content_blocks = None
 
+    user_content = content_blocks if content_blocks else user_input
+    max_tokens   = 1200 if (attached_files or rag_context) else 400
+
+    system_prompt = _build_system_prompt()
+    if attached_files or rag_context:
+        system_prompt = _RAG_SYSTEM_PREFIX + system_prompt
+
+    # Keep up to 16 history turns for context
+    messages = list(history[-16:]) if history else []
+
+    # ── Delegate to router ─────────────────────────────────────────────────────
     try:
-        url = "https://api.anthropic.com/v1/messages"
-
-        # Build messages with history for multi-turn context
-        messages = []
-        if history:
-            messages.extend(history[-16:])
-
-        # User message content: multi-block if attachments, plain string otherwise
-        if content_blocks:
-            user_content = content_blocks
-        else:
-            user_content = user_input
-
-        messages.append({"role": "user", "content": user_content})
-
-        # Increase max_tokens for RAG/vision responses
-        max_tokens = 1200 if (attached_files or rag_context) else 400
-
-        # Use claude-sonnet for vision (haiku vision support may vary)
-        model = "claude-sonnet-4-6" if has_vision_files else "claude-haiku-4-5-20251001"
-
-        # When attachments are present, use a RAG-aware system prompt
-        system_prompt = _build_system_prompt()
-        if attached_files or rag_context:
-            system_prompt = _RAG_SYSTEM_PREFIX + system_prompt
-
-        body_data = {
-            "model": model,
-            "max_tokens": max_tokens,
-            "system": system_prompt,
-            "messages": messages,
-        }
-        body_json = json.dumps(body_data, ensure_ascii=False)
-        body_bytes = Encoding.UTF8.GetBytes(body_json)
-
-        client = WebClient()
-        try:
-            client.Encoding = Encoding.UTF8
-            client.Headers.Add("Content-Type", "application/json; charset=utf-8")
-            client.Headers.Add("x-api-key", api_key)
-            client.Headers.Add("anthropic-version", "2023-06-01")
-
-            response_bytes = client.UploadData(url, "POST", body_bytes)
-            response_text = Encoding.UTF8.GetString(response_bytes)
-        finally:
-            try:
-                client.Dispose()
-            except Exception:
-                pass
-
-        api_result = json.loads(response_text)
-        content_text = api_result["content"][0]["text"].strip()
-        result = _extract_json(content_text)
-
-        # If attachments were present and model returned free text (not JSON),
-        # wrap the response as a chat reply so the UI can display it.
-        if result is None and (attached_files or rag_context):
-            result = {
-                "intent": "chat",
-                "params": {},
-                "message": content_text,
-            }
-
-        return result
-
+        from Intelligence.llm_router import LLMRouter
+        router = LLMRouter()
+        raw_text = router.chat(messages, system_prompt, user_content, max_tokens)
     except Exception:
+        raw_text = None
+
+    if raw_text is None:
         return None
+
+    result = _extract_json(raw_text)
+
+    # Free-text response from a RAG/vision request → wrap as chat intent
+    if result is None and (attached_files or rag_context):
+        result = {
+            "intent":  "chat",
+            "params":  {},
+            "message": raw_text,
+        }
+
+    return result
 
 
 def has_api_key():
-    """Return True if a Claude API key is configured."""
-    return bool(_get_api_key())
+    """Return True if the active LLM provider is configured and reachable."""
+    try:
+        from Intelligence.llm_router import LLMRouter
+        provider = LLMRouter().get_active_provider()
+        return provider is not None and provider.check_health()
+    except Exception:
+        return bool(_get_api_key())   # legacy fallback: check Claude key directly
+
+
+def get_active_provider_name():
+    """Return the name of the currently active provider ('claude', 'openai', 'ollama')."""
+    try:
+        from Intelligence.llm_router import LLMRouter
+        return LLMRouter().get_active_name()
+    except Exception:
+        return "claude"
+
+
+def get_provider_display_label():
+    """Return a short UI badge label for the active provider (e.g. 'GPT-4o mini')."""
+    try:
+        from Intelligence.llm_router import LLMRouter
+        return LLMRouter().get_display_label()
+    except Exception:
+        return "AI"
 
 
 # ─── Keyword fallback ─────────────────────────────────────────────────────────

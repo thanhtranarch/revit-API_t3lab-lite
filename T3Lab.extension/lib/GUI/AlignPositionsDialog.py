@@ -34,6 +34,8 @@ from Autodesk.Revit.Exceptions import OperationCanceledException
 
 from pyrevit import forms
 
+from Snippets._compat import eid_value
+
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'AlignPositions.xaml')
 MM_PER_FOOT = 304.8
 TOLERANCE_MM = 0.05
@@ -62,7 +64,7 @@ class ReferenceFilter(ISelectionFilter):
             cat = element.Category
             if cat is None:
                 return False
-            cat_id = cat.Id.IntegerValue
+            cat_id = eid_value(cat.Id)
             if cat_id == int(BuiltInCategory.OST_Columns):
                 return True
             if cat_id == int(BuiltInCategory.OST_StructuralColumns):

@@ -58,6 +58,8 @@ lib_dir    = os.path.join(EXT_DIR, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
+from Snippets._compat import eid_value
+
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'TileLayout.xaml')
 
 # DEFINE VARIABLES
@@ -1274,7 +1276,7 @@ class ReportGenerator(object):
             hdr.Inlines.Add(Run(u"Floor #{}  ".format(fi_idx + 1)))
             hdr.Inlines.Add(Run(u"(id {})  \u2014  {:.1f} m\u00b2  \u00b7  "
                                 u"{:.0f} \u00d7 {:.0f} mm  \u00b7  {}".format(
-                fi.floor.Id.IntegerValue,
+                eid_value(fi.floor.Id),
                 fi.area_ft2 * FT2_TO_M2,
                 fi.width_ft * FT_TO_MM, fi.height_ft * FT_TO_MM,
                 chosen_pat)))
@@ -1438,7 +1440,7 @@ class ReportGenerator(object):
 class _FloorFilter(ISelectionFilter):
     def AllowElement(self, e):
         return (e.Category is not None and
-                e.Category.Id.IntegerValue == int(BuiltInCategory.OST_Floors))
+                eid_value(e.Category.Id) == int(BuiltInCategory.OST_Floors))
     def AllowReference(self, r, p): return False
 
 
@@ -1452,7 +1454,7 @@ class FloorRowVM(object):
     def __init__(self, floor_info, display_index):
         self._fi = floor_info
         self.Name        = "Floor #{}  (id {})".format(
-            display_index, floor_info.floor.Id.IntegerValue)
+            display_index, eid_value(floor_info.floor.Id))
         self.LevelName   = get_floor_level_name(floor_info.floor)
         w_mm = floor_info.width_ft  * FT_TO_MM
         h_mm = floor_info.height_ft * FT_TO_MM
@@ -2415,7 +2417,7 @@ def _pick_floors_from_revit():
     for eid in sel_ids:
         el = doc.GetElement(eid)
         if (el is not None and el.Category is not None and
-                el.Category.Id.IntegerValue == int(BuiltInCategory.OST_Floors)):
+                eid_value(el.Category.Id) == int(BuiltInCategory.OST_Floors)):
             pre.append(el)
     if pre:
         return pre

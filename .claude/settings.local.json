@@ -16,7 +16,8 @@
       "PowerShell(\\(Get-Content \"D:\\\\01. T3Lab\\\\02 Revit Tools\\\\t3lab-revit-api\\\\T3Lab.extension\\\\lib\\\\GUI\\\\Tools\\\\ExportManager.xaml\"\\).Count)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tran_tienthanh\\\\OneDrive - Woh Hup \\(Private\\) Limited\\\\Documents\\\\T3Lab Architect\\\\t3lab-revit-api\\\\T3Lab.extension\\\\T3Lab.tab\" -Directory)",
       "mcp__28e2678a-7319-4b62-9637-2cb91b1cb099__notion_create_page",
-      "mcp__28e2678a-7319-4b62-9637-2cb91b1cb099__notion_query_database"
+      "mcp__28e2678a-7319-4b62-9637-2cb91b1cb099__notion_query_database",
+      "Bash(python -c ' *)"
     ]
   }
 }

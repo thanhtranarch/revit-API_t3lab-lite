@@ -38,6 +38,8 @@ from Autodesk.Revit.DB import (
 from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogResult
 from pyrevit import revit, forms, script
 
+from Snippets._compat import eid_value
+
 # Path setup
 SCRIPT_DIR = os.path.dirname(__file__)
 EXT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
@@ -134,7 +136,7 @@ class WorksetItem(object):
         self.Owner = ws.Owner or ""
         self.IsActive = (
             active_id is not None
-            and ws.Id.IntegerValue == active_id.IntegerValue
+            and eid_value(ws.Id) == eid_value(active_id)
         )
         self._id = ws.Id
 
@@ -304,7 +306,7 @@ def create_workset_views():
             view3d.Name = ws.Name
             for other in worksets:
                 vis = (WorksetVisibility.Visible
-                       if other.Id.IntegerValue == ws.Id.IntegerValue
+                       if eid_value(other.Id) == eid_value(ws.Id)
                        else WorksetVisibility.Hidden)
                 view3d.SetWorksetVisibility(other.Id, vis)
             created.append(ws.Name)

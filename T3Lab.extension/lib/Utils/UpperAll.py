@@ -25,6 +25,8 @@ from Autodesk.Revit.DB import (
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import revit
 
+from Snippets._compat import eid_value
+
 _SKIP_PARAM_TYPE_NAMES = frozenset(("URL", "Image"))
 
 def _is_skippable_string_param(param):
@@ -222,13 +224,13 @@ def process_selection(elements, doc):
                         s["families"] += 1
                 except Exception:
                     pass
-            elif el.Category and el.Category.Id.IntegerValue == int(BuiltInCategory.OST_TitleBlocks):
+            elif el.Category and eid_value(el.Category.Id) == int(BuiltInCategory.OST_TitleBlocks):
                 if upper_element_string_params(el, doc) > 0:
                     s["titleblocks"] += 1
             
             try:
                 type_id = el.GetTypeId()
-                if type_id and type_id.IntegerValue != -1:
+                if type_id and eid_value(type_id) != -1:
                     elem_type = doc.GetElement(type_id)
                     if elem_type and isinstance(elem_type, ElementType):
                         if rename_element_name(elem_type):

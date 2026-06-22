@@ -22,6 +22,8 @@ from System.Windows import WindowState, MessageBox
 from System.Windows.Controls import ComboBoxItem
 from pyrevit import revit, forms, script
 
+from Snippets._compat import eid_value
+
 from Autodesk.Revit.DB import (
     FilteredElementCollector, FilteredWorksetCollector, WorksetKind,
     Family, FamilySymbol, ElementType, GroupType, AssemblyType, Group, AssemblyInstance,
@@ -111,7 +113,7 @@ class FamilyManagementWindow(forms.WPFWindow):
         if doc.IsWorkshared:
             f_collector = FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset)
             for ws in f_collector.ToWorksets():
-                self._worksets.append(WorksetItem(ws.Name, ws.Id.IntegerValue))
+                self._worksets.append(WorksetItem(ws.Name, eid_value(ws.Id)))
         self.Worksets = self._worksets # Bindable property
 
     def _refresh_data(self):
@@ -550,7 +552,7 @@ class FamilyManagementWindow(forms.WPFWindow):
                     try:
                         tid = inst.GetTypeId()
                         if tid and tid != ElementId.InvalidElementId:
-                            tid_val = tid.IntegerValue
+                            tid_val = eid_value(tid)
                             if tid_val not in instances_by_type:
                                 instances_by_type[tid_val] = []
                             instances_by_type[tid_val].append(inst)
@@ -588,7 +590,7 @@ class FamilyManagementWindow(forms.WPFWindow):
                             ws_param.Set(ws_val)
                             
                         # Set workset of all placed instances of this type
-                        related_instances = instances_by_type.get(r.element.Id.IntegerValue, [])
+                        related_instances = instances_by_type.get(eid_value(r.element.Id), [])
                         for inst in related_instances:
                             try:
                                 inst_ws_param = inst.get_Parameter(BuiltInParameter.ELEM_PARTITION_PARAM)

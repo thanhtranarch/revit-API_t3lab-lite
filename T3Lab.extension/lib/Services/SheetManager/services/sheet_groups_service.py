@@ -9,6 +9,8 @@ Copyright © Dang Quoc Truong (DQT)
 import json
 import os
 
+from Snippets._compat import eid_value
+
 
 class SheetGroupsService(object):
     """Manage custom sheet groups with JSON storage"""
@@ -67,7 +69,7 @@ class SheetGroupsService(object):
             # Convert ElementId to string for JSON serialization
             data = {}
             for group_name, sheet_ids in self.groups.items():
-                data[group_name] = [str(sheet_id.IntegerValue) for sheet_id in sheet_ids]
+                data[group_name] = [str(eid_value(sheet_id)) for sheet_id in sheet_ids]
             
             # Ensure directory exists
             dir_path = os.path.dirname(self.json_file)

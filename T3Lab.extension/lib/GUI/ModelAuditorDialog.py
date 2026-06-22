@@ -986,7 +986,7 @@ class ModelAuditorWindow(forms.WPFWindow):
                 grid_data.append({
                     "description": desc,
                     "count": len(elements),
-                    "element_ids": [eid.IntegerValue for eid in elements]
+                    "element_ids": [_eid_int(eid) for eid in elements]
                 })
             
             self.dg_warning_groups.ItemsSource = sorted(grid_data, key=lambda x: x["count"], reverse=True)
@@ -1319,7 +1319,7 @@ class ModelAuditorWindow(forms.WPFWindow):
                 try:
                     if el.Symbol and el.Symbol.Family and el.Symbol.Family.IsInPlace:
                         self.inplace_items.append({
-                            "id": el.Id.IntegerValue,
+                            "id": _eid_int(el.Id),
                             "category": el.Category.Name if el.Category else "N/A",
                             "family_name": el.Symbol.Family.Name,
                             "type_name": el.Name
@@ -1366,7 +1366,7 @@ class ModelAuditorWindow(forms.WPFWindow):
         self.material_items = []
         try:
             materials = FilteredElementCollector(self.doc).OfClass(Material).ToElements()
-            material_map = {m.Id.IntegerValue: m for m in materials}
+            material_map = {_eid_int(m.Id): m for m in materials}
             
             material_volume = {}
             material_area = {}
@@ -1388,7 +1388,7 @@ class ModelAuditorWindow(forms.WPFWindow):
                     for el in col:
                         el_materials = el.GetMaterialIds(False)
                         for mat_id in el_materials:
-                            mat_val = mat_id.IntegerValue
+                            mat_val = _eid_int(mat_id)
                             try:
                                 vol = el.GetMaterialVolume(mat_id)
                                 area = el.GetMaterialArea(mat_id)

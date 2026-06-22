@@ -49,6 +49,8 @@ XAML_FILE  = os.path.join(LIB_DIR, 'GUI', 'Tools', 'DWGManagement.xaml')
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 
+from Snippets._compat import eid_value
+
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
@@ -368,13 +370,13 @@ class DWGManagementWindow(forms.WPFWindow):
                 try:
                     doc.Delete(eid)
                 except Exception as del_ex:
-                    logger.warning("Could not delete element {}: {}".format(eid.IntegerValue, del_ex))
+                    logger.warning("Could not delete element {}: {}".format(eid_value(eid), del_ex))
 
             # Delete orphaned CADLinkType elements (no remaining instances use them)
             remaining = list(FilteredElementCollector(doc).OfClass(ImportInstance).ToElements())
             for type_id in link_type_ids:
                 still_used = any(
-                    inst.GetTypeId().IntegerValue == type_id.IntegerValue
+                    eid_value(inst.GetTypeId()) == eid_value(type_id)
                     for inst in remaining
                 )
                 if not still_used:

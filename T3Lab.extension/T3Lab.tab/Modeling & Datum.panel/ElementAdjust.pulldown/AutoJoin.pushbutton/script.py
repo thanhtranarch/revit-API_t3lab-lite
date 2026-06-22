@@ -50,6 +50,8 @@ lib_dir       = os.path.join(EXT_DIR, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
+from Snippets._compat import eid_value
+
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
@@ -121,8 +123,8 @@ def _collect_elements(bic, scope, view_id=None, selected_ids=None):
             .OfCategory(bic)\
             .WhereElementIsNotElementType()\
             .ToElements()
-        id_set = set(eid.IntegerValue for eid in selected_ids)
-        return [el for el in all_els if el.Id.IntegerValue in id_set]
+        id_set = set(eid_value(eid) for eid in selected_ids)
+        return [el for el in all_els if eid_value(el.Id) in id_set]
     elif scope == "Active View" and view_id:
         return list(
             FilteredElementCollector(doc, view_id)
@@ -162,7 +164,7 @@ def _get_intersecting_elements(el, target_bic, scope, view_id=None):
             .WherePasses(bb_filter)\
             .WhereElementIsNotElementType()\
             .ToElements()
-        return [c for c in candidates if c.Id.IntegerValue != el.Id.IntegerValue]
+        return [c for c in candidates if eid_value(c.Id) != eid_value(el.Id)]
     except Exception:
         return []
 
@@ -237,8 +239,8 @@ def run_join(rules, scope, mode, switch_order, progress_callback=None, cancel_ch
                 for cand in candidates:
                     if same_category:
                         pair_key = (
-                            min(el.Id.IntegerValue, cand.Id.IntegerValue),
-                            max(el.Id.IntegerValue, cand.Id.IntegerValue),
+                            min(eid_value(el.Id), eid_value(cand.Id)),
+                            max(eid_value(el.Id), eid_value(cand.Id)),
                         )
                         if pair_key in processed_pairs:
                             continue

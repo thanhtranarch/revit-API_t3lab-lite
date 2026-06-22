@@ -1144,6 +1144,119 @@
             </Setter>
         </Style>
 
+        <!-- ── Sidebar ComboBox (T3ComboBox scaled for narrow panel) ── -->
+        <Style x:Key="SidebarComboBox" TargetType="ComboBox">
+            <Setter Property="Background"              Value="White"/>
+            <Setter Property="Foreground"              Value="#18181B"/>
+            <Setter Property="BorderBrush"             Value="#E6E6EA"/>
+            <Setter Property="BorderThickness"         Value="1"/>
+            <Setter Property="Padding"                 Value="10,0,10,0"/>
+            <Setter Property="FontSize"                Value="12"/>
+            <Setter Property="FontFamily"              Value="Hanken Grotesk"/>
+            <Setter Property="Height"                  Value="38"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0"
+                                                      Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                      Margin="{TemplateBinding Padding}"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left"
+                                                      IsHitTestVisible="False"/>
+                                    <ToggleButton Grid.Column="0" Grid.ColumnSpan="2"
+                                                  Background="Transparent" BorderThickness="0"
+                                                  IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                                              RelativeSource={RelativeSource TemplatedParent}}">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border Background="Transparent"/>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <Path Grid.Column="1"
+                                          Data="M5 8 L10 13 L15 8"
+                                          Stroke="#71717A" StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Width="10" Height="10" Stretch="Uniform"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          IsHitTestVisible="False"/>
+                                </Grid>
+                            </Border>
+                            <Popup x:Name="PART_Popup"
+                                   AllowsTransparency="True"
+                                   IsOpen="{Binding IsDropDownOpen, Mode=TwoWay,
+                                            RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Bottom"
+                                   PopupAnimation="Slide">
+                                <Border Background="White" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="10"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="220">
+                                    <Border.Effect>
+                                        <DropShadowEffect ShadowDepth="2" Direction="270"
+                                                          Color="#18181B" Opacity="0.08" BlurRadius="8"/>
+                                    </Border.Effect>
+                                    <ScrollViewer x:Name="DropDownScrollViewer" Padding="4">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="FontFamily"              Value="Hanken Grotesk"/>
+                        <Setter Property="FontSize"                Value="12"/>
+                        <Setter Property="Padding"                 Value="10,7"/>
+                        <Setter Property="Cursor"                  Value="Hand"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ComboBoxItem">
+                                    <Border x:Name="item_bg" Background="Transparent"
+                                            CornerRadius="7" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="item_bg" Property="Background" Value="#F4F4F6"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="item_bg" Property="Background" Value="#F4F4F6"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ── Icon-only button (attach) ── -->
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
@@ -1172,22 +1285,51 @@
             </Setter>
         </Style>
 
+        <!-- Chip button style (used for Quick Actions) -->
+        <Style x:Key="T3ChipButton" TargetType="Button">
+            <Setter Property="Background" Value="#E4E4E7"/>
+            <Setter Property="Foreground" Value="#27272A"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="chip_bd" Background="{TemplateBinding Background}" CornerRadius="12" Padding="12,5" BorderBrush="#D4D4D8" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.FontSize="11" TextBlock.FontWeight="SemiBold"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="chip_bd" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
 <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="64"/>   <!-- Header   -->
-            <RowDefinition Height="1"/>    <!-- Separator -->
-            <RowDefinition Height="*"/>    <!-- Chat area -->
-            <RowDefinition Height="Auto"/> <!-- Input bar -->
+            <RowDefinition Height="64"/>   <!-- Header         -->
+            <RowDefinition Height="1"/>    <!-- Separator      -->
+            <RowDefinition Height="*"/>    <!-- Chat area      -->
+            <RowDefinition Height="Auto"/> <!-- Command palette -->
+            <RowDefinition Height="Auto"/> <!-- Input bar      -->
         </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
 
         <!-- ═══════════════════════════════════════════════════════════
              HEADER — T3Lab badge + title
         ═══════════════════════════════════════════════════════════ -->
-        <Grid Grid.Row="0" Background="#F4F4F6">
+        <Grid Grid.Row="0" Grid.ColumnSpan="2" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -1200,18 +1342,56 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="T3Lab Assistant" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                    <!-- AI / LOCAL status badge -->
-                    <Border x:Name="ai_status_badge"
-                            CornerRadius="3" Padding="14,8"
-                            Margin="8,2,0,0" VerticalAlignment="Center"
-                            Visibility="Collapsed" Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="0,1,0,0">
-                        <TextBlock x:Name="ai_status_text"
-                                   FontSize="9" FontWeight="Bold" Foreground="White"/>
-                    </Border>
                 </StackPanel>
-                <TextBlock Text="Chatbox AI cho T3Lab Tools — Tiếng Việt &amp; English"
-                           FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
+
+            <!-- Provider selector pill — always visible, shows active provider or "Set up AI" -->
+            <Button x:Name="ai_status_badge"
+                    Grid.Column="1"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    WindowChrome.IsHitTestVisibleInChrome="True"
+                    Visibility="Visible"
+                    Height="32" Padding="12,0,10,0"
+                    Click="ai_badge_clicked"
+                    Cursor="Hand"
+                    ToolTip="Click to switch AI provider">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="pill"
+                                CornerRadius="16"
+                                Background="White"
+                                BorderBrush="#E6E6EA"
+                                BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect ShadowDepth="1" Direction="270" Color="#18181B" Opacity="0.06" BlurRadius="4"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="pill" Property="BorderBrush" Value="#18181B"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="pill" Property="Background" Value="#F4F4F6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse x:Name="ai_provider_dot" Width="8" Height="8" Fill="#A1A1AA" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ai_status_text"
+                               Text="Set up AI"
+                               FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
+                               Foreground="#27272A" VerticalAlignment="Center"/>
+                    <Path Data="M0,0 L4,4 L8,0"
+                          Stroke="#71717A" StrokeThickness="1.5"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                          Width="8" Height="5" Stretch="Uniform"
+                          Margin="5,0,0,0" VerticalAlignment="Center"
+                          IsHitTestVisible="False"/>
+                </StackPanel>
+            </Button>
 
             <!-- Window control buttons -->
             <StackPanel Grid.Column="2" Orientation="Horizontal"
@@ -1232,6 +1412,14 @@
                         Click="reset_chat_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="↺" FontSize="15" FontWeight="Bold" Foreground="#71717A"/>
+                </Button>
+                <!-- Settings sidebar toggle -->
+                <Button x:Name="btn_settings"
+                        Style="{StaticResource WinCtrlButton}"
+                        ToolTip="AI Settings"
+                        Click="settings_btn_clicked"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                 </Button>
                 <!-- Minimize -->
                 <Button x:Name="btn_minimize"
@@ -1258,82 +1446,684 @@
         </Grid>
 
         <!-- Header separator -->
-        <Border Grid.Row="1" Background="#DCDCE0"/>
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Background="#DCDCE0"/>
 
         <!-- ═══════════════════════════════════════════════════════════
              CHAT AREA
         ═══════════════════════════════════════════════════════════ -->
-        <ScrollViewer Grid.Row="2" x:Name="chat_scroll"
-                      VerticalScrollBarVisibility="Auto"
-                      HorizontalScrollBarVisibility="Disabled"
-                      Background="#F4F4F6"
-                      Padding="16,12,16,8">
-            <StackPanel x:Name="chat_history_panel" Margin="0,0,0,4">
+        <Grid Grid.Row="2" Grid.Column="0">
+            <ScrollViewer x:Name="chat_scroll"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Background="#F4F4F6"
+                          Padding="16,12,16,8">
+                <StackPanel x:Name="chat_history_panel" Margin="0,0,0,4">
 
-                <!-- Welcome bubble (static, always shown) -->
-                <Grid Margin="0,0,60,12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                    <!-- Dynamic Welcome Greeting -->
+                    <Grid x:Name="welcome_greeting_panel" Margin="4,16,4,20" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="✳" FontSize="20" Foreground="#EA580C" FontWeight="Bold"
+                                       FontFamily="Hanken Grotesk" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="welcome_greeting_text" Text="Good afternoon, Thạnh"
+                                       FontSize="20" Foreground="#27272A" FontFamily="Georgia"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
 
-                    <!-- T3 Avatar -->
-                    <Border Grid.Column="0" Width="34" Height="34"
-                            CornerRadius="17" Background="#18181B"
-                            Margin="0,2,10,0" VerticalAlignment="Top">
-                        <TextBlock Text="T3" FontSize="11" FontWeight="Bold" Foreground="White"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+            <ProgressBar x:Name="top_loading_bar" Height="2.5" Style="{StaticResource T3ProgressBar}" IsIndeterminate="True" Visibility="Collapsed" VerticalAlignment="Top"/>
+        </Grid>
 
-                    <!-- Welcome message bubble -->
-                    <Border Grid.Column="1" Background="White"
-                            CornerRadius="3,10,10,10"
-                            Padding="14,10"
-                            BorderBrush="#E6E6EA" BorderThickness="1">
+
+        <!-- ═══════════════════════════════════════════════════════════
+             SETTINGS SIDEBAR — toggle with gear button
+        ═══════════════════════════════════════════════════════════ -->
+        <Border x:Name="settings_sidebar"
+                Grid.Row="2" Grid.Column="1"
+                Width="240"
+                Background="#F8FAFC"
+                BorderBrush="#E6E6EA" BorderThickness="1,0,0,0"
+                Visibility="Collapsed">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="14,16,14,20">
+
+                    <!-- ── User Profile ── -->
+                    <TextBlock Text="USER NAME" FontSize="9" FontWeight="SemiBold"
+                               Foreground="#A1A1AA" Margin="2,0,0,8"
+                               FontFamily="Hanken Grotesk"/>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="sidebar_username_box" Grid.Column="0"
+                                 Height="32" Margin="0,0,6,0"
+                                 FontFamily="Hanken Grotesk" FontSize="12"
+                                 Padding="10,0" BorderBrush="#E6E6EA"
+                                 BorderThickness="1" Background="White"
+                                 VerticalContentAlignment="Center"/>
+                        <Button x:Name="sidebar_save_username_btn" Grid.Column="1"
+                                Height="32" MinWidth="52" Cursor="Hand"
+                                Click="sidebar_save_username_clicked"
+                                ToolTip="Save user name">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="saveusr_bg" Background="#18181B"
+                                            CornerRadius="8" Padding="10,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="saveusr_bg" Property="Background" Value="#3F3F46"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="Save" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="White" FontFamily="Hanken Grotesk"/>
+                        </Button>
+                    </Grid>
+
+                    <Border Height="1" Background="#E6E6EA" Margin="0,0,0,14"/>
+
+                    <!-- ── Provider ── -->
+                    <TextBlock Text="PROVIDER" FontSize="9" FontWeight="SemiBold"
+                               Foreground="#A1A1AA" Margin="2,0,0,8"
+                               FontFamily="Hanken Grotesk"/>
+
+                    <!-- Provider ComboBox with brand-color dot overlay -->
+                    <Grid Margin="0,0,0,14">
+                        <ComboBox x:Name="sidebar_provider_combo"
+                                  Style="{StaticResource SidebarComboBox}"
+                                  Padding="26,0,10,0"
+                                  SelectionChanged="sidebar_provider_changed">
+                            <ComboBoxItem Tag="claude">Claude (Anthropic)</ComboBoxItem>
+                            <ComboBoxItem Tag="openai">GPT (OpenAI)</ComboBoxItem>
+                            <ComboBoxItem Tag="deepseek">DeepSeek</ComboBoxItem>
+                            <ComboBoxItem Tag="ollama">Local (Ollama)</ComboBoxItem>
+                            <ComboBoxItem Tag="lmstudio">LM Studio</ComboBoxItem>
+                        </ComboBox>
+                        <!-- Brand color dot — updated from code when provider changes -->
+                        <Ellipse x:Name="provider_brand_dot"
+                                 Width="8" Height="8" Fill="#D97757"
+                                 HorizontalAlignment="Left" VerticalAlignment="Center"
+                                 Margin="12,0,0,0" IsHitTestVisible="False"/>
+                    </Grid>
+
+                    <Border Height="1" Background="#E6E6EA" Margin="0,0,0,14"/>
+
+                    <!-- ── Model ── -->
+                    <Grid Margin="2,0,0,8">
+                        <TextBlock Text="MODEL" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock x:Name="model_saved_hint" Text=""
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#10B981" FontFamily="Hanken Grotesk"/>
+                    </Grid>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="sidebar_model_combo" Grid.Column="0"
+                                  Style="{StaticResource SidebarComboBox}"
+                                  Margin="0,0,6,0"
+                                  SelectionChanged="sidebar_model_changed"/>
+                        <Button x:Name="sidebar_save_model_btn" Grid.Column="1"
+                                Height="32" MinWidth="52" Cursor="Hand"
+                                Click="sidebar_save_model_clicked"
+                                ToolTip="Save selected model as default">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="savemdl_bg" Background="#18181B"
+                                            CornerRadius="8" Padding="10,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="savemdl_bg" Property="Background" Value="#3F3F46"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter TargetName="savemdl_bg" Property="Background" Value="#E4E4E7"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="Save" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="White" FontFamily="Hanken Grotesk"/>
+                        </Button>
+                    </Grid>
+
+                    <Border Height="1" Background="#E6E6EA" Margin="0,0,0,16"/>
+
+                    <!-- ── API Key ── -->
+                    <TextBlock Text="API KEY" FontSize="9" FontWeight="SemiBold"
+                               Foreground="#A1A1AA" Margin="2,0,0,10"
+                               FontFamily="Hanken Grotesk"/>
+                    <TextBlock x:Name="sidebar_key_label" Text="Anthropic API Key"
+                               FontSize="11" Foreground="#71717A" Margin="2,0,0,6"
+                               FontFamily="Hanken Grotesk"/>
+                    <TextBox x:Name="sidebar_api_key_box"
+                             Height="36" Margin="0,0,0,8"
+                             FontFamily="Hanken Grotesk" FontSize="12"
+                             Padding="10,0" BorderBrush="#E6E6EA"
+                             BorderThickness="1" Background="White"
+                             VerticalContentAlignment="Center"/>
+                    <Button x:Name="sidebar_save_key_btn"
+                            Height="34" Margin="0,0,0,16"
+                            Cursor="Hand" Click="sidebar_save_key_clicked">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="save_bg" Background="#18181B"
+                                        CornerRadius="10" Padding="12,0">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="save_bg" Property="Background" Value="#3F3F46"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="save_bg" Property="Background" Value="#E4E4E7"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <TextBlock Text="Save Key" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="White" FontFamily="Hanken Grotesk"/>
+                    </Button>
+
+                    <!-- ── Local Server Host (LM Studio / Ollama only) ── -->
+                    <StackPanel x:Name="lmstudio_host_panel" Visibility="Collapsed" Margin="0,0,0,0">
+                        <TextBlock Text="SERVER URL" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" Margin="2,0,0,6"
+                                   FontFamily="Hanken Grotesk"/>
+                        <TextBlock x:Name="sidebar_host_label" Text="LM Studio base URL"
+                                   FontSize="11" Foreground="#71717A" Margin="2,0,0,6"
+                                   FontFamily="Hanken Grotesk"/>
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="sidebar_host_box" Grid.Column="0"
+                                     Height="32" Margin="0,0,6,0"
+                                     FontFamily="Hanken Grotesk" FontSize="11"
+                                     Padding="10,0" BorderBrush="#E6E6EA"
+                                     BorderThickness="1" Background="White"
+                                     VerticalContentAlignment="Center"
+                                     Text="http://localhost:1234"/>
+                            <Button x:Name="sidebar_save_host_btn" Grid.Column="1"
+                                    Height="32" MinWidth="52" Cursor="Hand"
+                                    Click="sidebar_save_host_clicked"
+                                    ToolTip="Save server URL">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="savehost_bg" Background="#18181B"
+                                                CornerRadius="8" Padding="10,0">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="savehost_bg" Property="Background" Value="#3F3F46"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="Save" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="White" FontFamily="Hanken Grotesk"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <Border Height="1" Background="#E6E6EA" Margin="0,0,0,16"/>
+
+                    <!-- ── Status ── -->
+                    <TextBlock Text="STATUS" FontSize="9" FontWeight="SemiBold"
+                               Foreground="#A1A1AA" Margin="2,0,0,10"
+                               FontFamily="Hanken Grotesk"/>
+                    <StackPanel Orientation="Horizontal" Margin="2,0,0,6">
+                        <Ellipse x:Name="status_dot_claude" Width="6" Height="6"
+                                 Fill="#E6E6EA" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                        <TextBlock Text="Claude" FontSize="11" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Width="52"/>
+                        <TextBlock x:Name="status_text_claude" Text="—"
+                                   FontSize="11" Foreground="#A1A1AA"
+                                   FontFamily="Hanken Grotesk"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="2,0,0,6">
+                        <Ellipse x:Name="status_dot_openai" Width="6" Height="6"
+                                 Fill="#E6E6EA" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                        <TextBlock Text="OpenAI" FontSize="11" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Width="52"/>
+                        <TextBlock x:Name="status_text_openai" Text="—"
+                                   FontSize="11" Foreground="#A1A1AA"
+                                   FontFamily="Hanken Grotesk"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="2,0,0,6">
+                        <Ellipse x:Name="status_dot_ollama" Width="6" Height="6"
+                                 Fill="#E6E6EA" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                        <TextBlock Text="Ollama" FontSize="11" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Width="52"/>
+                        <TextBlock x:Name="status_text_ollama" Text="—"
+                                   FontSize="11" Foreground="#A1A1AA"
+                                   FontFamily="Hanken Grotesk"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="2,0,0,6">
+                        <Ellipse x:Name="status_dot_lmstudio" Width="6" Height="6"
+                                 Fill="#E6E6EA" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                        <TextBlock Text="LM Studio" FontSize="11" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Width="52"/>
+                        <TextBlock x:Name="status_text_lmstudio" Text="—"
+                                   FontSize="11" Foreground="#A1A1AA"
+                                   FontFamily="Hanken Grotesk"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="2,0,0,0">
+                        <Ellipse x:Name="status_dot_deepseek" Width="6" Height="6"
+                                 Fill="#E6E6EA" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                        <TextBlock Text="DeepSeek" FontSize="11" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Width="52"/>
+                        <TextBlock x:Name="status_text_deepseek" Text="—"
+                                   FontSize="11" Foreground="#A1A1AA"
+                                   FontFamily="Hanken Grotesk"/>
+                    </StackPanel>
+
+                    <!-- Test connection -->
+                    <Border Height="1" Background="#E6E6EA" Margin="0,14,0,14"/>
+
+                    <Button x:Name="sidebar_test_btn"
+                            Height="32" Cursor="Hand"
+                            Click="sidebar_test_clicked">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="test_bg" Background="#F4F4F6"
+                                        CornerRadius="8" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" Padding="10,0">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="test_bg" Property="Background" Value="#EBEBEF"/>
+                                    </Trigger>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter TargetName="test_bg" Property="Background" Value="#F4F4F6"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8FB;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="10" Foreground="#71717A"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="Test Connection" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#52525B" FontFamily="Hanken Grotesk"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Test result -->
+                    <Border x:Name="sidebar_test_result_border"
+                            Visibility="Collapsed"
+                            CornerRadius="8" Padding="10,8"
+                            Margin="0,8,0,0"
+                            Background="#F0FDF4"
+                            BorderBrush="#BBF7D0" BorderThickness="1">
                         <StackPanel>
-                            <TextBlock Text="T3Lab Assistant" FontSize="10" FontWeight="Bold"
-                                       Foreground="#18181B" Margin="0,0,0,5"/>
-                            <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="#18181B"
-                                       LineHeight="20"
-                                       Text="Xin chào! Tôi là T3Lab Assistant. Tôi có thể:"/>
-                            <StackPanel Margin="0,6,0,0">
-                                <TextBlock FontSize="12" Foreground="#71717A"
-                                           Text="• Mở BatchOut và xuất sheet PDF/DWG/DWF..."/>
-                                <TextBlock FontSize="12" Foreground="#71717A" Margin="0,3,0,0"
-                                           Text="• Chạy ParaSync, Load Family, và các công cụ khác"/>
-                                <TextBlock FontSize="12" Foreground="#71717A" Margin="0,3,0,0"
-                                           Text="• Phân tích tài liệu PDF và hình ảnh đính kèm (RAG)"/>
-                                <TextBlock FontSize="12" Foreground="#71717A" Margin="0,3,0,0"
-                                           Text="• Trả lời câu hỏi về T3Lab và Revit"/>
-                            </StackPanel>
-                            <Separator Height="1" Background="#E6E6EA" Margin="0,8,0,6"/>
-                            <TextBlock FontSize="11" Foreground="#A1A1AA" FontStyle="Italic"
-                                       Text="Nhập lệnh bằng Tiếng Việt hoặc English — Enter để gửi. 📎 để đính kèm PDF/ảnh."/>
+                            <TextBlock x:Name="sidebar_test_label"
+                                       Text="Result" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="#15803D" FontFamily="Hanken Grotesk"
+                                       Margin="0,0,0,4"/>
+                            <TextBlock x:Name="sidebar_test_result"
+                                       Text="" TextWrapping="Wrap"
+                                       FontSize="11" Foreground="#166534"
+                                       FontFamily="Hanken Grotesk" LineHeight="16"/>
                         </StackPanel>
                     </Border>
-                </Grid>
 
-            </StackPanel>
-        </ScrollViewer>
+                    <!-- ── Agents ── -->
+                    <Border Height="1" Background="#E6E6EA" Margin="0,16,0,16"/>
+
+                    <TextBlock Text="AGENTS" FontSize="9" FontWeight="SemiBold"
+                               Foreground="#A1A1AA" Margin="2,0,0,10"
+                               FontFamily="Hanken Grotesk"/>
+
+                    <!-- Export Agent -->
+                    <StackPanel Margin="2,0,0,7">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="#10B981"
+                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Export Agent" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
+                        </StackPanel>
+                        <TextBlock Text="PDF/DWG/BatchOut export operations"
+                                   FontSize="10" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
+                    </StackPanel>
+                    <!-- Tools Agent -->
+                    <StackPanel Margin="2,0,0,7">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="#10B981"
+                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Tools Agent" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
+                        </StackPanel>
+                        <TextBlock Text="ParaSync, Load Family, Workset, DimText..."
+                                   FontSize="10" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
+                    </StackPanel>
+                    <!-- Revit Query Agent -->
+                    <StackPanel Margin="2,0,0,7">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="#3B82F6"
+                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Revit Query Agent" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
+                        </StackPanel>
+                        <TextBlock Text="View info, elements, families, statistics"
+                                   FontSize="10" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
+                    </StackPanel>
+                    <!-- Revit Create Agent -->
+                    <StackPanel Margin="2,0,0,7">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="#3B82F6"
+                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Revit Create Agent" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
+                        </StackPanel>
+                        <TextBlock Text="Walls, floors, rooms, grids, doors, beams"
+                                   FontSize="10" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
+                    </StackPanel>
+                    <!-- Revit Modify Agent -->
+                    <StackPanel Margin="2,0,0,7">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="#3B82F6"
+                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Revit Modify Agent" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
+                        </StackPanel>
+                        <TextBlock Text="Color, hide, isolate, tag, delete elements"
+                                   FontSize="10" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
+                    </StackPanel>
+                    <!-- Chat Agent -->
+                    <StackPanel Margin="2,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="#A1A1AA"
+                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Chat Agent" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
+                        </StackPanel>
+                        <TextBlock Text="General conversation and T3Lab help"
+                                   FontSize="10" Foreground="#71717A"
+                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
+                    </StackPanel>
+
+                    <!-- MCP note -->
+                    <Border CornerRadius="6" Padding="8,7"
+                            Margin="0,10,0,0"
+                            Background="#EFF6FF"
+                            BorderBrush="#BFDBFE" BorderThickness="1">
+                        <TextBlock TextWrapping="Wrap" FontSize="10"
+                                   FontFamily="Hanken Grotesk" Foreground="#1E40AF">
+                            <Run FontWeight="SemiBold">Revit Agents</Run>
+                            <Run> require the revit-mcp server running alongside Revit.</Run>
+                        </TextBlock>
+                    </Border>
+
+                    <!-- ── Available APIs ── -->
+                    <Border Height="1" Background="#E6E6EA" Margin="0,16,0,14"/>
+
+                    <Grid Margin="0,0,0,8">
+                        <TextBlock Text="AVAILABLE APIs" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center" Margin="2,0,0,0"/>
+                        <Button x:Name="btn_apis_toggle"
+                                HorizontalAlignment="Right"
+                                Height="20" Cursor="Hand"
+                                Click="apis_toggle_clicked">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="atog_bg" Background="Transparent"
+                                            CornerRadius="4" Padding="6,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="atog_bg" Property="Background" Value="#F1F5F9"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock x:Name="btn_apis_label" Text="Show"
+                                       FontSize="10" FontWeight="SemiBold"
+                                       Foreground="#3B82F6" FontFamily="Hanken Grotesk"/>
+                        </Button>
+                    </Grid>
+
+                    <!-- Collapsible API list -->
+                    <Border x:Name="apis_panel"
+                            Visibility="Collapsed"
+                            CornerRadius="6"
+                            Background="#F8FAFC"
+                            BorderBrush="#E2E8F0" BorderThickness="1"
+                            Margin="0,0,0,4">
+                        <TextBox x:Name="apis_text"
+                                 IsReadOnly="True"
+                                 TextWrapping="Wrap"
+                                 MaxHeight="260"
+                                 FontFamily="Consolas" FontSize="10"
+                                 Foreground="#374151"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="10,8"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Text="Loading..."/>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             COMMAND PALETTE (Row 3 — collapsible, above input bar)
+        ═══════════════════════════════════════════════════════════ -->
+        <Border x:Name="cmd_palette"
+                Grid.Row="3" Grid.ColumnSpan="2"
+                Visibility="Collapsed"
+                Background="White"
+                BorderBrush="#E6E6EA" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>   <!-- Header bar   -->
+                    <RowDefinition Height="Auto"/>   <!-- Category tabs -->
+                    <RowDefinition Height="230"/>    <!-- Command cards -->
+                </Grid.RowDefinitions>
+
+                <!-- ── Palette header ── -->
+                <Border Grid.Row="0" Background="#F8FAFC"
+                        BorderBrush="#E6E6EA" BorderThickness="0,0,0,1"
+                        Padding="16,8,12,8">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="&#xE8A1;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                       Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Command Reference" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#27272A" FontFamily="Hanken Grotesk"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text=" — click any command to insert it" FontSize="11"
+                                       Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button x:Name="btn_cmd_palette_close"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Style="{StaticResource IconButton}"
+                                Width="26" Height="26"
+                                Click="cmd_palette_close_clicked">
+                            <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="9" Foreground="#71717A"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- ── Category tabs ── -->
+                <Border Grid.Row="1" Background="White"
+                        BorderBrush="#E6E6EA" BorderThickness="0,0,0,1"
+                        Padding="14,7,14,7">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="btn_cat_export" Tag="export"
+                                Click="cmd_cat_clicked" Cursor="Hand"
+                                Height="27" Margin="0,0,6,0" Padding="12,3"
+                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
+                                BorderThickness="0" Background="#18181B" Foreground="White">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bg"
+                                            Background="{TemplateBinding Background}"
+                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE1DC;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock Text="Export" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btn_cat_tools" Tag="tools"
+                                Click="cmd_cat_clicked" Cursor="Hand"
+                                Height="27" Margin="0,0,6,0" Padding="12,3"
+                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
+                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bg"
+                                            Background="{TemplateBinding Background}"
+                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock Text="Tools" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btn_cat_query" Tag="query"
+                                Click="cmd_cat_clicked" Cursor="Hand"
+                                Height="27" Margin="0,0,6,0" Padding="12,3"
+                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
+                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock Text="Query" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btn_cat_create" Tag="create"
+                                Click="cmd_cat_clicked" Cursor="Hand"
+                                Height="27" Margin="0,0,6,0" Padding="12,3"
+                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
+                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE948;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock Text="Create" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btn_cat_modify" Tag="modify"
+                                Click="cmd_cat_clicked" Cursor="Hand"
+                                Height="27" Margin="0,0,6,0" Padding="12,3"
+                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
+                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}"
+                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8C6;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock Text="Modify" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btn_cat_ai" Tag="ai"
+                                Click="cmd_cat_clicked" Cursor="Hand"
+                                Height="27" Padding="12,3"
+                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
+                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="bg"
+                                            Background="{TemplateBinding Background}"
+                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8D4;" FontFamily="Segoe MDL2 Assets" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock Text="AI Chat" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Command cards (WrapPanel, built from Python) ── -->
+                <ScrollViewer Grid.Row="2"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <WrapPanel x:Name="cmd_cards_panel"
+                               Orientation="Horizontal"
+                               Margin="14,10,6,10"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
 
         <!-- ═══════════════════════════════════════════════════════════
              INPUT BAR & ACTION CENTER
         ═══════════════════════════════════════════════════════════ -->
-        <Border Grid.Row="3" Background="#F4F4F6"
+        <Border Grid.Row="4" Grid.ColumnSpan="2" Background="#F4F4F6"
                 BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
                 Padding="16,8,16,10">
             <StackPanel>
 
-                <!-- ── Suggested Actions Panel ── -->
-                <StackPanel x:Name="suggested_actions_container" Margin="0,0,0,8">
-                    <TextBlock Text="Suggested Actions" FontSize="10" FontWeight="SemiBold"
-                               Foreground="#71717A" Margin="4,0,0,4"/>
-                    <WrapPanel x:Name="suggested_actions_panel">
-                        <!-- Chips will be added dynamically -->
-                    </WrapPanel>
-                </StackPanel>
+
 
                 <!-- ── Attachment preview strip (hidden until files attached) ── -->
+
                 <Border x:Name="attachment_preview_border"
                         Visibility="Collapsed"
                         Background="#F4F4F6"
@@ -1366,20 +2156,21 @@
                         CornerRadius="21" Background="White">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>  <!-- Attach button -->
+                            <ColumnDefinition Width="Auto"/>  <!-- Attach button (locked) -->
                             <ColumnDefinition Width="*"/>     <!-- Text input -->
                             <ColumnDefinition Width="Auto"/>  <!-- Send button -->
                         </Grid.ColumnDefinitions>
 
-                        <!-- Attach button -->
+                        <!-- Attach button (feature locked / disabled) -->
                         <Button Grid.Column="0" x:Name="btn_attach"
                                  Style="{StaticResource IconButton}"
                                  Width="36" Height="36"
                                  Margin="3,0,0,0"
+                                 IsEnabled="False"
                                  Click="attach_clicked"
-                                 ToolTip="Đính kèm hình ảnh hoặc PDF">
+                                 ToolTip="Import file tạm khóa">
                             <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                                        Foreground="#71717A" VerticalAlignment="Center"
+                                        Foreground="#C4C4C8" VerticalAlignment="Center"
                                         HorizontalAlignment="Center"/>
                         </Button>
 

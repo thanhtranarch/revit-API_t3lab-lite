@@ -369,9 +369,9 @@ def _collect_door_refs(door):
 def element_id_int(elem_id):
     """Return the integer value of an ElementId — compatible with Revit 2025+."""
     try:
-        return elem_id.IntegerValue
+        return elem_id.Value          # Revit 2024+
     except AttributeError:
-        return int(str(elem_id))
+        return elem_id.IntegerValue   # Revit 2023 and earlier
 
 
 def _collect_facade_walls(doc, view, perimeter_tol):
@@ -659,7 +659,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                     param = dt.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME)
                     name = param.AsString() if param and param.AsString() else dt.Name
                 except Exception:
-                    name = "Type {}".format(dt.Id.IntegerValue)
+                    name = "Type {}".format(element_id_int(dt.Id))
                 self.cmb_dim_type.Items.Add(name)
                 try:
                     self.cmb_check_dim_type.Items.Add(name)
@@ -1148,11 +1148,11 @@ class AutoDimensionWindow(forms.WPFWindow):
 
             # ══ PHASE 2 (L2): Column String Dimensions ══════════════════════
             if all_cols:
-                col_ctr = {c.Id.IntegerValue: _elem_centroid(c, view) for c in all_cols}
+                col_ctr = {element_id_int(c.Id): _elem_centroid(c, view) for c in all_cols}
 
                 if check_mode:
                     for col in all_cols:
-                        cx, cy = col_ctr[col.Id.IntegerValue]
+                        cx, cy = col_ctr[element_id_int(col.Id)]
                         bb_c = col.get_BoundingBox(view)
                         if run_x:
                             ref_pos = []
@@ -1194,7 +1194,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                     # Per-element: dim each column individually to nearest grid
                     # so no column is missed when reference extraction fails for one.
                     for col in all_cols:
-                        cx, cy = col_ctr[col.Id.IntegerValue]
+                        cx, cy = col_ctr[element_id_int(col.Id)]
                         bb_c = col.get_BoundingBox(view)
                         if run_x:
                             ref_pos = []
@@ -1234,12 +1234,12 @@ class AutoDimensionWindow(forms.WPFWindow):
             # ══ PHASE 3 (L1): Inner Element String — windows + doors ════════
             inner_elems = windows + doors
             if inner_elems:
-                inner_ctr = {e.Id.IntegerValue: _elem_centroid(e, view)
+                inner_ctr = {element_id_int(e.Id): _elem_centroid(e, view)
                              for e in inner_elems}
 
                 if check_mode:
                     for elem in inner_elems:
-                        cx_e, cy_e = inner_ctr[elem.Id.IntegerValue]
+                        cx_e, cy_e = inner_ctr[element_id_int(elem.Id)]
                         bb = elem.get_BoundingBox(view)
                         if run_x:
                             ref_pos = []
@@ -1309,10 +1309,10 @@ class AutoDimensionWindow(forms.WPFWindow):
                     if run_x:
                         for row_y, row_elems in _group_elements_by_pos(
                             inner_elems,
-                            lambda e: inner_ctr[e.Id.IntegerValue][1],
+                            lambda e: inner_ctr[element_id_int(e.Id)][1],
                             GROUPING_TOL
                         ):
-                            xs = [inner_ctr[e.Id.IntegerValue][0] for e in row_elems]
+                            xs = [inner_ctr[element_id_int(e.Id)][0] for e in row_elems]
                             ref_pos = []
                             lg, rg = _flanking_grids(v_grids, min(xs), max(xs), 'X')
                             for g in (lg, rg):
@@ -1322,7 +1322,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                                         ref_pos.append((_grid_pos(g, 'X'), r))
                             for elem in row_elems:
                                 bb   = elem.get_BoundingBox(view)
-                                cx_e = inner_ctr[elem.Id.IntegerValue][0]
+                                cx_e = inner_ctr[element_id_int(elem.Id)][0]
                                 added = 0
                                 for rt, pos_fn in (
                                     (FamilyInstanceReferenceType.Left,
@@ -1352,10 +1352,10 @@ class AutoDimensionWindow(forms.WPFWindow):
                     if run_y:
                         for col_x, col_elems in _group_elements_by_pos(
                             inner_elems,
-                            lambda e: inner_ctr[e.Id.IntegerValue][0],
+                            lambda e: inner_ctr[element_id_int(e.Id)][0],
                             GROUPING_TOL
                         ):
-                            ys = [inner_ctr[e.Id.IntegerValue][1] for e in col_elems]
+                            ys = [inner_ctr[element_id_int(e.Id)][1] for e in col_elems]
                             ref_pos = []
                             bg, tg = _flanking_grids(h_grids, min(ys), max(ys), 'Y')
                             for g in (bg, tg):
@@ -1365,7 +1365,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                                         ref_pos.append((_grid_pos(g, 'Y'), r))
                             for elem in col_elems:
                                 bb   = elem.get_BoundingBox(view)
-                                cy_e = inner_ctr[elem.Id.IntegerValue][1]
+                                cy_e = inner_ctr[element_id_int(elem.Id)][1]
                                 added = 0
                                 for rt, pos_fn in (
                                     (FamilyInstanceReferenceType.Front,
@@ -1476,11 +1476,11 @@ class AutoDimensionWindow(forms.WPFWindow):
 
             # ══ PHASE 5 (L1): Lift String Dimensions ════════════════════════
             if lifts:
-                lift_ctr = {l.Id.IntegerValue: _elem_centroid(l, view) for l in lifts}
+                lift_ctr = {element_id_int(l.Id): _elem_centroid(l, view) for l in lifts}
 
                 if check_mode:
                     for lift in lifts:
-                        lx, ly = lift_ctr[lift.Id.IntegerValue]
+                        lx, ly = lift_ctr[element_id_int(lift.Id)]
                         bb_l = lift.get_BoundingBox(view)
                         if run_x:
                             ref_pos = []
@@ -1520,10 +1520,10 @@ class AutoDimensionWindow(forms.WPFWindow):
                     if run_x:
                         for row_y, row_lifts in _group_elements_by_pos(
                             lifts,
-                            lambda l: lift_ctr[l.Id.IntegerValue][1],
+                            lambda l: lift_ctr[element_id_int(l.Id)][1],
                             GROUPING_TOL
                         ):
-                            xs = [lift_ctr[l.Id.IntegerValue][0] for l in row_lifts]
+                            xs = [lift_ctr[element_id_int(l.Id)][0] for l in row_lifts]
                             ref_pos = []
                             lg, rg = _flanking_grids(v_grids, min(xs), max(xs), 'X')
                             for g in (lg, rg):
@@ -1536,7 +1536,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                                                  FamilyInstanceReferenceType.Left,
                                                  FamilyInstanceReferenceType.Right)
                                 if r:
-                                    ref_pos.append((lift_ctr[lift.Id.IntegerValue][0], r))
+                                    ref_pos.append((lift_ctr[element_id_int(lift.Id)][0], r))
                             made = _chain(ref_pos, 'X', row_y, l1_feet,
                                           span_lo=v_span_lo, span_hi=v_span_hi,
                                           mirror_perp=y_min)
@@ -1546,10 +1546,10 @@ class AutoDimensionWindow(forms.WPFWindow):
                     if run_y:
                         for col_x, col_lifts in _group_elements_by_pos(
                             lifts,
-                            lambda l: lift_ctr[l.Id.IntegerValue][0],
+                            lambda l: lift_ctr[element_id_int(l.Id)][0],
                             GROUPING_TOL
                         ):
-                            ys = [lift_ctr[l.Id.IntegerValue][1] for l in col_lifts]
+                            ys = [lift_ctr[element_id_int(l.Id)][1] for l in col_lifts]
                             ref_pos = []
                             bg, tg = _flanking_grids(h_grids, min(ys), max(ys), 'Y')
                             for g in (bg, tg):
@@ -1562,7 +1562,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                                                  FamilyInstanceReferenceType.Front,
                                                  FamilyInstanceReferenceType.Back)
                                 if r:
-                                    ref_pos.append((lift_ctr[lift.Id.IntegerValue][1], r))
+                                    ref_pos.append((lift_ctr[element_id_int(lift.Id)][1], r))
                             made = _chain(ref_pos, 'Y', col_x, -l1_feet,
                                           span_lo=h_span_lo, span_hi=h_span_hi,
                                           mirror_perp=x_max)

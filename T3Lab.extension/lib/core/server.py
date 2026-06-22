@@ -15,6 +15,8 @@ __title__   = "MCP Server"
 import threading
 import json
 import uuid
+
+from Snippets._compat import eid_value
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
     from urllib.parse import urlparse, parse_qs
@@ -309,6 +311,27 @@ class T3LabAIServer:
                     },
                     'required': ['element_id']
                 }
+            },
+            'revit_override_color': {
+                'name': 'revit_override_color',
+                'description': 'Override elements color in the active view',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'color': {
+                            'type': 'string',
+                            'description': 'Hex color code (e.g. #FF0000) or CSS color name (e.g. red, green, blue)'
+                        },
+                        'element_ids': {
+                            'type': 'array',
+                            'items': {
+                                'type': 'integer'
+                            },
+                            'description': 'Optional list of Revit element IDs. If omitted, applies to the currently selected elements.'
+                        }
+                    },
+                    'required': ['color']
+                }
             }
         }
 
@@ -422,7 +445,7 @@ class T3LabAIServer:
             view = doc.ActiveView
             return {
                 'name': view.Name,
-                'id': view.Id.IntegerValue,
+                'id': eid_value(view.Id),
                 'type': str(view.ViewType)
             }
 
@@ -432,7 +455,7 @@ class T3LabAIServer:
             for eid in selection:
                 elem = doc.GetElement(eid)
                 elements.append({
-                    'id': eid.IntegerValue,
+                    'id': eid_value(eid),
                     'name': elem.Name if hasattr(elem, 'Name') else str(elem),
                     'category': elem.Category.Name if elem.Category else 'Unknown'
                 })
@@ -459,7 +482,7 @@ class T3LabAIServer:
                     if view_type_filter is None or vtype == view_type_filter:
                         views.append({
                             'name': v.Name,
-                            'id': v.Id.IntegerValue,
+                            'id': eid_value(v.Id),
                             'type': vtype
                         })
             return {'count': len(views), 'views': views}
@@ -471,7 +494,7 @@ class T3LabAIServer:
                 sheets.append({
                     'name': s.Name,
                     'number': s.SheetNumber,
-                    'id': s.Id.IntegerValue
+                    'id': eid_value(s.Id)
                 })
             return {'count': len(sheets), 'sheets': sheets}
 
@@ -487,12 +510,113 @@ class T3LabAIServer:
                     except Exception:
                         pass
                 return {
-                    'id': elem.Id.IntegerValue,
+                    'id': eid_value(elem.Id),
                     'name': elem.Name if hasattr(elem, 'Name') else str(elem),
                     'category': elem.Category.Name if elem.Category else 'Unknown',
                     'parameters': params
                 }
             return {'error': 'Element not found'}
+
+        elif tool_name == 'revit_override_color':
+            color_str = arguments.get('color')
+            element_ids = arguments.get('element_ids')
+            
+            # If element_ids is omitted or empty, use the active selection
+            if not element_ids:
+                selection = uidoc.Selection.GetElementIds()
+                element_ids = [eid_value(eid) for eid in selection]
+                
+            if not element_ids:
+                return {'error': 'No elements specified and no elements are selected in Revit.'}
+                
+            # Parse color
+            r, g, b = 255, 0, 0 # default red
+            if color_str:
+                color_str = color_str.lower().strip()
+                css_colors = {
+                    'red': (255, 0, 0),
+                    'green': (0, 255, 0),
+                    'blue': (0, 0, 255),
+                    'orange': (255, 165, 0),
+                    'cyan': (0, 255, 255),
+                    'yellow': (255, 255, 0),
+                    'magenta': (255, 0, 255),
+                    'black': (0, 0, 0),
+                    'white': (255, 255, 255),
+                    'gray': (128, 128, 128),
+                    'grey': (128, 128, 128),
+                    'pink': (255, 192, 203),
+                    'purple': (128, 0, 128),
+                    'violet': (238, 130, 238),
+                }
+                if color_str in css_colors:
+                    r, g, b = css_colors[color_str]
+                elif color_str.startswith('#'):
+                    hex_val = color_str[1:]
+                    if len(hex_val) == 6:
+                        try:
+                            r = int(hex_val[0:2], 16)
+                            g = int(hex_val[2:4], 16)
+                            b = int(hex_val[4:6], 16)
+                        except ValueError:
+                            pass
+                    elif len(hex_val) == 3:
+                        try:
+                            r = int(hex_val[0]*2, 16)
+                            g = int(hex_val[1]*2, 16)
+                            b = int(hex_val[2]*2, 16)
+                        except ValueError:
+                            pass
+            
+            from Autodesk.Revit.DB import Color, OverrideGraphicSettings, ElementId, Transaction
+            revit_color = Color(r, g, b)
+            
+            # Find solid fill pattern for surface fill
+            solid_pattern_id = None
+            try:
+                from Autodesk.Revit.DB import FilteredElementCollector, FillPatternElement
+                fill_patterns = FilteredElementCollector(doc).OfClass(FillPatternElement)
+                for fp in fill_patterns:
+                    pattern = fp.GetFillPattern()
+                    if pattern and pattern.IsSolidFill:
+                        solid_pattern_id = fp.Id
+                        break
+            except Exception:
+                pass
+                
+            if solid_pattern_id is None:
+                solid_pattern_id = ElementId(-1)
+                
+            override_settings = OverrideGraphicSettings()
+            override_settings.SetProjectionLineColor(revit_color)
+            if solid_pattern_id != ElementId(-1):
+                try:
+                    override_settings.SetSurfaceForegroundPatternId(solid_pattern_id)
+                    override_settings.SetSurfaceForegroundPatternColor(revit_color)
+                    override_settings.SetCutForegroundPatternId(solid_pattern_id)
+                    override_settings.SetCutForegroundPatternColor(revit_color)
+                except Exception:
+                    pass
+            
+            view = doc.ActiveView
+            t = Transaction(doc, "T3Lab AI Override Color")
+            t.Start()
+            overridden_count = 0
+            for eid_val in element_ids:
+                try:
+                    eid = ElementId(int(eid_val))
+                    view.SetElementOverrides(eid, override_settings)
+                    overridden_count += 1
+                except Exception:
+                    pass
+            t.Commit()
+            
+            return {
+                'success': True,
+                'overridden_count': overridden_count,
+                'color': color_str or 'red',
+                'rgb': [r, g, b]
+            }
 
         return {'error': 'Tool not implemented'}
 

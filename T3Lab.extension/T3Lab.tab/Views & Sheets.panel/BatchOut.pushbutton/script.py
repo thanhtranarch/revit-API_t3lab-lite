@@ -57,6 +57,8 @@ lib_dir = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
+from Snippets._compat import eid_value
+
 try:
     from api_learner import SmartAPIAdapter, RevitAPILearner
     from api_updater import auto_check_and_update
@@ -910,7 +912,7 @@ class ExportManagerWindow(forms.WPFWindow):
                         if width_param and height_param:
                             width_mm = width_param.AsDouble() * 304.8
                             height_mm = height_param.AsDouble() * 304.8
-                            self._titleblock_size_cache[owner_view_id.IntegerValue] = (width_mm, height_mm)
+                            self._titleblock_size_cache[eid_value(owner_view_id)] = (width_mm, height_mm)
                 except:
                     continue
 
@@ -1003,7 +1005,7 @@ class ExportManagerWindow(forms.WPFWindow):
         Uses cached titleblock data for performance (batch loaded).
         """
         try:
-            sheet_id = sheet.Id.IntegerValue
+            sheet_id = eid_value(sheet.Id)
 
             # Check paper size cache first
             if sheet_id in self._paper_size_cache:
@@ -1062,7 +1064,7 @@ class ExportManagerWindow(forms.WPFWindow):
             # Add each export setup to the combo box
             for setup in collector:
                 try:
-                    setup_name = setup.Name if hasattr(setup, 'Name') else "Setup {}".format(setup.Id.IntegerValue)
+                    setup_name = setup.Name if hasattr(setup, 'Name') else "Setup {}".format(eid_value(setup.Id))
                     item = ComboBoxItem()
                     item.Content = setup_name
                     item.Tag = setup  # Store the setup object for later use
@@ -2369,12 +2371,12 @@ class ExportManagerWindow(forms.WPFWindow):
                                 param_value = str(param.AsDouble())
                             elif param.StorageType == DB.StorageType.ElementId:
                                 elem_id = param.AsElementId()
-                                if elem_id and elem_id.IntegerValue > 0:
+                                if elem_id and eid_value(elem_id) > 0:
                                     try:
                                         elem = self.doc.GetElement(elem_id)
                                         param_value = elem.Name if elem else ""
                                     except:
-                                        param_value = str(elem_id.IntegerValue)
+                                        param_value = str(eid_value(elem_id))
 
                         # Add to replacements dictionary
                         # Support both {ParamName} format
@@ -2446,7 +2448,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 phase_param = element.get_Parameter(DB.BuiltInParameter.VIEW_PHASE)
                 if phase_param:
                     phase_id = phase_param.AsElementId()
-                    if phase_id and phase_id.IntegerValue > 0:
+                    if phase_id and eid_value(phase_id) > 0:
                         phase = self.doc.GetElement(phase_id)
                         replacements["{Phase}"] = phase.Name if phase else ""
             except:
@@ -2456,7 +2458,7 @@ class ExportManagerWindow(forms.WPFWindow):
                 level_param = element.get_Parameter(DB.BuiltInParameter.VIEW_LEVEL)
                 if level_param:
                     level_id = level_param.AsElementId()
-                    if level_id and level_id.IntegerValue > 0:
+                    if level_id and eid_value(level_id) > 0:
                         level = self.doc.GetElement(level_id)
                         replacements["{Level}"] = level.Name if level else ""
             except:

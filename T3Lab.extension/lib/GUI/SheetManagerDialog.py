@@ -29,6 +29,8 @@ from System.Windows.Controls import Grid as WPFGrid
 from pyrevit import revit, DB, forms
 from Autodesk.Revit.DB import FilteredElementCollector, ViewSheet, Transaction
 
+from Snippets._compat import eid_value
+
 # Add Services/SheetManager directory to sys.path so we can import modules
 GUI_DIR = os.path.dirname(__file__)
 EXT_DIR = os.path.dirname(os.path.dirname(GUI_DIR))
@@ -370,7 +372,7 @@ class SheetManagerWindow(forms.WPFWindow):
                             "checked_by": s.checked_by,
                             "drawn_by": s.drawn_by,
                             "approved_by": s.approved_by,
-                            "id": s.id.IntegerValue
+                            "id": eid_value(s.id)
                         })
                     self.excel_service.export_sheets(sfd.FileName, data_to_export)
                     MessageBox.Show("Successfully exported sheets to Excel.", "Export Successful")
@@ -391,7 +393,7 @@ class SheetManagerWindow(forms.WPFWindow):
                     t = Transaction(self.doc, "Excel Sync Sheet Parameters")
                     t.Start()
                     
-                    sheets_dict = {s.id.IntegerValue: s for s in self.all_sheets}
+                    sheets_dict = {eid_value(s.id): s for s in self.all_sheets}
                     success = 0
                     failed = 0
                     

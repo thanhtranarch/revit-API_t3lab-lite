@@ -242,7 +242,13 @@ def parse_command(user_input, history=None, model=None):
     if not model:
         return None
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    _sys = SYSTEM_PROMPT
+    try:
+        from Intelligence.t3lab_agent import build_system_prompt
+        _sys = build_system_prompt()
+    except Exception:
+        pass
+    messages = [{"role": "system", "content": _sys}]
 
     if history:
         for h in history[-8:]:

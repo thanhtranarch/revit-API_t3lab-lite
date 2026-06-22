@@ -27,6 +27,8 @@ from Autodesk.Revit.UI.Selection import ObjectType
 from pyrevit import revit, forms, script
 import sys
 
+from Snippets._compat import eid_value
+
 # Get current document
 doc = __revit__.ActiveUIDocument.Document
 uidoc = __revit__.ActiveUIDocument
@@ -53,7 +55,7 @@ def is_column(elem):
         if not category:
             return False
         
-        cat_id = category.Id.IntegerValue
+        cat_id = eid_value(category.Id)
         # Check if it's Structural Columns or Columns category
         return (cat_id == BuiltInCategory.OST_StructuralColumns.value__ or 
                 cat_id == BuiltInCategory.OST_Columns.value__)
@@ -70,7 +72,7 @@ def is_beam(elem):
         if not category:
             return False
         
-        cat_id = category.Id.IntegerValue
+        cat_id = eid_value(category.Id)
         # Check if it's Structural Framing category
         return cat_id == BuiltInCategory.OST_StructuralFraming.value__
     except:

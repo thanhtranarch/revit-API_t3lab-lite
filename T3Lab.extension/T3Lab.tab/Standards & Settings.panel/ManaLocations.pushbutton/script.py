@@ -67,6 +67,8 @@ SETTINGS_FILE = os.path.join(SCRIPT_DIR, 'session.json')
 if LIB_DIR not in sys.path:
     sys.path.insert(0, LIB_DIR)
 
+from Snippets._compat import eid_value
+
 # ==================================================
 # DATA MODEL
 # ==================================================
@@ -101,7 +103,7 @@ class ElementData(object):
     def __init__(self, element, doc, t):
         self._t        = t   # _TypeCache instance
         self.elem_id   = element.Id
-        self.id_val    = element.Id.IntegerValue
+        self.id_val    = eid_value(element.Id)
         self.category  = element.Category.Name if element.Category else "No Category"
         self.type_name = self._get_type_name(element)
         self.level_name, self.level_elev = self._get_level_info(element, doc)
@@ -318,7 +320,7 @@ class LocationManagerHandler(IExternalEventHandler):
             if not loc:
                 continue
             try:
-                cat_int = e.Category.Id.IntegerValue if e.Category else -1
+                cat_int = eid_value(e.Category.Id) if e.Category else -1
             except Exception:
                 cat_int = -1
             if cat_int in skip_cats:
