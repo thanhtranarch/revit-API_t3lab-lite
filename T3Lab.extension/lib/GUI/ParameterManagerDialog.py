@@ -1772,7 +1772,7 @@ class ParameterManagerWindow(forms.WPFWindow):
 
     def _set_status(self, text):
         try:
-            self.txt_param_status.Text = text
+            self.txt_param_status_bar.Text = text
         except:
             pass
 

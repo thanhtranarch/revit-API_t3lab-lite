@@ -18,7 +18,7 @@ clr.AddReference('RevitAPIUI')
 
 import System
 from System.Collections.Generic import List
-from System.Windows import (Window, Thickness, CornerRadius, WindowStartupLocation, ResizeMode, FontWeights, WindowState)
+from System.Windows import (Window, Thickness, CornerRadius, WindowStartupLocation, ResizeMode, FontWeights, WindowState, GridLength, GridUnitType)
 from System.Windows.Controls import (RowDefinition, ColumnDefinition, StackPanel, DockPanel, Border, TextBlock, TextBox, Button,
                                       ComboBox, ComboBoxItem, CheckBox, RadioButton, Orientation,
                                       Dock, ScrollViewer, ScrollBarVisibility, SelectionMode, ListBox, Grid as WPFGrid)
@@ -380,7 +380,7 @@ def get_areas(vo=False):
 def get_spaces(vo=False):
     c = FilteredElementCollector(doc)
     if vo: c = FilteredElementCollector(doc, doc.ActiveView.Id)
-    return [e for e in c.OfCategory(BuiltInCategory.OST_Spaces).WhereElementIsNotElementType() if e.Area > 0]
+    return [e for e in c.OfCategory(BuiltInCategory.OST_MEPSpaces).WhereElementIsNotElementType() if e.Area > 0]
 
 def get_zones(vo=False):
     c = FilteredElementCollector(doc)
@@ -531,7 +531,7 @@ def get_cats():
         ("Pipe Fittings", BuiltInCategory.OST_PipeFitting),
         ("Duct Accessories", BuiltInCategory.OST_DuctAccessory),
         ("Duct Fittings", BuiltInCategory.OST_DuctFitting),
-        ("Sprinklers", BuiltInCategory.OST_Sprinkler),
+        ("Sprinklers", BuiltInCategory.OST_Sprinklers),
     ]
     return sorted(cats, key=lambda x: x[0])
 
@@ -609,7 +609,7 @@ def get_categories():
         BuiltInCategory.OST_FireAlarmDevices, BuiltInCategory.OST_LightingDevices, BuiltInCategory.OST_NurseCallDevices,
         BuiltInCategory.OST_SecurityDevices, BuiltInCategory.OST_TelephoneDevices, BuiltInCategory.OST_PipeAccessory,
         BuiltInCategory.OST_PipeFitting, BuiltInCategory.OST_DuctAccessory, BuiltInCategory.OST_DuctFitting,
-        BuiltInCategory.OST_Sprinkler,
+        BuiltInCategory.OST_Sprinklers,
     ]
     for bic in bics:
         try:
@@ -1267,7 +1267,7 @@ class ContainsManagerWindow(forms.WPFWindow):
         # Bind Tab 1 events
         self.tab1_rb_whole.Checked += self._t1_scope
         self.tab1_rb_view.Checked += self._t1_scope
-        self.tab1_type_cb.SelectionChanged += self._t1_type
+        # NOTE: tab1_type_cb.SelectionChanged is wired after _t1_init_combo() below
         self.tab1_sp_search.TextChanged += self._t1_sp_ss
         self.tab1_sp_all_btn.Click += self._t1_sp_all
         self.tab1_sp_clr_btn.Click += self._t1_sp_clr
@@ -1341,6 +1341,8 @@ class ContainsManagerWindow(forms.WPFWindow):
         
         # Load Initial Data
         self._t1_init_combo()
+        # Wire type combobox AFTER init so first Items.Add doesn't trigger early load
+        self.tab1_type_cb.SelectionChanged += self._t1_type
         self._t1_load()
         self._t2_load_data()
         
@@ -1478,12 +1480,11 @@ class ContainsManagerWindow(forms.WPFWindow):
         bd.BorderThickness = Thickness(0,0,0,1)
         
         gp = WPFGrid()
-        gp.ColumnDefinitions.Add(ColumnDefinition())  # 30
-        gp.ColumnDefinitions.Add(ColumnDefinition())  # 150
-        gp.ColumnDefinitions.Add(ColumnDefinition())  # 180
-        gp.ColumnDefinitions.Add(ColumnDefinition())  # 180
-        gp.ColumnDefinitions.Add(ColumnDefinition())  # *
-        gp.ColumnDefinitions.Add(ColumnDefinition())  # 65
+        _star = GridLength(1, GridUnitType.Star)
+        for w in (30, 150, 180, 180, None, 65):
+            cd = ColumnDefinition()
+            cd.Width = _star if w is None else GridLength(w)
+            gp.ColumnDefinitions.Add(cd)
         
         cb = CheckBox()
         cb.IsChecked = grp.is_selected
@@ -1497,38 +1498,38 @@ class ContainsManagerWindow(forms.WPFWindow):
         
         c_lbl = TextBlock()
         c_lbl.Text = grp.category_name
-        c_lbl.Width = 150
         c_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
+        c_lbl.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
         c_lbl.Margin = Thickness(4,0,0,0)
         WPFGrid.SetColumn(c_lbl, 1)
         gp.Children.Add(c_lbl)
-        
+
         f_lbl = TextBlock()
         f_lbl.Text = grp.family_name
-        f_lbl.Width = 180
         f_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
         f_lbl.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+        f_lbl.Margin = Thickness(4,0,0,0)
         WPFGrid.SetColumn(f_lbl, 2)
         gp.Children.Add(f_lbl)
-        
+
         t_lbl = TextBlock()
         t_lbl.Text = grp.type_name
-        t_lbl.Width = 180
         t_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
         t_lbl.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+        t_lbl.Margin = Thickness(4,0,0,0)
         WPFGrid.SetColumn(t_lbl, 3)
         gp.Children.Add(t_lbl)
-        
+
         v_lbl = TextBlock()
         v_lbl.Text = grp.get_define_value(self.t1_define_params, self.t1_define_separator)
         v_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
         v_lbl.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+        v_lbl.Margin = Thickness(4,0,0,0)
         WPFGrid.SetColumn(v_lbl, 4)
         gp.Children.Add(v_lbl)
-        
+
         cnt = TextBlock()
         cnt.Text = str(grp.count)
-        cnt.Width = 65
         cnt.VerticalAlignment = System.Windows.VerticalAlignment.Center
         cnt.HorizontalAlignment = System.Windows.HorizontalAlignment.Center
         WPFGrid.SetColumn(cnt, 5)
@@ -2060,10 +2061,10 @@ class ContainsManagerWindow(forms.WPFWindow):
         bd = Border()
         bd.Background = brush(PRIMARY)
         bd.Padding = Thickness(4, 6, 4, 6)
-        
+
         sp = StackPanel()
         sp.Orientation = Orientation.Horizontal
-        
+
         # Header checkbox acts as select all/none
         cb_all = CheckBox()
         cb_all.Width = 28
@@ -2071,7 +2072,7 @@ class ContainsManagerWindow(forms.WPFWindow):
         cb_all.Checked += self._t2_sel_all_results
         cb_all.Unchecked += self._t2_sel_none_results
         sp.Children.Add(cb_all)
-        
+
         cols = [("Spatial Element", 200), ("Level", 100), ("Elements", 70),
                 ("Source Param", 150), ("Agg. Method", 110), ("Result Value", 200)]
         for label, w in cols:
@@ -2080,10 +2081,10 @@ class ContainsManagerWindow(forms.WPFWindow):
             t.Width = w
             t.FontSize = 12
             t.FontWeight = FontWeights.SemiBold
-            t.Foreground = brush(TEXT_DARK)
+            t.Foreground = brush(WHITE)
             t.Margin = Thickness(4, 0, 0, 0)
             sp.Children.Add(t)
-            
+
         bd.Child = sp
         return bd
 

@@ -1347,7 +1347,23 @@
                                         
                                         <ComboBox x:Name="tab1_type_cb" Grid.Row="2" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6"/>
                                         
-                                        <TextBox x:Name="tab1_sp_search" Grid.Row="3" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,6"/>
+                                        <Border Grid.Row="3" Margin="0,0,0,6" Height="36"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="18" Padding="10,0,10,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox x:Name="tab1_sp_search" Grid.Column="1"
+                                                         Style="{StaticResource T3InputField}" Tag="Search spatial elements…"
+                                                         Background="Transparent" BorderThickness="0" Padding="0"
+                                                         VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                            </Grid>
+                                        </Border>
                                         
                                         <ListBox x:Name="tab1_sp_list" Grid.Row="4" SelectionMode="Extended" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
                                         
@@ -1373,7 +1389,23 @@
                                         
                                         <TextBlock Grid.Row="0" Text="Select Category" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
                                         
-                                        <TextBox x:Name="tab1_cat_search" Grid.Row="1" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,6"/>
+                                        <Border Grid.Row="1" Margin="0,0,0,6" Height="36"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="18" Padding="10,0,10,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <TextBox x:Name="tab1_cat_search" Grid.Column="1"
+                                                         Style="{StaticResource T3InputField}" Tag="Search categories…"
+                                                         Background="Transparent" BorderThickness="0" Padding="0"
+                                                         VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                            </Grid>
+                                        </Border>
                                         
                                         <ListBox x:Name="tab1_cat_list" Grid.Row="2" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
                                         
@@ -1404,7 +1436,23 @@
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="Results" FontSize="13" FontWeight="Bold" Foreground="#18181B" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                            <TextBox x:Name="tab1_res_search" Grid.Column="1" Style="{StaticResource T3InputFieldSmall}"/>
+                                            <Border Grid.Column="1" Height="34"
+                                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                    CornerRadius="17" Padding="10,0,10,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox x:Name="tab1_res_search" Grid.Column="1"
+                                                             Style="{StaticResource T3InputField}" Tag="Search results…"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                </Grid>
+                                            </Border>
                                             <Button x:Name="tab1_btn_cfg" Grid.Column="2" Content="Configure Value..." Height="26" HorizontalAlignment="Right" Padding="10,0" Style="{StaticResource SecondaryButton}"/>
                                         </Grid>
 
@@ -1522,7 +1570,23 @@
                                                 <Button x:Name="tab2_sp_none_btn" Content="None" Width="55" Height="20" Margin="0,0,4,0"/>
                                                 <Button x:Name="tab2_sp_invert_btn" Content="Invert" Width="55" Height="20"/>
                                             </StackPanel>
-                                            <TextBox x:Name="tab2_spatial_search" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,4"/>
+                                            <Border Margin="0,0,0,4" Height="34"
+                                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                    CornerRadius="17" Padding="10,0,10,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox x:Name="tab2_spatial_search" Grid.Column="1"
+                                                             Style="{StaticResource T3InputField}" Tag="Search spatial elements…"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                </Grid>
+                                            </Border>
                                             <ScrollViewer x:Name="tab2_spatial_scroll" Height="140" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#DCDCE0" BorderThickness="1">
                                                 <StackPanel x:Name="tab2_spatial_panel" Background="White"/>
                                             </ScrollViewer>
@@ -1533,7 +1597,23 @@
                                                 <Button x:Name="tab2_cat_all_btn" Content="All" Width="55" Height="20" Margin="0,0,4,0"/>
                                                 <Button x:Name="tab2_cat_none_btn" Content="None" Width="55" Height="20"/>
                                             </StackPanel>
-                                            <TextBox x:Name="tab2_cat_search" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,4"/>
+                                            <Border Margin="0,0,0,4" Height="34"
+                                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                    CornerRadius="17" Padding="10,0,10,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox x:Name="tab2_cat_search" Grid.Column="1"
+                                                             Style="{StaticResource T3InputField}" Tag="Search categories…"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                </Grid>
+                                            </Border>
                                             <ScrollViewer x:Name="tab2_cat_scroll" Height="120" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#DCDCE0" BorderThickness="1">
                                                 <StackPanel x:Name="tab2_cat_panel" Background="White"/>
                                             </ScrollViewer>
@@ -1570,7 +1650,23 @@
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="Results" FontSize="13" FontWeight="Bold" Foreground="#18181B" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                            <TextBox x:Name="tab2_result_search" Grid.Column="1" Style="{StaticResource T3InputFieldSmall}"/>
+                                            <Border Grid.Column="1" Height="34"
+                                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                    CornerRadius="17" Padding="10,0,10,0">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBox x:Name="tab2_result_search" Grid.Column="1"
+                                                             Style="{StaticResource T3InputField}" Tag="Search results…"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                </Grid>
+                                            </Border>
                                             <TextBlock x:Name="tab2_lbl_info" Grid.Column="2" Text="No results" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" HorizontalAlignment="Right"/>
                                         </Grid>
 
@@ -1603,18 +1699,23 @@
                         </Grid>
                     </TabItem>
                 </TabControl>
-            </Grid>
 
             <!-- ═══ STATUS BAR ═══ -->
             <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0"
-                    BorderThickness="0,1,0,0" Padding="14,7">
-                <TextBlock x:Name="txt_status_bar" Text="Ready"
-                           FontSize="11" Foreground="#71717A" FontStyle="Italic"
-                           VerticalAlignment="Center"/>
+                    BorderThickness="0,1,0,0" Padding="14,6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="txt_status_bar" Grid.Column="0" Text="Ready"
+                               FontSize="11" Foreground="#71717A" FontStyle="Italic"
+                               VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
             </Border>
-
-        <!-- Copyright Notice overlay -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
         </Grid>
     </Border>
 </Window>

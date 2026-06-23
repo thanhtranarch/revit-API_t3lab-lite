@@ -34,9 +34,7 @@ clr.AddReference('WindowsBase')
 import System
 from System.Windows import Visibility, MessageBox, MessageBoxButton, MessageBoxImage
 from System.Windows.Controls import (
-    CheckBox as WPFCheckBox,
     ComboBoxItem,
-    ListBoxItem,
     TextBlock,
 )
 
@@ -890,6 +888,19 @@ def _render_preview(container, all_data):
 
 
 # ============================================================
+# SCHEDULE ITEM (DataGrid row model)
+# ============================================================
+
+class ScheduleItem(object):
+    def __init__(self, name, field_count, is_key, sched_id):
+        self.name        = name
+        self.field_count = str(field_count)
+        self.is_key_text = "Yes" if is_key else "No"
+        self.sched_id    = str(sched_id)
+        self.is_checked  = False
+
+
+# ============================================================
 # MAIN WINDOW CLASS
 # ============================================================
 
@@ -897,7 +908,8 @@ class ScheduleManagerWindow(forms.WPFWindow):
     """
     WPF host for ScheduleManager.xaml.
 
-    Excel Link tab  - export to / import from xlsx, apply changes back to Revit.
+    Schedules tab   - browse/search all schedules in a DataGrid.
+    Excel Link tab  - export/import Revit schedule to/from .xlsx.
     Duplicator tab  - batch-duplicate schedules with optional view template.
     """
 
@@ -906,6 +918,9 @@ class ScheduleManagerWindow(forms.WPFWindow):
         self._script_dir = script_dir
         self._revit      = revit_obj
         self._doc        = revit_obj.ActiveUIDocument.Document
+
+        # ---- Shared schedule item list ----
+        self._schedule_items = []    # [ScheduleItem, ...] used by both grids
 
         # ---- Excel Link state ----
         self._all_schedules   = []   # [(name, ViewSchedule), ...]
@@ -923,25 +938,35 @@ class ScheduleManagerWindow(forms.WPFWindow):
         self.btn_close_chrome.Click += self._close
 
         # Wire sidebar navigation
-        self.nav_excel_link.Click += self._nav_excel_link_clicked
-        self.nav_duplicator.Click += self._nav_duplicator_clicked
+        self.nav_excel_link.Click   += self._nav_excel_link_clicked
+        self.nav_duplicator.Click   += self._nav_duplicator_clicked
 
         # Wire Excel Link controls
-        self.cmb_schedule.SelectionChanged += self._on_schedule_changed
-        self.chk_multi_mode.Checked        += self._on_multi_mode_toggled
-        self.chk_multi_mode.Unchecked      += self._on_multi_mode_toggled
-        self.btn_preview.Click             += self._on_preview
-        self.btn_export.Click              += self._on_export
-        self.btn_import.Click              += self._on_import
-        self.btn_update.Click              += self._on_update
+        self.xl_search_box.TextChanged              += self._on_xl_search
+        self.xl_dg_schedules.SelectionChanged       += self._on_xl_sel_changed
+        self.xl_dg_schedules.PreviewMouseLeftButtonDown += self._dg_force_commit
+        self.xl_select_all_btn.Click                += self._on_xl_select_all
+        self.xl_clear_btn.Click                     += self._on_xl_clear
+        self.btn_preview.Click                += self._on_preview
+        self.btn_export.Click                 += self._on_export
+        self.btn_import.Click                 += self._on_import
+        self.btn_update.Click                 += self._on_update
 
         # Wire Duplicator controls
-        self.btn_dup_run.Click += self._on_dup_run
+        self.dup_search_box.TextChanged              += self._on_dup_search
+        self.dup_dg_schedules.SelectionChanged       += self._on_dup_sel_changed
+        self.dup_dg_schedules.PreviewMouseLeftButtonDown += self._dg_force_commit
+        self.dup_select_all_btn.Click                += self._on_dup_select_all
+        self.dup_clear_btn.Click                     += self._on_dup_clear
+        self.btn_dup_run.Click                       += self._on_dup_run
 
         # Populate data
         self._load_all_schedules()
         self._populate_dup_controls()
         self._set_status("Ready")
+
+        # Default to Excel Link tab
+        self.tab_main.SelectedItem = self.tab_excel_link
 
     # ------------------------------------------------------------------
     # WINDOW CHROME
@@ -980,12 +1005,130 @@ class ScheduleManagerWindow(forms.WPFWindow):
     def _nav_duplicator_clicked(self, sender, e):
         self.tab_main.SelectedItem = self.tab_duplicator
 
-    # XAML Click= aliases
     def nav_excel_link_clicked(self, sender, e):
         self._nav_excel_link_clicked(sender, e)
 
     def nav_duplicator_clicked(self, sender, e):
         self._nav_duplicator_clicked(sender, e)
+
+    # ------------------------------------------------------------------
+    # SHARED HELPER
+    # ------------------------------------------------------------------
+
+    def _dg_force_commit(self, sender, e):
+        """Commit any pending cell edit before processing a new click.
+        This makes the checkbox column respond on the first click
+        rather than requiring a second click to toggle."""
+        try:
+            sender.CommitEdit()
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # EXCEL LINK — SCHEDULE GRID
+    # ------------------------------------------------------------------
+
+    def _populate_xl_grid(self, filter_text=""):
+        items = self._schedule_items
+        if filter_text:
+            q = filter_text.lower()
+            items = [i for i in items if q in i.name.lower()]
+        try:
+            self.xl_dg_schedules.Items.Clear()
+            for item in items:
+                self.xl_dg_schedules.Items.Add(item)
+        except Exception:
+            pass
+        self._update_xl_count()
+
+    def _update_xl_count(self):
+        try:
+            total = self.xl_dg_schedules.Items.Count
+            sel   = sum(1 for i in self._schedule_items if i.is_checked)
+            if sel > 0:
+                self.xl_count_text.Text = "{} / {} selected".format(sel, total)
+            else:
+                self.xl_count_text.Text = "{} schedule(s)".format(total)
+        except Exception:
+            pass
+
+    def _on_xl_search(self, sender, e):
+        self._populate_xl_grid(self.xl_search_box.Text or "")
+
+    def _on_xl_sel_changed(self, sender, e):
+        self._update_xl_count()
+
+    def _on_xl_select_all(self, sender, e):
+        for item in self._schedule_items:
+            item.is_checked = True
+        try:
+            self.xl_dg_schedules.Items.Refresh()
+        except Exception:
+            pass
+        self._update_xl_count()
+
+    def _on_xl_clear(self, sender, e):
+        for item in self._schedule_items:
+            item.is_checked = False
+        try:
+            self.xl_dg_schedules.UnselectAll()
+            self.xl_dg_schedules.Items.Refresh()
+        except Exception:
+            pass
+        self._update_xl_count()
+
+    # ------------------------------------------------------------------
+    # DUPLICATOR — SCHEDULE GRID
+    # ------------------------------------------------------------------
+
+    def _populate_dup_grid(self, filter_text=""):
+        items = self._schedule_items
+        if filter_text:
+            q = filter_text.lower()
+            items = [i for i in items if q in i.name.lower()]
+        try:
+            self.dup_dg_schedules.Items.Clear()
+            for item in items:
+                self.dup_dg_schedules.Items.Add(item)
+        except Exception:
+            pass
+        self._update_dup_count()
+
+    def _update_dup_count(self):
+        try:
+            total = self.dup_dg_schedules.Items.Count
+            sel   = sum(1 for i in self._schedule_items if i.is_checked)
+            if sel > 0:
+                self.dup_count_text.Text = "{} / {} selected".format(sel, total)
+            else:
+                self.dup_count_text.Text = "{} schedule(s)".format(total)
+        except Exception:
+            pass
+
+    def _on_dup_search(self, sender, e):
+        self._populate_dup_grid(self.dup_search_box.Text or "")
+
+    def _on_dup_sel_changed(self, sender, e):
+        self._update_dup_count()
+
+    def _on_dup_select_all(self, sender, e):
+        for item in self._schedule_items:
+            item.is_checked = True
+        try:
+            self.dup_dg_schedules.Items.Refresh()
+        except Exception:
+            pass
+        self._update_dup_count()
+
+    def _on_dup_clear(self, sender, e):
+        for item in self._schedule_items:
+            item.is_checked = False
+        try:
+            self.dup_dg_schedules.UnselectAll()
+            self.dup_dg_schedules.Items.Refresh()
+        except Exception:
+            pass
+        self._update_dup_count()
 
     # ------------------------------------------------------------------
     # STATUS / INFO HELPERS
@@ -1022,32 +1165,31 @@ class ScheduleManagerWindow(forms.WPFWindow):
     # ------------------------------------------------------------------
 
     def _load_all_schedules(self):
-        """Populate cmb_schedule and pnl_schedule_list."""
+        """Load all schedules, build ScheduleItem list, populate both grids."""
         self._all_schedules = _get_all_schedules(self._doc)
-        self.cmb_schedule.Items.Clear()
-        self.pnl_schedule_list.Children.Clear()
-
-        for name, _ in self._all_schedules:
-            # Single-select ComboBox
-            ci = ComboBoxItem()
-            ci.Content = name
-            self.cmb_schedule.Items.Add(ci)
-
-            # Multi-select checklist
-            chk = WPFCheckBox()
-            chk.Content = name
+        self._schedule_items = []
+        for name, sch in self._all_schedules:
             try:
-                chk.Style = self.FindResource('T3CheckBox')
+                fc = sch.Definition.GetFieldCount()
             except Exception:
-                pass
-            chk.Margin = System.Windows.Thickness(0, 2, 0, 2)
-            self.pnl_schedule_list.Children.Add(chk)
+                fc = 0
+            try:
+                is_key = bool(sch.Definition.IsKeySchedule)
+            except Exception:
+                is_key = False
+            try:
+                sid = _eid_int(sch.Id)
+            except Exception:
+                sid = 0
+            self._schedule_items.append(ScheduleItem(name, fc, is_key, sid))
 
-        if self._all_schedules:
-            self.cmb_schedule.SelectedIndex = 0
+        self._populate_xl_grid()
+        self._populate_dup_grid()
 
         n = len(self._all_schedules)
-        self._set_info("{} schedule(s) found in the project.".format(n))
+        self._set_info(
+            "{} schedule(s) in project. Use Ctrl+Click or Shift+Click to select multiple.".format(n)
+        )
         self._set_status("Loaded {} schedule(s).".format(n))
 
     # ------------------------------------------------------------------
@@ -1055,48 +1197,15 @@ class ScheduleManagerWindow(forms.WPFWindow):
     # ------------------------------------------------------------------
 
     def _get_selected_schedules(self):
-        """
-        Return list of (name, ViewSchedule) for the active selection.
-        Single mode: ComboBox selection.
-        Multi mode: all checked items in pnl_schedule_list.
-        """
-        if self.chk_multi_mode.IsChecked:
-            selected = []
-            for chk in self.pnl_schedule_list.Children:
-                if isinstance(chk, WPFCheckBox) and chk.IsChecked:
-                    name  = chk.Content
-                    match = [sch for n, sch in self._all_schedules if n == name]
-                    if match:
-                        selected.append((name, match[0]))
-            return selected
-        else:
-            idx = self.cmb_schedule.SelectedIndex
-            if 0 <= idx < len(self._all_schedules):
-                return [self._all_schedules[idx]]
+        """Return list of (name, ViewSchedule) for all checked items."""
+        names = set(item.name for item in self._schedule_items if item.is_checked)
+        if not names:
             return []
+        return [(n, s) for n, s in self._all_schedules if n in names]
 
     # ------------------------------------------------------------------
     # EXCEL LINK - EVENT HANDLERS
     # ------------------------------------------------------------------
-
-    def _on_schedule_changed(self, sender, e):
-        """Clear stale preview / import state when user picks a new schedule."""
-        self._current_data    = None
-        self._imported_data   = None
-        self._pending_changes = []
-        self.btn_update.IsEnabled = False
-        try:
-            self.ctr_grid.Children.Clear()
-        except Exception:
-            pass
-        self._set_excel_status("")
-
-    def _on_multi_mode_toggled(self, sender, e):
-        """Show or hide the multi-schedule checklist (pnl_multi_list)."""
-        if self.chk_multi_mode.IsChecked:
-            self.pnl_multi_list.Visibility = Visibility.Visible
-        else:
-            self.pnl_multi_list.Visibility = Visibility.Collapsed
 
     def _on_preview(self, sender, e):
         selected = self._get_selected_schedules()
@@ -1123,7 +1232,7 @@ class ScheduleManagerWindow(forms.WPFWindow):
                 return
 
             # Cache for single-schedule change detection
-            if len(all_data) == 1 and not self.chk_multi_mode.IsChecked:
+            if len(all_data) == 1:
                 self._current_data = all_data[0]
 
             _render_preview(self.ctr_grid, all_data)
@@ -1169,7 +1278,7 @@ class ScheduleManagerWindow(forms.WPFWindow):
 
             _export_to_xlsx(save_path, all_data)
 
-            if len(all_data) == 1 and not self.chk_multi_mode.IsChecked:
+            if len(all_data) == 1:
                 self._current_data = all_data[0]
 
             self._set_progress(100)
@@ -1188,11 +1297,11 @@ class ScheduleManagerWindow(forms.WPFWindow):
             self._set_progress(0, False)
 
     def _on_import(self, sender, e):
-        if self.chk_multi_mode.IsChecked:
+        if sum(1 for i in self._schedule_items if i.is_checked) > 1:
             MessageBox.Show(
-                "Import is only supported in single-schedule mode.\n"
-                "Please uncheck 'Multi-Schedule' and select one schedule.",
-                "Multi-Mode Not Supported",
+                "Import only supports a single schedule.\n"
+                "Please select exactly one schedule from the list.",
+                "Single Schedule Required",
                 MessageBoxButton.OK, MessageBoxImage.Warning
             )
             return
@@ -1216,11 +1325,13 @@ class ScheduleManagerWindow(forms.WPFWindow):
 
             # Ensure we have live current data to diff against
             if not self._current_data:
-                idx = self.cmb_schedule.SelectedIndex
-                if 0 <= idx < len(self._all_schedules):
-                    _, sch = self._all_schedules[idx]
-                    self._current_data = _extract_schedule_data(
-                        sch, self._doc, keep_formatting=False)
+                checked = [i for i in self._schedule_items if i.is_checked]
+                if checked:
+                    match = [(n, s) for n, s in self._all_schedules if n == checked[0].name]
+                    if match:
+                        _, sch = match[0]
+                        self._current_data = _extract_schedule_data(
+                            sch, self._doc, keep_formatting=False)
 
             if not self._current_data:
                 self._set_excel_status(
@@ -1309,13 +1420,9 @@ class ScheduleManagerWindow(forms.WPFWindow):
     # ------------------------------------------------------------------
 
     def _populate_dup_controls(self):
-        """Fill lst_dup_schedules, cmb_dup_method, cmb_dup_template."""
-        self._dup_schedules = _get_all_schedules(self._doc)
-        self.lst_dup_schedules.Items.Clear()
-        for name, _ in self._dup_schedules:
-            item = ListBoxItem()
-            item.Content = name
-            self.lst_dup_schedules.Items.Add(item)
+        """Fill dup_dg_schedules, cmb_dup_method, cmb_dup_template."""
+        self._dup_schedules = self._all_schedules  # reuse already-loaded list
+        self._populate_dup_grid()
 
         self.cmb_dup_method.Items.Clear()
         for method in ("Duplicate", "As Dependent", "As Independent"):
@@ -1353,13 +1460,9 @@ class ScheduleManagerWindow(forms.WPFWindow):
             pass
 
     def _on_dup_run(self, sender, e):
-        # Collect selected schedules from list box
-        selected_items = [
-            self._dup_schedules[i]
-            for i in range(self.lst_dup_schedules.Items.Count)
-            if (i < len(self._dup_schedules)
-                and self.lst_dup_schedules.Items[i].IsSelected)
-        ]
+        # Collect checked schedules
+        sel_names = set(item.name for item in self._schedule_items if item.is_checked)
+        selected_items = [(n, s) for n, s in self._dup_schedules if n in sel_names]
         if not selected_items:
             MessageBox.Show("Please select at least one schedule to duplicate.",
                             "No Selection", MessageBoxButton.OK, MessageBoxImage.Warning)

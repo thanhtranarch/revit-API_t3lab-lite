@@ -249,8 +249,8 @@ def launch_parasync():
 def launch_loadfamily():
     """Open the Load Family dialog."""
     try:
-        from GUI.FamilyLoaderDialog import show_family_loader
-        show_family_loader()
+        from GUI.FamilyManagerDialog import show_family_manager
+        show_family_manager(default_tab=0)
         return True
     except Exception as ex:
         logger.error("Error launching LoadFamily: {}".format(ex))
@@ -260,8 +260,8 @@ def launch_loadfamily():
 def launch_loadfamily_cloud():
     """Open the Load Family (Cloud) dialog."""
     try:
-        from GUI.FamilyLoaderCloudDialog import show_family_loader_cloud
-        show_family_loader_cloud()
+        from GUI.FamilyManagerDialog import show_family_manager
+        show_family_manager(default_tab=0)
         return True
     except Exception as ex:
         logger.error("Error launching LoadFamily Cloud: {}".format(ex))
