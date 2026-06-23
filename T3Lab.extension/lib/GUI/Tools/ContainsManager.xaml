@@ -11,7 +11,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1127,55 +1127,133 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- Sidebar icon nav RadioButton -->
+        <Style x:Key="T3SidebarIconNav" TargetType="RadioButton">
+            <Setter Property="Width"           Value="42"/>
+            <Setter Property="Height"          Value="42"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#71717A"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#27272A"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Grid>
-        <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Background="#F8FAFC" ClipToBounds="True">
-            <Grid>
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+        <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="66"/>  <!-- Col 0: Sidebar icon rail -->
+                    <ColumnDefinition Width="*"/>   <!-- Col 1: Main content -->
+                </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="64"/> <!-- Row 0: Title Bar -->
-                    <RowDefinition Height="*"/>  <!-- Row 1: Content -->
+                    <RowDefinition Height="64"/>   <!-- Row 0: Title Bar -->
+                    <RowDefinition Height="*"/>    <!-- Row 1: Content -->
+                    <RowDefinition Height="Auto"/> <!-- Row 2: Status Bar -->
                 </Grid.RowDefinitions>
 
-                <!-- ═══ HEADER (ROW 0) ═══ -->
-                <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                <!-- ═══ SIDEBAR (COL 0, ROWSPAN 3) ═══ -->
+                <Border Grid.Column="0" Grid.RowSpan="3"
+                        Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Grid Margin="0,12,0,12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <!-- Logo mark -->
+                        <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                                Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                                HorizontalAlignment="Center" Margin="0,0,0,20">
+                            <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                                  Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
+                                  Width="20" Height="20" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <!-- Nav: Rooms to Elements -->
+                        <RadioButton Grid.Row="1" x:Name="nav_contains"
+                                     Style="{StaticResource T3SidebarIconNav}"
+                                     IsChecked="True" GroupName="ContainsNav"
+                                     Margin="0,0,0,6" ToolTip="Rooms to Elements">
+                            <TextBlock Text="&#xE909;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                        </RadioButton>
+                        <!-- Nav: Elements to Rooms -->
+                        <RadioButton Grid.Row="2" x:Name="nav_collector"
+                                     Style="{StaticResource T3SidebarIconNav}"
+                                     GroupName="ContainsNav"
+                                     Margin="0,0,0,6" ToolTip="Elements to Rooms">
+                            <TextBlock Text="&#xE8C9;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                        </RadioButton>
+                    </Grid>
+                </Border>
+
+                <!-- ═══ HEADER (ROW 0, COL 1) ═══ -->
+                <Border Grid.Row="0" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <!-- Title & Subtitle -->
-                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
-                            <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,8,4"/>
-                            <TextBlock Text="Contains Manager" FontSize="18" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center"/>
-                        </StackPanel>
-
-                        <!-- Navigation Tabs (RadioButton styled with T3TopNavTabStyle) -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom">
-                            <RadioButton x:Name="nav_contains" Content="Rooms to Elements" Style="{StaticResource T3TopNavTabStyle}" IsChecked="True"/>
-                            <RadioButton x:Name="nav_collector" Content="Elements to Rooms" Style="{StaticResource T3TopNavTabStyle}"/>
+                        <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                                    WindowChrome.IsHitTestVisibleInChrome="True">
+                            <TextBlock Text="Contains Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                            <TextBlock Text="Spatial elements and room data collector" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                         </StackPanel>
 
                         <!-- Window Controls (Chrome) -->
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,8,0"
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,16,0"
                                     WindowChrome.IsHitTestVisibleInChrome="True">
-                            <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize" Click="minimize_button_clicked">
+                            <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
                                 <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                             </Button>
-                            <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize" Click="maximize_button_clicked">
+                            <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
                                 <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                             </Button>
-                            <Button x:Name="btn_close" Style="{StaticResource CloseButton}" ToolTip="Close" Click="close_button_clicked">
+                            <Button x:Name="btn_close" Style="{StaticResource CloseButton}" ToolTip="Close">
                                 <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                             </Button>
                         </StackPanel>
+
+                        <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
                     </Grid>
                 </Border>
 
-                <!-- ═══ CONTENT (ROW 1) ═══ -->
-                <TabControl x:Name="tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent" Margin="0">
+                <!-- ═══ CONTENT (ROW 1, COL 1) ═══ -->
+                <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
                     <TabControl.Resources>
                         <Style TargetType="TabItem">
                             <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
@@ -1192,45 +1270,45 @@
                             </Grid.RowDefinitions>
 
                             <!-- Cards Summary -->
-                            <Border Grid.Row="0" Background="#F8FAFC" Padding="12,8" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Margin="0,0,0,10">
+                            <Border Grid.Row="0" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab1_card_rooms" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Rooms" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab1_card_rooms" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Rooms" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab1_card_areas" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Areas" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab1_card_areas" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Areas" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab1_card_spaces" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Spaces" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab1_card_spaces" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Spaces" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab1_card_zones" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Zones" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab1_card_zones" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Zones" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab1_card_masses" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Masses" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab1_card_masses" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Masses" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab1_card_scopeboxes" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="ScopeBox" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab1_card_scopeboxes" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="ScopeBox" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
                                             <TextBlock x:Name="tab1_card_found" Text="0" FontSize="16" FontWeight="Bold" Foreground="#10B981" HorizontalAlignment="Center"/>
                                             <TextBlock Text="Found" FontSize="9" Foreground="#10B981" HorizontalAlignment="Center"/>
@@ -1248,7 +1326,7 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Left: Spatial Elements -->
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,8,0">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10" Margin="0,0,8,0">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/> <!-- Title -->
@@ -1260,18 +1338,18 @@
                                             <RowDefinition Height="Auto"/> <!-- CheckBox Option -->
                                         </Grid.RowDefinitions>
                                         
-                                        <TextBlock Grid.Row="0" Text="Select Spatial Elements" FontSize="13" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="0" Text="Select Spatial Elements" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
                                         
                                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
                                             <RadioButton x:Name="tab1_rb_whole" Content="Whole Model" IsChecked="True" Margin="0,0,12,0" GroupName="Tab1Scope"/>
                                             <RadioButton x:Name="tab1_rb_view" Content="Active View" GroupName="Tab1Scope"/>
                                         </StackPanel>
                                         
-                                        <ComboBox x:Name="tab1_type_cb" Grid.Row="2" Height="28" Margin="0,0,0,6" VerticalContentAlignment="Center"/>
+                                        <ComboBox x:Name="tab1_type_cb" Grid.Row="2" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6"/>
                                         
-                                        <TextBox x:Name="tab1_sp_search" Grid.Row="3" Height="26" Margin="0,0,0,6" Padding="4,2" VerticalContentAlignment="Center" BorderBrush="#CBD5E1"/>
+                                        <TextBox x:Name="tab1_sp_search" Grid.Row="3" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,6"/>
                                         
-                                        <ListBox x:Name="tab1_sp_list" Grid.Row="4" SelectionMode="Extended" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,0,6"/>
+                                        <ListBox x:Name="tab1_sp_list" Grid.Row="4" SelectionMode="Extended" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
                                         
                                         <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,4">
                                             <Button x:Name="tab1_sp_all_btn" Content="Select All" Width="80" Height="24" Margin="0,0,4,0"/>
@@ -1283,7 +1361,7 @@
                                 </Border>
 
                                 <!-- Middle: Categories -->
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,8,0">
+                                <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10" Margin="0,0,8,0">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/> <!-- Title -->
@@ -1293,11 +1371,11 @@
                                             <RowDefinition Height="Auto"/> <!-- CheckBox Option -->
                                         </Grid.RowDefinitions>
                                         
-                                        <TextBlock Grid.Row="0" Text="Select Category" FontSize="13" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,6"/>
+                                        <TextBlock Grid.Row="0" Text="Select Category" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
                                         
-                                        <TextBox x:Name="tab1_cat_search" Grid.Row="1" Height="26" Margin="0,0,0,6" Padding="4,2" VerticalContentAlignment="Center" BorderBrush="#CBD5E1"/>
+                                        <TextBox x:Name="tab1_cat_search" Grid.Row="1" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,6"/>
                                         
-                                        <ListBox x:Name="tab1_cat_list" Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" Margin="0,0,0,6"/>
+                                        <ListBox x:Name="tab1_cat_list" Grid.Row="2" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
                                         
                                         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,4">
                                             <Button x:Name="tab1_cat_all_btn" Content="Select All" Width="80" Height="24" Margin="0,0,4,0"/>
@@ -1309,7 +1387,7 @@
                                 </Border>
 
                                 <!-- Right: Results Grid -->
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10">
+                                <Border Grid.Column="2" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/> <!-- Title & Controls -->
@@ -1325,13 +1403,13 @@
                                                 <ColumnDefinition Width="180"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Results" FontSize="13" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                            <TextBox x:Name="tab1_res_search" Grid.Column="1" Height="26" Padding="4,2" VerticalContentAlignment="Center" BorderBrush="#CBD5E1"/>
+                                            <TextBlock Grid.Column="0" Text="Results" FontSize="13" FontWeight="Bold" Foreground="#18181B" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <TextBox x:Name="tab1_res_search" Grid.Column="1" Style="{StaticResource T3InputFieldSmall}"/>
                                             <Button x:Name="tab1_btn_cfg" Grid.Column="2" Content="Configure Value..." Height="26" HorizontalAlignment="Right" Padding="10,0" Style="{StaticResource SecondaryButton}"/>
                                         </Grid>
 
                                         <!-- Row 1: Clickable Sorting Headers -->
-                                        <Border Grid.Row="1" Background="#F8FAFC" Padding="4" Margin="0,0,0,4" BorderThickness="1" BorderBrush="#E2E8F0">
+                                        <Border Grid.Row="1" Background="#F4F4F6" Padding="4" Margin="0,0,0,4" BorderThickness="1" BorderBrush="#DCDCE0">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="30"/>  <!-- CheckBox -->
@@ -1352,7 +1430,7 @@
                                         </Border>
 
                                         <!-- Row 2: ListBox Results -->
-                                        <ListBox x:Name="tab1_res_list" Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" SelectionMode="Extended"/>
+                                        <ListBox x:Name="tab1_res_list" Grid.Row="2" BorderBrush="#DCDCE0" BorderThickness="1" SelectionMode="Extended"/>
 
                                         <!-- Row 3: Status -->
                                         <TextBlock x:Name="tab1_status" Grid.Row="3" Text="Total number of elements found 0 | Selected 0" FontSize="11" Foreground="#475569" Margin="0,6,0,0"/>
@@ -1361,7 +1439,7 @@
                             </Grid>
 
                             <!-- Actions Footer -->
-                            <Border Grid.Row="2" Background="#F8FAFC" Padding="12,8" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
+                            <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
                                 <Grid>
                                     <TextBlock Text="Dang Quoc Truong (DQT) - Contains Manager" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -1387,27 +1465,27 @@
                             </Grid.RowDefinitions>
 
                             <!-- Cards Summary -->
-                            <Border Grid.Row="0" Background="#F8FAFC" Padding="12,8" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Margin="0,0,0,10">
+                            <Border Grid.Row="0" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1" Margin="0,0,0,10">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab2_card_rooms" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Rooms" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab2_card_rooms" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Rooms" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab2_card_areas" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Areas" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab2_card_areas" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Areas" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
-                                            <TextBlock x:Name="tab2_card_spaces" Text="0" FontSize="16" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Spaces" FontSize="9" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="tab2_card_spaces" Text="0" FontSize="16" FontWeight="Bold" Foreground="#18181B" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Spaces" FontSize="9" Foreground="#71717A" HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Border>
-                                    <Border Background="White" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6" Padding="10,4" Margin="0,0,6,0" MinWidth="85">
+                                    <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
                                             <TextBlock x:Name="tab2_card_found" Text="0" FontSize="16" FontWeight="Bold" Foreground="#10B981" HorizontalAlignment="Center"/>
                                             <TextBlock Text="Results" FontSize="9" Foreground="#10B981" HorizontalAlignment="Center"/>
@@ -1424,11 +1502,11 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Left Config ScrollViewer -->
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,8,0">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10" Margin="0,0,8,0">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <StackPanel>
                                             <!-- Spatial Type Selection -->
-                                            <TextBlock Text="Spatial Type" FontSize="12" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,4"/>
+                                            <TextBlock Text="Spatial Type" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,4"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                                 <RadioButton x:Name="tab2_rb_rooms" Content="Rooms" IsChecked="True" Margin="0,0,12,0" GroupName="Tab2Scope"/>
                                                 <RadioButton x:Name="tab2_rb_areas" Content="Areas" Margin="0,0,12,0" GroupName="Tab2Scope"/>
@@ -1438,45 +1516,45 @@
                                             <CheckBox x:Name="tab2_cb_view_only" Content="Active View Only" Margin="0,0,0,8"/>
 
                                             <!-- Spatial Elements checklist -->
-                                            <TextBlock Text="Spatial Elements" FontSize="12" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,2"/>
+                                            <TextBlock Text="Spatial Elements" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,4,0,2"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                                 <Button x:Name="tab2_sp_all_btn" Content="All" Width="55" Height="20" Margin="0,0,4,0"/>
                                                 <Button x:Name="tab2_sp_none_btn" Content="None" Width="55" Height="20" Margin="0,0,4,0"/>
                                                 <Button x:Name="tab2_sp_invert_btn" Content="Invert" Width="55" Height="20"/>
                                             </StackPanel>
-                                            <TextBox x:Name="tab2_spatial_search" Height="24" Margin="0,0,0,4" VerticalContentAlignment="Center" BorderBrush="#CBD5E1"/>
-                                            <ScrollViewer x:Name="tab2_spatial_scroll" Height="140" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#E2E8F0" BorderThickness="1">
+                                            <TextBox x:Name="tab2_spatial_search" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,4"/>
+                                            <ScrollViewer x:Name="tab2_spatial_scroll" Height="140" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#DCDCE0" BorderThickness="1">
                                                 <StackPanel x:Name="tab2_spatial_panel" Background="White"/>
                                             </ScrollViewer>
 
                                             <!-- Categories checklist -->
-                                            <TextBlock Text="Element Categories" FontSize="12" FontWeight="Bold" Foreground="#0F172A" Margin="0,4,0,2"/>
+                                            <TextBlock Text="Element Categories" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,4,0,2"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                                 <Button x:Name="tab2_cat_all_btn" Content="All" Width="55" Height="20" Margin="0,0,4,0"/>
                                                 <Button x:Name="tab2_cat_none_btn" Content="None" Width="55" Height="20"/>
                                             </StackPanel>
-                                            <TextBox x:Name="tab2_cat_search" Height="24" Margin="0,0,0,4" VerticalContentAlignment="Center" BorderBrush="#CBD5E1"/>
-                                            <ScrollViewer x:Name="tab2_cat_scroll" Height="120" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#E2E8F0" BorderThickness="1">
+                                            <TextBox x:Name="tab2_cat_search" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,4"/>
+                                            <ScrollViewer x:Name="tab2_cat_scroll" Height="120" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#DCDCE0" BorderThickness="1">
                                                 <StackPanel x:Name="tab2_cat_panel" Background="White"/>
                                             </ScrollViewer>
 
                                             <!-- Aggregation source -->
                                             <TextBlock Text="Source Parameter (from elements):" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
-                                            <ComboBox x:Name="tab2_cmb_source_param" Height="28" Margin="0,0,0,6" IsEditable="True" VerticalContentAlignment="Center"/>
+                                            <ComboBox x:Name="tab2_cmb_source_param" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6" IsEditable="True"/>
 
                                             <!-- Aggregation type -->
                                             <TextBlock Text="Aggregation Method:" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
-                                            <ComboBox x:Name="tab2_cmb_agg_type" Height="28" Margin="0,0,0,6" VerticalContentAlignment="Center"/>
+                                            <ComboBox x:Name="tab2_cmb_agg_type" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6"/>
 
                                             <!-- Aggregation target -->
                                             <TextBlock Text="Target Parameter (on Room/Area/Space):" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
-                                            <ComboBox x:Name="tab2_cmb_target_param" Height="28" Margin="0,0,0,6" IsEditable="True" VerticalContentAlignment="Center"/>
+                                            <ComboBox x:Name="tab2_cmb_target_param" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6" IsEditable="True"/>
                                         </StackPanel>
                                     </ScrollViewer>
                                 </Border>
 
                                 <!-- Right Results Grid -->
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10">
+                                <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/> <!-- Title & search -->
@@ -1491,9 +1569,9 @@
                                                 <ColumnDefinition Width="250"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="Results" FontSize="13" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                            <TextBox x:Name="tab2_result_search" Grid.Column="1" Height="26" Padding="4,2" VerticalContentAlignment="Center" BorderBrush="#CBD5E1"/>
-                                            <TextBlock x:Name="tab2_lbl_info" Grid.Column="2" Text="No results" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+                                            <TextBlock Grid.Column="0" Text="Results" FontSize="13" FontWeight="Bold" Foreground="#18181B" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                            <TextBox x:Name="tab2_result_search" Grid.Column="1" Style="{StaticResource T3InputFieldSmall}"/>
+                                            <TextBlock x:Name="tab2_lbl_info" Grid.Column="2" Text="No results" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" HorizontalAlignment="Right"/>
                                         </Grid>
 
                                         <!-- Select controls -->
@@ -1503,7 +1581,7 @@
                                         </StackPanel>
 
                                         <!-- Results content ScrollViewer containing programmatically filled StackPanel -->
-                                        <ScrollViewer x:Name="tab2_result_scroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" BorderBrush="#E2E8F0" BorderThickness="1">
+                                        <ScrollViewer x:Name="tab2_result_scroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" BorderBrush="#DCDCE0" BorderThickness="1">
                                             <StackPanel x:Name="tab2_result_panel" Background="White"/>
                                         </ScrollViewer>
                                     </Grid>
@@ -1511,7 +1589,7 @@
                             </Grid>
 
                             <!-- Actions Footer -->
-                            <Border Grid.Row="2" Background="#F8FAFC" Padding="12,8" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
+                            <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
                                 <Grid>
                                     <TextBlock Text="Dang Quoc Truong (DQT) - Room Data Collector" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -1526,9 +1604,17 @@
                     </TabItem>
                 </TabControl>
             </Grid>
-        </Border>
+
+            <!-- ═══ STATUS BAR ═══ -->
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0"
+                    BorderThickness="0,1,0,0" Padding="14,7">
+                <TextBlock x:Name="txt_status_bar" Text="Ready"
+                           FontSize="11" Foreground="#71717A" FontStyle="Italic"
+                           VerticalAlignment="Center"/>
+            </Border>
 
         <!-- Copyright Notice overlay -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,14" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
-    </Grid>
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+        </Grid>
+    </Border>
 </Window>

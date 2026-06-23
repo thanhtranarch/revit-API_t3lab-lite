@@ -1097,7 +1097,7 @@
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <TextBlock Text="Ribbon Name Manager - T3Lab" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Ribbon Name Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
                 <TextBlock x:Name="HeaderSub" Text="Ribbon Name Manager" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 

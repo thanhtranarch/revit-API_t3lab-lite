@@ -1077,57 +1077,148 @@
         </Style>
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
-        
-        <!-- Custom Scrollbar/DataGrid/CheckBox/RadioButton Styles from UIStandardShowcase go here if needed, 
+
+        <!-- Sidebar icon nav RadioButton -->
+        <Style x:Key="T3SidebarIconNav" TargetType="RadioButton">
+            <Setter Property="Width"               Value="42"/>
+            <Setter Property="Height"              Value="42"/>
+            <Setter Property="Background"          Value="Transparent"/>
+            <Setter Property="Foreground"          Value="#71717A"/>
+            <Setter Property="Cursor"              Value="Hand"/>
+            <Setter Property="BorderThickness"     Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle"    Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#27272A"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Custom Scrollbar/DataGrid/CheckBox/RadioButton Styles from UIStandardShowcase go here if needed,
              they will be auto-synced by sync_wpf_styles.py -->
     </Window.Resources>
 
-    <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="22" Background="#F8FAFC" ClipToBounds="True">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
         <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="64"/> <!-- Title Bar -->
-                <RowDefinition Height="*"/>  <!-- Main Content TabControl -->
+                <RowDefinition Height="64"/>   <!-- Title Bar -->
+                <RowDefinition Height="*"/>    <!-- Main Content TabControl -->
+                <RowDefinition Height="Auto"/> <!-- Status Bar -->
             </Grid.RowDefinitions>
 
-            <!-- ═══ HEADER (ROW 0) ═══ -->
-            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+            <!-- ═══ SIDEBAR (Column 0, RowSpan 3) ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0"
+                    WindowChrome.IsHitTestVisibleInChrome="True">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Logo Icon -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                              Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="20" Height="20" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Nav: Views -->
+                    <RadioButton Grid.Row="1" x:Name="nav_views"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 IsChecked="True" GroupName="ViewNav"
+                                 Margin="0,0,0,6" ToolTip="Views">
+                        <Path Data="M2 3H18V6H2Z M2 9H18V12H2Z M2 15H18V18H2Z"
+                              Width="18" Height="18" Stretch="Uniform"
+                              Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"/>
+                    </RadioButton>
+
+                    <!-- Nav: Templates -->
+                    <RadioButton Grid.Row="2" x:Name="nav_templates"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 GroupName="ViewNav"
+                                 Margin="0,0,0,6" ToolTip="Templates">
+                        <Path Data="M3 2H13L17 6V19H3Z M13 2L13 6L17 6 M6 10H14 M6 13H14 M6 16H11"
+                              Width="16" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
+            <!-- ═══ HEADER (Row 0, Column 1) ═══ -->
+            <Border Grid.Row="0" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- Title & Subtitle -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
-                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,8,4"/>
-                        <TextBlock Text="View Manager" FontSize="18" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <!-- Radio Navigation Tabs -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom">
-                        <RadioButton x:Name="nav_views" Content="Views" Style="{StaticResource T3TopNavTabStyle}" IsChecked="True"/>
-                        <RadioButton x:Name="nav_templates" Content="Templates" Style="{StaticResource T3TopNavTabStyle}"/>
+                    <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+                        <TextBlock Text="View Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                        <TextBlock Text="Manage views and view templates" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                     </StackPanel>
 
                     <!-- Window Controls (Chrome) -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,8,0"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
                                 WindowChrome.IsHitTestVisibleInChrome="True">
-                        <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
+                        <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                                ToolTip="Minimize">
                             <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                         </Button>
-                        <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
+                        <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                                ToolTip="Maximize">
                             <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                         </Button>
-                        <Button x:Name="btn_close" Style="{StaticResource CloseButton}" ToolTip="Close">
+                        <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                                ToolTip="Close">
                             <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                         </Button>
                     </StackPanel>
+                    <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
                 </Grid>
             </Border>
 
-            <!-- ═══ CONTENT (ROW 1) ═══ -->
-            <TabControl x:Name="tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent" Margin="0">
+            <!-- ═══ CONTENT (Row 1, Column 1) ═══ -->
+            <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
                 <TabControl.Resources>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
@@ -1144,7 +1235,7 @@
                         </Grid.RowDefinitions>
 
                         <!-- Cards Summary -->
-                        <Border Grid.Row="0" Background="#F8FAFC" Padding="16,10" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                        <Border Grid.Row="0" Background="#F4F4F6" Padding="0,6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1153,52 +1244,52 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,8,0">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="TOTAL" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
-                                        <TextBlock x:Name="views_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                                        <TextBlock Text="TOTAL" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="views_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0">
+                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="SELECTED" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Text="SELECTED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
                                         <TextBlock x:Name="views_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0">
+                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="TYPES" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Text="TYPES" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
                                         <TextBlock x:Name="views_types_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0,0,0">
+                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="FILTERS ACTIVE" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
-                                        <TextBlock x:Name="views_filters_text" Text="No" FontSize="22" FontWeight="Bold" Foreground="#64748B"/>
+                                        <TextBlock Text="FILTERS ACTIVE" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="views_filters_text" Text="No" FontSize="22" FontWeight="Bold" Foreground="#71717A"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
                         </Border>
 
                         <!-- DataGrid & Filters -->
-                        <Grid Grid.Row="1" Margin="16,10,16,10">
+                        <Grid Grid.Row="1" Margin="16,0,16,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Filters Panel -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,12,0">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="16" Padding="12" Margin="0,10,12,10">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
-                                        <TextBlock Text="SEARCH" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <TextBox x:Name="views_search_box" Height="28" Padding="6,4" Margin="0,0,0,16" VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="SEARCH" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <TextBox x:Name="views_search_box" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,16"/>
 
-                                        <TextBlock Text="FILTER BY TYPE" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <ComboBox x:Name="views_type_combo" Height="28" Margin="0,0,0,16" SelectedIndex="0" VerticalContentAlignment="Center">
+                                        <TextBlock Text="FILTER BY TYPE" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <ComboBox x:Name="views_type_combo" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,16" SelectedIndex="0">
                                             <ComboBoxItem Content="All Views"/>
                                             <ComboBoxItem Content="Floor Plan"/>
                                             <ComboBoxItem Content="Ceiling Plan"/>
@@ -1208,20 +1299,20 @@
                                             <ComboBoxItem Content="Detail"/>
                                         </ComboBox>
 
-                                        <TextBlock Text="QUICK SELECT" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
+                                        <TextBlock Text="QUICK SELECT" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
                                         <Button x:Name="views_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
                                         <Button x:Name="views_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
 
-                                        <TextBlock Text="ADDITIONAL FILTERS" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <TextBlock Text="Has Template:" FontSize="9" Margin="0,0,0,3" Foreground="#64748B"/>
-                                        <ComboBox x:Name="views_template_combo" Height="28" Margin="0,0,0,8" SelectedIndex="0" VerticalContentAlignment="Center">
+                                        <TextBlock Text="ADDITIONAL FILTERS" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <TextBlock Text="Has Template:" FontSize="9" Margin="0,0,0,3" Foreground="#71717A"/>
+                                        <ComboBox x:Name="views_template_combo" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,8" SelectedIndex="0">
                                             <ComboBoxItem Content="All Views"/>
                                             <ComboBoxItem Content="With Template"/>
                                             <ComboBoxItem Content="Without Template"/>
                                         </ComboBox>
 
-                                        <TextBlock Text="On Sheets:" FontSize="9" Margin="0,0,0,3" Foreground="#64748B"/>
-                                        <ComboBox x:Name="views_sheets_combo" Height="28" SelectedIndex="0" VerticalContentAlignment="Center">
+                                        <TextBlock Text="On Sheets:" FontSize="9" Margin="0,0,0,3" Foreground="#71717A"/>
+                                        <ComboBox x:Name="views_sheets_combo" Style="{StaticResource T3ComboBoxSmall}" SelectedIndex="0">
                                             <ComboBoxItem Content="All Views"/>
                                             <ComboBoxItem Content="On Sheets"/>
                                             <ComboBoxItem Content="Not On Sheets"/>
@@ -1231,7 +1322,7 @@
                             </Border>
 
                             <!-- Right DataGrid -->
-                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
+                            <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="16" Padding="1" Margin="0,10,0,10">
                                 <DataGrid x:Name="views_grid" AutoGenerateColumns="False" IsReadOnly="False"
                                           SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
                                           Background="White" BorderBrush="#E2E8F0" GridLinesVisibility="Horizontal"
@@ -1251,7 +1342,7 @@
                         </Grid>
 
                         <!-- Actions Footer -->
-                        <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="20,12">
+                        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="12,8">
                             <Grid>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <Button x:Name="views_excel_btn" Content="Excel Export/Import" Style="{StaticResource SuccessButton}" Width="150" Margin="0,0,8,0"/>
@@ -1275,11 +1366,10 @@
                             <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                             <RowDefinition Height="*"/>    <!-- DataGrid & Filters -->
                             <RowDefinition Height="Auto"/> <!-- Actions Footer -->
-                            <RowDefinition Height="Auto"/> <!-- Tips Info -->
                         </Grid.RowDefinitions>
 
                         <!-- Cards Summary -->
-                        <Border Grid.Row="0" Background="#F8FAFC" Padding="16,10" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                        <Border Grid.Row="0" Background="#F4F4F6" Padding="0,6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1288,30 +1378,30 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,8,0">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="TOTAL TEMPLATES" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
-                                        <TextBlock x:Name="tmpl_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                                        <TextBlock Text="TOTAL TEMPLATES" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="tmpl_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0">
+                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="SELECTED" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Text="SELECTED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
                                         <TextBlock x:Name="tmpl_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0">
+                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="IN USE" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Text="IN USE" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
                                         <TextBlock x:Name="tmpl_used_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0,0,0">
+                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="UNUSED" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Text="UNUSED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
                                         <TextBlock x:Name="tmpl_unused_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#F59E0B"/>
                                     </StackPanel>
                                 </Border>
@@ -1319,32 +1409,32 @@
                         </Border>
 
                         <!-- DataGrid & Filters -->
-                        <Grid Grid.Row="1" Margin="16,10,16,10">
+                        <Grid Grid.Row="1" Margin="16,0,16,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Filters Panel -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,12,0">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="16" Padding="12" Margin="0,10,12,10">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
-                                        <TextBlock Text="SEARCH TEMPLATES" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <TextBox x:Name="tmpl_search_box" Height="28" Padding="6,4" Margin="0,0,0,16" VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="SEARCH TEMPLATES" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <TextBox x:Name="tmpl_search_box" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,16"/>
 
-                                        <TextBlock Text="FILTER BY USAGE" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <ComboBox x:Name="tmpl_usage_combo" Height="28" Margin="0,0,0,16" SelectedIndex="0" VerticalContentAlignment="Center">
+                                        <TextBlock Text="FILTER BY USAGE" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <ComboBox x:Name="tmpl_usage_combo" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,16" SelectedIndex="0">
                                             <ComboBoxItem Content="All Templates"/>
                                             <ComboBoxItem Content="In Use Only"/>
                                             <ComboBoxItem Content="Unused Only"/>
                                         </ComboBox>
 
-                                        <TextBlock Text="FILTER BY VIEW TYPE" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <ComboBox x:Name="tmpl_type_combo" Height="28" Margin="0,0,0,16" SelectedIndex="0" VerticalContentAlignment="Center">
+                                        <TextBlock Text="FILTER BY VIEW TYPE" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <ComboBox x:Name="tmpl_type_combo" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,16" SelectedIndex="0">
                                             <ComboBoxItem Content="All View Types"/>
                                         </ComboBox>
 
-                                        <TextBlock Text="QUICK SELECT" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
+                                        <TextBlock Text="QUICK SELECT" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
                                         <Button x:Name="tmpl_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
                                         <Button x:Name="tmpl_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
                                         <Button x:Name="tmpl_select_unused_btn" Content="Select Unused" Style="{StaticResource SecondaryButton}" Height="30" HorizontalAlignment="Stretch"/>
@@ -1353,7 +1443,7 @@
                             </Border>
 
                             <!-- Right DataGrid -->
-                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
+                            <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="16" Padding="1" Margin="0,10,0,10">
                                 <DataGrid x:Name="tmpl_grid" AutoGenerateColumns="False" IsReadOnly="True"
                                           SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" RowHeaderWidth="0"
                                           Background="White" BorderBrush="#E2E8F0" GridLinesVisibility="Horizontal"
@@ -1371,7 +1461,7 @@
                         </Grid>
 
                         <!-- Actions Footer -->
-                        <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="20,12">
+                        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="12,8">
                             <Grid>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <Button x:Name="tmpl_refresh_btn" Content="Refresh List" Style="{StaticResource SecondaryButton}" Width="110"/>
@@ -1386,20 +1476,22 @@
                             </Grid>
                         </Border>
 
-                        <!-- Tips Info -->
-                        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,8" Margin="0">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Tip: " FontWeight="Bold" Foreground="#3B82F6"/>
-                                <TextBlock Text="Ctrl+Click or Shift+Click to select multiple templates | Only UNUSED templates can be deleted | Use Batch Rename for multiple templates" FontSize="10" Foreground="#27272A"/>
-                            </StackPanel>
-                        </Border>
                     </Grid>
                 </TabItem>
             </TabControl>
 
-            <!-- Copyright Notice overlay -->
+            <!-- ═══ STATUS BAR ═══ -->
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0"
+                    BorderThickness="0,1,0,0" Padding="14,7">
+                <TextBlock x:Name="txt_status_bar" Text="Ready"
+                           FontSize="11" Foreground="#71717A" FontStyle="Italic"
+                           VerticalAlignment="Center"/>
+            </Border>
+
             <!-- Copyright added automatically -->
-            <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,14" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+            <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                       Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False"
+                       Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
         </Grid>
     </Border>
 </Window>

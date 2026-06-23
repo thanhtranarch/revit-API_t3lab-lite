@@ -18,7 +18,7 @@ clr.AddReference('RevitAPIUI')
 
 import System
 from System.Collections.Generic import List
-from System.Windows import (Thickness, CornerRadius, WindowStartupLocation, ResizeMode, FontWeights, WindowState)
+from System.Windows import (Window, Thickness, CornerRadius, WindowStartupLocation, ResizeMode, FontWeights, WindowState)
 from System.Windows.Controls import (RowDefinition, ColumnDefinition, StackPanel, DockPanel, Border, TextBlock, TextBox, Button,
                                       ComboBox, ComboBoxItem, CheckBox, RadioButton, Orientation,
                                       Dock, ScrollViewer, ScrollBarVisibility, SelectionMode, ListBox, Grid as WPFGrid)

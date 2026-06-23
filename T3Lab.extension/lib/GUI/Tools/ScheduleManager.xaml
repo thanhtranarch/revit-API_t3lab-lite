@@ -13,7 +13,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1079,39 +1079,35 @@
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
-        <!-- Sidebar Nav RadioButton Style (full-width labeled rows) -->
-        <Style x:Key="T3SidebarNavButton" TargetType="RadioButton">
+        <!-- Sidebar icon nav RadioButton -->
+        <Style x:Key="T3SidebarIconNav" TargetType="RadioButton">
+            <Setter Property="Width"           Value="42"/>
+            <Setter Property="Height"          Value="42"/>
             <Setter Property="Background"      Value="Transparent"/>
             <Setter Property="Foreground"      Value="#71717A"/>
-            <Setter Property="FontSize"        Value="13"/>
-            <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
-            <Setter Property="FontWeight"      Value="Medium"/>
-            <Setter Property="Height"          Value="40"/>
-            <Setter Property="Padding"         Value="12,0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="10"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="Center"/>
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#ECECEF"/>
-                                <Setter Property="Foreground" Value="#27272A"/>
-                            </Trigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#18181B"/>
                                 <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
                             </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                            </MultiTrigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsChecked" Value="True"/>
@@ -1128,99 +1124,102 @@
 
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
         <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="64"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
+            <!-- ═══ SIDEBAR (Col 0, all rows) ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0"
+                    WindowChrome.IsHitTestVisibleInChrome="True">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <!-- Logo -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                              Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="20" Height="20" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <!-- Excel Link nav -->
+                    <RadioButton Grid.Row="1" x:Name="nav_excel_link"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 IsChecked="True" GroupName="ScheduleNav"
+                                 Margin="0,0,0,6" ToolTip="Excel Link"
+                                 Click="nav_excel_link_clicked">
+                        <Path Data="M2 2H18V18H2Z M2 8H18 M2 14H18 M8 2V18 M14 2V18"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                    <!-- Duplicator nav -->
+                    <RadioButton Grid.Row="2" x:Name="nav_duplicator"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 GroupName="ScheduleNav"
+                                 Margin="0,0,0,6" ToolTip="Duplicator"
+                                 Click="nav_duplicator_clicked">
+                        <Path Data="M4 4H14V18H4Z M6 2H16V16H14V4H6Z"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
             <!-- ═══ ROW 0 — TITLE BAR ═══ -->
-            <Grid Grid.Row="0" Background="White" Height="64">
+            <Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6" Height="64">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Logo + title -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
-                            Margin="16,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Image Source="../T3Lab_logo.png" Width="28" Height="28" Margin="0,0,8,0"
-                           VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#18181B"
-                               VerticalAlignment="Center"/>
-                    <TextBlock Text="Schedule Manager" FontSize="18" FontWeight="Bold" Foreground="#18181B"
-                               Margin="8,0,0,0" VerticalAlignment="Center"/>
+                <!-- Title -->
+                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Schedule Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Link, export and duplicate schedules" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
                 <!-- Window controls -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                             Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
-                            Click="minimize_button_clicked" ToolTip="Minimize">
+                            ToolTip="Minimize">
                         <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                     <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
-                            Click="maximize_button_clicked" ToolTip="Maximize">
+                            ToolTip="Maximize">
                         <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                     <Button x:Name="btn_close_chrome" Style="{StaticResource CloseButton}"
-                            Click="close_button_clicked" ToolTip="Close">
+                            ToolTip="Close">
                         <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                 </StackPanel>
 
                 <!-- Bottom divider -->
-                <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#E4E4E7"/>
+                <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#DCDCE0"/>
             </Grid>
 
-            <!-- ═══ ROW 1 — MAIN CONTENT (sidebar + tab area) ═══ -->
-            <Grid Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="180"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- LEFT SIDEBAR -->
-                <Border Grid.Column="0" Background="White" BorderBrush="#E4E4E7" BorderThickness="0,0,1,0">
-                    <StackPanel Margin="8,16,8,0">
-                        <!-- Section label -->
-                        <TextBlock Text="TOOLS" FontSize="10" FontWeight="Bold" Foreground="#9A9AA2"
-                                   Margin="12,0,0,8"/>
-
-                        <!-- Nav item 1: Excel Link -->
-                        <RadioButton x:Name="nav_excel_link"
-                                     Style="{StaticResource T3SidebarNavButton}"
-                                     IsChecked="True"
-                                     GroupName="SideNav"
-                                     Margin="0,0,0,4"
-                                     Click="nav_excel_link_clicked">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8A1;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Text="Excel Link" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <!-- Nav item 2: Duplicator -->
-                        <RadioButton x:Name="nav_duplicator"
-                                     Style="{StaticResource T3SidebarNavButton}"
-                                     IsChecked="False"
-                                     GroupName="SideNav"
-                                     Margin="0,0,0,4"
-                                     Click="nav_duplicator_clicked">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Text="Duplicator" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
-                    </StackPanel>
-                </Border>
-
-                <!-- RIGHT CONTENT AREA -->
-                <TabControl x:Name="tab_main" Grid.Column="1"
-                            Background="Transparent" BorderThickness="0">
+            <!-- ═══ ROW 1 — MAIN CONTENT (tab area) ═══ -->
+            <TabControl x:Name="tab_main" Grid.Row="1" Grid.Column="1"
+                        Background="Transparent" BorderThickness="0">
                     <TabControl.ItemContainerStyle>
                         <Style TargetType="TabItem">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -1242,7 +1241,7 @@
                             </Grid.RowDefinitions>
 
                             <!-- Row A: schedule selector + options -->
-                            <Border Grid.Row="0" Background="White" BorderBrush="#E4E4E7"
+                            <Border Grid.Row="0" Background="#F4F4F6" BorderBrush="#DCDCE0"
                                     BorderThickness="0,0,0,1" Padding="16,12">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="Schedule:" FontSize="13" FontWeight="SemiBold"
@@ -1261,7 +1260,7 @@
                             <!-- Row B: multi-schedule list (initially Collapsed) -->
                             <Border x:Name="pnl_multi_list" Grid.Row="1"
                                     Visibility="Collapsed"
-                                    Background="White" BorderBrush="#E4E4E7"
+                                    Background="#F4F4F6" BorderBrush="#DCDCE0"
                                     BorderThickness="0,0,0,1" Padding="16,8">
                                 <Border BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="10">
                                     <ScrollViewer Height="120" VerticalScrollBarVisibility="Auto">
@@ -1294,7 +1293,7 @@
                                          BorderThickness="0" Margin="16,4,16,4"/>
 
                             <!-- Row F: action buttons + status -->
-                            <Border Grid.Row="5" Background="White" BorderBrush="#E4E4E7"
+                            <Border Grid.Row="5" Background="#F4F4F6" BorderBrush="#DCDCE0"
                                     BorderThickness="0,1,0,0" Padding="16,8">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -1437,7 +1436,7 @@
                                         Click="btn_dup_run_clicked"/>
 
                                 <!-- Separator -->
-                                <Border Grid.Row="5" Height="1" Background="#E4E4E7" Margin="0,0,0,12"/>
+                                <Border Grid.Row="5" Height="1" Background="#DCDCE0" Margin="0,0,0,12"/>
 
                                 <!-- Log label -->
                                 <TextBlock Grid.Row="6" Text="Log:"
@@ -1470,19 +1469,13 @@
                     </TabItem>
 
                 </TabControl>
-            </Grid>
 
             <!-- ═══ ROW 2 — STATUS BAR ═══ -->
-            <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#E4E4E7"
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0"
                     BorderThickness="0,1,0,0" Padding="14,7">
-                <Grid>
-                    <TextBlock x:Name="txt_statusbar" Text="Ready"
-                               FontSize="11" Foreground="#71717A"
-                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                    <TextBlock Text="T3Lab Schedule Manager"
-                               FontSize="11" Foreground="#9A9AA2"
-                               HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                </Grid>
+                <TextBlock x:Name="txt_statusbar" Text="Ready"
+                           FontSize="11" Foreground="#71717A"
+                           VerticalAlignment="Center"/>
             </Border>
 
             <!-- Copyright added automatically -->

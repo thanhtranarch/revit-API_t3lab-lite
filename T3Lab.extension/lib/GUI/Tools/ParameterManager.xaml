@@ -11,7 +11,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1077,42 +1077,41 @@
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
-        <!-- Left sidebar nav item style (full-width labeled RadioButton) -->
-        <Style x:Key="T3NavItem" TargetType="RadioButton">
-            <Setter Property="Background"           Value="Transparent"/>
-            <Setter Property="Foreground"           Value="#52525B"/>
-            <Setter Property="FontSize"             Value="13"/>
-            <Setter Property="FontFamily"           Value="Hanken Grotesk"/>
-            <Setter Property="FontWeight"           Value="Medium"/>
-            <Setter Property="Height"               Value="40"/>
-            <Setter Property="Cursor"               Value="Hand"/>
-            <Setter Property="BorderThickness"      Value="0"/>
-            <Setter Property="HorizontalAlignment"  Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="FocusVisualStyle"     Value="{x:Null}"/>
+        <!-- Icon-only sidebar nav RadioButton style -->
+        <Style x:Key="T3SidebarIconNav" TargetType="RadioButton">
+            <Setter Property="Width"           Value="42"/>
+            <Setter Property="Height"          Value="42"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#71717A"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="10"
-                                Padding="10,0,10,0"
-                                Height="{TemplateBinding Height}">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#F0F0F2"/>
-                                <Setter Property="Foreground" Value="#18181B"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="border" Property="Background" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                             <MultiTrigger>
                                 <MultiTrigger.Conditions>
                                     <Condition Property="IsChecked" Value="False"/>
                                     <Condition Property="IsMouseOver" Value="True"/>
                                 </MultiTrigger.Conditions>
-                                <Setter TargetName="border" Property="Background" Value="#F4F4F6"/>
-                                <Setter Property="Foreground" Value="#27272A"/>
+                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#27272A"/>
                             </MultiTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1123,14 +1122,75 @@
 
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
         <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="64"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="30"/>
             </Grid.RowDefinitions>
 
+            <!-- ═══ SIDEBAR ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0"
+                    WindowChrome.IsHitTestVisibleInChrome="True">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <!-- Logo -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                              Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="20" Height="20" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <!-- Browse Parameters -->
+                    <RadioButton Grid.Row="1" x:Name="btn_nav_browse"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 IsChecked="True" GroupName="ParamNav"
+                                 Margin="0,0,0,6" ToolTip="Browse Parameters">
+                        <Path Data="M7 2C4.2 2 2 4.2 2 7C2 9.8 4.2 12 7 12C9.8 12 12 9.8 12 7C12 4.2 9.8 2 7 2Z M11 11L16 16"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                    <!-- Transfer Parameters -->
+                    <RadioButton Grid.Row="2" x:Name="btn_nav_transfer"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 GroupName="ParamNav"
+                                 Margin="0,0,0,6" ToolTip="Transfer Parameters">
+                        <Path Data="M2 6H14M14 6L11 3M14 6L11 9 M18 14H6M6 14L9 11M6 14L9 17"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                    <!-- Parameter Loader -->
+                    <RadioButton Grid.Row="3" x:Name="btn_nav_loader"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 GroupName="ParamNav"
+                                 Margin="0,0,0,6" ToolTip="Parameter Loader">
+                        <Path Data="M10 2V13M10 13L6 9M10 13L14 9 M2 17H18"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
             <!-- ═══ TITLE BAR ═══ -->
-            <Grid Grid.Row="0" Background="White" Height="64">
+            <Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6" Height="64">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -1138,93 +1198,39 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Brand + title + subtitle -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
-                            Margin="16,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                                       Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,8,2"/>
-                            <TextBlock Text="Parameter Manager" FontSize="18" FontWeight="Bold" Foreground="#0F172A"/>
-                        </StackPanel>
-                        <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                        <TextBlock Text="Browse, transfer and load parameters across the project" FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
-                    </StackPanel>
+                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Parameter Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Browse, transfer and load parameters" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
                 <!-- Window control buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
-                            Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
+                            Margin="0,0,16,0">
+                    <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                            ToolTip="Minimize"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
                         <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
+                    <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                            ToolTip="Maximize"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
                         <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_close_chrome" Style="{StaticResource CloseButton}" ToolTip="Close">
+                    <Button x:Name="btn_close_chrome" Style="{StaticResource CloseButton}"
+                            ToolTip="Close"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
                         <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                 </StackPanel>
 
                 <!-- Title bar bottom border -->
-                <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
+                <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#DCDCE0"/>
             </Grid>
 
-            <!-- ═══ MAIN CONTENT: Sidebar + Tab area ═══ -->
-            <Grid Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="180"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- LEFT SIDEBAR -->
-                <Border Grid.Column="0" Background="White" BorderBrush="#E4E4E7" BorderThickness="0,0,1,0">
-                    <StackPanel Margin="0,16,0,0">
-                        <!-- Section label -->
-                        <TextBlock Text="TOOLS" FontSize="9" FontWeight="SemiBold" Foreground="#9A9AA2"
-                                   Margin="16,0,0,10"/>
-
-                        <!-- Nav items -->
-                        <RadioButton x:Name="btn_nav_browse"
-                                     Style="{StaticResource T3NavItem}"
-                                     IsChecked="True"
-                                     GroupName="ParamNav"
-                                     Margin="8,0,8,2">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Text="Browse Params" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="btn_nav_transfer"
-                                     Style="{StaticResource T3NavItem}"
-                                     IsChecked="False"
-                                     GroupName="ParamNav"
-                                     Margin="8,0,8,2">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8AB;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Text="Transfer Params" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
-
-                        <RadioButton x:Name="btn_nav_loader"
-                                     Style="{StaticResource T3NavItem}"
-                                     IsChecked="False"
-                                     GroupName="ParamNav"
-                                     Margin="8,0,8,2">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8F4;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Text="Param Loader" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </RadioButton>
-                    </StackPanel>
-                </Border>
-
-                <!-- RIGHT CONTENT AREA: TabControl with hidden headers -->
-                <TabControl x:Name="tab_main" Grid.Column="1"
-                            Background="Transparent" BorderThickness="0" Padding="0">
+            <!-- ═══ MAIN CONTENT: TabControl ═══ -->
+            <TabControl x:Name="tab_main" Grid.Row="1" Grid.Column="1"
+                        Background="Transparent" BorderThickness="0" Padding="0">
                     <TabControl.ItemContainerStyle>
                         <Style TargetType="TabItem">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -1333,7 +1339,7 @@
                             <TextBlock x:Name="txt_param_status"
                                        Grid.Row="3"
                                        FontSize="11"
-                                       Foreground="#64748B"
+                                       Foreground="#71717A"
                                        FontStyle="Italic"
                                        TextWrapping="Wrap"/>
                         </Grid>
@@ -1350,8 +1356,8 @@
                             </Grid.RowDefinitions>
 
                             <!-- Row 0: Category selector -->
-                            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0"
-                                    BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,10">
+                            <Border Grid.Row="0" Background="White" BorderBrush="#DCDCE0"
+                                    BorderThickness="1" CornerRadius="12" Padding="12,10" Margin="0,0,0,10">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -1361,13 +1367,13 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="Category:" FontWeight="SemiBold"
-                                               FontSize="13" Foreground="#0F172A" VerticalAlignment="Center"/>
+                                               FontSize="13" Foreground="#18181B" VerticalAlignment="Center"/>
                                     <ComboBox x:Name="cmb_transfer_category" Grid.Column="1"
                                               Style="{StaticResource T3ComboBoxSmall}"
                                               Margin="10,0,0,0"/>
                                     <TextBlock x:Name="txt_transfer_count" Grid.Column="3"
                                                Text="0 elements" VerticalAlignment="Center"
-                                               FontSize="12" Foreground="#64748B" FontStyle="Italic"/>
+                                               FontSize="12" Foreground="#71717A" FontStyle="Italic"/>
                                 </Grid>
                             </Border>
 
@@ -1380,8 +1386,8 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Source column -->
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0"
-                                        BorderThickness="1" CornerRadius="8" Padding="12">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0"
+                                        BorderThickness="1" CornerRadius="12" Padding="12">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -1390,7 +1396,7 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <TextBlock Grid.Row="0" Text="SOURCE Parameter (read from):"
-                                                   FontWeight="SemiBold" FontSize="12" Foreground="#0F172A"
+                                                   FontWeight="SemiBold" FontSize="12" Foreground="#18181B"
                                                    Margin="0,0,0,6"/>
                                         <TextBox x:Name="txt_transfer_src_search" Grid.Row="1"
                                                  Style="{StaticResource T3InputFieldSmall}"
@@ -1401,7 +1407,7 @@
                                             </ScrollViewer>
                                         </Border>
                                         <TextBlock x:Name="txt_transfer_src_info" Grid.Row="3"
-                                                   FontSize="10" Foreground="#64748B"
+                                                   FontSize="10" Foreground="#71717A"
                                                    Margin="0,4,0,0" Text="Select a source parameter"/>
                                     </Grid>
                                 </Border>
@@ -1412,8 +1418,8 @@
                                            Foreground="#3B82F6" FontWeight="Bold"/>
 
                                 <!-- Target column -->
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0"
-                                        BorderThickness="1" CornerRadius="8" Padding="12">
+                                <Border Grid.Column="2" Background="White" BorderBrush="#DCDCE0"
+                                        BorderThickness="1" CornerRadius="12" Padding="12">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/>
@@ -1422,7 +1428,7 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
                                         <TextBlock Grid.Row="0" Text="TARGET Parameter (write to):"
-                                                   FontWeight="SemiBold" FontSize="12" Foreground="#0F172A"
+                                                   FontWeight="SemiBold" FontSize="12" Foreground="#18181B"
                                                    Margin="0,0,0,6"/>
                                         <TextBox x:Name="txt_transfer_tgt_search" Grid.Row="1"
                                                  Style="{StaticResource T3InputFieldSmall}"
@@ -1433,15 +1439,15 @@
                                             </ScrollViewer>
                                         </Border>
                                         <TextBlock x:Name="txt_transfer_tgt_info" Grid.Row="3"
-                                                   FontSize="10" Foreground="#64748B"
+                                                   FontSize="10" Foreground="#71717A"
                                                    Margin="0,4,0,0" Text="Select a target parameter"/>
                                     </Grid>
                                 </Border>
                             </Grid>
 
                             <!-- Row 2: Preview DataGrid -->
-                            <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0"
-                                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,10">
+                            <Border Grid.Row="2" Background="White" BorderBrush="#DCDCE0"
+                                    BorderThickness="1" CornerRadius="12" Padding="12,8" Margin="0,0,0,10">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -1449,14 +1455,14 @@
                                     </Grid.RowDefinitions>
                                     <DockPanel Grid.Row="0" Margin="0,0,0,6">
                                         <TextBlock Text="Preview:" FontWeight="SemiBold" FontSize="13"
-                                                   Foreground="#0F172A" VerticalAlignment="Center"
+                                                   Foreground="#18181B" VerticalAlignment="Center"
                                                    DockPanel.Dock="Left"/>
                                         <Button x:Name="btn_transfer_preview" Content="Refresh Preview"
                                                 Style="{StaticResource TertiaryButton}"
                                                 DockPanel.Dock="Right" HorizontalAlignment="Right"
                                                 Height="32" Padding="10,4"/>
                                         <TextBlock x:Name="txt_transfer_preview_status" FontSize="11"
-                                                   Foreground="#64748B" VerticalAlignment="Center"
+                                                   Foreground="#71717A" VerticalAlignment="Center"
                                                    Margin="12,0,0,0" FontStyle="Italic"/>
                                     </DockPanel>
                                     <DataGrid x:Name="dg_transfer_preview" Grid.Row="1"
@@ -1472,8 +1478,8 @@
                             </Border>
 
                             <!-- Row 3: Action bar -->
-                            <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0"
-                                    BorderThickness="1" CornerRadius="8" Padding="12,8">
+                            <Border Grid.Row="3" Background="#F4F4F6" BorderBrush="#DCDCE0"
+                                    BorderThickness="1" CornerRadius="12" Padding="12,8">
                                 <DockPanel>
                                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                                         <Button x:Name="btn_transfer_run" Content="Transfer Values"
@@ -1481,7 +1487,7 @@
                                                 IsEnabled="False" Margin="0,0,0,0"/>
                                     </StackPanel>
                                     <TextBlock x:Name="txt_transfer_status" FontSize="11"
-                                               Foreground="#64748B" VerticalAlignment="Center"
+                                               Foreground="#71717A" VerticalAlignment="Center"
                                                TextWrapping="Wrap"/>
                                 </DockPanel>
                             </Border>
@@ -1498,8 +1504,8 @@
                             </Grid.RowDefinitions>
 
                             <!-- Row 0: Import section -->
-                            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0"
-                                    BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,10">
+                            <Border Grid.Row="0" Background="White" BorderBrush="#DCDCE0"
+                                    BorderThickness="1" CornerRadius="12" Padding="12,10" Margin="0,0,0,10">
                                 <StackPanel>
                                     <TextBlock Text="IMPORT REQUIREMENTS" FontSize="9" FontWeight="SemiBold"
                                                Foreground="#9A9AA2" Margin="0,0,0,8"/>
@@ -1514,7 +1520,7 @@
                                                 Height="36" Padding="14,6"/>
                                     </StackPanel>
                                     <TextBlock x:Name="txt_loader_filepath" FontSize="11"
-                                               Foreground="#64748B" TextWrapping="Wrap"
+                                               Foreground="#71717A" TextWrapping="Wrap"
                                                Text="No file loaded" Margin="0,0,0,2"/>
                                     <TextBlock x:Name="txt_loader_stats" FontSize="11"
                                                Foreground="#0B8A5A" FontWeight="SemiBold"
@@ -1523,8 +1529,8 @@
                             </Border>
 
                             <!-- Row 1: Parameters DataGrid -->
-                            <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0"
-                                    BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                            <Border Grid.Row="1" Background="White" BorderBrush="#DCDCE0"
+                                    BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,0,10">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -1538,7 +1544,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Parameters to Load" FontWeight="Bold"
-                                                   FontSize="12" Foreground="#0F172A" VerticalAlignment="Center"/>
+                                                   FontSize="12" Foreground="#18181B" VerticalAlignment="Center"/>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal">
                                             <Button x:Name="btn_loader_select_new" Content="New Only"
                                                     Style="{StaticResource SecondaryButton}"
@@ -1586,8 +1592,8 @@
                             </Border>
 
                             <!-- Row 2: Progress + Action -->
-                            <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0"
-                                    BorderThickness="1" CornerRadius="8" Padding="12,10">
+                            <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0"
+                                    BorderThickness="1" CornerRadius="12" Padding="12,10">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
@@ -1608,7 +1614,7 @@
                                                 DockPanel.Dock="Right"
                                                 Margin="8,0,0,0"/>
                                         <TextBlock x:Name="txt_loader_status"
-                                                   FontSize="12" Foreground="#64748B"
+                                                   FontSize="12" Foreground="#71717A"
                                                    VerticalAlignment="Center" FontWeight="Medium"
                                                    Text="Import a config to begin."
                                                    TextWrapping="Wrap"/>
@@ -1618,14 +1624,13 @@
                         </Grid>
                     </TabItem>
 
-                </TabControl>
-            </Grid>
+            </TabControl>
 
             <!-- ═══ STATUS BAR ═══ -->
-            <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,6">
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="14,6">
                 <TextBlock x:Name="txt_param_status_bar"
                            Text="Select a tool from the sidebar to get started"
-                           FontSize="11" Foreground="#64748B" FontStyle="Italic"/>
+                           FontSize="11" Foreground="#71717A" FontStyle="Italic"/>
             </Border>
 
             <!-- Copyright added automatically -->

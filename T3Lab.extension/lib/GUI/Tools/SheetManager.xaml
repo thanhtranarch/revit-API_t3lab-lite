@@ -1077,54 +1077,149 @@
         </Style>
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
+        <!-- Sidebar icon nav RadioButton -->
+        <Style x:Key="T3SidebarIconNav" TargetType="RadioButton">
+            <Setter Property="Width"           Value="42"/>
+            <Setter Property="Height"          Value="42"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#71717A"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#27272A"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="22" Background="#F8FAFC" ClipToBounds="True">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
         <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>  <!-- Sidebar icon rail -->
+                <ColumnDefinition Width="*"/>   <!-- Main content -->
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="64"/> <!-- Title Bar -->
-                <RowDefinition Height="*"/>  <!-- Content Area -->
+                <RowDefinition Height="64"/>   <!-- Title Bar -->
+                <RowDefinition Height="*"/>    <!-- Content Area -->
+                <RowDefinition Height="Auto"/> <!-- Status Bar -->
             </Grid.RowDefinitions>
 
-            <!-- ═══ HEADER (ROW 0) ═══ -->
-            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+            <!-- ═══ SIDEBAR (Column 0, spans all rows) ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0"
+                    WindowChrome.IsHitTestVisibleInChrome="True">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Logo -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                              Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="20" Height="20" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Nav: Sheets -->
+                    <RadioButton Grid.Row="1" x:Name="nav_sheets"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 IsChecked="True" GroupName="SheetNav"
+                                 Margin="0,0,0,6" ToolTip="Sheets">
+                        <Path Data="M2 3H18V6H2Z M2 9H14V12H2Z M2 15H18V18H2Z"
+                              Width="18" Height="18" Stretch="Uniform"
+                              Fill="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"/>
+                    </RadioButton>
+
+                    <!-- Nav: Renumber -->
+                    <RadioButton Grid.Row="2" x:Name="nav_renumber"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 GroupName="SheetNav"
+                                 Margin="0,0,0,6" ToolTip="Renumber">
+                        <Path Data="M6 2V18M14 2V18M2 7H18M2 13H18"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="2"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
+            <!-- ═══ HEADER (Row 0, Column 1) ═══ -->
+            <Border Grid.Row="0" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
                     <!-- Title & Subtitle -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
-                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,8,4"/>
-                        <TextBlock Text="Sheet Manager" FontSize="18" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <!-- Navigation Tabs -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom">
-                        <RadioButton x:Name="nav_sheets" Content="Sheets" Style="{StaticResource T3TopNavTabStyle}" IsChecked="True"/>
-                        <RadioButton x:Name="nav_renumber" Content="Renumber" Style="{StaticResource T3TopNavTabStyle}"/>
+                    <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+                        <TextBlock Text="Sheet Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                        <TextBlock Text="Manage sheets, sets, and renumbering" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                     </StackPanel>
 
                     <!-- Window Controls (Chrome) -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,8,0"
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                Margin="0,0,16,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                                ToolTip="Minimize"
                                 WindowChrome.IsHitTestVisibleInChrome="True">
-                        <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
                             <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                         </Button>
-                        <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
+                        <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                                ToolTip="Maximize"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
                             <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                         </Button>
-                        <Button x:Name="btn_close" Style="{StaticResource CloseButton}" ToolTip="Close">
+                        <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                                ToolTip="Close"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
                             <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                         </Button>
                     </StackPanel>
+
+                    <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
                 </Grid>
             </Border>
 
-            <!-- ═══ CONTENT (ROW 1) ═══ -->
-            <TabControl x:Name="tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent" Margin="0">
+            <!-- ═══ CONTENT (Row 1, Column 1) ═══ -->
+            <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
                 <TabControl.Resources>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
@@ -1141,7 +1236,7 @@
                         </Grid.RowDefinitions>
 
                         <!-- Cards Summary -->
-                        <Border Grid.Row="0" Background="#F8FAFC" Padding="16,10" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
+                        <Border Grid.Row="0" Background="#F4F4F6" Padding="0,6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1150,62 +1245,62 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,8,0">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="TOTAL SHEETS" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
-                                        <TextBlock x:Name="sheets_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#0F172A"/>
+                                        <TextBlock Text="TOTAL SHEETS" FontSize="9" Foreground="#71717A" FontWeight="Bold"/>
+                                        <TextBlock x:Name="sheets_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0">
+                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="SELECTED" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Text="SELECTED" FontSize="9" Foreground="#71717A" FontWeight="Bold"/>
                                         <TextBlock x:Name="sheets_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0">
+                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="CATEGORIES" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
+                                        <TextBlock Text="CATEGORIES" FontSize="9" Foreground="#71717A" FontWeight="Bold"/>
                                         <TextBlock x:Name="sheets_categories_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="8,0,0,0">
+                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
                                     <StackPanel>
-                                        <TextBlock Text="PENDING CHANGES" FontSize="9" Foreground="#64748B" FontWeight="Bold"/>
-                                        <TextBlock x:Name="sheets_changes_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#64748B"/>
+                                        <TextBlock Text="PENDING CHANGES" FontSize="9" Foreground="#71717A" FontWeight="Bold"/>
+                                        <TextBlock x:Name="sheets_changes_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#71717A"/>
                                     </StackPanel>
                                 </Border>
                             </Grid>
                         </Border>
 
                         <!-- DataGrid & Filters -->
-                        <Grid Grid.Row="1" Margin="16,10,16,10">
+                        <Grid Grid.Row="1" Margin="16,0,16,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Filters & Quick Tools Panel -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="12" Margin="0,0,12,0">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12" Margin="0,10,12,10">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
-                                        <TextBlock Text="SEARCH" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <TextBox x:Name="sheets_search_box" Height="28" Padding="6,4" Margin="0,0,0,16" VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="SEARCH" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <TextBox x:Name="sheets_search_box" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,16"/>
 
-                                        <TextBlock Text="FILTER BY GROUP" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
-                                        <ComboBox x:Name="sheets_filter_combo" Height="28" Margin="0,0,0,16" SelectedIndex="0" VerticalContentAlignment="Center">
+                                        <TextBlock Text="FILTER BY GROUP" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
+                                        <ComboBox x:Name="sheets_filter_combo" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,16" SelectedIndex="0">
                                             <ComboBoxItem Content="All Sheets"/>
                                             <ComboBoxItem Content="Placeholder Only"/>
                                             <ComboBoxItem Content="Non-Placeholder Only"/>
                                         </ComboBox>
 
-                                        <TextBlock Text="QUICK SELECT" FontSize="10" FontWeight="Bold" Margin="0,0,0,6" Foreground="#0F172A"/>
+                                        <TextBlock Text="QUICK SELECT" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
                                         <Button x:Name="sheets_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
                                         <Button x:Name="sheets_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,20" HorizontalAlignment="Stretch"/>
 
-                                        <TextBlock Text="ADVANCED TOOLS" FontSize="10" FontWeight="Bold" Margin="0,0,0,8" Foreground="#0F172A"/>
+                                        <TextBlock Text="ADVANCED TOOLS" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" Foreground="#9A9AA2"/>
                                         <Button x:Name="sheets_sets_btn" Content="ViewSheet Sets..." Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
                                         <Button x:Name="sheets_place_views_btn" Content="Place Views on Sheet..." Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
                                         <Button x:Name="sheets_custom_params_btn" Content="Custom Parameters..." Style="{StaticResource SecondaryButton}" Height="32" HorizontalAlignment="Stretch"/>
@@ -1214,7 +1309,7 @@
                             </Border>
 
                             <!-- Right Sheets DataGrid -->
-                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
+                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1" Margin="0,10,0,10">
                                 <DataGrid x:Name="sheets_grid" AutoGenerateColumns="False" IsReadOnly="False"
                                           SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
                                           Background="White" BorderBrush="#E2E8F0" GridLinesVisibility="Horizontal"
@@ -1233,7 +1328,7 @@
                         </Grid>
 
                         <!-- Actions Footer -->
-                        <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="20,12">
+                        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="12,8">
                             <Grid>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <Button x:Name="sheets_excel_btn" Content="Excel Export/Import" Style="{StaticResource SuccessButton}" Width="150" Margin="0,0,8,0"/>
@@ -1264,21 +1359,21 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Controls Card -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="16" Margin="0,0,16,0">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="16" Margin="0,0,16,0">
                                 <StackPanel>
-                                    <TextBlock Text="RENUMBER CONFIGURATION" FontSize="11" FontWeight="Bold" Margin="0,0,0,16" Foreground="#0F172A"/>
+                                    <TextBlock Text="RENUMBER CONFIGURATION" FontSize="11" FontWeight="Bold" Margin="0,0,0,16" Foreground="#9A9AA2"/>
 
-                                    <TextBlock Text="Prefix:" FontSize="9" Margin="0,0,0,4" Foreground="#64748B"/>
-                                    <TextBox x:Name="renum_prefix_box" Height="28" Padding="6,4" Margin="0,0,0,12" VerticalContentAlignment="Center"/>
+                                    <TextBlock Text="Prefix:" FontSize="9" Margin="0,0,0,4" Foreground="#71717A"/>
+                                    <TextBox x:Name="renum_prefix_box" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,12"/>
 
-                                    <TextBlock Text="Starting Number:" FontSize="9" Margin="0,0,0,4" Foreground="#64748B"/>
-                                    <TextBox x:Name="renum_start_box" Height="28" Padding="6,4" Margin="0,0,0,12" Text="1" VerticalContentAlignment="Center"/>
+                                    <TextBlock Text="Starting Number:" FontSize="9" Margin="0,0,0,4" Foreground="#71717A"/>
+                                    <TextBox x:Name="renum_start_box" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,12" Text="1"/>
 
-                                    <TextBlock Text="Increment Step:" FontSize="9" Margin="0,0,0,4" Foreground="#64748B"/>
-                                    <TextBox x:Name="renum_step_box" Height="28" Padding="6,4" Margin="0,0,0,12" Text="1" VerticalContentAlignment="Center"/>
+                                    <TextBlock Text="Increment Step:" FontSize="9" Margin="0,0,0,4" Foreground="#71717A"/>
+                                    <TextBox x:Name="renum_step_box" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,12" Text="1"/>
 
-                                    <TextBlock Text="Suffix:" FontSize="9" Margin="0,0,0,4" Foreground="#64748B"/>
-                                    <TextBox x:Name="renum_suffix_box" Height="28" Padding="6,4" Margin="0,0,0,24" VerticalContentAlignment="Center"/>
+                                    <TextBlock Text="Suffix:" FontSize="9" Margin="0,0,0,4" Foreground="#71717A"/>
+                                    <TextBox x:Name="renum_suffix_box" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,0,24"/>
 
                                     <Border Background="#FFF6E6" BorderBrush="#FFF6E6" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,20">
                                         <StackPanel>
@@ -1296,9 +1391,9 @@
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Text="SELECT SHEETS TO RENUMBER" FontSize="10" FontWeight="Bold" Margin="0,0,0,8" Foreground="#0F172A"/>
+                                <TextBlock Grid.Row="0" Text="SELECT SHEETS TO RENUMBER" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" Foreground="#9A9AA2"/>
 
-                                <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
+                                <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
                                     <DataGrid x:Name="renum_grid" AutoGenerateColumns="False" IsReadOnly="True"
                                               SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
                                               Background="White" BorderBrush="#E2E8F0" GridLinesVisibility="Horizontal"
@@ -1314,7 +1409,7 @@
                         </Grid>
 
                         <!-- Renumber Footer Actions -->
-                        <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="20,12">
+                        <Border Grid.Row="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="12,8">
                             <Grid>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <Button x:Name="renum_refresh_btn" Content="Refresh Sheets" Style="{StaticResource SecondaryButton}" Width="130"/>
@@ -1330,9 +1425,16 @@
                 </TabItem>
             </TabControl>
 
-            <!-- Copyright Notice overlay -->
+            <!-- ═══ STATUS BAR ═══ -->
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0"
+                    BorderThickness="0,1,0,0" Padding="14,7">
+                <TextBlock x:Name="txt_status_bar" Text="Ready"
+                           FontSize="11" Foreground="#71717A" FontStyle="Italic"
+                           VerticalAlignment="Center"/>
+            </Border>
+
             <!-- Copyright added automatically -->
-            <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,24,14" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+            <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
         </Grid>
     </Border>
 </Window>
