@@ -207,7 +207,7 @@ class LLMRouter(object):
 
     # ── Chat ──────────────────────────────────────────────────────────────────
 
-    def chat(self, messages, system_prompt, user_content, max_tokens=400):
+    def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """
         Route a chat request to the active provider and return raw response text.
 
@@ -228,7 +228,7 @@ class LLMRouter(object):
         # ── Active provider ────────────────────────────────────────────────────
         if active:
             try:
-                result = active.chat(messages, system_prompt, user_content, max_tokens)
+                result = active.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
                 if result is not None:
                     return result
             except Exception:
@@ -247,7 +247,48 @@ class LLMRouter(object):
             try:
                 if not provider.check_health():
                     continue
-                result = provider.chat(messages, system_prompt, user_content, max_tokens)
+                result = provider.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
+                if result is not None:
+                    return result
+            except Exception:
+                continue
+
+        return None
+
+    def chat_stream(self, messages, system_prompt, user_content,
+                    on_delta=None, max_tokens=400, **kwargs):
+        """
+        Route a streaming chat request to the active provider, with fallback.
+
+        on_delta(text_chunk) is invoked for each streamed piece of text. Mirrors
+        chat()'s active-then-fallback strategy. Returns the full response text,
+        or None if every provider fails.
+        """
+        active = self._providers.get(self._active_name)
+
+        if active:
+            try:
+                result = active.chat_stream(
+                    messages, system_prompt, user_content, on_delta, max_tokens, **kwargs)
+                if result is not None:
+                    return result
+            except Exception:
+                pass
+
+        if not self._fallback_on:
+            return None
+
+        for name in self.FALLBACK_CHAIN:
+            if name == self._active_name:
+                continue
+            provider = self._providers.get(name)
+            if not provider:
+                continue
+            try:
+                if not provider.check_health():
+                    continue
+                result = provider.chat_stream(
+                    messages, system_prompt, user_content, on_delta, max_tokens, **kwargs)
                 if result is not None:
                     return result
             except Exception:

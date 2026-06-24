@@ -30,8 +30,9 @@ class OllamaProvider(BaseLLMProvider):
     SUPPORTS_VISION = False   # most small models don't support vision
 
     def __init__(self):
-        self._model = None   # None → auto-select best installed model
-        self._host  = None   # None → read from local_llm.OLLAMA_HOST
+        self._model = None        # None → auto-select best installed model
+        self._host  = None        # None → read from local_llm.OLLAMA_HOST
+        self._active_host = None  # last host that actually responded
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
@@ -45,7 +46,20 @@ class OllamaProvider(BaseLLMProvider):
 
     def _get_host(self):
         mod = self._local_llm()
-        return self._host or (mod.OLLAMA_HOST if mod else "http://localhost:11434")
+        return self._active_host or self._host or (
+            mod.OLLAMA_HOST if mod else "http://localhost:11434")
+
+    def _candidate_hosts(self):
+        """Hosts to try, in order: explicit/configured → localhost → 127.0.0.1."""
+        mod = self._local_llm()
+        cfg = self._host or (mod.OLLAMA_HOST if mod else None)
+        out = []
+        for h in (cfg, "http://localhost:11434", "http://127.0.0.1:11434"):
+            if h:
+                h = h.rstrip("/")
+                if h not in out:
+                    out.append(h)
+        return out
 
     def _get_timeout(self):
         mod = self._local_llm()
@@ -53,26 +67,37 @@ class OllamaProvider(BaseLLMProvider):
 
     # ── BaseLLMProvider interface ──────────────────────────────────────────────
 
+    def _probe_tags(self):
+        """Try each candidate host; return (host, [model_names]) for the first
+        reachable Ollama with installed models, else (None, [])."""
+        for host in self._candidate_hosts():
+            try:
+                tags = http_get(host + "/api/tags", timeout_ms=2500)
+                if not tags:
+                    continue
+                data = json.loads(tags)
+                names = [m.get("name", "") for m in data.get("models", []) if m.get("name")]
+                if names:
+                    self._active_host = host   # remember for chat/generate
+                    return host, names
+            except Exception:
+                continue
+        return None, []
+
     def check_health(self):
-        """Return True if Ollama is running AND has at least one model installed."""
-        try:
-            tags = http_get(self._get_host() + "/api/tags")
-            if not tags:
-                return False
-            data = json.loads(tags)
-            return len(data.get("models", [])) > 0
-        except Exception:
-            return False
+        """Return True if a reachable Ollama has at least one model installed."""
+        host, names = self._probe_tags()
+        return bool(names)
 
     def get_models(self):
+        host, names = self._probe_tags()
+        if names:
+            return names
+        # Fall back to local_llm's own discovery if direct probing found nothing.
         try:
             mod = self._local_llm()
             if mod:
                 return mod.list_models()
-            tags_text = http_get(self._get_host() + "/api/tags")
-            if tags_text:
-                data = json.loads(tags_text)
-                return [m.get("name", "") for m in data.get("models", [])]
         except Exception:
             pass
         return []
@@ -103,8 +128,9 @@ class OllamaProvider(BaseLLMProvider):
     def set_host(self, host):
         """Override the Ollama server URL (e.g. 'http://192.168.1.10:11434')."""
         self._host = host
+        self._active_host = None   # re-probe with the new host on next check
 
-    def chat(self, messages, system_prompt, user_content, max_tokens=400):
+    def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """
         Send a chat request to the local Ollama server.
 

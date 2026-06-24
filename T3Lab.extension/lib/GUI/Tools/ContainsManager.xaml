@@ -1077,56 +1077,6 @@
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
-        <!-- Thin scrollbar styles -->
-        <Style x:Key="ScrollBarThumbStyle" TargetType="{x:Type Thumb}">
-            <Setter Property="OverridesDefaultStyle" Value="true"/>
-            <Setter Property="IsTabStop" Value="false"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="thumbBorder" Background="#CBD5E1" CornerRadius="2" Margin="0"/>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="true">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#94A3B8"/>
-                            </Trigger>
-                            <Trigger Property="IsDragging" Value="true">
-                                <Setter TargetName="thumbBorder" Property="Background" Value="#64748B"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style TargetType="{x:Type ScrollBar}">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderBrush" Value="Transparent"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ScrollBar}">
-                        <Grid x:Name="Bg" Background="Transparent">
-                            <Track x:Name="PART_Track">
-                                <Track.Thumb>
-                                    <Thumb Style="{StaticResource ScrollBarThumbStyle}"/>
-                                </Track.Thumb>
-                            </Track>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="Orientation" Value="Vertical">
-                                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="true"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="Orientation" Value="Vertical">
-                    <Setter Property="Width" Value="4"/>
-                </Trigger>
-                <Trigger Property="Orientation" Value="Horizontal">
-                    <Setter Property="Height" Value="4"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
         <!-- Sidebar icon nav RadioButton -->
         <Style x:Key="T3SidebarIconNav" TargetType="RadioButton">
             <Setter Property="Width"           Value="42"/>

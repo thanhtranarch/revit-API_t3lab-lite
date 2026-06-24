@@ -122,6 +122,11 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
             # Health check
             self._send_json({'status': 'ok'})
 
+        elif path in ('/v1/models', '/models'):
+            # Tolerate OpenAI-compatible clients that probe for a model list,
+            # so they don't repeatedly hit an "unexpected endpoint" 404.
+            self._send_json({'object': 'list', 'data': []})
+
         else:
             self._send_json({'error': 'Not found'}, 404)
 

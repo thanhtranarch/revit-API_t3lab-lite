@@ -121,6 +121,16 @@ except Exception as e:
     def summarize_attachments(files): return ''
     SUPPORTED_EXTS = set()
 
+# ─── Streaming message extractor (live token rendering) ───────────────────────
+try:
+    from Intelligence.llm_provider import StreamingJSONExtractor
+except Exception as e:
+    logger.warning("Could not import StreamingJSONExtractor: {}".format(e))
+    class StreamingJSONExtractor(object):
+        """Fallback: show whatever raw text streams in (no JSON unwrapping)."""
+        def display(self, raw):
+            return (raw or u"").strip()
+
 # ─── Tool launchers ───────────────────────────────────────────────────────────
 # Each function opens the corresponding T3Lab tool.
 
@@ -486,6 +496,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._typing_timer     = None
         self._typing_elapsed   = 0
 
+        # ── Live streaming bubble state ───────────────────────────────────────
+        self._stream_row       = None           # Grid row of the live reply bubble
+        self._stream_tb        = None           # TextBlock being filled token-by-token
+
+        # ── Easy-to-use input: multi-line with Shift+Enter ────────────────────
+        try:
+            from System.Windows.Controls import ScrollBarVisibility
+            from System.Windows import TextWrapping
+            self.chat_input.AcceptsReturn = True
+            self.chat_input.TextWrapping  = TextWrapping.Wrap
+            self.chat_input.MaxHeight     = 120
+            self.chat_input.VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            self.chat_input.ToolTip = (u"Nhập lệnh Tiếng Việt hoặc English  •  "
+                                       u"Enter để gửi, Shift+Enter xuống dòng")
+        except Exception:
+            pass
+
 
         # ── Logo ──────────────────────────────────────────────────────────────
 
@@ -564,6 +591,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
         _t.IsBackground = True
         _t.SetApartmentState(ApartmentState.STA)
         _t.Start()
+
+        # ── First-run onboarding (new installs only) ──────────────────────────
+        try:
+            from config.user_profile import UserProfile
+            if UserProfile().is_first_run():
+                self._show_onboarding()
+        except Exception as ex:
+            logger.debug("onboarding check error: {}".format(ex))
 
     def setup_icon(self):
         """Override pyRevit's setup_icon to remove the window icon from the title bar."""
@@ -762,27 +797,29 @@ class T3LabAssistantWindow(forms.WPFWindow):
     }
     _BADGE_GRAY = (161, 161, 170)       # #A1A1AA — no provider / offline
 
-    def _update_welcome_greeting(self):
-        """Update the welcome greeting panel with time-of-day greeting and username."""
+    def _render_greeting(self, name):
+        """Set the welcome greeting text for a given name (no settings read)."""
         try:
-            from config.settings import T3LabAISettings
-            s = T3LabAISettings()
-            name = s.get_username() or u"Thạnh"
-            
-            # Determine time of day
             import datetime
-            now = datetime.datetime.now()
-            hour = now.hour
+            hour = datetime.datetime.now().hour
             if hour < 12:
                 greet = u"Good morning"
             elif hour < 18:
                 greet = u"Good afternoon"
             else:
                 greet = u"Good evening"
-                
-            self.welcome_greeting_text.Text = u"{}, {}".format(greet, name)
-            
-            # Control visibility based on chat history
+            self.welcome_greeting_text.Text = u"{}, {}".format(greet, name or u"Thạnh")
+        except Exception:
+            pass
+
+    def _update_welcome_greeting(self):
+        """Refresh greeting text from saved settings and toggle panel visibility."""
+        try:
+            from config.user_profile import UserProfile
+            name = UserProfile().get_name() or u"Thạnh"
+            self._render_greeting(name)
+
+            # The welcome banner only shows on a fresh chat (no history yet).
             if self._persisted_msgs:
                 self.welcome_greeting_panel.Visibility = Visibility.Collapsed
             else:
@@ -790,17 +827,237 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    def sidebar_save_username_clicked(self, sender, e):
-        """Save the configured user name and update the greeting."""
+    def sidebar_username_changed(self, sender, e):
+        """Live-preview the greeting + profile card as the user types."""
         try:
-            from config.settings import T3LabAISettings
-            username = self.sidebar_username_box.Text.strip()
-            if not username:
-                return
-            T3LabAISettings().set_username(username)
-            self._update_welcome_greeting()
+            name = (self.sidebar_username_box.Text or u"").strip()
+            if name:
+                self._render_greeting(name)
+                self._update_profile_card(name)
+        except Exception:
+            pass
+
+    def _update_profile_card(self, name=None):
+        """Refresh the Claude-style profile card in the settings sidebar."""
+        try:
+            from config.user_profile import UserProfile
+            prof = UserProfile()
+            nm = (name or u"").strip() or prof.get_name() or u"Thạnh"
+            try:
+                self.sidebar_profile_name.Text    = nm
+                self.sidebar_profile_initial.Text = (nm[:1].upper() if nm else u"T")
+            except Exception:
+                pass
+            try:
+                from Intelligence.llm_router import LLMRouter
+                self.sidebar_profile_sub.Text = LLMRouter().get_display_label()
+            except Exception:
+                try:
+                    self.sidebar_profile_sub.Text = u"T3Lab Assistant"
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def sidebar_save_username_clicked(self, sender, e):
+        """Persist the user name and reflect it in the greeting immediately."""
+        username = (self.sidebar_username_box.Text or u"").strip()
+        if not username:
+            return
+
+        # 1) Update the greeting from the typed value FIRST — independent of disk
+        #    I/O — so the UI always syncs even if persistence happens to fail.
+        self._render_greeting(username)
+
+        # 2) Persist to the user profile (which also syncs settings.username).
+        saved = False
+        try:
+            from config.user_profile import UserProfile
+            UserProfile().set_name(username)
+            saved = True
         except Exception as ex:
-            logger.debug("sidebar_save_username_clicked error: {}".format(ex))
+            logger.debug("set_name error: {}".format(ex))
+
+        # 3) Confirm visually (covers the mid-chat case where the greeting banner
+        #    itself is collapsed and the text change isn't visible).
+        self._update_profile_card(username)
+        if saved:
+            self._flash_username_saved()
+
+    def _flash_username_saved(self):
+        """Briefly tint the username box green to confirm a successful save."""
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Threading import DispatcherTimer
+            from System import TimeSpan
+
+            box = self.sidebar_username_box
+            box.BorderBrush = SolidColorBrush(Color.FromRgb(16, 185, 129))   # emerald
+            box.Background  = SolidColorBrush(Color.FromRgb(240, 253, 244))
+
+            timer = DispatcherTimer()
+            timer.Interval = TimeSpan.FromSeconds(1.3)
+
+            def _revert(s, ev):
+                try:
+                    box.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))  # #E6E6EA
+                    box.Background  = SolidColorBrush(Color.FromRgb(255, 255, 255))
+                finally:
+                    timer.Stop()
+
+            timer.Tick += _revert
+            timer.Start()
+        except Exception:
+            pass
+
+    # ─── First-run onboarding ─────────────────────────────────────────────────
+
+    def _selected_onboarding_provider(self):
+        """Return the provider tag selected in the onboarding combo."""
+        try:
+            item = self.onboarding_provider_combo.SelectedItem
+            if item is not None and item.Tag:
+                return str(item.Tag)
+        except Exception:
+            pass
+        return "claude"
+
+    def _sync_onboarding_key_panel(self):
+        """Hide the API-key field for local providers; relabel for remote ones."""
+        try:
+            prov = self._selected_onboarding_provider()
+            is_local = prov in ("ollama", "lmstudio")
+            self.onboarding_key_panel.Visibility = (
+                Visibility.Collapsed if is_local else Visibility.Visible)
+            if not is_local:
+                labels = {
+                    "claude":   u"ANTHROPIC API KEY",
+                    "openai":   u"OPENAI API KEY",
+                    "deepseek": u"DEEPSEEK API KEY",
+                }
+                self.onboarding_key_label.Text = labels.get(prov, u"API KEY")
+        except Exception:
+            pass
+
+    def _show_onboarding(self):
+        """Display the first-run onboarding card."""
+        try:
+            from config.user_profile import UserProfile
+            prof = UserProfile()
+            try:
+                nm = prof.get_name(fallback=False)
+                if nm:
+                    self.onboarding_name_box.Text = nm
+            except Exception:
+                pass
+
+            import datetime
+            h = datetime.datetime.now().hour
+            greet = (u"Good morning" if h < 12 else
+                     u"Good afternoon" if h < 18 else u"Good evening")
+            try:
+                self.onboarding_greeting.Text = u"{}! 👋".format(greet)
+            except Exception:
+                pass
+
+            self._sync_onboarding_key_panel()
+            self.onboarding_overlay.Visibility = Visibility.Visible
+            try:
+                self.onboarding_name_box.Focus()
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug("_show_onboarding error: {}".format(ex))
+
+    def _hide_onboarding(self):
+        try:
+            self.onboarding_overlay.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
+
+    def onboarding_provider_changed(self, sender, e):
+        self._sync_onboarding_key_panel()
+
+    def onboarding_skip_clicked(self, sender, e):
+        """Dismiss onboarding without saving — won't show again."""
+        try:
+            from config.user_profile import UserProfile
+            UserProfile().mark_setup_completed()
+        except Exception:
+            pass
+        self._hide_onboarding()
+
+    def onboarding_save_clicked(self, sender, e):
+        """Persist the new user's profile + model setup, then dismiss onboarding."""
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+            name = (self.onboarding_name_box.Text or u"").strip()
+            if not name:
+                # Gently require a name.
+                try:
+                    self.onboarding_name_box.BorderBrush = SolidColorBrush(
+                        Color.FromRgb(239, 68, 68))      # rose
+                    self.onboarding_name_box.Focus()
+                except Exception:
+                    pass
+                return
+
+            from config.user_profile import UserProfile
+            prof     = UserProfile()
+            provider = self._selected_onboarding_provider()
+
+            prof.set_name(name)
+            prof.set_model_setup(provider)
+
+            # Optional API key for remote providers.
+            key = u""
+            try:
+                key = (self.onboarding_key_box.Text or u"").strip()
+            except Exception:
+                pass
+            if key and provider in ("claude", "openai", "deepseek"):
+                key_map = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
+                try:
+                    from config.settings import T3LabAISettings
+                    T3LabAISettings().set_api_key(key_map[provider], key)
+                except Exception:
+                    pass
+
+            prof.mark_setup_completed()
+
+            # Activate the chosen provider live.
+            try:
+                from Intelligence.llm_router import LLMRouter
+                router = LLMRouter()
+                router.switch_provider(provider)
+                p = router.get_active_provider()
+                if p and hasattr(p, "reload_credentials"):
+                    p.reload_credentials()
+            except Exception:
+                pass
+
+            self._hide_onboarding()
+
+            # Refresh greeting + badge to reflect the new profile.
+            self._render_greeting(name)
+            try:
+                self._update_welcome_greeting()
+            except Exception:
+                pass
+            try:
+                self._update_ai_badge()
+            except Exception:
+                pass
+            try:
+                self._update_profile_card(name)
+            except Exception:
+                pass
+
+            self._append_bot_message(
+                u"Rất vui được gặp bạn, {}! 🎉\n"
+                u"Hồ sơ của bạn đã được lưu. Hãy thử 'mở batchout' hoặc hỏi tôi bất cứ điều gì về Revit.".format(name))
+        except Exception as ex:
+            logger.debug("onboarding_save_clicked error: {}".format(ex))
 
     def _update_ai_badge(self):
         """Render the provider pill INSTANTLY (no network). Health is refined async.
@@ -1018,6 +1275,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 return
             tag = item.Tag
             if tag:
+                # Repopulate the MODEL list for the chosen provider IMMEDIATELY so
+                # it never lingers on the previous provider's models, then hot-swap.
+                self._populate_model_combo(tag)
                 self._switch_provider(tag)
         except Exception as ex:
             logger.debug("sidebar_provider_changed error: {}".format(ex))
@@ -1167,45 +1427,79 @@ class T3LabAssistantWindow(forms.WPFWindow):
         _tt.Start()
 
     def sidebar_save_key_clicked(self, sender, e):
-        """Save the typed API key for the active provider."""
+        """Setup rule: save API key → verify connection → fetch models → enable.
+
+        The MODEL list stays disabled until the key is confirmed working, so a
+        provider can never be 'used' with an invalid/missing key (which would
+        otherwise stream wrong/fallback output).
+        """
         try:
+            from System.Windows.Media import SolidColorBrush, Color
             from config.settings import T3LabAISettings
             from Intelligence.llm_router import LLMRouter
+
             key = self.sidebar_api_key_box.Text.strip()
             if not key or key.endswith("..."):
                 return
+
             router = LLMRouter()
             name   = router.get_active_name()
-            key_map = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
-            settings_key = key_map.get(name)
-            if settings_key:
-                T3LabAISettings().set_api_key(settings_key, key)
+            settings_key = self._KEY_NAME_MAP.get(name)
+            if not settings_key:
+                return   # not a key-based provider
 
-            # Reload credentials into provider (it reads the key only at __init__)
-            # and clear the model cache so next probe fetches live from the API
+            # 1) Save the key.
+            T3LabAISettings().set_api_key(settings_key, key)
+
             provider = router.get_active_provider()
             if provider and hasattr(provider, "reload_credentials"):
                 provider.reload_credentials()
             elif provider and hasattr(provider, "invalidate_models_cache"):
                 provider.invalidate_models_cache()
-            # Also clear the script-side model cache for this provider
             self._models_cache.pop(name, None)
 
-            # Refresh badge instantly; trigger background probe to refetch models
+            # 2) Show "checking" state; keep MODEL disabled until verified.
+            self.sidebar_model_combo.IsEnabled    = False
+            self.sidebar_save_model_btn.IsEnabled = False
+            self.sidebar_save_key_btn.IsEnabled   = False
+            self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(113, 113, 122))
+            self.model_saved_hint.Text       = u"Đang kiểm tra kết nối…"
             self._update_ai_badge()
-            self._update_sidebar_instant()
 
-            # Kick a background probe so model combo fills with live data
-            def _probe():
+            # 3) Verify connection + fetch models off the UI thread.
+            def _validate():
+                ok = False
+                models = []
                 try:
-                    router.get_status(use_cache=False)
-                    live_models = provider.get_models() if provider else []
-                    if live_models:
-                        self._models_cache[name] = live_models
-                    self.Dispatcher.Invoke(Action(self._update_sidebar))
+                    if provider and provider.check_health():
+                        models = provider.get_models() or []
+                        ok = len(models) > 0
                 except Exception:
-                    pass
-            _kt = Thread(ThreadStart(_probe))
+                    ok = False
+
+                def _apply():
+                    from System.Windows.Media import SolidColorBrush, Color
+                    try:
+                        self.sidebar_save_key_btn.IsEnabled = True
+                    except Exception:
+                        pass
+                    if ok:
+                        # 4) Fetched → enable model selection.
+                        self._models_cache[name] = models
+                        self._populate_model_combo(name)
+                        self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(16, 185, 129))
+                        self.model_saved_hint.Text = u"✓ Đã kết nối ({} model)".format(len(models))
+                    else:
+                        self._models_cache.pop(name, None)
+                        self._populate_model_combo(name)   # stays disabled + hint
+                        self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(239, 68, 68))
+                        self.model_saved_hint.Text = u"✗ Key sai hoặc không kết nối được"
+                    self._set_status_dot(name, ok)
+                    self._update_ai_badge()
+
+                self.Dispatcher.Invoke(Action(_apply))
+
+            _kt = Thread(ThreadStart(_validate))
             _kt.IsBackground = True
             _kt.SetApartmentState(ApartmentState.STA)
             _kt.Start()
@@ -1259,24 +1553,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _ht.Start()
         except Exception as ex:
             logger.debug("sidebar_save_host_clicked error: {}".format(ex))
-
-    # ─── Available APIs toggle ────────────────────────────────────────────────
-
-    def apis_toggle_clicked(self, sender, e):
-        """Toggle the Available APIs collapsible panel in settings sidebar."""
-        try:
-            from System.Windows import Visibility
-            from Intelligence.t3lab_agent import get_apis_text
-            if self.apis_panel.Visibility == Visibility.Visible:
-                self.apis_panel.Visibility  = Visibility.Collapsed
-                self.btn_apis_label.Text    = u"Show"
-            else:
-                if not self.apis_text.Text or self.apis_text.Text == u"Loading...":
-                    self.apis_text.Text = get_apis_text()
-                self.apis_panel.Visibility  = Visibility.Visible
-                self.btn_apis_label.Text    = u"Hide"
-        except Exception as ex:
-            logger.debug("apis_toggle_clicked error: {}".format(ex))
 
     # ─── Command palette ──────────────────────────────────────────────────────
 
@@ -1500,6 +1776,127 @@ class T3LabAssistantWindow(forms.WPFWindow):
     }
     _PROV_INDEX = {"claude": 0, "openai": 1, "deepseek": 2, "ollama": 3, "lmstudio": 4}
 
+    _KEY_PROVIDERS  = ("claude", "openai", "deepseek")
+    _KEY_NAME_MAP   = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
+
+    # Where to obtain an API key for each key-based provider.
+    _API_KEY_URLS = {
+        "claude":   "https://console.anthropic.com/settings/keys",
+        "openai":   "https://platform.openai.com/api-keys",
+        "deepseek": "https://platform.deepseek.com/api_keys",
+    }
+
+    def get_api_key_clicked(self, sender, e):
+        """Open the active provider's API-key page in the default browser."""
+        try:
+            from Intelligence.llm_router import LLMRouter
+            name = LLMRouter().get_active_name()
+            url  = self._API_KEY_URLS.get(name)
+            if not url:
+                return
+            import System.Diagnostics
+            System.Diagnostics.Process.Start(url)
+        except Exception as ex:
+            logger.debug("get_api_key_clicked error: {}".format(ex))
+
+    def _has_saved_key(self, provider):
+        """True if an API key is stored for a key-based provider."""
+        try:
+            from config.settings import T3LabAISettings
+            return bool(T3LabAISettings().get_api_key(self._KEY_NAME_MAP.get(provider, "")))
+        except Exception:
+            return False
+
+    def _populate_model_combo(self, active):
+        """Fill the MODEL combo for `active`, enforcing the setup rule.
+
+        A key-based provider exposes models ONLY after its key was saved and the
+        connection verified — i.e. live models are present in the cache (the probe
+        only caches them when check_health() succeeds). Until then the combo is
+        empty + disabled with a hint. Local providers expose models once the
+        server has been probed. No network here.
+        """
+        try:
+            try:
+                self.sidebar_model_combo.SelectionChanged -= self.sidebar_model_changed
+            except Exception:
+                pass
+
+            self.sidebar_model_combo.Items.Clear()
+            models    = list(self._models_cache.get(active, []))   # live, validated only
+            enabled   = bool(models)
+            needs_key = active in self._KEY_PROVIDERS
+            hint      = u""
+
+            if enabled:
+                # Pin the saved model (stored per-provider) first if present.
+                saved = None
+                try:
+                    from config.settings import T3LabAISettings
+                    saved = T3LabAISettings().get_provider_model(active)
+                except Exception:
+                    pass
+                if saved and saved not in models:
+                    models.insert(0, saved)
+                for m in models:
+                    self.sidebar_model_combo.Items.Add(m)
+                if saved and saved in models:
+                    self.sidebar_model_combo.SelectedItem = saved
+                else:
+                    self.sidebar_model_combo.SelectedIndex = 0
+            else:
+                if needs_key:
+                    hint = (u"Nhập API key trước" if not self._has_saved_key(active)
+                            else u"Chưa kết nối — nhấn Save để kiểm tra")
+                else:
+                    hint = u"Khởi động server & load model"
+
+            self.sidebar_model_combo.IsEnabled = enabled
+            try:
+                self.sidebar_save_model_btn.IsEnabled = enabled
+            except Exception:
+                pass
+
+            try:
+                from System.Windows.Media import SolidColorBrush, Color
+                self.model_saved_hint.Text = hint
+                self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug("_populate_model_combo error: {}".format(ex))
+        finally:
+            try:
+                self.sidebar_model_combo.SelectionChanged += self.sidebar_model_changed
+            except Exception:
+                pass
+
+    def _set_status_dot(self, name, available):
+        """Update a single provider's STATUS dot + label (UI thread)."""
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+            mapping = {
+                "claude":   (self.status_dot_claude,   self.status_text_claude),
+                "openai":   (self.status_dot_openai,   self.status_text_openai),
+                "deepseek": (self.status_dot_deepseek, self.status_text_deepseek),
+                "ollama":   (self.status_dot_ollama,   self.status_text_ollama),
+                "lmstudio": (self.status_dot_lmstudio, self.status_text_lmstudio),
+            }
+            pair = mapping.get(name)
+            if not pair:
+                return
+            dot, txt = pair
+            if available:
+                dot.Fill = SolidColorBrush(Color.FromRgb(16, 185, 129))
+                txt.Text = u"Ready"
+                txt.Foreground = SolidColorBrush(Color.FromRgb(16, 185, 129))
+            else:
+                dot.Fill = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                txt.Text = u"Not set up"
+                txt.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
+        except Exception:
+            pass
+
     def _update_sidebar_instant(self):
         """Phase-1 sidebar render — zero HTTP, instant.  Uses cached/local data only."""
         try:
@@ -1507,10 +1904,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             # Username Profile Section
             try:
-                from config.settings import T3LabAISettings
-                self.sidebar_username_box.Text = T3LabAISettings().get_username() or u"Thạnh"
+                from config.user_profile import UserProfile
+                self.sidebar_username_box.Text = UserProfile().get_name() or u"Thạnh"
             except Exception:
                 pass
+            self._update_profile_card()
             from Intelligence.llm_router import LLMRouter
 
             router = LLMRouter()
@@ -1536,9 +1934,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             }
             self.sidebar_key_label.Text = _KEY_LABELS.get(active, u"API Key")
 
-            needs_key = active in ("claude", "openai", "deepseek")
+            needs_key = active in self._KEY_PROVIDERS
             self.sidebar_api_key_box.IsEnabled  = needs_key
             self.sidebar_save_key_btn.IsEnabled = needs_key
+            try:
+                self.get_api_key_link.Visibility = (
+                    Visibility.Visible if needs_key else Visibility.Collapsed)
+            except Exception:
+                pass
 
             if needs_key:
                 try:
@@ -1551,28 +1954,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             else:
                 self.sidebar_api_key_box.Text = u""
 
-            # Model ComboBox — use cache (no HTTP). If no cache yet, fall back to
-            # the last-used model saved in settings so the UI is instantly usable
-            # without waiting for the network model-list fetch.
-            self.sidebar_model_combo.SelectionChanged -= self.sidebar_model_changed
-            self.sidebar_model_combo.Items.Clear()
-            cached_models = list(self._models_cache.get(active, []))
-            saved_model = None
-            try:
-                from config.settings import T3LabAISettings
-                saved_model = T3LabAISettings().get_provider_model(active)
-            except Exception:
-                pass
-            # Ensure the saved model is present and shown even before live fetch
-            if saved_model and saved_model not in cached_models:
-                cached_models.insert(0, saved_model)
-            for m in cached_models:
-                self.sidebar_model_combo.Items.Add(m)
-            if saved_model and saved_model in cached_models:
-                self.sidebar_model_combo.SelectedItem = saved_model
-            elif cached_models:
-                self.sidebar_model_combo.SelectedIndex = 0
-            self.sidebar_model_combo.SelectionChanged += self.sidebar_model_changed
+            # Model ComboBox — instant, no HTTP (cache → fallback → saved model).
+            self._populate_model_combo(active)
 
         except Exception as ex:
             logger.debug("_update_sidebar_instant error: {}".format(ex))
@@ -1613,6 +1996,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             needs_key = active in ("claude", "openai", "deepseek")
             self.sidebar_api_key_box.IsEnabled  = needs_key
             self.sidebar_save_key_btn.IsEnabled = needs_key
+            try:
+                self.get_api_key_link.Visibility = (
+                    Visibility.Visible if needs_key else Visibility.Collapsed)
+            except Exception:
+                pass
 
             if needs_key:
                 try:
@@ -1625,18 +2013,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             else:
                 self.sidebar_api_key_box.Text = u""
 
-            # Model ComboBox — use freshly cached list
-            self.sidebar_model_combo.SelectionChanged -= self.sidebar_model_changed
-            self.sidebar_model_combo.Items.Clear()
-            models  = self._models_cache.get(active, [])
-            current = status.get(active, {}).get("model") or ""
-            for m in models:
-                self.sidebar_model_combo.Items.Add(m)
-            if current and current in models:
-                self.sidebar_model_combo.SelectedItem = current
-            elif models:
-                self.sidebar_model_combo.SelectedIndex = 0
-            self.sidebar_model_combo.SelectionChanged += self.sidebar_model_changed
+            # Model ComboBox — refresh from the freshly probed cache for `active`.
+            self._populate_model_combo(active)
 
             # Status dots
             dot_rows = [
@@ -1920,11 +2298,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._process_input()
 
     def input_keydown(self, sender, e):
-        from System.Windows.Input import Key
+        from System.Windows.Input import Key, Keyboard, ModifierKeys
         if e.Key == Key.Return or e.Key == Key.Enter:
+            # Shift+Enter inserts a newline (multi-line input); Enter sends.
+            if (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift:
+                return  # let the TextBox handle the newline
             self._process_input()
             e.Handled = True
         elif e.Key == Key.Up:
+            # Don't hijack Up while editing a multi-line draft.
+            if u"\n" in (self.chat_input.Text or u""):
+                return
             if self._input_history:
                 if self._history_index == -1:
                     self._current_input_temp = self.chat_input.Text
@@ -2243,13 +2627,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if has_attach or rag_context:
                             system_prompt = _RAG_SYSTEM_PREFIX + system_prompt
 
-                        # Perform the chat completion
+                        # Perform the chat completion.
+                        # Iteration 1 streams live into a growing bubble (smooth,
+                        # low time-to-first-token). Subsequent tool-loop turns are
+                        # internal, so they use a plain blocking call.
                         _resp = None
                         try:
-                            if _provider and _provider.check_health():
-                                _resp = _provider.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200)
+                            if current_iteration == 1:
+                                _resp = self._stream_llm_turn(
+                                    _provider, _router, current_history,
+                                    system_prompt, current_query, max_tokens=1200,
+                                    response_format={"type": "json_object"}
+                                )
+                            elif _provider and _provider.check_health():
+                                _resp = _provider.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200, response_format={"type": "json_object"})
                             else:
-                                _resp = _router.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200)
+                                _resp = _router.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200, response_format={"type": "json_object"})
                         except Exception as chat_ex:
                             logger.debug("Router chat error: {}".format(chat_ex))
 
@@ -2261,11 +2654,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         _parsed = None
                         try:
                             import re as _re
+                            # First try extracting JSON block using regex if model included extra text
                             _m = _re.search(r'\{[\s\S]*\}', _resp)
                             if _m:
                                 _parsed = _json.loads(_m.group())
+                            else:
+                                # Fallback to direct parsing
+                                _parsed = _json.loads(_resp)
+                                
+                            # Ensure intent is present
+                            if "intent" not in _parsed:
+                                _parsed["intent"] = "unknown"
                         except Exception:
-                            pass
+                            # Fallback if model returns corrupted JSON/text
+                            _parsed = {
+                                "intent": "unknown",
+                                "message": u"Không thể đọc dữ liệu từ Model. Vui lòng thử lại."
+                            }
 
                         if _parsed and _parsed.get("intent"):
                             intent = _parsed.get("intent")
@@ -2286,6 +2691,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     pass
 
                             if is_local_tool:
+                                # The streamed preview (if any) is superseded by
+                                # explicit tool-execution feedback below.
+                                self.Dispatcher.Invoke(Action(self._remove_stream_bubble))
                                 # Update typing indicator UI to show tool execution
                                 is_vn = _is_viet_text(captured)
                                 status_msg = u"● ● ●  Đang chạy công cụ `{}`...".format(intent) if is_vn else "● ● ●  Executing tool `{}`...".format(intent)
@@ -2322,6 +2730,36 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                     def finish():
                         try:
+                            has_stream = (self._stream_tb is not None)
+                            r_intent   = result.get("intent") if result else None
+                            _conv      = ("chat", "help", "greet")
+
+                            # Plain conversational reply that already streamed live
+                            # → keep the bubble, just apply markdown + record it.
+                            if has_stream and r_intent in _conv:
+                                if r_intent == "help":
+                                    msg = result.get("params", {}).get(
+                                        "answer", result.get("message", ""))
+                                else:
+                                    msg = result.get("message", "")
+                                msg = self._clean_bot_response(msg) if msg else u""
+                                if not msg:
+                                    try:
+                                        msg = self._stream_tb.Text or u""
+                                    except Exception:
+                                        msg = u""
+                                if not msg:
+                                    msg = u"Có thể giúp gì thêm không?"
+                                self._finalize_stream_bubble(msg)
+                                self._add_to_history("assistant", msg)
+                                self._clear_stream_refs()
+                                self._set_busy(False)
+                                return
+
+                            # Action/tool result → discard any preview bubble and
+                            # let the executor render its own message + run it.
+                            if has_stream:
+                                self._remove_stream_bubble()
                             self._hide_typing_indicator()
                             if result and result.get("intent") not in (None, "unknown"):
                                 self._execute_result(result)
@@ -2351,6 +2789,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         except Exception as finish_ex:
                             logger.error("finish error: {}".format(finish_ex))
                             self._hide_typing_indicator()
+                            self._clear_stream_refs()
                             self._set_busy(False)
 
                     self.Dispatcher.Invoke(Action(finish))
@@ -2665,6 +3104,132 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("Error adding bot message: {}".format(ex))
+
+    # ─── Live streaming bubble ────────────────────────────────────────────────
+
+    def _begin_stream_bubble(self):
+        """Create an empty bot bubble that will be filled token-by-token.
+
+        Stores references in self._stream_row / self._stream_tb. UI thread only.
+        """
+        try:
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
+            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
+            from System.Windows.Media import SolidColorBrush, Color
+
+            row = Grid()
+            row.Margin = Thickness(0, 0, 60, 10)
+            col_av = ColumnDefinition()
+            col_av.Width = GridLength.Auto
+            col_msg = ColumnDefinition()
+            col_msg.Width = GridLength(1, System.Windows.GridUnitType.Star)
+            row.ColumnDefinitions.Add(col_av)
+            row.ColumnDefinitions.Add(col_msg)
+
+            av = self._make_avatar("T3")
+            Grid.SetColumn(av, 0)
+            row.Children.Add(av)
+
+            bubble = Border()
+            bubble.Background      = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            bubble.CornerRadius    = CornerRadius(3, 8, 8, 8)
+            bubble.Padding         = Thickness(14, 10, 14, 10)
+            bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))
+            bubble.BorderThickness = Thickness(1)
+
+            tb = TextBlock()
+            tb.FontSize     = 13
+            tb.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+            tb.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))
+            tb.TextWrapping = TextWrapping.Wrap
+            tb.LineHeight   = 20
+
+            bubble.Child = tb
+            Grid.SetColumn(bubble, 1)
+            row.Children.Add(bubble)
+            self.chat_history_panel.Children.Add(row)
+            self._stream_row = row
+            self._stream_tb  = tb
+            self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug("_begin_stream_bubble error: {}".format(ex))
+            self._stream_row = None
+            self._stream_tb  = None
+
+    def _finalize_stream_bubble(self, text):
+        """Re-render the live bubble with full markdown once streaming is done."""
+        try:
+            tb = self._stream_tb
+            if tb is None:
+                return
+            tb.Inlines.Clear()
+            try:
+                self._build_md_inlines(tb, text)
+            except Exception:
+                tb.Text = text
+            self._scroll_to_bottom()
+        except Exception:
+            pass
+
+    def _remove_stream_bubble(self):
+        """Discard the live bubble (used when an action renders its own reply)."""
+        try:
+            if self._stream_row is not None:
+                self.chat_history_panel.Children.Remove(self._stream_row)
+        except Exception:
+            pass
+        self._stream_row = None
+        self._stream_tb  = None
+
+    def _clear_stream_refs(self):
+        """Detach references so the bubble persists but is no longer 'live'."""
+        self._stream_row = None
+        self._stream_tb  = None
+
+    def _stream_llm_turn(self, provider, router, history, system_prompt,
+                         query, max_tokens=1200, **kwargs):
+        """Run one streaming LLM turn, filling a live bubble. Worker thread.
+
+        The bubble is created lazily on the first token so the animated typing
+        indicator stays visible until the model actually starts replying.
+        Returns the full raw response text (str) or None.
+        """
+        extractor = StreamingJSONExtractor()
+        state = {"raw": [], "started": False}
+
+        def _on_delta(chunk):
+            if not chunk:
+                return
+            state["raw"].append(chunk)
+            disp = extractor.display(u"".join(state["raw"]))
+
+            def _ui():
+                if not state["started"]:
+                    state["started"] = True
+                    self._hide_typing_indicator()
+                    self._begin_stream_bubble()
+                try:
+                    if self._stream_tb is not None:
+                        # Live text is plain (fast); markdown applied on finalize.
+                        self._stream_tb.Text = disp
+                        self._scroll_to_bottom()
+                except Exception:
+                    pass
+
+            try:
+                self.Dispatcher.Invoke(Action(_ui))
+            except Exception:
+                pass
+
+        try:
+            if provider is not None and provider.check_health():
+                return provider.chat_stream(
+                    history[-16:], system_prompt, query, _on_delta, max_tokens)
+            return router.chat_stream(
+                history[-16:], system_prompt, query, _on_delta, max_tokens)
+        except Exception as ex:
+            logger.debug("_stream_llm_turn error: {}".format(ex))
+            return None
 
     def _scroll_to_bottom(self):
         try:

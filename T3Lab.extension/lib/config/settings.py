@@ -112,15 +112,25 @@ class T3LabAISettings:
         return self._settings.get('providers', [])
 
     def get_api_key(self, provider_name):
-        """Get API key for a provider"""
+        """Get API key for a provider — always reads fresh from the in-memory dict.
+
+        The dict is kept in sync with the file by reload() / set_api_key().
+        """
         return self._settings.get('api_keys', {}).get(provider_name)
 
     def set_api_key(self, provider_name, api_key):
-        """Set API key for a provider"""
+        """Set API key for a provider.
+
+        Reloads the file from disk first so that keys saved by other sessions
+        (or other providers) are not accidentally overwritten by stale
+        in-memory data.
+        """
+        # Merge: reload disk → patch → save
+        self._settings = self._load_settings()
         if 'api_keys' not in self._settings:
             self._settings['api_keys'] = {}
         self._settings['api_keys'][provider_name] = api_key
-        self.save_settings()
+        return self.save_settings()
 
     def get_active_provider(self):
         """Return the name of the last-selected LLM provider ('claude', 'openai', 'ollama')."""

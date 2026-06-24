@@ -1489,8 +1489,28 @@
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="14,16,14,20">
 
+                    <!-- ── Profile summary card (Claude-style account header) ── -->
+                    <Border Background="White" CornerRadius="12" Padding="12"
+                            Margin="0,0,0,16" BorderBrush="#E6E6EA" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="40" Height="40" CornerRadius="20"
+                                    Background="#18181B" VerticalAlignment="Center"
+                                    Margin="0,0,11,0">
+                                <TextBlock x:Name="sidebar_profile_initial" Text="T"
+                                           Foreground="White" FontSize="16" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="sidebar_profile_name" Text="Thạnh"
+                                           FontSize="13.5" FontWeight="SemiBold" Foreground="#18181B"/>
+                                <TextBlock x:Name="sidebar_profile_sub" Text="T3Lab Assistant"
+                                           FontSize="10.5" Foreground="#A1A1AA" Margin="0,1,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <!-- ── User Profile ── -->
-                    <TextBlock Text="USER NAME" FontSize="9" FontWeight="SemiBold"
+                    <TextBlock Text="DISPLAY NAME" FontSize="9" FontWeight="SemiBold"
                                Foreground="#A1A1AA" Margin="2,0,0,8"
                                FontFamily="Hanken Grotesk"/>
                     <Grid Margin="0,0,0,14">
@@ -1503,7 +1523,8 @@
                                  FontFamily="Hanken Grotesk" FontSize="12"
                                  Padding="10,0" BorderBrush="#E6E6EA"
                                  BorderThickness="1" Background="White"
-                                 VerticalContentAlignment="Center"/>
+                                 VerticalContentAlignment="Center"
+                                 TextChanged="sidebar_username_changed"/>
                         <Button x:Name="sidebar_save_username_btn" Grid.Column="1"
                                 Height="32" MinWidth="52" Cursor="Hand"
                                 Click="sidebar_save_username_clicked"
@@ -1603,9 +1624,36 @@
                     <Border Height="1" Background="#E6E6EA" Margin="0,0,0,16"/>
 
                     <!-- ── API Key ── -->
-                    <TextBlock Text="API KEY" FontSize="9" FontWeight="SemiBold"
-                               Foreground="#A1A1AA" Margin="2,0,0,10"
-                               FontFamily="Hanken Grotesk"/>
+                    <Grid Margin="0,0,0,10">
+                        <TextBlock Text="API KEY" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" VerticalAlignment="Center"
+                                   Margin="2,0,0,0" FontFamily="Hanken Grotesk"/>
+                        <Button x:Name="get_api_key_link" HorizontalAlignment="Right"
+                                VerticalAlignment="Center" Height="18" Cursor="Hand"
+                                Click="get_api_key_clicked" ToolTip="Mở trang lấy API key">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="getkey_bg" Background="Transparent"
+                                            CornerRadius="4" Padding="5,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="getkey_bg" Property="Background" Value="#F1F5F9"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Lấy API key" FontSize="9.5" FontWeight="SemiBold"
+                                           Foreground="#3B82F6" FontFamily="Hanken Grotesk"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="9"
+                                           Foreground="#3B82F6" Margin="3,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
                     <TextBlock x:Name="sidebar_key_label" Text="Anthropic API Key"
                                FontSize="11" Foreground="#71717A" Margin="2,0,0,6"
                                FontFamily="Hanken Grotesk"/>
@@ -1787,150 +1835,6 @@
                                        FontFamily="Hanken Grotesk" LineHeight="16"/>
                         </StackPanel>
                     </Border>
-
-                    <!-- ── Agents ── -->
-                    <Border Height="1" Background="#E6E6EA" Margin="0,16,0,16"/>
-
-                    <TextBlock Text="AGENTS" FontSize="9" FontWeight="SemiBold"
-                               Foreground="#A1A1AA" Margin="2,0,0,10"
-                               FontFamily="Hanken Grotesk"/>
-
-                    <!-- Export Agent -->
-                    <StackPanel Margin="2,0,0,7">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="6" Height="6" Fill="#10B981"
-                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Export Agent" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
-                        </StackPanel>
-                        <TextBlock Text="PDF/DWG/BatchOut export operations"
-                                   FontSize="10" Foreground="#71717A"
-                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
-                    </StackPanel>
-                    <!-- Tools Agent -->
-                    <StackPanel Margin="2,0,0,7">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="6" Height="6" Fill="#10B981"
-                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Tools Agent" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
-                        </StackPanel>
-                        <TextBlock Text="ParaSync, Load Family, Workset, DimText..."
-                                   FontSize="10" Foreground="#71717A"
-                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
-                    </StackPanel>
-                    <!-- Revit Query Agent -->
-                    <StackPanel Margin="2,0,0,7">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="6" Height="6" Fill="#3B82F6"
-                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Revit Query Agent" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
-                        </StackPanel>
-                        <TextBlock Text="View info, elements, families, statistics"
-                                   FontSize="10" Foreground="#71717A"
-                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
-                    </StackPanel>
-                    <!-- Revit Create Agent -->
-                    <StackPanel Margin="2,0,0,7">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="6" Height="6" Fill="#3B82F6"
-                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Revit Create Agent" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
-                        </StackPanel>
-                        <TextBlock Text="Walls, floors, rooms, grids, doors, beams"
-                                   FontSize="10" Foreground="#71717A"
-                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
-                    </StackPanel>
-                    <!-- Revit Modify Agent -->
-                    <StackPanel Margin="2,0,0,7">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="6" Height="6" Fill="#3B82F6"
-                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Revit Modify Agent" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
-                        </StackPanel>
-                        <TextBlock Text="Color, hide, isolate, tag, delete elements"
-                                   FontSize="10" Foreground="#71717A"
-                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
-                    </StackPanel>
-                    <!-- Chat Agent -->
-                    <StackPanel Margin="2,0,0,0">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="6" Height="6" Fill="#A1A1AA"
-                                     VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Chat Agent" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="#27272A" FontFamily="Hanken Grotesk"/>
-                        </StackPanel>
-                        <TextBlock Text="General conversation and T3Lab help"
-                                   FontSize="10" Foreground="#71717A"
-                                   FontFamily="Hanken Grotesk" Margin="13,2,0,0"/>
-                    </StackPanel>
-
-                    <!-- MCP note -->
-                    <Border CornerRadius="6" Padding="8,7"
-                            Margin="0,10,0,0"
-                            Background="#EFF6FF"
-                            BorderBrush="#BFDBFE" BorderThickness="1">
-                        <TextBlock TextWrapping="Wrap" FontSize="10"
-                                   FontFamily="Hanken Grotesk" Foreground="#1E40AF">
-                            <Run FontWeight="SemiBold">Revit Agents</Run>
-                            <Run> require the revit-mcp server running alongside Revit.</Run>
-                        </TextBlock>
-                    </Border>
-
-                    <!-- ── Available APIs ── -->
-                    <Border Height="1" Background="#E6E6EA" Margin="0,16,0,14"/>
-
-                    <Grid Margin="0,0,0,8">
-                        <TextBlock Text="AVAILABLE APIs" FontSize="9" FontWeight="SemiBold"
-                                   Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
-                                   VerticalAlignment="Center" Margin="2,0,0,0"/>
-                        <Button x:Name="btn_apis_toggle"
-                                HorizontalAlignment="Right"
-                                Height="20" Cursor="Hand"
-                                Click="apis_toggle_clicked">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="atog_bg" Background="Transparent"
-                                            CornerRadius="4" Padding="6,0">
-                                        <ContentPresenter HorizontalAlignment="Center"
-                                                          VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="atog_bg" Property="Background" Value="#F1F5F9"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <TextBlock x:Name="btn_apis_label" Text="Show"
-                                       FontSize="10" FontWeight="SemiBold"
-                                       Foreground="#3B82F6" FontFamily="Hanken Grotesk"/>
-                        </Button>
-                    </Grid>
-
-                    <!-- Collapsible API list -->
-                    <Border x:Name="apis_panel"
-                            Visibility="Collapsed"
-                            CornerRadius="6"
-                            Background="#F8FAFC"
-                            BorderBrush="#E2E8F0" BorderThickness="1"
-                            Margin="0,0,0,4">
-                        <TextBox x:Name="apis_text"
-                                 IsReadOnly="True"
-                                 TextWrapping="Wrap"
-                                 MaxHeight="260"
-                                 FontFamily="Consolas" FontSize="10"
-                                 Foreground="#374151"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 Padding="10,8"
-                                 VerticalScrollBarVisibility="Auto"
-                                 Text="Loading..."/>
-                    </Border>
-
                 </StackPanel>
             </ScrollViewer>
         </Border>
@@ -2204,6 +2108,84 @@
                 </Border>
                 <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Center" Margin="0,8,0,0" Foreground="#F59E0B" FontSize="11"/>
             </StackPanel>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             FIRST-RUN ONBOARDING OVERLAY (shown only for new installs)
+        ═══════════════════════════════════════════════════════════ -->
+        <Border x:Name="onboarding_overlay" Visibility="Collapsed"
+                Grid.Row="0" Grid.RowSpan="99" Grid.Column="0" Grid.ColumnSpan="99"
+                Panel.ZIndex="997" Background="#CC18181B">
+            <Border Width="392" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="White" CornerRadius="16" Padding="28,26"
+                    BorderBrush="#E6E6EA" BorderThickness="1">
+                <StackPanel>
+                    <!-- Brand row -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="✳" FontSize="22" Foreground="#EA580C"
+                                   FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,9,0"/>
+                        <TextBlock Text="T3Lab Assistant" FontSize="13" FontWeight="Bold"
+                                   Foreground="#18181B" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="onboarding_greeting" Text="Welcome 👋"
+                               FontSize="24" FontWeight="Bold" Foreground="#18181B"
+                               FontFamily="Georgia" Margin="0,6,0,2"/>
+                    <TextBlock Text="Let's set up your profile so I can tailor things to you."
+                               FontSize="12.5" Foreground="#71717A" TextWrapping="Wrap"
+                               Margin="0,0,0,18"/>
+
+                    <!-- Name -->
+                    <TextBlock Text="YOUR NAME" FontSize="9" FontWeight="SemiBold"
+                               Foreground="#A1A1AA" Margin="2,0,0,6"/>
+                    <TextBox x:Name="onboarding_name_box" Height="38" FontSize="13"
+                             Padding="11,0" BorderBrush="#CBD5E1" BorderThickness="1"
+                             Background="White" VerticalContentAlignment="Center"
+                             Margin="0,0,0,14"/>
+
+                    <!-- Provider -->
+                    <TextBlock Text="AI PROVIDER" FontSize="9" FontWeight="SemiBold"
+                               Foreground="#A1A1AA" Margin="2,0,0,6"/>
+                    <ComboBox x:Name="onboarding_provider_combo" Height="38" FontSize="13"
+                              Padding="9,0" VerticalContentAlignment="Center"
+                              Margin="0,0,0,14"
+                              SelectionChanged="onboarding_provider_changed">
+                        <ComboBoxItem Content="Claude — Anthropic" Tag="claude" IsSelected="True"/>
+                        <ComboBoxItem Content="GPT — OpenAI" Tag="openai"/>
+                        <ComboBoxItem Content="DeepSeek" Tag="deepseek"/>
+                        <ComboBoxItem Content="Ollama — Local (no key)" Tag="ollama"/>
+                        <ComboBoxItem Content="LM Studio — Local (no key)" Tag="lmstudio"/>
+                    </ComboBox>
+
+                    <!-- API key (hidden for local providers) -->
+                    <StackPanel x:Name="onboarding_key_panel">
+                        <TextBlock x:Name="onboarding_key_label" Text="API KEY"
+                                   FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" Margin="2,0,0,6"/>
+                        <TextBox x:Name="onboarding_key_box" Height="38" FontSize="12"
+                                 Padding="11,0" BorderBrush="#CBD5E1" BorderThickness="1"
+                                 Background="White" VerticalContentAlignment="Center"
+                                 Margin="0,0,0,4"/>
+                        <TextBlock Text="Optional — you can add this later in Settings."
+                                   FontSize="10.5" Foreground="#A1A1AA" Margin="2,0,0,16"/>
+                    </StackPanel>
+
+                    <!-- Actions -->
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Skip for now"
+                                Style="{StaticResource SecondaryButton}" Height="38"
+                                Padding="14,0" Click="onboarding_skip_clicked"/>
+                        <Button Grid.Column="1" Content="Get started"
+                                Style="{StaticResource PrimaryButton}" Height="38"
+                                Padding="18,0" HorizontalAlignment="Right"
+                                Click="onboarding_save_clicked"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
         </Border>
 </Grid>
 

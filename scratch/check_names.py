@@ -2,11 +2,11 @@
 import re
 
 def check_xaml(filepath):
-    print("Checking: {}".format(filepath))
+    print("\nChecking: {}".format(filepath))
     with open(filepath, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    # Check for x:Key definitions
+    # Find x:Key or x:Key=...
     keys = re.findall(r'x:Key\s*=\s*"([^"]+)"', content)
     seen = set()
     dups = []
@@ -20,3 +20,6 @@ def check_xaml(filepath):
 
 if __name__ == '__main__':
     check_xaml('T3Lab.extension/lib/GUI/Tools/ContainsManager.xaml')
+    check_xaml('T3Lab.extension/lib/GUI/Tools/FamilyManager.xaml')
+    check_xaml('T3Lab.extension/lib/GUI/Tools/ParameterManager.xaml')
+    check_xaml('T3Lab.extension/lib/GUI/Tools/ScheduleManager.xaml')

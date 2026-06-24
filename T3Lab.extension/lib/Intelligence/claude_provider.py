@@ -16,7 +16,9 @@ import json
 import os
 import sys
 
-from Intelligence.llm_provider import BaseLLMProvider, http_post, http_get_auth, HAS_HTTP
+from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_post_stream,
+                                       http_get_auth, parse_anthropic_stream_line,
+                                       HAS_HTTP)
 
 
 # ─── Constants ─────────────────────────────────────────────────────────────────
@@ -80,14 +82,15 @@ class ClaudeProvider(BaseLLMProvider):
     def get_models(self):
         """
         Fetch live model list from Anthropic /v1/models.
-        Caches result; falls back to FALLBACK_MODELS on network error.
+        Returns [] if there is no key or the live fetch fails, so callers can
+        treat a non-empty result as a verified connection.
         """
         if self._cached_models is not None:
             return list(self._cached_models)
 
         api_key = self._get_api_key()
         if not api_key:
-            return list(FALLBACK_MODELS)
+            return []   # no genuine live result → report unset (gates the model list)
 
         try:
             text = http_get_auth(
@@ -106,7 +109,7 @@ class ClaudeProvider(BaseLLMProvider):
         except Exception:
             pass
 
-        return list(FALLBACK_MODELS)
+        return []   # no genuine live result → report unset (gates the model list)
 
     def get_active_model(self):
         return self._model or MODEL_TEXT
@@ -117,7 +120,7 @@ class ClaudeProvider(BaseLLMProvider):
 
     # ── Chat ─────────────────────────────────────────────────────────────────
 
-    def chat(self, messages, system_prompt, user_content, max_tokens=400):
+    def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """
         Post a chat request to the Claude API.
 
@@ -158,6 +161,53 @@ class ClaudeProvider(BaseLLMProvider):
             return api_result["content"][0]["text"].strip()
         except Exception:
             return None
+
+    def chat_stream(self, messages, system_prompt, user_content,
+                    on_delta=None, max_tokens=400, **kwargs):
+        """Stream a Claude response token-by-token via the Messages SSE API."""
+        if not HAS_HTTP:
+            return None
+        api_key = self._get_api_key()
+        if not api_key:
+            return None
+
+        has_vision = self.has_image_blocks(user_content)
+        model = self._model if self._model else (MODEL_VISION if has_vision else MODEL_TEXT)
+
+        msgs = list(messages or [])
+        msgs.append({"role": "user", "content": user_content})
+
+        payload = {
+            "model":      model,
+            "max_tokens": max_tokens,
+            "system":     system_prompt,
+            "messages":   msgs,
+            "stream":     True,
+        }
+        headers = {
+            "x-api-key":         api_key,
+            "anthropic-version": ANTHROPIC_API_VER,
+        }
+
+        chunks = []
+
+        def _on_line(line):
+            delta = parse_anthropic_stream_line(line)
+            if delta:
+                chunks.append(delta)
+                if on_delta:
+                    try:
+                        on_delta(delta)
+                    except Exception:
+                        pass
+
+        try:
+            http_post_stream(CLAUDE_API_URL, payload, headers, _on_line)
+            full = u"".join(chunks)
+            return full.strip() if full else None
+        except Exception:
+            # Any streaming/transport error → fall back to a single blocking call.
+            return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
 
 
 # ─── Path helper ───────────────────────────────────────────────────────────────
