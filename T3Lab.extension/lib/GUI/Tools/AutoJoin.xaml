@@ -3,19 +3,20 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
     Title="T3Lab — Auto Join"
-    Height="620" Width="560"
-    MinWidth="520" MinHeight="540"
+    Height="660" Width="600"
+    MinWidth="560" MinHeight="600"
     WindowStartupLocation="CenterScreen"
     ResizeMode="CanResizeWithGrip"
     Background="#E4E4E7"
-    FontFamily="Hanken Grotesk">
+    FontFamily="Hanken Grotesk"
+    FontSize="14">
 
-        <WindowChrome.WindowChrome>
+    <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
-                       ResizeBorderThickness="5"
-                       GlassFrameThickness="0"
-                       CornerRadius="8"
-                       UseAeroCaptionButtons="False"/>
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="22"
+                      UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
@@ -1081,71 +1082,45 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
 
-        <!-- ComboBox style -->
-        <Style x:Key="StyledComboBox" TargetType="ComboBox">
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Padding" Value="6,4"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#0F172A"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
-
-        <!-- CheckBox style -->
-        <Style x:Key="StyledCheckBox" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#0F172A"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Margin" Value="0,3"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <!-- DataGrid row style -->
+        <!-- DataGrid row style (Lumina) -->
         <Style x:Key="RuleRow" TargetType="DataGridRow">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Height" Value="38"/>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#E2E8F0"/>
+                    <Setter Property="Background" Value="#E6E6EA"/>
                 </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#F8FAFC"/>
+                    <Setter Property="Background" Value="#F4F4F6"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
 
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>
-            <RowDefinition Height="1"/>
-            <RowDefinition/>
+            <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- ============ TITLE BAR ============ -->
-        <Grid Grid.Row="0" Background="White">
+        <Grid Grid.Row="0" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <!-- Left accent strip -->
-            <Border Width="3" HorizontalAlignment="Left" Background="#0F172A" Grid.ColumnSpan="2"/>
 
-            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="Auto Join" FontSize="18" FontWeight="Bold"
-                               Foreground="#0F172A"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock x:Name="doc_name" Text="Automatically join intersecting elements"
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+            <!-- Title + subtitle -->
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="Auto Join" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Join intersecting elements by category"
+                           FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0"
+            <!-- Window controls -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
                         ToolTip="Minimize" Click="minimize_button_clicked">
@@ -1160,77 +1135,92 @@
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
+
+            <!-- Bottom divider -->
+            <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
         </Grid>
 
-        <!-- SEPARATOR -->
-        <Rectangle Grid.Row="1" Fill="#E2E8F0"/>
-
         <!-- ============ CONTENT ============ -->
-        <Grid Grid.Row="2" Margin="16,12,16,8">
+        <Grid Grid.Row="1" Margin="18,16,18,10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="8"/>
-                <RowDefinition/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- SCOPE SELECTION -->
-            <Border Grid.Row="0" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="12,8">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="16"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+            <!-- ===== SETTINGS CARD ===== -->
+            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                    CornerRadius="16" Padding="18,16">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-                    <TextBlock Grid.Column="0" Text="Scope:" Foreground="#0F172A"
-                               FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="cb_scope" Grid.Column="2" Style="{StaticResource StyledComboBox}"
-                              SelectedIndex="0">
-                        <ComboBoxItem Content="Entire Project"/>
-                        <ComboBoxItem Content="Active View"/>
-                        <ComboBoxItem Content="Selected Elements"/>
-                    </ComboBox>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="SCOPE" FontSize="11" FontWeight="Bold"
+                                       Foreground="#9A9AA2" Margin="1,0,0,6"/>
+                            <ComboBox x:Name="cb_scope" Style="{StaticResource T3ComboBox}" SelectedIndex="0">
+                                <ComboBoxItem Content="Entire Project"/>
+                                <ComboBoxItem Content="Active View"/>
+                                <ComboBoxItem Content="Selected Elements"/>
+                            </ComboBox>
+                        </StackPanel>
 
-                    <TextBlock Grid.Column="4" Text="Mode:" Foreground="#0F172A"
-                               FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <ComboBox x:Name="cb_mode" Grid.Column="6" Style="{StaticResource StyledComboBox}"
-                              Width="110" SelectedIndex="0">
-                        <ComboBoxItem Content="Join"/>
-                        <ComboBoxItem Content="Unjoin"/>
-                    </ComboBox>
-                </Grid>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="MODE" FontSize="11" FontWeight="Bold"
+                                       Foreground="#9A9AA2" Margin="1,0,0,6"/>
+                            <ComboBox x:Name="cb_mode" Style="{StaticResource T3ComboBox}" SelectedIndex="0">
+                                <ComboBoxItem Content="Join"/>
+                                <ComboBoxItem Content="Unjoin"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Height="1" Background="#F4F4F6" Margin="0,16,0,14"/>
+
+                    <CheckBox x:Name="chk_switch_order" Style="{StaticResource T3ToggleSwitch}"
+                              IsChecked="True" HorizontalAlignment="Stretch"
+                              Content="Switch join order — priority category cuts the other"/>
+                </StackPanel>
             </Border>
 
-            <!-- JOIN RULES DATAGRID -->
-            <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4"
-                    Padding="0" ClipToBounds="True">
+            <!-- ===== JOIN RULES CARD ===== -->
+            <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                    CornerRadius="16" Margin="0,14,0,0" Padding="0" ClipToBounds="True">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Rules header -->
-                    <DockPanel Grid.Row="0" Background="#F8FAFC" LastChildFill="True">
-                        <TextBlock Text="Join Rules" FontWeight="SemiBold" Foreground="#0F172A"
-                                   FontSize="12" Margin="12,6,0,6" VerticalAlignment="Center"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                    Margin="0,4,8,4">
-                            <Button x:Name="btn_add_rule" Content="＋ Add" Style="{StaticResource SecondaryButton}"
-                                    Click="btn_add_rule_click" Margin="0,0,4,0"/>
-                            <Button x:Name="btn_remove_rule" Content="✕ Remove" Style="{StaticResource DangerButton}"
-                                    Click="btn_remove_rule_click" Margin="0,0,4,0"/>
-                            <Button x:Name="btn_switch_order" Content="⇄ Switch" Style="{StaticResource SecondaryButton}"
-                                    Click="btn_switch_order_click" ToolTip="Swap priority and join-with categories"/>
+                    <!-- Card header -->
+                    <Grid Grid.Row="0" Margin="16,14,12,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Width="30" Height="30" CornerRadius="10" Background="#18181B" VerticalAlignment="Center">
+                                <Path Data="M5 5 h6 v6 h-6 z M13 13 h6 v6 h-6 z M11 8 h5 v5"
+                                      Stroke="White" StrokeThickness="1.7" StrokeLineJoin="Round" StrokeStartLineCap="Round"
+                                      Width="16" Height="16" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Join Rules" FontSize="15" FontWeight="Bold"
+                                       Foreground="#18181B" Margin="10,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
-                    </DockPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Button x:Name="btn_add_rule" Style="{StaticResource SecondaryButton}"
+                                    Height="32" Padding="12,0" FontSize="12.5" Margin="0,0,6,0"
+                                    Click="btn_add_rule_click" Content="＋  Add"/>
+                            <Button x:Name="btn_switch_order" Style="{StaticResource SecondaryButton}"
+                                    Height="32" Padding="12,0" FontSize="12.5" Margin="0,0,6,0"
+                                    Click="btn_switch_order_click" ToolTip="Swap priority and join-with categories"
+                                    Content="⇄  Switch"/>
+                            <Button x:Name="btn_remove_rule" Style="{StaticResource DangerButton}"
+                                    Height="32" Padding="12,0" FontSize="12.5"
+                                    Click="btn_remove_rule_click" Content="✕  Remove"/>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- Rules list -->
                     <DataGrid x:Name="rules_grid" Grid.Row="1"
@@ -1238,189 +1228,153 @@
                               CanUserAddRows="False"
                               CanUserDeleteRows="False"
                               SelectionMode="Single"
+                              SelectionUnit="FullRow"
                               HeadersVisibility="Column"
                               GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#F8FAFC"
-                              BorderThickness="0"
+                              HorizontalGridLinesBrush="#F1F5F9"
+                              BorderThickness="0,1,0,0"
+                              BorderBrush="#E2E8F0"
                               Background="White"
+                              RowBackground="White"
+                              AlternatingRowBackground="#F8FAFC"
+                              FontFamily="Hanken Grotesk"
+                              FontSize="13.5"
+                              Foreground="#27272A"
                               RowStyle="{StaticResource RuleRow}"
                               RowHeaderWidth="0">
+                        <DataGrid.Resources>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#FFFFFF"/>
+                                <Setter Property="Foreground" Value="#9A9AA2"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="FontSize" Value="11"/>
+                                <Setter Property="Padding" Value="10,8"/>
+                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                            </Style>
+                        </DataGrid.Resources>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="#" Binding="{Binding Number}"
-                                                Width="30" IsReadOnly="True">
+                                                Width="36" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#94A3B8"/>
+                                        <Setter Property="Foreground" Value="#9A9AA2"/>
                                         <Setter Property="HorizontalAlignment" Value="Center"/>
                                         <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="FontFamily" Value="JetBrains Mono"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Priority Category (Cuts)" Binding="{Binding PriorityName}"
+                            <DataGridTextColumn Header="PRIORITY CATEGORY (CUTS)" Binding="{Binding PriorityName}"
                                                 Width="*" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#7C3AED"/>
+                                        <Setter Property="Foreground" Value="#18181B"/>
                                         <Setter Property="FontWeight" Value="SemiBold"/>
                                         <Setter Property="VerticalAlignment" Value="Center"/>
-                                        <Setter Property="Padding" Value="4,0"/>
+                                        <Setter Property="Padding" Value="6,0"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="→" Width="24" IsReadOnly="True">
+                            <DataGridTextColumn Header="→" Width="28" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="Text" Value="→"/>
-                                        <Setter Property="Foreground" Value="#94A3B8"/>
+                                        <Setter Property="Foreground" Value="#C2410C"/>
                                         <Setter Property="HorizontalAlignment" Value="Center"/>
                                         <Setter Property="VerticalAlignment" Value="Center"/>
-                                        <Setter Property="FontSize" Value="14"/>
+                                        <Setter Property="FontSize" Value="15"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
-                            <DataGridTextColumn Header="Join-with Category (Cut by)" Binding="{Binding JoinWithName}"
+                            <DataGridTextColumn Header="JOIN-WITH CATEGORY (CUT BY)" Binding="{Binding JoinWithName}"
                                                 Width="*" IsReadOnly="True">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="#0EA5E9"/>
+                                        <Setter Property="Foreground" Value="#3F3F46"/>
                                         <Setter Property="FontWeight" Value="SemiBold"/>
                                         <Setter Property="VerticalAlignment" Value="Center"/>
-                                        <Setter Property="Padding" Value="4,0"/>
+                                        <Setter Property="Padding" Value="6,0"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
+
+                    <!-- Tip line -->
+                    <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,9">
+                        <TextBlock FontSize="12" Foreground="#71717A" TextWrapping="Wrap">
+                            <Run Text="Tip · " FontWeight="Bold" Foreground="#18181B"/>
+                            <Run Text="Priority cuts the join-with category. Shift+Click the ribbon button to quick-join with defaults."/>
+                        </TextBlock>
+                    </Border>
                 </Grid>
             </Border>
 
-            <!-- OPTIONS -->
-            <Border Grid.Row="3" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4"
-                    Padding="12,6" Margin="0,8,0,0">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <CheckBox x:Name="chk_switch_order" Style="{StaticResource StyledCheckBox}"
-                                  Content="Switch join order (priority category cuts the other)"
-                                  IsChecked="True"/>
-                    </StackPanel>
+            <!-- ===== ACTION ROW ===== -->
+            <Grid Grid.Row="2" Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button x:Name="btn_save_rules" Style="{StaticResource SecondaryButton}"
+                            Click="btn_save_rules_click" Margin="0,0,8,0" Content="💾  Save Rules"/>
+                    <Button x:Name="btn_load_rules" Style="{StaticResource SecondaryButton}"
+                            Click="btn_load_rules_click" Content="📂  Load Rules"/>
                 </StackPanel>
-            </Border>
 
-            <!-- SAVE / LOAD RULES -->
-            <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
-                <Button x:Name="btn_save_rules" Content="💾 Save Rules" Style="{StaticResource SecondaryButton}"
-                        Click="btn_save_rules_click" Margin="0,0,6,0"/>
-                <Button x:Name="btn_load_rules" Content="📂 Load Rules" Style="{StaticResource SecondaryButton}"
-                        Click="btn_load_rules_click"/>
-            </StackPanel>
-
-            <!-- RUN BUTTON -->
-            <Button Grid.Row="5" x:Name="btn_run" Content="▶  Run Auto Join"
-                    Style="{StaticResource PrimaryButton}"
-                    Click="btn_run_click" Margin="0,12,0,0"/>
+                <Button x:Name="btn_run" Grid.Column="2" Style="{StaticResource PrimaryButton}"
+                        Click="btn_run_click" Padding="22,10" FontSize="14" Content="▶  Run Auto Join"/>
+            </Grid>
         </Grid>
 
         <!-- ============ STATUS BAR ============ -->
-        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                Padding="14,8">
+        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
+                Padding="16,10">
             <StackPanel>
 
                 <!-- Progress panel: bar + Pause + Stop (hidden when idle) -->
                 <Grid x:Name="progress_panel" Visibility="Collapsed" Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="64"/>
-                        <ColumnDefinition Width="4"/>
-                        <ColumnDefinition Width="52"/>
-                    </Grid.ColumnDefinitions>
-
-                    <ProgressBar x:Name="pb_run" Grid.Column="0"
-                                 Height="8" Minimum="0" Maximum="100" Value="0"
-                                 Foreground="#0F172A" Background="#DCE9F5"
-                                 BorderThickness="0" VerticalAlignment="Center"/>
-
-                    <!-- Pause / Resume -->
-                    <Button x:Name="btn_pause" Grid.Column="2"
-                            Content="⏸  Pause" Height="22" FontSize="10" FontFamily="Hanken Grotesk"
-                            Click="pause_resume_clicked" Cursor="Hand"
-                            BorderThickness="1" BorderBrush="#E2E8F0"
-                            VerticalAlignment="Center">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="#F8FAFC"/>
-                                <Setter Property="Foreground" Value="#0F172A"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                    CornerRadius="3" Padding="6,2">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#F1F5F9"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="#94A3B8"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-
-                    <!-- Stop -->
-                    <Button x:Name="btn_stop" Grid.Column="4"
-                            Content="■  Stop" Height="22" FontSize="10" FontFamily="Hanken Grotesk"
-                            Click="stop_clicked" Cursor="Hand"
-                            BorderThickness="0" VerticalAlignment="Center">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="#EF4444"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}"
-                                                    CornerRadius="3" Padding="6,2">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#EF4444"/>
-                                    </Trigger>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Background" Value="#E2E8F0"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </Grid>
-
-                <!-- Status text row -->
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="6"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="status_text" Grid.Column="0" FontSize="11"
-                               Foreground="#64748B" Text="Ready"/>
-                    <TextBlock x:Name="rule_count_text" Grid.Column="1" FontSize="11"
-                               Foreground="#64748B" Text="0 rules defined"/>
+
+                    <ProgressBar x:Name="pb_run" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
+                                 Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
+
+                    <!-- Pause / Resume -->
+                    <Button x:Name="btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
+                            Height="28" Padding="14,0" FontSize="12"
+                            Click="pause_resume_clicked" Content="⏸  Pause"/>
+
+                    <!-- Stop -->
+                    <Button x:Name="btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
+                            Height="28" Padding="14,0" FontSize="12"
+                            Click="stop_clicked" Content="■  Stop"/>
                 </Grid>
+
+                <!-- Status text row (right-aligned, beside the copyright) -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Ellipse Width="8" Height="8" Fill="#22A85C" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="status_text" FontSize="12.5" Foreground="#3F3F46"
+                               FontWeight="SemiBold" Text="Ready" VerticalAlignment="Center"/>
+                    <TextBlock Text="·" FontSize="12.5" Foreground="#C4C4CC" Margin="8,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="rule_count_text" FontSize="12.5" Foreground="#71717A"
+                               Text="0 rules defined" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="16" Background="#DEDEE2" Margin="14,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                </StackPanel>
 
             </StackPanel>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
-</Grid>
+    </Grid>
+    </Border>
 </Window>

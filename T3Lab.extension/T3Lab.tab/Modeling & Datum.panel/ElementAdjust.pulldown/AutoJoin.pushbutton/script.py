@@ -44,8 +44,10 @@ from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogRes
 from pyrevit import revit, forms, script
 
 # Path setup
+# AutoJoin.pushbutton lives 4 levels under the extension root:
+#   T3Lab.extension / T3Lab.tab / <panel> / ElementAdjust.pulldown / AutoJoin.pushbutton
 SCRIPT_DIR    = os.path.dirname(__file__)
-EXT_DIR       = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
+EXT_DIR       = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
 lib_dir       = os.path.join(EXT_DIR, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
@@ -312,12 +314,6 @@ class AutoJoinWindow(forms.WPFWindow):
         self._rules = []
         self._cancel_requested = False
         self._pause_requested  = False
-
-        try:
-            fname = os.path.basename(doc.PathName) if doc.PathName else "Unsaved Document"
-            self.doc_name.Text = fname
-        except Exception:
-            pass
 
         # Load saved rules or defaults
         saved = load_rules_from_file()
