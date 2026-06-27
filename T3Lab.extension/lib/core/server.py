@@ -2369,13 +2369,55 @@ class T3LabAIServer:
             code = arguments.get('code', '')
             if not code:
                 return {'error': 'No code provided'}
-            local_ctx = {'doc': doc, 'uidoc': uidoc, 'app': doc.Application, 'result': None}
+            # Execute directly in this ExternalEvent context (we are already on
+            # the Revit main thread here). Also write result to result.json so
+            # file-based clients can read it.
+            local_ctx = {
+                'doc':    doc,
+                'uidoc':  uidoc,
+                'app':    doc.Application,
+                'result': None,
+                'output': [],
+            }
             try:
-                exec(code, local_ctx)
-                result = local_ctx.get('result')
-                return {'success': True, 'result': str(result) if result is not None else 'OK'}
+                exec(code, local_ctx)   # noqa: S102
+                result_val   = local_ctx.get('result')
+                output_lines = local_ctx.get('output', [])
+                if result_val is not None:
+                    out_str = str(result_val)
+                elif output_lines:
+                    out_str = '\n'.join(str(x) for x in output_lines)
+                else:
+                    out_str = 'OK'
+                # Mirror to file-watcher result files for cross-channel clients
+                try:
+                    from core.file_watcher import RESULT_FILE, RESULT_TXT
+                    import json as _json, time as _time
+                    _res = {'task_id': 'mcp', 'status': 'success', 'output': out_str,
+                            'error': '', 'timestamp': _time.time()}
+                    with open(RESULT_FILE, 'w') as _f:
+                        _json.dump(_res, _f, indent=2)
+                    with open(RESULT_TXT, 'w') as _f:
+                        _f.write(out_str)
+                except Exception:
+                    pass
+                return {'success': True, 'result': out_str}
             except Exception as e:
-                return {'success': False, 'error': str(e)}
+                import traceback
+                tb = traceback.format_exc()
+                err_str = '{}\n{}'.format(e, tb)
+                try:
+                    from core.file_watcher import RESULT_FILE, RESULT_TXT
+                    import json as _json, time as _time
+                    _res = {'task_id': 'mcp', 'status': 'error', 'output': '',
+                            'error': err_str, 'timestamp': _time.time()}
+                    with open(RESULT_FILE, 'w') as _f:
+                        _json.dump(_res, _f, indent=2)
+                    with open(RESULT_TXT, 'w') as _f:
+                        _f.write('ERROR: {}'.format(err_str))
+                except Exception:
+                    pass
+                return {'success': False, 'error': err_str}
 
         # ── say_hello ────────────────────────────────────────────────────────
         elif tool_name == 'say_hello':

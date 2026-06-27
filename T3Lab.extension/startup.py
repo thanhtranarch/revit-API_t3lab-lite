@@ -69,3 +69,13 @@ try:
 except Exception:
     # Never crash Revit startup — silently skip pane registration.
     pass
+
+# ─── Start file-based task watcher ─────────────────────────────────────────────
+# Watches ~/T3Lab_AI_Data/task.json (and task.py) for AI-written tasks.
+# Executes them in Revit context via ExternalEvent; result → result.json / result.txt.
+# Zero-network alternative to the MCP HTTP server — data never leaves the machine.
+try:
+    from core.file_watcher import get_task_watcher
+    get_task_watcher().start()
+except Exception:
+    pass
