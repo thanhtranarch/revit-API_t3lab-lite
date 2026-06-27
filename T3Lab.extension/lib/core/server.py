@@ -802,6 +802,264 @@ class T3LabAIServer:
                     },
                     'required': []
                 }
+            },
+            # ── Parameter writing ─────────────────────────────────────────────
+            'set_parameter': {
+                'name': 'set_parameter',
+                'description': 'Set the value of a named parameter on a Revit element',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_id': {'type': 'integer', 'description': 'Revit element ID'},
+                        'parameter_name': {'type': 'string', 'description': 'Parameter name to set'},
+                        'value': {'type': 'string', 'description': 'New value as string (will be converted to appropriate type)'}
+                    },
+                    'required': ['element_id', 'parameter_name', 'value']
+                }
+            },
+            'get_all_parameters': {
+                'name': 'get_all_parameters',
+                'description': 'Get all parameters (name, value, type, read-only flag) for a given element',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_id': {'type': 'integer', 'description': 'Revit element ID'}
+                    },
+                    'required': ['element_id']
+                }
+            },
+            # ── Spatial transforms ────────────────────────────────────────────
+            'move_elements': {
+                'name': 'move_elements',
+                'description': 'Move one or more elements by a delta XYZ vector',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_ids': {
+                            'type': 'array', 'items': {'type': 'integer'},
+                            'description': 'Element IDs to move'
+                        },
+                        'dx': {'type': 'number', 'description': 'Delta X in meters'},
+                        'dy': {'type': 'number', 'description': 'Delta Y in meters'},
+                        'dz': {'type': 'number', 'description': 'Delta Z in meters (default 0)'}
+                    },
+                    'required': ['element_ids', 'dx', 'dy']
+                }
+            },
+            'copy_elements': {
+                'name': 'copy_elements',
+                'description': 'Copy elements and translate the copies by a delta XYZ vector',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_ids': {
+                            'type': 'array', 'items': {'type': 'integer'},
+                            'description': 'Element IDs to copy'
+                        },
+                        'dx': {'type': 'number', 'description': 'Delta X in meters'},
+                        'dy': {'type': 'number', 'description': 'Delta Y in meters'},
+                        'dz': {'type': 'number', 'description': 'Delta Z in meters (default 0)'}
+                    },
+                    'required': ['element_ids', 'dx', 'dy']
+                }
+            },
+            'rotate_element': {
+                'name': 'rotate_element',
+                'description': 'Rotate elements around a Z-axis through a given origin point',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_ids': {
+                            'type': 'array', 'items': {'type': 'integer'},
+                            'description': 'Element IDs to rotate'
+                        },
+                        'angle_degrees': {'type': 'number', 'description': 'Rotation angle in degrees (counter-clockwise)'},
+                        'origin_x': {'type': 'number', 'description': 'Rotation axis origin X in meters (default 0)'},
+                        'origin_y': {'type': 'number', 'description': 'Rotation axis origin Y in meters (default 0)'}
+                    },
+                    'required': ['element_ids', 'angle_degrees']
+                }
+            },
+            'get_element_bounding_box': {
+                'name': 'get_element_bounding_box',
+                'description': 'Get the bounding box (min/max XYZ in meters) of a Revit element',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_id': {'type': 'integer', 'description': 'Revit element ID'}
+                    },
+                    'required': ['element_id']
+                }
+            },
+            # ── View management ───────────────────────────────────────────────
+            'create_view': {
+                'name': 'create_view',
+                'description': 'Create a new view: floor plan, ceiling plan, or 3D isometric view',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'view_type': {
+                            'type': 'string',
+                            'description': '"floor_plan", "ceiling_plan", or "3d"'
+                        },
+                        'level_name': {
+                            'type': 'string',
+                            'description': 'Level name (required for floor/ceiling plan)'
+                        },
+                        'name': {'type': 'string', 'description': 'Name for the new view'}
+                    },
+                    'required': ['view_type']
+                }
+            },
+            'set_active_view': {
+                'name': 'set_active_view',
+                'description': 'Switch the active view in Revit by view name or element ID',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'view_name': {'type': 'string', 'description': 'View name to activate'},
+                        'view_id': {'type': 'integer', 'description': 'View element ID (alternative to view_name)'}
+                    },
+                    'required': []
+                }
+            },
+            'rename_element': {
+                'name': 'rename_element',
+                'description': 'Rename a view, sheet, level, or any named Revit element',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_id': {'type': 'integer', 'description': 'Element ID to rename'},
+                        'new_name': {'type': 'string', 'description': 'New name for the element'}
+                    },
+                    'required': ['element_id', 'new_name']
+                }
+            },
+            # ── Sheet management ──────────────────────────────────────────────
+            'create_sheet': {
+                'name': 'create_sheet',
+                'description': 'Create a new drawing sheet with a title block',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'sheet_number': {'type': 'string', 'description': 'Sheet number (e.g. "A-101")'},
+                        'sheet_name': {'type': 'string', 'description': 'Sheet title (e.g. "Ground Floor Plan")'},
+                        'title_block': {'type': 'string', 'description': 'Title block family type name (optional, uses first available)'}
+                    },
+                    'required': ['sheet_number', 'sheet_name']
+                }
+            },
+            'add_view_to_sheet': {
+                'name': 'add_view_to_sheet',
+                'description': 'Place a view as a viewport on an existing sheet',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'sheet_id': {'type': 'integer', 'description': 'Sheet element ID'},
+                        'view_id': {'type': 'integer', 'description': 'View element ID to place'},
+                        'x': {'type': 'number', 'description': 'Viewport center X on sheet in mm (default 297 = center A3)'},
+                        'y': {'type': 'number', 'description': 'Viewport center Y on sheet in mm (default 210)'}
+                    },
+                    'required': ['sheet_id', 'view_id']
+                }
+            },
+            # ── Annotation ────────────────────────────────────────────────────
+            'create_text_note': {
+                'name': 'create_text_note',
+                'description': 'Add a text annotation to the active view at a specified location',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'text': {'type': 'string', 'description': 'Text content'},
+                        'x': {'type': 'number', 'description': 'X position in meters (model coordinates)'},
+                        'y': {'type': 'number', 'description': 'Y position in meters'},
+                        'font_size': {'type': 'number', 'description': 'Text height in mm (default 3.5)'},
+                        'text_type': {'type': 'string', 'description': 'Text note type name (optional)'}
+                    },
+                    'required': ['text', 'x', 'y']
+                }
+            },
+            # ── Model quality ─────────────────────────────────────────────────
+            'get_model_warnings': {
+                'name': 'get_model_warnings',
+                'description': 'Get all Revit model warnings with descriptions and affected element IDs',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'limit': {'type': 'integer', 'description': 'Max warnings to return (default 50)'}
+                    },
+                    'required': []
+                }
+            },
+            'get_model_health': {
+                'name': 'get_model_health',
+                'description': 'Get model health summary: warning count, element count, linked files, unused families',
+                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+            },
+            # ── Collaboration / worksets ──────────────────────────────────────
+            'list_worksets': {
+                'name': 'list_worksets',
+                'description': 'List all user worksets in a workshared model with their open/close status',
+                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+            },
+            'set_element_workset': {
+                'name': 'set_element_workset',
+                'description': 'Move one or more elements to a specified workset',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_ids': {
+                            'type': 'array', 'items': {'type': 'integer'},
+                            'description': 'Element IDs to move to the workset'
+                        },
+                        'workset_name': {'type': 'string', 'description': 'Target workset name'}
+                    },
+                    'required': ['element_ids', 'workset_name']
+                }
+            },
+            # ── Datum / navigation ────────────────────────────────────────────
+            'list_levels': {
+                'name': 'list_levels',
+                'description': 'List all levels in the project with their elevations in meters',
+                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+            },
+            # ── Family management ─────────────────────────────────────────────
+            'load_family': {
+                'name': 'load_family',
+                'description': 'Load a .rfa family file into the current project from a local file path',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'file_path': {
+                            'type': 'string',
+                            'description': 'Absolute path to the .rfa family file'
+                        }
+                    },
+                    'required': ['file_path']
+                }
+            },
+            # ── Export ────────────────────────────────────────────────────────
+            'export_sheets_pdf': {
+                'name': 'export_sheets_pdf',
+                'description': 'Export one or more sheets to PDF files in a specified folder',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'sheet_ids': {
+                            'type': 'array', 'items': {'type': 'integer'},
+                            'description': 'Sheet element IDs to export (omit to export all sheets)'
+                        },
+                        'output_folder': {
+                            'type': 'string',
+                            'description': 'Folder path to save PDF files. Default: same folder as .rvt file'
+                        },
+                        'combined': {
+                            'type': 'boolean',
+                            'description': 'Combine all sheets into one PDF (default false)'
+                        }
+                    },
+                    'required': []
+                }
             }
         }
 
@@ -2126,6 +2384,558 @@ class T3LabAIServer:
                 from Autodesk.Revit.UI import TaskDialog
                 TaskDialog.Show('T3Lab AI', msg)
                 return {'success': True, 'message': msg}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── set_parameter ────────────────────────────────────────────────────
+        elif tool_name == 'set_parameter':
+            try:
+                from Autodesk.Revit.DB import Transaction, StorageType
+                eid   = int(arguments.get('element_id', 0))
+                pname = arguments.get('parameter_name', '')
+                value = arguments.get('value', '')
+                elem  = doc.GetElement(ElementId(eid))
+                if not elem:
+                    return {'error': 'Element not found: {}'.format(eid)}
+                param = elem.LookupParameter(pname)
+                if not param:
+                    return {'error': 'Parameter not found: {}'.format(pname)}
+                if param.IsReadOnly:
+                    return {'error': 'Parameter is read-only: {}'.format(pname)}
+                t = Transaction(doc, 'T3Lab AI Set Parameter')
+                t.Start()
+                try:
+                    st = param.StorageType
+                    if st == StorageType.String:
+                        param.Set(value)
+                    elif st == StorageType.Double:
+                        param.Set(float(value))
+                    elif st == StorageType.Integer:
+                        param.Set(int(value))
+                    elif st == StorageType.ElementId:
+                        param.Set(ElementId(int(value)))
+                    t.Commit()
+                    return {'success': True, 'element_id': eid, 'parameter': pname, 'value': value}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── get_all_parameters ───────────────────────────────────────────────
+        elif tool_name == 'get_all_parameters':
+            try:
+                from Autodesk.Revit.DB import StorageType
+                eid  = int(arguments.get('element_id', 0))
+                elem = doc.GetElement(ElementId(eid))
+                if not elem:
+                    return {'error': 'Element not found: {}'.format(eid)}
+                params = []
+                for p in elem.Parameters:
+                    try:
+                        st = p.StorageType
+                        if st == StorageType.String:
+                            val = p.AsString() or ''
+                        elif st == StorageType.Double:
+                            val = p.AsDouble()
+                        elif st == StorageType.Integer:
+                            val = p.AsInteger()
+                        elif st == StorageType.ElementId:
+                            val = eid_value(p.AsElementId())
+                        else:
+                            val = None
+                        params.append({
+                            'name': p.Definition.Name,
+                            'value': val,
+                            'storage_type': str(st),
+                            'read_only': p.IsReadOnly
+                        })
+                    except Exception:
+                        pass
+                params.sort(key=lambda x: x['name'])
+                return {'element_id': eid, 'parameters': params, 'count': len(params)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── move_elements ────────────────────────────────────────────────────
+        elif tool_name == 'move_elements':
+            try:
+                from Autodesk.Revit.DB import (Transaction, ElementTransformUtils,
+                                               XYZ, ICollection_1)
+                import System.Collections.Generic as SCG
+                ft = 3.28084
+                dx = float(arguments.get('dx', 0)) * ft
+                dy = float(arguments.get('dy', 0)) * ft
+                dz = float(arguments.get('dz', 0)) * ft
+                ids_raw = arguments.get('element_ids', [])
+                id_list = SCG.List[ElementId]([ElementId(int(i)) for i in ids_raw])
+                t = Transaction(doc, 'T3Lab AI Move Elements')
+                t.Start()
+                try:
+                    ElementTransformUtils.MoveElements(doc, id_list, XYZ(dx, dy, dz))
+                    t.Commit()
+                    return {'success': True, 'moved': len(ids_raw), 'delta_m': {'dx': arguments.get('dx'), 'dy': arguments.get('dy'), 'dz': arguments.get('dz', 0)}}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── copy_elements ────────────────────────────────────────────────────
+        elif tool_name == 'copy_elements':
+            try:
+                from Autodesk.Revit.DB import (Transaction, ElementTransformUtils, XYZ)
+                import System.Collections.Generic as SCG
+                ft = 3.28084
+                dx = float(arguments.get('dx', 0)) * ft
+                dy = float(arguments.get('dy', 0)) * ft
+                dz = float(arguments.get('dz', 0)) * ft
+                ids_raw = arguments.get('element_ids', [])
+                id_list = SCG.List[ElementId]([ElementId(int(i)) for i in ids_raw])
+                t = Transaction(doc, 'T3Lab AI Copy Elements')
+                t.Start()
+                try:
+                    new_ids = ElementTransformUtils.CopyElements(doc, id_list, XYZ(dx, dy, dz))
+                    t.Commit()
+                    return {'success': True, 'copied': len(ids_raw),
+                            'new_element_ids': [eid_value(i) for i in new_ids]}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── rotate_element ───────────────────────────────────────────────────
+        elif tool_name == 'rotate_element':
+            try:
+                from Autodesk.Revit.DB import (Transaction, ElementTransformUtils,
+                                               XYZ, Line)
+                import System.Collections.Generic as SCG
+                import math
+                ft = 3.28084
+                angle_rad = float(arguments.get('angle_degrees', 0)) * math.pi / 180.0
+                ox = float(arguments.get('origin_x', 0)) * ft
+                oy = float(arguments.get('origin_y', 0)) * ft
+                axis = Line.CreateBound(XYZ(ox, oy, 0), XYZ(ox, oy, 1))
+                ids_raw = arguments.get('element_ids', [])
+                id_list = SCG.List[ElementId]([ElementId(int(i)) for i in ids_raw])
+                t = Transaction(doc, 'T3Lab AI Rotate Elements')
+                t.Start()
+                try:
+                    ElementTransformUtils.RotateElements(doc, id_list, axis, angle_rad)
+                    t.Commit()
+                    return {'success': True, 'rotated': len(ids_raw), 'angle_degrees': arguments.get('angle_degrees')}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── get_element_bounding_box ─────────────────────────────────────────
+        elif tool_name == 'get_element_bounding_box':
+            try:
+                eid  = int(arguments.get('element_id', 0))
+                elem = doc.GetElement(ElementId(eid))
+                if not elem:
+                    return {'error': 'Element not found: {}'.format(eid)}
+                bb = elem.get_BoundingBox(None)
+                if not bb:
+                    return {'error': 'Element has no bounding box'}
+                ft_to_m = 0.3048
+                return {
+                    'element_id': eid,
+                    'min': {'x': round(bb.Min.X * ft_to_m, 4), 'y': round(bb.Min.Y * ft_to_m, 4), 'z': round(bb.Min.Z * ft_to_m, 4)},
+                    'max': {'x': round(bb.Max.X * ft_to_m, 4), 'y': round(bb.Max.Y * ft_to_m, 4), 'z': round(bb.Max.Z * ft_to_m, 4)}
+                }
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── create_view ──────────────────────────────────────────────────────
+        elif tool_name == 'create_view':
+            try:
+                from Autodesk.Revit.DB import (Transaction, FilteredElementCollector,
+                                               ViewFamilyType, ViewFamily,
+                                               ViewPlan, View3D, Level)
+                vtype = (arguments.get('view_type') or 'floor_plan').lower()
+                name  = arguments.get('name')
+                level_name = arguments.get('level_name')
+
+                vfts = FilteredElementCollector(doc).OfClass(ViewFamilyType).ToElements()
+
+                def find_vft(family):
+                    for v in vfts:
+                        if v.ViewFamily == family:
+                            return v
+                    return None
+
+                t = Transaction(doc, 'T3Lab AI Create View')
+                t.Start()
+                try:
+                    if vtype in ('floor_plan', 'ceiling_plan'):
+                        family = ViewFamily.FloorPlan if vtype == 'floor_plan' else ViewFamily.CeilingPlan
+                        vft = find_vft(family)
+                        if not vft:
+                            t.RollBack()
+                            return {'error': 'No ViewFamilyType for {}'.format(vtype)}
+                        # Find level
+                        lvl = None
+                        if level_name:
+                            levels = FilteredElementCollector(doc).OfClass(Level).ToElements()
+                            for l in levels:
+                                if l.Name == level_name:
+                                    lvl = l
+                                    break
+                        if not lvl:
+                            lvl = FilteredElementCollector(doc).OfClass(Level).FirstElement()
+                        if not lvl:
+                            t.RollBack()
+                            return {'error': 'No level found'}
+                        view = ViewPlan.Create(doc, vft.Id, lvl.Id)
+                    else:
+                        vft = find_vft(ViewFamily.ThreeDimensional)
+                        if not vft:
+                            t.RollBack()
+                            return {'error': 'No 3D ViewFamilyType found'}
+                        view = View3D.CreateIsometric(doc, vft.Id)
+
+                    if name:
+                        view.Name = name
+                    t.Commit()
+                    return {'success': True, 'view_id': eid_value(view.Id), 'view_name': view.Name, 'view_type': vtype}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── set_active_view ──────────────────────────────────────────────────
+        elif tool_name == 'set_active_view':
+            try:
+                from Autodesk.Revit.DB import View
+                view_name = arguments.get('view_name')
+                view_id   = arguments.get('view_id')
+                target_view = None
+                if view_id:
+                    target_view = doc.GetElement(ElementId(int(view_id)))
+                elif view_name:
+                    views = FilteredElementCollector(doc).OfClass(View).ToElements()
+                    for v in views:
+                        if v.Name == view_name:
+                            target_view = v
+                            break
+                if not target_view:
+                    return {'error': 'View not found'}
+                try:
+                    from pyrevit import HOST_APP
+                    uiapp = HOST_APP.uiapp
+                    uidoc  = uiapp.ActiveUIDocument
+                    uidoc.ActiveView = target_view
+                    return {'success': True, 'view_id': eid_value(target_view.Id), 'view_name': target_view.Name}
+                except Exception as e:
+                    return {'error': 'Cannot switch view: {}'.format(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── rename_element ───────────────────────────────────────────────────
+        elif tool_name == 'rename_element':
+            try:
+                from Autodesk.Revit.DB import Transaction
+                eid      = int(arguments.get('element_id', 0))
+                new_name = arguments.get('new_name', '')
+                elem     = doc.GetElement(ElementId(eid))
+                if not elem:
+                    return {'error': 'Element not found: {}'.format(eid)}
+                t = Transaction(doc, 'T3Lab AI Rename Element')
+                t.Start()
+                try:
+                    elem.Name = new_name
+                    t.Commit()
+                    return {'success': True, 'element_id': eid, 'new_name': new_name}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── create_sheet ─────────────────────────────────────────────────────
+        elif tool_name == 'create_sheet':
+            try:
+                from Autodesk.Revit.DB import (Transaction, ViewSheet,
+                                               FilteredElementCollector,
+                                               FamilySymbol, BuiltInCategory)
+                sheet_number = arguments.get('sheet_number', 'A-101')
+                sheet_name   = arguments.get('sheet_name', 'New Sheet')
+                tb_name      = arguments.get('title_block')
+
+                # Find title block type
+                tb_id = ElementId.InvalidElementId
+                tb_types = (FilteredElementCollector(doc)
+                            .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                            .WhereElementIsElementType()
+                            .ToElements())
+                if tb_types:
+                    if tb_name:
+                        for tb in tb_types:
+                            if tb.Name == tb_name or (hasattr(tb, 'FamilyName') and tb.FamilyName == tb_name):
+                                tb_id = tb.Id
+                                break
+                    if tb_id == ElementId.InvalidElementId:
+                        tb_id = tb_types[0].Id
+
+                t = Transaction(doc, 'T3Lab AI Create Sheet')
+                t.Start()
+                try:
+                    sheet = ViewSheet.Create(doc, tb_id)
+                    sheet.SheetNumber = sheet_number
+                    sheet.Name = sheet_name
+                    t.Commit()
+                    return {'success': True, 'sheet_id': eid_value(sheet.Id),
+                            'sheet_number': sheet_number, 'sheet_name': sheet_name}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── add_view_to_sheet ────────────────────────────────────────────────
+        elif tool_name == 'add_view_to_sheet':
+            try:
+                from Autodesk.Revit.DB import (Transaction, Viewport, XYZ)
+                sheet_id = int(arguments.get('sheet_id', 0))
+                view_id  = int(arguments.get('view_id', 0))
+                mm_to_ft = 0.00328084
+                x = float(arguments.get('x', 297)) * mm_to_ft
+                y = float(arguments.get('y', 210)) * mm_to_ft
+                sheet = doc.GetElement(ElementId(sheet_id))
+                view  = doc.GetElement(ElementId(view_id))
+                if not sheet:
+                    return {'error': 'Sheet not found: {}'.format(sheet_id)}
+                if not view:
+                    return {'error': 'View not found: {}'.format(view_id)}
+                t = Transaction(doc, 'T3Lab AI Add View to Sheet')
+                t.Start()
+                try:
+                    vp = Viewport.Create(doc, sheet.Id, view.Id, XYZ(x, y, 0))
+                    t.Commit()
+                    return {'success': True, 'viewport_id': eid_value(vp.Id),
+                            'sheet_id': sheet_id, 'view_id': view_id}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── create_text_note ─────────────────────────────────────────────────
+        elif tool_name == 'create_text_note':
+            try:
+                from Autodesk.Revit.DB import (Transaction, TextNote,
+                                               TextNoteOptions, XYZ,
+                                               FilteredElementCollector, TextNoteType)
+                text      = arguments.get('text', '')
+                ft = 3.28084
+                x  = float(arguments.get('x', 0)) * ft
+                y  = float(arguments.get('y', 0)) * ft
+                type_name = arguments.get('text_type')
+
+                active_view = doc.ActiveView
+                if not active_view:
+                    return {'error': 'No active view'}
+
+                # Resolve text note type
+                tn_type_id = active_view.Document.GetDefaultElementTypeId(
+                    __import__('Autodesk.Revit.DB', fromlist=['ElementTypeGroup']).ElementTypeGroup.TextNoteType
+                ) if False else None  # fallback below
+                if not tn_type_id or tn_type_id == ElementId.InvalidElementId:
+                    tn_types = (FilteredElementCollector(doc)
+                                .OfClass(TextNoteType).ToElements())
+                    if tn_types:
+                        tn_type_id = tn_types[0].Id
+
+                t = Transaction(doc, 'T3Lab AI Create Text Note')
+                t.Start()
+                try:
+                    opts = TextNoteOptions(tn_type_id) if tn_type_id else TextNoteOptions()
+                    note = TextNote.Create(doc, active_view.Id, XYZ(x, y, 0), text, opts)
+                    t.Commit()
+                    return {'success': True, 'text_note_id': eid_value(note.Id), 'text': text}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── get_model_warnings ───────────────────────────────────────────────
+        elif tool_name == 'get_model_warnings':
+            try:
+                limit = int(arguments.get('limit', 50))
+                warnings = doc.GetWarnings()
+                result = []
+                for w in list(warnings)[:limit]:
+                    try:
+                        failing_ids = [eid_value(i) for i in w.GetFailingElements()]
+                        result.append({
+                            'description': w.GetDescriptionText(),
+                            'failing_element_ids': failing_ids
+                        })
+                    except Exception:
+                        pass
+                return {'warnings': result, 'total': len(list(warnings)), 'returned': len(result)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── get_model_health ─────────────────────────────────────────────────
+        elif tool_name == 'get_model_health':
+            try:
+                from Autodesk.Revit.DB import (FilteredElementCollector,
+                                               RevitLinkInstance, Family)
+                warning_count = len(list(doc.GetWarnings()))
+                elem_count = FilteredElementCollector(doc).WhereElementIsNotElementType().GetElementCount()
+                link_count = FilteredElementCollector(doc).OfClass(RevitLinkInstance).GetElementCount()
+                family_count = FilteredElementCollector(doc).OfClass(Family).GetElementCount()
+                return {
+                    'warning_count': warning_count,
+                    'element_count': elem_count,
+                    'linked_files': link_count,
+                    'loaded_families': family_count
+                }
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── list_worksets ────────────────────────────────────────────────────
+        elif tool_name == 'list_worksets':
+            try:
+                from Autodesk.Revit.DB import FilteredWorksetCollector, WorksetKind
+                if not doc.IsWorkshared:
+                    return {'workshared': False, 'worksets': []}
+                worksets = FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
+                result = []
+                for ws in worksets:
+                    result.append({
+                        'id': ws.Id.IntegerValue,
+                        'name': ws.Name,
+                        'is_open': ws.IsOpen,
+                        'owner': ws.Owner or ''
+                    })
+                return {'workshared': True, 'worksets': result, 'count': len(result)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── set_element_workset ──────────────────────────────────────────────
+        elif tool_name == 'set_element_workset':
+            try:
+                from Autodesk.Revit.DB import (Transaction, FilteredWorksetCollector,
+                                               WorksetKind, WorksetId)
+                if not doc.IsWorkshared:
+                    return {'error': 'Document is not workshared'}
+                ws_name  = arguments.get('workset_name', '')
+                ids_raw  = arguments.get('element_ids', [])
+                # Find target workset
+                worksets = FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
+                target_ws = None
+                for ws in worksets:
+                    if ws.Name == ws_name:
+                        target_ws = ws
+                        break
+                if not target_ws:
+                    return {'error': 'Workset not found: {}'.format(ws_name)}
+                t = Transaction(doc, 'T3Lab AI Set Workset')
+                t.Start()
+                try:
+                    count = 0
+                    for raw_id in ids_raw:
+                        elem = doc.GetElement(ElementId(int(raw_id)))
+                        if elem:
+                            ws_param = elem.get_Parameter(
+                                __import__('Autodesk.Revit.DB', fromlist=['BuiltInParameter']).BuiltInParameter.ELEM_PARTITION_PARAM
+                            )
+                            if ws_param and not ws_param.IsReadOnly:
+                                ws_param.Set(target_ws.Id.IntegerValue)
+                                count += 1
+                    t.Commit()
+                    return {'success': True, 'moved_count': count, 'workset': ws_name}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── list_levels ──────────────────────────────────────────────────────
+        elif tool_name == 'list_levels':
+            try:
+                from Autodesk.Revit.DB import Level
+                levels = FilteredElementCollector(doc).OfClass(Level).ToElements()
+                ft_to_m = 0.3048
+                result = sorted(
+                    [{'id': eid_value(l.Id), 'name': l.Name, 'elevation_m': round(l.Elevation * ft_to_m, 4)} for l in levels],
+                    key=lambda x: x['elevation_m']
+                )
+                return {'levels': result, 'count': len(result)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── load_family ──────────────────────────────────────────────────────
+        elif tool_name == 'load_family':
+            try:
+                from Autodesk.Revit.DB import Transaction
+                import os as _os
+                file_path = arguments.get('file_path', '')
+                if not _os.path.isfile(file_path):
+                    return {'error': 'File not found: {}'.format(file_path)}
+                t = Transaction(doc, 'T3Lab AI Load Family')
+                t.Start()
+                try:
+                    fam = None
+                    success = doc.LoadFamily(file_path, fam)
+                    t.Commit()
+                    return {'success': success, 'file_path': file_path}
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── export_sheets_pdf ────────────────────────────────────────────────
+        elif tool_name == 'export_sheets_pdf':
+            try:
+                from Autodesk.Revit.DB import (FilteredElementCollector, ViewSheet,
+                                               PDFExportOptions, ViewSet,
+                                               ExportPaperFormat, RasterQualityType,
+                                               ExportColorType)
+                import os as _os
+                sheet_ids_raw  = arguments.get('sheet_ids', [])
+                output_folder  = arguments.get('output_folder', '')
+                combined       = bool(arguments.get('combined', False))
+
+                if not output_folder:
+                    doc_path = doc.PathName
+                    output_folder = _os.path.dirname(doc_path) if doc_path else _os.path.expanduser('~')
+
+                if not _os.path.isdir(output_folder):
+                    try:
+                        _os.makedirs(output_folder)
+                    except Exception:
+                        return {'error': 'Cannot create output folder: {}'.format(output_folder)}
+
+                # Collect sheets
+                all_sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()
+                if sheet_ids_raw:
+                    export_ids = [int(i) for i in sheet_ids_raw]
+                    sheets = [s for s in all_sheets if eid_value(s.Id) in export_ids]
+                else:
+                    sheets = list(all_sheets)
+
+                if not sheets:
+                    return {'error': 'No sheets to export'}
+
+                opts = PDFExportOptions()
+                opts.Combine = combined
+
+                view_set = ViewSet()
+                for s in sheets:
+                    view_set.Insert(s)
+
+                doc.Export(output_folder, 'T3Lab_Export', view_set, opts)
+                return {'success': True, 'sheet_count': len(sheets), 'output_folder': output_folder, 'combined': combined}
             except Exception as e:
                 return {'error': str(e)}
 
