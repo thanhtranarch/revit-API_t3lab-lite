@@ -289,6 +289,100 @@ class MCPService(object):
         except Exception as ex:
             return False, str(ex)
 
+    # ── Claude Desktop auto-configure ─────────────────────────────────────────
+
+    @staticmethod
+    def find_claude_desktop_config():
+        """Return the expected Claude Desktop config file path for this OS."""
+        import platform
+        home = os.path.expanduser('~')
+        system = platform.system()
+        if system == 'Windows':
+            appdata = os.environ.get('APPDATA', os.path.join(home, 'AppData', 'Roaming'))
+            return os.path.join(appdata, 'Claude', 'claude_desktop_config.json')
+        elif system == 'Darwin':
+            return os.path.join(home, 'Library', 'Application Support', 'Claude',
+                                'claude_desktop_config.json')
+        else:
+            return os.path.join(home, '.config', 'Claude', 'claude_desktop_config.json')
+
+    @staticmethod
+    def claude_desktop_status():
+        """
+        Check the current Claude Desktop configuration status.
+
+        Returns:
+            dict with keys: path (str), file_exists (bool), configured (bool), error (str|None)
+        """
+        try:
+            import json as _json
+            path = MCPService.find_claude_desktop_config()
+            if not os.path.isfile(path):
+                return {'path': path, 'file_exists': False, 'configured': False, 'error': None}
+            try:
+                with open(path, 'r') as f:
+                    config = _json.loads(f.read())
+                servers = config.get('mcpServers', {})
+                configured = 't3lab-revit' in servers
+                return {'path': path, 'file_exists': True, 'configured': configured, 'error': None}
+            except Exception as ex:
+                return {'path': path, 'file_exists': True, 'configured': False,
+                        'error': 'Parse error: {}'.format(ex)}
+        except Exception as ex:
+            return {'path': '', 'file_exists': False, 'configured': False, 'error': str(ex)}
+
+    @staticmethod
+    def configure_claude_desktop(port=None):
+        """
+        Auto-write the t3lab-revit entry into Claude Desktop's config JSON.
+        Creates the file and directory if absent; merges with existing entries.
+
+        Args:
+            port (int|None): Port to embed. Reads from running server if None.
+
+        Returns:
+            (success: bool, message: str) — message is config path on success, error on failure
+        """
+        try:
+            import json as _json
+            if port is None:
+                try:
+                    server = _get_server()
+                    port = server.port
+                except Exception:
+                    port = 48884
+
+            bridge = _get_bridge_path()
+            path = MCPService.find_claude_desktop_config()
+
+            config = {}
+            if os.path.isfile(path):
+                try:
+                    with open(path, 'r') as f:
+                        raw = f.read().strip()
+                    if raw:
+                        config = _json.loads(raw)
+                except Exception:
+                    config = {}
+
+            if 'mcpServers' not in config:
+                config['mcpServers'] = {}
+            config['mcpServers']['t3lab-revit'] = {
+                'command': 'python',
+                'args': [bridge, str(port)],
+            }
+
+            cfg_dir = os.path.dirname(path)
+            if not os.path.isdir(cfg_dir):
+                os.makedirs(cfg_dir)
+
+            with open(path, 'w') as f:
+                f.write(_json.dumps(config, indent=2))
+
+            return True, path
+        except Exception as ex:
+            return False, str(ex)
+
     # ── Combined snapshot (for dashboard widgets) ──────────────────────────────
 
     @staticmethod

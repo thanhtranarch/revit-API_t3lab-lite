@@ -121,6 +121,14 @@ class MCPControlWindow(forms.WPFWindow):
         if open_dir_btn:
             open_dir_btn.Click += self._on_open_dir
 
+        # Claude Desktop auto-configure widgets
+        self._claude_cfg_indicator = self.FindName('claude_cfg_indicator')
+        self._claude_cfg_label     = self.FindName('claude_cfg_label')
+        self._claude_cfg_path      = self.FindName('claude_cfg_path')
+        configure_claude_btn       = self.FindName('configure_claude_btn')
+        if configure_claude_btn:
+            configure_claude_btn.Click += self._on_configure_claude
+
         self._init_port()
         self._refresh_all()
 
@@ -148,6 +156,7 @@ class MCPControlWindow(forms.WPFWindow):
     def _refresh_all(self):
         self._refresh_server()
         self._refresh_watcher()
+        self._refresh_claude_config()
 
     def _refresh_server(self):
         if not HAS_SERVICE:
@@ -221,6 +230,47 @@ class MCPControlWindow(forms.WPFWindow):
         ok, err = MCPService.open_data_dir()
         if not ok:
             logger.error('Could not open data dir: {}'.format(err))
+
+    def _refresh_claude_config(self):
+        if not HAS_SERVICE:
+            if self._claude_cfg_indicator:
+                self._claude_cfg_indicator.Background = _brush('#94A3B8')
+            if self._claude_cfg_label:
+                self._claude_cfg_label.Text = 'Service unavailable'
+            return
+        status = MCPService.claude_desktop_status()
+        if status.get('error'):
+            color = '#EF4444'
+            text  = 'Error: {}'.format(status['error'])
+        elif not status['file_exists']:
+            color = '#F59E0B'
+            text  = 'Config not found — will be created on Configure'
+        elif status['configured']:
+            color = '#10B981'
+            text  = 'Configured — t3lab-revit entry present'
+        else:
+            color = '#EF4444'
+            text  = 'Not configured — click Configure to add entry'
+        if self._claude_cfg_indicator:
+            self._claude_cfg_indicator.Background = _brush(color)
+        if self._claude_cfg_label:
+            self._claude_cfg_label.Text = text
+        if self._claude_cfg_path:
+            self._claude_cfg_path.Text = status.get('path', '')
+
+    def _on_configure_claude(self, sender, e):
+        if not HAS_SERVICE:
+            return
+        try:
+            port = int(self.port_tb.Text.strip())
+        except Exception:
+            port = None
+        ok, msg = MCPService.configure_claude_desktop(port=port)
+        if ok:
+            logger.info('Claude Desktop configured: {}'.format(msg))
+        else:
+            logger.error('Claude Desktop configure error: {}'.format(msg))
+        self._refresh_claude_config()
 
     def _on_port_changed(self, sender, e):
         if HAS_SERVICE:
