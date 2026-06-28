@@ -258,8 +258,8 @@ class BCFIssue(object):
         return c
 
     def build_snapshot_image(self):
-        """Build frozen BitmapImage once. Call ms.Dispose() after EndInit()
-        because CacheOption.OnLoad has already copied pixels into memory."""
+        """Build and cache a full-resolution frozen BitmapImage.
+        Only call from the WPF UI thread (e.g. detail panel display)."""
         if self.snapshot_image is not None:
             return self.snapshot_image
         if self.snapshot_bytes is None:
@@ -283,6 +283,32 @@ class BCFIssue(object):
             return bi
         except Exception:
             self.snapshot_image = None
+            return None
+
+    def build_thumbnail(self, max_width=220):
+        """Build a small thumbnail BitmapImage (not cached) for card grid display.
+        Uses DecodePixelWidth to avoid decoding the full-resolution PNG into RAM.
+        Safe to call repeatedly — each call returns a new frozen BitmapImage."""
+        if self.snapshot_bytes is None:
+            return None
+        try:
+            ms = MemoryStream(self.snapshot_bytes)
+            try:
+                bi = BitmapImage()
+                bi.BeginInit()
+                bi.CacheOption = BitmapCacheOption.OnLoad
+                bi.StreamSource = ms
+                bi.DecodePixelWidth = max_width
+                bi.EndInit()
+                bi.Freeze()
+            finally:
+                try:
+                    ms.Close()
+                    ms.Dispose()
+                except Exception:
+                    pass
+            return bi
+        except Exception:
             return None
 
 
@@ -354,7 +380,8 @@ class BCFReader(object):
                 if "snapshot" in parts:
                     try:
                         issue.snapshot_bytes = self._read_entry_bytes(parts["snapshot"])
-                        issue.build_snapshot_image()
+                        # Image decoded lazily on the UI thread via build_thumbnail() /
+                        # build_snapshot_image() — never during parse() to avoid OOM.
                     except Exception:
                         pass
 
@@ -736,10 +763,49 @@ class BCFManagerWindow(WPFWindow):
         return False
 
     def load_bcf(self, filepath):
-        self.set_status("Loading BCF: " + filepath)
+        """Load a BCF file. Parsing runs on a background thread so the Revit
+        UI thread is never blocked; UI updates are marshalled back via Dispatcher."""
+        from System.Threading import Thread, ThreadStart
+        from System import Action as _SysAction
+
+        self.set_status("Loading: " + IOPath.GetFileName(filepath) + "...")
         try:
-            reader = BCFReader(filepath)
-            reader.parse()
+            self.btnOpen.IsEnabled = False
+        except Exception:
+            pass
+
+        # Use a list as a mutable closure cell (Python 2 workaround)
+        _result = [None]   # [BCFReader on success]
+        _error  = [None]   # [error string on failure]
+
+        def _parse_worker():
+            try:
+                r = BCFReader(filepath)
+                r.parse()
+                _result[0] = r
+            except Exception as ex:
+                _error[0] = str(ex) + "\n\n" + traceback.format_exc()
+
+            # Marshal UI work back to the WPF dispatcher
+            self.Dispatcher.BeginInvoke(_SysAction(_apply_result))
+
+        def _apply_result():
+            try:
+                self.btnOpen.IsEnabled = True
+            except Exception:
+                pass
+
+            if _error[0]:
+                from System.Windows import MessageBox, MessageBoxButton, MessageBoxImage
+                MessageBox.Show(
+                    "Failed to load BCF file:\n\n" + _error[0],
+                    "BCF Reader",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error)
+                self.set_status("Error loading BCF")
+                return
+
+            reader = _result[0]
             self.reader = reader
             self.issues = reader.issues
             fname = IOPath.GetFileName(filepath)
@@ -748,16 +814,16 @@ class BCFManagerWindow(WPFWindow):
                 subtitle = "{} | {}".format(reader.project_name, subtitle)
             self.lblSubtitle.Text = subtitle
 
-            n_added = sum(1 for i in self.issues if i.label == "ADDED")
-            n_removed = sum(1 for i in self.issues if i.label == "REMOVED")
+            n_added    = sum(1 for i in self.issues if i.label == "ADDED")
+            n_removed  = sum(1 for i in self.issues if i.label == "REMOVED")
             n_modified = sum(1 for i in self.issues if i.label == "MODIFIED")
-            n_other = sum(1 for i in self.issues if i.label == "OTHER")
-            self.txtTotal.Text = str(len(self.issues))
-            self.txtAdded.Text = str(n_added)
-            self.txtRemoved.Text = str(n_removed)
+            n_other    = sum(1 for i in self.issues if i.label == "OTHER")
+            self.txtTotal.Text    = str(len(self.issues))
+            self.txtAdded.Text    = str(n_added)
+            self.txtRemoved.Text  = str(n_removed)
             self.txtModified.Text = str(n_modified)
             try:
-                self.txtResolved.Text = str(sum(1 for i in self.issues if i.resolved))
+                self.txtResolved.Text   = str(sum(1 for i in self.issues if i.resolved))
                 self.txtUnresolved.Text = str(sum(1 for i in self.issues if not i.resolved))
             except AttributeError:
                 pass
@@ -771,10 +837,10 @@ class BCFManagerWindow(WPFWindow):
                 msg += ", Unclassified: {}".format(n_other)
             msg += ")"
             self.set_status(msg)
-        except Exception as ex:
-            TaskDialog.Show("BCF Reader",
-                "Failed to load BCF file:\n\n" + str(ex) + "\n\n" + traceback.format_exc())
-            self.set_status("Error loading BCF")
+
+        t = Thread(ThreadStart(_parse_worker))
+        t.IsBackground = True
+        t.Start()
 
     # ------------------------------------------------------------------
     # Cards
@@ -931,12 +997,16 @@ class BCFManagerWindow(WPFWindow):
         WPFGrid.SetRow(thumb_border, 0)
 
         thumb_grid = WPFGrid()
-        if issue.snapshot_image is not None:
+        if issue.snapshot_bytes is not None:
             try:
-                img = Image()
-                img.Source = issue.snapshot_image
-                img.Stretch = Stretch.UniformToFill
-                thumb_grid.Children.Add(img)
+                thumb = issue.build_thumbnail(220)
+                if thumb is not None:
+                    img = Image()
+                    img.Source = thumb
+                    img.Stretch = Stretch.UniformToFill
+                    thumb_grid.Children.Add(img)
+                else:
+                    thumb_grid.Children.Add(self._placeholder_thumb())
             except Exception:
                 thumb_grid.Children.Add(self._placeholder_thumb())
         else:
@@ -1126,14 +1196,16 @@ class BCFManagerWindow(WPFWindow):
 
         body = self.panelDetailBody
 
-        if issue.snapshot_image is not None:
+        if issue.snapshot_bytes is not None:
             try:
-                img = Image()
-                img.Source = issue.snapshot_image
-                img.Stretch = Stretch.Uniform
-                img.MaxHeight = 220
-                img.Margin = Thickness(0, 4, 0, 10)
-                body.Children.Add(img)
+                img_src = issue.build_snapshot_image()
+                if img_src is not None:
+                    img = Image()
+                    img.Source = img_src
+                    img.Stretch = Stretch.Uniform
+                    img.MaxHeight = 220
+                    img.Margin = Thickness(0, 4, 0, 10)
+                    body.Children.Add(img)
             except Exception:
                 pass
 
@@ -1482,12 +1554,10 @@ class BCFManagerWindow(WPFWindow):
 
     def on_reload_click(self, sender, e):
         if self.reader and self.reader.filepath:
-            try:
-                self.load_bcf(self.reader.filepath)
-            except Exception as ex:
-                TaskDialog.Show("BCF Reader", "Reload failed:\n" + str(ex))
+            self.load_bcf(self.reader.filepath)
         else:
-            TaskDialog.Show("BCF Reader", "No BCF file is currently loaded to reload.")
+            from System.Windows import MessageBox
+            MessageBox.Show("No BCF file is currently loaded to reload.", "BCF Reader")
 
     def on_weblink_click(self, sender, e):
         try:
