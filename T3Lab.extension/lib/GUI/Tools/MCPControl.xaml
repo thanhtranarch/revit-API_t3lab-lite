@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab AI — MCP Control" Height="480" Width="440"
+        Title="T3Lab AI — MCP Control" Height="640" Width="460"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="#E4E4E7"
         FontFamily="Hanken Grotesk"
@@ -1127,38 +1127,85 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
+                <!-- ── MCP HTTP Server ───────────────────────────── -->
+                <TextBlock Grid.Row="0" Text="MCP HTTP Server" FontSize="12" FontWeight="Bold"
+                           Foreground="#18181B" Margin="0,0,0,8"/>
+
                 <!-- Status Row -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,14">
-                    <Border x:Name="status_indicator" Width="12" Height="12" CornerRadius="6" VerticalAlignment="Center" Margin="0,0,8,0" Background="#94A3B8"/>
-                    <TextBlock x:Name="status_label" Text="Checking server status..." VerticalAlignment="Center" FontSize="13" Foreground="#18181B" FontWeight="SemiBold"/>
+                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                    <Border x:Name="status_indicator" Width="12" Height="12" CornerRadius="6"
+                            VerticalAlignment="Center" Margin="0,0,8,0" Background="#94A3B8"/>
+                    <TextBlock x:Name="status_label" Text="Checking server status..."
+                               VerticalAlignment="Center" FontSize="12" Foreground="#18181B" FontWeight="SemiBold"/>
                 </StackPanel>
 
-                <!-- Toggle Button -->
-                <Button Grid.Row="1" x:Name="toggle_btn" Content="Start Server" Height="36" Style="{StaticResource PrimaryButton}" Margin="0,0,0,14" IsEnabled="False"/>
-
-                <!-- Separator -->
-                <Border Grid.Row="2" Height="1" Background="#E2E8F0" Margin="0,0,0,14"/>
-
-                <!-- Port Selection -->
-                <Grid Grid.Row="3" Margin="0,0,0,14">
+                <!-- Toggle Button + Port -->
+                <Grid Grid.Row="2" Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="80"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="MCP Server Port:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#18181B" Margin="0,0,12,0"/>
-                    <TextBox Grid.Column="1" x:Name="port_tb" Width="120" HorizontalAlignment="Left" Style="{StaticResource T3InputField}" Height="32" Padding="8,0" VerticalContentAlignment="Center"/>
+                    <Button Grid.Column="0" x:Name="toggle_btn" Content="Start Server"
+                            Height="34" Style="{StaticResource PrimaryButton}" IsEnabled="False"/>
+                    <TextBlock Grid.Column="2" Text="Port:" VerticalAlignment="Center"
+                               FontWeight="SemiBold" Foreground="#18181B"/>
+                    <TextBox Grid.Column="4" x:Name="port_tb"
+                             Style="{StaticResource T3InputField}" Height="34" Padding="6,0"
+                             VerticalContentAlignment="Center"/>
                 </Grid>
 
-                <!-- Config Title -->
-                <TextBlock Grid.Row="4" Text="Claude Desktop Configuration:" FontWeight="SemiBold" Foreground="#18181B" Margin="0,0,0,6"/>
+                <!-- Separator -->
+                <Border Grid.Row="3" Height="1" Background="#E2E8F0" Margin="0,4,0,10"/>
+
+                <!-- ── File-Based Task Watcher ───────────────────── -->
+                <TextBlock Grid.Row="4" Text="File-Based Task Watcher" FontSize="12" FontWeight="Bold"
+                           Foreground="#18181B" Margin="0,0,0,8"/>
+
+                <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,10">
+                    <Border x:Name="watcher_indicator" Width="12" Height="12" CornerRadius="6"
+                            VerticalAlignment="Center" Margin="0,0,8,0" Background="#94A3B8"/>
+                    <TextBlock x:Name="watcher_label" Text="Checking watcher status..."
+                               VerticalAlignment="Center" FontSize="12" Foreground="#18181B" FontWeight="SemiBold"/>
+                </StackPanel>
+
+                <Grid Grid.Row="6" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" x:Name="watcher_toggle_btn" Content="Start Watcher"
+                            Height="34" Style="{StaticResource SuccessButton}" IsEnabled="False"/>
+                    <Button Grid.Column="2" x:Name="open_dir_btn" Content="Open Folder"
+                            Height="34" Style="{StaticResource SecondaryButton}" Width="100"
+                            ToolTip="Open ~/T3Lab_AI_Data in Explorer"/>
+                </Grid>
+
+                <!-- Data dir path -->
+                <TextBlock Grid.Row="7" x:Name="data_dir_label"
+                           FontFamily="Consolas" FontSize="10" Foreground="#71717A"
+                           TextTrimming="CharacterEllipsis" Margin="0,0,0,8"
+                           ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+
+                <!-- Separator -->
+                <Border Grid.Row="8" Height="1" Background="#E2E8F0" Margin="0,0,0,10"/>
 
                 <!-- Config Codebox -->
-                <TextBox Grid.Row="5" x:Name="config_box" IsReadOnly="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
-                         FontFamily="Consolas" FontSize="11" Background="#F4F4F6" BorderBrush="#E2E8F0" BorderThickness="1"
-                         Padding="10" Margin="0,0,0,4" AcceptsReturn="True" TextWrapping="NoWrap"/>
+                <TextBox Grid.Row="9" x:Name="config_box" IsReadOnly="True"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas" FontSize="11" Background="#F4F4F6"
+                         BorderBrush="#E2E8F0" BorderThickness="1"
+                         Padding="10" AcceptsReturn="True" TextWrapping="NoWrap"/>
             </Grid>
 
             <!-- Actions/Footer -->

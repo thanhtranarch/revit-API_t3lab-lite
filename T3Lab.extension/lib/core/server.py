@@ -1038,6 +1038,35 @@ class T3LabAIServer:
                     'required': ['file_path']
                 }
             },
+            # ── Utility / assistant control ───────────────────────────────────
+            'file_watcher_status': {
+                'name': 'file_watcher_status',
+                'description': 'Check whether the T3Lab file-based task watcher is running and get its data directory path',
+                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+            },
+            'get_revit_context': {
+                'name': 'get_revit_context',
+                'description': 'Get current Revit context: active view, selected elements, open document info',
+                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+            },
+            'show_assistant_pane': {
+                'name': 'show_assistant_pane',
+                'description': 'Show or hide the T3Lab Assistant dockable pane',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'action': {
+                            'type': 'string',
+                            'description': '"show" (default) or "hide"'
+                        },
+                        'message': {
+                            'type': 'string',
+                            'description': 'Optional message to inject into the pane chat'
+                        }
+                    },
+                    'required': []
+                }
+            },
             # ── Export ────────────────────────────────────────────────────────
             'export_sheets_pdf': {
                 'name': 'export_sheets_pdf',
@@ -2933,6 +2962,97 @@ class T3LabAIServer:
                 except Exception as e:
                     t.RollBack()
                     return {'error': str(e)}
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── file_watcher_status ──────────────────────────────────────────────
+        elif tool_name == 'file_watcher_status':
+            try:
+                from core.file_watcher import get_task_watcher
+                watcher = get_task_watcher()
+                return watcher.get_status()
+            except Exception as e:
+                return {'error': str(e), 'running': False}
+
+        # ── get_revit_context ────────────────────────────────────────────────
+        elif tool_name == 'get_revit_context':
+            try:
+                ft_to_m = 0.3048
+                ctx = {
+                    'document': doc.Title,
+                    'is_workshared': doc.IsWorkshared,
+                    'file_path': doc.PathName or '(unsaved)',
+                }
+                view = doc.ActiveView
+                if view:
+                    ctx['active_view'] = {
+                        'name':      view.Name,
+                        'type':      str(view.ViewType),
+                        'id':        eid_value(view.Id),
+                    }
+                    try:
+                        bb = view.get_BoundingBox(view)
+                        if bb:
+                            ctx['active_view']['view_range'] = {
+                                'min': {'x': round(bb.Min.X * ft_to_m, 2),
+                                        'y': round(bb.Min.Y * ft_to_m, 2)},
+                                'max': {'x': round(bb.Max.X * ft_to_m, 2),
+                                        'y': round(bb.Max.Y * ft_to_m, 2)},
+                            }
+                    except Exception:
+                        pass
+                try:
+                    sel = uidoc.Selection.GetElementIds()
+                    if sel and sel.Count > 0:
+                        sel_info = []
+                        for sid in list(sel)[:10]:
+                            el = doc.GetElement(sid)
+                            if el:
+                                sel_info.append({
+                                    'id':       eid_value(el.Id),
+                                    'category': el.Category.Name if el.Category else '?',
+                                    'name':     el.Name or '',
+                                })
+                        ctx['selection'] = {'count': sel.Count, 'elements': sel_info}
+                    else:
+                        ctx['selection'] = {'count': 0, 'elements': []}
+                except Exception:
+                    ctx['selection'] = {'count': 0, 'elements': []}
+                return ctx
+            except Exception as e:
+                return {'error': str(e)}
+
+        # ── show_assistant_pane ──────────────────────────────────────────────
+        elif tool_name == 'show_assistant_pane':
+            try:
+                from System import Guid as SysGuid
+                from Autodesk.Revit.UI import DockablePaneId
+                from pyrevit import HOST_APP
+                action  = arguments.get('action', 'show').lower()
+                message = arguments.get('message', '')
+                pane_guid = SysGuid('7F3A9B2E-C4D1-4E8F-A6B5-1234567890AB')
+                pane_id   = DockablePaneId(pane_guid)
+                uiapp     = HOST_APP.uiapp
+                pane      = uiapp.GetDockablePane(pane_id)
+                if pane is None:
+                    return {'error': 'DockablePane not registered. Restart Revit after installing T3Lab.'}
+                if action == 'hide':
+                    pane.Hide()
+                    return {'success': True, 'action': 'hide'}
+                else:
+                    pane.Show()
+                    result = {'success': True, 'action': 'show'}
+                # Inject message into pane if provided
+                if message:
+                    try:
+                        from GUI.AssistantPaneControl import get_pane_controller
+                        ctrl = get_pane_controller()
+                        if ctrl:
+                            ctrl.add_message(message, is_user=False)
+                            result['message_injected'] = True
+                    except Exception:
+                        result['message_injected'] = False
+                return result
             except Exception as e:
                 return {'error': str(e)}
 
