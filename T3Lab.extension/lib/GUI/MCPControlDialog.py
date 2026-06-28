@@ -1,59 +1,128 @@
 # -*- coding: utf-8 -*-
-"""MCP Control Dialog class."""
+"""
+MCP Control Dialog
+
+Thin WPF wrapper around MCPService. All backend logic lives in
+Services/mcp_service.py and can be reused by any other tool.
+"""
 
 from __future__ import unicode_literals
 
 import os
 import sys
 from pyrevit import forms, script
-from System.Windows import WindowState, Clipboard
+from System.Windows import WindowState
 from System.Windows.Media import BrushConverter
 
-# Absolute path to XAML
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'MCPControl.xaml')
 
+# ─── Backend service ───────────────────────────────────────────────────────────
 try:
-    from core.server import get_t3labai_server
-    HAS_SERVER = True
-except Exception as _server_err:
-    HAS_SERVER = False
-    _SERVER_ERR_MSG = str(_server_err)
-
-try:
-    from core.file_watcher import get_task_watcher, T3LAB_DATA_DIR
-    HAS_WATCHER = True
-except Exception:
-    HAS_WATCHER = False
-    T3LAB_DATA_DIR = os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data')
+    _LIB_DIR = os.path.dirname(os.path.dirname(__file__))
+    if _LIB_DIR not in sys.path:
+        sys.path.insert(0, _LIB_DIR)
+    from Services.mcp_service import MCPService
+    HAS_SERVICE = True
+except Exception as _svc_err:
+    HAS_SERVICE  = False
+    _SVC_ERR_MSG = str(_svc_err)
 
 logger = script.get_logger()
 
 
-def brush(hex_string):
-    return BrushConverter().ConvertFromString(hex_string)
+def _brush(hex_color):
+    return BrushConverter().ConvertFromString(hex_color)
 
+
+# ─── Status helpers shared with embedded widgets ───────────────────────────────
+
+def apply_server_status(status, indicator, label, btn, resources):
+    """
+    Update server status widgets from an MCPService.server_status() dict.
+    All widget args may be None (skipped gracefully).
+    """
+    if status.get('error'):
+        color, text = '#EF4444', 'Error: {}'.format(status['error'])
+        btn_content, btn_style_key = 'Start Server', 'PrimaryButton'
+        enabled = True
+    elif status['running']:
+        color       = '#10B981'
+        text        = 'Connected — port {}'.format(status['port'])
+        btn_content = 'Stop Server'
+        btn_style_key = 'DangerButton'
+        enabled     = True
+    else:
+        color, text = '#EF4444', 'Disconnected'
+        btn_content, btn_style_key = 'Start Server', 'SuccessButton'
+        enabled = True
+
+    if indicator: indicator.Background = _brush(color)
+    if label:     label.Text           = text
+    if btn:
+        btn.Content   = btn_content
+        btn.IsEnabled = enabled
+        if resources and btn_style_key in resources:
+            btn.Style = resources[btn_style_key]
+
+
+def apply_watcher_status(status, indicator, label, btn, resources):
+    """
+    Update watcher status widgets from an MCPService.watcher_status() dict.
+    """
+    if not HAS_SERVICE or status.get('error'):
+        err = status.get('error', 'Service unavailable') if status else 'Service unavailable'
+        if indicator: indicator.Background = _brush('#94A3B8')
+        if label:     label.Text           = err
+        if btn:       btn.IsEnabled        = False
+        return
+
+    if status['running']:
+        color = '#10B981'
+        text  = 'File watcher active — monitoring task.json'
+        btn_content, btn_style_key = 'Stop Watcher', 'DangerButton'
+    else:
+        color = '#EF4444'
+        text  = 'File watcher stopped'
+        btn_content, btn_style_key = 'Start Watcher', 'SuccessButton'
+
+    if indicator: indicator.Background = _brush(color)
+    if label:     label.Text           = text
+    if btn:
+        btn.Content   = btn_content
+        btn.IsEnabled = True
+        if resources and btn_style_key in resources:
+            btn.Style = resources[btn_style_key]
+
+
+# ─── Dialog ────────────────────────────────────────────────────────────────────
 
 class MCPControlWindow(forms.WPFWindow):
+    """
+    MCP Control dialog — thin UI layer over MCPService.
+    """
+
     def __init__(self):
         forms.WPFWindow.__init__(self, _XAML)
 
-        # Wire MCP server events
-        self.toggle_btn.Click   += self._on_toggle
-        self.copy_btn.Click     += self._on_copy
-        self.port_tb.TextChanged += self._port_changed
+        # MCP server events
+        self.toggle_btn.Click    += self._on_toggle
+        self.copy_btn.Click      += self._on_copy
+        self.port_tb.TextChanged += self._on_port_changed
 
-        # Wire file watcher events
-        try:
-            self.watcher_toggle_btn.Click += self._on_watcher_toggle
-        except Exception:
-            pass
-        try:
-            self.open_dir_btn.Click += self._on_open_dir
-        except Exception:
-            pass
+        # File watcher events (FindName so missing elements don't crash)
+        self._watcher_indicator = self.FindName('watcher_indicator')
+        self._watcher_label     = self.FindName('watcher_label')
+        self._watcher_btn       = self.FindName('watcher_toggle_btn')
+        self._dir_label         = self.FindName('data_dir_label')
+        open_dir_btn            = self.FindName('open_dir_btn')
+
+        if self._watcher_btn:
+            self._watcher_btn.Click += self._on_watcher_toggle
+        if open_dir_btn:
+            open_dir_btn.Click += self._on_open_dir
 
         self._init_port()
-        self._refresh_status()
+        self._refresh_all()
 
     # ── Window chrome ──────────────────────────────────────────────────────────
 
@@ -63,182 +132,103 @@ class MCPControlWindow(forms.WPFWindow):
     def close_button_clicked(self, sender, e):
         self.Close()
 
-    # ── MCP server ─────────────────────────────────────────────────────────────
+    # ── Init helpers ───────────────────────────────────────────────────────────
 
     def _init_port(self):
-        if HAS_SERVER:
+        port = 48884
+        if HAS_SERVICE:
             try:
-                server = get_t3labai_server()
-                self.port_tb.Text = str(server.port)
-                return
+                port = MCPService.server_status().get('port', 48884)
             except Exception:
                 pass
-        self.port_tb.Text = '48884'
+        self.port_tb.Text = str(port)
 
-    def _make_config_snippet(self, port_str):
-        gui_dir     = os.path.dirname(__file__)
-        lib_dir     = os.path.dirname(gui_dir)
-        bridge_path = os.path.join(lib_dir, 'core', 'bridge.py').replace('\\', '/')
-        return (
-            '{\n'
-            '  "mcpServers": {\n'
-            '    "t3lab-revit": {\n'
-            '      "command": "python",\n'
-            '      "args": [\n'
-            '        "' + bridge_path + '",\n'
-            '        "' + port_str + '"\n'
-            '      ]\n'
-            '    }\n'
-            '  }\n'
-            '}'
-        )
+    # ── Refresh ────────────────────────────────────────────────────────────────
 
-    def _refresh_mcp_status(self):
-        if not HAS_SERVER:
-            self.status_indicator.Background = brush('#94A3B8')
-            self.status_label.Text           = 'Server module unavailable'
-            self.toggle_btn.Content          = 'Start Server'
-            self.toggle_btn.Style            = self.Resources['SecondaryButton']
+    def _refresh_all(self):
+        self._refresh_server()
+        self._refresh_watcher()
+
+    def _refresh_server(self):
+        if not HAS_SERVICE:
+            self.status_indicator.Background = _brush('#94A3B8')
+            self.status_label.Text           = 'Service unavailable: ' + _SVC_ERR_MSG
             self.toggle_btn.IsEnabled        = False
             return
+        status = MCPService.server_status()
+        apply_server_status(
+            status,
+            self.status_indicator,
+            self.status_label,
+            self.toggle_btn,
+            self.Resources,
+        )
+        self.config_box.Text = MCPService.config_snippet(
+            port=self.port_tb.Text or status.get('port')
+        )
 
-        try:
-            server  = get_t3labai_server()
-            running = server.is_running
-        except Exception as ex:
-            self.status_indicator.Background = brush('#EF4444')
-            self.status_label.Text           = 'Error: ' + str(ex)
-            self.toggle_btn.Content          = 'Start Server'
-            self.toggle_btn.Style            = self.Resources['PrimaryButton']
-            self.toggle_btn.IsEnabled        = True
+    def _refresh_watcher(self):
+        if not HAS_SERVICE:
+            apply_watcher_status(None, self._watcher_indicator,
+                                 self._watcher_label, self._watcher_btn, self.Resources)
             return
+        status = MCPService.watcher_status()
+        apply_watcher_status(
+            status,
+            self._watcher_indicator,
+            self._watcher_label,
+            self._watcher_btn,
+            self.Resources,
+        )
+        if self._dir_label:
+            self._dir_label.Text = status.get('data_dir', MCPService.data_dir())
 
-        if running:
-            self.status_indicator.Background = brush('#10B981')
-            self.status_label.Text           = 'Connected — port ' + str(server.port)
-            self.toggle_btn.Content          = 'Stop Server'
-            self.toggle_btn.Style            = self.Resources['DangerButton']
-        else:
-            self.status_indicator.Background = brush('#EF4444')
-            self.status_label.Text           = 'Disconnected'
-            self.toggle_btn.Content          = 'Start Server'
-            self.toggle_btn.Style            = self.Resources['SuccessButton']
-
-        self.toggle_btn.IsEnabled = True
-        self.config_box.Text      = self._make_config_snippet(self.port_tb.Text)
+    # ── Event handlers ─────────────────────────────────────────────────────────
 
     def _on_toggle(self, sender, e):
-        if not HAS_SERVER:
+        if not HAS_SERVICE:
             return
         try:
-            server = get_t3labai_server()
-            if server.is_running:
-                server.stop_server()
-                logger.info('MCP Server stopped.')
-            else:
-                try:
-                    port_val   = int(self.port_tb.Text.strip())
-                    server.port = port_val
-                except Exception:
-                    pass
-                if server.start_server():
-                    logger.info('MCP Server started on port {}.'.format(server.port))
-                else:
-                    logger.error('Failed to start MCP Server.')
-        except Exception as ex:
-            logger.error('Toggle error: {}'.format(ex))
-        self._refresh_status()
+            port = int(self.port_tb.Text.strip())
+        except Exception:
+            port = None
+        new_state, err = MCPService.toggle_server(current_port=port)
+        if err:
+            logger.error('MCP server toggle error: {}'.format(err))
+        else:
+            logger.info('MCP server: {}'.format(new_state))
+        self._refresh_server()
+
+    def _on_watcher_toggle(self, sender, e):
+        if not HAS_SERVICE:
+            return
+        new_state, err = MCPService.toggle_watcher()
+        if err:
+            logger.error('File watcher toggle error: {}'.format(err))
+        else:
+            logger.info('File watcher: {}'.format(new_state))
+        self._refresh_watcher()
 
     def _on_copy(self, sender, e):
         try:
+            from System.Windows import Clipboard
             Clipboard.SetText(self.config_box.Text)
             logger.info('Configuration copied to clipboard.')
         except Exception as ex:
             logger.error('Clipboard error: {}'.format(ex))
 
-    def _port_changed(self, sender, e):
-        self.config_box.Text = self._make_config_snippet(self.port_tb.Text)
-
-    # ── File watcher ───────────────────────────────────────────────────────────
-
-    def _refresh_watcher_status(self):
-        try:
-            watcher_ind = self.FindName('watcher_indicator')
-            watcher_lbl = self.FindName('watcher_label')
-            watcher_btn = self.FindName('watcher_toggle_btn')
-            dir_lbl     = self.FindName('data_dir_label')
-        except Exception:
-            return
-
-        if dir_lbl:
-            try:
-                dir_lbl.Text = T3LAB_DATA_DIR
-            except Exception:
-                pass
-
-        if not HAS_WATCHER:
-            if watcher_ind: watcher_ind.Background = brush('#94A3B8')
-            if watcher_lbl: watcher_lbl.Text       = 'File watcher module unavailable'
-            if watcher_btn: watcher_btn.IsEnabled   = False
-            return
-
-        try:
-            watcher = get_task_watcher()
-            running = watcher.is_running
-        except Exception as ex:
-            if watcher_ind: watcher_ind.Background = brush('#EF4444')
-            if watcher_lbl: watcher_lbl.Text       = 'Error: ' + str(ex)
-            if watcher_btn: watcher_btn.IsEnabled   = True
-            return
-
-        if running:
-            if watcher_ind: watcher_ind.Background = brush('#10B981')
-            if watcher_lbl: watcher_lbl.Text       = 'File watcher active — monitoring task.json'
-            if watcher_btn:
-                watcher_btn.Content = 'Stop Watcher'
-                watcher_btn.Style   = self.Resources['DangerButton']
-        else:
-            if watcher_ind: watcher_ind.Background = brush('#EF4444')
-            if watcher_lbl: watcher_lbl.Text       = 'File watcher stopped'
-            if watcher_btn:
-                watcher_btn.Content = 'Start Watcher'
-                watcher_btn.Style   = self.Resources['SuccessButton']
-
-        if watcher_btn: watcher_btn.IsEnabled = True
-
-    def _on_watcher_toggle(self, sender, e):
-        if not HAS_WATCHER:
-            return
-        try:
-            watcher = get_task_watcher()
-            if watcher.is_running:
-                watcher.stop()
-                logger.info('File watcher stopped.')
-            else:
-                watcher.start()
-                logger.info('File watcher started.')
-        except Exception as ex:
-            logger.error('Watcher toggle error: {}'.format(ex))
-        self._refresh_status()
-
     def _on_open_dir(self, sender, e):
-        """Open the T3Lab_AI_Data directory in Explorer."""
-        try:
-            import subprocess
-            if not os.path.isdir(T3LAB_DATA_DIR):
-                os.makedirs(T3LAB_DATA_DIR)
-            subprocess.Popen(['explorer', T3LAB_DATA_DIR])
-        except Exception as ex:
-            logger.error('Could not open directory: {}'.format(ex))
+        ok, err = MCPService.open_data_dir()
+        if not ok:
+            logger.error('Could not open data dir: {}'.format(err))
 
-    # ── Combined refresh ───────────────────────────────────────────────────────
-
-    def _refresh_status(self):
-        self._refresh_mcp_status()
-        self._refresh_watcher_status()
+    def _on_port_changed(self, sender, e):
+        if HAS_SERVICE:
+            self.config_box.Text = MCPService.config_snippet(
+                port=self.port_tb.Text or None
+            )
 
 
 def show_mcp_control_dialog():
     """Show the MCP Control dialog."""
-    dlg = MCPControlWindow()
-    dlg.ShowDialog()
+    MCPControlWindow().ShowDialog()
