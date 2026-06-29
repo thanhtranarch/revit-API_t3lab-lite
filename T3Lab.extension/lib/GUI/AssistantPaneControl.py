@@ -437,23 +437,59 @@ class AssistantPaneProvider(IDockablePaneProvider):
 
     def SetupDockablePane(self, data):
         try:
-            stream = FileStream(_XAML_PATH, FileMode.Open)
-            try:
-                control = XamlReader.Load(stream)
-            finally:
-                stream.Close()
-
-            AssistantPaneController(control)
-            data.FrameworkElement = control
-
-            from Autodesk.Revit.UI import EditorInteraction, EditorInteractionType
-            data.EditorInteraction = EditorInteraction(EditorInteractionType.KeepAlive)
+            import imp
+            
+            # Load the pushbutton script.py as a module to get T3LabAssistantWindow
+            tab_dir = os.path.join(_EXT_DIR, 'T3Lab.tab')
+            script_path = os.path.join(
+                tab_dir, 'Support.panel', 'T3LabAssistant.pushbutton', 'script.py'
+            )
+            if os.path.isfile(script_path):
+                if _LIB_DIR not in sys.path:
+                    sys.path.insert(0, _LIB_DIR)
+                if _EXT_DIR not in sys.path:
+                    sys.path.insert(0, _EXT_DIR)
+                    
+                mod = imp.load_source('t3lab_assistant_full', script_path)
+                if hasattr(mod, 'T3LabAssistantWindow'):
+                    # Instantiate on UI thread as docked
+                    win = mod.T3LabAssistantWindow(is_docked=True)
+                    
+                    # Detach visual content
+                    content = win.Content
+                    win.Content = None
+                    
+                    # Keep the window class instance alive
+                    self._win_ref = win
+                    
+                    data.FrameworkElement = content
+                    
+                    from Autodesk.Revit.UI import EditorInteraction, EditorInteractionType
+                    data.EditorInteraction = EditorInteraction(EditorInteractionType.KeepAlive)
+                    return
+            
+            raise Exception("pushbutton script.py not found")
 
         except Exception as ex:
-            from System.Windows.Controls import TextBlock
-            from System.Windows import HorizontalAlignment, VerticalAlignment
+            import logging
+            logging.basicConfig()
+            logger = logging.getLogger("T3LabAssistant")
+            logger.error("Error setting up DockablePane: %s", ex, exc_info=True)
+
+            from System.Windows.Controls import Border, TextBlock
+            from System.Windows import HorizontalAlignment, VerticalAlignment, Thickness, TextWrapping
+            from System.Windows.Media import Brushes
+
+            border = Border()
+            border.Background = Brushes.Crimson
+            border.Padding = Thickness(20)
+
             lbl = TextBlock()
             lbl.Text = u'T3Lab Assistant pane could not load:\n{}'.format(ex)
+            lbl.Foreground = Brushes.White
+            lbl.TextWrapping = TextWrapping.Wrap
             lbl.HorizontalAlignment = HorizontalAlignment.Center
             lbl.VerticalAlignment   = VerticalAlignment.Center
-            data.FrameworkElement   = lbl
+
+            border.Child = lbl
+            data.FrameworkElement   = border

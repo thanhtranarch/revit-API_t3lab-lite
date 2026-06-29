@@ -617,13 +617,15 @@ def _extract_slots(raw):
         if m and m.group(1).upper() not in _FORMAT_LETTERS:
             sheet_filt = m.group(1).upper()
 
-    # Priority 2: lone uppercase token that isn't a format name
+    # Priority 2: lone single-letter token or pure uppercase sheet prefix
     if not sheet_filt:
         for token in raw.split():
-            tok = re.sub(r'[^A-Z]', '', token.upper())
-            if len(tok) == 1 and tok not in _FORMAT_LETTERS:
-                sheet_filt = tok
-                break
+            clean_tok = "".join(c for c in token if c.isalnum())
+            if len(clean_tok) == 1 and clean_tok.isalpha():
+                tok = clean_tok.upper()
+                if tok not in _FORMAT_LETTERS:
+                    sheet_filt = tok
+                    break
 
     # ── combine flag ─────────────────────────────────────────────────────────
     combine_kws = ["combine", "merge", "gop", "ghep", "1 file", "mot file"]

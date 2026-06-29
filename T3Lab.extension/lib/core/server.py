@@ -187,6 +187,17 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         params = request.get('params', {})
         request_id = request.get('id')
 
+        # If it's a notification (no 'id' in request), do not send JSON-RPC response
+        if 'id' not in request:
+            try:
+                if method == 'notifications/initialized':
+                    # Handle initialized notification if needed
+                    pass
+            except Exception:
+                pass
+            self._send_json({'status': 'ok'})
+            return
+
         response = {
             'jsonrpc': '2.0',
             'id': request_id
@@ -199,8 +210,6 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                 response['result'] = server._handle_tools_list()
             elif method == 'tools/call':
                 response['result'] = server._handle_tool_call(params)
-            elif method == 'notifications/initialized':
-                response['result'] = {}
             else:
                 response['error'] = {
                     'code': -32601,
@@ -216,7 +225,7 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         self._send_json(response)
 
 
-class T3LabAIServer:
+class T3LabAIServer(object):
     """MCP Server for AI communication with Revit"""
 
     _instance = None

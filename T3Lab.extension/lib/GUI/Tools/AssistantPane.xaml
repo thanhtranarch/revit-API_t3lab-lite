@@ -1,6 +1,8 @@
 <UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#F8FAFC">
+             Background="#F8FAFC"
+             FontFamily="Hanken Grotesk"
+             FontSize="13.5">
 
     <UserControl.Resources>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
@@ -1168,7 +1170,7 @@
     </UserControl.Resources>
 
     <!-- Root Grid: 4 rows — header, chat area, quick actions strip, input bar -->
-    <Grid FontFamily="Hanken Grotesk" FontSize="13.5">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="44"/>   <!-- Row 0: Branded header bar -->
             <RowDefinition Height="*"/>    <!-- Row 1: Scrollable chat messages -->

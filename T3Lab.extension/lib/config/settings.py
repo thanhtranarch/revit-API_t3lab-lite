@@ -16,7 +16,7 @@ import os
 import json
 
 
-class T3LabAISettings:
+class T3LabAISettings(object):
     """Settings manager for T3LabAI"""
 
     _instance = None

@@ -320,7 +320,8 @@ class MCPService(object):
             if not os.path.isfile(path):
                 return {'path': path, 'file_exists': False, 'configured': False, 'error': None}
             try:
-                with open(path, 'r') as f:
+                import codecs
+                with codecs.open(path, 'r', encoding='utf-8') as f:
                     config = _json.loads(f.read())
                 servers = config.get('mcpServers', {})
                 configured = 't3lab-revit' in servers
@@ -345,6 +346,7 @@ class MCPService(object):
         """
         try:
             import json as _json
+            import codecs
             if port is None:
                 try:
                     server = _get_server()
@@ -358,7 +360,7 @@ class MCPService(object):
             config = {}
             if os.path.isfile(path):
                 try:
-                    with open(path, 'r') as f:
+                    with codecs.open(path, 'r', encoding='utf-8') as f:
                         raw = f.read().strip()
                     if raw:
                         config = _json.loads(raw)
@@ -376,8 +378,8 @@ class MCPService(object):
             if not os.path.isdir(cfg_dir):
                 os.makedirs(cfg_dir)
 
-            with open(path, 'w') as f:
-                f.write(_json.dumps(config, indent=2))
+            with codecs.open(path, 'w', encoding='utf-8') as f:
+                f.write(_json.dumps(config, indent=2, ensure_ascii=False))
 
             return True, path
         except Exception as ex:

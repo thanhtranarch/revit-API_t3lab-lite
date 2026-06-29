@@ -50,11 +50,11 @@ class OllamaProvider(BaseLLMProvider):
             mod.OLLAMA_HOST if mod else "http://localhost:11434")
 
     def _candidate_hosts(self):
-        """Hosts to try, in order: explicit/configured → localhost → 127.0.0.1."""
+        """Hosts to try, in order: explicit/configured → 127.0.0.1 → localhost."""
         mod = self._local_llm()
         cfg = self._host or (mod.OLLAMA_HOST if mod else None)
         out = []
-        for h in (cfg, "http://localhost:11434", "http://127.0.0.1:11434"):
+        for h in (cfg, "http://127.0.0.1:11434", "http://localhost:11434"):
             if h:
                 h = h.rstrip("/")
                 if h not in out:
@@ -72,7 +72,7 @@ class OllamaProvider(BaseLLMProvider):
         reachable Ollama with installed models, else (None, [])."""
         for host in self._candidate_hosts():
             try:
-                tags = http_get(host + "/api/tags", timeout_ms=2500)
+                tags = http_get(host + "/api/tags", timeout_ms=800)
                 if not tags:
                     continue
                 data = json.loads(tags)

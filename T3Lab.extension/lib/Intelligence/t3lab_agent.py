@@ -183,6 +183,7 @@ def build_system_prompt(revit_context=u""):
         u"  revit_run_csharp: code (C# snippet string)\n"
         u"  revit_store_data / revit_get_stored_data: key, value (optional)\n"
         u"\nRULES:\n"
+        u"  - CRITICAL: Never confuse queries about Revit elements (e.g. columns/cột, walls/tường, doors/cửa, rooms/phòng) with sheet exporting (export_direct). If the user asks about elements (e.g. \"có bao nhiêu cột\"), use revit_model_stats, revit_filter_category, or ask for clarification. Do NOT use export_direct.\n"
         u"  - 'xuất/export' + format → export_direct\n"
         u"  - 'mở batchout' + config → open_batchout_configured\n"
         u"  - 'mở batchout' alone → open_batchout\n"

@@ -32,12 +32,21 @@ from System import Uri, UriKind, Action
 from System.Threading import Thread, ThreadStart, ApartmentState
 
 from pyrevit import revit, forms, script
+from Autodesk.Revit import DB
 
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
 output = script.get_output()
-REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+
+try:
+    REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+except Exception:
+    try:
+        from pyrevit import HOST_APP
+        REVIT_VERSION = int(HOST_APP.version)
+    except Exception:
+        REVIT_VERSION = 2023  # safe fallback
 
 # ─── Lib path setup ───────────────────────────────────────────────────────────
 # __file__ → .../T3LabAssistant.pushbutton/script.py
@@ -169,7 +178,7 @@ def _load_script(name, script_path):
 
 def _load_batchout_mod():
     """Load the BatchOut script module, raising RuntimeError on failure."""
-    script_path = _get_tool_script_dir('Support.panel', 'BatchOut.pushbutton')
+    script_path = _get_tool_script_dir('Views & Sheets.panel', 'BatchOut.pushbutton')
     mod = _load_script('batchout_script', script_path)
     if mod is None:
         raise RuntimeError("Could not load BatchOut module from: {}".format(script_path))
@@ -469,7 +478,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # Dynamic buttons added by _bootstrap_discovered_tools
     _DYNAMIC_BTNS = []   # list of Button WPF objects (not names)
 
-    def __init__(self):
+    def __init__(self, is_docked=False):
+        self.is_docked = is_docked
         try:
             xaml_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'T3LabAssistant.xaml')
             forms.WPFWindow.__init__(self, xaml_path)
@@ -487,7 +497,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._doc_key          = _get_doc_key() # document identifier for history
         self._persisted_msgs   = []             # flat list with timestamps, for save/load
         self._attached_files   = []             # list of file paths (images / PDFs)
-        self._models_cache     = {}             # {provider_name: [model_list]} — avoids HTTP on sidebar open
+        self._models_cache     = {
+            "claude":    ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
+            "openai":    ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+            "deepseek":  ["deepseek-chat", "deepseek-coder"],
+            "ollama":    ["qwen2.5:0.5b", "qwen2.5:1.5b", "llama3", "mistral"],
+            "lmstudio":  ["local-model"],
+        }             # {provider_name: [model_list]} — avoids HTTP on sidebar open
         
         # ── History & Typing Animation State ──────────────────────────────────
         self._input_history    = []
@@ -504,7 +520,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             from System.Windows.Controls import ScrollBarVisibility
             from System.Windows import TextWrapping
-            self.chat_input.AcceptsReturn = True
+            self.chat_input.AcceptsReturn = False
             self.chat_input.TextWrapping  = TextWrapping.Wrap
             self.chat_input.MaxHeight     = 120
             self.chat_input.VerticalScrollBarVisibility = ScrollBarVisibility.Auto
@@ -538,6 +554,72 @@ class T3LabAssistantWindow(forms.WPFWindow):
             try:
                 import time
                 time.sleep(0.5)   # let window render first
+
+                # ─── 1. Auto-start Revit MCP Server & File Watcher ───
+                try:
+                    from Services.mcp_service import MCPService
+                    # Start MCP HTTP Server if stopped
+                    srv_status = MCPService.server_status()
+                    if not srv_status.get('running'):
+                        MCPService.start_server()
+                    # Start File Task Watcher if stopped
+                    wat_status = MCPService.watcher_status()
+                    if not wat_status.get('running'):
+                        MCPService.start_watcher()
+                except Exception as ex:
+                    logger.debug("Auto-start MCP/watcher failed: {}".format(ex))
+
+                # ─── 2. Auto-start Ollama Local Engine ───
+                try:
+                    from Intelligence import local_llm
+                    if not local_llm.is_running():
+                        import subprocess
+                        import os
+                        user_profile = os.environ.get('USERPROFILE', '')
+                        ollama_paths = [
+                            "ollama",
+                            os.path.join(user_profile, "AppData", "Local", "Programs", "Ollama", "ollama.exe")
+                        ]
+                        launched = False
+                        for path in ollama_paths:
+                            try:
+                                # Start Ollama server in background (no console window)
+                                if os.path.exists(path) or path == "ollama":
+                                    subprocess.Popen([path, "serve"], 
+                                                     creationflags=0x08000000) # CREATE_NO_WINDOW
+                                    launched = True
+                                    break
+                            except Exception:
+                                pass
+                        
+                        if launched:
+                            # Wait for server to boot up
+                            for _ in range(10):
+                                time.sleep(0.5)
+                                if local_llm.is_running():
+                                    break
+                except Exception as ex:
+                    logger.debug("Ollama launch failed: {}".format(ex))
+
+                # ─── 3. Auto-download Default Model if empty ───
+                try:
+                    from Intelligence import local_llm
+                    if local_llm.is_running():
+                        models = local_llm.list_models()
+                        if not models:
+                            # Notify user in the chat panel
+                            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
+                                u"📥 Không tìm thấy mô hình AI cục bộ nào. Đang tự động tải mô hình mặc định (qwen2.5:1.5b) về máy bạn. Quá trình này chạy ngầm và có thể mất vài phút..."
+                            )))
+                            
+                            payload = {"name": "qwen2.5:1.5b", "stream": False}
+                            local_llm._post_json(local_llm.OLLAMA_HOST + "/api/pull", payload, timeout=600)
+                            
+                            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
+                                u"✅ Tải thành công mô hình AI qwen2.5:1.5b! Bạn có thể sử dụng T3Lab Assistant ngoại tuyến."
+                            )))
+                except Exception as ex:
+                    logger.debug("Auto-pull model failed: {}".format(ex))
 
                 from Intelligence.llm_router import LLMRouter
                 router = LLMRouter()
@@ -600,6 +682,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("onboarding check error: {}".format(ex))
 
+        # Hide minimize/maximize buttons if hosted inside Dockable Pane
+        if self.is_docked:
+            try:
+                self.btn_minimize.Visibility = Visibility.Collapsed
+                self.btn_maximize.Visibility = Visibility.Collapsed
+            except Exception:
+                pass
+
     def setup_icon(self):
         """Override pyRevit's setup_icon to remove the window icon from the title bar."""
         pass
@@ -660,6 +750,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     def close_clicked(self, sender, e):
         self._save_window_state()
+        if self.is_docked:
+            try:
+                from Autodesk.Revit.UI import DockablePaneId
+                from System import Guid
+                from GUI.AssistantPaneControl import ASSISTANT_PANE_GUID
+                from pyrevit import HOST_APP
+
+                pane_id = DockablePaneId(ASSISTANT_PANE_GUID)
+                pane = HOST_APP.uiapp.GetDockablePane(pane_id)
+                if pane and pane.IsShown():
+                    pane.Hide()
+                    return
+            except Exception:
+                pass
         self.Close()
 
     def minimize_clicked(self, sender, e):
@@ -2300,9 +2404,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def input_keydown(self, sender, e):
         from System.Windows.Input import Key, Keyboard, ModifierKeys
         if e.Key == Key.Return or e.Key == Key.Enter:
-            # Shift+Enter inserts a newline (multi-line input); Enter sends.
+            # Shift+Enter inserts a newline (multi-line input)
             if (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift:
-                return  # let the TextBox handle the newline
+                caret = self.chat_input.CaretIndex
+                text = self.chat_input.Text or ""
+                self.chat_input.Text = text[:caret] + "\n" + text[caret:]
+                self.chat_input.CaretIndex = caret + 1
+                e.Handled = True
+                return
+            
+            # Enter sends.
             self._process_input()
             e.Handled = True
         elif e.Key == Key.Up:
@@ -2370,6 +2481,47 @@ class T3LabAssistantWindow(forms.WPFWindow):
         u"bao nhiêu", u"bao nhieu", u"how many", u"list", u"danh sách", u"danh sach"
     }
 
+    _FAST_CTX_ELEMENT_MAP = {
+        u"tường": ([DB.BuiltInCategory.OST_Walls], u"Tường", u"Walls"),
+        u"wall": ([DB.BuiltInCategory.OST_Walls], u"Tường", u"Walls"),
+        u"cửa": ([DB.BuiltInCategory.OST_Doors], u"Cửa đi", u"Doors"),
+        u"door": ([DB.BuiltInCategory.OST_Doors], u"Cửa đi", u"Doors"),
+        u"sàn": ([DB.BuiltInCategory.OST_Floors], u"Sàn", u"Floors"),
+        u"floor": ([DB.BuiltInCategory.OST_Floors], u"Sàn", u"Floors"),
+        u"mái": ([DB.BuiltInCategory.OST_Roofs], u"Mái", u"Roofs"),
+        u"roof": ([DB.BuiltInCategory.OST_Roofs], u"Mái", u"Roofs"),
+        u"phòng": ([DB.BuiltInCategory.OST_Rooms], u"Phòng", u"Rooms"),
+        u"room": ([DB.BuiltInCategory.OST_Rooms], u"Phòng", u"Rooms"),
+        u"dầm": ([DB.BuiltInCategory.OST_StructuralFraming], u"Dầm", u"Beams"),
+        u"beam": ([DB.BuiltInCategory.OST_StructuralFraming], u"Dầm", u"Beams"),
+        u"cột": ([DB.BuiltInCategory.OST_StructuralColumns, DB.BuiltInCategory.OST_Columns], u"Cột", u"Columns"),
+        u"column": ([DB.BuiltInCategory.OST_StructuralColumns, DB.BuiltInCategory.OST_Columns], u"Cột", u"Columns"),
+        u"trần": ([DB.BuiltInCategory.OST_Ceilings], u"Trần", u"Ceilings"),
+        u"ceiling": ([DB.BuiltInCategory.OST_Ceilings], u"Trần", u"Ceilings"),
+        u"cửa sổ": ([DB.BuiltInCategory.OST_Windows], u"Cửa sổ", u"Windows"),
+        u"window": ([DB.BuiltInCategory.OST_Windows], u"Cửa sổ", u"Windows"),
+        u"lưới": ([DB.BuiltInCategory.OST_Grids], u"Lưới trục", u"Grids"),
+        u"grid": ([DB.BuiltInCategory.OST_Grids], u"Lưới trục", u"Grids"),
+        u"level": ([DB.BuiltInCategory.OST_Levels], u"Tầng", u"Levels"),
+        u"tầng": ([DB.BuiltInCategory.OST_Levels], u"Tầng", u"Levels"),
+    }
+
+    def _count_elements(self, category_list, in_active_view=False):
+        try:
+            from Autodesk.Revit import DB as _DB
+            total = 0
+            for bic in category_list:
+                if in_active_view and self.doc.ActiveView:
+                    collector = _DB.FilteredElementCollector(self.doc, self.doc.ActiveView.Id)
+                else:
+                    collector = _DB.FilteredElementCollector(self.doc)
+                collector.OfCategory(bic).WhereElementIsNotElementType()
+                total += collector.GetElementCount()
+            return total
+        except Exception as ex:
+            logger.debug("_count_elements error: {}".format(ex))
+            return 0
+
     def _try_fast_context_answer(self, raw):
         """Answer project/view/selection questions directly from Revit (no LLM).
 
@@ -2380,6 +2532,39 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not raw:
                 return None
             low = raw.lower().strip()
+
+            # Check for fast element count query
+            count_kws = [u"bao nhiêu", u"bao nhieu", u"đếm", u"dem", u"số lượng", u"so luong", u"count", u"how many", u"tổng số", u"tong so"]
+            want_count = any(k in low for k in count_kws)
+            target_cats = []
+            cat_display_vn = u""
+            cat_display_en = u""
+            
+            if want_count:
+                for kw, (bics, vn_name, en_name) in self._FAST_CTX_ELEMENT_MAP.items():
+                    if re.search(r'\b' + re.escape(kw) + r'\b', low):
+                        target_cats = bics
+                        cat_display_vn = vn_name
+                        cat_display_en = en_name
+                        break
+            
+            if want_count and target_cats:
+                in_view = any(k in low for k in [u"trong view", u"view này", u"view dang mo", u"view đang mở", u"view hiện tại", u"view hien tai", u"in view", u"active view", u"current view"])
+                count = self._count_elements(target_cats, in_active_view=in_view)
+                
+                viet = _is_viet_text(raw)
+                lines = []
+                lines.append(u"⚡ **Phản hồi tức thì từ Revit DB**")
+                lines.append(u"")
+                if viet:
+                    scope_str = u"trong view hiện tại" if in_view else u"trong toàn bộ dự án"
+                    lines.append(u"📋 **Thống kê cấu kiện**")
+                    lines.append(u"- Số lượng {}: **{}** ({})".format(cat_display_vn, count, scope_str))
+                else:
+                    scope_str = u"in active view" if in_view else u"in entire project"
+                    lines.append(u"📋 **Element Statistics**")
+                    lines.append(u"- Number of {}: **{}** ({})".format(cat_display_en, count, scope_str))
+                return u"\n".join(lines)
 
             # Word-level and substring-level checks to prevent hijacking commands
             words = set(low.split())
@@ -2543,15 +2728,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _active_provider = get_active_provider_name()  # "claude" | "openai" | "ollama"
 
             # ── 0. Fast context answer (DB-only, no LLM) ──────────────
-            # (Disabled to route all requests through the LLM client loop)
-            # if HAS_SCOUT and not has_attach:
-            #     fast = self._try_fast_context_answer(raw)
-            #     if fast:
-            #         self._hide_typing_indicator()
-            #         self._append_bot_message(fast)
-            #         self._add_to_history("assistant", fast)
-            #         self._set_busy(False)
-            #         return
+            if HAS_SCOUT and not has_attach:
+                fast = self._try_fast_context_answer(raw)
+                if fast:
+                    self._hide_typing_indicator()
+                    self._append_bot_message(fast)
+                    self._add_to_history("assistant", fast)
+                    self._set_busy(False)
+                    return
 
             # ── 1. Learned patterns (skip if attachments present) ─────────────
             if HAS_NLP and not has_attach:
@@ -3245,5 +3429,21 @@ if __name__ == '__main__':
     if not revit.doc:
         forms.alert("Please open a Revit document first.", exitscript=True)
 
-    window = T3LabAssistantWindow()
-    window.ShowDialog()
+    try:
+        from Autodesk.Revit.UI import DockablePaneId
+        from System import Guid
+        from GUI.AssistantPaneControl import ASSISTANT_PANE_GUID
+        from pyrevit import HOST_APP
+
+        pane_id = DockablePaneId(ASSISTANT_PANE_GUID)
+        uiapp = HOST_APP.uiapp
+        pane = uiapp.GetDockablePane(pane_id)
+        if pane:
+            if pane.IsShown():
+                pane.Hide()
+            else:
+                pane.Show()
+    except Exception as ex:
+        logger.warning("Could not toggle dockable pane: {}. Falling back to floating window.".format(ex))
+        window = T3LabAssistantWindow()
+        window.ShowDialog()

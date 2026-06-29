@@ -323,13 +323,22 @@ class LLMRouter(object):
                 snap[name]["active"] = (name == self._active_name)
             return snap
 
+        import threading
         status = {}
-        # Local providers first (instant, no network round-trip), then remote.
-        probe_order = self.get_local_provider_names() + self.get_remote_provider_names()
-        for name in probe_order:
+        threads = []
+
+        def probe_worker(name):
             provider = self._providers[name]
             try:
-                available = provider.check_health()
+                is_active = (name == self._active_name)
+                is_remote = name not in ("ollama", "lmstudio")
+                if is_remote and not is_active:
+                    if hasattr(provider, "_get_api_key"):
+                        available = bool(provider._get_api_key())
+                    else:
+                        available = False
+                else:
+                    available = provider.check_health()
             except Exception:
                 available = False
             try:
@@ -343,6 +352,17 @@ class LLMRouter(object):
                 "active":          (name == self._active_name),
                 "supports_vision": provider.SUPPORTS_VISION,
             }
+
+        probe_order = self.get_local_provider_names() + self.get_remote_provider_names()
+        for name in probe_order:
+            t = threading.Thread(target=probe_worker, args=(name,))
+            t.daemon = True
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
         self._status_cache = status
         self._status_ts    = now
         return status

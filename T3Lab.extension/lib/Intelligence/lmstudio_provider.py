@@ -65,14 +65,13 @@ class LMStudioProvider(BaseLLMProvider):
         return {"Authorization": "Bearer " + key}
 
     def _candidate_hosts(self):
-        """Hosts to try, in order: configured → localhost → 127.0.0.1 (deduped).
-
+        """Hosts to try, in order: configured → 127.0.0.1 → localhost (deduped).
         LM Studio commonly serves on localhost AND a LAN IP; trying a couple of
         defaults means a running server is detected even if the host field is
         blank or slightly off.
         """
         out = []
-        for h in (self._configured_host(), DEFAULT_HOST, "http://127.0.0.1:1234"):
+        for h in (self._configured_host(), "http://127.0.0.1:1234", DEFAULT_HOST):
             if h and h not in out:
                 out.append(h)
         return out
@@ -114,7 +113,7 @@ class LMStudioProvider(BaseLLMProvider):
                 try:
                     url = host + path
                     # LM Studio requires authenticated GET if security is enabled
-                    resp = http_get_auth(url, headers=headers, timeout_ms=2500)
+                    resp = http_get_auth(url, headers=headers, timeout_ms=800)
                     if not resp:
                         continue
                     data = json.loads(resp)

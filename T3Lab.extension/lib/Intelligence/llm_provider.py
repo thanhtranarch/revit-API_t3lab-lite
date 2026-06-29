@@ -74,7 +74,8 @@ def http_get_auth(url, headers=None, timeout_ms=8000):
             if headers:
                 for k, v in headers.items():
                     req.add_header(k, v)
-            resp = urlopen(req, timeout=8)
+            timeout_sec = float(timeout_ms) / 1000.0
+            resp = urlopen(req, timeout=timeout_sec)
             raw = resp.read()
             return raw.decode("utf-8") if isinstance(raw, bytes) else raw
         except Exception:

@@ -43,7 +43,7 @@ class ToolRegistry:
             "batch_export": {
                 "name": "BatchOut",
                 "description": "Batch export sheets to PDF, DWG, NWD, and IFC formats with custom naming and revision tracking.",
-                "rel_path": "Support.panel/BatchOut.pushbutton/script.py"
+                "rel_path": "Views & Sheets.panel/BatchOut.pushbutton/script.py"
             },
             "load_family": {
                 "name": "Load Family",
