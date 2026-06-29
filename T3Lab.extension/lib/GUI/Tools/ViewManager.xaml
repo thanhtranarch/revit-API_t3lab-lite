@@ -1391,6 +1391,14 @@
                                         </Style>
                                     </DataGrid.Resources>
                                     <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding is_selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
                                         <DataGridTextColumn Header="View Name" Binding="{Binding name}" Width="250" IsReadOnly="False"/>
                                         <DataGridTextColumn Header="Type" Binding="{Binding view_type}" Width="120" IsReadOnly="True"/>
                                         <DataGridTextColumn Header="Level" Binding="{Binding level_name}" Width="110" IsReadOnly="True"/>
@@ -1523,7 +1531,7 @@
 
                             <!-- Right DataGrid -->
                             <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="6" Margin="0,10,0,10">
-                                <DataGrid x:Name="tmpl_grid" AutoGenerateColumns="False" IsReadOnly="True"
+                                <DataGrid x:Name="tmpl_grid" AutoGenerateColumns="False" IsReadOnly="False"
                                           SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" RowHeaderWidth="0"
                                           Background="White" BorderThickness="0"
                                           GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
@@ -1575,12 +1583,20 @@
                                         </Style>
                                     </DataGrid.Resources>
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Template Name" Binding="{Binding name}" Width="350"/>
-                                        <DataGridTextColumn Header="View Type" Binding="{Binding view_type}" Width="150"/>
-                                        <DataGridTextColumn Header="Scale 1:" Binding="{Binding scale}" Width="100"/>
-                                        <DataGridTextColumn Header="Usage Count" Binding="{Binding usage_count}" Width="100"/>
-                                        <DataGridTextColumn Header="Usage %" Binding="{Binding usage_percentage}" Width="100"/>
-                                        <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100"/>
+                                        <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding is_selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Template Name" Binding="{Binding name}" Width="350" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="View Type" Binding="{Binding view_type}" Width="150" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="Scale 1:" Binding="{Binding scale}" Width="100" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="Usage Count" Binding="{Binding usage_count}" Width="100" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="Usage %" Binding="{Binding usage_percentage}" Width="100" IsReadOnly="True"/>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Border>

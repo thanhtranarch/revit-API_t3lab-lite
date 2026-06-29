@@ -30,14 +30,12 @@ from Autodesk.Revit.DB import (
 )
 
 from pyrevit import forms, revit
-from System.Windows import WindowState, Thickness, CornerRadius, MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult
+from System.Windows import WindowState, Thickness, CornerRadius, GridLength, GridUnitType, MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult
 from System.Windows.Media import SolidColorBrush, Color
 from System.Windows.Controls import (
     Grid,
     RowDefinition,
     ColumnDefinition,
-    GridLength,
-    GridUnitType,
     Border,
     TextBlock,
     Button,
@@ -795,9 +793,8 @@ class VisualSettingsWindow(forms.WPFWindow):
         self.param_names = []
         self.link_instances = []
         
-        # Connect tab navigation events
-        self.btn_tab_styles.Checked += self._on_main_tab_changed
-        self.btn_tab_splasher.Checked += self._on_main_tab_changed
+        # Sidebar nav is wired via Click="on_sidebar_clicked" in XAML
+        self._go_to_main_tab(0)
         
         self.btn_sub_line_styles.Checked += self._on_style_sub_tab_changed
         self.btn_sub_line_patterns.Checked += self._on_style_sub_tab_changed
@@ -857,13 +854,23 @@ class VisualSettingsWindow(forms.WPFWindow):
     # MAIN WINDOW NAVIGATION & CHROME CONTROLS
     # ========================================================================
     
-    def _on_main_tab_changed(self, sender, e):
-        if sender == self.btn_tab_styles:
-            self.main_tab_control.SelectedIndex = 0
-            self.status_text.Text = "Style Manager — Rename and manage Line Styles, Patterns, and Fill Patterns"
-        elif sender == self.btn_tab_splasher:
-            self.main_tab_control.SelectedIndex = 1
-            self.status_text.Text = "Color Splasher — Dynamic parameter-based element color override"
+    _NAV_STATUS = [
+        "Style Manager — Rename and manage Line Styles, Patterns, and Fill Patterns",
+        "Color Splasher — Dynamic parameter-based element color override",
+    ]
+
+    _SIDEBAR_MAP = {'btn_tab_styles': 0, 'btn_tab_splasher': 1}
+
+    def on_sidebar_clicked(self, sender, e):
+        idx = self._SIDEBAR_MAP.get(sender.Name, -1)
+        if idx >= 0:
+            self._go_to_main_tab(idx)
+
+    def _go_to_main_tab(self, index):
+        self.main_tab_control.SelectedIndex = index
+        self.btn_tab_styles.IsChecked    = (index == 0)
+        self.btn_tab_splasher.IsChecked  = (index == 1)
+        self.status_text.Text = self._NAV_STATUS[index]
             
     def _on_style_sub_tab_changed(self, sender, e):
         if sender == self.btn_sub_line_styles:

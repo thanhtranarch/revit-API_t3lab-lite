@@ -8,6 +8,4 @@ description: |
   - Supports all spatial container types available in Revit
 
 author: Dang Quoc Truong
-min_revit_ver: 2020
-max_revit_ver: 2025
 context: doc-project

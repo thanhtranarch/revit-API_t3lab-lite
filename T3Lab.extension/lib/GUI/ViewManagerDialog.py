@@ -454,9 +454,10 @@ class ViewManagerWindow(forms.WPFWindow):
             self._on_views_refresh(None, None)
 
     def _on_views_duplicate(self, sender, args):
-        selected = [item for item in self.views_grid.SelectedItems]
+        checked = [item for item in self.all_views if item.is_selected]
+        selected = checked if checked else [item for item in self.views_grid.SelectedItems]
         if not selected:
-            MessageBox.Show("Please select at least one View to duplicate.", "Info")
+            MessageBox.Show("Please select or check at least one View to duplicate.", "Info")
             return
             
         result = MessageBox.Show(
@@ -475,9 +476,10 @@ class ViewManagerWindow(forms.WPFWindow):
                 MessageBox.Show("Error: {}".format(str(ex)), "Error")
 
     def _on_views_delete(self, sender, args):
-        selected = [item for item in self.views_grid.SelectedItems]
+        checked = [item for item in self.all_views if item.is_selected]
+        selected = checked if checked else [item for item in self.views_grid.SelectedItems]
         if not selected:
-            MessageBox.Show("Please select at least one View to delete.", "Info")
+            MessageBox.Show("Please select or check at least one View to delete.", "Info")
             return
             
         result = MessageBox.Show(
@@ -606,9 +608,10 @@ class ViewManagerWindow(forms.WPFWindow):
             self._on_tmpl_refresh(None, None)
 
     def _on_tmpl_duplicate(self, sender, args):
-        selected = [item for item in self.tmpl_grid.SelectedItems]
+        checked = [item for item in self.all_templates_data if item.is_selected]
+        selected = checked if checked else [item for item in self.tmpl_grid.SelectedItems]
         if not selected:
-            MessageBox.Show("Please select at least one template to duplicate.", "Info")
+            MessageBox.Show("Please select or check at least one template to duplicate.", "Info")
             return
             
         result = MessageBox.Show(
@@ -627,9 +630,10 @@ class ViewManagerWindow(forms.WPFWindow):
                 MessageBox.Show("Error: {}".format(str(ex)), "Error")
 
     def _on_tmpl_delete(self, sender, args):
-        selected = [item for item in self.tmpl_grid.SelectedItems]
+        checked = [item for item in self.all_templates_data if item.is_selected]
+        selected = checked if checked else [item for item in self.tmpl_grid.SelectedItems]
         if not selected:
-            MessageBox.Show("Please select at least one template to delete.", "Info")
+            MessageBox.Show("Please select or check at least one template to delete.", "Info")
             return
             
         in_use = [item for item in selected if item.usage_count > 0]

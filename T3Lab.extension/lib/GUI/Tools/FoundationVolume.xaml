@@ -2,21 +2,21 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="T3Lab — Foundation Volume"
-    Width="420"
+    Width="540"
     SizeToContent="Height"
-    MinHeight="480" MaxHeight="720"
+    MinHeight="520" MaxHeight="760"
     WindowStartupLocation="CenterScreen"
     Background="#E4E4E7"
     ResizeMode="CanResizeWithGrip"
     FontFamily="Hanken Grotesk"
-    FontSize="12">
+    FontSize="14">
 
-      <WindowChrome.WindowChrome>
+    <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
-                       ResizeBorderThickness="5"
-                       GlassFrameThickness="0"
-                       CornerRadius="8"
-                       UseAeroCaptionButtons="False"/>
+                      ResizeBorderThickness="5"
+                      GlassFrameThickness="0"
+                      CornerRadius="22"
+                      UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
   <Window.Resources>
@@ -1080,150 +1080,287 @@
         </Style>
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
+        <!-- Hidden tab nav -->
+        <Style x:Key="TabItemStyle" TargetType="TabItem">
+            <Setter Property="Visibility" Value="Collapsed"/>
+        </Style>
   </Window.Resources>
 
-  
-  <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
-<Grid>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-        <RowDefinition Height="Auto"/>
-      </Grid.RowDefinitions>
 
-      <!-- HEADER -->
-      <!-- ═══ TITLE BAR ═══ -->
-        <Grid Grid.Row="0" Height="64" Background="#F4F4F6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <TextBlock Text="Foundation Volume Writer - T3Lab" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                <TextBlock Text="Foundation Volume Writer" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
-            </StackPanel>
-
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True"
-                        Style="{StaticResource WinCtrlButton}"
-                        Click="minimize_button_clicked" ToolTip="Minimize">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-                <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True"
-                        Style="{StaticResource WinCtrlButton}"
-                        Click="maximize_button_clicked" ToolTip="Maximize">
-                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-                <Button x:Name="btn_close" WindowChrome.IsHitTestVisibleInChrome="True"
-                        Style="{StaticResource CloseButton}"
-                        Click="close_button_clicked" ToolTip="Close">
-                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-            </StackPanel>
-
-            <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
-        </Grid>
-
-      <!-- BODY -->
-      <StackPanel Grid.Row="1" Margin="16,16,16,12">
-
-        <!-- Step 1 label -->
-        <Border Background="#F1F5F9" CornerRadius="6" Padding="10,6" Margin="0,0,0,10">
-          <TextBlock FontSize="12" Foreground="#0F172A">
-            <Run FontWeight="Bold" Foreground="#3B82F6">Step 1 — </Run>
-            <Run>Search and select the target parameter</Run>
-          </TextBlock>
-        </Border>
-
-        <!-- Search box -->
-        <Grid Margin="0,0,0,8">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="🔍" FontSize="14"
-                     VerticalAlignment="Center" Margin="0,0,8,0"/>
-          <TextBox x:Name="SearchBox" Grid.Column="1"
-                   Height="32" Style="{StaticResource T3InputField}"/>
-        </Grid>
-
-        <!-- Parameter list -->
-        <Border BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Height="220" Background="White">
-          <ListBox x:Name="ParamList"
-                   BorderThickness="0"
-                   ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                   FontSize="12" Padding="2">
-            <ListBox.ItemContainerStyle>
-              <Style TargetType="ListBoxItem">
-                <Setter Property="Padding" Value="10,7"/>
-                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Style.Triggers>
-                  <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#3B82F6"/>
-                    <Setter Property="Foreground" Value="White"/>
-                    <Setter Property="FontWeight" Value="SemiBold"/>
-                  </Trigger>
-                </Style.Triggers>
-              </Style>
-            </ListBox.ItemContainerStyle>
-          </ListBox>
-        </Border>
-
-        <!-- Selected label -->
-        <Border Background="#FFFBEB" CornerRadius="6" Padding="10,7" Margin="0,8,0,0"
-                BorderBrush="#F59E0B" BorderThickness="1">
-          <StackPanel Orientation="Horizontal">
-            <TextBlock Text="Selected: " FontSize="11" Foreground="#64748B"/>
-            <TextBlock x:Name="SelectedLabel" Text="(none)"
-                       FontSize="11" FontWeight="SemiBold" Foreground="#B45309"/>
-          </StackPanel>
-        </Border>
-
-        <!-- Step 2 label -->
-        <Border Background="#F1F5F9" CornerRadius="6" Padding="10,6" Margin="0,12,0,8">
-          <TextBlock FontSize="12" Foreground="#0F172A">
-            <Run FontWeight="Bold" Foreground="#3B82F6">Step 2 — </Run>
-            <Run>Click Write Volume to apply</Run>
-          </TextBlock>
-        </Border>
-
-        <!-- Status result — always visible after run -->
-        <Border x:Name="StatusBorder" CornerRadius="6"
-                Padding="12,10" Margin="0,0,0,4" Visibility="Collapsed">
-          <StackPanel>
-            <TextBlock x:Name="StatusTitle" FontSize="13" FontWeight="Bold"
-                       Margin="0,0,0,4"/>
-            <TextBlock x:Name="StatusText" FontSize="11"
-                       Foreground="#0F172A" TextWrapping="Wrap" LineHeight="18"/>
-          </StackPanel>
-        </Border>
-
-      </StackPanel>
-
-      <!-- FOOTER -->
-      <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Background="#F8FAFC" Padding="14,8">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
         <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="8"/>
-            <ColumnDefinition Width="Auto"/>
-          </Grid.ColumnDefinitions>
-          <Button x:Name="RunButton" Grid.Column="1"
-                  Content="▶  Write Volume" Width="140"
-                  Style="{StaticResource PrimaryButton}"/>
-          <Button x:Name="CloseButton" Grid.Column="3"
-                  Content="Close" Width="80"
-                  Style="{StaticResource SecondaryButton}"/>
-        </Grid>
-      </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
-</Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="64"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-  </Border>
+            <!-- ═══ SIDEBAR ICON RAIL (spans all rows) ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+                <Grid Margin="0,16,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Logo -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M4 4 h16 v14 h-16 z M4 9 h16 M10 9 v10"
+                              Stroke="#18181B" StrokeThickness="1.6" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="16" Height="16" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Nav: Select parameter -->
+                    <ToggleButton x:Name="nav_toggle_select" Grid.Row="1"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8" IsChecked="True"
+                                  ToolTip="Select Parameter">
+                        <Path Data="M5 6 H19 M5 12 H19 M5 18 H13"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Nav: Write volume -->
+                    <ToggleButton x:Name="nav_toggle_write" Grid.Row="2"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Write Volume">
+                        <Path Data="M3 17 L15 5 19 9 7 21 3 21 Z M15 5 L17 3 21 7 19 9 Z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+            <!-- ═══ TITLE BAR (Row 0, Col 1) ═══ -->
+            <Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="22,0,0,0" VerticalAlignment="Center"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Foundation Volume" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Write Revit computed volume to foundation parameters"
+                               FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                            Margin="0,0,16,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
+                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="btn_close" Style="{StaticResource CloseButton}" ToolTip="Close">
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                </StackPanel>
+                <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
+            </Grid>
+
+            <!-- ═══ TAB CONTENT (Row 1, Col 1) ═══ -->
+            <TabControl x:Name="main_tabs" Grid.Row="1" Grid.Column="1"
+                        Background="Transparent" BorderThickness="0" Padding="0">
+
+                <!-- Tab 0: Parameter Selection -->
+                <TabItem Header="Select" Style="{StaticResource TabItemStyle}">
+                    <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                            CornerRadius="20" Padding="18" Margin="18,18,18,10">
+                        <StackPanel>
+
+                            <!-- Foundation count info card -->
+                            <Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                    CornerRadius="12" Padding="14,10" Margin="0,0,0,14">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10"
+                                            Background="#18181B" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <Path Data="M12 11 V16.5 M12 7.6 V7.62" Stroke="White" StrokeThickness="2.1"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              Width="12" Height="12" Stretch="Uniform"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Foundations found in active document"
+                                               FontSize="13.5" Foreground="#3F3F46" VerticalAlignment="Center"/>
+                                    <Border Grid.Column="2" Background="#18181B" CornerRadius="8"
+                                            Padding="10,4" VerticalAlignment="Center">
+                                        <TextBlock x:Name="FoundationCount" Text="0"
+                                                   FontSize="13.5" FontWeight="Bold" Foreground="White"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+
+                            <!-- Search bar (Lumina pill) -->
+                            <Border Height="36" Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                                    CornerRadius="18" Padding="12,0,12,0" Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Path Grid.Column="0"
+                                          Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                          Stroke="#71717A" StrokeThickness="1.9"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Width="14" Height="14" Stretch="Uniform"
+                                          VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBox x:Name="SearchBox" Grid.Column="1"
+                                             BorderThickness="0" Background="Transparent"
+                                             FontFamily="Hanken Grotesk" FontSize="13"
+                                             VerticalAlignment="Center" Foreground="#27272A"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- Parameter list -->
+                            <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                    CornerRadius="12" Height="200" Margin="0,0,0,10">
+                                <ListBox x:Name="ParamList" Background="Transparent" BorderThickness="0"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         FontFamily="Hanken Grotesk" FontSize="13.5">
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="Padding" Value="12,9"/>
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Setter Property="Foreground" Value="#27272A"/>
+                                            <Setter Property="BorderThickness" Value="0"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ListBoxItem">
+                                                        <Border x:Name="itemBd" Background="{TemplateBinding Background}"
+                                                                Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter/>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="itemBd" Property="Background" Value="#F4F4F6"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsSelected" Value="True">
+                                                                <Setter TargetName="itemBd" Property="Background" Value="#18181B"/>
+                                                                <Setter Property="Foreground" Value="White"/>
+                                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                </ListBox>
+                            </Border>
+
+                            <!-- Selected parameter amber badge -->
+                            <Border Background="#FFFBEB" BorderBrush="#F59E0B" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,8">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Selected: " FontSize="13.5"
+                                               Foreground="#92400E" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="SelectedLabel" Text="(none)"
+                                               FontSize="13.5" FontWeight="Bold"
+                                               Foreground="#92400E" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </Border>
+                </TabItem>
+
+                <!-- Tab 1: Write Volume -->
+                <TabItem Header="Write" Style="{StaticResource TabItemStyle}">
+                    <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                            CornerRadius="20" Padding="18" Margin="18,18,18,10">
+                        <StackPanel>
+
+                            <!-- Status result -->
+                            <Border x:Name="StatusBorder" CornerRadius="12"
+                                    Padding="14,12" Margin="0,0,0,10" Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock x:Name="StatusTitle" FontSize="13" FontWeight="Bold"
+                                               Margin="0,0,0,6"/>
+                                    <TextBlock x:Name="StatusText" FontSize="12"
+                                               Foreground="#27272A" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Idle hint -->
+                            <Border x:Name="WriteHintBorder" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                    BorderThickness="1" CornerRadius="12" Padding="14,12">
+                                <StackPanel>
+                                    <TextBlock Text="Ready to write" FontSize="13.5" FontWeight="SemiBold"
+                                               Foreground="#18181B" Margin="0,0,0,6"/>
+                                    <TextBlock FontSize="13" Foreground="#71717A" TextWrapping="Wrap">
+                                        <Run>Click </Run><Run FontWeight="Bold" Foreground="#18181B">Write Volume</Run>
+                                        <Run> to apply the selected parameter to all foundations.</Run>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </Border>
+                </TabItem>
+
+            </TabControl>
+
+            <!-- ═══ ACTION BAR (Row 2, Col 1) ═══ -->
+            <Border Grid.Row="2" Grid.Column="1"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
+                    Padding="16,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Back button (hidden on tab 0) -->
+                    <Button x:Name="back_button" Grid.Column="0"
+                            Content="← Back" Style="{StaticResource SecondaryButton}"
+                            Width="100" Visibility="Collapsed"/>
+
+                    <!-- Primary action button -->
+                    <Button x:Name="RunButton" Grid.Column="2"
+                            Style="{StaticResource PrimaryButton}" Width="140">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock x:Name="next_button_text" Text="Next" FontWeight="SemiBold"/>
+                            <TextBlock x:Name="next_button_icon" Text=" →" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="CloseButton" Grid.Column="2" Visibility="Collapsed"/>
+
+                    <!-- Copyright right-aligned -->
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Right">
+                        <TextBlock Text="Foundation Volume · T3Lab" FontSize="11"
+                                   Foreground="#71717A" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="10"
+                                   Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
 
 </Window>

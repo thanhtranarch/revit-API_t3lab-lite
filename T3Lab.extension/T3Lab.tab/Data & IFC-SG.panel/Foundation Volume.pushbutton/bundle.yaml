@@ -1,4 +1,4 @@
-title: "Fnd\nVolume"
+title: "Foundation\nVolume"
 tooltip: Write the Revit computed volume into a selected shared parameter on Structural Foundation elements.
 description: |
   Reads the built-in HOST_VOLUME_COMPUTED value from all Structural Foundation

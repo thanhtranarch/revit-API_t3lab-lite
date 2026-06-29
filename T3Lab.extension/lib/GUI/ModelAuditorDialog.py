@@ -37,6 +37,11 @@ from Autodesk.Revit.DB import (
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ModelAuditor.xaml')
 _XAML = os.path.normpath(_XAML)
 
+# Ensure lib/ is on sys.path so `from Services.ModelAuditor...` resolves
+_lib_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
 # ============================================================================
 # REVIT VERSION COMPATIBILITY (2024 - 2027)
 # ============================================================================
@@ -686,12 +691,8 @@ class ModelAuditorWindow(forms.WPFWindow):
         self.health_analyzer = ModelHealthAnalyzer(self.doc)
         self.health_results = {}
         
-        # Connect tab navigation events
-        self.btn_tab_health.Checked += self._on_tab_changed
-        self.btn_tab_compliance.Checked += self._on_tab_changed
-        self.btn_tab_warning.Checked += self._on_tab_changed
-        self.btn_tab_cleanup.Checked += self._on_tab_changed
-        self.btn_tab_elements.Checked += self._on_tab_changed
+        # Sidebar nav is wired via Click="on_sidebar_clicked" in XAML
+        self._go_to_main_tab(0)
 
         # Connect sub-tab navigation events
         self.btn_sub_inplace.Checked += self._on_sub_tab_changed
@@ -758,22 +759,36 @@ class ModelAuditorWindow(forms.WPFWindow):
     def _close_chrome(self, sender, e):
         self.Close()
 
-    def _on_tab_changed(self, sender, e):
-        """Switch active tab in TabControl when a RadioButton is checked."""
-        if sender == self.btn_tab_health:
-            self.main_tab_control.SelectedIndex = 0
-            self.status_text.Text = "Model Health Dashboard — Health score and summary metrics"
-        elif sender == self.btn_tab_compliance:
-            self.main_tab_control.SelectedIndex = 1
-            self.status_text.Text = "Compliance Checker — JSON rule-based BEP auditing"
-        elif sender == self.btn_tab_warning:
-            self.main_tab_control.SelectedIndex = 2
-            self.status_text.Text = "Warning Manager — Warnings impact analysis and auto-fixing"
-        elif sender == self.btn_tab_cleanup:
-            self.main_tab_control.SelectedIndex = 3
+    _NAV_STATUS = [
+        "Model Health Dashboard — Health score and summary metrics",
+        "Compliance Checker — JSON rule-based BEP auditing",
+        "Warning Manager — Warnings impact analysis and auto-fixing",
+        "",
+        "",
+    ]
+
+    _SIDEBAR_MAP = {
+        'btn_tab_health': 0, 'btn_tab_compliance': 1,
+        'btn_tab_warning': 2, 'btn_tab_cleanup': 3, 'btn_tab_elements': 4,
+    }
+
+    def on_sidebar_clicked(self, sender, e):
+        idx = self._SIDEBAR_MAP.get(sender.Name, -1)
+        if idx >= 0:
+            self._go_to_main_tab(idx)
+
+    def _go_to_main_tab(self, index):
+        self.main_tab_control.SelectedIndex = index
+        self.btn_tab_health.IsChecked     = (index == 0)
+        self.btn_tab_compliance.IsChecked = (index == 1)
+        self.btn_tab_warning.IsChecked    = (index == 2)
+        self.btn_tab_cleanup.IsChecked    = (index == 3)
+        self.btn_tab_elements.IsChecked   = (index == 4)
+        if self._NAV_STATUS[index]:
+            self.status_text.Text = self._NAV_STATUS[index]
+        if index == 3:
             self._update_cleanup_status()
-        elif sender == self.btn_tab_elements:
-            self.main_tab_control.SelectedIndex = 4
+        elif index == 4:
             self._update_special_status()
 
     def _on_sub_tab_changed(self, sender, e):

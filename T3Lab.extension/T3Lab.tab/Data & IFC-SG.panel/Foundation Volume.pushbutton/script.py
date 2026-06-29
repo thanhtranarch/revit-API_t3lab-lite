@@ -132,9 +132,10 @@ def get_writable_params(foundations):
 class FoundationVolumeDialog(object):
 
     def __init__(self):
-        self.foundations   = get_foundations()
-        self.all_params    = get_writable_params(self.foundations)
+        self.foundations    = get_foundations()
+        self.all_params     = get_writable_params(self.foundations)
         self.selected_param = None
+        self._current_tab   = 0
 
         # Find T3Lab.extension parent folder dynamically
         current_dir = os.path.dirname(__file__)
@@ -144,33 +145,55 @@ class FoundationVolumeDialog(object):
                 break
             current_dir = parent
         xaml_path = os.path.join(current_dir, "lib", "GUI", "Tools", "FoundationVolume.xaml")
-        
+
         with codecs.open(xaml_path, "r", "utf-8") as f:
             xaml_content = f.read()
         stream = MemoryStream(Encoding.UTF8.GetBytes(xaml_content))
         self.window = XamlReader.Load(stream)
 
         # Controls
-        self._count_lbl    = self.window.FindName("FoundationCount")
-        self._search_box   = self.window.FindName("SearchBox")
-        self._param_list   = self.window.FindName("ParamList")
-        self._sel_label    = self.window.FindName("SelectedLabel")
-        self._status_bdr   = self.window.FindName("StatusBorder")
-        self._status_title = self.window.FindName("StatusTitle")
-        self._status_txt   = self.window.FindName("StatusText")
-        self._run_btn      = self.window.FindName("RunButton")
-        self._close_btn    = self.window.FindName("CloseButton")
+        self._count_lbl       = self.window.FindName("FoundationCount")
+        self._search_box      = self.window.FindName("SearchBox")
+        self._param_list      = self.window.FindName("ParamList")
+        self._sel_label       = self.window.FindName("SelectedLabel")
+        self._status_bdr      = self.window.FindName("StatusBorder")
+        self._status_title    = self.window.FindName("StatusTitle")
+        self._status_txt      = self.window.FindName("StatusText")
+        self._run_btn         = self.window.FindName("RunButton")
+        self._close_btn       = self.window.FindName("CloseButton")
+        self._btn_minimize    = self.window.FindName("btn_minimize")
+        self._btn_maximize    = self.window.FindName("btn_maximize")
+        self._btn_close       = self.window.FindName("btn_close")
+        self._main_tabs       = self.window.FindName("main_tabs")
+        self._back_btn        = self.window.FindName("back_button")
+        self._next_txt        = self.window.FindName("next_button_text")
+        self._next_icon       = self.window.FindName("next_button_icon")
+        self._write_hint      = self.window.FindName("WriteHintBorder")
+        self._nav_select      = self.window.FindName("nav_toggle_select")
+        self._nav_write       = self.window.FindName("nav_toggle_write")
 
         # Init
         self._count_lbl.Text = "{0} foundation(s)".format(len(self.foundations))
         self._populate_list(self.all_params)
+        self._go_to_tab(0)
 
         # Events
-        self._search_box.TextChanged  += self._on_search
+        self._search_box.TextChanged      += self._on_search
         self._param_list.MouseDoubleClick += self._on_list_double_click
         self._param_list.SelectionChanged += self._on_selection_changed
-        self._run_btn.Click   += self._on_run
-        self._close_btn.Click += self._on_close
+        self._run_btn.Click               += self._on_next
+        self._back_btn.Click              += self._on_back
+        if self._nav_select:
+            self._nav_select.Click        += self._on_nav_select
+        if self._nav_write:
+            self._nav_write.Click         += self._on_nav_write
+        # Chrome button events (XamlReader doesn't auto-wire Click="...")
+        if self._btn_minimize:
+            self._btn_minimize.Click += self._on_minimize
+        if self._btn_maximize:
+            self._btn_maximize.Click += self._on_maximize
+        if self._btn_close:
+            self._btn_close.Click += self._on_close
 
     # ── List helpers ──────────────────────────────────────────────────────
     def _populate_list(self, names):
@@ -197,7 +220,8 @@ class FoundationVolumeDialog(object):
             self._sel_label.Text = "(none)"
 
     def _on_list_double_click(self, sender, e):
-        self._on_run(None, None)
+        if self.selected_param:
+            self._go_to_tab(1)
 
     # ── Status helper ─────────────────────────────────────────────────────
     def _show_status(self, title, detail, success=True):
@@ -224,8 +248,8 @@ class FoundationVolumeDialog(object):
         self._status_title.Text = title
         self._status_txt.Text   = detail
         self._status_bdr.Visibility = System.Windows.Visibility.Visible
-        # Resize window to fit new content
-        self.window.SizeToContent = System.Windows.SizeToContent.Height
+        if self._write_hint:
+            self._write_hint.Visibility = System.Windows.Visibility.Collapsed
 
     # ── Run logic ─────────────────────────────────────────────────────────
     def _on_run(self, sender, e):
@@ -324,6 +348,53 @@ class FoundationVolumeDialog(object):
 
         self._show_status(title, "\n".join(detail_lines), success=success)
 
+    # ── Tab navigation ────────────────────────────────────────────────────
+    def _go_to_tab(self, index):
+        self._current_tab = index
+        self._main_tabs.SelectedIndex = index
+        if self._nav_select:
+            self._nav_select.IsChecked = (index == 0)
+        if self._nav_write:
+            self._nav_write.IsChecked  = (index == 1)
+        if index == 0:
+            self._back_btn.Visibility = System.Windows.Visibility.Collapsed
+            self._next_txt.Text       = "Next"
+            self._next_icon.Text      = " →"
+        else:
+            self._back_btn.Visibility = System.Windows.Visibility.Visible
+            self._next_txt.Text       = "Write Volume"
+            self._next_icon.Text      = ""
+
+    def _on_next(self, sender, e):
+        if self._current_tab == 0:
+            if not self.selected_param:
+                return
+            self._go_to_tab(1)
+        else:
+            self._on_run(sender, e)
+
+    def _on_back(self, sender, e):
+        self._go_to_tab(0)
+
+    def _on_nav_select(self, sender, e):
+        self._go_to_tab(0)
+
+    def _on_nav_write(self, sender, e):
+        if self.selected_param:
+            self._go_to_tab(1)
+        else:
+            if self._nav_write:
+                self._nav_write.IsChecked = False
+
+    def _on_minimize(self, sender, e):
+        self.window.WindowState = WindowState.Minimized
+
+    def _on_maximize(self, sender, e):
+        if self.window.WindowState == WindowState.Maximized:
+            self.window.WindowState = WindowState.Normal
+        else:
+            self.window.WindowState = WindowState.Maximized
+
     def _on_close(self, sender, e):
         self.window.Close()
 
@@ -335,14 +406,5 @@ class FoundationVolumeDialog(object):
 # Entry point
 # ═══════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    foundations = get_foundations()
-    if not foundations:
-        from pyrevit import forms
-        forms.alert(
-            "No Structural Foundation elements found in the active document.",
-            title="Foundation Volume Writer",
-            warn_icon=True
-        )
-    else:
-        dlg = FoundationVolumeDialog()
-        dlg.show()
+    dlg = FoundationVolumeDialog()
+    dlg.show()

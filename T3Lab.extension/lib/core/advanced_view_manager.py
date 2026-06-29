@@ -58,6 +58,7 @@ class EnhancedViewItem(object):
         self.doc = doc
         self.id = view.Id
         self.name = view.Name
+        self.is_selected = False
         self.view_type = self._get_view_type_name(view)
         self.view_template = self._get_view_template(view)
         self.scale = self._get_scale(view)

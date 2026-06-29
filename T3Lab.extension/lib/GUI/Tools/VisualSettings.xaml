@@ -11,7 +11,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1078,40 +1078,84 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
     </Window.Resources>
 
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
-        <Grid>
+    <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="64"/>   <!-- Row 0: Title Bar -->
-                <RowDefinition Height="Auto"/> <!-- Row 1: Pill Tab Navigation Bar -->
-                <RowDefinition Height="*"/>    <!-- Row 2: Active Tab Content -->
-                <RowDefinition Height="30"/>   <!-- Row 3: Status Bar / Footer -->
+                <RowDefinition Height="*"/>    <!-- Row 1: Tab Content -->
+                <RowDefinition Height="Auto"/> <!-- Row 2: Status Bar -->
             </Grid.RowDefinitions>
 
-            <!-- TITLE BAR -->
-            <Grid Grid.Row="0" Background="White" Height="64">
+            <!-- ═══ SIDEBAR ICON RAIL (spans all rows) ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+                <Grid Margin="0,16,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Logo -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M12 2 L2 7 V12 C2 16.5 6.5 20.7 12 22 C17.5 20.7 22 16.5 22 12 V7 Z"
+                              Stroke="#18181B" StrokeThickness="1.6" StrokeLineJoin="Round"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="16" Height="16" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Style Manager -->
+                    <ToggleButton x:Name="btn_tab_styles" Grid.Row="1"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8" IsChecked="True"
+
+                                  ToolTip="Style Manager">
+                        <Path Data="M3 17 L15 5 19 9 7 21 3 21 Z M15 5 L17 3 21 7 19 9 Z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Color Splasher -->
+                    <ToggleButton x:Name="btn_tab_splasher" Grid.Row="2"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+
+                                  ToolTip="Color Splasher">
+                        <Path Data="M12 2 C8.5 5.5 4 9 4 13 A8 8 0 0 0 20 13 C20 9 15.5 5.5 12 2 Z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+            <!-- ═══ TITLE BAR (Row 0, Col 1) ═══ -->
+            <Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Brand + title + subtitle -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
-                            Margin="16,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                                       Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,8,2"/>
-                            <TextBlock Text="Visual &amp; Style Manager" FontSize="18" FontWeight="Bold" Foreground="#0F172A"/>
-                        </StackPanel>
-                        <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                        <TextBlock Text="Manage model styles and color splasher overrides" FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
-                    </StackPanel>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center"
+                            Margin="22,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Visual &amp; Style Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Manage model styles and color splasher overrides" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
                 <!-- Window control buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
-                            Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                            Margin="0,0,16,0" WindowChrome.IsHitTestVisibleInChrome="True">
                     <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
                         <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
@@ -1124,21 +1168,11 @@
                 </StackPanel>
 
                 <!-- Title bar bottom border -->
-                <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
+                <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#DCDCE0"/>
             </Grid>
 
-            <!-- PILL NAV BAR -->
-            <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="14,10">
-                <Border Background="#F4F4F6" CornerRadius="18" Padding="4" Height="36" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <RadioButton x:Name="btn_tab_styles" Style="{StaticResource TabPillRadioButton}" Content="Style Manager" IsChecked="True"/>
-                        <RadioButton x:Name="btn_tab_splasher" Style="{StaticResource TabPillRadioButton}" Content="Color Splasher"/>
-                    </StackPanel>
-                </Border>
-            </Border>
-
             <!-- CONTENT: TabControl with hidden headers -->
-            <TabControl x:Name="main_tab_control" Grid.Row="2" Margin="0" BorderThickness="0" Background="Transparent">
+            <TabControl x:Name="main_tab_control" Grid.Row="1" Grid.Column="1" Margin="0" BorderThickness="0" Background="Transparent">
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -1493,7 +1527,7 @@
                                 <!-- Legend List -->
                                 <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                        <StackPanel x:Name="spLeg" Padding="8"/>
+                                        <StackPanel x:Name="spLeg" Margin="8"/>
                                     </ScrollViewer>
                                 </Border>
 
@@ -1525,11 +1559,18 @@
             </TabControl>
 
             <!-- STATUS BAR -->
-            <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,6">
-                <TextBlock x:Name="status_text" Text="Ready"
-                           FontSize="11" Foreground="#64748B" FontStyle="Italic"/>
-            </Border>        <!-- Copyright added automatically -->
-            <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="14,8">
+                <Grid>
+                    <TextBlock x:Name="status_text" Text="Ready"
+                               FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold"
+                               HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Text="Visual &amp; Style Manager · T3Lab" FontSize="11"
+                                   Foreground="#71717A" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="10"
+                                   Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
-    </Border>
 </Window>

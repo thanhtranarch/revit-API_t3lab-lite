@@ -24,6 +24,7 @@ clr.AddReference('WindowsBase')
 from System.Windows import WindowState
 from Autodesk.Revit.DB import (
     FilteredElementCollector,
+    FilteredWorksetCollector,
     Workset,
     WorksetKind,
     Transaction,
