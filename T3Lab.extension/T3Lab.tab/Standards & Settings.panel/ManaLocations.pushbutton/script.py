@@ -268,10 +268,14 @@ class LocationManagerHandler(IExternalEventHandler):
 
     def Execute(self, app):
         # Resolve uidoc/doc from the live UIApplication parameter.
-        uidoc = app.ActiveUIDocument
-        doc   = uidoc.Document
-        self._cached_uidoc = uidoc
         try:
+            uidoc = app.ActiveUIDocument
+            if uidoc is None:
+                print("LocationManager error [{}]: no active document.".format(self.action))
+                return
+            doc = uidoc.Document
+            self._cached_uidoc = uidoc
+
             fn = {
                 "RefreshView":    lambda: self._refresh_view(uidoc, doc),
                 "RefreshByLevel": lambda: self._refresh_by_level(doc),
