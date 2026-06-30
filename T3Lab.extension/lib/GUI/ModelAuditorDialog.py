@@ -692,6 +692,7 @@ class ModelAuditorWindow(forms.WPFWindow):
         self.health_results = {}
         
         # Sidebar nav is wired via Click="on_sidebar_clicked" in XAML
+        self.main_tab_control.SelectionChanged += self._on_main_tab_changed
         self._go_to_main_tab(0)
 
         # Connect sub-tab navigation events
@@ -776,6 +777,23 @@ class ModelAuditorWindow(forms.WPFWindow):
         idx = self._SIDEBAR_MAP.get(sender.Name, -1)
         if idx >= 0:
             self._go_to_main_tab(idx)
+
+    def _on_main_tab_changed(self, sender, e):
+        """Sync sidebar toggle buttons when tab changes via keyboard/programmatic switch."""
+        try:
+            from System.Windows.Controls import TabControl as _TC
+            if not isinstance(e.Source, _TC):
+                return
+            idx = self.main_tab_control.SelectedIndex
+            self.btn_tab_health.IsChecked     = (idx == 0)
+            self.btn_tab_compliance.IsChecked = (idx == 1)
+            self.btn_tab_warning.IsChecked    = (idx == 2)
+            self.btn_tab_cleanup.IsChecked    = (idx == 3)
+            self.btn_tab_elements.IsChecked   = (idx == 4)
+            if self._NAV_STATUS[idx]:
+                self.status_text.Text = self._NAV_STATUS[idx]
+        except Exception:
+            pass
 
     def _go_to_main_tab(self, index):
         self.main_tab_control.SelectedIndex = index

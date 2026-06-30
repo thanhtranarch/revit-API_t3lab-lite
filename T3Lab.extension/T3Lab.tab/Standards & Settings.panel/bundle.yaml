@@ -1,6 +1,6 @@
-title: Standards & Settings
+title: "Standards & Settings"
 layout:
   - ModelAuditor
-  - ManaLocations
-  - VisualSettings
-  - WorksetManager
+  - ManaLoca
+  - ManaStyles
+  - ManaWorkset

@@ -1211,6 +1211,8 @@ class T3LabAIServer(object):
 
         if tool_name == 'revit_get_active_view':
             view = doc.ActiveView
+            if view is None:
+                return {'error': 'No active view in Revit — open or activate a view first.'}
             return {
                 'name': view.Name,
                 'id': eid_value(view.Id),
@@ -1580,6 +1582,8 @@ class T3LabAIServer(object):
         # ── get_current_view_info ───────────────────────────────────────────────
         elif tool_name == 'get_current_view_info':
             view = doc.ActiveView
+            if view is None:
+                return {'error': 'No active view in Revit — open or activate a view first.'}
             result = {
                 'name': view.Name,
                 'id': eid_value(view.Id),
@@ -1606,6 +1610,8 @@ class T3LabAIServer(object):
             cat_arg   = arguments.get('category')
             limit_arg = int(arguments.get('limit', 100))
             view      = doc.ActiveView
+            if view is None:
+                return {'error': 'No active view in Revit — open or activate a view first.'}
 
             CATEGORY_MAP = {
                 'Walls': BuiltInCategory.OST_Walls,
@@ -1639,7 +1645,7 @@ class T3LabAIServer(object):
                     })
                 except Exception:
                     pass
-            return {'view': doc.ActiveView.Name, 'count': len(elements_out), 'elements': elements_out}
+            return {'view': view.Name, 'count': len(elements_out), 'elements': elements_out}
 
         # ── get_available_family_types ───────────────────────────────────────
         elif tool_name == 'get_available_family_types':

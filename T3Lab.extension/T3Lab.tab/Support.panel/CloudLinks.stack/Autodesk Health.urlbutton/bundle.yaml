@@ -1,6 +1,8 @@
-title:
-  en_us: Autodesk Health
-tooltip: 
-  en_us: Check the health of your BIM 360 / ACC Services
-hyperlink: 'https://health.autodesk.com/'
-context: zero-doc
+title: "Autodesk Health"
+tooltip: "Autodesk Health"
+description: |
+  Autodesk Health
+author: "T3Lab"
+version: "1.0.0"
+context: "zero-doc"
+hyperlink: "https://health.autodesk.com/"

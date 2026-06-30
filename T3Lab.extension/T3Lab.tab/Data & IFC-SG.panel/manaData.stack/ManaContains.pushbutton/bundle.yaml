@@ -1,0 +1,10 @@
+title: "ManaContains"
+tooltip: "Find elements in spatial containers and assign values, or collect element data into spatial elements."
+description: |
+  Find elements contained in Rooms, Areas, Spaces, Zones, Masses, or Scope Boxes
+  Assign parameter values to contained elements based on their container's properties
+  Collect and aggregate element data, then write summary values back into the container
+  Supports all spatial container types available in Revit
+author: "Dang Quoc Truong"
+version: "1.0.0"
+context: "doc-project"

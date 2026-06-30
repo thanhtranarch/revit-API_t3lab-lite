@@ -1,0 +1,8 @@
+title: "ManaSched"
+tooltip: "Schedule Manager — Export/Import Excel and duplicate schedules."
+description: |
+  Export schedule data to Excel with column formatting preserved
+  Import updated values from Excel back into schedule rows
+  Duplicate existing schedules with a new name and optional scope change
+author: "Dang Quoc Truong"
+version: "1.0.0"

@@ -1,0 +1,9 @@
+title: "Mana\nWorkset"
+tooltip: "Enable worksharing, create/delete worksets, remove unused worksets, and generate view filters."
+description: |
+  Enable worksharing on a non-workshared model
+  Create new worksets or delete unused/empty worksets
+  Assign elements to worksets by rule (category, level, or type)
+  Generate view filters based on workset membership for visual control
+author: "Tran Tien Thanh"
+version: "1.0.0"

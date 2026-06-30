@@ -1,3 +1,10 @@
 title: "BG\nTheme"
-tooltip: Set the Revit model-view background colour from a themed picker. Presets (Black / Charcoal / Gray / White / Dark Blue / Studio), RGB sliders, HEX input, and live preview. SHIFT+Click cycles Black → Gray → White.
-author: Dang Quoc Truong
+tooltip: "Set the Revit model-view background colour from a themed picker. Presets (Black / Charcoal / Gray / White / Dark Blue / Studio), RGB sliders, HEX input, and live preview. SHIFT+Click cycles Black → Gray → White."
+description: |
+  Set the Revit model-view background color from a themed picker with live preview,
+  ready-made presets (Black / Gray / White / Dark Blue / Studio), RGB sliders,
+  HEX input and quick-cycle. Replaces the blind 3-color cycle with full control
+  and a remembered last choice.
+  Dang Quoc Truong - DQT (c) 2026
+author: "Dang Quoc Truong"
+version: "1.0.0"

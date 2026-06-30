@@ -268,7 +268,7 @@ def launch_parasync():
 def launch_loadfamily():
     """Open the Load Family dialog."""
     try:
-        from GUI.FamilyManagerDialog import show_family_manager
+        from GUI.ManaFamiDialog import show_family_manager
         show_family_manager(default_tab=0)
         return True
     except Exception as ex:
@@ -279,7 +279,7 @@ def launch_loadfamily():
 def launch_loadfamily_cloud():
     """Open the Load Family (Cloud) dialog."""
     try:
-        from GUI.FamilyManagerDialog import show_family_manager
+        from GUI.ManaFamiDialog import show_family_manager
         show_family_manager(default_tab=0)
         return True
     except Exception as ex:

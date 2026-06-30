@@ -1,0 +1,9 @@
+title: "Mana\nFami"
+tooltip: "Family Manager — Manage families and load new families in one dialog."
+description: |
+  Browse all loaded families by category with type count
+  Search and filter by name, category, or parameter
+  Load new families from disk directly into the project
+  Delete unused family types to keep the model clean
+author: "Tran Tien Thanh & Dang Quoc Truong"
+version: "1.0.0"

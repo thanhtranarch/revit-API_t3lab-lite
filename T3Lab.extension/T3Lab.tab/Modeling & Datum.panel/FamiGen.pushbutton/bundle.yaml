@@ -1,0 +1,8 @@
+title: "FamiGen"
+tooltip: "Create Revit families from external data — CAD blocks, JSON schema, or batch presets."
+description: |
+  From CAD: scan imported DWG blocks and export each unique block as an .rfa family
+  From JSON: generate fully parametric families from a structured JSON schema definition
+  Batch: create standard families from built-in presets without any source file
+author: "Tran Tien Thanh"
+version: "1.0.0"

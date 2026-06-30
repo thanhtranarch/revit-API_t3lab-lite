@@ -1,3 +1,10 @@
 title: "Ribbon\nNames"
-tooltip: Shorten or restore Revit ribbon tab names. Double-click a Short Name cell to edit, then Apply Short / Restore Full / Save Map / Reset.
-author: Dang Quoc Truong
+tooltip: "Shorten or restore Revit ribbon tab names. Double-click a Short Name cell to edit, then Apply Short / Restore Full / Save Map / Reset."
+description: |
+  Shorten / restore Revit ribbon tab names with full control. Unlike the classic
+  fixed-JSON tool, this reads every live ribbon tab, lets you edit each short
+  name inline (double-click), toggle Short/Full for all tabs, persists your own
+  mappings, and needs no external Snippets dependency or per-language files.
+  Dang Quoc Truong - DQT (c) 2026
+author: "Dang Quoc Truong"
+version: "1.0.0"

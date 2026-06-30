@@ -1,6 +1,8 @@
-title:
-  en_us: Bluebeam Status
-tooltip: 
-  en_us: "Quickly check the status of Bluebeam services"
-hyperlink: 'https://status.bluebeam.com/'
-context: zero-doc
+title: "Bluebeam Status"
+tooltip: "Bluebeam Status"
+description: |
+  Bluebeam Status
+author: "T3Lab"
+version: "1.0.0"
+context: "zero-doc"
+hyperlink: "https://status.bluebeam.com/"

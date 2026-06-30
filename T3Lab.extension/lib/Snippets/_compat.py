@@ -15,6 +15,6 @@ def eid_value(element_id):
     if element_id is None:
         return -1
     try:
-        return element_id.Value          # Revit 2024+
+        return int(element_id.Value)          # Revit 2024+ (Int64 -> plain int)
     except AttributeError:
-        return element_id.IntegerValue   # Revit 2023 and earlier
+        return int(element_id.IntegerValue)   # Revit 2023 and earlier

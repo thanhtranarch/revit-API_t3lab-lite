@@ -1,10 +1,9 @@
 title: "Property\nLine"
-tooltip: Create US property lines from Lightbox parcel data.
+tooltip: "Create US property lines from Lightbox parcel data."
 description: |
-  Property line generator for US projects using Lightbox parcel data:
-  - Paste or import a Lightbox parcel export
-  - Automatically calculates bearing and distance for each boundary segment
-  - Places a closed property line loop at the correct site coordinates
-  - Supports metes-and-bounds descriptions and coordinate-based input
-
-author: Tran Tien Thanh
+  Paste or import a Lightbox parcel export
+  Automatically calculates bearing and distance for each boundary segment
+  Places a closed property line loop at the correct site coordinates
+  Supports metes-and-bounds descriptions and coordinate-based input
+author: "Tran Tien Thanh"
+version: "1.0.0"

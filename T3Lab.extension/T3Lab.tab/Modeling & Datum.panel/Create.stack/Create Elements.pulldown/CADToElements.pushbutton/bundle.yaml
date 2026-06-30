@@ -1,10 +1,9 @@
 title: "CAD to\nElements"
-tooltip: Convert CAD linework into Walls, Floors, or Beams.
+tooltip: "Convert CAD linework into Walls, Floors, or Beams."
 description: |
-  CAD-to-BIM geometry converter:
-  - Detect lines in an imported DWG by layer and color
-  - Map selected CAD layers to Walls, Floors, or Beams
-  - Batch-create Revit elements following the original CAD geometry
-  - Supports height/thickness assignment per element category
-
-author: Dang Quoc Truong
+  Detect lines in an imported DWG by layer and color
+  Map selected CAD layers to Walls, Floors, or Beams
+  Batch-create Revit elements following the original CAD geometry
+  Supports height/thickness assignment per element category
+author: "Dang Quoc Truong"
+version: "1.0.0"

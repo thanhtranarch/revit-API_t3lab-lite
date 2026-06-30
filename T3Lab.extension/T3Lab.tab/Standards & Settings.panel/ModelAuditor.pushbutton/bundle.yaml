@@ -1,10 +1,9 @@
 title: "Model\nAuditor"
-tooltip: Consolidates model health check, warnings, in-place models, and material audit.
+tooltip: "Consolidates model health check, warnings, in-place models, and material audit."
 description: |
-  All-in-one model health tool:
-  - Model Check: verify model standards and quality rules
-  - Warnings: review and address the Revit warning list
-  - In-Place Models: list and manage in-place family instances
-  - Material List: audit all materials used in the model
-
-author: Tran Tien Thanh
+  Model Check: verify model standards and quality rules
+  Warnings: review and address the Revit warning list
+  In-Place Models: list and manage in-place family instances
+  Material List: audit all materials used in the model
+author: "Tran Tien Thanh"
+version: "1.0.0"

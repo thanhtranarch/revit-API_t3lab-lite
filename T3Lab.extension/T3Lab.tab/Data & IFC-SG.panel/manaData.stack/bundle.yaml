@@ -1,4 +1,4 @@
 layout:
-  - ManaSchedules
-  - ManaParameters
-  - ContainsManager
+  - ManaSched
+  - ManaPara
+  - ManaContains

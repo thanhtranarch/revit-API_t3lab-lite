@@ -1,11 +1,9 @@
 title: "T3Lab\nAssistant"
-tooltip: T3Lab AI Assistant — run T3Lab tools quickly using natural language
+tooltip: "T3Lab AI Assistant — run T3Lab tools quickly using natural language"
 description: |
-  T3Lab Assistant is a personal AI chatbox that lets you:
-  - Open and control BatchOut (batch sheet export)
-  - Run ParaSync, LoadFamily, ProjectName, and other tools
-  - Type commands in Vietnamese or English
-  - Use Claude AI to understand natural-language intent
-
-author: Tran Tien Thanh
-version: 1.0.0
+  Open and control BatchOut (batch sheet export)
+  Run ParaSync, LoadFamily, ProjectName, and other tools
+  Type commands in Vietnamese or English
+  Use Claude AI to understand natural-language intent
+author: "Tran Tien Thanh"
+version: "1.0.0"

@@ -1,16 +1,14 @@
 title: "Auto Adj\nBase Offset"
-tooltip: Auto-adjusts Base Offset when changing Base Constraint to preserve element position.
+tooltip: "Auto-adjusts Base Offset when changing Base Constraint to preserve element position."
 description: |
   When you change an element's Base Constraint to a different level,
   this tool recalculates and writes the correct Base Offset so the element
   stays at the same absolute elevation.
-
   Supports: Walls, Floors, Columns, Structural Columns, Beams, Structural Framing.
-
   Usage:
   1. Select the elements to adjust
   2. Run this tool
   3. Pick the new Base Constraint level from the list
   4. Base Offsets are updated automatically
-
-author: Dang Quoc Truong
+author: "Dang Quoc Truong"
+version: "1.0.0"

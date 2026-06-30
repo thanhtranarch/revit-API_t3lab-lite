@@ -1,0 +1,10 @@
+title: "Mana\nStyles"
+tooltip: "Unified visual splasher, style managers, and element coordinate editor."
+description: |
+  Fill Patterns: create, rename, and manage fill patterns
+  Line Styles: manage line weight, color, and pattern assignments
+  Line Patterns: define and edit custom line dash patterns
+  Color Splasher: apply graphic override colors to elements by category rule
+  Coordinate Editor: view and adjust element XYZ coordinates in a grid
+author: "Tran Tien Thanh"
+version: "1.0.0"
