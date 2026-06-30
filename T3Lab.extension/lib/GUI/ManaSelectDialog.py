@@ -20,10 +20,9 @@ from Autodesk.Revit.DB import (
     ImportInstance,
     BuiltInCategory,
     FamilyInstance,
-    ElementId,
-    ISelectionFilter,
-    ObjectType
+    ElementId
 )
+from Autodesk.Revit.UI.Selection import ISelectionFilter, ObjectType
 from Autodesk.Revit.Exceptions import OperationCanceledException
 
 from pyrevit import forms, revit, DB, script
