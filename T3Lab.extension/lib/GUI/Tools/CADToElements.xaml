@@ -5,7 +5,7 @@
         MinWidth="720" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        Background="White"
+        Background="#E4E4E7"
         FontFamily="Hanken Grotesk"
         FontSize="12">
 
@@ -13,7 +13,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1143,6 +1143,7 @@
 
     </Window.Resources>
 
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>
@@ -1151,45 +1152,39 @@
         </Grid.RowDefinitions>
 
         <!-- ═══ TITLE BAR (Row 0) ═══ -->
-        <Grid Grid.Row="0" Background="White">
+        <Grid Grid.Row="0" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Brand + title block -->
+            <!-- Title and Subtitle -->
             <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center"
-                        Margin="16,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,8,2"/>
-                    <TextBlock Text="CAD to Elements" FontSize="18" FontWeight="Bold" Foreground="#0F172A"/>
-                </StackPanel>
-                <Rectangle Height="1" Fill="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Convert CAD linework into Walls, Floors or Beams"
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+                        Margin="22,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                <TextBlock Text="CAD to Elements" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Convert CAD linework into Walls, Floors or Beams" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <!-- Window controls -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
-                        Click="minimize_button_clicked" ToolTip="Minimize">
+                        ToolTip="Minimize">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
-                        Click="maximize_button_clicked" ToolTip="Maximize">
+                        ToolTip="Maximize">
                     <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
-                        Click="close_button_clicked" ToolTip="Close">
+                        ToolTip="Close">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
 
             <!-- Bottom border -->
-            <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
+            <Border Grid.ColumnSpan="3" Height="1" VerticalAlignment="Bottom" Background="#DCDCE0"/>
         </Grid>
 
         <!-- ═══ BODY: Sidebar + Content (Row 1) ═══ -->
@@ -1209,7 +1204,7 @@
 
                     <!-- Wall button -->
                     <Button x:Name="btn_type_wall" Style="{StaticResource SidebarNavButtonActive}"
-                            Click="sidebar_wall_clicked" Margin="0,0,0,4">
+                            Margin="0,0,0,4">
                         <StackPanel>
                             <TextBlock Text="&#xE10F;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                                        HorizontalAlignment="Center" Margin="0,0,0,4"/>
@@ -1220,7 +1215,7 @@
 
                     <!-- Floor button -->
                     <Button x:Name="btn_type_floor" Style="{StaticResource SidebarNavButton}"
-                            Click="sidebar_floor_clicked" Margin="0,0,0,4">
+                            Margin="0,0,0,4">
                         <StackPanel>
                             <TextBlock Text="&#xE2B1;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                                        HorizontalAlignment="Center" Margin="0,0,0,4"/>
@@ -1231,7 +1226,7 @@
 
                     <!-- Beam button -->
                     <Button x:Name="btn_type_beam" Style="{StaticResource SidebarNavButton}"
-                            Click="sidebar_beam_clicked" Margin="0,0,0,4">
+                            Margin="0,0,0,4">
                         <StackPanel>
                             <TextBlock Text="&#xE8EF;" FontFamily="Segoe MDL2 Assets" FontSize="18"
                                        HorizontalAlignment="Center" Margin="0,0,0,4"/>
@@ -1662,8 +1657,8 @@
         </Grid>
 
         <!-- ═══ STATUS BAR (Row 2) ═══ -->
-        <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0"
-                Padding="14,8">
+        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
+                Padding="20,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -1682,7 +1677,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="txt_status" Grid.Column="0"
                            Text="Select a CAD file and click Refresh"
-                           FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Grid.Column="0"/>
+                           FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,4,0"/>
@@ -1692,13 +1687,13 @@
 
                 <Button x:Name="btn_refresh" Grid.Column="1"
                         Style="{StaticResource SecondaryButton}"
-                        Click="refresh_clicked" ToolTip="Reload CAD files and layers">
+                        ToolTip="Reload CAD files and layers">
                     <TextBlock Text="Refresh"/>
                 </Button>
 
                 <Button x:Name="btn_run" Grid.Column="3"
                         Style="{StaticResource PrimaryButton}"
-                        Click="run_clicked" ToolTip="Run conversion">
+                        ToolTip="Run conversion">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
@@ -1708,10 +1703,11 @@
 
                 <Button x:Name="btn_close_bar" Grid.Column="5"
                         Style="{StaticResource SecondaryButton}"
-                        Click="close_button_clicked" ToolTip="Close">
+                        ToolTip="Close">
                     <TextBlock Text="Close"/>
                 </Button>
             </Grid>
         </Border>    </Grid>
+    </Border>
 
 </Window>

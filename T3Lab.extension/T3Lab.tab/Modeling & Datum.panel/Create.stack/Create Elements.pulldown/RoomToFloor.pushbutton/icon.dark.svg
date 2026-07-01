@@ -1,21 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<!-- Room boundary (dashed, left side) -->
-<rect x="4" y="6" width="26" height="32" rx="3" fill="rgba(194,68,12,0.08)" stroke="#EAA030" stroke-width="2.5" stroke-dasharray="7,4"/>
-<!-- Room label hint -->
-<rect x="8" y="14" width="18" height="3" rx="1.5" fill="#EAA030" opacity="0.4"/>
-<rect x="8" y="20" width="14" height="2" rx="1" fill="#EAA030" opacity="0.3"/>
-<!-- Bold orange arrow (center, downward-right) -->
-<path d="M32 22 L38 22" stroke="#EAA030" stroke-width="4" stroke-linecap="round"/>
-<polygon points="35,17 42,22 35,27" fill="#EAA030"/>
-<!-- Floor slab (right side, hatched, solid) -->
-<rect x="38" y="10" width="24" height="28" rx="3" fill="#7AB0CC"/>
-<!-- Hatch lines on floor -->
-<line x1="41" y1="14" x2="38" y2="17" stroke="#1A2838" stroke-width="1" opacity="0.3"/>
-<line x1="46" y1="10" x2="38" y2="18" stroke="#1A2838" stroke-width="1" opacity="0.3"/>
-<line x1="51" y1="10" x2="38" y2="23" stroke="#1A2838" stroke-width="1" opacity="0.3"/>
-<line x1="56" y1="10" x2="38" y2="28" stroke="#1A2838" stroke-width="1" opacity="0.3"/>
-<line x1="61" y1="11" x2="43" y2="29" stroke="#1A2838" stroke-width="1" opacity="0.3"/>
-<line x1="62" y1="17" x2="49" y2="30" stroke="#1A2838" stroke-width="1" opacity="0.3"/>
-<!-- Ground -->
-<rect x="4" y="44" width="58" height="10" rx="3" fill="#4A7898"/>
+  <rect x="8" y="8" width="48" height="24" rx="4" fill="none" stroke="#F8FAFC" stroke-width="4"/>
+  <rect x="8" y="44" width="48" height="12" rx="2" fill="#D07818"/>
+  <path d="M32,24 L32,38 M26,32 L32,38 L38,32" fill="none" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

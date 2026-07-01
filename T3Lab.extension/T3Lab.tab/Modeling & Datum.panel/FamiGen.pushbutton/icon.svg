@@ -1,16 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<!-- Isometric cube (large, bold) -->
-<polygon points="32,4 56,18 56,46 32,60 8,46 8,18" fill="none" stroke="#182A3E" stroke-width="2"/>
-<!-- Cube faces with depth colors -->
-<polygon points="32,4 56,18 32,32 8,18" fill="#D8E4EF"/>
-<polygon points="56,18 56,46 32,60 32,32" fill="#B8CCE0"/>
-<polygon points="8,18 32,32 32,60 8,46" fill="#C8D8EB"/>
-<!-- Edge lines -->
-<line x1="32" y1="32" x2="32" y2="60" stroke="#182A3E" stroke-width="1.5"/>
-<line x1="32" y1="32" x2="56" y2="18" stroke="#182A3E" stroke-width="1.5"/>
-<line x1="32" y1="32" x2="8" y2="18" stroke="#182A3E" stroke-width="1.5"/>
-<!-- Orange "+" create badge (top-right, bold) -->
-<circle cx="52" cy="12" r="13" fill="#D07818"/>
-<line x1="46" y1="12" x2="58" y2="12" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
-<line x1="52" y1="6" x2="52" y2="18" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M32,8 L56,20 L56,48 L32,60 L8,48 L8,20 Z" fill="none" stroke="#182A3E" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M32,8 L32,60 M32,34 L8,20 M32,34 L56,20" stroke="#182A3E" stroke-width="4"/>
+  <path d="M46,14 L54,14 M50,10 L50,18" stroke="#D07818" stroke-width="4" stroke-linecap="round"/>
 </svg>

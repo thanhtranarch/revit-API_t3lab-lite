@@ -210,7 +210,6 @@ class UnusedFamiliesScanner(BasePurgeScanner):
                         unused_items.append(item)
                 
                 except Exception as e:
-                    # Skip problematic families
                     continue
             
             print("DEBUG: Found {} unused families".format(len(unused_items)))
@@ -303,7 +302,6 @@ class UnusedFamilyTypesScanner(BasePurgeScanner):
                         unused_items.append(item)
                 
                 except Exception as e:
-                    # Skip problematic types
                     continue
             
             print("DEBUG: Found {} unused family types".format(len(unused_items)))
@@ -336,7 +334,7 @@ class AnnotationFamiliesScanner(BasePurgeScanner):
                 BuiltInCategory.OST_RoomTags,
                 BuiltInCategory.OST_WallTags,
                 BuiltInCategory.OST_AreaTags,
-                BuiltInCategory.OST_SpaceTags
+                BuiltInCategory.OST_MEPSpaceTags
             ]
             
             # OPTIMIZATION: Build family usage dictionary once
@@ -344,20 +342,57 @@ class AnnotationFamiliesScanner(BasePurgeScanner):
             family_usage = {}
             
             try:
+                # 1. FamilyInstances
                 instances = FilteredElementCollector(self.doc)\
                     .OfClass(FamilyInstance)\
                     .WhereElementIsNotElementType()\
                     .ToElements()
-                
                 for inst in instances:
                     try:
                         if inst and inst.IsValidObject and inst.Symbol:
                             symbol = inst.Symbol
                             if symbol and symbol.Family:
-                                family_id = symbol.Family.Id.IntegerValue
-                                family_usage[family_id] = True
+                                family_usage[symbol.Family.Id.IntegerValue] = True
                     except:
                         continue
+
+                # 2. IndependentTags
+                tags = FilteredElementCollector(self.doc)\
+                    .OfClass(DB.IndependentTag)\
+                    .WhereElementIsNotElementType()\
+                    .ToElements()
+                for tag in tags:
+                    try:
+                        if tag and tag.IsValidObject:
+                            tid = tag.GetTypeId()
+                            if tid and tid != ElementId.InvalidElementId:
+                                symbol = self.doc.GetElement(tid)
+                                if symbol and hasattr(symbol, "Family") and symbol.Family:
+                                    family_usage[symbol.Family.Id.IntegerValue] = True
+                    except:
+                        continue
+
+                # 3. RoomTag, AreaTag, SpaceTag
+                for tag_class_name in ["RoomTag", "AreaTag", "SpaceTag"]:
+                    try:
+                        t = getattr(DB, tag_class_name, None)
+                        if t:
+                            extra_tags = FilteredElementCollector(self.doc)\
+                                .OfClass(t)\
+                                .WhereElementIsNotElementType()\
+                                .ToElements()
+                            for tag in extra_tags:
+                                try:
+                                    if tag and tag.IsValidObject:
+                                        tid = tag.GetTypeId()
+                                        if tid and tid != ElementId.InvalidElementId:
+                                            symbol = self.doc.GetElement(tid)
+                                            if symbol and hasattr(symbol, "Family") and symbol.Family:
+                                                family_usage[symbol.Family.Id.IntegerValue] = True
+                                except:
+                                    continue
+                    except:
+                        pass
             except Exception as e:
                 print("WARNING: Could not get instances: {}".format(str(e)))
             

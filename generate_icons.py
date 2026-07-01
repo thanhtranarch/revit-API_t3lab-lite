@@ -8,6 +8,9 @@ TRANS = (0, 0, 0, 0)
 SIZE = 96
 
 out_dir = "draft_icons"
+if not os.path.exists(out_dir):
+    os.makedirs(out_dir)
+
 
 def new_img():
     return Image.new('RGBA', (SIZE, SIZE), TRANS)

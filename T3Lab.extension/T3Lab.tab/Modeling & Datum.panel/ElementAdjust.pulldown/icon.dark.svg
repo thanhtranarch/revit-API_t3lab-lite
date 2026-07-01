@@ -1,11 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<!-- Wall element (left half, dark) -->
-<rect x="4" y="8" width="28" height="48" rx="4" fill="#7AB0CC"/>
-<rect x="8" y="14" width="20" height="8" rx="2" fill="#1A2838" opacity="0.5"/>
-<rect x="8" y="26" width="20" height="8" rx="2" fill="#1A2838" opacity="0.35"/>
-<rect x="8" y="38" width="20" height="8" rx="2" fill="#1A2838" opacity="0.2"/>
-<!-- Orange wrench / adjustment tool (right half, bold) -->
-<circle cx="46" cy="32" r="18" fill="#EAA030"/>
-<!-- Wrench shape in white -->
-<path d="M38 24 C34 28 34 36 38 40 C40 42 44 42 46 40 L56 50 C58 52 56 54 54 52 L44 42 C42 44 38 44 36 42 C32 38 32 26 36 22 C38 20 40 20 42 22 L38 26 L38 30 L42 30 L44 26 C44 26 42 22 38 24 Z" fill="white" opacity="0.9"/>
+  <line x1="12" y1="32" x2="52" y2="32" stroke="#F8FAFC" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="24" cy="32" r="10" fill="#F8FAFC"/>
+  <circle cx="44" cy="32" r="10" fill="#D07818"/>
 </svg>

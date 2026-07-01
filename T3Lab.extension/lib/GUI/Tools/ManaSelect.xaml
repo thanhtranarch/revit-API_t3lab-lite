@@ -1,19 +1,20 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="T3Lab — Selection Manager"
-        Width="950" Height="720"
-        MinWidth="800" MinHeight="550"
+        Width="980" Height="720"
+        MinWidth="820" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
-        Background="White"
-        FontFamily="Hanken Grotesk">
+        Background="#E4E4E7"
+        FontFamily="Hanken Grotesk"
+        FontSize="14">
 
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1078,206 +1079,266 @@
         </Style>
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
-        
-        <!-- Hide Default Headers of TabControl since we created custom RadioButtons on top -->
+
+        <!-- Hide Default Headers of TabControl since we use custom RadioButtons on top -->
         <Style TargetType="TabItem">
             <Setter Property="Visibility" Value="Collapsed"/>
         </Style>
     </Window.Resources>
 
-    <Grid x:Name="RootGrid">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="64"/>       <!-- Header/Title -->
-            <RowDefinition Height="Auto"/>     <!-- Nav bar -->
-            <RowDefinition Height="*"/>        <!-- Content -->
-            <RowDefinition Height="32"/>       <!-- Status Bar -->
-        </Grid.RowDefinitions>
-
-        <!-- ── TITLE BAR ── -->
-        <Grid Grid.Row="0" Background="White">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+        <Grid x:Name="RootGrid">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="66"/>     <!-- Column 0: Left sidebar icon rail (nav) -->
+                <ColumnDefinition Width="*"/>      <!-- Column 1: Main content -->
             </Grid.ColumnDefinitions>
 
-            <!-- Brand + Subtitle -->
-            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="16,0,16,0">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,8,0" VerticalAlignment="Bottom"/>
-                    <TextBlock Text="Smart Selection" FontSize="18" FontWeight="Bold" Foreground="#0F172A" VerticalAlignment="Bottom"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Query elements by parameters, select similar types, filter link instances, or perform quick viewport selection filters" 
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
-            </StackPanel>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="64"/>       <!-- Row 0: Title bar -->
+                <RowDefinition Height="*"/>        <!-- Row 1: Content -->
+                <RowDefinition Height="Auto"/>     <!-- Row 2: Footer / status -->
+            </Grid.RowDefinitions>
 
-            <!-- Chrome controls -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,5,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-                <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
-                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-                <Button x:Name="btn_close_chrome" Style="{StaticResource CloseButton}" ToolTip="Close">
-                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-            </StackPanel>
-        </Grid>
+            <!-- ═══ COLUMN 0: LEFT SIDEBAR ICON RAIL (nav) — BatchOut pattern ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+                <Grid Margin="0,16,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Logo -->
+                        <RowDefinition Height="Auto"/> <!-- Nav: Quick Select -->
+                        <RowDefinition Height="Auto"/> <!-- Nav: Select Similar -->
+                        <RowDefinition Height="Auto"/> <!-- Nav: Select on Sheets -->
+                        <RowDefinition Height="Auto"/> <!-- Nav: Quick Actions -->
+                        <RowDefinition Height="*"/>    <!-- Spacer -->
+                    </Grid.RowDefinitions>
 
-        <!-- ── NAVIGATION BAR ── -->
-        <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,1" Height="48">
-            <Grid Margin="16,0,16,0">
-                <!-- Tab RadioButtons -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <RadioButton x:Name="btn_tab_quick_select" Style="{StaticResource T3TopNavTabStyle}" Content="Quick Select" IsChecked="True"/>
-                    <RadioButton x:Name="btn_tab_select_similar" Style="{StaticResource T3TopNavTabStyle}" Content="Select Similar"/>
-                    <RadioButton x:Name="btn_tab_select_sheets" Style="{StaticResource T3TopNavTabStyle}" Content="Select on Sheets"/>
+                    <!-- Logo -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                              Stroke="#18181B" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="16" Height="16" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Nav: Quick Select — magnifier -->
+                    <ToggleButton x:Name="nav_toggle_quick_select" Grid.Row="1"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8" IsChecked="True"
+                                  ToolTip="Quick Select">
+                        <Path Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Nav: Select Similar — overlapping duplicate squares -->
+                    <ToggleButton x:Name="nav_toggle_select_similar" Grid.Row="2"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Select Similar">
+                        <Path Data="M4 4 h11 v11 h-11 z M9 9 h11 v11 h-11 z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Nav: Select on Sheets — document -->
+                    <ToggleButton x:Name="nav_toggle_select_sheets" Grid.Row="3"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Select on Sheets">
+                        <Path Data="M4 2 h10 l5 5 v14 H4 z M14 2 v5 h5 M7 12 h8 M7 16 h5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Nav: Quick Actions — lightning bolt -->
+                    <ToggleButton x:Name="nav_toggle_quick_actions" Grid.Row="4"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Quick Actions">
+                        <Path Data="M13 2 L4 14 h6 l-1 8 9 -12 h-6 z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.8" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+            <!-- ═══ ROW 0: TITLE BAR ═══ -->
+            <Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="22,0,0,0" VerticalAlignment="Center"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Selection Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Quick Select · Select Similar · On Sheets · Quick Actions · Revit 2024–2026" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                            Margin="0,0,16,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}" ToolTip="Minimize">
+                        <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}" ToolTip="Maximize">
+                        <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                    <Button x:Name="btn_close_chrome" Style="{StaticResource CloseButton}" ToolTip="Close">
+                        <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                    </Button>
+                </StackPanel>
+
+                <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
             </Grid>
-        </Border>
 
-        <!-- ── CONTENT AREA (2-column layout) ── -->
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>          <!-- Main Tab Content -->
-                <ColumnDefinition Width="240"/>        <!-- Persistent Sidebar -->
-            </Grid.ColumnDefinitions>
+            <!-- ═══ ROW 1: CONTENT (Column 1) ═══ -->
+            <TabControl x:Name="main_tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent">
 
-            <!-- Left: TabControl -->
-            <TabControl x:Name="main_tab_control" Grid.Column="0" BorderThickness="0" Background="Transparent">
-                <!-- Tab 1: Quick Select -->
+                <!-- Tab 1: Quick Select — bare mount point, DO NOT restructure. -->
                 <TabItem>
-                    <Grid x:Name="grid_quick_select" Background="White"/>
+                    <Grid x:Name="grid_quick_select" Background="#E4E4E7"/>
                 </TabItem>
-                
+
                 <!-- Tab 2: Select Similar -->
                 <TabItem>
-                    <Grid Background="White" Margin="24">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>     <!-- Header -->
-                            <RowDefinition Height="Auto"/>     <!-- Mode card -->
-                            <RowDefinition Height="Auto"/>     <!-- Scope card -->
-                            <RowDefinition Height="*"/>        <!-- Spacer / Action -->
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Text="Select Similar elements by matching properties." FontSize="14" Foreground="#0F172A" Margin="0,0,0,20"/>
-                        
-                        <!-- Mode Card -->
-                        <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+                    <Grid Margin="18">
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="20">
                             <StackPanel>
-                                <TextBlock Text="Match Mode" FontWeight="SemiBold" FontSize="12" Foreground="#0F172A" Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <RadioButton x:Name="rb_similar_mode_type" Content="Type" IsChecked="True" Margin="0,0,24,0"/>
-                                    <RadioButton x:Name="rb_similar_mode_family" Content="Family" Margin="0,0,24,0"/>
-                                    <RadioButton x:Name="rb_similar_mode_category" Content="Category"/>
-                                </StackPanel>
+                                <TextBlock Text="Select Similar elements by matching properties." FontSize="14" Foreground="#27272A" Margin="0,0,0,18"/>
+
+                                <TextBlock Text="MATCH MODE" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,8"/>
+                                <Border BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,16">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton x:Name="rb_similar_mode_type" Style="{StaticResource T3RadioButton}" Content="Type" IsChecked="True" Margin="0,0,28,0"/>
+                                        <RadioButton x:Name="rb_similar_mode_family" Style="{StaticResource T3RadioButton}" Content="Family" Margin="0,0,28,0"/>
+                                        <RadioButton x:Name="rb_similar_mode_category" Style="{StaticResource T3RadioButton}" Content="Category"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="SEARCH SCOPE" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,8"/>
+                                <Border BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,24">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton x:Name="rb_similar_scope_view" Style="{StaticResource T3RadioButton}" Content="Active View" IsChecked="True" Margin="0,0,28,0"/>
+                                        <RadioButton x:Name="rb_similar_scope_model" Style="{StaticResource T3RadioButton}" Content="Entire Model"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Button x:Name="btn_run_select_similar" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="200" Content="Apply Selection"/>
                             </StackPanel>
                         </Border>
-
-                        <!-- Scope Card -->
-                        <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,24">
-                            <StackPanel>
-                                <TextBlock Text="Search Scope" FontWeight="SemiBold" FontSize="12" Foreground="#0F172A" Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <RadioButton x:Name="rb_similar_scope_view" Content="Active View" IsChecked="True" Margin="0,0,24,0"/>
-                                    <RadioButton x:Name="rb_similar_scope_model" Content="Entire Model"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <Button Grid.Row="3" x:Name="btn_run_select_similar" Style="{StaticResource AccentButton}" Height="40" HorizontalAlignment="Left" Width="200" Content="Apply Selection"/>
                     </Grid>
                 </TabItem>
 
                 <!-- Tab 3: Select on Sheets -->
                 <TabItem>
-                    <Grid Background="White" Margin="24">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>     <!-- Header -->
-                            <RowDefinition Height="Auto"/>     <!-- Target Card -->
-                            <RowDefinition Height="*"/>        <!-- Action -->
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Grid.Row="0" Text="Select imported files or title blocks on sheets." FontSize="14" Foreground="#0F172A" Margin="0,0,0,20"/>
-
-                        <!-- Target Card -->
-                        <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,24">
+                    <Grid Margin="18">
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="20">
                             <StackPanel>
-                                <TextBlock Text="Target Elements" FontWeight="SemiBold" FontSize="12" Foreground="#0F172A" Margin="0,0,0,8"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <RadioButton x:Name="rb_sheet_target_dwg" Content="CAD Imports (DWGs)" IsChecked="True" Margin="0,0,24,0"/>
-                                    <RadioButton x:Name="rb_sheet_target_tb" Content="Title Blocks"/>
-                                </StackPanel>
+                                <TextBlock Text="Select imported CAD files or title blocks placed on sheets." FontSize="14" Foreground="#27272A" Margin="0,0,0,18"/>
+
+                                <TextBlock Text="TARGET ELEMENTS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,8"/>
+                                <Border BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="16" Margin="0,0,0,24">
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton x:Name="rb_sheet_target_dwg" Style="{StaticResource T3RadioButton}" Content="CAD Imports (DWGs)" IsChecked="True" Margin="0,0,28,0"/>
+                                        <RadioButton x:Name="rb_sheet_target_tb" Style="{StaticResource T3RadioButton}" Content="Title Blocks"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Button x:Name="btn_run_select_sheets" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Left" Width="200" Content="Select Elements"/>
                             </StackPanel>
                         </Border>
+                    </Grid>
+                </TabItem>
 
-                        <Button Grid.Row="2" x:Name="btn_run_select_sheets" Style="{StaticResource AccentButton}" Height="40" HorizontalAlignment="Left" Width="200" Content="Select Elements"/>
+                <!-- Tab 4: Quick Actions — one-click viewport filters, folded in from the old sidebar -->
+                <TabItem>
+                    <Grid Margin="18">
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="20">
+                            <StackPanel>
+                                <TextBlock Text="One-click viewport filters — no dialog required." FontSize="14" Foreground="#27272A" Margin="0,0,0,18"/>
+
+                                <TextBlock Text="SCOPE &amp; LINKS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,8"/>
+                                <Grid Margin="0,0,0,20">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="10"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Button x:Name="btn_select_by_cat" Grid.Row="0" Grid.Column="0" Style="{StaticResource SecondaryButton}" Height="44" HorizontalContentAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Select By Category" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="btn_select_linked" Grid.Row="0" Grid.Column="2" Style="{StaticResource SecondaryButton}" Height="44" HorizontalContentAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Select Linked Elements" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="btn_select_inplace" Grid.Row="2" Grid.Column="0" Style="{StaticResource SecondaryButton}" Height="44" HorizontalContentAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE7C3;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Select In-Place Families" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <TextBlock Text="CLEANUP &amp; ANALYSIS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button x:Name="btn_deselect_grouped" Grid.Column="0" Style="{StaticResource SecondaryButton}" Height="44" HorizontalContentAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE108;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Deselect Grouped" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button x:Name="btn_material_select" Grid.Column="2" Style="{StaticResource SecondaryButton}" Height="44" HorizontalContentAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Material Select Element" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </TabItem>
             </TabControl>
 
-            <!-- Right: Persistent Quick Actions Sidebar -->
-            <Border Grid.Column="1" BorderBrush="#E2E8F0" BorderThickness="1,0,0,0" Background="#F8FAFC">
-                <Grid Margin="16,20,16,16">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>     <!-- Title -->
-                        <RowDefinition Height="Auto"/>     <!-- Subtitle -->
-                        <RowDefinition Height="*"/>        <!-- Buttons List -->
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="Quick Selection Filters" FontSize="13" FontWeight="Bold" Foreground="#0F172A"/>
-                    <TextBlock Grid.Row="1" Text="Run viewport actions immediately" FontSize="10" Foreground="#64748B" Margin="0,2,0,16"/>
-
-                    <StackPanel Grid.Row="2" VerticalAlignment="Top">
-                        <Button x:Name="btn_select_by_cat" Style="{StaticResource SecondaryButton}" Height="36" Margin="0,0,0,10" HorizontalContentAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE71C;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Select By Category" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                        
-                        <Button x:Name="btn_select_linked" Style="{StaticResource SecondaryButton}" Height="36" Margin="0,0,0,10" HorizontalContentAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE71B;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Select Linked Elements" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button x:Name="btn_select_inplace" Style="{StaticResource SecondaryButton}" Height="36" Margin="0,0,0,10" HorizontalContentAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE7C3;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Select In-Place Families" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button x:Name="btn_deselect_grouped" Style="{StaticResource SecondaryButton}" Height="36" Margin="0,0,0,10" HorizontalContentAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE108;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Deselect Grouped" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button x:Name="btn_material_select" Style="{StaticResource SecondaryButton}" Height="36" Margin="0,0,0,10" HorizontalContentAlignment="Left">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="Material Select Element" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
+            <!-- ═══ ROW 2: FOOTER / STATUS BAR (Column 1) ═══ -->
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
+                <Grid>
+                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                        <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold"/>
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
                     </StackPanel>
                 </Grid>
             </Border>
+
         </Grid>
-
-        <!-- ── STATUS BAR ── -->
-        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
-            <Grid Margin="16,0,16,0">
-                <TextBlock x:Name="status_text" Text="Ready" VerticalAlignment="Center" FontSize="11" Foreground="#64748B"/>
-            </Grid>
-        </Border>
-
-        <!-- Copyright Overlay -->
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
-    </Grid>
+    </Border>
 </Window>

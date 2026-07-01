@@ -6,6 +6,7 @@ import sys
 import re
 import random
 import time
+import System
 from collections import OrderedDict
 
 import Autodesk.Revit.DB as DB
@@ -31,8 +32,8 @@ from Autodesk.Revit.DB import (
 )
 
 from pyrevit import forms, revit
-from System.Windows import WindowState, Thickness, CornerRadius, GridLength, GridUnitType, MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult
-from System.Windows.Media import SolidColorBrush, Color
+from System.Windows import WindowState, Thickness, CornerRadius, GridLength, GridUnitType, MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult, Rect, Point
+from System.Windows.Media import SolidColorBrush, Color, DoubleCollection, DrawingBrush, GeometryDrawing, GeometryGroup, LineGeometry, Pen, TileMode, BrushMappingMode
 from System.Windows.Controls import (
     Grid,
     RowDefinition,
@@ -101,6 +102,44 @@ class FillPatternItem(INotifyPropertyChanged):
             self._settings = "N/A"
             
         self._is_system = "Solid fill" in self._name or self._name.startswith("<") or self._name.startswith("Solid")
+
+        # Construct wpf_brush
+        self._wpf_brush = None
+        is_solid = False
+        try:
+            fill_pattern = element.GetFillPattern()
+            if fill_pattern:
+                is_solid = fill_pattern.IsSolidFill
+        except:
+            pass
+            
+        if is_solid or "solid" in self._name.lower():
+            self._wpf_brush = SolidColorBrush(Color.FromRgb(161, 161, 170)) # Zinc-400
+        else:
+            try:
+                db = DrawingBrush()
+                db.TileMode = TileMode.Tile
+                db.Viewport = Rect(0, 0, 10, 10)
+                db.ViewportUnits = BrushMappingMode.Absolute
+                
+                group = GeometryGroup()
+                pen = Pen(SolidColorBrush(Color.FromRgb(161, 161, 170)), 1)
+                
+                if self._settings == "Parallel lines":
+                    group.Children.Add(LineGeometry(Point(0, 5), Point(10, 5)))
+                elif self._settings == "Crosshatch":
+                    group.Children.Add(LineGeometry(Point(0, 5), Point(10, 5)))
+                    group.Children.Add(LineGeometry(Point(5, 0), Point(5, 10)))
+                else:
+                    group.Children.Add(LineGeometry(Point(0, 0), Point(10, 10)))
+                    
+                db.Drawing = GeometryDrawing(None, pen, group)
+                self._wpf_brush = db
+            except Exception:
+                self._wpf_brush = SolidColorBrush(Color.FromRgb(228, 228, 231))
+
+    @property
+    def wpf_brush(self): return self._wpf_brush
 
     @property
     def element(self): return self._element
@@ -173,6 +212,58 @@ class LineStyleItem(INotifyPropertyChanged):
             
         self._is_system = self._name.startswith('<') and self._name.endswith('>')
         self._usage_count = 0
+
+        # Construct wpf_brush
+        try:
+            color = category.LineColor
+            self._wpf_brush = SolidColorBrush(Color.FromRgb(color.Red, color.Green, color.Blue))
+        except:
+            self._wpf_brush = SolidColorBrush(Color.FromRgb(24, 24, 27))
+            
+        # Construct thickness_val
+        try:
+            w = float(self._weight)
+            self._thickness_val = max(1.0, min(6.0, 0.6 * w))
+        except:
+            self._thickness_val = 1.5
+            
+        # Construct dash_array
+        self._dash_array = None
+        try:
+            pattern_id = category.GetLinePatternId(GraphicsStyleType.Projection)
+            if pattern_id and _eid_int(pattern_id) != _eid_int(_get_invalid_element_id()):
+                pat = doc.GetElement(pattern_id)
+                if pat:
+                    lp = pat.GetLinePattern()
+                    if lp:
+                        segs = lp.GetSegments()
+                        if segs:
+                            dash_list = []
+                            for seg in segs:
+                                val = float(seg.Length * 304.8) # mm
+                                val = max(1.0, val * 1.5)
+                                dash_list.append(val)
+                            self._dash_array = DoubleCollection(dash_list)
+        except:
+            pass
+            
+        if not self._dash_array and self._pattern != "Solid":
+            p = self._pattern.lower()
+            if "dash dot dot" in p:
+                self._dash_array = DoubleCollection([4.0, 2.0, 1.0, 2.0, 1.0, 2.0])
+            elif "dash dot" in p:
+                self._dash_array = DoubleCollection([4.0, 2.0, 1.0, 2.0])
+            elif "dash" in p:
+                self._dash_array = DoubleCollection([4.0, 2.0])
+            elif "dot" in p:
+                self._dash_array = DoubleCollection([1.0, 2.0])
+
+    @property
+    def wpf_brush(self): return self._wpf_brush
+    @property
+    def thickness_val(self): return self._thickness_val
+    @property
+    def dash_array(self): return self._dash_array
 
     @property
     def category(self): return self._category
@@ -254,6 +345,29 @@ class LinePatternItem(INotifyPropertyChanged):
             self._segments_value = "-"
             
         self._is_system = self._name in self.SYSTEM_PATTERNS
+
+        # Construct wpf_brush & dash_array
+        self._wpf_brush = SolidColorBrush(Color.FromRgb(24, 24, 27))
+        self._dash_array = None
+        if element:
+            try:
+                line_pattern = element.GetLinePattern()
+                if line_pattern:
+                    segments = line_pattern.GetSegments()
+                    if segments:
+                        dash_list = []
+                        for seg in segments:
+                            val = float(seg.Length * 304.8) # mm
+                            val = max(1.0, val * 1.5)
+                            dash_list.append(val)
+                        self._dash_array = DoubleCollection(dash_list)
+            except:
+                pass
+
+    @property
+    def wpf_brush(self): return self._wpf_brush
+    @property
+    def dash_array(self): return self._dash_array
 
     @property
     def element(self): return self._element

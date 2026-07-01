@@ -6,10 +6,10 @@ const tab = path.join(__dirname, '..', 'T3Lab.extension', 'T3Lab.tab');
 
 const targets = [
   { panel: 'Views & Sheets.panel', tools: ['ManaViews.pushbutton', 'ManaSheets.pushbutton', 'BatchOut.pushbutton', 'SheetGen.pushbutton'] },
-  { panel: 'Standards & Settings.panel', tools: ['ManaLocations.pushbutton', 'ModelAuditor.pushbutton', 'VisualSettings.pushbutton', 'WorksetManager.pushbutton'] },
+  { panel: 'Standards & Settings.panel', tools: ['ManaLoca.pushbutton', 'ModelAuditor.pushbutton', 'ManaStyles.pushbutton', 'ManaWorkset.pushbutton'] },
   { panel: 'Annotation & Select.panel', tools: ['ManaAnno.pushbutton'] },
   { panel: 'Annotation & Select.panel/Mana.stack', tools: ['ManaAlign.pushbutton', 'ManaDWG.pushbutton', 'ManaSelect.pushbutton'] },
-  { panel: 'Modeling & Datum.panel', tools: ['FamilyCreator.pushbutton', 'ManaFamilies.pushbutton', 'ElementAdjust.pulldown'] },
+  { panel: 'Modeling & Datum.panel', tools: ['FamiGen.pushbutton', 'ManaFami.pushbutton', 'ElementAdjust.pulldown'] },
   { panel: 'Modeling & Datum.panel/Create.stack', tools: ['PropertyLine.pushbutton', 'Tile Layout.pushbutton', 'Create Elements.pulldown'] },
   { panel: 'Modeling & Datum.panel/Create.stack/Create Elements.pulldown', tools: ['CADToElements.pushbutton', 'DoorThreshold.pushbutton', 'ImageToDrafting.pushbutton', 'ManaDatums.pushbutton', 'PointCloud.pushbutton', 'RoomToFloor.pushbutton', 'Text to Element.pushbutton'] },
   { panel: 'Modeling & Datum.panel/ElementAdjust.pulldown', tools: ['AutoJoin.pushbutton', 'SplitElements.pushbutton', 'Wall Cut Profile.pushbutton', 'Wall_Adjust Base.pushbutton', 'Split.pulldown'] },
@@ -18,7 +18,7 @@ const targets = [
   { panel: 'Support.panel/CloudLinks.stack', tools: ['Autodesk Forma.urlbutton', 'Autodesk Health.urlbutton', 'Bluebeam Status.urlbutton'] },
   { panel: 'Support.panel/UI.stack', tools: ['BG Theme.pushbutton', 'ManaTabs.pushbutton', 'Ribbon Names.pushbutton'] },
   { panel: 'Data & IFC-SG.panel', tools: ['BCF Reader.pushbutton', 'Foundation Volume.pushbutton', 'IFC-SG.pushbutton'] },
-  { panel: 'Data & IFC-SG.panel/manaData.stack', tools: ['ContainsManager.pushbutton', 'ManaParameters.pushbutton', 'ManaSchedules.pushbutton'] },
+  { panel: 'Data & IFC-SG.panel/manaData.stack', tools: ['ManaContains.pushbutton', 'ManaPara.pushbutton', 'ManaSched.pushbutton'] },
 ];
 
 function renderSvgToPng(svgPath, pngPath) {

@@ -12,7 +12,7 @@
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="8"
+                       CornerRadius="22"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1170,7 +1170,7 @@
             </StackPanel>
         </Border>
         <!-- Copyright added automatically -->
-        <TextBlock Text="Â© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
     </Border>
 

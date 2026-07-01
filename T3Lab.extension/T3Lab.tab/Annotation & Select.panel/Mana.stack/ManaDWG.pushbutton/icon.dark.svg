@@ -1,21 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<!-- Blueprint/CAD paper -->
-<rect x="4" y="4" width="48" height="56" rx="4" fill="#7AB0CC"/>
-<!-- Folded corner -->
-<polygon points="40,4 52,4 52,16" fill="#EAA030"/>
-<polygon points="40,4 52,16 40,16" fill="#D08020" opacity="0.7"/>
-<!-- CAD drawing content (building plan lines) -->
-<rect x="10" y="20" width="36" height="28" rx="1" fill="none" stroke="#5A7290" stroke-width="1.2"/>
-<rect x="14" y="24" width="10" height="20" rx="1" fill="none" stroke="#4A6880" stroke-width="1.5"/>
-<rect x="28" y="30" width="14" height="14" rx="1" fill="none" stroke="#4A6880" stroke-width="1.5"/>
-<line x1="14" y1="34" x2="28" y2="34" stroke="#5A7290" stroke-width="1"/>
-<line x1="24" y1="24" x2="24" y2="44" stroke="#5A7290" stroke-width="1"/>
-<!-- DWG label band at bottom -->
-<rect x="4" y="52" width="48" height="8" rx="3" fill="#EAA030"/>
-<!-- Right panel (layer list) -->
-<rect x="54" y="4" width="8" height="56" rx="3" fill="#5A90B8"/>
-<rect x="55" y="8" width="6" height="2" rx="1" fill="#EAA030"/>
-<rect x="55" y="13" width="6" height="2" rx="1" fill="#5A7290"/>
-<rect x="55" y="18" width="6" height="2" rx="1" fill="#5A7290"/>
-<rect x="55" y="23" width="6" height="2" rx="1" fill="#5A7290"/>
+  <rect x="8" y="24" width="36" height="32" rx="3" fill="#F8FAFC"/>
+  <rect x="20" y="10" width="36" height="32" rx="3" fill="#1E293B" stroke="#F8FAFC" stroke-width="4"/>
+  <line x1="28" y1="20" x2="48" y2="20" stroke="#D07818" stroke-width="4"/>
+  <line x1="28" y1="30" x2="42" y2="30" stroke="#F8FAFC" stroke-width="4"/>
 </svg>

@@ -11,7 +11,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1087,25 +1087,18 @@
             </Grid.RowDefinitions>
 
             <!-- TITLE BAR -->
-            <Grid Grid.Row="0" Background="White" Height="64">
+            <Grid Grid.Row="0" Background="#F4F4F6" Height="64">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Brand + title + subtitle -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
-                            Margin="16,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                                       Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,8,2"/>
-                            <TextBlock Text="Datum Manager" FontSize="18" FontWeight="Bold" Foreground="#0F172A"/>
-                        </StackPanel>
-                        <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                        <TextBlock Text="Save/restore grids, align extents and convert 2D/3D datums" FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
-                    </StackPanel>
+                <!-- Title and Subtitle -->
+                <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center"
+                            Margin="22,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Datum Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Save/restore grids, align extents and convert 2D/3D datums" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
                 <!-- Window control buttons -->
@@ -1179,7 +1172,7 @@
             </TabControl>
 
             <!-- STATUS BAR -->
-            <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,6">
+            <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
                 <TextBlock Text="Click a button above to launch the tool"
                            FontSize="11" Foreground="#64748B" FontStyle="Italic"/>
             </Border>        <!-- Copyright added automatically -->

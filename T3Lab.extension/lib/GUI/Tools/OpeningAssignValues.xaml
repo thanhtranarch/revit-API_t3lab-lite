@@ -13,7 +13,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1080,6 +1080,7 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
     </Window.Resources>
 
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>
@@ -1088,13 +1089,13 @@
         </Grid.RowDefinitions>
 
         <!-- ─── Title Bar ─── -->
-        <Border Grid.Row="0" Background="White" BorderBrush="#E4E4E7" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
             <Grid>
-                <!-- Left: Logo + Title -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Image Source="../T3Lab_logo.png" Width="28" Height="28" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold" Foreground="#18181B" VerticalAlignment="Center"/>
-                    <TextBlock Text="Opening Assign Values" FontSize="18" FontWeight="Bold" Foreground="#18181B" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <!-- Title and Subtitle -->
+                <StackPanel Orientation="Vertical" VerticalAlignment="Center" Margin="22,0,0,0"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="Opening Assign Values" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="Assign computed area values to Filled Region parameters" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
                 <!-- Right: Window Controls -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -1186,7 +1187,7 @@
         </ScrollViewer>
 
         <!-- ─── Status Bar ─── -->
-        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#E4E4E7" BorderThickness="0,1,0,0" Padding="14,7">
+        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
             <Grid>
                 <TextBlock x:Name="txt_status" Text="Ready — open a view containing filled regions, then click Execute." FontSize="11" Foreground="#71717A" HorizontalAlignment="Left" VerticalAlignment="Center"/>
                 <TextBlock Text="T3Lab Opening Assign Values" FontSize="11" Foreground="#9A9AA2" HorizontalAlignment="Right" VerticalAlignment="Center"/>
@@ -1196,4 +1197,5 @@
         <!-- Copyright overlay -->
         <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
     </Grid>
+    </Border>
 </Window>

@@ -1,15 +1,9 @@
 # -*- coding: utf-8 -*-
-"""ManaAlign — Unified alignment and dimensioning manager.
-
-Consolidates:
-  - Smart Align (Graphical align & distribute)
-  - Auto Dimension (Automated dimension chains)
-  - Snap Dimension (Snapping elements/dimensions to grids)
-  - Reset Graphic Overrides (Title bar action)
+"""Auto Dimension — automatically create dimension chains for selected elements.
 
 Author: T3Lab
 """
-__title__ = "Mana\nAlign"
+__title__ = "Auto\nDimension"
 __author__ = "T3Lab"
 __persistentengine__ = True
 
@@ -24,7 +18,7 @@ if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
 # Import and show the dialog
-import GUI.ManaAlignDialog as ManaAlignDialog
+import GUI.AutoDimensionDialog as AutoDimensionDialog
 
 if __name__ == '__main__':
-    ManaAlignDialog.show_dialog()
+    AutoDimensionDialog.show_dialog()

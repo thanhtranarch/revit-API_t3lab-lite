@@ -11,7 +11,7 @@
         <WindowChrome CaptionHeight="64"
                       ResizeBorderThickness="5"
                       GlassFrameThickness="0"
-                      CornerRadius="8"
+                      CornerRadius="22"
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1158,7 +1158,7 @@
             </TabControl>
 
             <!-- STATUS BAR -->
-            <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,6">
+            <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
                 <TextBlock Text="Click a button above to launch the tool"
                            FontSize="11" Foreground="#64748B" FontStyle="Italic"/>
             </Border>        <!-- Copyright added automatically -->

@@ -25,6 +25,8 @@ clr.AddReference('RevitAPI')
 clr.AddReference('RevitAPIUI')
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
+clr.AddReference('WindowsBase')
+clr.AddReference('System')
 
 from System.Windows import WindowState, Visibility
 from System.Windows.Media.Imaging import BitmapImage
@@ -1712,7 +1714,8 @@ def show_dialog():
     doc_inst   = uidoc_inst.Document
 
     window = AutoDimensionWindow(uidoc_inst, doc_inst)
-    window.ShowDialog()
+    # Modeless so the user can interact with the viewport (pick elements/views) while open
+    window.show(modal=False)
 
 if __name__ == '__main__':
     show_dialog()

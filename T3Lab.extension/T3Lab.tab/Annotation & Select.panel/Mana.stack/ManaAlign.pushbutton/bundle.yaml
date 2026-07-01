@@ -1,10 +1,7 @@
-title: "Mana\nAlign"
-tooltip: Unified dimensioning, snap alignment, and graphics override reset manager.
+title: "Auto\nDimension"
+tooltip: Automatically create dimension chains for selected elements.
 description: |
-  Consolidated alignment and dimensioning manager with 4 tools:
-  - Smart Align: graphically align and distribute elements in the active view
-  - Auto Dimension: automatically create dimension chains for selected elements
-  - Snap Dimension: snap elements or dimensions to grid intersections
-  - Reset Overrides: clear all graphic overrides in selected elements or the entire view
+  Auto Dimension: automatically create dimension chains for walls, columns,
+  doors, lifts and grids in the active or a chosen view.
 
 author: Tran Tien Thanh

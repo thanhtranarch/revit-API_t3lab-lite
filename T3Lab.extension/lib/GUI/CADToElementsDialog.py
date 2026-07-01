@@ -33,14 +33,15 @@ from System.Xml import XmlReader
 from System.Windows import (
     Window, WindowState, Visibility, Thickness,
     HorizontalAlignment, VerticalAlignment, MessageBox,
-    MessageBoxButton, MessageBoxResult, MessageBoxImage
+    MessageBoxButton, MessageBoxResult, MessageBoxImage,
+    FontWeights
 )
 from System.Windows.Controls import (
     StackPanel, TextBlock, Border, CheckBox, ComboBoxItem,
     Orientation, ScrollBarVisibility
 )
 from System.Windows.Markup import XamlReader
-from System.Windows.Media import SolidColorBrush, Color, BrushConverter, FontWeights
+from System.Windows.Media import SolidColorBrush, Color, BrushConverter
 
 import Autodesk.Revit.DB as DB
 from Autodesk.Revit.DB import (

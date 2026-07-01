@@ -15,21 +15,21 @@
         <SolidColorBrush x:Key="T3MainAppBgBrush" Color="#E4E4E7"/>
         <SolidColorBrush x:Key="T3ComponentBgBrush" Color="#FFFFFF"/>
         <SolidColorBrush x:Key="T3InputFieldBgBrush" Color="#F4F4F6"/>
-
+        
         <!-- Semantic & Status Brushes -->
         <SolidColorBrush x:Key="T3SuccessBgBrush" Color="#EAF8F0"/>
         <SolidColorBrush x:Key="T3SuccessTextBrush" Color="#157038"/>
         <SolidColorBrush x:Key="T3SuccessBorderBrush" Color="#09734B"/>
         <SolidColorBrush x:Key="T3SuccessAccentBrush" Color="#0B8A5A"/>
-
+        
         <SolidColorBrush x:Key="T3WarningBgBrush" Color="#FFF6E6"/>
         <SolidColorBrush x:Key="T3WarningTextBrush" Color="#8A6308"/>
         <SolidColorBrush x:Key="T3WarningAccentBrush" Color="#F5CE5A"/>
-
+        
         <SolidColorBrush x:Key="T3DangerBgBrush" Color="#FDECEC"/>
         <SolidColorBrush x:Key="T3DangerTextBrush" Color="#D23B3B"/>
         <SolidColorBrush x:Key="T3DangerAccentBrush" Color="#F87171"/>
-
+        
         <SolidColorBrush x:Key="T3ProgressActionBrush" Color="#C2410C"/>
 
         <!-- TERTIARY BUTTON - soft gray background, dark text -->
@@ -93,7 +93,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="34"/>
                                     </Grid.ColumnDefinitions>
-
+                                    
                                     <!-- Content -->
                                     <ContentPresenter Grid.Column="0"
                                                       Content="{TemplateBinding SelectionBoxItem}"
@@ -103,7 +103,7 @@
                                                       VerticalAlignment="Center"
                                                       HorizontalAlignment="Left"
                                                       IsHitTestVisible="False"/>
-
+                                                      
                                     <!-- Toggle Button (Arrow) -->
                                     <ToggleButton Grid.Column="0" Grid.ColumnSpan="2"
                                                   Background="Transparent"
@@ -115,7 +115,7 @@
                                             </ControlTemplate>
                                         </ToggleButton.Template>
                                     </ToggleButton>
-
+                                    
                                     <!-- Arrow Icon -->
                                     <Path Grid.Column="1"
                                           Data="M6 9 L12 15 L18 9"
@@ -131,7 +131,7 @@
                                           IsHitTestVisible="False"/>
                                 </Grid>
                             </Border>
-
+                            
                             <!-- Popup -->
                             <Popup x:Name="PART_Popup"
                                    AllowsTransparency="true"
@@ -182,18 +182,18 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-
-                            <ContentPresenter x:Name="contentPresenter"
-                                              Grid.Column="0"
-                                              Focusable="False"
-                                              HorizontalAlignment="Left"
+                            
+                            <ContentPresenter x:Name="contentPresenter" 
+                                              Grid.Column="0" 
+                                              Focusable="False" 
+                                              HorizontalAlignment="Left" 
                                               VerticalAlignment="Center"
-                                              Margin="{TemplateBinding Padding}"
-                                              RecognizesAccessKey="True"
+                                              Margin="{TemplateBinding Padding}" 
+                                              RecognizesAccessKey="True" 
                                               SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
-
+                                              
                             <!-- Toggle Track -->
-                            <Border x:Name="toggleTrack"
+                            <Border x:Name="toggleTrack" 
                                     Grid.Column="1"
                                     Width="42" Height="24"
                                     Background="#DCDCE2"
@@ -242,14 +242,14 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-
+                            
                             <Border x:Name="TrackBackground"
                                     Grid.Row="1"
                                     Height="6"
                                     Background="{TemplateBinding Background}"
                                     CornerRadius="3"
                                     VerticalAlignment="Center"/>
-
+                                    
                             <!-- Track Fill and Thumb -->
                             <Track x:Name="PART_Track" Grid.Row="1">
                                 <Track.DecreaseRepeatButton>
@@ -345,7 +345,7 @@
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
                                 <!-- Card Header -->
-                                <Border Grid.Row="0"
+                                <Border Grid.Row="0" 
                                         Background="#FFFFFF"
                                         Padding="16,12"
                                         BorderBrush="#E2E8F0"
@@ -618,7 +618,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Border x:Name="checkBoxBorder"
+                            <Border x:Name="checkBoxBorder" 
                                     Grid.Column="0"
                                     Width="18" Height="18"
                                     Margin="0,0,8,0"
@@ -628,22 +628,22 @@
                                     CornerRadius="6"
                                     HorizontalAlignment="Left"
                                     VerticalAlignment="Center">
-                                <Path x:Name="optionMark"
-                                      Data="M4,9 L8,13 L14,5"
-                                      Stroke="White"
-                                      StrokeThickness="2"
-                                      StrokeStartLineCap="Round"
-                                      StrokeEndLineCap="Round"
+                                <Path x:Name="optionMark" 
+                                      Data="M4,9 L8,13 L14,5" 
+                                      Stroke="White" 
+                                      StrokeThickness="2" 
+                                      StrokeStartLineCap="Round" 
+                                      StrokeEndLineCap="Round" 
                                       StrokeLineJoin="Round"
                                       Visibility="Collapsed"/>
                             </Border>
-                            <ContentPresenter x:Name="contentPresenter"
-                                              Grid.Column="1"
-                                              Focusable="False"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              Margin="{TemplateBinding Padding}"
-                                              RecognizesAccessKey="True"
-                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                            <ContentPresenter x:Name="contentPresenter" 
+                                              Grid.Column="1" 
+                                              Focusable="False" 
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
+                                              Margin="{TemplateBinding Padding}" 
+                                              RecognizesAccessKey="True" 
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -681,7 +681,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Border x:Name="radioBorder"
+                            <Border x:Name="radioBorder" 
                                     Grid.Column="0"
                                     Width="20" Height="20"
                                     Margin="0,0,8,0"
@@ -698,13 +698,13 @@
                                          HorizontalAlignment="Center"
                                          VerticalAlignment="Center"/>
                             </Border>
-                            <ContentPresenter x:Name="contentPresenter"
-                                              Grid.Column="1"
-                                              Focusable="False"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              Margin="{TemplateBinding Padding}"
-                                              RecognizesAccessKey="True"
-                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                            <ContentPresenter x:Name="contentPresenter" 
+                                              Grid.Column="1" 
+                                              Focusable="False" 
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" 
+                                              Margin="{TemplateBinding Padding}" 
+                                              RecognizesAccessKey="True" 
+                                              SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" 
                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                         </Grid>
                         <ControlTemplate.Triggers>

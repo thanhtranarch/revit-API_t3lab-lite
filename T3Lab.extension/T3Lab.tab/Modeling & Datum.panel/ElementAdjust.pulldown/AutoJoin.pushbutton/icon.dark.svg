@@ -1,16 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<!-- Horizontal wall -->
-<rect x="4" y="24" width="56" height="16" rx="3" fill="#7AB0CC"/>
-<!-- Vertical wall crossing through -->
-<rect x="24" y="4" width="16" height="56" rx="3" fill="#5A90B8"/>
-<!-- Orange join highlight at intersection -->
-<rect x="24" y="24" width="16" height="16" rx="2" fill="#EAA030"/>
-<!-- Join seam lines -->
-<line x1="24" y1="32" x2="40" y2="32" stroke="#D08020" stroke-width="1.5"/>
-<line x1="32" y1="24" x2="32" y2="40" stroke="#D08020" stroke-width="1.5"/>
-<!-- White corner geometry-cleanup dots -->
-<circle cx="24" cy="24" r="3" fill="white" opacity="0.8"/>
-<circle cx="40" cy="24" r="3" fill="white" opacity="0.8"/>
-<circle cx="24" cy="40" r="3" fill="white" opacity="0.8"/>
-<circle cx="40" cy="40" r="3" fill="white" opacity="0.8"/>
+  <rect x="8" y="24" width="48" height="16" rx="3" fill="#F8FAFC"/>
+  <rect x="24" y="8" width="16" height="48" rx="3" fill="#D07818"/>
 </svg>

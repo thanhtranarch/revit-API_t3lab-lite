@@ -8,6 +8,7 @@ import codecs
 import datetime
 import re
 import csv
+import glob
 import traceback
 from collections import OrderedDict, defaultdict
 
@@ -233,24 +234,35 @@ class ModelHealthAnalyzer(object):
         self.metrics = OrderedDict()
         self.element_ids = {}
 
-    def analyze(self):
-        self._file_size()
-        self._warnings()
-        self._cad_imports()
-        self._in_place_families()
-        self._rvt_links()
-        self._worksets()
-        self._cad_links()
-        self._views()
-        self._sheets()
-        self._groups()
-        self._design_options()
-        self._reference_planes()
-        self._detail_lines()
-        self._filled_regions()
-        self._unplaced_rooms()
-        self._unpinned_links()
-        self._duplicate_elements()
+    def analyze(self, progress_callback=None):
+        methods = [
+            (self._file_size, "Calculating File Size"),
+            (self._warnings, "Collecting Warnings"),
+            (self._cad_imports, "Scanning CAD Imports"),
+            (self._in_place_families, "Scanning In-Place Families"),
+            (self._rvt_links, "Scanning Revit Links"),
+            (self._worksets, "Scanning Worksets"),
+            (self._cad_links, "Scanning CAD Links"),
+            (self._views, "Scanning Views"),
+            (self._sheets, "Scanning Sheets"),
+            (self._groups, "Scanning Groups"),
+            (self._design_options, "Scanning Design Options"),
+            (self._reference_planes, "Scanning Reference Planes"),
+            (self._detail_lines, "Scanning Detail Lines"),
+            (self._filled_regions, "Scanning Filled Regions"),
+            (self._unplaced_rooms, "Scanning Unplaced Rooms"),
+            (self._unpinned_links, "Scanning Unpinned Links"),
+            (self._duplicate_elements, "Scanning Duplicate Elements")
+        ]
+        
+        total = len(methods)
+        for idx, (m, name) in enumerate(methods):
+            if progress_callback:
+                progress_callback(int((idx / float(total)) * 100), name)
+            m()
+            
+        if progress_callback:
+            progress_callback(100, "Done")
         return self.metrics
 
     def _store_ids(self, key, elements):
@@ -677,6 +689,48 @@ def analyze_element(element, document):
     return deps
 
 # ============================================================================
+# UTILITIES
+# ============================================================================
+class SilenceOutput(object):
+    def __enter__(self):
+        self._old_out = sys.stdout
+        self._old_err = sys.stderr
+        class NullWriter(object):
+            def write(self, *args, **kwargs): pass
+            def flush(self, *args, **kwargs): pass
+        sys.stdout = NullWriter()
+        sys.stderr = NullWriter()
+        return self
+    def __exit__(self, et, ev, tb):
+        sys.stdout = self._old_out
+        sys.stderr = self._old_err
+
+# ============================================================================
+# UTILITIES
+# ============================================================================
+class GridRow(object):
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+    def __getitem__(self, key):
+        return getattr(self, key)
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+    def __contains__(self, key):
+        return hasattr(self, key)
+
+def parse_slog_time(time_str):
+    try:
+        return datetime.datetime.strptime(time_str.strip(), "%Y-%m-%d %H:%M:%S.%f")
+    except:
+        try:
+            return datetime.datetime.strptime(time_str.split(".")[0].strip(), "%Y-%m-%d %H:%M:%S")
+        except:
+            return None
+
+# ============================================================================
 # MAIN AUDITOR WINDOW
 # ============================================================================
 class ModelAuditorWindow(forms.WPFWindow):
@@ -705,12 +759,12 @@ class ModelAuditorWindow(forms.WPFWindow):
         # Chrome actions
         self.btn_minimize.Click += self._minimize
         self.btn_maximize.Click += self._maximize
-        self.btn_close_chrome.Click += self._close_chrome
+        self.btn_close.Click += self._close_chrome
 
         # Hook button events
         # 1. Health tab
         self.btn_health_run.Click += self.on_health_run
-        self.btn_health_select.Click += self.on_health_select
+        self.btn_health_export.Click += self.on_health_export
         
         # 2. Compliance tab
         self.btn_checker_run.Click += self.on_checker_run
@@ -777,6 +831,30 @@ class ModelAuditorWindow(forms.WPFWindow):
         idx = self._SIDEBAR_MAP.get(sender.Name, -1)
         if idx >= 0:
             self._go_to_main_tab(idx)
+
+    def _flush_ui(self):
+        """Force WPF to process pending render operations so progress shows in realtime."""
+        try:
+            from System.Windows.Threading import DispatcherPriority
+            from System import Action
+            self.Dispatcher.Invoke(DispatcherPriority.Render, Action(lambda: None))
+        except Exception:
+            pass
+
+    def _set_progress(self, percent, text=None):
+        """Update progress bar visibility, value, and status text."""
+        try:
+            import System
+            if percent is None or percent < 0:
+                self.progress_bar.Visibility = System.Windows.Visibility.Collapsed
+            else:
+                self.progress_bar.Visibility = System.Windows.Visibility.Visible
+                self.progress_bar.Value = percent
+            if text:
+                self.status_text.Text = text
+            self._flush_ui()
+        except Exception:
+            pass
 
     def _on_main_tab_changed(self, sender, e):
         """Sync sidebar toggle buttons when tab changes via keyboard/programmatic switch."""
@@ -850,9 +928,28 @@ class ModelAuditorWindow(forms.WPFWindow):
     # ========================================================================
     # TAB 1: HEALTH DASHBOARD
     # ========================================================================
+    def _get_indicator_percent(self, val, thresholds):
+        t0, t1, t2, t3, t4 = thresholds
+        if val <= t0:
+            pct = 10
+        elif val <= t1:
+            pct = 10 + 20 * float(val - t0) / max(t1 - t0, 1)
+        elif val <= t2:
+            pct = 30 + 20 * float(val - t1) / max(t2 - t1, 1)
+        elif val <= t3:
+            pct = 50 + 20 * float(val - t2) / max(t3 - t2, 1)
+        elif val <= t4:
+            pct = 70 + 20 * float(val - t3) / max(t4 - t3, 1)
+        else:
+            pct = 100
+        return int(pct)
+
     def on_health_run(self, sender, e):
         self.status_text.Text = "Running model health analysis..."
-        self.health_results = self.health_analyzer.analyze()
+        def progress_cb(pct, name):
+            self._set_progress(pct, "Running diagnostics: {}...".format(name))
+        self.health_results = self.health_analyzer.analyze(progress_callback=progress_cb)
+        self._set_progress(-1)
         
         # Calculate score and grade
         weighted_total = 0
@@ -871,7 +968,6 @@ class ModelAuditorWindow(forms.WPFWindow):
                 weight_sum += w
         
         score = round(weighted_total / max(weight_sum, 1), 1)
-        self.txt_health_score.Text = str(score)
         
         grade = "F"
         desc = "Critical"
@@ -879,58 +975,343 @@ class ModelAuditorWindow(forms.WPFWindow):
         elif score >= 75: grade, desc = "B", "Good"
         elif score >= 60: grade, desc = "C", "Fair"
         elif score >= 40: grade, desc = "D", "Poor"
-        self.txt_health_grade.Text = "{} - {}".format(grade, desc)
+        
+        # Update circular score badge and middle profile info
+        from System.Windows.Media import BrushConverter
+        if score >= 90:
+            bg_color, fg_color = "#E6F4EA", "#10B981"
+        elif score >= 75:
+            bg_color, fg_color = "#F7FEE7", "#84CC16"
+        elif score >= 60:
+            bg_color, fg_color = "#FFFBEB", "#F59E0B"
+        elif score >= 40:
+            bg_color, fg_color = "#FFEDD5", "#F97316"
+        else:
+            bg_color, fg_color = "#FEE2E2", "#EF4444"
+            
+        brush_bg = BrushConverter().ConvertFromString(bg_color)
+        brush_fg = BrushConverter().ConvertFromString(fg_color)
+        
+        self.ellipse_health_bg.Fill = brush_bg
+        self.ellipse_health_color.Fill = brush_fg
+        
+        self.txt_health_grade.Text = grade
+        self.txt_health_score.Text = str(score)
+        self.txt_health_badge_label.Text = "{} - {}".format(grade, desc)
+        self.txt_health_badge_label.Foreground = brush_fg
+        
+        self.txt_health_title.Text = "Model Health: {}".format(desc)
+        self.txt_health_weighted_score.Text = "Weighted Score: {}/100".format(score)
+        self.txt_health_weighted_grade.Text = "Grade: {} ({})".format(grade, desc)
         
         # Update text info
         doc_name = os.path.basename(self.doc.PathName) if self.doc.PathName else "Unsaved Project"
         self.txt_health_doc_name.Text = "Model: {}".format(doc_name)
-        self.txt_health_doc_size.Text = "Size: {} MB".format(self.health_results.get("file_size_mb", 0))
-        self.txt_health_doc_warnings.Text = "Warnings: {}".format(self.health_results.get("warnings", 0))
-        self.txt_health_last_run.Text = "Last Checked: {}".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        self.txt_health_last_run.Text = "Last analyzed: {}".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-        # Load metrics data to DataGrid
+        # Load metrics data to DataGrid and collect counts & recommendations
         grid_data = []
+        counts = {"Good": 0, "Acceptable": 0, "Warning": 0, "Concerning": 0, "Critical": 0, "Severe": 0}
+        recs_data = []
+        
         for key, value in self.health_results.items():
             if key in METRIC_THRESHOLDS:
                 m_info = METRIC_THRESHOLDS[key]
                 t = m_info["thresholds"]
                 
                 status_str = "Good"
-                if value <= t[0]: status_str = "Good"
-                elif value <= t[1]: status_str = "Acceptable"
-                elif value <= t[2]: status_str = "Warning"
-                elif value <= t[3]: status_str = "Concerning"
-                elif value <= t[4]: status_str = "Critical"
-                else: status_str = "Severe"
-
+                value_bg = "#10B981"
+                status_fg = "#10B981"
+                if value <= t[0]:
+                    status_str = "Good"
+                    value_bg = "#10B981"
+                    status_fg = "#10B981"
+                elif value <= t[1]:
+                    status_str = "Acceptable"
+                    value_bg = "#84CC16"
+                    status_fg = "#84CC16"
+                elif value <= t[2]:
+                    status_str = "Warning"
+                    value_bg = "#F59E0B"
+                    status_fg = "#D97706"
+                elif value <= t[3]:
+                    status_str = "Concerning"
+                    value_bg = "#F97316"
+                    status_fg = "#EA580C"
+                elif value <= t[4]:
+                    status_str = "Critical"
+                    value_bg = "#EF4444"
+                    status_fg = "#DC2626"
+                else:
+                    status_str = "Severe"
+                    value_bg = "#B91C1C"
+                    status_fg = "#991B1B"
+                
+                counts[status_str] += 1
+                
                 val_str = "{}{}".format(value, " " + m_info["unit"] if m_info["unit"] else "")
-                grid_data.append({
-                    "key": key,
-                    "label": m_info["label"],
-                    "value_str": val_str,
-                    "status": status_str,
-                    "recommendation": m_info["recommendation"]
-                })
+                
+                # Visual bar calculations
+                indicator_pct = self._get_indicator_percent(value, t)
+                indicator_width = int((indicator_pct / 100.0) * 180)
+                
+                # Stars calculation
+                stars = u"★" * m_info["weight"] + u"☆" * (5 - m_info["weight"])
+                weight_stars = "Weight: {} ({}/5)".format(stars, m_info["weight"])
+                
+                thresholds_text = "Thresholds: " + " | ".join(str(x) for x in t)
+                
+                # Element selectability
+                has_elements = len(self.health_analyzer.element_ids.get(key, [])) > 0
+                select_visibility = "Visible" if (m_info["selectable"] and has_elements) else "Collapsed"
+                
+                grid_row = GridRow(
+                    key=key,
+                    label=m_info["label"],
+                    value_str=val_str,
+                    value_bg=value_bg,
+                    indicator_color=value_bg,
+                    indicator_width=indicator_width,
+                    status_title_full="Status: {}".format(status_str),
+                    status_fg=status_fg,
+                    weight_stars=weight_stars,
+                    thresholds_text=thresholds_text,
+                    select_visibility=select_visibility,
+                    recommendation=m_info["recommendation"]
+                )
+                grid_data.append(grid_row)
+                
+                # Collect recommendations if status is concerning or worse
+                if status_str in ["Warning", "Concerning", "Critical", "Severe"]:
+                    recs_data.append(GridRow(
+                        bullet_brush=BrushConverter().ConvertFromString(value_bg),
+                        text="{} ({}): {}".format(m_info["label"], val_str, m_info["recommendation"])
+                    ))
+        
+        # Build health summary text
+        crit_severe = counts["Critical"] + counts["Severe"]
+        warn_concern = counts["Warning"] + counts["Concerning"]
+        summary_text = "{} critical/severe issues, {} warnings. {}".format(
+            crit_severe, warn_concern,
+            "Immediate attention needed." if crit_severe > 0 else "Model is in good shape."
+        )
+        self.txt_health_summary.Text = summary_text
+        
+        total_metrics = len(grid_data)
+        metrics_breakdown = "Total: {} metrics | Good: {} | Acceptable: {} | Warning: {} | Concerning: {} | Critical: {} | Severe: {}".format(
+            total_metrics, counts["Good"], counts["Acceptable"], counts["Warning"], counts["Concerning"], counts["Critical"], counts["Severe"]
+        )
+        self.txt_health_summary_metrics.Text = metrics_breakdown
         
         self.dg_health_metrics.ItemsSource = grid_data
+        self.lst_health_recommendations.ItemsSource = recs_data
+        
+        # Collect and bind worksharing performance
+        try:
+            performance_data = self._collect_worksharing_performance()
+            self.dg_sync_performance.ItemsSource = performance_data
+        except Exception as ex:
+            print("Error loading worksharing performance: {}".format(ex))
+            traceback.print_exc()
+            
         self.status_text.Text = "Health analysis complete. Score: {}".format(score)
 
-    def on_health_select(self, sender, e):
-        selected = self.dg_health_metrics.SelectedItem
-        if not selected:
-            forms.alert("Please select a metric in the list first.", title="Model Health")
+    def on_health_metric_select(self, sender, e):
+        row = sender.DataContext
+        if not row:
             return
         
-        key = selected.get("key")
-        ids = self.health_analyzer.element_ids.get(key)
-        if not ids:
-            forms.alert("No elements to select for metric: {}".format(selected.get("label")), title="Model Health")
+        key = row.key
+        ids_list = self.health_analyzer.element_ids.get(key, [])
+        if not ids_list:
+            forms.alert("No elements to select for metric: {}".format(row.label), title="Model Health Check")
             return
         
-        element_ids = [ElementId(int(eid)) for eid in ids]
-        self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](element_ids))
-        self.uidoc.ShowElements(System.Collections.Generic.List[ElementId](element_ids))
-        self.status_text.Text = "Selected {} elements for {}".format(len(ids), selected.get("label"))
+        elem_ids = [ElementId(eid) for eid in ids_list]
+        try:
+            self.uidoc.Selection.SetElementIds(System.Collections.Generic.List[ElementId](elem_ids))
+            self.uidoc.ShowElements(System.Collections.Generic.List[ElementId](elem_ids))
+            self.status_text.Text = "Selected {} elements for {}".format(len(elem_ids), row.label)
+        except Exception as ex:
+            forms.alert("Failed to select elements:\n{}".format(ex))
+
+    def on_health_export(self, sender, e):
+        if not hasattr(self, 'health_results') or not self.health_results:
+            forms.alert("Please run the diagnostics first.", title="Model Health Check")
+            return
+        
+        try:
+            default_name = "Model_Health_Report_{}".format(datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+            filepath = forms.save_file(filesfilter="CSV Files (*.csv)|*.csv", default_name=default_name)
+            if not filepath:
+                return
+            
+            with open(filepath, "wb") as f:
+                import csv
+                writer = csv.writer(f)
+                writer.writerow(["Metric", "Value", "Status", "Recommendation"])
+                for row in self.dg_health_metrics.ItemsSource:
+                    writer.writerow([
+                        row.label.encode("utf-8") if isinstance(row.label, unicode) else row.label,
+                        row.value_str.encode("utf-8") if isinstance(row.value_str, unicode) else row.value_str,
+                        row.status_title_full.encode("utf-8") if isinstance(row.status_title_full, unicode) else row.status_title_full,
+                        row.recommendation.encode("utf-8") if isinstance(row.recommendation, unicode) else row.recommendation
+                    ])
+            forms.alert("Health report exported successfully to:\n\n{}".format(filepath), title="Model Health Check")
+        except Exception as ex:
+            forms.alert("Failed to export health report:\n{}".format(ex))
+
+    def _collect_worksharing_performance(self):
+        # Dictionary to store stats by user
+        # user -> {'sync_times': [], 'open_times': []}
+        user_data = defaultdict(lambda: {'sync_times': [], 'open_times': []})
+        
+        # 1. Try to read central slog file if workshared and local/network based
+        slog_path = None
+        if self.doc.IsWorkshared:
+            try:
+                central_path = self.doc.GetWorksharingCentralModelPath()
+                if central_path:
+                    model_guid = central_path.GetModelGUID().ToString() if hasattr(central_path, "GetModelGUID") else None
+                    project_guid = central_path.GetProjectGUID().ToString() if hasattr(central_path, "GetProjectGUID") else None
+                    
+                    central_path_str = ModelPathUtils.ConvertModelPathToUserVisiblePath(central_path)
+                    if central_path_str and os.path.exists(central_path_str):
+                        backup_dir = central_path_str.replace(".rvt", "_backup")
+                        if os.path.exists(backup_dir):
+                            for name in ["central.slog", "wslog.slog"]:
+                                p = os.path.join(backup_dir, name)
+                                if os.path.exists(p):
+                                    slog_path = p
+                                    break
+                                    
+                    # 2. Try collaboration cache for cloud worksharing
+                    if not slog_path and model_guid and project_guid:
+                        appdata = os.getenv("LOCALAPPDATA")
+                        version = self.doc.Application.VersionNumber
+                        collab_pattern = os.path.join(
+                            appdata, "Autodesk", "Revit", 
+                            "Autodesk Revit " + version, 
+                            "CollaborationCache", "*", project_guid, 
+                            model_guid + "_backup", "wslog.slog"
+                        )
+                        matches = glob.glob(collab_pattern)
+                        if matches:
+                            slog_path = matches[0]
+            except Exception as e:
+                pass
+                
+        # If we have a slog path, parse it
+        log_files_to_parse = []
+        if slog_path and os.path.exists(slog_path):
+            log_files_to_parse.append((slog_path, True)) # (filepath, is_slog)
+            
+        # 3. Always include local journals as fallback/supplement (last 10 journals)
+        try:
+            appdata = os.getenv("LOCALAPPDATA")
+            version = self.doc.Application.VersionNumber
+            journal_dir = os.path.join(appdata, "Autodesk", "Revit", "Autodesk Revit " + version, "Journals")
+            if os.path.exists(journal_dir):
+                journals = glob.glob(os.path.join(journal_dir, "journal.*.txt"))
+                journals.sort(key=os.path.getmtime, reverse=True)
+                for j in journals[:10]:
+                    log_files_to_parse.append((j, False))
+        except Exception as e:
+            pass
+            
+        # Parse all identified log files
+        for filepath, is_slog in log_files_to_parse:
+            try:
+                # Read lines safely
+                with open(filepath, "r") as f:
+                    lines = f.readlines()
+                
+                sessions = {} # session_id -> {'user': ..., 'open_start': ..., 'sync_start': ...}
+                
+                for line in lines:
+                    if "SLOG" not in line:
+                        continue
+                        
+                    parts = line.split("SLOG")
+                    if len(parts) < 2:
+                        continue
+                    slog_content = parts[1].strip()
+                    
+                    # Associate username
+                    if "user=" in slog_content:
+                        match_user = re.search(r'user="([^"]+)"', slog_content)
+                        if match_user:
+                            username = match_user.group(1)
+                            match_sess = re.search(r'\$(\w+)', slog_content)
+                            if match_sess:
+                                sess_id = match_sess.group(1)
+                                if sess_id not in sessions:
+                                    sessions[sess_id] = {'user': username}
+                                else:
+                                    sessions[sess_id]['user'] = username
+                            continue
+                            
+                    # Event parsing
+                    match_event = re.search(r'\$(\w+)\s+([\d\-:\.\s]+)\s+([><\.]\w+)', slog_content)
+                    if match_event:
+                        sess_id = match_event.group(1)
+                        time_str = match_event.group(2)
+                        event_type = match_event.group(3)
+                        
+                        t = parse_slog_time(time_str)
+                        if not t:
+                            continue
+                            
+                        if sess_id not in sessions:
+                            sessions[sess_id] = {'user': 'Unknown'}
+                            
+                        user = sessions[sess_id].get('user', 'Unknown')
+                        
+                        # Open events
+                        if event_type in [">Open", ">Open:Local"]:
+                            sessions[sess_id]['open_start'] = t
+                        elif event_type in ["<Open", "<Open:Local"]:
+                            if 'open_start' in sessions[sess_id]:
+                                dur = (t - sessions[sess_id]['open_start']).total_seconds()
+                                if 0 < dur < 1800:
+                                    user_data[user]['open_times'].append(dur)
+                                    # Clear to prevent double matches
+                                    del sessions[sess_id]['open_start']
+                                    
+                        # Sync events
+                        elif event_type == ">STC":
+                            sessions[sess_id]['sync_start'] = t
+                        elif event_type == "<STC":
+                            if 'sync_start' in sessions[sess_id]:
+                                dur = (t - sessions[sess_id]['sync_start']).total_seconds()
+                                if 0 < dur < 1800:
+                                    user_data[user]['sync_times'].append(dur)
+                                    del sessions[sess_id]['sync_start']
+            except Exception as ex:
+                pass
+                
+        # Aggregate results into list of GridRow
+        performance_rows = []
+        for user, data in user_data.items():
+            if user == "Unknown" or (not data['sync_times'] and not data['open_times']):
+                continue
+                
+            avg_sync = "-"
+            if data['sync_times']:
+                avg_sync = "{:.1f}s".format(sum(data['sync_times']) / len(data['sync_times']))
+                
+            avg_open = "-"
+            if data['open_times']:
+                avg_open = "{:.1f}s".format(sum(data['open_times']) / len(data['open_times']))
+                
+            performance_rows.append(GridRow(
+                user=user,
+                avg_sync=avg_sync,
+                avg_open=avg_open,
+                sync_count=str(len(data['sync_times']))
+            ))
+            
+        return performance_rows
 
     # ========================================================================
     # TAB 2: COMPLIANCE CHECKER
@@ -963,7 +1344,7 @@ class ModelAuditorWindow(forms.WPFWindow):
             
             engine = RuleEngine(self.doc)
             results = engine.run_checkset(checkset_data)
-            self.dg_checker_results.ItemsSource = results
+            self.dg_checker_results.ItemsSource = [GridRow(**r) for r in results]
             
             fails = sum(1 for r in results if r["status"] == "Fail")
             self.status_text.Text = "Compliance check complete. Rules run: {}, Fails: {}".format(len(results), fails)
@@ -1016,13 +1397,13 @@ class ModelAuditorWindow(forms.WPFWindow):
             # Format for DataGrid
             grid_data = []
             for desc, elements in self.warning_groups_dict.items():
-                grid_data.append({
-                    "description": desc,
-                    "count": len(elements),
-                    "element_ids": [_eid_int(eid) for eid in elements]
-                })
+                grid_data.append(GridRow(
+                    description=desc,
+                    count=len(elements),
+                    element_ids=[_eid_int(eid) for eid in elements]
+                ))
             
-            self.dg_warning_groups.ItemsSource = sorted(grid_data, key=lambda x: x["count"], reverse=True)
+            self.dg_warning_groups.ItemsSource = sorted(grid_data, key=lambda x: x.count, reverse=True)
             self.lst_warning_elements.ItemsSource = []
             self.status_text.Text = "Loaded {} warnings in {} unique groups".format(len(warnings), len(grid_data))
         except Exception as ex:
@@ -1143,22 +1524,29 @@ class ModelAuditorWindow(forms.WPFWindow):
             
             self.purge_items = []
             categories = create_purge_categories()
-            for cat in categories:
+            total_cats = len(categories)
+            for idx, cat in enumerate(categories):
+                pct = int((idx / float(total_cats)) * 100)
+                self._set_progress(pct, "Scanning unused components: {} ({} of {})".format(cat.name, idx + 1, total_cats))
                 try:
                     scanner = create_scanner(cat.scanner_class, self.doc)
                     if scanner:
-                        result = scanner.scan()
+                        with SilenceOutput():
+                            result = scanner.scan()
                         if result:
                             for item in result:
-                                item["is_selected"] = False
-                                item["count"] = 1
-                                self.purge_items.append(item)
+                                item_row = GridRow(**item)
+                                item_row.is_selected = False
+                                item_row.count = 1
+                                self.purge_items.append(item_row)
                 except Exception as ex:
-                    print("Error scanning category {}: {}".format(cat.name, ex))
+                    pass
             
+            self._set_progress(-1)
             self.dg_smart_purge.ItemsSource = ObservableCollection[object](self.purge_items)
             self.status_text.Text = "Smart Purge scan complete. Unused items found: {}".format(len(self.purge_items))
         except Exception as ex:
+            self._set_progress(-1)
             forms.alert("Failed to load smart purge elements:\n{}".format(ex))
             traceback.print_exc()
 
@@ -1242,7 +1630,8 @@ class ModelAuditorWindow(forms.WPFWindow):
             if purge_filters:
                 from Services.ModelAuditor.smart_purge.purge_scanner import FilterScanner
                 scanner = FilterScanner(self.doc)
-                result = scanner.scan()
+                with SilenceOutput():
+                    result = scanner.scan()
                 if result:
                     to_delete_ids.extend([ElementId(item["id"]) for item in result])
 
@@ -1250,7 +1639,8 @@ class ModelAuditorWindow(forms.WPFWindow):
             if purge_materials:
                 from Services.ModelAuditor.smart_purge.purge_scanner import MaterialScanner
                 scanner = MaterialScanner(self.doc)
-                result = scanner.scan()
+                with SilenceOutput():
+                    result = scanner.scan()
                 if result:
                     to_delete_ids.extend([ElementId(item["id"]) for item in result])
 
@@ -1263,7 +1653,8 @@ class ModelAuditorWindow(forms.WPFWindow):
             if purge_styles:
                 from Services.ModelAuditor.smart_purge.purge_scanner import FillPatternScanner
                 scanner = FillPatternScanner(self.doc)
-                result = scanner.scan()
+                with SilenceOutput():
+                    result = scanner.scan()
                 if result:
                     to_delete_ids.extend([ElementId(item["id"]) for item in result])
 
@@ -1351,12 +1742,12 @@ class ModelAuditorWindow(forms.WPFWindow):
             for el in FilteredElementCollector(self.doc).OfClass(FamilyInstance).WhereElementIsNotElementType():
                 try:
                     if el.Symbol and el.Symbol.Family and el.Symbol.Family.IsInPlace:
-                        self.inplace_items.append({
-                            "id": _eid_int(el.Id),
-                            "category": el.Category.Name if el.Category else "N/A",
-                            "family_name": el.Symbol.Family.Name,
-                            "type_name": el.Name
-                        })
+                        self.inplace_items.append(GridRow(
+                            id=_eid_int(el.Id),
+                            category=el.Category.Name if el.Category else "N/A",
+                            family_name=el.Symbol.Family.Name,
+                            type_name=el.Name
+                        ))
                 except: pass
             
             self.dg_special_inplace.ItemsSource = self.inplace_items
@@ -1436,14 +1827,14 @@ class ModelAuditorWindow(forms.WPFWindow):
                 if vol > 0 or area > 0:
                     vol_m3 = round(vol * 0.0283168, 3)
                     area_m2 = round(area * 0.092903, 2)
-                    self.material_items.append({
-                        "category": mat.MaterialCategory or "General",
-                        "name": mat.Name,
-                        "volume_str": str(vol_m3),
-                        "area_str": str(area_m2)
-                    })
+                    self.material_items.append(GridRow(
+                        category=mat.MaterialCategory or "General",
+                        name=mat.Name,
+                        volume_str=str(vol_m3),
+                        area_str=str(area_m2)
+                    ))
             
-            self.dg_special_materials.ItemsSource = sorted(self.material_items, key=lambda x: x["name"])
+            self.dg_special_materials.ItemsSource = sorted(self.material_items, key=lambda x: x.name)
             self.status_text.Text = "Material list generated successfully."
         except Exception as ex:
             print("Error loading materials: {}".format(ex))

@@ -50,10 +50,11 @@ class ManaSelectWindow(forms.WPFWindow):
         # Initialize and nest sub-panels
         self._init_sub_panels()
 
-        # Connect navigation
-        self.btn_tab_quick_select.Checked += self._on_tab_changed
-        self.btn_tab_select_similar.Checked += self._on_tab_changed
-        self.btn_tab_select_sheets.Checked += self._on_tab_changed
+        # Connect navigation (left icon-rail sidebar toggles)
+        self.nav_toggle_quick_select.Click += self._on_nav_toggle_clicked
+        self.nav_toggle_select_similar.Click += self._on_nav_toggle_clicked
+        self.nav_toggle_select_sheets.Click += self._on_nav_toggle_clicked
+        self.nav_toggle_quick_actions.Click += self._on_nav_toggle_clicked
 
         # Connect run actions for tabs
         self.btn_run_select_similar.Click += self._on_run_select_similar
@@ -90,17 +91,28 @@ class ManaSelectWindow(forms.WPFWindow):
         except Exception as ex:
             print("Error loading Quick Select panel: {}".format(ex))
 
-    def _on_tab_changed(self, sender, e):
-        """Switch active TabControl index and update status bar text."""
-        if sender == self.btn_tab_quick_select:
-            self.main_tab_control.SelectedIndex = 0
+    def _on_nav_toggle_clicked(self, sender, e):
+        """Switch active TabControl index, sync rail toggle state and update status bar text."""
+        if sender == self.nav_toggle_quick_select:
+            index = 0
             self.status_text.Text = "Quick Select — Query elements by categories, parameters and text filters"
-        elif sender == self.btn_tab_select_similar:
-            self.main_tab_control.SelectedIndex = 1
+        elif sender == self.nav_toggle_select_similar:
+            index = 1
             self.status_text.Text = "Select Similar — Match Type, Family or Category of current selection"
-        elif sender == self.btn_tab_select_sheets:
-            self.main_tab_control.SelectedIndex = 2
+        elif sender == self.nav_toggle_select_sheets:
+            index = 2
             self.status_text.Text = "Select on Sheets — Find CAD imports or title blocks across drawings"
+        elif sender == self.nav_toggle_quick_actions:
+            index = 3
+            self.status_text.Text = "Quick Actions — One-click viewport filters and cleanup tools"
+        else:
+            return
+
+        self.main_tab_control.SelectedIndex = index
+        self.nav_toggle_quick_select.IsChecked = (index == 0)
+        self.nav_toggle_select_similar.IsChecked = (index == 1)
+        self.nav_toggle_select_sheets.IsChecked = (index == 2)
+        self.nav_toggle_quick_actions.IsChecked = (index == 3)
 
     # =========================================================================
     # TAB 2: SELECT SIMILAR

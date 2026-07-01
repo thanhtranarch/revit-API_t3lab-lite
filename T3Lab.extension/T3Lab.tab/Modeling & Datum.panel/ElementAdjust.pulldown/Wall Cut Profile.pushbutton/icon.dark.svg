@@ -1,17 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<!-- Full wall body (dark, fills canvas) -->
-<rect x="4" y="4" width="56" height="56" rx="5" fill="#7AB0CC"/>
-<!-- Void / opening cut (white, centered) -->
-<rect x="16" y="16" width="32" height="32" rx="3" fill="#1A2838"/>
-<!-- Orange cut-profile border around void -->
-<rect x="16" y="16" width="32" height="32" rx="3" fill="none" stroke="#EAA030" stroke-width="3.5"/>
-<!-- Profile trim lines (extend beyond void corners) -->
-<line x1="16" y1="6" x2="16" y2="16" stroke="#EAA030" stroke-width="2" stroke-linecap="round"/>
-<line x1="48" y1="6" x2="48" y2="16" stroke="#EAA030" stroke-width="2" stroke-linecap="round"/>
-<line x1="16" y1="48" x2="16" y2="58" stroke="#EAA030" stroke-width="2" stroke-linecap="round"/>
-<line x1="48" y1="48" x2="48" y2="58" stroke="#EAA030" stroke-width="2" stroke-linecap="round"/>
-<!-- Detail lines inside void -->
-<line x1="22" y1="22" x2="42" y2="22" stroke="#2E4258" stroke-width="1.5"/>
-<line x1="22" y1="28" x2="42" y2="28" stroke="#2E4258" stroke-width="1"/>
-<line x1="22" y1="34" x2="36" y2="34" stroke="#2E4258" stroke-width="1"/>
+  <rect x="8" y="12" width="48" height="40" rx="4" fill="#F8FAFC"/>
+  <polygon points="36,12 56,12 56,32" fill="#D07818"/>
 </svg>

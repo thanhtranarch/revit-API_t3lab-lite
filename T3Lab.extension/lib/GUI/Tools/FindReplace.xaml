@@ -14,7 +14,7 @@
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
-                       CornerRadius="8"
+                       CornerRadius="22"
                        UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
@@ -1093,24 +1093,17 @@
         </Grid.RowDefinitions>
 
         <!-- TITLE BAR -->
-        <Grid Grid.Row="0" Background="White">
+        <Grid Grid.Row="0" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Brand -->
-            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
+            <!-- Title and Subtitle -->
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="Find and Replace" FontSize="18" FontWeight="Bold"
-                               Foreground="#0F172A"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Rename views and elements"
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+                <TextBlock Text="Find and Replace" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Rename views and elements" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <!-- Window controls -->
@@ -1168,7 +1161,7 @@
         </StackPanel>
 
         <!-- STATUS BAR -->
-        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,8">
+        <Border Grid.Row="3" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

@@ -36,7 +36,7 @@ import System
 from System import Action
 from System.IO import StringReader
 import System.Xml
-from System.Windows import Window, WindowStartupLocation, Thickness
+from System.Windows import Window, WindowStartupLocation, Thickness, WindowState
 from System.Windows.Controls import ListBoxItem
 from System.Windows.Markup import XamlReader
 from System.Windows.Threading import DispatcherPriority
@@ -402,7 +402,12 @@ class QuickSelectWindow(Window):
         self.btnShow = self._find("btnShow")
         self.btnRefresh = self._find("btnRefresh")
         self.btnClose = self._find("btnClose")
-    
+
+        # Window chrome (collapsed/hidden when embedded inside ManaSelect)
+        self.btn_minimize = self._find("btn_minimize")
+        self.btn_maximize = self._find("btn_maximize")
+        self.btn_close_chrome = self._find("btn_close")
+
     def _setup_events(self):
         """Setup event handlers"""
         # ComboBox events
@@ -443,7 +448,15 @@ class QuickSelectWindow(Window):
             self.btnRefresh.Click += self._on_refresh
         if self.btnClose:
             self.btnClose.Click += self._on_close
-    
+
+        # Window chrome
+        if self.btn_minimize:
+            self.btn_minimize.Click += self._minimize_window
+        if self.btn_maximize:
+            self.btn_maximize.Click += self._maximize_window
+        if self.btn_close_chrome:
+            self.btn_close_chrome.Click += self._on_close
+
     def _load_data(self):
         """Load element data"""
         try:
@@ -786,7 +799,18 @@ class QuickSelectWindow(Window):
     def _on_close(self, sender, args):
         """Close window"""
         self.Close()
-    
+
+    def _minimize_window(self, sender, args):
+        """Minimize window (chrome button, only reachable when shown standalone)"""
+        self.WindowState = WindowState.Minimized
+
+    def _maximize_window(self, sender, args):
+        """Toggle maximize window (chrome button, only reachable when shown standalone)"""
+        if self.WindowState == WindowState.Maximized:
+            self.WindowState = WindowState.Normal
+        else:
+            self.WindowState = WindowState.Maximized
+
     def _zoom_to_element(self, element_id):
         """Zoom to element"""
         try:

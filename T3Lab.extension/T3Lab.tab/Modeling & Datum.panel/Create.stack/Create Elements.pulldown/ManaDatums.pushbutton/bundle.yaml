@@ -1,9 +1,0 @@
-title: "ManaDatums"
-tooltip: "Datum Manager — Manage Grids and Levels in one unified tool."
-description: |
-  Save and restore grid bubble positions across views
-  Align grid extents to match a reference grid
-  Convert grids between 2D and 3D propagation modes
-  Manage levels: rename, reorder, and adjust elevation in bulk
-author: "Tran Tien Thanh & Dang Quoc Truong"
-version: "1.0.0"

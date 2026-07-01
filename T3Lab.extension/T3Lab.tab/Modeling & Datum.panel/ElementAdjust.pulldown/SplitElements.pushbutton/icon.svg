@@ -1,17 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-<!-- Top wall half -->
-<rect x="6" y="6" width="52" height="20" rx="4" fill="#182A3E"/>
-<rect x="10" y="10" width="30" height="3" rx="1.5" fill="#EEF2F7" opacity="0.3"/>
-<rect x="10" y="16" width="22" height="3" rx="1.5" fill="#EEF2F7" opacity="0.2"/>
-<!-- Bold orange cut line -->
-<line x1="2" y1="32" x2="62" y2="32" stroke="#D07818" stroke-width="5" stroke-linecap="round"/>
-<!-- Scissors icon on cut line -->
-<circle cx="44" cy="28" r="5" fill="#D07818"/>
-<circle cx="52" cy="28" r="5" fill="#D07818"/>
-<line x1="40" y1="32" x2="56" y2="44" stroke="#D07818" stroke-width="3" stroke-linecap="round"/>
-<line x1="56" y1="32" x2="40" y2="44" stroke="#D07818" stroke-width="3" stroke-linecap="round"/>
-<!-- Bottom wall half (gap separating the two) -->
-<rect x="6" y="38" width="52" height="20" rx="4" fill="#28445E"/>
-<rect x="10" y="42" width="26" height="3" rx="1.5" fill="#EEF2F7" opacity="0.3"/>
-<rect x="10" y="48" width="18" height="3" rx="1.5" fill="#EEF2F7" opacity="0.2"/>
+  <rect x="6" y="24" width="22" height="16" rx="2" fill="#182A3E"/>
+  <rect x="36" y="24" width="22" height="16" rx="2" fill="#182A3E"/>
+  <line x1="32" y1="8" x2="32" y2="56" stroke="#D07818" stroke-width="4" stroke-dasharray="8 4"/>
 </svg>

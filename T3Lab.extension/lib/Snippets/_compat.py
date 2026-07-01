@@ -16,5 +16,8 @@ def eid_value(element_id):
         return -1
     try:
         return int(element_id.Value)          # Revit 2024+ (Int64 -> plain int)
-    except AttributeError:
-        return int(element_id.IntegerValue)   # Revit 2023 and earlier
+    except Exception:
+        try:
+            return int(element_id.IntegerValue)   # Revit 2023 and earlier
+        except Exception:
+            return -1

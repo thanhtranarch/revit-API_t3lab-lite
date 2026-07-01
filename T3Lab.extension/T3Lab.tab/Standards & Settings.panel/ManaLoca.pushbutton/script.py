@@ -103,8 +103,11 @@ class ElementData(object):
     def __init__(self, element, doc, t):
         self._t        = t   # _TypeCache instance
         self.elem_id   = element.Id
-        self.id_val    = eid_value(element.Id)
-        self.category  = element.Category.Name if element.Category else "No Category"
+        self.id_val    = t.eid_value(element.Id)
+        try:
+            self.category  = element.Category.Name if element.Category else "No Category"
+        except Exception:
+            self.category  = "No Category"
         self.type_name = self._get_type_name(element)
         self.level_name, self.level_elev = self._get_level_info(element, doc)
 
@@ -142,9 +145,9 @@ class ElementData(object):
     def _get_position(self, element):
         try:
             loc = element.Location
-            if isinstance(loc, self._t.LP):
+            if hasattr(loc, "Point"):
                 return loc.Point
-            if isinstance(loc, self._t.LC):
+            if hasattr(loc, "Curve"):
                 return loc.Curve.Evaluate(0.5, True)
             bb = element.get_BoundingBox(None)
             if bb:
@@ -213,6 +216,7 @@ class _TypeCache(object):
         self.LevelItem    = LevelItem
         self.CategoryItem = CategoryItem
         self.ElementData  = ElementData
+        self.eid_value    = eid_value
         
         import os, json
         from System.Windows import WindowState, Visibility
@@ -267,13 +271,23 @@ class LocationManagerHandler(IExternalEventHandler):
         self._t                 = _T   # hold the type cache alive
 
     def Execute(self, app):
-        # Resolve uidoc/doc from the live UIApplication parameter.
         try:
-            uidoc = app.ActiveUIDocument
-            if uidoc is None:
+            # Try resolving active uidoc/doc via pyrevit first (standard in pyRevit modeless windows)
+            # and fallback to the app parameter if needed.
+            from pyrevit import revit
+            uidoc = revit.uidoc
+            doc = revit.doc
+
+            if uidoc is None or doc is None:
+                if app:
+                    uidoc = app.ActiveUIDocument
+                    if uidoc:
+                        doc = uidoc.Document
+
+            if uidoc is None or doc is None:
                 self._report_error("no active document.")
                 return
-            doc = uidoc.Document
+
             self._cached_uidoc = uidoc
 
             fn = {
@@ -327,25 +341,51 @@ class LocationManagerHandler(IExternalEventHandler):
     def _build_data(self, elements, skip_cats, doc):
         t = self._t
         data_list = []
+        
+        total_count = 0
+        no_loc_count = 0
+        skip_cat_count = 0
+        error_count = 0
+        first_error = ""
+
         for e in elements:
             if not e:
                 continue
+            total_count += 1
             try:
                 loc = e.Location
             except Exception:
                 loc = None
             if not loc:
+                no_loc_count += 1
                 continue
             try:
-                cat_int = eid_value(e.Category.Id) if e.Category else -1
+                cat_int = t.eid_value(e.Category.Id) if e.Category else -1
             except Exception:
                 cat_int = -1
             if cat_int in skip_cats:
+                skip_cat_count += 1
                 continue
             try:
                 data_list.append(t.ElementData(e, doc, t))
-            except Exception:
+            except Exception as ex:
+                error_count += 1
+                if not first_error:
+                    import traceback
+                    first_error = "{}: {}".format(str(ex), traceback.format_exc())
                 continue
+        
+        if error_count > 0 or first_error:
+            diag_msg = "Collected: {}, No Loc: {}, Skipped: {}, Errors: {}".format(
+                total_count, no_loc_count, skip_cat_count, error_count
+            )
+            if first_error:
+                diag_msg += " | Error: " + first_error[:80].replace("\n", " ")
+            try:
+                self.window.Dispatcher.Invoke(lambda: self.window._set_status(diag_msg))
+            except Exception:
+                pass
+
         data_list.sort(key=lambda x: (x.level_elev, x.category, x.id_val))
         return data_list
 
@@ -760,6 +800,12 @@ class LocationManagerWindow(forms.WPFWindow):
         if self._updating:
             return
         uidoc = self.handler._cached_uidoc
+        if uidoc is None:
+            try:
+                from pyrevit import revit
+                uidoc = revit.uidoc
+            except Exception:
+                pass
         if uidoc is None:
             return
         rows = self.elem_datagrid.SelectedItems
