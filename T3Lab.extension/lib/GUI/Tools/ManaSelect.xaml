@@ -1330,11 +1330,12 @@
             </TabControl>
 
             <!-- ═══ ROW 2: FOOTER / STATUS BAR (Column 1) ═══ -->
-            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
                 <Grid>
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                        <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold"/>
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
             </Border>

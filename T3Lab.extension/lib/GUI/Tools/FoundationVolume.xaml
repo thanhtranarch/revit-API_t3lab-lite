@@ -1329,34 +1329,34 @@
                     Padding="16,10">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Back button (hidden on tab 0) -->
-                    <Button x:Name="back_button" Grid.Column="0"
-                            Content="← Back" Style="{StaticResource SecondaryButton}"
-                            Width="100" Visibility="Collapsed"/>
-
-                    <!-- Primary action button -->
-                    <Button x:Name="RunButton" Grid.Column="2"
-                            Style="{StaticResource PrimaryButton}" Width="140">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock x:Name="next_button_text" Text="Next" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="next_button_icon" Text=" →" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="CloseButton" Grid.Column="2" Visibility="Collapsed"/>
-
-                    <!-- Copyright right-aligned -->
-                    <StackPanel Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <!-- Left: copyright + status -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
                         <TextBlock Text="Foundation Volume · T3Lab" FontSize="11"
-                                   Foreground="#71717A" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="10"
-                                   Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+                                   Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Right: Back / Run / Close buttons -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <!-- Back button (hidden on tab 0) -->
+                        <Button x:Name="back_button"
+                                Content="← Back" Style="{StaticResource SecondaryButton}"
+                                Width="100" Margin="0,0,8,0" Visibility="Collapsed"/>
+
+                        <!-- Primary action button -->
+                        <Button x:Name="RunButton"
+                                Style="{StaticResource PrimaryButton}" Width="140">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock x:Name="next_button_text" Text="Next" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="next_button_icon" Text=" →" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="CloseButton" Visibility="Collapsed"/>
                     </StackPanel>
                 </Grid>
             </Border>

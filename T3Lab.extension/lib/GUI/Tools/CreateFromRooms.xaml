@@ -1091,7 +1091,7 @@
             <RowDefinition/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="50"/>
-            <RowDefinition Height="32"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- TITLE BAR -->
@@ -1174,7 +1174,7 @@
 
         <!-- SETTINGS -->
         <StackPanel Grid.Row="4" Margin="12,10,12,0">
-            <Rectangle Height="1" Fill="#E2E8F0" Margin="0,0,0,10"/>
+            <Rectangle Height="1" Fill="#DCDCE0" Margin="0,0,0,10"/>
             <DockPanel>
                 <TextBlock Text="Offset from level (cm):" Foreground="#0F172A"
                            Width="150" VerticalAlignment="Center"/>
@@ -1193,13 +1193,9 @@
         </StackPanel>
 
         <!-- FOOTER -->
-        <Border Grid.Row="6" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0">
-            <TextBlock x:Name="footer_version" Text="T3Lab"
-                       FontSize="10" Foreground="#64748B"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <Border Grid.Row="6" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
+            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

@@ -1259,7 +1259,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>       <!-- Header -->
             <RowDefinition Height="*"/>        <!-- Content -->
-            <RowDefinition Height="28"/>       <!-- Footer status -->
+            <RowDefinition Height="Auto"/>     <!-- Footer status -->
         </Grid.RowDefinitions>
             <!-- ════════════════════════════════════════════════════════════ -->
             <!-- COL 0: LEFT SIDEBAR ICON RAIL (all rows)                    -->
@@ -2044,17 +2044,19 @@
         </TabControl>
 
         <!-- ═══ FOOTER STATUS BAR ═══ -->
-        <Border Grid.Row="2" Grid.Column="1" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,6">
+        <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="status" Grid.Column="1" FontSize="11" Foreground="{StaticResource TextMuted}" Text="Ready." VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" Text="Ready." VerticalAlignment="Center"/>
+                </StackPanel>
             </Grid>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

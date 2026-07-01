@@ -1364,23 +1364,23 @@
                         </Grid>
 
                         <!-- Row 2: Bottom Status & Actions Footer -->
-                        <Border Grid.Row="2" Background="#F8FAFC" Height="64" Padding="20,0" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                        <Border Grid.Row="2" Background="#F4F4F6" Height="64" Padding="20,0" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
                             <Grid VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                
+
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Ctrl+Click to multi-select in grid" FontSize="11.5" Foreground="#71717A" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
                                     <CheckBox x:Name="chkApplyType" Style="{StaticResource T3CheckBox}" Content="Apply to Type" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
                                     <CheckBox x:Name="chkApplyEntity" Style="{StaticResource T3CheckBox}" Content="Also set IFC Entity" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
-                                    <CheckBox x:Name="chkSetObjectType" Style="{StaticResource T3CheckBox}" Content="Set ObjectType for USERDEFINED" IsChecked="True" FontSize="13" Margin="0,0,20,0" Foreground="#0F172A"/>
-                                </StackPanel>
-                                
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="Ctrl+Click to multi-select in grid" FontSize="11.5" Foreground="#71717A" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                    <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="chkSetObjectType" Style="{StaticResource T3CheckBox}" Content="Set ObjectType for USERDEFINED" IsChecked="True" FontSize="13" Foreground="#0F172A"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -1649,23 +1649,22 @@
                         </Grid>
 
                         <!-- Row 3: Action Buttons & Bottom Status -->
-                        <Border Grid.Row="3" Background="#F8FAFC" Height="64" Padding="20,0" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                        <Border Grid.Row="3" Background="#F4F4F6" Height="64" Padding="20,0" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
                             <Grid VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                
-                                <Button x:Name="btnRunCheck" Grid.Column="0" Content="▶ Run Check" 
-                                        Style="{StaticResource SuccessButton}" Margin="0,0,8,0" IsEnabled="False" MinWidth="120" Height="32"/>
-                                <Button x:Name="btnExportExcel" Grid.Column="1" Content="📊 Export Excel" 
-                                        Style="{StaticResource PrimaryButton}" Margin="0,0,16,0" IsEnabled="False" MinWidth="130" Height="32"/>
-                                
-                                <TextBlock x:Name="txtStatus" Grid.Column="2" Text="Ready. Import a config or select saved config."
-                                           FontSize="12.5" Foreground="#71717A" VerticalAlignment="Center" FontWeight="Medium"
-                                           HorizontalAlignment="Right" Margin="0,0,12,0"/>
+
+                                <TextBlock x:Name="txtStatus" Grid.Column="0" Text="Ready. Import a config or select saved config."
+                                           FontSize="12.5" Foreground="#71717A" VerticalAlignment="Center" FontWeight="Medium"/>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                                    <Button x:Name="btnRunCheck" Content="▶ Run Check"
+                                            Style="{StaticResource SuccessButton}" Margin="0,0,8,0" IsEnabled="False" MinWidth="120" Height="32"/>
+                                    <Button x:Name="btnExportExcel" Content="📊 Export Excel"
+                                            Style="{StaticResource PrimaryButton}" IsEnabled="False" MinWidth="130" Height="32"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </Grid>

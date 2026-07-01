@@ -1335,6 +1335,7 @@
         </Grid>
 
         <!-- ═══ ROW 3: ACTION BUTTONS / FOOTER (Column 1) ═══ -->
+        <!-- Footer layout standard: Copyright + Status together on the LEFT, all action buttons on the RIGHT -->
         <Border Grid.Row="3" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -1342,60 +1343,59 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
+                <!-- Left: Copyright, then Status right beside it -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <Button Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Padding="16,10">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="M8 5 L18 12 L8 19 Z" Fill="White" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="Run check" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <Ellipse Width="8" Height="8" Fill="#22A85C" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="System status: " FontSize="13.5" Foreground="#27272A" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="Fully compliant" FontSize="13.5" Foreground="#157038" FontWeight="Bold" VerticalAlignment="Center"/>
+                </StackPanel>
 
-                    <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="16,9">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="M4 8 h9 M17 8 h3 M4 16 h3 M11 16 h9" 
-                                  Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                  Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="Configure" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
-                    <Button Style="{StaticResource TertiaryButton}" Margin="0,0,8,0" Padding="16,9">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="M5 12 L9.5 16.5 L19 7" 
-                                  Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
-                                  Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="Approve" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-
+                <!-- Right: all action buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
                     <Button Style="{StaticResource GhostButton}" Margin="0,0,8,0" Padding="14,10">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M4 7 h16 M9.5 7 V5 H14.5 V7 M6.5 7 l1 13 A1.5 1.5 0 0 0 9 21.5 h6 a1.5 1.5 0 0 0 1.5-1.5 L17.5 7" 
+                            <Path Data="M4 7 h16 M9.5 7 V5 H14.5 V7 M6.5 7 l1 13 A1.5 1.5 0 0 0 9 21.5 h6 a1.5 1.5 0 0 0 1.5-1.5 L17.5 7"
                                   Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Delete" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource SecondaryButton}" Padding="16,9">
+                    <Button Style="{StaticResource TertiaryButton}" Margin="0,0,8,0" Padding="16,9">
                         <StackPanel Orientation="Horizontal">
-                            <Path Data="M12 4 V14 M8 11 L12 15 L16 11 M5 19 H19" 
+                            <Path Data="M5 12 L9.5 16.5 L19 7"
+                                  Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Approve" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="16,9">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M4 8 h9 M17 8 h3 M4 16 h3 M11 16 h9"
+                                  Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Configure" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" Padding="16,9">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M12 4 V14 M8 11 L12 15 L16 11 M5 19 H19"
                                   Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
                             <TextBlock Text="Export" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-                </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Ellipse Width="8" Height="8" Fill="#22A85C" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="System status: " FontSize="13.5" Foreground="#27272A" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock Text="Fully compliant" FontSize="13.5" Foreground="#157038" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                    <Border Width="1" Height="18" Background="#DEDEE2" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                        <TextBlock Text="© 2026 T3Lab · v2.4" FontSize="11" Foreground="#9A9AA2" HorizontalAlignment="Left"/>
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0" HorizontalAlignment="Left"/>
-                    </StackPanel>
+                    <Button Style="{StaticResource PrimaryButton}" Padding="16,10">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="M8 5 L18 12 L8 19 Z" Fill="White" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock Text="Run check" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>

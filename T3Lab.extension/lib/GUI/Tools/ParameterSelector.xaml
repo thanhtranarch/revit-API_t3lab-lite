@@ -1257,11 +1257,15 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Preview Text -->
-            <TextBlock x:Name="txt_preview" Grid.Column="0"
-                       Text="Preview: (select parameters)"
-                       VerticalAlignment="Center"
-                       Foreground="#64748B" FontStyle="Italic"/>
+            <!-- Left: Preview text, then Copyright beside it -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock x:Name="txt_preview"
+                           Text="Preview: (select parameters)"
+                           VerticalAlignment="Center"
+                           Foreground="#64748B" FontStyle="Italic"/>
+                <Border Width="1" Height="14" Background="#E2E8F0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+            </StackPanel>
 
             <!-- Ok Button -->
             <Button x:Name="button_ok" Grid.Column="2" Content="Ok"
@@ -1271,7 +1275,4 @@
     </Border>
     </Grid>
     </Border>
-
-    <!-- Copyright added automatically -->
-    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>

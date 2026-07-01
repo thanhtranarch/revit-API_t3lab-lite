@@ -6,6 +6,7 @@ const tab = path.join(__dirname, '..', 'T3Lab.extension', 'T3Lab.tab');
 
 const targets = [
   { panel: 'Views & Sheets.panel', tools: ['ManaViews.pushbutton', 'ManaSheets.pushbutton', 'BatchOut.pushbutton', 'SheetGen.pushbutton'] },
+  { panel: 'Standard.panel', tools: ['AutoWork.pushbutton', 'UIShowcase.pushbutton'] },
   { panel: 'Standards & Settings.panel', tools: ['ManaLoca.pushbutton', 'ModelAuditor.pushbutton', 'ManaStyles.pushbutton', 'ManaWorkset.pushbutton'] },
   { panel: 'Annotation & Select.panel', tools: ['ManaAnno.pushbutton'] },
   { panel: 'Annotation & Select.panel/Mana.stack', tools: ['ManaAlign.pushbutton', 'ManaDWG.pushbutton', 'ManaSelect.pushbutton'] },

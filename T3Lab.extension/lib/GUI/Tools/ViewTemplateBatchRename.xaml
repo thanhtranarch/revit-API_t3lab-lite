@@ -1255,13 +1255,22 @@
             </Grid>
         </Border>
 
-        <!-- ═══ ROW 3: BUTTONS ═══ -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,16,16">
-            <Button x:Name="apply_btn" Content="Apply Rename" Style="{StaticResource SuccessButton}" Width="120" Height="35" Margin="0,0,10,0"/>
-            <Button x:Name="cancel_btn" Content="Cancel" Style="{StaticResource SecondaryButton}" Width="100" Height="35" Click="close_button_clicked"/>
-        </StackPanel>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+        <!-- ═══ ROW 3: ACTION BUTTONS / FOOTER ═══ -->
+        <Border Grid.Row="3" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="apply_btn" Content="Apply Rename" Style="{StaticResource SuccessButton}" Width="120" Height="35" Margin="0,0,10,0"/>
+                    <Button x:Name="cancel_btn" Content="Cancel" Style="{StaticResource SecondaryButton}" Width="100" Height="35" Click="close_button_clicked"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 </Grid>
 
     </Border>

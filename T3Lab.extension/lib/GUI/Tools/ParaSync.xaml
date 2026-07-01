@@ -1818,6 +1818,7 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <!-- Status text -->
@@ -1825,21 +1826,22 @@
                        Text="Model categories selected 0 | parameters found 0 | parameters selected 0"
                        VerticalAlignment="Center" FontSize="11" Foreground="#64748B"/>
 
+            <!-- Copyright, then divider before action buttons -->
+            <TextBlock Grid.Column="1" Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <Border Grid.Column="1" Width="1" Height="14" Background="#E2E8F0" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+
             <!-- Action Buttons -->
-            <Button x:Name="btn_reset" Grid.Column="1" Content="Reset Values"
-                    Style="{StaticResource SmallButton}" Margin="0,0,6,0" Padding="12,6"/>
-            <Button x:Name="btn_preview" Grid.Column="2" Content="Preview/Edit"
+            <Button x:Name="btn_reset" Grid.Column="2" Content="Reset Values"
+                    Style="{StaticResource SmallButton}" Margin="8,0,6,0" Padding="12,6"/>
+            <Button x:Name="btn_preview" Grid.Column="3" Content="Preview/Edit"
                     Style="{StaticResource SmallButton}" Margin="0,0,6,0" Padding="12,6"
                     Background="#F59E0B" FontWeight="SemiBold"/>
-            <Button x:Name="btn_import" Grid.Column="3" Content="Import"
+            <Button x:Name="btn_import" Grid.Column="4" Content="Import"
                     Style="{StaticResource ActionButton}" Margin="0,0,6,0"
                     Background="#D97706"/>
-            <Button x:Name="btn_export" Grid.Column="4" Content="Export"
+            <Button x:Name="btn_export" Grid.Column="5" Content="Export"
                     Style="{StaticResource ActionButton}"
                     Background="#10B981"/>
         </Grid>
     </Border>
-
-    <!-- Copyright added automatically -->
-    <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>

@@ -1110,16 +1110,14 @@
             <RowDefinition Height="64"/>
             <!-- Main content -->
             <RowDefinition Height="*"/>
-            <!-- Action bar -->
+            <!-- Footer -->
             <RowDefinition Height="Auto"/>
-            <!-- Status bar -->
-            <RowDefinition Height="30"/>
         </Grid.RowDefinitions>
 
         <!-- ═══════════════════════════════════════════════ -->
         <!--  TITLE BAR                                      -->
         <!-- ═══════════════════════════════════════════════ -->
-        <Grid Grid.Row="0" Background="White" Height="64">
+        <Grid Grid.Row="0" Background="#F4F4F6" Height="64">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -1133,21 +1131,11 @@
 
 
 
-                <!-- Brand + Tool name + Subtitle stacked -->
+                <!-- Title + Subtitle stacked (Lumina two-line pattern) -->
                 <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="T3Lab"
-                                   FontSize="11" FontWeight="Bold"
-                                   Foreground="#0F172A"
-                                   VerticalAlignment="Bottom"
-                                   Margin="0,0,8,2"/>
-                        <TextBlock Text="Auto Dimension"
-                                   FontSize="18" FontWeight="Bold"
-                                   Foreground="#0F172A"/>
-                    </StackPanel>
-                    <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
+                    <TextBlock Text="Auto Dimension" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
                     <TextBlock Text="Shop drawing string dimensions — walls, columns, doors, lifts &amp; grids"
-                               FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+                               FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
             </StackPanel>
 
@@ -1180,7 +1168,7 @@
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
-            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0" Grid.ColumnSpan="3"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
         </Grid>
 
         <!-- ═══════════════════════════════════════════════ -->
@@ -1703,54 +1691,42 @@
         </ScrollViewer>
 
         <!-- ═══════════════════════════════════════════════ -->
-        <!--  ACTION BAR                                     -->
+        <!--  FOOTER — Copyright + Status left, buttons right -->
         <!-- ═══════════════════════════════════════════════ -->
         <Border Grid.Row="2"
-                Background="#F8FAFC"
-                BorderBrush="#E2E8F0"
+                Background="#F4F4F6"
+                BorderBrush="#DCDCE0"
                 BorderThickness="0,1,0,0"
-                Padding="14,8">
+                Padding="20,14">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Run button -->
-                <Button x:Name="btn_run"
-                        Grid.Column="0"
-                        Content="Run Auto Dimension"
-                        Style="{StaticResource PrimaryButton}"
-                        Click="run_clicked"
-                        Margin="0,0,10,0"
-                        HorizontalAlignment="Stretch"/>
+                <!-- Left: Copyright, then Status right beside it -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </StackPanel>
 
-                <!-- Close button -->
-                <Button x:Name="btn_close"
-                        Grid.Column="1"
-                        Content="Close"
-                        Style="{StaticResource SecondaryButton}"
-                        Click="close_clicked"
-                        Width="90"/>
+                <!-- Right: action buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Button x:Name="btn_close"
+                            Content="Close"
+                            Style="{StaticResource SecondaryButton}"
+                            Click="close_clicked"
+                            Width="90"
+                            Margin="0,0,10,0"/>
+                    <Button x:Name="btn_run"
+                            Content="Run Auto Dimension"
+                            Style="{StaticResource PrimaryButton}"
+                            Click="run_clicked"
+                            Padding="16,10"/>
+                </StackPanel>
             </Grid>
         </Border>
-
-        <!-- ═══════════════════════════════════════════════ -->
-        <!--  STATUS BAR                                     -->
-        <!-- ═══════════════════════════════════════════════ -->
-        <Border Grid.Row="3"
-                Background="#F8FAFC"
-                BorderBrush="#E2E8F0"
-                BorderThickness="0,1,0,0"
-                Padding="18,0">
-            <TextBlock x:Name="status_text"
-                       Text="Ready"
-                       FontSize="11"
-                       Foreground="#64748B"
-                       VerticalAlignment="Center"/>
-        </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

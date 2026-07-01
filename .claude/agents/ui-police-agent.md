@@ -122,23 +122,36 @@ Click handlers: `minimize_button_clicked`, `maximize_button_clicked`, `close_but
 **Wrong footer background** (`#F8FAFC` instead of `#F4F4F6`) → MAJOR.
 **Wrong footer border** (`#E2E8F0` instead of `#DCDCE0`) → MAJOR.
 
-### 2.6 Copyright
+### 2.6 Copyright & Footer Layout
 
-Copyright text must be placed **inside the footer as a real element** — NOT as a floating overlay on the root Grid.
+**Current standard (updated): Copyright + Status together on the LEFT, all action buttons on the RIGHT.** This reverses the older pattern (buttons-left/status-right) — flag the old arrangement as MAJOR if found.
 
-Correct placement (inside footer right column StackPanel):
+Correct placement — footer left column, copyright first, then a thin `#DCDCE0` divider, then status right beside it:
 ```xml
-<TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
+<StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+    <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
+</StackPanel>
+```
+All footer action buttons belong in the right column, right-aligned:
+```xml
+<StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+    <Button Style="{StaticResource SecondaryButton}" Content="Cancel" Margin="0,0,8,0"/>
+    <Button Style="{StaticResource PrimaryButton}" Content="Execute"/>
+</StackPanel>
 ```
 
-Or for simple tools (in footer left column below status text):
+For simple tools with no status text and no buttons, copyright stands alone in the left column:
 ```xml
-<TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
+<TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B"/>
 ```
 
 Violations:
 - Missing entirely → CRITICAL
-- Using `Panel.ZIndex="999"` floating overlay pattern on root Grid → MAJOR (move into footer)
+- Using `Panel.ZIndex="999"` floating overlay pattern on root Grid → MAJOR (move into footer left column)
+- Buttons placed in the left column and/or status+copyright placed in the right column (old layout) → MAJOR (swap sides per the current standard above)
+- Copyright stacked vertically above/below status instead of side-by-side with a divider → MINOR
 - `&#169;` instead of literal `©` → MAJOR
 - `Â©` encoding corruption → CRITICAL
 - Two or more copyright blocks → MAJOR
@@ -254,7 +267,23 @@ Replace `Content="&#x2212;"` / `Content="-"` on minimize button with canonical T
 Replace `Content="&#x25A1;"` / `Content="□"` with canonical TextBlock child form.
 
 **Copyright floating overlay → footer placement**
-Remove the floating `Panel.ZIndex="999"` TextBlock from root Grid. Add `<TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>` inside the footer's appropriate column.
+Remove the floating `Panel.ZIndex="999"` TextBlock from root Grid. Add it into the footer's **left** column as the first item, per the layout below.
+
+**Footer layout swap (old buttons-left/status-right → current copyright+status-left/buttons-right)**
+If a footer has action buttons in the left `StackPanel` and status/copyright in the right `StackPanel` (or copyright stacked vertically instead of beside status), restructure to:
+```xml
+<!-- Left: copyright, divider, status -->
+<StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+    <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
+</StackPanel>
+<!-- Right: any action buttons the file already had, right-aligned, same button elements just moved -->
+<StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+    <!-- existing buttons here -->
+</StackPanel>
+```
+Keep the `x:Name` of the status TextBlock unchanged (usually `status_text`) — only move/reorder elements and add the divider; do not rename anything referenced from the file's `*Dialog.py`. If a file has no footer buttons, the right `StackPanel` can be omitted or left empty.
 
 **`Â©` encoding corruption**
 Replace `Â©` with literal `©` character.

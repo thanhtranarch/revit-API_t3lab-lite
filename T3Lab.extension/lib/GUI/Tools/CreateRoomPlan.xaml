@@ -1674,13 +1674,30 @@
                     Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
                 <Grid>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>     <!-- Copyright + status -->
                         <ColumnDefinition Width="Auto"/>  <!-- Action buttons -->
-                        <ColumnDefinition Width="*"/>     <!-- Spacer -->
-                        <ColumnDefinition Width="Auto"/>  <!-- Status + copyright -->
                     </Grid.ColumnDefinitions>
 
-                    <!-- Left: Cancel + Create Plans -->
+                    <!-- Left: copyright + status + count -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="© Copyright by T3Lab"
+                                   FontSize="11" Foreground="#F59E0B"
+                                   VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="#DCDCE0"
+                                VerticalAlignment="Center" Margin="12,0,12,0"/>
+                        <TextBlock x:Name="status_text" Text="Ready"
+                                   FontSize="12.5" Foreground="#71717A"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Border Width="1" Height="14" Background="#CBD5E1"
+                                VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock x:Name="status_count" Text="0 rooms"
+                                   FontSize="12.5" Foreground="#71717A"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Right: Cancel + Create Plans -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
                         <Button x:Name="btn_cancel" Content="Cancel"
                                 Style="{StaticResource SecondaryButton}"
                                 Width="90" Margin="0,0,10,0"
@@ -1689,24 +1706,6 @@
                                 Style="{StaticResource SuccessButton}"
                                 Width="120"
                                 Click="create_plans_clicked"/>
-                    </StackPanel>
-
-                    <!-- Right: status + count + copyright -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <TextBlock x:Name="status_text" Text="Ready"
-                                   FontSize="12.5" Foreground="#71717A"
-                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <Border Width="1" Height="14" Background="#CBD5E1"
-                                VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock x:Name="status_count" Text="0 rooms"
-                                   FontSize="12.5" Foreground="#71717A"
-                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <Border Width="1" Height="14" Background="#CBD5E1"
-                                VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock Text="© Copyright by T3Lab"
-                                   FontSize="11" Foreground="#F59E0B"
-                                   VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
             </Border>

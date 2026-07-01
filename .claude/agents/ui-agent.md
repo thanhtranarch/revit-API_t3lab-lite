@@ -136,6 +136,9 @@ Wrap content in white card panels:
 Margin from grid edge: `Margin="18,18,18,10"`
 
 ### Footer / Status Bar (Row 2)
+
+**Standard layout: Copyright + Status together on the LEFT, all action buttons on the RIGHT.**
+
 ```xml
 <Border Grid.Row="2" Grid.Column="1"
         Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
@@ -145,21 +148,17 @@ Margin from grid edge: `Margin="18,18,18,10"`
             <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Left: action buttons or status text -->
+        <!-- Left: Copyright, then Status right beside it -->
         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-            <Button Style="{StaticResource PrimaryButton}" Content="Execute" Margin="0,0,8,0"/>
+            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+            <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
         </StackPanel>
 
-        <!-- Right: status + copyright -->
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-            <Ellipse Width="8" Height="8" Fill="#22A85C" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBlock Text="System status: " FontSize="13.5" Foreground="#27272A" FontWeight="SemiBold" VerticalAlignment="Center"/>
-            <TextBlock Text="Ready" FontSize="13.5" Foreground="#157038" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-            <Border Width="1" Height="18" Background="#DEDEE2" Margin="0,0,16,0" VerticalAlignment="Center"/>
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
-                <TextBlock Text="© 2026 T3Lab · v2.4" FontSize="11" Foreground="#9A9AA2"/>
-                <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
-            </StackPanel>
+        <!-- Right: all action buttons (omit the StackPanel entirely if the tool has none) -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+            <Button Style="{StaticResource SecondaryButton}" Content="Cancel" Margin="0,0,8,0"/>
+            <Button Style="{StaticResource PrimaryButton}" Content="Execute"/>
         </StackPanel>
     </Grid>
 </Border>
@@ -168,16 +167,16 @@ Margin from grid edge: `Margin="18,18,18,10"`
 Key values:
 - Background: `#F4F4F6` (NOT `#F8FAFC`)
 - BorderBrush: `#DCDCE0` (NOT `#E2E8F0`)
-- Copyright: placed **inside the footer's right column** as a real element — NOT as a floating overlay on the root Grid
+- Copyright: placed **inside the footer's left column, first**, immediately followed by a thin `#DCDCE0` divider and then `status_text` — NOT as a floating overlay on the root Grid, and NOT stacked vertically above/below status
+- All buttons go in the right column, right-aligned
 
 ### Copyright Rule
-Copyright is a **real element in the footer**, NOT a floating overlay. Place it in the footer's right StackPanel as shown above. Do NOT use `Panel.ZIndex="999"` floating pattern.
+Copyright is a **real element in the footer's left column** (first item, before status), NOT a floating overlay. Do NOT use `Panel.ZIndex="999"` floating pattern.
 
-For simple tools without a full status section, put copyright in the footer's left column:
+For simple tools with no status text, copyright can stand alone in the left column:
 ```xml
 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-    <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold"/>
-    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
+    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B"/>
 </StackPanel>
 ```
 

@@ -1094,22 +1094,15 @@
         </Grid.RowDefinitions>
 
         <!-- TITLE BAR -->
-        <Grid Grid.Row="0" Background="White">
+        <Grid Grid.Row="0" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="16,0,0,0" VerticalAlignment="Center"
+            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="Select" FontSize="18" FontWeight="Bold"
-                               Foreground="#0F172A"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Choose items from list"
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+                <TextBlock x:Name="main_title" Text="Select" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Choose items from list" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
                         WindowChrome.IsHitTestVisibleInChrome="True">
@@ -1193,13 +1186,19 @@
         </StackPanel>
 
         <!-- FOOTER -->
-        <Border Grid.Row="5" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
-            <TextBlock x:Name="footer_version" Text="T3Lab"
-                       FontSize="10" Foreground="#64748B"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <Border Grid.Row="5" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B"
+                           HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="footer_version" Grid.Column="1" Text="T3Lab"
+                           FontSize="10" Foreground="#64748B"
+                           HorizontalAlignment="Right" Margin="0,0,10,0" VerticalAlignment="Center"/>
+            </Grid>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

@@ -1540,9 +1540,12 @@
                                        Text="0%" FontSize="11" FontWeight="SemiBold"
                                        Foreground="#22A85C" Margin="8,0,0,0" VerticalAlignment="Center"/>
                         </Grid>
-                        <TextBlock x:Name="txt_status" Text="Select a PDF file and choose target views"
-                                   FontSize="13" Foreground="#71717A" FontWeight="SemiBold"/>
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" Margin="0,2,0,0"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                            <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="txt_status" Text="Select a PDF file and choose target views"
+                                       FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Action buttons -->

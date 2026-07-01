@@ -1129,24 +1129,17 @@
         </Grid.RowDefinitions>
 
         <!-- ═══════════════ TITLE BAR ═══════════════ -->
-        <Grid Grid.Row="0" Background="White">
+        <Grid Grid.Row="0" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Vertical"
-                        Margin="16,0,0,0" VerticalAlignment="Center"
+                        Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
-                               Foreground="#0F172A" VerticalAlignment="Bottom" Margin="0,0,6,3"/>
-                    <TextBlock Text="Tile Layout" FontSize="18" FontWeight="Bold"
-                               Foreground="#0F172A"/>
-                </StackPanel>
-                <Separator Height="1" Background="#E2E8F0" Margin="0,2,0,2"/>
-                <TextBlock Text="Best-fit tiling options with off-cut nesting"
-                           FontSize="10" Foreground="#64748B" FontStyle="Italic"/>
+                <TextBlock Text="Tile Layout" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                <TextBlock Text="Best-fit tiling options with off-cut nesting" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal"
@@ -1175,7 +1168,7 @@
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
-            <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0"/>
+            <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0"/>
         </Grid>
 
         <!-- ═══════════════ STEP PROGRESS ═══════════════ -->
@@ -1449,17 +1442,19 @@
         </Border>
 
         <!-- ═══════════════ STATUS BAR ═══════════════ -->
-        <Border Grid.Row="4" Background="#F8FAFC"
-                BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
-            <Grid Margin="14,0">
-                <TextBlock x:Name="status_text"
-                           Text="Ready — start by picking floors."
-                           FontSize="12" Foreground="#64748B"
-                           VerticalAlignment="Center"/>
+        <Border Grid.Row="4" Background="#F4F4F6"
+                BorderBrush="#DCDCE0" BorderThickness="0,1,0,0">
+            <Grid Margin="20,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status_text"
+                               Text="Ready — start by picking floors."
+                               FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
             </Grid>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

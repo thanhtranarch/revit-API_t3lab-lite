@@ -1138,12 +1138,19 @@
             </StackPanel>
         </Border>
         
-        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-            <Button x:Name="btnCancel" Content="Cancel" Style="{StaticResource SecondaryButton}" Width="70" Margin="0,0,8,0"/>
-            <Button x:Name="btnApply" Content="Apply" Style="{StaticResource PrimaryButton}" Width="70"/>
-        </StackPanel>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+        <Border Grid.Row="7" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="0,15,0,0" Margin="0,15,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="btnCancel" Content="Cancel" Style="{StaticResource SecondaryButton}" Width="70" Margin="0,0,8,0"/>
+                    <Button x:Name="btnApply" Content="Apply" Style="{StaticResource PrimaryButton}" Width="70"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 </Grid>
     
     </Border>

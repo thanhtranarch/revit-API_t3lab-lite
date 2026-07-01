@@ -1573,14 +1573,11 @@
                         </Grid>
 
                         <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                            <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
                             <TextBlock x:Name="status_text" FontSize="11" Foreground="#64748B" Text="Ready" VerticalAlignment="Center"/>
                             <TextBlock x:Name="block_count_text" FontSize="11" Foreground="#64748B" Text="" Margin="12,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
-                    </StackPanel>
-
-                    <!-- Right: Copyright -->
-                    <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Center" Margin="16,0,0,0">
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" HorizontalAlignment="Right"/>
                     </StackPanel>
                 </Grid>
             </Border>

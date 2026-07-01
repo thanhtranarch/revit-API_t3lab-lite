@@ -1933,8 +1933,10 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <TextBlock x:Name="status_text" Text="Ready | 0 sheets | Revit" FontStyle="Italic" FontSize="12" Foreground="#0F172A"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status_text" Text="Ready | 0 sheets | Revit" FontStyle="Italic" FontSize="12" Foreground="#0F172A" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <Button x:Name="back_button" Grid.Column="1"
@@ -2001,8 +2003,6 @@
                 </Border>
             </Grid>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

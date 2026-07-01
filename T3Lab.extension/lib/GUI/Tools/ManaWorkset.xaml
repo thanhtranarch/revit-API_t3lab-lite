@@ -1227,10 +1227,10 @@
 
             <DataGrid.ColumnHeaderStyle>
                 <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background"      Value="#F8FAFC"/>
-                    <Setter Property="Foreground"      Value="#0F172A"/>
-                    <Setter Property="FontWeight"      Value="SemiBold"/>
-                    <Setter Property="FontSize"        Value="12"/>
+                    <Setter Property="Background"      Value="#FFFFFF"/>
+                    <Setter Property="Foreground"      Value="#9A9AA2"/>
+                    <Setter Property="FontWeight"      Value="Bold"/>
+                    <Setter Property="FontSize"        Value="11"/>
                     <Setter Property="FontFamily"      Value="Inter"/>
                     <Setter Property="Padding"         Value="8,6"/>
                     <Setter Property="BorderBrush"     Value="#E2E8F0"/>
@@ -1335,21 +1335,23 @@
         </DataGrid>
 
         <!-- ── STATUS BAR ──────────────────────────────── -->
-        <Border Grid.Row="3" Background="#F8FAFC"
-                BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,8">
+        <Border Grid.Row="3" Background="#F4F4F6"
+                BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="status_text" Text="Loading..." FontSize="11"
-                           Foreground="#64748B" VerticalAlignment="Center" FontFamily="Hanken Grotesk"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status_text" Text="Loading..." FontSize="13.5"
+                               Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center" FontFamily="Hanken Grotesk"/>
+                </StackPanel>
                 <TextBlock x:Name="ws_status" Grid.Column="1" Text="" FontSize="11"
                            Foreground="#64748B" VerticalAlignment="Center" FontFamily="Hanken Grotesk"/>
             </Grid>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>

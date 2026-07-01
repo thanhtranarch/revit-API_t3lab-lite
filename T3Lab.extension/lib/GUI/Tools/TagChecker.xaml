@@ -1107,17 +1107,17 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True"
                         Style="{StaticResource WinCtrlButton}"
-                        Click="minimize_button_clicked" ToolTip="Minimize">
+                        ToolTip="Minimize">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True"
                         Style="{StaticResource WinCtrlButton}"
-                        Click="maximize_button_clicked" ToolTip="Maximize">
+                        ToolTip="Maximize">
                     <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
                 <Button x:Name="btn_close" WindowChrome.IsHitTestVisibleInChrome="True"
                         Style="{StaticResource CloseButton}"
-                        Click="close_button_clicked" ToolTip="Close">
+                        ToolTip="Close">
                     <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
             </StackPanel>
@@ -1224,8 +1224,13 @@
                 </GroupBox>
             </StackPanel>
         </ScrollViewer>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+
+        <!-- ═══ FOOTER ═══ -->
+        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
 </Grid>
 
     </Border>

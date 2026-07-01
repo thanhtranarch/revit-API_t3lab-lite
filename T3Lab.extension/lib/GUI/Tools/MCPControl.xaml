@@ -1269,7 +1269,7 @@
             </Grid>
 
             <!-- Actions/Footer -->
-            <Border Grid.Row="3" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
+            <Border Grid.Row="3" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

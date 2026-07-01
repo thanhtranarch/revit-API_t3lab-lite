@@ -1086,8 +1086,8 @@
             <RowDefinition Height="64"/>       <!-- Row 0: Title Header -->
             <RowDefinition Height="Auto"/>     <!-- Row 1: Summary Cards -->
             <RowDefinition Height="*"/>        <!-- Row 2: Content Area -->
-            <RowDefinition Height="Auto"/>     <!-- Row 3: Action Buttons -->
-            <RowDefinition Height="Auto"/>     <!-- Row 4: Tips -->
+            <RowDefinition Height="Auto"/>     <!-- Row 3: Tips -->
+            <RowDefinition Height="Auto"/>     <!-- Row 4: Action Buttons / Footer -->
         </Grid.RowDefinitions>
 
         <!-- ═══ ROW 0: TITLE HEADER ═══ -->
@@ -1216,31 +1216,34 @@
             </DataGrid>
         </Grid>
 
-        <!-- ═══ ROW 3: ACTION BUTTONS ═══ -->
-        <Border Grid.Row="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="8" Margin="16,0,16,0">
-            <Grid>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="btn_rename" Content="Rename" Style="{StaticResource PrimaryButton}" Margin="4,2"/>
-                    <Button x:Name="btn_batch" Content="Batch Rename" Style="{StaticResource PrimaryButton}" Margin="4,2"/>
-                    <Button x:Name="btn_duplicate" Content="Duplicate" Style="{StaticResource AccentButton}" Margin="4,2"/>
-                    <Button x:Name="btn_delete" Content="Delete" Style="{StaticResource DangerButton}" Margin="4,2"/>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button x:Name="btn_refresh" Content="Refresh" Style="{StaticResource SecondaryButton}" Margin="4,2"/>
-                    <Button x:Name="btn_close_action" Content="Close" Style="{StaticResource SecondaryButton}" Margin="4,2"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- ═══ ROW 4: TIPS ═══ -->
-        <Border Grid.Row="4" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="16,10,16,16">
+        <!-- ═══ ROW 3: TIPS ═══ -->
+        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="16,0,16,10">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Tip: " FontWeight="Bold" Foreground="#3B82F6"/>
                 <TextBlock Text="Ctrl+Click / Shift+Click to select multiple | Only UNUSED templates can be deleted | Use Batch Rename for multiple templates" FontSize="10" Foreground="#0F172A"/>
             </StackPanel>
         </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+
+        <!-- ═══ ROW 4: ACTION BUTTONS / FOOTER ═══ -->
+        <Border Grid.Row="4" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="btn_refresh" Content="Refresh" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"/>
+                    <Button x:Name="btn_rename" Content="Rename" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                    <Button x:Name="btn_batch" Content="Batch Rename" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0"/>
+                    <Button x:Name="btn_duplicate" Content="Duplicate" Style="{StaticResource AccentButton}" Margin="0,0,8,0"/>
+                    <Button x:Name="btn_delete" Content="Delete" Style="{StaticResource DangerButton}" Margin="0,0,8,0"/>
+                    <Button x:Name="btn_close_action" Content="Close" Style="{StaticResource SecondaryButton}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 </Grid>
 
     </Border>

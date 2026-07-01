@@ -1346,14 +1346,28 @@
 
         </Grid>
 
-        <!-- ═══ ROW 5 — ACTION BAR ═══ -->
-        <Border Grid.Row="5" Background="White" BorderBrush="#E2E8F0"
-                BorderThickness="0,1,0,0" Padding="16,10" Margin="0,10,0,0">
+        <!-- ═══ ROW 5 — FOOTER (Copyright + Status left, Action Buttons right) ═══ -->
+        <Border Grid.Row="5" Background="#F4F4F6" BorderBrush="#DCDCE0"
+                BorderThickness="0,1,0,0" Padding="20,16" Margin="0,10,0,0">
             <Grid>
-                <TextBlock x:Name="lbl_selected_count" HorizontalAlignment="Left"
-                           VerticalAlignment="Center" FontSize="11" Foreground="#64748B" Text=""/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                            VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Copyright, then Status right beside it -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status_text" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Text="Ready — select a point cloud to begin"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status_count" FontSize="13.5" Foreground="#94A3B8" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Text="Revit"/>
+                </StackPanel>
+
+                <!-- Right: action buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
                     <Button x:Name="btn_cancel" Content="Cancel"
                             Style="{StaticResource SecondaryButton}"
                             Margin="0,0,8,0"
@@ -1371,23 +1385,6 @@
                 </StackPanel>
             </Grid>
         </Border>
-
-        <!-- ═══ ROW 6 — STATUS BAR ═══ -->
-        <Border Grid.Row="6" Background="#F8FAFC" BorderBrush="#E2E8F0"
-                BorderThickness="0,1,0,0" Padding="14,8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="status_text" Grid.Column="0" FontSize="11"
-                           Foreground="#64748B" Text="Ready — select a point cloud to begin"/>
-                <TextBlock x:Name="status_count" Grid.Column="1" FontSize="11"
-                           Foreground="#94A3B8" HorizontalAlignment="Right" Text="Revit"/>
-            </Grid>
-        </Border>
-        <!-- Copyright added automatically -->
-        <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
 </Grid>
 
     </Border>
