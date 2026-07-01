@@ -65,6 +65,8 @@ try:
                                               inject_discovered_tools,
                                               get_active_provider_name,
                                               get_provider_display_label,
+                                              get_setup_guidance_message,
+                                              _build_system_prompt,
                                               _RAG_SYSTEM_PREFIX)
     HAS_NLP = True
 except Exception as e:
@@ -79,6 +81,12 @@ except Exception as e:
     def inject_discovered_tools(*a, **kw): pass
     def get_active_provider_name(*a, **kw): return "claude"
     def get_provider_display_label(*a, **kw): return "AI"
+    def get_setup_guidance_message(viet=True):
+        return (u"Chưa hiểu lệnh. Thử: 'mở batchout', 'xuất pdf G sheet'..." if viet
+                else "Didn't understand. Try: 'open batchout', 'export pdf G sheet'...")
+    def _build_system_prompt(revit_context=u""):
+        from Intelligence.t3lab_agent import build_system_prompt
+        return build_system_prompt(revit_context=revit_context)
     _RAG_SYSTEM_PREFIX = u""  # fallback: no RAG prefix if NLP module unavailable
 
 # ─── Tool discovery module ────────────────────────────────────────────────────
@@ -666,6 +674,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.Dispatcher.Invoke(Action(_check_sidebar))
                 if sidebar_state[0]:
                     self.Dispatcher.Invoke(Action(self._update_sidebar))
+
+                # Step 5: Proactive setup nudge — only on a fresh chat (no saved
+                # history for this document yet), only after first-run onboarding
+                # has already been shown/dismissed (avoids duplicating that flow),
+                # and only if auto-start above didn't already find a provider.
+                try:
+                    from config.user_profile import UserProfile
+                    already_onboarded = not UserProfile().is_first_run()
+                    fresh_chat = not self._persisted_msgs
+                    no_provider = not has_api_key() and not has_local_llm()
+                    if already_onboarded and fresh_chat and no_provider:
+                        def _nudge():
+                            self._append_bot_message(get_setup_guidance_message(True))
+                            self._add_to_history("assistant", get_setup_guidance_message(True))
+                        self.Dispatcher.Invoke(Action(_nudge))
+                except Exception:
+                    pass
             except Exception:
                 pass
 
@@ -2762,7 +2787,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 def do_nlp():
                     result = None
                     from Intelligence.llm_router import LLMRouter
-                    from Intelligence.t3lab_agent import build_system_prompt
                     import json as _json
 
                     _router = LLMRouter()
@@ -2804,7 +2828,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         except Exception as tool_err:
                             logger.debug("Failed to list server tools: {}".format(tool_err))
 
-                        system_prompt = build_system_prompt(revit_context=_ctx_block)
+                        system_prompt = _build_system_prompt(revit_context=_ctx_block)
                         if server_tools_str:
                             system_prompt += server_tools_str
 
@@ -2983,15 +3007,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 t.SetApartmentState(ApartmentState.STA)
                 t.Start()
             else:
-                # ── 5. Keyword fallback ────────────────────────────────────────
+                # ── 5. No provider configured at all — keyword fallback ─────────
                 fb = keyword_parse(raw)
                 if fb:
                     self._execute_result(fb)
                 else:
                     self._append_bot_message(
-                        u"Không hiểu lệnh.\n"
-                        u"Ví dụ: 'mở batchout', 'xuất pdf G sheet', 'parasync'"
-                    )
+                        get_setup_guidance_message(_is_viet_text(raw)))
                     self._set_busy(False)
 
         except Exception as ex:

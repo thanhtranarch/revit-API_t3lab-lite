@@ -42,9 +42,13 @@ _ABBREVS = [
     # ── Tool name normalisations ───────────────────────────────────────────────
     # BatchOut
     ("batch out",       "batchout"),
-    ("batcho",          "batchout"),
+    (" batcho ",        " batchout "),  # word-boundary padded: "batcho" is a
+                                         # substring PREFIX of "batchout" itself,
+                                         # so an unpadded rule here self-mangles
+                                         # the correct word into "batchoutut"
     ("b.out",           "batchout"),
-    ("bo ",             "batchout "),   # trailing space avoids "bo override"
+    # NOTE: the risky bare "bo " -> "batchout " shorthand is intentionally
+    # NOT here — see the end of this list for why.
     # ParaSync
     ("para sync",       "parasync"),
     ("dong bo tham so", "parasync"),
@@ -54,12 +58,17 @@ _ABBREVS = [
     ("parameter sync",  "parasync"),
     (" ps ",            " parasync "),
     # Load Family Cloud
+    ("load family cloud","loadfamilycloud"),
     ("load fam cloud",  "loadfamilycloud"),
     ("tai family cloud","loadfamilycloud"),
     ("load cloud",      "loadfamilycloud"),
     (" lfc ",           " loadfamilycloud "),
     # Load Family
-    ("load fam",        "loadfamily"),
+    ("load family",     "loadfamily"),
+    (" load fam ",      " loadfamily "),  # word-boundary padded: unpadded "load
+                                           # fam" is a substring PREFIX of "load
+                                           # family" and would mangle it into
+                                           # "loadfamilyily"
     ("tai family",      "loadfamily"),
     ("nap family",      "loadfamily"),
     ("keo family",      "loadfamily"),
@@ -182,6 +191,25 @@ _ABBREVS = [
     ("image",           "img"),
     ("picture",         "img"),
 
+    # ── "What can you do" capability-query normalisation ─────────────────────
+    # English capability questions are made of nothing but stopwords
+    # ("what", "can", "you", "do") once tokenised, so without this they score
+    # zero on every intent and fall through to the generic "didn't understand"
+    # reply. Collapse the whole phrase to one non-stopword marker up front.
+    ("what can you do",         "capabilities query"),
+    ("what can u do",           "capabilities query"),
+    ("what do you do",          "capabilities query"),
+    ("what could you do",      "capabilities query"),
+    ("what are you capable of","capabilities query"),
+    ("what can this do",        "capabilities query"),
+    ("what can this tool do",   "capabilities query"),
+    ("what features do you have","capabilities query"),
+    ("what tools do you have",  "capabilities query"),
+    ("how can you help me",     "capabilities query"),
+    ("how can you help",        "capabilities query"),
+    ("who are you",             "capabilities query"),
+    ("what are you",            "capabilities query"),
+
     # ── Greeting shortcuts ────────────────────────────────────────────────────
     ("chao buoi sang",  "chao"),
     ("chao buoi chieu", "chao"),
@@ -231,6 +259,15 @@ _ABBREVS = [
     # ── Vietnamese "open" at word boundary ───────────────────────────────────
     ("mo ",             "open "),
     ("mo\n",            "open\n"),
+
+    # ── Bare "bo" -> BatchOut shorthand (LAST on purpose) ─────────────────────
+    # "bo" is dangerously short and collides with real Vietnamese words that
+    # end in "bo" after diacritics are stripped, most importantly "toàn bộ"
+    # ("all") -> "toan bo". Every rule above this point already consumes its
+    # own "bo" first (dong bo/parasync, bo override/resetoverrides, toan bo/
+    # all, tat ca/all, etc.), so by the time this runs, any leftover
+    # standalone "bo" can only be the actual BatchOut shorthand.
+    ("bo ",             "batchout "),
 ]
 
 
@@ -327,7 +364,7 @@ _TRIGGERS = {
         ("open",                2),
     ],
 
-    "open_loadfamilycloud": [
+    "open_loadfamily_cloud": [
         ("loadfamilycloud",    35),
         ("open loadfamilycloud", 40),
         ("mo loadfamilycloud", 40),
@@ -473,6 +510,20 @@ _TRIGGERS = {
         ("xin loi",            20),    # sorry/excuse me
         ("sorry",              15),
         ("pardon",             12),
+        # ── Frustration / insult directed at the assistant ────────────────────
+        # Not tool-related — give an honest, de-escalating reply instead of the
+        # generic "didn't understand" message (see _build_message).
+        ("stupid",             22),
+        ("dumb",               20),
+        ("useless",            22),
+        ("garbage",            20),
+        ("trash",              18),
+        ("suck",               18),
+        ("sucks",              18),
+        ("ngu",                20),
+        ("vo dung",            22),
+        ("te qua",             20),
+        ("qua te",             20),
     ],
 
     "help": [
@@ -502,6 +553,7 @@ _TRIGGERS = {
         ("lam sao de xuat",    28),
         ("lam sao de mo",      28),
         # ── "What can you do?" ────────────────────────────────────────────────
+        ("capabilities query", 30),   # normalised from EN phrasing via _ABBREVS
         ("lam duoc gi",        25),
         ("dung duoc gi",       25),
         ("ho tro gi",          25),
@@ -566,7 +618,7 @@ _THRESHOLDS = {
     "export_direct":             18,
     "open_batchout_configured":  25,   # needs both open+batchout+params
     "open_parasync":             18,
-    "open_loadfamilycloud":      25,
+    "open_loadfamily_cloud":     25,
     "open_loadfamily":           18,
     "open_projectname":          18,
     "open_workset":              18,
@@ -646,7 +698,7 @@ _TOOL_LABELS = {
     "open_batchout_configured":"BatchOut",
     "open_parasync":          "ParaSync",
     "open_loadfamily":        "Load Family",
-    "open_loadfamilycloud":   "Load Family Cloud",
+    "open_loadfamily_cloud":  "Load Family Cloud",
     "open_projectname":       "Project Name",
     "open_workset":           "Workset",
     "open_dimtext":           "Dim Text",
@@ -659,7 +711,7 @@ _TOOL_LABELS = {
 _TOOL_KEYWORDS = {
     "batchout":       "open_batchout",
     "parasync":       "open_parasync",
-    "loadfamilycloud":"open_loadfamilycloud",
+    "loadfamilycloud":"open_loadfamily_cloud",
     "loadfamily":     "open_loadfamily",
     "projectname":    "open_projectname",
     "workset":        "open_workset",
@@ -668,6 +720,35 @@ _TOOL_KEYWORDS = {
     "resetoverrides": "open_resetoverrides",
     "grids":          "open_grids",
 }
+
+
+def _match_discovered_tool(normed_expanded):
+    """Look up Services.tool_discovery's registry for a keyword substring match.
+
+    Covers T3Lab tools added after this file was written (auto-discovered
+    pushbuttons), which are not in the hardcoded _TRIGGERS table above.
+
+    Only trusts keywords of length >= 8: auto-generated keyword lists include
+    every word in the button/title (e.g. "family", "manager", "select"), and
+    short generic words like those collide across many unrelated tools and
+    even appear as substrings inside other (unrelated) expanded phrases. This
+    runs only as a last resort (best is None already), so being conservative
+    here is more valuable than being greedy — a missed match still falls
+    through to the LLM path or keyword_parse(), both of which see the full
+    keyword list.
+
+    Returns (intent, title) or (None, None).
+    """
+    try:
+        from Services.tool_discovery import get_registered_tools
+        tools = get_registered_tools()
+    except Exception:
+        return None, None
+    for tool in tools:
+        for kw in tool.get('keywords', []):
+            if kw and len(kw) >= 8 and kw in normed_expanded:
+                return tool.get('intent'), tool.get('title')
+    return None, None
 
 
 def _last_tool_from_history(history):
@@ -690,15 +771,32 @@ def _is_pronoun_query(normed_expanded):
 
 # ─── Scoring ──────────────────────────────────────────────────────────────────
 
-def _score(intent, unigrams, bigrams):
-    """Compute weighted match score for one intent."""
+def _score(intent, unigrams, bigrams, padded_expanded):
+    """Compute weighted match score for one intent.
+
+    Single-word features are matched against the stopword-filtered unigram
+    set (keeps the existing noise reduction for generic bag-of-words scoring).
+    Multi-word features (2+ words, joined by a space) are matched as a literal
+    phrase against the padded expanded text instead of via the bigram set:
+    many curated phrases here (e.g. "lam duoc gi", "huong dan su dung") are
+    built entirely from short Vietnamese filler words that _tokenise() strips
+    as stopwords, so a bigram/trigram for them could never form otherwise —
+    they would silently never match.
+    """
     score = 0
     all_features = unigrams | bigrams
     for feature, weight in _TRIGGERS.get(intent, []):
-        if feature in all_features:
+        if " " in feature:
+            if (" " + feature + " ") in padded_expanded:
+                score += weight
+        elif feature in all_features:
             score += weight
     for feature, penalty in _PENALTIES.get(intent, []):
-        if feature in all_features:
+        if " " in feature:
+            matched = (" " + feature + " ") in padded_expanded
+        else:
+            matched = feature in all_features
+        if matched:
             score += penalty   # penalty is already negative
     return score
 
@@ -768,7 +866,7 @@ _MESSAGES_VI = {
     "open_batchout_configured": u"Mở BatchOut đã cấu hình...",
     "open_parasync":          u"Đang mở ParaSync...",
     "open_loadfamily":        u"Đang mở Load Family...",
-    "open_loadfamilycloud":   u"Đang mở Load Family (Cloud)...",
+    "open_loadfamily_cloud":  u"Đang mở Load Family (Cloud)...",
     "open_projectname":       u"Đang mở Project Name...",
     "open_workset":           u"Đang mở Workset...",
     "open_dimtext":           u"Đang mở Dim Text...",
@@ -790,7 +888,7 @@ _MESSAGES_EN = {
     "open_batchout_configured": "Opening BatchOut (pre-configured)...",
     "open_parasync":          "Opening ParaSync...",
     "open_loadfamily":        "Opening Load Family...",
-    "open_loadfamilycloud":   "Opening Load Family (Cloud)...",
+    "open_loadfamily_cloud":  "Opening Load Family (Cloud)...",
     "open_projectname":       "Opening Project Name...",
     "open_workset":           "Opening Workset...",
     "open_dimtext":           "Opening Dim Text...",
@@ -845,6 +943,19 @@ def _build_message(intent, slots, viet, raw_input=""):
         if any(k in normed_raw for k in farewell_kws):
             return (_MESSAGES_VI if viet else _MESSAGES_EN).get("farewell",
                     u"Tạm biệt! 👋" if viet else "Goodbye! 👋")
+        # Frustration / insult directed at the assistant itself — acknowledge
+        # honestly instead of the generic "didn't understand" reply, and point
+        # at a concrete next step (works with or without an LLM connected).
+        insult_kws = ["stupid", "dumb", "useless", "garbage", "trash", "suck",
+                      "ngu", "vo dung", "te qua", "qua te"]
+        if any(k in normed_raw for k in insult_kws):
+            if viet:
+                return (u"Xin lỗi vì trải nghiệm chưa tốt! Ở chế độ offline tôi chỉ nhận "
+                        u"diện được lệnh cụ thể — thử 'mở batchout', 'parasync'... "
+                        u"hoặc kết nối AI trong phần Cài đặt để trả lời tự nhiên hơn.")
+            return ("Sorry that reply wasn't good enough! In offline mode I can only "
+                    "recognise specific commands — try 'open batchout', 'parasync'... "
+                    "or connect an AI provider in Settings for smarter answers.")
         # Error/complaint
         error_kws = ["loi", "bi hong", "khong chay", "khong hoat dong", "error",
                      "broken", "not working"]
@@ -910,9 +1021,15 @@ def classify(user_input, history=None):
 
     # ── Tokenise ─────────────────────────────────────────────────────────────
     unigrams, bigrams = _tokenise(expanded)
+    # Punctuation-stripped, whitespace-normalised text for the multi-word
+    # phrase matcher in _score() — must match what _tokenise() sees, or a
+    # trailing "?"/"." blocks the closing word-boundary space and the phrase
+    # never matches (e.g. "what can you do?").
+    _clean = re.sub(r'[^a-z0-9\s]', ' ', expanded)
+    padded_expanded = u" " + u" ".join(_clean.split()) + u" "
 
     # ── Score every intent ───────────────────────────────────────────────────
-    scores = {intent: _score(intent, unigrams, bigrams)
+    scores = {intent: _score(intent, unigrams, bigrams, padded_expanded)
               for intent in _TRIGGERS}
 
     # ── Extract slots (needed for disambiguation) ────────────────────────────
@@ -920,6 +1037,19 @@ def classify(user_input, history=None):
 
     # ── Disambiguate ─────────────────────────────────────────────────────────
     best = _disambiguate(dict(scores), unigrams, bigrams, slots)
+
+    # ── Auto-discovered T3Lab tools (offline, no LLM round-trip needed) ──────
+    # The hardcoded tables above only cover the tools bundled with the
+    # extension. Tools added later are picked up by Services.tool_discovery
+    # and already work through the LLM path and keyword_parse() fallback —
+    # this lets the instant offline engine recognise them too.
+    if best is None:
+        discovered_intent, discovered_title = _match_discovered_tool(expanded)
+        if discovered_intent:
+            msg = (u"Đang mở {}...".format(discovered_title) if viet
+                   else u"Opening {}...".format(discovered_title))
+            return {"intent": discovered_intent, "params": {}, "message": msg,
+                    "_nlu": True}
 
     # ── Soft fallback for conversational input that scored nothing ────────────
     # If classification failed but the input looks conversational (no tool
