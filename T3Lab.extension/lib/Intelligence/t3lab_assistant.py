@@ -232,7 +232,13 @@ def find_learned_match(raw):
     """Check learned patterns for a fuzzy match.
 
     Returns result dict {intent, params, message} or None.
-    Uses Jaccard similarity on normalized word sets (threshold 0.65).
+    Uses Jaccard similarity on normalized word sets (threshold 0.8), plus a
+    minimum-2-shared-words requirement once the stored pattern has 3+ words.
+    The old 0.65 threshold was too permissive for the short 2-4 word
+    commands typical here: a single shared word was often enough to clear
+    it (e.g. "open material" vs a stored "material select" pattern scores
+    1/3 ≈ 0.67 — a false positive that silently launches the wrong tool
+    with high confidence, which is worse than falling through to the LLM).
     """
     try:
         patterns = load_learned_patterns()
@@ -250,14 +256,16 @@ def find_learned_match(raw):
             stored_words = set(stored_key.split()) if stored_key else set()
             if not stored_words:
                 continue
-            inter = len(key_words & stored_words)
-            union = len(key_words | stored_words)
-            score = inter / union if union else 0.0
+            inter = key_words & stored_words
+            if len(stored_words) >= 3 and len(inter) < 2:
+                continue
+            union = key_words | stored_words
+            score = len(inter) / len(union) if union else 0.0
             if score > best_score:
                 best_score = score
                 best_data  = data
 
-        if best_score >= 0.65 and best_data:
+        if best_score >= 0.8 and best_data:
             return {
                 'intent':  best_data['intent'],
                 'params':  best_data.get('params', {}),

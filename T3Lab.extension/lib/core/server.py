@@ -12,6 +12,7 @@ Linkedin: linkedin.com/in/sunarch7899/
 __author__  = "Tran Tien Thanh"
 __title__   = "MCP Server"
 
+import os
 import threading
 import json
 import uuid
@@ -187,6 +188,23 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         params = request.get('params', {})
         request_id = request.get('id')
 
+        # ── Auth ────────────────────────────────────────────────────────
+        # Reject anything that doesn't carry the shared-secret token (see
+        # T3LabAIServer._get_or_create_token). Without this, any local
+        # process could reach tools/call — including send_code_to_revit,
+        # which executes arbitrary IronPython with full Revit API access.
+        expected = 'Bearer ' + server._token
+        if self.headers.get('Authorization', '') != expected:
+            if 'id' not in request:
+                self._send_json({'status': 'unauthorized'}, 401)
+            else:
+                self._send_json({
+                    'jsonrpc': '2.0',
+                    'id': request_id,
+                    'error': {'code': -32001, 'message': 'Unauthorized: missing or invalid token'}
+                }, 401)
+            return
+
         # If it's a notification (no 'id' in request), do not send JSON-RPC response
         if 'id' not in request:
             try:
@@ -254,10 +272,48 @@ class T3LabAIServer(object):
         self._tools = {}
         self._external_event = None
         self._event_handler = None
+        self._token = self._get_or_create_token()
         self._initialized = True
 
         # Register default Revit tools
         self._register_default_tools()
+
+    def _get_or_create_token(self):
+        """Return the shared-secret token every /message and /mcp request
+        must carry, creating and persisting one on first run.
+
+        Without this, any local process could hit the HTTP server and call
+        tools/call — including send_code_to_revit, which runs arbitrary
+        IronPython with full Revit API access. Persisting the token to the
+        same %APPDATA%\\T3LabAI directory used by settings.py lets a
+        locally-spawned bridge.py (launched by Claude Desktop/Cursor per
+        the mcpServers config) read it without any manual setup.
+        """
+        try:
+            app_data = os.environ.get('APPDATA', '')
+            token_dir = os.path.join(app_data, 'T3LabAI')
+            if not os.path.exists(token_dir):
+                os.makedirs(token_dir)
+            token_path = os.path.join(token_dir, 'mcp_token.txt')
+            if os.path.exists(token_path):
+                with open(token_path, 'r') as f:
+                    existing = f.read().strip()
+                if existing:
+                    return existing
+            token = uuid.uuid4().hex
+            with open(token_path, 'w') as f:
+                f.write(token)
+            return token
+        except Exception:
+            # Can't persist (e.g. no APPDATA) — still refuse unauthenticated
+            # requests rather than silently accepting everything, just with
+            # a token that only this process knows (external bridges won't
+            # be able to authenticate until this succeeds).
+            return uuid.uuid4().hex
+
+    @property
+    def token(self):
+        return self._token
 
     def _register_default_tools(self):
         """Register default Revit tools for MCP"""

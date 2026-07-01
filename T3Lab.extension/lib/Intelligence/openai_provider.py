@@ -186,7 +186,8 @@ class OpenAIProvider(BaseLLMProvider):
             resp_text  = http_post(OPENAI_CHAT_URL, payload, headers)
             api_result = json.loads(resp_text)
             return api_result["choices"][0]["message"]["content"].strip()
-        except Exception:
+        except Exception as ex:
+            self._debug_log("chat() failed: {}".format(ex))
             return None
 
     def chat_stream(self, messages, system_prompt, user_content,
@@ -241,7 +242,11 @@ class OpenAIProvider(BaseLLMProvider):
             http_post_stream(OPENAI_CHAT_URL, payload, headers, _on_line)
             full = u"".join(chunks)
             return full.strip() if full else None
-        except Exception:
+        except Exception as ex:
+            # Transport/streaming error — fall back to a blocking call. If
+            # that ALSO fails, chat()'s own except-block above logs it, so
+            # only the streaming-specific failure needs logging here.
+            self._debug_log("chat_stream() failed, falling back to chat(): {}".format(ex))
             return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
 
     # ── Conversion helpers ─────────────────────────────────────────────────────

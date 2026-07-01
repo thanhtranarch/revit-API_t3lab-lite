@@ -499,6 +499,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # ── Session state ─────────────────────────────────────────────────────
         self._busy             = False          # concurrency guard
+        self._switching_provider = False        # guard: _switch_provider bg probe in flight
+        self._probing_sidebar    = False        # guard: settings sidebar bg probe in flight
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
         self._last_raw         = ''             # last user input (for learning)
@@ -1333,7 +1335,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if sidebar_open:
                 self.Dispatcher.Invoke(Action(self._update_sidebar_instant))
 
-            # Background: probe the newly-active provider + refresh its model list
+            # Background: probe the newly-active provider + refresh its model list.
+            # Guarded so rapid repeated provider switches don't pile up threads
+            # all probing at once — a switch while one is already probing just
+            # skips spawning a second thread (the in-flight one already covers
+            # the freshest switch target read at its start).
+            if self._switching_provider:
+                return
+            self._switching_provider = True
+
             def _bg():
                 try:
                     provider = router.get_active_provider()
@@ -1347,6 +1357,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         self.Dispatcher.Invoke(Action(self._update_sidebar))
                 except Exception:
                     pass
+                finally:
+                    self._switching_provider = False
 
             t = Thread(ThreadStart(_bg))
             t.IsBackground = True
@@ -1368,7 +1380,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._update_sidebar_instant()
 
         # Phase 2: background probe — ACTIVE provider first (fast feedback),
-        # then the remaining providers for the full status list.
+        # then the remaining providers for the full status list. Guarded so
+        # rapidly toggling the sidebar open/closed doesn't spawn a new probe
+        # thread on top of one that's already running.
+        if self._probing_sidebar:
+            return
+        self._probing_sidebar = True
+
         def _bg_probe():
             try:
                 from Intelligence.llm_router import LLMRouter
@@ -1390,6 +1408,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.Dispatcher.Invoke(Action(self._update_sidebar))
             except Exception:
                 pass
+            finally:
+                self._probing_sidebar = False
 
         _pt = Thread(ThreadStart(_bg_probe))
         _pt.IsBackground = True
@@ -2885,18 +2905,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             params = _parsed.get("params", {}) or {}
                             message = _parsed.get("message", "")
 
-                            # Determine if it's a local MCP tool call
+                            # Determine if it's a local MCP tool call — check
+                            # against the real registry, not a "revit_" prefix
+                            # guess, since several real tool names don't start
+                            # with "revit_" (place_wall, create_grid, etc.) and
+                            # a hallucinated "revit_*" name that ISN'T
+                            # registered would otherwise be sent into the
+                            # External Event round-trip for nothing.
                             is_local_tool = False
-                            if intent.startswith("revit_"):
-                                is_local_tool = True
-                            else:
-                                try:
-                                    from core.server import get_t3labai_server
-                                    srv = get_t3labai_server()
-                                    if intent in srv._tools:
-                                        is_local_tool = True
-                                except Exception:
-                                    pass
+                            try:
+                                from core.server import get_t3labai_server
+                                srv = get_t3labai_server()
+                                if intent in srv._tools:
+                                    is_local_tool = True
+                            except Exception:
+                                pass
 
                             if is_local_tool:
                                 # The streamed preview (if any) is superseded by
@@ -3120,10 +3143,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("MCP intent handler error: {}".format(_mcp_ex))
 
         # ── Unknown / fallthrough ─────────────────────────────────────────────
+        # Reaching here with a non-empty, non-"unknown" intent means the model
+        # returned a tool name that isn't registered anywhere (T3Lab UI tool
+        # or MCP tool) — say so plainly instead of the misleading "Đã thực
+        # hiện." ("Done."), since nothing was actually executed.
         if intent == "unknown":
             _bot(params.get("message", u"Lệnh không rõ. Thử: 'mở batchout', 'xuất pdf G sheet'..."))
+        elif message:
+            _bot(message)
         else:
-            _bot(message or u"Đã thực hiện.")
+            _bot(u"Công cụ `{}` không tồn tại. Thử: 'mở batchout', 'xuất pdf G sheet'...".format(intent))
         self._set_busy(False)
 
     def _run_tool(self, intent, default_msg):

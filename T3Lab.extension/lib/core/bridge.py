@@ -1,7 +1,20 @@
 import sys
+import os
 import json
 import urllib.request
 import urllib.error
+
+def _read_token():
+    """Read the shared-secret token T3LabAIServer writes on first run to
+    %APPDATA%\\T3LabAI\\mcp_token.txt. The server rejects any /mcp request
+    without it, so this bridge needs to forward it on every call."""
+    try:
+        app_data = os.environ.get('APPDATA', '')
+        token_path = os.path.join(app_data, 'T3LabAI', 'mcp_token.txt')
+        with open(token_path, 'r') as f:
+            return f.read().strip()
+    except Exception:
+        return ''
 
 def main():
     port = 48884
@@ -14,6 +27,7 @@ def main():
             pass
 
     url = f"http://localhost:{port}/mcp"
+    token = _read_token()
 
     while True:
         line = sys.stdin.readline()
@@ -29,10 +43,13 @@ def main():
 
         # Forward the JSON-RPC request to Revit's in-process HTTP server
         data = json.dumps(request).encode('utf-8')
+        headers = {'Content-Type': 'application/json'}
+        if token:
+            headers['Authorization'] = 'Bearer ' + token
         req = urllib.request.Request(
             url,
             data=data,
-            headers={'Content-Type': 'application/json'}
+            headers=headers
         )
         try:
             with urllib.request.urlopen(req) as response:
