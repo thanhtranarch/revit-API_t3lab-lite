@@ -1,4 +1,4 @@
-# Panel 1 — Annotation & Select (Ngày 7)
+# Panel 1 — Annotation & Select (Ngày 5)
 
 > 4 tool. Model test: file nhỏ có wall, grid, dimension, text note, tag, 1 DWG import + 1 DWG link.
 > Quy trình chung: xem "Định nghĩa xong" trong `dev/plan/README.md`. Bật debug: giữ CTRL khi bấm nút.
@@ -47,7 +47,7 @@ Chain: `script.py` (36 loc) → `lib/GUI/ManaAnnoDialog.py` (1416 loc) → `Mana
 - [ ] View có view template khoá annotation → thông báo hợp lý, không crash
 - [ ] Ghi chú:
 
-## Chốt ngày 7
+## Chốt ngày 5
 - [ ] Cập nhật trạng thái 4 tool vào bảng dưới + `dev/plan/README.md`
 - [ ] Lỗi tìm thấy → mục Phát sinh + quyết định sửa ngay (nhỏ) hay tạo việc riêng (lớn)
 - [ ] Commit (nếu có sửa code): `fix(panel-annotation): <mô tả>`

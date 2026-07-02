@@ -1,10 +1,10 @@
-# Panel 2 — Modeling & Datum (Ngày 8–9)
+# Panel 2 — Modeling & Datum (Ngày 6–7)
 
 > 14 tool — panel lớn nhất, chia 2 ngày. Model test: file có room, wall (thẳng + cong), floor, door, level, grid; chuẩn bị sẵn 1 file DWG mẫu, 1 ảnh PNG đen trắng, 1 file point (nếu có).
 
 ---
 
-## Ngày 8 — Nhóm Create (7 tool)
+## Ngày 6 — Nhóm Create (7 tool)
 
 ### Tool 1/7 — CADToElements
 Chain: launcher → `CADToElementsDialog.py` (3143 loc) → `CADToElements.xaml` + 4 XAML con (CADtoBeam / CadtoFloor / CadtoFloorLayerItem / CadtoWall)
@@ -67,12 +67,12 @@ Chain: self-contained (2450 loc) → `TileLayout.xaml`
 - [ ] ⚠️ Script không gọi Transaction trực tiếp — xác định wrapper nào ghi model (revit.Transaction? helper?) và Ctrl+Z hoạt động đúng
 - [ ] Ghi chú:
 
-### Chốt ngày 8
+### Chốt ngày 6
 - [ ] Cập nhật bảng trạng thái + README · Commit nếu có fix
 
 ---
 
-## Ngày 9 — Nhóm Adjust / Family / Datum (7 tool)
+## Ngày 7 — Nhóm Adjust / Family / Datum (7 tool)
 
 ### Tool 8/14 — PropertyLine
 Chain: launcher → `PropertyLineDialog.py` (1727 loc) → `PropertyLine.xaml`
@@ -131,7 +131,7 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 - [ ] Test cả flow "Place Opening Families" (L1212+): symbol chưa active → tự activate
 - [ ] Ghi chú:
 
-### Chốt ngày 9
+### Chốt ngày 7
 - [ ] Cập nhật bảng + README · Gỡ các traceback log tạm trước khi commit
 - [ ] Commit: `fix(panel-modeling): <mô tả>`
 
@@ -139,20 +139,20 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 
 | # | Tool | Ngày | Trạng thái | Ghi chú |
 |---|------|------|-----------|---------|
-| 1 | CADToElements | 8 | ⬜ | |
-| 2 | DoorThreshold | 8 | ⬜ | |
-| 3 | ImageToDrafting | 8 | ⬜ | |
-| 4 | Text to Element | 8 | ⬜ | |
-| 5 | PointCloud | 8 | ⬜ | |
-| 6 | RoomToFloor | 8 | ⬜ | |
-| 7 | Tile Layout | 8 | ⬜ | |
-| 8 | PropertyLine | 9 | ⬜ | |
-| 9 | FamiGen | 9 | ⬜ | |
-| 10 | ManaFami | 9 | ⬜ | |
-| 11 | Wall_Adjust Base | 9 | ⬜ | |
-| 12 | SplitElements | 9 | ⬜ | |
-| 13 | AutoJoin | 9 | ⬜ | |
-| 14 | Wall Cut Profile | 9 | ⬜ | |
+| 1 | CADToElements | 6 | ⬜ | |
+| 2 | DoorThreshold | 6 | ⬜ | |
+| 3 | ImageToDrafting | 6 | ⬜ | |
+| 4 | Text to Element | 6 | ⬜ | |
+| 5 | PointCloud | 6 | ⬜ | |
+| 6 | RoomToFloor | 6 | ⬜ | |
+| 7 | Tile Layout | 6 | ⬜ | |
+| 8 | PropertyLine | 7 | ⬜ | |
+| 9 | FamiGen | 7 | ⬜ | |
+| 10 | ManaFami | 7 | ⬜ | |
+| 11 | Wall_Adjust Base | 7 | ⬜ | |
+| 12 | SplitElements | 7 | ⬜ | |
+| 13 | AutoJoin | 7 | ⬜ | |
+| 14 | Wall Cut Profile | 7 | ⬜ | |
 
 ## Phát sinh
 

@@ -20,32 +20,32 @@
 | Giai đoạn | Nội dung | File plan | Số ngày |
 |-----------|----------|-----------|---------|
 | **1. Sửa lỗi tĩnh & dọn dẹp** | 4 bug đã xác nhận (F1–F4) + archive dead code | `phase-1-cleanup-fixes.md` | 2 |
-| **2. UI Consistency (Lumina)** | Chuẩn hoá copyright 73 file, palette sót, verify trực quan | `phase-2-ui-consistency.md` | 4 |
+| **2. UI Consistency (Lumina)** | Sửa 2 outlier T3LabAssistant (palette + copyright) + verify trực quan | `phase-2-ui-consistency.md` | 2 |
 | **3. Debug chức năng theo panel** | Smoke test 41 tool trong Revit, chia 6 panel | `panel-1..6-*.md` | 7 |
 | **4. Regression & tổng kết** | Chạy lại toàn bộ audit, chốt báo cáo | mục cuối file này | 1 |
 
-## Lịch thực hiện 14 ngày
+> Ghi chú UI: chuẩn copyright là **footer (status bar), bên trái** — codebase vốn đã theo pattern này ở 74/76 file; `ui-design-standard.md` đã được cập nhật khớp thực tế (2026-07-02), nên GĐ2 chỉ còn 2 ngày.
+
+## Lịch thực hiện 12 ngày
 
 | Ngày | Giai đoạn | Việc | File | Trạng thái |
 |------|-----------|------|------|-----------|
 | 1 | GĐ1 | Sửa F1 FindReplace · F2 CreateFromRooms · F3 UIShowcase | `phase-1-cleanup-fixes.md` §Ngày 1 | ⬜ |
 | 2 | GĐ1 | Archive 15 XAML mồ côi + 6 dialog chết · chạy lại audit | `phase-1-cleanup-fixes.md` §Ngày 2 | ⬜ |
-| 3 | GĐ2 | Viết `dev/fix_copyright.py` · fix copyright Panel 1 + Panel 3 · palette T3LabAssistant | `phase-2-ui-consistency.md` §Ngày 3 | ⬜ |
-| 4 | GĐ2 | Fix copyright Panel 2 (16 file — nhiều nhất) | `phase-2-ui-consistency.md` §Ngày 4 | ⬜ |
-| 5 | GĐ2 | Fix copyright Panel 4 + 5 + 6 + XAML dùng chung | `phase-2-ui-consistency.md` §Ngày 5 | ⬜ |
-| 6 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 6 | ⬜ |
-| 7 | GĐ3 | Debug Panel: Annotation & Select (4 tool) | `panel-1-annotation-select.md` | ⬜ |
-| 8 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Create (7 tool) | `panel-2-modeling-datum.md` §Ngày 8 | ⬜ |
-| 9 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Adjust/Family (7 tool) | `panel-2-modeling-datum.md` §Ngày 9 | ⬜ |
-| 10 | GĐ3 | Debug Panel: Views & Sheets (4 tool, trọng tâm BatchOut) | `panel-3-views-sheets.md` | ⬜ |
-| 11 | GĐ3 | Debug Panel: Data & IFC-SG (6 tool) | `panel-4-data-ifcsg.md` | ⬜ |
-| 12 | GĐ3 | Debug Panel: Standards & Settings (4 tool) | `panel-5-standards-settings.md` | ⬜ |
-| 13 | GĐ3 | Debug Panel: Support + Standard (9 tool) | `panel-6-support-standard.md` | ⬜ |
-| 14 | GĐ4 | Regression toàn bộ + tổng kết | mục dưới | ⬜ |
+| 3 | GĐ2 | Sửa T3LabAssistant.xaml (palette + copyright) + AssistantPane.xaml → audit UI sạch | `phase-2-ui-consistency.md` §Ngày 3 | ⬜ |
+| 4 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 4 | ⬜ |
+| 5 | GĐ3 | Debug Panel: Annotation & Select (4 tool) | `panel-1-annotation-select.md` | ⬜ |
+| 6 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Create (7 tool) | `panel-2-modeling-datum.md` §Ngày 6 | ⬜ |
+| 7 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Adjust/Family (7 tool) | `panel-2-modeling-datum.md` §Ngày 7 | ⬜ |
+| 8 | GĐ3 | Debug Panel: Views & Sheets (4 tool, trọng tâm BatchOut) | `panel-3-views-sheets.md` | ⬜ |
+| 9 | GĐ3 | Debug Panel: Data & IFC-SG (6 tool) | `panel-4-data-ifcsg.md` | ⬜ |
+| 10 | GĐ3 | Debug Panel: Standards & Settings (4 tool) | `panel-5-standards-settings.md` | ⬜ |
+| 11 | GĐ3 | Debug Panel: Support + Standard (9 tool) | `panel-6-support-standard.md` | ⬜ |
+| 12 | GĐ4 | Regression toàn bộ + tổng kết | mục dưới | ⬜ |
 
 > Nguyên tắc: **không nhảy giai đoạn**. GĐ1 dọn dead code trước để GĐ2 không tốn công sửa UI cho file sắp xoá; GĐ2 chốt UI trước để GĐ3 smoke test không bị nhiễu bởi thay đổi XAML.
 
-## Giai đoạn 4 — Ngày 14: Regression & tổng kết
+## Giai đoạn 4 — Ngày 12: Regression & tổng kết
 
 - [ ] `python3 dev/audit_tools.py --quiet` → exit 0
 - [ ] `python3 dev/audit_ui.py --quiet` → exit 0

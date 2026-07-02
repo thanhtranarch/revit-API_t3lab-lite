@@ -1,4 +1,4 @@
-# Panel 5 — Standards & Settings (Ngày 12)
+# Panel 5 — Standards & Settings (Ngày 10)
 
 > 4 tool nhưng đụng vào **cài đặt toàn model** (coordinates, object styles, workset).
 > ⚠️ BẮT BUỘC test trên **bản copy** của model, không dùng file thật. Cần thêm 1 file workshared (tạo local copy) cho ManaWorkset.
@@ -42,7 +42,7 @@ Chain: launcher → `ModelAuditorDialog.py` (1828 loc) → `ModelAuditor.xaml`
 - [ ] Model rỗng → report không crash
 - [ ] Ghi chú:
 
-## Chốt ngày 12
+## Chốt ngày 10
 - [ ] Cập nhật bảng + README · Commit: `fix(panel-standards): <mô tả>`
 
 | Tool | Trạng thái | Ghi chú |

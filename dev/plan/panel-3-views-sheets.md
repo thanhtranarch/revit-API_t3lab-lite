@@ -1,4 +1,4 @@
-# Panel 3 — Views & Sheets (Ngày 10)
+# Panel 3 — Views & Sheets (Ngày 8)
 
 > 4 tool nhưng có **BatchOut (3764 loc)** — tool xuất bản lớn nhất, dành nửa ngày riêng.
 > Model test: file có ~5 sheet (titleblock chuẩn), vài view plan/section/3D, 1 schedule.
@@ -49,7 +49,7 @@ Test:
 - [ ] Queue nhiều định dạng 1 lượt → thứ tự chạy + progress đúng, Pause/Stop hoạt động
 - [ ] Ghi chú:
 
-## Chốt ngày 10
+## Chốt ngày 8
 - [ ] Gỡ log tạm · cập nhật bảng + README
 - [ ] Commit: `fix(panel-views-sheets): <mô tả>`
 

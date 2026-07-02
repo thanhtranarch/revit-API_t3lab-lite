@@ -1,4 +1,4 @@
-# Panel 4 — Data & IFC-SG (Ngày 11)
+# Panel 4 — Data & IFC-SG (Ngày 9)
 
 > 6 tool. Chuẩn bị: file BCF 2.1 mẫu (kèm 1 file BCF hỏng để test), model có foundation giao nhau, room + element, schedule, shared parameter file .txt.
 
@@ -56,7 +56,7 @@ Chain: self-contained (3041 loc, 4 transaction) → `BCFReader.xaml`
 - [ ] Element highlight theo GUID trong BCF → đúng element (test cả GUID không tồn tại trong model)
 - [ ] Ghi chú:
 
-## Chốt ngày 11
+## Chốt ngày 9
 - [ ] Cập nhật bảng + README · Commit: `fix(panel-data-ifcsg): <mô tả>`
 
 | Tool | Trạng thái | Ghi chú |

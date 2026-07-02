@@ -8,8 +8,9 @@ T3Lab UI consistency audit theo chuẩn Lumina (CPython 3, chạy ngoài Revit).
   2. Font cấm (Manrope, Segoe UI cho body text).
   3. Window root thiếu FontFamily Hanken Grotesk/Inter (Variant A).
   4. WindowChrome thiếu attribute hoặc viết 1 dòng.
-  5. Copyright block: đúng snippet chuẩn (1 bản duy nhất, ký tự © literal,
-     Grid.RowSpan/ColumnSpan=99, màu #F59E0B, là con trực tiếp của root Grid).
+  5. Copyright block: 1 bản duy nhất, ký tự © literal, FontSize 11, màu #F59E0B,
+     nằm ở FOOTER (status bar) phía BÊN TRÁI — không right-align/center,
+     không float overlay đè content. Item-template XAML được miễn trừ.
   6. Dot-notation <Grid.RowDefinition/> (crash EMPTYPROPERTYELEMENT).
   7. Glyph chrome sai (Unicode minus/white square thay vì Segoe MDL2).
   8. Thiếu block shared styles.
@@ -32,6 +33,10 @@ QUIET = "--quiet" in sys.argv
 
 UI_LOCKED = {"DWGManagement.xaml", "ExportManager.xaml"}
 
+# Item-template XAML (root là list-row <Border>/<DataTemplate>, không phải cửa sổ)
+# — chuẩn miễn trừ copyright cho các file này.
+COPYRIGHT_EXEMPT = {"CadtoFloorLayerItem.xaml"}
+
 OLD_PALETTE = {
     "#083D56": "Kinetix navy",
     "#0F766E": "Terra teal primary",
@@ -48,7 +53,7 @@ OLD_PALETTE = {
 }
 
 
-def audit_file(src):
+def audit_file(src, base):
     issues = []
     is_window = re.search(r'<\s*Window[\s>]', src) is not None
 
@@ -78,23 +83,26 @@ def audit_file(src):
         else:
             issues.append("không có WindowChrome")
 
-    n_cr = len(re.findall(r'© Copyright by T3Lab', src))
-    n_ent = len(re.findall(r'&#169;', src))
-    if n_ent:
-        issues.append("copyright dùng &#169; (phải dùng © literal)")
-    total = n_cr + n_ent
-    if total == 0:
-        issues.append("thiếu copyright")
-    elif total > 1:
-        issues.append("copyright trùng lặp x%d" % total)
-    else:
-        crtag = re.search(r'<TextBlock[^>]*Copyright by T3Lab[^>]*/>', src, re.S)
-        if crtag:
-            t = crtag.group(0)
-            if 'Grid.RowSpan="99"' not in t or 'Grid.ColumnSpan="99"' not in t:
-                issues.append("copyright chưa theo snippet chuẩn (thiếu RowSpan/ColumnSpan 99 — đang nhúng trong container?)")
-            if '#F59E0B' not in t:
-                issues.append("copyright không dùng amber #F59E0B")
+    if base not in COPYRIGHT_EXEMPT:
+        n_cr = len(re.findall(r'© Copyright by T3Lab', src))
+        n_ent = len(re.findall(r'&#169;', src))
+        if n_ent:
+            issues.append("copyright dùng &#169; (phải dùng © literal)")
+        total = n_cr + n_ent
+        if total == 0:
+            issues.append("thiếu copyright")
+        elif total > 1:
+            issues.append("copyright trùng lặp x%d" % total)
+        else:
+            crtag = re.search(r'<TextBlock[^>]*Copyright by T3Lab[^>]*/>', src, re.S)
+            if crtag:
+                t = crtag.group(0)
+                if re.search(r'HorizontalAlignment="(Right|Center)"', t):
+                    issues.append("copyright phải nằm BÊN TRÁI footer (đang Right/Center-align)")
+                if '#F59E0B' not in t:
+                    issues.append("copyright không dùng amber #F59E0B")
+                if 'FontSize="11"' not in t:
+                    issues.append("copyright không dùng FontSize 11")
 
     if re.search(r'<Grid\.(Column|Row)Definition\b', src):
         issues.append("DOT-NOTATION Grid.Row/ColumnDefinition — crash EMPTYPROPERTYELEMENT")
@@ -118,7 +126,7 @@ def main():
         base = os.path.basename(xaml)
         with open(xaml, encoding="utf-8", errors="replace") as fh:
             src = fh.read()
-        issues, variant = audit_file(src)
+        issues, variant = audit_file(src, base)
         if not issues:
             continue
         n_bad += 1

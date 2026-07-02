@@ -1,4 +1,4 @@
-# Panel 6 — Support + Standard (Ngày 13)
+# Panel 6 — Support + Standard (Ngày 11)
 
 > 9 tool + 3 urlbutton. Nhóm này đụng vào UI Revit (ribbon/tabs/theme), network và server MCP — nhiều tool phụ thuộc máy/version Revit hơn là model.
 
@@ -67,7 +67,7 @@ Chain: launcher → `UIShowcaseDialog.py` (129 loc) → `UIStandardShowcase.xaml
 
 - [ ] Sau fix F3 (GĐ1): mở từ repo checkout → OK
 - [ ] **Mở từ extension deploy rời repo** (copy T3Lab.extension sang máy khác/%APPDATA%) → phải vẫn mở được (fallback path hoạt động)
-- [ ] Showcase hiển thị đủ component chuẩn Lumina (dùng làm reference visual cho GĐ2 ngày 6)
+- [ ] Showcase hiển thị đủ component chuẩn Lumina (dùng làm reference visual cho GĐ2 ngày 4)
 - [ ] Ghi chú:
 
 ## Tool 9/9 — AutoWork (Standard.panel)
@@ -80,7 +80,7 @@ Chain: self-contained (353 loc) → `AutoWork.xaml` · không có Transaction tr
 ## CloudLinks.stack (3 urlbutton — 2 phút)
 - [ ] Autodesk Health / Autodesk Forma / Bluebeam Status → mở đúng URL trong browser
 
-## Chốt ngày 13
+## Chốt ngày 11
 - [ ] Gỡ log tạm · cập nhật bảng + README
 - [ ] Commit: `fix(panel-support): <mô tả>`
 
