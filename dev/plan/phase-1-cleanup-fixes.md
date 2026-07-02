@@ -46,52 +46,61 @@ Thiếu: `NumberValidationTextBox`, `UIe_ItemChecked`, `button_run`, `text_filte
 
 ### 2a. XAML mồ côi (không Python nào tham chiếu) — 15 file
 
-- [ ] `lib/GUI/Tools/AutoClick.xaml`
-- [ ] `lib/GUI/Tools/BulkFamilyExport.xaml`
-- [ ] `lib/GUI/Tools/InPlaceModelMain.xaml`
-- [ ] `lib/GUI/Tools/InPlaceModelRename.xaml`
-- [ ] `lib/GUI/Tools/InPlaceModelSettings.xaml`
-- [ ] `lib/GUI/Tools/JSONtoFamily.xaml`
-- [ ] `lib/GUI/Tools/LocationManager_backup.xaml`
-- [ ] `lib/GUI/Tools/ModelChecker.xaml`
-- [ ] `lib/GUI/Tools/ParaSync.xaml`
-- [ ] `lib/GUI/Tools/ParameterLoaderCatPicker.xaml`
-- [ ] `lib/GUI/Tools/ParameterLoaderMain.xaml`
-- [ ] `lib/GUI/Tools/ParameterLoaderMapper.xaml`
-- [ ] `lib/GUI/Tools/TransferPara.xaml`
-- [ ] `lib/GUI/Tools/ConvertGridline.xaml` (chỉ DatumManagerDialog chết tham chiếu)
-- [ ] `lib/GUI/Tools/ConvertLevel.xaml` (nt)
+- [x] `lib/GUI/Tools/AutoClick.xaml`
+- [x] `lib/GUI/Tools/BulkFamilyExport.xaml`
+- [x] `lib/GUI/Tools/InPlaceModelMain.xaml`
+- [x] `lib/GUI/Tools/InPlaceModelRename.xaml`
+- [x] `lib/GUI/Tools/InPlaceModelSettings.xaml`
+- [x] `lib/GUI/Tools/JSONtoFamily.xaml`
+- [x] `lib/GUI/Tools/LocationManager_backup.xaml`
+- [x] `lib/GUI/Tools/ModelChecker.xaml`
+- [x] `lib/GUI/Tools/ParaSync.xaml`
+- [x] `lib/GUI/Tools/ParameterLoaderCatPicker.xaml`
+- [x] `lib/GUI/Tools/ParameterLoaderMain.xaml`
+- [x] `lib/GUI/Tools/ParameterLoaderMapper.xaml`
+- [x] `lib/GUI/Tools/TransferPara.xaml`
+- [x] `lib/GUI/Tools/ConvertGridline.xaml` (chỉ DatumManagerDialog chết tham chiếu)
+- [x] `lib/GUI/Tools/ConvertLevel.xaml` (nt)
 
 **Ngoại lệ — giữ lại:** `ExportManagerTest.xaml` đang được `.claude/CLAUDE.md` dẫn làm ví dụ wizard nav. Giữ nguyên, chỉ thêm comment đầu file `<!-- REFERENCE ONLY - not wired to any tool -->`.
-- [ ] Thêm comment reference vào `ExportManagerTest.xaml`
+- [x] Thêm comment reference vào `ExportManagerTest.xaml`
+
+**Bổ sung (từ F2, Ngày 1):** `lib/GUI/CreateFromRooms.py` + `lib/GUI/Tools/CreateFromRooms.xaml` cũng đã archive hôm nay theo quyết định Ngày 1.
 
 ### 2b. Dialog chết trong `lib/GUI/` — 6 module + XAML đi kèm
 
 | Module | XAML kéo theo | Ghi chú |
 |--------|----------------|---------|
-| - [ ] `DatumManagerDialog.py` | `DatumManager.xaml` | Còn trỏ tới pushbutton `Datum.pulldown/...` **không tồn tại** |
-| - [ ] `FamilyBatchCreatorDialog.py` | `FamilyBatchCreator.xaml` | Không ai import |
-| - [ ] `OpeningAssignValuesDialog.py` | `OpeningAssignValues.xaml` | Không ai import |
-| - [ ] `SheetHubDialog.py` | `SheetHub.xaml` | Không ai import (ManaSheets dùng ManaSheetsDialog riêng) |
-| - [ ] `ViewHubDialog.py` | `ViewHub.xaml` | Không ai import (ManaViews dùng AdvancedViewManagerDialog) |
-| - [ ] `ViewTemplateDialog.py` | `ViewTemplateManager.xaml`, `ViewTemplateBatchRename.xaml` | Không ai import |
+| - [x] `DatumManagerDialog.py` | `DatumManager.xaml` | Còn trỏ tới pushbutton `Datum.pulldown/...` **không tồn tại** |
+| - [x] `FamilyBatchCreatorDialog.py` | `FamilyBatchCreator.xaml` | Không ai import |
+| - [x] `OpeningAssignValuesDialog.py` | `OpeningAssignValues.xaml` | Không ai import |
+| - [x] `SheetHubDialog.py` | `SheetHub.xaml` | Không ai import (ManaSheets dùng ManaSheetsDialog riêng) |
+| - [x] `ViewHubDialog.py` | `ViewHub.xaml` | Không ai import (ManaViews dùng AdvancedViewManagerDialog) |
+| - [x] `ViewTemplateDialog.py` | `ViewTemplateManager.xaml`, `ViewTemplateBatchRename.xaml` | Không ai import |
 
-- [ ] Trước khi chuyển từng file: `grep -rn "<tên module>" --include="*.py" T3Lab.extension` xác nhận 0 tham chiếu ngoài chính nó
-- [ ] Chuyển cả cặp .py + .xaml vào `_archive/` giữ nguyên cây thư mục con
+- [x] Trước khi chuyển từng file: `grep -rn "<tên module>" --include="*.py" T3Lab.extension` xác nhận 0 tham chiếu ngoài chính nó
+- [x] Chuyển cả cặp .py + .xaml vào `_archive/` giữ nguyên cây thư mục con
 
 ### 2c. Cập nhật audit script
 
-- [ ] Nếu quyết định GIỮ file nào tại chỗ → thêm tên vào `KNOWN_ORPHAN_XAML` trong `dev/audit_tools.py` kèm comment lý do
-- [ ] `python3 dev/audit_tools.py --quiet` → **exit 0, AUDIT: clean**
-- [ ] `python3 dev/sync_wpf_styles.py --check` → vẫn 0 lệch (số file giảm là bình thường)
+- [x] Nếu quyết định GIỮ file nào tại chỗ → thêm tên vào `KNOWN_ORPHAN_XAML` trong `dev/audit_tools.py` kèm comment lý do — đã thêm `ExportManagerTest.xaml`
+- [x] `python3 dev/audit_tools.py --quiet` → **exit 0, AUDIT: clean**
+- [x] `python3 dev/sync_wpf_styles.py --check` → vẫn 0 lệch (77 → 53 file, số file giảm do archive là bình thường)
 
 ### Chốt ngày 2
-- [ ] Commit: `chore: archive orphan XAML files and dead GUI dialogs`
-- [ ] Cập nhật bảng tiến độ trong `dev/plan/README.md` (Ngày 1–2 → ✅)
-- [ ] Ghi lại danh sách file đã archive vào mục Phát sinh bên dưới (để trace)
+- [x] Commit: `chore: archive orphan XAML files and dead GUI dialogs`
+- [x] Cập nhật bảng tiến độ trong `dev/plan/README.md` (Ngày 1–2 → ✅)
+- [x] Ghi lại danh sách file đã archive vào mục Phát sinh bên dưới (để trace)
 
 ---
 
 ## Phát sinh trong giai đoạn 1
 
-_(ghi tại đây các vấn đề mới phát hiện khi thực hiện)_
+- **Ngày 2 — danh sách 22 file đã archive vào `T3Lab.extension/_archive/`** (giữ nguyên cây thư mục `lib/GUI/...`), cộng `CreateFromRooms` (F2) = 24 file:
+  - XAML mồ côi (15 + CreateFromRooms = 16): `AutoClick.xaml`, `BulkFamilyExport.xaml`, `InPlaceModelMain.xaml`, `InPlaceModelRename.xaml`, `InPlaceModelSettings.xaml`, `JSONtoFamily.xaml`, `LocationManager_backup.xaml`, `ModelChecker.xaml`, `ParaSync.xaml`, `ParameterLoaderCatPicker.xaml`, `ParameterLoaderMain.xaml`, `ParameterLoaderMapper.xaml`, `TransferPara.xaml`, `ConvertGridline.xaml`, `ConvertLevel.xaml`, `CreateFromRooms.xaml`
+  - Dialog chết + XAML đi kèm (6 module, 7 XAML): `DatumManagerDialog.py`+`DatumManager.xaml`, `FamilyBatchCreatorDialog.py`+`FamilyBatchCreator.xaml`, `OpeningAssignValuesDialog.py`+`OpeningAssignValues.xaml`, `SheetHubDialog.py`+`SheetHub.xaml`, `ViewHubDialog.py`+`ViewHub.xaml`, `ViewTemplateDialog.py`+`ViewTemplateManager.xaml`+`ViewTemplateBatchRename.xaml`
+  - Cộng `CreateFromRooms.py` (module, F2)
+  - `python3 dev/audit_tools.py --quiet` → clean; `python3 dev/audit_ui.py --quiet` → chỉ còn 2 finding thuộc GĐ2 (AssistantPane, T3LabAssistant); `python3 dev/sync_wpf_styles.py --check` → 53 file, 0 lệch
+- **Phát hiện khi verify F4 (không sửa hôm nay, ngoài phạm vi Ngày 2):**
+  1. `T3Lab.tab/Support.panel/T3LabAssistant.pushbutton/script.py:264` gọi `_get_tool_script_dir('Modeling & Datum.panel', 'ParaSync.pushbutton')` nhưng **không có pushbutton `ParaSync.pushbutton` nào tồn tại** trong `T3Lab.tab/` — tính năng "mở ParaSync" trong T3Lab Assistant chắc chắn lỗi khi gọi (`RuntimeError`). Đây là bug độc lập, không liên quan tới việc archive `ParaSync.xaml` (vốn đã mồ côi từ trước). Cần xử lý riêng — đề xuất đưa vào panel debug liên quan (GĐ3, panel Support) hoặc một finding F-mới trong `DEBUG_PLAN.md`.
+  2. `DatumManagerDialog.py` (đã archive) từng trỏ tới `Datum.pulldown/Gridline.pulldown/ConvertGridline.pushbutton` và `Datum.pulldown/Level.pulldown/ConvertLevel.pushbutton` — xác nhận cả thư mục `Datum.pulldown` **không tồn tại** trong `T3Lab.tab/`. Vì cả dialog lẫn 2 XAML đều đã archive cùng nhau, không còn code sống nào bị ảnh hưởng — chỉ ghi nhận để trace.
