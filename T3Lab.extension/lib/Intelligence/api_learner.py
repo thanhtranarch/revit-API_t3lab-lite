@@ -23,7 +23,7 @@ try:
     from System.Net import WebClient
     from System import Uri
     HAS_WEB_CLIENT = True
-except:
+except Exception:
     HAS_WEB_CLIENT = False
 
 __author__ = "T3Lab"
@@ -51,7 +51,7 @@ class RevitAPILearner(object):
         if not os.path.exists(self.cache_dir):
             try:
                 os.makedirs(self.cache_dir)
-            except:
+            except Exception:
                 pass
 
         # Cache file path
@@ -74,7 +74,7 @@ class RevitAPILearner(object):
                         cached_date = datetime.strptime(data['cached_date'], '%Y-%m-%d')
                         if datetime.now() - cached_date < timedelta(days=30):
                             return data
-            except:
+            except Exception:
                 pass
 
         # Return default API info
@@ -89,7 +89,7 @@ class RevitAPILearner(object):
             with open(self.cache_file, 'w') as f:
                 json.dump(self.api_info, f, indent=2)
             return True
-        except:
+        except Exception:
             return False
 
     def _get_default_api_info(self):
@@ -192,7 +192,7 @@ class RevitAPILearner(object):
                 self._save_cache()
                 return True
 
-        except:
+        except Exception:
             pass
 
         return False
@@ -210,7 +210,7 @@ class RevitAPILearner(object):
                 if datetime.now() - cached_date > timedelta(days=30):
                     # Try to learn from web
                     return self.learn_from_web()
-            except:
+            except Exception:
                 pass
 
         return False
@@ -273,7 +273,7 @@ class SmartAPIAdapter(object):
         # Try to auto-update on initialization (non-blocking)
         try:
             self.learner.auto_update()
-        except:
+        except Exception:
             pass
 
     def export_dwg(self, folder, filename, view_ids, options):
@@ -377,7 +377,7 @@ class SmartAPIAdapter(object):
                 options.PropOverrides = prop_override_mode
 
             return options
-        except:
+        except Exception:
             return options
 
     def configure_pdf_options(self, options, hide_ref_planes=False, hide_scope_boxes=False, hide_crop_boundaries=False, hide_unreferenced_tags=False):
@@ -413,7 +413,7 @@ class SmartAPIAdapter(object):
                 options.HideUnreferencedViewTags = True
 
             return options
-        except:
+        except Exception:
             return options
 
     def get_learner_info(self):

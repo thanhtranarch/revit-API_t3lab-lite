@@ -367,6 +367,21 @@ class BaseLLMProvider(object):
     # True if this provider can handle image content blocks
     SUPPORTS_VISION = False
 
+    def _debug_log(self, msg):
+        """Best-effort debug log via pyRevit's logger; never raises.
+
+        chat()/check_health() failures here are usually swallowed and
+        returned as None/False, which looks identical to "not configured" —
+        use this in the except-blocks that wrap the actual network call so a
+        real API error (bad key, malformed response, rate limit) leaves a
+        trace instead of vanishing silently.
+        """
+        try:
+            from pyrevit import script
+            script.get_logger().debug(u"{}: {}".format(self.NAME, msg))
+        except Exception:
+            pass
+
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """
         Send a chat request and return the raw response text.
