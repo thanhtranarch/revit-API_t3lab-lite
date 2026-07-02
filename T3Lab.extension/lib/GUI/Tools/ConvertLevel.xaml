@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Level Swap" Height="720" Width="1100"
+        Title="Level Swap" Height="720" Width="1100"
         WindowStartupLocation="CenterScreen" Background="#E4E4E7"
         MinHeight="600" MinWidth="900"
         ResizeMode="CanResizeWithGrip"

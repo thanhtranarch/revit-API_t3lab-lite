@@ -55,7 +55,15 @@ import os
 import time
 
 # ── Data directory ──────────────────────────────────────────────────────────────
-T3LAB_DATA_DIR = os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data')
+# Resolved through mcp_paths.json (see core/paths.py) so it's editable
+# per-user instead of hardcoded — first run seeds it with ~/T3Lab_AI_Data.
+try:
+    from core import paths as _paths
+    T3LAB_DATA_DIR = _paths.get_setting(
+        'data_dir',
+        lambda: os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data'))
+except Exception:
+    T3LAB_DATA_DIR = os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data')
 TASK_FILE      = os.path.join(T3LAB_DATA_DIR, 'task.json')
 RESULT_FILE    = os.path.join(T3LAB_DATA_DIR, 'result.json')
 TASK_PY_FILE   = os.path.join(T3LAB_DATA_DIR, 'task.py')

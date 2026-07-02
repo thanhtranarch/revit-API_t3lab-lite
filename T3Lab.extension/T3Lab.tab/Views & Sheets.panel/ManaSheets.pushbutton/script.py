@@ -18,7 +18,7 @@ LIB_DIR = os.path.join(EXT_DIR, 'lib')
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
 
-from GUI.SheetManagerDialog import show_sheet_manager
+from GUI.ManaSheetsDialog import show_sheet_manager
 
 if __name__ == '__main__':
     show_sheet_manager()

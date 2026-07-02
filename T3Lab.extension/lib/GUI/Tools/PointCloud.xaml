@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Point Cloud to Model"
+        Title="Point Cloud to Model"
         Width="900" Height="720"
         MinWidth="820" MinHeight="560"
         Background="#E4E4E7"

@@ -1,5 +1,5 @@
 title: Annotation & Select
 layout:
   - ManaDWG
-  - ManaAlign
+  - AutoDimension
   - ManaSelect

@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — View Template Manager"
+        Title="View Template Manager"
         Height="570" Width="600"
         WindowStartupLocation="CenterScreen"
         Background="#E4E4E7"

@@ -24,13 +24,13 @@ if lib_dir not in sys.path:
 
 # Evict stale cached modules so code changes take effect without a full pyRevit reload
 _stale = [k for k in list(sys.modules.keys())
-          if k in ('GUI.AnnotationManagerDialog', 'GUI.DimTextDialog',
-                   'GUI.TagCheckerDialog', 'AnnotationManagerDialog',
+          if k in ('GUI.ManaAnnoDialog', 'GUI.DimTextDialog',
+                   'GUI.TagCheckerDialog', 'ManaAnnoDialog',
                    'DimTextDialog', 'TagCheckerDialog')]
 for _k in _stale:
     del sys.modules[_k]
 
-import GUI.AnnotationManagerDialog as AnnotationManagerDialog
+import GUI.ManaAnnoDialog as ManaAnnoDialog
 
 if __name__ == '__main__':
-    AnnotationManagerDialog.show_dialog()
+    ManaAnnoDialog.show_dialog()

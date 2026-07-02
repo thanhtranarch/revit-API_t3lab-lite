@@ -21,7 +21,7 @@ clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
 
-from System.Windows import WindowState
+from System.Windows import WindowState, Visibility
 from Autodesk.Revit.DB import (
     FilteredElementCollector,
     FilteredWorksetCollector,
@@ -146,9 +146,9 @@ class WorksetItem(object):
 # FILE HELPERS
 # ==================================================
 
-def load_workset_list():
-    if os.path.isfile(WORKSET_LIST_FILE):
-        with open(WORKSET_LIST_FILE, "r") as f:
+def load_workset_list(list_file=WORKSET_LIST_FILE):
+    if os.path.isfile(list_file):
+        with open(list_file, "r") as f:
             names = [
                 line.strip()
                 for line in f
@@ -189,14 +189,14 @@ def get_active_workset_id():
 
 
 def enable_worksharing():
-    t = Transaction(doc, "Enable Worksharing")
-    t.Start()
+    # Document.EnableWorksharing manages its own transaction internally and
+    # must be called outside of any explicit Transaction, otherwise Revit
+    # raises "Operation is not permitted when there is any open sub-transaction,
+    # transaction, or transaction group."
     try:
         doc.EnableWorksharing("_SHARED LEVELS & GRIDS", "_ARCHITECT")
-        t.Commit()
         return True
     except Exception as e:
-        t.RollBack()
         forms.alert("Failed to enable worksharing:\n{}".format(e), title="Error")
         return False
 
@@ -336,9 +336,12 @@ class WorksetManagerWindow(forms.WPFWindow):
         forms.WPFWindow.__init__(self, XAML_FILE)
         try:
             fname = os.path.basename(doc.PathName) if doc.PathName else "Unsaved Document"
-            self.doc_name.Text = fname
+            self.doc_name.Text = "  ·  {}".format(fname)
         except Exception:
             pass
+
+        self.list_file_path = WORKSET_LIST_FILE
+        self._update_list_path_display()
 
         if not doc.IsWorkshared:
             self._set_worksharing_state(enabled=False)
@@ -361,6 +364,20 @@ class WorksetManagerWindow(forms.WPFWindow):
     def close_button_clicked(self, sender, e):
         self.Close()
 
+    # ── Sidebar navigation ─────────────────────────────────────────────────────
+
+    def nav_toggle_clicked(self, sender, e):
+        """Switch the main content tab based on which sidebar RadioButton was checked."""
+        try:
+            if sender is self.nav_worksets:
+                self.tab_control.SelectedIndex = 0
+            elif sender is self.nav_bulk:
+                self.tab_control.SelectedIndex = 1
+            elif sender is self.nav_views:
+                self.tab_control.SelectedIndex = 2
+        except Exception:
+            pass
+
     # ── Private helpers ────────────────────────────────────────────────────────
 
     def _set_worksharing_state(self, enabled):
@@ -370,6 +387,12 @@ class WorksetManagerWindow(forms.WPFWindow):
                     self.btn_create_list, self.btn_remove_unused,
                     self.btn_create_views, self.btn_refresh]:
             btn.IsEnabled = enabled
+        try:
+            self.worksharing_banner.Visibility = (
+                Visibility.Collapsed if enabled else Visibility.Visible
+            )
+        except Exception:
+            pass
         if not enabled:
             self.status_text.Text = "Worksharing is not enabled on this document."
 
@@ -390,6 +413,13 @@ class WorksetManagerWindow(forms.WPFWindow):
             count = len(get_user_worksets())
             self.status_text.Text = "Ready  —  {} user workset{} loaded.".format(
                 count, "s" if count != 1 else "")
+
+    def _update_list_path_display(self):
+        """Refresh the workset-list source path shown in the Bulk Tools tab."""
+        try:
+            self.list_path_text.Text = self.list_file_path
+        except Exception:
+            pass
 
     # ── Toolbar button handlers ────────────────────────────────────────────────
 
@@ -457,8 +487,17 @@ class WorksetManagerWindow(forms.WPFWindow):
         self._refresh_worksets()
         self.status_text.Text = "Deleted {} of {} workset(s).".format(deleted, len(names))
 
+    def btn_import_list_click(self, sender, e):
+        """Browse for a .txt file to use as the workset list source."""
+        picked = forms.pick_file(file_ext="txt")
+        if not picked:
+            return
+        self.list_file_path = picked
+        self._update_list_path_display()
+        self.status_text.Text = "Workset list source set to: {}".format(picked)
+
     def btn_create_list_click(self, sender, e):
-        workset_list = load_workset_list()
+        workset_list = load_workset_list(self.list_file_path)
         existing = get_workset_names()
         to_create = [n for n in workset_list if n not in existing]
         if not to_create:
@@ -468,7 +507,7 @@ class WorksetManagerWindow(forms.WPFWindow):
             )
             return
         if not _confirm(
-            "Create {} new workset(s) from workset_list.txt?".format(len(to_create)),
+            "Create {} new workset(s) from:\n{}?".format(len(to_create), self.list_file_path),
             title="Create from List"
         ):
             return
@@ -477,7 +516,7 @@ class WorksetManagerWindow(forms.WPFWindow):
         self.status_text.Text = "Created {} workset(s) from list.".format(len(created))
 
     def btn_remove_unused_click(self, sender, e):
-        workset_list = load_workset_list()
+        workset_list = load_workset_list(self.list_file_path)
         existing_ws = get_user_worksets()
         existing_names = [ws.Name for ws in existing_ws]
         unused = [ws for ws in existing_ws if ws.Name not in workset_list]

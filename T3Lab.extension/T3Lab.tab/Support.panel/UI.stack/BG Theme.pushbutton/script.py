@@ -26,7 +26,6 @@ Works on Revit 2024 / 2025 / 2026 / 2027.
 import os
 import json
 import Autodesk.Revit.DB as DB
-from pyrevit import script
 
 # Detect SHIFT+Click for quick-cycle (classic B/W/G behaviour)
 try:
@@ -36,7 +35,6 @@ except Exception:
 
 PATH_SCRIPT = os.path.dirname(__file__)
 CONFIG_PATH = os.path.join(PATH_SCRIPT, "dqt_bg_config.json")
-FOOTER_TEXT = "Dang Quoc Truong - DQT (c) 2026"
 
 PRESETS = [
     ("Black",      (0,   0,   0)),
@@ -96,19 +94,13 @@ def quick_cycle():
 
     if cr >= 250 and cg >= 250 and cb >= 250:
         nr, ng, nb = 0, 0, 0
-        name = "Black"
     elif cr <= 5 and cg <= 5 and cb <= 5:
         nr, ng, nb = 190, 190, 190
-        name = "Gray"
     else:
         nr, ng, nb = 255, 255, 255
-        name = "White"
 
     apply_background(nr, ng, nb)
     save_config(nr, ng, nb)
-    script.get_output().print_md(
-        "**DQT - Background Theme:** switched to **" + name + "** (" +
-        to_hex(nr, ng, nb) + ").\n\n*" + FOOTER_TEXT + "*")
 
 def main():
     if SHIFT_CLICK:
@@ -124,13 +116,7 @@ def main():
         apply_background(new_r, new_g, new_b)
         save_config(new_r, new_g, new_b)
 
-    dlg = show_bg_theme_dialog(r, g, b, PRESETS, on_apply)
-
-    if dlg.applied:
-        cr, cg, cb = dlg.current_rgb()
-        script.get_output().print_md(
-            "**DQT - Background Theme:** background set to **" +
-            to_hex(cr, cg, cb) + "**.\n\n*" + FOOTER_TEXT + "*")
+    show_bg_theme_dialog(r, g, b, PRESETS, on_apply)
 
 if __name__ == "__main__":
     main()

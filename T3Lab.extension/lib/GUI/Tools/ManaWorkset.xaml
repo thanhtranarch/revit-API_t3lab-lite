@@ -1,9 +1,9 @@
-﻿<Window
+<Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="T3Lab — Workset Manager"
-    Height="600" Width="860"
-    MinHeight="420" MinWidth="640"
+    Title="ManaWorkset"
+    Height="680" Width="1040"
+    MinHeight="480" MinWidth="820"
     WindowStartupLocation="CenterScreen"
     ResizeMode="CanResizeWithGrip"
     Background="#E4E4E7"
@@ -1079,6 +1079,47 @@
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
+        <!-- Sidebar Icon Nav (window-local, mirrors ManaViews.xaml pattern) -->
+        <Style x:Key="T3SidebarIconNav" TargetType="RadioButton">
+            <Setter Property="Width"               Value="42"/>
+            <Setter Property="Height"              Value="42"/>
+            <Setter Property="Background"          Value="Transparent"/>
+            <Setter Property="Foreground"          Value="#71717A"/>
+            <Setter Property="Cursor"              Value="Hand"/>
+            <Setter Property="BorderThickness"     Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="FocusVisualStyle"    Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#18181B"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="False"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Foreground" Value="#18181B"/>
+                            </MultiTrigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="True"/>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#27272A"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <Style x:Key="GroupLabel" TargetType="TextBlock">
             <Setter Property="FontSize"          Value="9"/>
@@ -1099,261 +1140,460 @@
 
     </Window.Resources>
 
-    
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
-<Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="64"/>   <!-- Title bar  -->
-            <RowDefinition Height="Auto"/> <!-- Toolbar    -->
-            <RowDefinition Height="*"/>    <!-- DataGrid   -->
-            <RowDefinition Height="Auto"/> <!-- Status bar -->
-        </Grid.RowDefinitions>
-
-        <!-- ── TITLE BAR ──────────────────────────────── -->
-        <!-- ═══ TITLE BAR ═══ -->
-        <Grid Grid.Row="0" Height="64" Background="#F4F4F6">
+        <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="66"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <TextBlock Text="Workset Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                <TextBlock Text="Manage user worksets in the active Revit project" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
-            </StackPanel>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="64"/>   <!-- Title Bar -->
+                <RowDefinition Height="*"/>    <!-- Main Content TabControl -->
+                <RowDefinition Height="Auto"/> <!-- Status Bar -->
+            </Grid.RowDefinitions>
 
-            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True"
-                        Style="{StaticResource WinCtrlButton}"
-                        Click="minimize_button_clicked" ToolTip="Minimize">
-                    <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-                <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True"
-                        Style="{StaticResource WinCtrlButton}"
-                        Click="maximize_button_clicked" ToolTip="Maximize">
-                    <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-                <Button x:Name="btn_close" WindowChrome.IsHitTestVisibleInChrome="True"
-                        Style="{StaticResource CloseButton}"
-                        Click="close_button_clicked" ToolTip="Close">
-                    <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
-            </StackPanel>
+            <!-- ═══ SIDEBAR (Column 0, RowSpan 3) ═══ -->
+            <Border Grid.Column="0" Grid.RowSpan="3"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0"
+                    WindowChrome.IsHitTestVisibleInChrome="True">
+                <Grid Margin="0,12,0,12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
 
-            <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
+                    <!-- Logo Icon -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M12 4 L20 8 L12 12 L4 8 Z M4 12 L12 16 L20 12 M4 16 L12 20 L20 16"
+                              Stroke="#18181B" StrokeThickness="1.8" StrokeLineJoin="Round"
+                              Width="20" Height="20" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Nav: Worksets (default) -->
+                    <RadioButton Grid.Row="1" x:Name="nav_worksets"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 IsChecked="True" GroupName="WorksetNav"
+                                 Checked="nav_toggle_clicked"
+                                 Margin="0,0,0,6" ToolTip="Worksets">
+                        <Path Data="M3 4 A2 2 0 0 1 5 2 L15 2 A2 2 0 0 1 17 4 L17 16 A2 2 0 0 1 15 18 L5 18 A2 2 0 0 1 3 16 Z M3 8 L17 8 M3 13 L17 13"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+
+                    <!-- Nav: Bulk Tools -->
+                    <RadioButton Grid.Row="2" x:Name="nav_bulk"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 GroupName="WorksetNav"
+                                 Checked="nav_toggle_clicked"
+                                 Margin="0,0,0,6" ToolTip="Bulk Tools">
+                        <Path Data="M3 3H8V8H3Z M12 3H17V8H12Z M3 12H8V17H3Z M12 12H17V17H12Z"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.6"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+
+                    <!-- Nav: 3D Views -->
+                    <RadioButton Grid.Row="3" x:Name="nav_views"
+                                 Style="{StaticResource T3SidebarIconNav}"
+                                 GroupName="WorksetNav"
+                                 Checked="nav_toggle_clicked"
+                                 Margin="0,0,0,6" ToolTip="3D Views">
+                        <Path Data="M10 2 L18 6.5 L18 13.5 L10 18 L2 13.5 L2 6.5 Z M2 6.5 L10 11 L18 6.5 M10 11 L10 18"
+                              Width="18" Height="18" Stretch="Uniform"
+                              StrokeThickness="1.5" StrokeLineJoin="Round"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType={x:Type RadioButton}}}"
+                              Fill="Transparent"/>
+                    </RadioButton>
+                </Grid>
+            </Border>
+
+            <!-- ═══ HEADER (Row 0, Column 1) ═══ -->
+            <Border Grid.Row="0" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Title & Subtitle -->
+                    <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+                        <TextBlock Text="ManaWorkset" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                        <TextBlock FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0">
+                            <Run Text="Manage user worksets in the active Revit project"/>
+                            <Run x:Name="doc_name" Text=""/>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Window Controls (Chrome) -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
+                                WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                                Click="minimize_button_clicked" ToolTip="Minimize">
+                            <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        </Button>
+                        <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                                Click="maximize_button_clicked" ToolTip="Maximize">
+                            <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        </Button>
+                        <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                                Click="close_button_clicked" ToolTip="Close">
+                            <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        </Button>
+                    </StackPanel>
+                    <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
+                </Grid>
+            </Border>
+
+            <!-- ═══ CONTENT (Row 1, Column 1) ═══ -->
+            <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
+                    </Style>
+                </TabControl.Resources>
+
+                <!-- TAB 1: WORKSETS (default) -->
+                <TabItem x:Name="tab_worksets_item" IsSelected="True">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <!-- Enable-worksharing banner -->
+                            <RowDefinition Height="*"/>    <!-- DataGrid card -->
+                        </Grid.RowDefinitions>
+
+                        <!-- Enable Worksharing CTA banner (only relevant pre-worksharing) -->
+                        <Border x:Name="worksharing_banner" Grid.Row="0"
+                                Background="#FFF6E6" BorderBrush="#F5CE5A" BorderThickness="1"
+                                CornerRadius="16" Padding="16,14" Margin="18,18,18,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
+                                        Background="#8A6308" VerticalAlignment="Top" Margin="0,1,12,0">
+                                    <Path Data="M12 8 V13 M12 16 V16.02"
+                                          Stroke="White" StrokeThickness="2.2"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Width="14" Height="14" Stretch="Uniform"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Worksharing is not enabled" FontSize="14" FontWeight="Bold" Foreground="#8A6308"/>
+                                    <TextBlock Text="Enable worksharing to create and manage user worksets on this document."
+                                               FontSize="12.5" Foreground="#8A6308" Opacity="0.85" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                </StackPanel>
+
+                                <Button Grid.Column="2" x:Name="btn_enable_ws" Content="Enable Worksharing"
+                                        Style="{StaticResource PrimaryButton}"
+                                        VerticalAlignment="Center" Click="btn_enable_ws_click"
+                                        ToolTip="Enable worksharing on this document"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Worksets card -->
+                        <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="20" Margin="18,14,18,18" Padding="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/> <!-- Card header / actions -->
+                                    <RowDefinition Height="*"/>    <!-- DataGrid -->
+                                </Grid.RowDefinitions>
+
+                                <!-- Card header with actions -->
+                                <Grid Grid.Row="0" Margin="18,16,18,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="USER WORKSETS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2"/>
+                                        <TextBlock x:Name="ws_status" Text="" FontSize="12.5" Foreground="#3F3F46" Margin="0,2,0,0"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Button x:Name="btn_refresh" Content="&#x21BB; Refresh"
+                                                Style="{StaticResource SecondaryButton}"
+                                                Margin="0,0,8,0" Click="btn_refresh_click"
+                                                ToolTip="Reload worksets from the document"/>
+                                        <Button x:Name="btn_create" Content="+ Create"
+                                                Style="{StaticResource PrimaryButton}"
+                                                Margin="0,0,8,0" Click="btn_create_click"
+                                                ToolTip="Create a new workset"/>
+                                        <Button x:Name="btn_delete" Content="Delete"
+                                                Style="{StaticResource DangerButton}"
+                                                Click="btn_delete_click"
+                                                ToolTip="Delete selected workset(s) and move their elements"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- DataGrid -->
+                                <DataGrid x:Name="ws_grid" Grid.Row="1"
+                                          Margin="18,0,18,18"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          SelectionMode="Extended"
+                                          GridLinesVisibility="Horizontal"
+                                          AlternatingRowBackground="#F8FAFC"
+                                          Background="White"
+                                          BorderBrush="#E2E8F0"
+                                          BorderThickness="1"
+                                          RowHeight="32"
+                                          HeadersVisibility="Column"
+                                          FontFamily="Hanken Grotesk"
+                                          FontSize="12"
+                                          IsReadOnly="True">
+
+                                    <DataGrid.ColumnHeaderStyle>
+                                        <Style TargetType="DataGridColumnHeader">
+                                            <Setter Property="Background"      Value="#FFFFFF"/>
+                                            <Setter Property="Foreground"      Value="#9A9AA2"/>
+                                            <Setter Property="FontWeight"      Value="Bold"/>
+                                            <Setter Property="FontSize"        Value="11"/>
+                                            <Setter Property="FontFamily"      Value="Inter"/>
+                                            <Setter Property="Padding"         Value="8,6"/>
+                                            <Setter Property="BorderBrush"     Value="#E2E8F0"/>
+                                            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                            <Setter Property="Height"          Value="34"/>
+                                        </Style>
+                                    </DataGrid.ColumnHeaderStyle>
+
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="#F8FAFC"/>
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="#E2E8F0"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+
+                                    <DataGrid.Columns>
+
+                                        <!-- # -->
+                                        <DataGridTextColumn Header="#" Binding="{Binding Number}"
+                                                            Width="44" IsReadOnly="True">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                    <Setter Property="VerticalAlignment"   Value="Center"/>
+                                                    <Setter Property="Foreground"          Value="#95A5A6"/>
+                                                    <Setter Property="FontSize"            Value="11"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+
+                                        <!-- Workset Name -->
+                                        <DataGridTextColumn Header="Workset Name" Binding="{Binding Name}" Width="*">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    <Setter Property="Padding"           Value="6,0"/>
+                                                    <Setter Property="Foreground"        Value="#0F172A"/>
+                                                    <Setter Property="FontWeight"        Value="SemiBold"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+
+                                        <!-- Active (default for new elements) -->
+                                        <DataGridTemplateColumn Header="Active" Width="60" CanUserResize="False">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsActive}"
+                                                              Style="{StaticResource ReadOnlyCheck}">
+                                                        <CheckBox.Resources>
+                                                            <Style TargetType="CheckBox" BasedOn="{StaticResource ReadOnlyCheck}">
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                        <Setter Property="Foreground" Value="#0F172A"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </CheckBox.Resources>
+                                                    </CheckBox>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Open -->
+                                        <DataGridTemplateColumn Header="Open" Width="60" CanUserResize="False">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsOpen}"
+                                                              Style="{StaticResource ReadOnlyCheck}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Editable -->
+                                        <DataGridTemplateColumn Header="Editable" Width="70" CanUserResize="False">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding CanEdit}"
+                                                              Style="{StaticResource ReadOnlyCheck}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Owner -->
+                                        <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="160">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="VerticalAlignment" Value="Center"/>
+                                                    <Setter Property="Padding"           Value="6,0"/>
+                                                    <Setter Property="Foreground"        Value="#64748B"/>
+                                                    <Setter Property="FontSize"          Value="11"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+                <!-- TAB 2: BULK TOOLS -->
+                <TabItem x:Name="tab_bulk_item">
+                    <Grid Margin="18">
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="20">
+                            <StackPanel>
+                                <TextBlock Text="BULK TOOLS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,4"/>
+                                <TextBlock Text="Manage worksets in bulk using a reference list of workset names."
+                                           FontSize="13" Foreground="#71717A" Margin="0,0,0,18" TextWrapping="Wrap"/>
+
+                                <!-- Workset list source -->
+                                <Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="16,14" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Workset List Source" FontSize="14" FontWeight="Bold" Foreground="#18181B"/>
+                                            <TextBlock x:Name="list_path_text" Text=""
+                                                       FontSize="12" Foreground="#71717A" TextWrapping="Wrap"
+                                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="btn_import_list" Content="Import from File…"
+                                                Style="{StaticResource SecondaryButton}"
+                                                VerticalAlignment="Center" Click="btn_import_list_click"
+                                                ToolTip="Choose a .txt file listing workset names to use as the source"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Create from List -->
+                                <Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="16,14" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Create from List" FontSize="14" FontWeight="Bold" Foreground="#18181B"/>
+                                            <TextBlock Text="Creates every workset defined in the source list above that does not already exist in this document."
+                                                       FontSize="12.5" Foreground="#71717A" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="btn_create_list" Content="Create from List"
+                                                Style="{StaticResource PrimaryButton}"
+                                                VerticalAlignment="Center" Click="btn_create_list_click"
+                                                ToolTip="Create all worksets defined in the source list"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Remove Unused -->
+                                <Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="16,14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Remove Unused" FontSize="14" FontWeight="Bold" Foreground="#18181B"/>
+                                            <TextBlock Text="Removes worksets that are not listed in the source list above. Elements are moved to the closest matching workset before deletion."
+                                                       FontSize="12.5" Foreground="#71717A" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="btn_remove_unused" Content="Remove Unused"
+                                                Style="{StaticResource DangerButton}"
+                                                VerticalAlignment="Center" Click="btn_remove_unused_click"
+                                                ToolTip="Remove worksets not in the source list"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+                <!-- TAB 3: 3D VIEWS -->
+                <TabItem x:Name="tab_views_item">
+                    <Grid Margin="18">
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="20">
+                            <StackPanel>
+                                <TextBlock Text="3D VIEWS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,4"/>
+                                <TextBlock Text="Generate isolated 3D views to quickly review each workset's contents."
+                                           FontSize="13" Foreground="#71717A" Margin="0,0,0,18" TextWrapping="Wrap"/>
+
+                                <!-- Create Workset Views -->
+                                <Border Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="14" Padding="16,14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="Create Workset Views" FontSize="14" FontWeight="Bold" Foreground="#18181B"/>
+                                            <TextBlock Text="Creates one isolated 3D isometric view per user workset, with visibility limited to that workset's elements. Existing views with matching names are skipped."
+                                                       FontSize="12.5" Foreground="#71717A" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" x:Name="btn_create_views" Content="Create Workset Views"
+                                                Style="{StaticResource SuccessButton}"
+                                                VerticalAlignment="Center" Click="btn_create_views_click"
+                                                ToolTip="Create a 3D isometric view per workset with isolated visibility"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+            </TabControl>
+
+            <!-- ═══ STATUS BAR (Row 2, Column 1) ═══ -->
+            <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6"
+                    BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="status_text" Text="Loading..." FontSize="13.5"
+                                   Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center" FontFamily="Hanken Grotesk"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
         </Grid>
-
-        <!-- ── TOOLBAR ─────────────────────────────────── -->
-        <Border Grid.Row="1" Background="White"
-                BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,7">
-            <WrapPanel VerticalAlignment="Center">
-
-                <!-- Group: Worksharing -->
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="WORKSHARING" Style="{StaticResource GroupLabel}"/>
-                    <Button x:Name="btn_enable_ws" Content="Enable Worksharing"
-                            Style="{StaticResource PrimaryButton}"
-                            Margin="0,0,0,0" Click="btn_enable_ws_click"
-                            ToolTip="Enable worksharing on this document"/>
-                </StackPanel>
-
-                <Rectangle Width="1" Fill="#E2E8F0" Margin="12,3"/>
-
-                <!-- Group: Worksets -->
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="WORKSETS" Style="{StaticResource GroupLabel}"/>
-                    <Button x:Name="btn_create" Content="+ Create"
-                            Style="{StaticResource PrimaryButton}"
-                            Margin="0,0,4,0" Click="btn_create_click"
-                            ToolTip="Create a new workset"/>
-                    <Button x:Name="btn_delete" Content="Delete"
-                            Style="{StaticResource DangerButton}"
-                            Margin="0,0,0,0" Click="btn_delete_click"
-                            ToolTip="Delete selected workset(s) and move their elements"/>
-                </StackPanel>
-
-                <Rectangle Width="1" Fill="#E2E8F0" Margin="12,3"/>
-
-                <!-- Group: Bulk -->
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="BULK" Style="{StaticResource GroupLabel}"/>
-                    <Button x:Name="btn_create_list" Content="Create from List"
-                            Style="{StaticResource SecondaryButton}"
-                            Margin="0,0,4,0" Click="btn_create_list_click"
-                            ToolTip="Create all worksets defined in workset_list.txt"/>
-                    <Button x:Name="btn_remove_unused" Content="Remove Unused"
-                            Style="{StaticResource SecondaryButton}"
-                            Margin="0,0,0,0" Click="btn_remove_unused_click"
-                            ToolTip="Remove worksets not in workset_list.txt"/>
-                </StackPanel>
-
-                <Rectangle Width="1" Fill="#E2E8F0" Margin="12,3"/>
-
-                <!-- Group: Views -->
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="VIEWS" Style="{StaticResource GroupLabel}"/>
-                    <Button x:Name="btn_create_views" Content="Create Workset Views"
-                            Style="{StaticResource SuccessButton}"
-                            Margin="0,0,4,0" Click="btn_create_views_click"
-                            ToolTip="Create a 3D isometric view per workset with isolated visibility"/>
-                    <Button x:Name="btn_refresh" Content="&#x21BB; Refresh"
-                            Style="{StaticResource SecondaryButton}"
-                            Click="btn_refresh_click"
-                            ToolTip="Reload worksets from the document"/>
-                </StackPanel>
-
-            </WrapPanel>
-        </Border>
-
-        <!-- ── DATAGRID ────────────────────────────────── -->
-        <DataGrid x:Name="ws_grid" Grid.Row="2"
-                  Margin="12,8,12,4"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  SelectionMode="Extended"
-                  GridLinesVisibility="Horizontal"
-                  AlternatingRowBackground="#F8FAFC"
-                  Background="White"
-                  BorderBrush="#E2E8F0"
-                  BorderThickness="1"
-                  RowHeight="30"
-                  HeadersVisibility="Column"
-                  FontFamily="Hanken Grotesk"
-                  FontSize="12"
-                  IsReadOnly="True">
-
-            <DataGrid.ColumnHeaderStyle>
-                <Style TargetType="DataGridColumnHeader">
-                    <Setter Property="Background"      Value="#FFFFFF"/>
-                    <Setter Property="Foreground"      Value="#9A9AA2"/>
-                    <Setter Property="FontWeight"      Value="Bold"/>
-                    <Setter Property="FontSize"        Value="11"/>
-                    <Setter Property="FontFamily"      Value="Inter"/>
-                    <Setter Property="Padding"         Value="8,6"/>
-                    <Setter Property="BorderBrush"     Value="#E2E8F0"/>
-                    <Setter Property="BorderThickness" Value="0,0,1,1"/>
-                    <Setter Property="Height"          Value="34"/>
-                </Style>
-            </DataGrid.ColumnHeaderStyle>
-
-            <DataGrid.RowStyle>
-                <Style TargetType="DataGridRow">
-                    <Style.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#F8FAFC"/>
-                        </Trigger>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Background" Value="#E2E8F0"/>
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-            </DataGrid.RowStyle>
-
-            <DataGrid.Columns>
-
-                <!-- # -->
-                <DataGridTextColumn Header="#" Binding="{Binding Number}"
-                                    Width="44" IsReadOnly="True">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="HorizontalAlignment" Value="Center"/>
-                            <Setter Property="VerticalAlignment"   Value="Center"/>
-                            <Setter Property="Foreground"          Value="#95A5A6"/>
-                            <Setter Property="FontSize"            Value="11"/>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-
-                <!-- Workset Name -->
-                <DataGridTextColumn Header="Workset Name" Binding="{Binding Name}" Width="*">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding"           Value="6,0"/>
-                            <Setter Property="Foreground"        Value="#0F172A"/>
-                            <Setter Property="FontWeight"        Value="SemiBold"/>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-
-                <!-- Active (default for new elements) -->
-                <DataGridTemplateColumn Header="Active" Width="60" CanUserResize="False">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsActive}"
-                                      Style="{StaticResource ReadOnlyCheck}">
-                                <CheckBox.Resources>
-                                    <Style TargetType="CheckBox" BasedOn="{StaticResource ReadOnlyCheck}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                <Setter Property="Foreground" Value="#0F172A"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </CheckBox.Resources>
-                            </CheckBox>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- Open -->
-                <DataGridTemplateColumn Header="Open" Width="60" CanUserResize="False">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <CheckBox IsChecked="{Binding IsOpen}"
-                                      Style="{StaticResource ReadOnlyCheck}"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- Editable -->
-                <DataGridTemplateColumn Header="Editable" Width="70" CanUserResize="False">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <CheckBox IsChecked="{Binding CanEdit}"
-                                      Style="{StaticResource ReadOnlyCheck}"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- Owner -->
-                <DataGridTextColumn Header="Owner" Binding="{Binding Owner}" Width="160">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Padding"           Value="6,0"/>
-                            <Setter Property="Foreground"        Value="#64748B"/>
-                            <Setter Property="FontSize"          Value="11"/>
-                        </Style>
-                    </DataGridTextColumn.ElementStyle>
-                </DataGridTextColumn>
-
-            </DataGrid.Columns>
-        </DataGrid>
-
-        <!-- ── STATUS BAR ──────────────────────────────── -->
-        <Border Grid.Row="3" Background="#F4F4F6"
-                BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
-                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="status_text" Text="Loading..." FontSize="13.5"
-                               Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center" FontFamily="Hanken Grotesk"/>
-                </StackPanel>
-                <TextBlock x:Name="ws_status" Grid.Column="1" Text="" FontSize="11"
-                           Foreground="#64748B" VerticalAlignment="Center" FontFamily="Hanken Grotesk"/>
-            </Grid>
-        </Border>
-</Grid>
-
     </Border>
 
 </Window>

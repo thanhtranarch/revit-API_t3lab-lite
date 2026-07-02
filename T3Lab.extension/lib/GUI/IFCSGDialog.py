@@ -44,7 +44,7 @@ from Autodesk.Revit.DB import (
 from pyrevit import script, forms
 
 # Dynamically find the XAML layout
-_XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'IFCSGSuite.xaml')
+_XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'IFCSG.xaml')
 col_map_xaml_path = os.path.join(os.path.dirname(__file__), 'Tools', 'SubtypeDefinerColMap.xaml')
 
 bc = BrushConverter()

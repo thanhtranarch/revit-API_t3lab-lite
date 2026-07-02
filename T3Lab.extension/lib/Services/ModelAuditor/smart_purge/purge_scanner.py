@@ -9,6 +9,26 @@ __author__ = "Dang Quoc Truong (DQT)"
 
 from Autodesk.Revit.DB import *
 
+try:
+    from revit_utils import _eid_int
+except:
+    # Fallback if revit_utils not available
+    def _eid_int(element_id):
+        """Get ElementId integer value - works for Revit 2024-2027"""
+        if element_id is None:
+            return -1
+        try:
+            if hasattr(element_id, 'Value'):
+                return element_id.Value
+        except:
+            pass
+        try:
+            if hasattr(element_id, 'IntegerValue'):
+                return element_id.IntegerValue
+        except:
+            pass
+        return -1
+
 
 class BasePurgeScanner(object):
     """Base scanner class for all purge scanners"""
@@ -92,7 +112,7 @@ class BasePurgeScanner(object):
                     pass
             
             # Check element ID - very low IDs are usually system
-            if element.Id.IntegerValue < 100:
+            if _eid_int(element.Id) < 100:
                 return True
             
             return False
@@ -180,7 +200,7 @@ class BasePurgeScanner(object):
                     # Add ID to make it unique
                     if base_name == family_name:
                         # Generic name - add ID for uniqueness
-                        name = "{} [ID:{}]".format(base_name, element.Id.IntegerValue)
+                        name = "{} [ID:{}]".format(base_name, _eid_int(element.Id))
                     else:
                         # Name is already specific (like "Exterior - Brick on CMU")
                         name = base_name
@@ -203,9 +223,9 @@ class BasePurgeScanner(object):
         if not name or name == "Unknown" or name.strip() == "":
             try:
                 type_name = element.GetType().Name
-                name = "{} ({})".format(type_name, element.Id.IntegerValue)
+                name = "{} ({})".format(type_name, _eid_int(element.Id))
             except:
-                name = "Element {}".format(element.Id.IntegerValue)
+                name = "Element {}".format(_eid_int(element.Id))
         
         # Get category with fallback to element type
         category = "No Category"
@@ -226,7 +246,7 @@ class BasePurgeScanner(object):
         item = {
             'element': element,
             'name': name,
-            'id': element.Id.IntegerValue,
+            'id': _eid_int(element.Id),
             'category': category,
             'can_delete': can_delete,
             'warning': reason if not can_delete else None
@@ -274,8 +294,8 @@ class MaterialScanner(BasePurgeScanner):
                     mat_param = elem_type.get_Parameter(BuiltInParameter.MATERIAL_ID_PARAM)
                     if mat_param:
                         mat_id = mat_param.AsElementId()
-                        if mat_id and mat_id.IntegerValue > 0:
-                            usage_dict[mat_id.IntegerValue] = True
+                        if mat_id and _eid_int(mat_id) > 0:
+                            usage_dict[_eid_int(mat_id)] = True
                     
                     # For compound structures (walls, floors, etc.)
                     if hasattr(elem_type, 'GetCompoundStructure'):
@@ -284,8 +304,8 @@ class MaterialScanner(BasePurgeScanner):
                             if compound:
                                 for layer in compound.GetLayers():
                                     mat_id = layer.MaterialId
-                                    if mat_id and mat_id.IntegerValue > 0:
-                                        usage_dict[mat_id.IntegerValue] = True
+                                    if mat_id and _eid_int(mat_id) > 0:
+                                        usage_dict[_eid_int(mat_id)] = True
                         except:
                             pass
                     
@@ -306,7 +326,7 @@ class MaterialScanner(BasePurgeScanner):
                     continue
                 
                 # Check if material is used
-                if mat.Id.IntegerValue not in usage_dict:
+                if _eid_int(mat.Id) not in usage_dict:
                     item = self.create_item_dict(mat, {
                         'type': 'Material',
                         'class': mat.MaterialClass if hasattr(mat, 'MaterialClass') else "Unknown"
@@ -360,13 +380,13 @@ class LinePatternScanner(BasePurgeScanner):
                         try:
                             # Check projection line pattern
                             pattern_id = subcat.GetLinePatternId(GraphicsStyleType.Projection)
-                            if pattern_id and pattern_id.IntegerValue > 0:
-                                usage_dict[pattern_id.IntegerValue] = True
+                            if pattern_id and _eid_int(pattern_id) > 0:
+                                usage_dict[_eid_int(pattern_id)] = True
                             
                             # Check cut line pattern
                             pattern_id = subcat.GetLinePatternId(GraphicsStyleType.Cut)
-                            if pattern_id and pattern_id.IntegerValue > 0:
-                                usage_dict[pattern_id.IntegerValue] = True
+                            if pattern_id and _eid_int(pattern_id) > 0:
+                                usage_dict[_eid_int(pattern_id)] = True
                                 
                         except Exception as e:
                             continue
@@ -387,7 +407,7 @@ class LinePatternScanner(BasePurgeScanner):
                     continue
                 
                 # Check if pattern is used
-                if pattern.Id.IntegerValue not in usage_dict:
+                if _eid_int(pattern.Id) not in usage_dict:
                     # Get pattern details
                     line_pattern = pattern.GetLinePattern()
                     pattern_type = "Simple" if line_pattern.IsSimple() else "Complex"
@@ -442,13 +462,13 @@ class FillPatternScanner(BasePurgeScanner):
                 try:
                     # Surface pattern
                     surf_pattern_id = mat.SurfaceForegroundPatternId
-                    if surf_pattern_id and surf_pattern_id.IntegerValue > 0:
-                        usage_dict[surf_pattern_id.IntegerValue] = True
+                    if surf_pattern_id and _eid_int(surf_pattern_id) > 0:
+                        usage_dict[_eid_int(surf_pattern_id)] = True
                     
                     # Cut pattern
                     cut_pattern_id = mat.CutForegroundPatternId
-                    if cut_pattern_id and cut_pattern_id.IntegerValue > 0:
-                        usage_dict[cut_pattern_id.IntegerValue] = True
+                    if cut_pattern_id and _eid_int(cut_pattern_id) > 0:
+                        usage_dict[_eid_int(cut_pattern_id)] = True
                 except:
                     pass
             
@@ -460,8 +480,8 @@ class FillPatternScanner(BasePurgeScanner):
                         region_type = self.doc.GetElement(region.GetTypeId())
                         if region_type:
                             pattern_id = region_type.ForegroundPatternId
-                            if pattern_id and pattern_id.IntegerValue > 0:
-                                usage_dict[pattern_id.IntegerValue] = True
+                            if pattern_id and _eid_int(pattern_id) > 0:
+                                usage_dict[_eid_int(pattern_id)] = True
                     except:
                         pass
             except:
@@ -480,7 +500,7 @@ class FillPatternScanner(BasePurgeScanner):
                     continue
                 
                 # Check if pattern is used
-                if pattern.Id.IntegerValue not in usage_dict:
+                if _eid_int(pattern.Id) not in usage_dict:
                     # Get pattern details
                     fill_pattern = pattern.GetFillPattern()
                     pattern_target = "Drafting" if fill_pattern.Target == FillPatternTarget.Drafting else "Model"
@@ -533,8 +553,8 @@ class TextTypeScanner(BasePurgeScanner):
                 
                 try:
                     type_id = text.GetTypeId()
-                    if type_id and type_id.IntegerValue > 0:
-                        usage_dict[type_id.IntegerValue] = True
+                    if type_id and _eid_int(type_id) > 0:
+                        usage_dict[_eid_int(type_id)] = True
                 except:
                     pass
             
@@ -551,7 +571,7 @@ class TextTypeScanner(BasePurgeScanner):
                     continue
                 
                 # Check if type is used
-                if text_type.Id.IntegerValue not in usage_dict:
+                if _eid_int(text_type.Id) not in usage_dict:
                     item = self.create_item_dict(text_type, {
                         'type': 'Text Note Type'
                     })
@@ -599,8 +619,8 @@ class DimensionTypeScanner(BasePurgeScanner):
                 
                 try:
                     type_id = dim.GetTypeId()
-                    if type_id and type_id.IntegerValue > 0:
-                        usage_dict[type_id.IntegerValue] = True
+                    if type_id and _eid_int(type_id) > 0:
+                        usage_dict[_eid_int(type_id)] = True
                 except:
                     pass
             
@@ -617,7 +637,7 @@ class DimensionTypeScanner(BasePurgeScanner):
                     continue
                 
                 # Check if type is used
-                if dim_type.Id.IntegerValue not in usage_dict:
+                if _eid_int(dim_type.Id) not in usage_dict:
                     item = self.create_item_dict(dim_type, {
                         'type': 'Dimension Type',
                         'style_type': dim_type.StyleType.ToString() if hasattr(dim_type, 'StyleType') else 'Unknown'
@@ -669,7 +689,7 @@ class LineStyleScanner(BasePurgeScanner):
                     try:
                         gs = line.LineStyle
                         if gs:
-                            usage_dict[gs.Id.IntegerValue] = True
+                            usage_dict[_eid_int(gs.Id)] = True
                     except:
                         pass
             except:
@@ -682,7 +702,7 @@ class LineStyleScanner(BasePurgeScanner):
                     try:
                         gs = line.LineStyle
                         if gs:
-                            usage_dict[gs.Id.IntegerValue] = True
+                            usage_dict[_eid_int(gs.Id)] = True
                     except:
                         pass
             except:
@@ -707,7 +727,7 @@ class LineStyleScanner(BasePurgeScanner):
                         continue
                     
                     # Check if used
-                    if gs.Id.IntegerValue not in usage_dict:
+                    if _eid_int(gs.Id) not in usage_dict:
                         item = self.create_item_dict(gs, {
                             'type': 'Line Style',
                             'category': subcat.Name
@@ -757,8 +777,8 @@ class ViewTemplateScanner(BasePurgeScanner):
                 
                 try:
                     template_id = view.ViewTemplateId
-                    if template_id and template_id.IntegerValue > 0:
-                        usage_dict[template_id.IntegerValue] = True
+                    if template_id and _eid_int(template_id) > 0:
+                        usage_dict[_eid_int(template_id)] = True
                 except:
                     pass
             
@@ -781,7 +801,7 @@ class ViewTemplateScanner(BasePurgeScanner):
                     continue
                 
                 # Check if used
-                if template.Id.IntegerValue not in usage_dict:
+                if _eid_int(template.Id) not in usage_dict:
                     item = self.create_item_dict(template, {
                         'type': 'View Template',
                         'view_type': template.ViewType.ToString()
@@ -841,8 +861,8 @@ class FilterScanner(BasePurgeScanner):
                     # Get filters applied to view
                     filter_ids = view.GetFilters()
                     for fid in filter_ids:
-                        if fid and fid.IntegerValue > 0:
-                            usage_dict[fid.IntegerValue] = True
+                        if fid and _eid_int(fid) > 0:
+                            usage_dict[_eid_int(fid)] = True
                 except:
                     pass
             
@@ -859,7 +879,7 @@ class FilterScanner(BasePurgeScanner):
                     continue
                 
                 # Check if used
-                if filter_elem.Id.IntegerValue not in usage_dict:
+                if _eid_int(filter_elem.Id) not in usage_dict:
                     # Get filter categories
                     try:
                         cats = filter_elem.GetCategories()

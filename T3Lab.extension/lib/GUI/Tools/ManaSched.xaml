@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Schedule Manager"
+        Title="ManaSched"
         Height="820" Width="1050"
         MinHeight="650" MinWidth="850"
         WindowStartupLocation="CenterScreen"
@@ -1192,7 +1192,7 @@
                 <!-- Title -->
                 <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="Schedule Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                    <TextBlock Text="ManaSched" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
                     <TextBlock Text="Link, export and duplicate schedules" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 

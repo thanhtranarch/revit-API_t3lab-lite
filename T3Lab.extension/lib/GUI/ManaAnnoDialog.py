@@ -258,7 +258,7 @@ def _txt_name(tt, origin):
 # XAML PATH
 # ============================================================
 _GUI_DIR = os.path.dirname(__file__)
-_XAML_PATH = os.path.join(_GUI_DIR, 'Tools', 'AnnotationManager.xaml')
+_XAML_PATH = os.path.join(_GUI_DIR, 'Tools', 'ManaAnno.xaml')
 
 # ============================================================
 # WINDOW CLASS

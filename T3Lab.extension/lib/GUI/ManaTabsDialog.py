@@ -6,7 +6,7 @@ from pyrevit import forms
 from System.Windows import WindowState
 from System.Collections.ObjectModel import ObservableCollection
 
-_XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'TabManager.xaml')
+_XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'ManaTabs.xaml')
 
 class TabItemModel(object):
     def __init__(self, name, is_checked):

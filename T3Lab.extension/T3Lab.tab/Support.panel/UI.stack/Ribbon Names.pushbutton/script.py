@@ -29,7 +29,7 @@ Works on Revit 2024 / 2025 / 2026 / 2027.
 
 import os
 import json
-from pyrevit import script, forms
+from pyrevit import forms
 from pyrevit.api import AdWindows
 
 # ------------------------------------------------------------------ GENERAL
@@ -39,8 +39,6 @@ PATH_SCRIPT  = os.path.dirname(__file__)
 MAP_PATH     = os.path.join(PATH_SCRIPT, "dqt_ribbon_map.json")
 ORIG_PATH    = os.path.join(PATH_SCRIPT, "dqt_ribbon_originals.json")
 STATE_PATH   = os.path.join(PATH_SCRIPT, "dqt_ribbon_state.json")
-
-FOOTER_TEXT = "Dang Quoc Truong - DQT (c) 2026"
 
 DEFAULT_MAP = {
     "Architecture": "Arch",
@@ -142,7 +140,7 @@ def main():
 
     from GUI.RibbonNamesDialog import show_ribbon_names_dialog
 
-    dlg = show_ribbon_names_dialog(
+    show_ribbon_names_dialog(
         live_tabs=live_tabs,
         short_map=short_map,
         originals=originals,
@@ -151,11 +149,6 @@ def main():
         on_state_callback=save_state,
         on_originals_callback=save_originals
     )
-
-    if dlg.message:
-        script.get_output().print_md(
-            "**DQT - Ribbon Name Manager:** " + dlg.message +
-            "\n\n*" + FOOTER_TEXT + "*")
 
 if __name__ == "__main__":
     main()

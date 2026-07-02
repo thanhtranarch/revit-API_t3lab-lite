@@ -164,8 +164,10 @@ def build_system_prompt(revit_context=u""):
         u"  - 'mở batchout' alone → open_batchout\n"
         u"  - Revit element queries/creation/modification → use the EXACT tool name and parameters from the \"Local MCP Server Tools\" list below. Never invent a tool name (e.g. there is no generic 'revit_create_wall' — use the real registered name shown there).\n"
         u"  - General conversation → chat\n"
+        u"  - CRITICAL: greetings, thanks, or small talk alone (e.g. 'morning', 'hello', 'ok', 'thanks', 'chào') are NEVER tool commands → greet or chat. Never return an open_* / export / tool intent for them.\n"
+        u"  - CRITICAL: if the user asks whether a tool/feature EXISTS ('có tool nào để X không?', 'do you have a tool for X?'), answer ONLY from the tool lists in this prompt — name the matching tool(s) or say clearly that none exists. NEVER invent a tool name.\n"
         u"  - SAME language as user (Vietnamese → Vietnamese, English → English)\n"
-        u"  - If unsure → unknown\n"
+        u"  - CRITICAL: \"unknown\" means you have NOTHING to say — avoid it. If the request doesn't match a listed tool/API, answer it as \"chat\" instead (explain what you can do, ask a clarifying question, or give your best helpful answer) and ALWAYS fill \"message\" with real text. Only use \"unknown\" if you truly cannot produce any response at all.\n"
         u"\nEXAMPLES:\n"
         u"  input: xuất pdf G sheet\n"
         u'  output: {"intent":"export_direct","params":{"format":"pdf","filter":"G","combine":false},"message":"Đang xuất G sheet sang PDF..."}\n'

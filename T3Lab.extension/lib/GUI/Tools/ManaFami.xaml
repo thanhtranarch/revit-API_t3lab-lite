@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Family Manager"
+        Title="ManaFami"
         Width="1100" Height="700"
         MinWidth="950" MinHeight="600"
         WindowStartupLocation="CenterScreen"
@@ -1159,7 +1159,7 @@
                     <!-- Title and Subtitle -->
                     <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center"
                                 Margin="22,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
-                        <TextBlock x:Name="lbl_title" Text="Family Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                        <TextBlock x:Name="lbl_title" Text="ManaFami" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
                         <TextBlock x:Name="lbl_subtitle" Text="Load families and manage renaming, prefix/suffix, worksets in one central hub" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                     </StackPanel>
 

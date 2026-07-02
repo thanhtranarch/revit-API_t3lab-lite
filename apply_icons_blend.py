@@ -8,7 +8,7 @@ tools = [
     r'T3Lab.extension\T3Lab.tab\Standards & Settings.panel\ManaWorkset.pushbutton\icon.png',
     r'T3Lab.extension\T3Lab.tab\Annotation & Select.panel\ManaAnno.pushbutton\icon.png',
     r'T3Lab.extension\T3Lab.tab\Annotation & Select.panel\Mana.stack\ManaDWG.pushbutton\icon.png',
-    r'T3Lab.extension\T3Lab.tab\Annotation & Select.panel\Mana.stack\ManaAlign.pushbutton\icon.png',
+    r'T3Lab.extension\T3Lab.tab\Annotation & Select.panel\Mana.stack\AutoDimension.pushbutton\icon.png',
     r'T3Lab.extension\T3Lab.tab\Annotation & Select.panel\Mana.stack\ManaSelect.pushbutton\icon.png'
 ]
 

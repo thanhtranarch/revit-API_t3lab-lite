@@ -1,0 +1,14 @@
+[
+  {
+    "rag": "Green", 
+    "timestamp": "2026-07-02 13:47:53", 
+    "grade": "B", 
+    "score": 86.0
+  }, 
+  {
+    "grade": "B", 
+    "score": 86.0, 
+    "timestamp": "2026-07-02 13:51:39", 
+    "rag": "Green"
+  }
+]

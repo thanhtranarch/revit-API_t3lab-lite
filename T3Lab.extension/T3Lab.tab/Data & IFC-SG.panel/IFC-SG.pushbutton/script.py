@@ -9,7 +9,7 @@ _lib = os.path.normpath(os.path.join(os.path.dirname(__file__), '../../../../lib
 if _lib not in sys.path:
     sys.path.insert(0, _lib)
 
-from GUI.IFCSGSuiteDialog import show_ifcsg_suite
+from GUI.IFCSGDialog import show_ifcsg_suite
 
 if __name__ == '__main__':
     show_ifcsg_suite(os.path.dirname(__file__), __revit__)

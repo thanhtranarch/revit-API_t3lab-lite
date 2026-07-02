@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Dim Text"
+        Title="Dim Text"
         Width="460" Height="580"
         MinWidth="400" MinHeight="500"
         Background="#E4E4E7"

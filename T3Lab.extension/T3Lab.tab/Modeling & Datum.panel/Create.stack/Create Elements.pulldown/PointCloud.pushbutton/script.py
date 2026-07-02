@@ -72,7 +72,7 @@ lib_dir    = os.path.join(EXT_DIR, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
-XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'PointCloudModel.xaml')
+XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'PointCloud.xaml')
 
 # DEFINE VARIABLES
 # ==============================================================================

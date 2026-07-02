@@ -1,0 +1,172 @@
+{
+  "file_size_mb": {
+    "weight": 4, 
+    "thresholds": [
+      100, 
+      250, 
+      500, 
+      750, 
+      1000
+    ]
+  }, 
+  "warnings": {
+    "weight": 5, 
+    "thresholds": [
+      100, 
+      500, 
+      1000, 
+      2000, 
+      5000
+    ]
+  }, 
+  "cad_imports": {
+    "weight": 5, 
+    "thresholds": [
+      0, 
+      2, 
+      5, 
+      7, 
+      10
+    ]
+  }, 
+  "in_place_families": {
+    "weight": 4, 
+    "thresholds": [
+      5, 
+      15, 
+      30, 
+      60, 
+      100
+    ]
+  }, 
+  "rvt_links": {
+    "weight": 2, 
+    "thresholds": [
+      10, 
+      20, 
+      35, 
+      50, 
+      80
+    ]
+  }, 
+  "worksets": {
+    "weight": 1, 
+    "thresholds": [
+      10, 
+      20, 
+      30, 
+      40, 
+      50
+    ]
+  }, 
+  "cad_links": {
+    "weight": 3, 
+    "thresholds": [
+      10, 
+      25, 
+      50, 
+      80, 
+      120
+    ]
+  }, 
+  "views": {
+    "weight": 3, 
+    "thresholds": [
+      200, 
+      500, 
+      1000, 
+      2000, 
+      4000
+    ]
+  }, 
+  "sheets": {
+    "weight": 2, 
+    "thresholds": [
+      100, 
+      200, 
+      400, 
+      600, 
+      1000
+    ]
+  }, 
+  "groups": {
+    "weight": 3, 
+    "thresholds": [
+      20, 
+      50, 
+      100, 
+      200, 
+      500
+    ]
+  }, 
+  "design_options": {
+    "weight": 1, 
+    "thresholds": [
+      3, 
+      5, 
+      8, 
+      15, 
+      20
+    ]
+  }, 
+  "reference_planes": {
+    "weight": 1, 
+    "thresholds": [
+      100, 
+      200, 
+      500, 
+      800, 
+      1500
+    ]
+  }, 
+  "detail_lines": {
+    "weight": 2, 
+    "thresholds": [
+      1000, 
+      5000, 
+      10000, 
+      25000, 
+      50000
+    ]
+  }, 
+  "filled_regions": {
+    "weight": 2, 
+    "thresholds": [
+      100, 
+      500, 
+      1000, 
+      3000, 
+      5000
+    ]
+  }, 
+  "rooms_unplaced": {
+    "weight": 2, 
+    "thresholds": [
+      0, 
+      5, 
+      15, 
+      30, 
+      50
+    ]
+  }, 
+  "linked_dwg_not_pinned": {
+    "weight": 2, 
+    "thresholds": [
+      0, 
+      3, 
+      8, 
+      15, 
+      30
+    ]
+  }, 
+  "duplicate_elements": {
+    "weight": 4, 
+    "thresholds": [
+      0, 
+      10, 
+      30, 
+      60, 
+      100
+    ]
+  }
+}

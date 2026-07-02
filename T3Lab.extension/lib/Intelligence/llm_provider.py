@@ -84,7 +84,7 @@ def http_get_auth(url, headers=None, timeout_ms=8000):
     return None
 
 
-def http_post(url, payload, headers=None):
+def http_post(url, payload, headers=None, timeout_ms=60000):
     """
     POST a JSON-serialisable payload and return the response string.
 
@@ -92,27 +92,48 @@ def http_post(url, payload, headers=None):
         url: target URL string.
         payload: dict to serialise as JSON.
         headers: optional dict of extra request headers.
+        timeout_ms: request timeout in milliseconds. Default 60000 (60s) —
+            fine for cloud APIs. Local providers (Ollama/LM Studio) doing
+            CPU inference on a multi-billion-parameter model routinely need
+            much longer; callers there should pass a larger value.
+            IMPORTANT: plain System.Net.WebClient has NO Timeout property,
+            so without explicitly building the request via HttpWebRequest
+            (as done below), every local-model call silently inherited
+            .NET's ~100s default and failed on any slower model/machine —
+            indistinguishable from "the model answered badly", when in fact
+            the request never completed at all.
 
     Returns:
         str: response body, or raises RuntimeError on failure.
     """
     body = json.dumps(payload, ensure_ascii=False)
     if _USE_NET:
+        from System.Net import HttpWebRequest
+        from System.IO import StreamReader
         body_bytes = _NetEncoding.UTF8.GetBytes(body)
-        client = WebClient()
+        req = HttpWebRequest.Create(url)
+        req.Method           = "POST"
+        req.ContentType      = "application/json; charset=utf-8"
+        req.Timeout          = timeout_ms
+        req.ReadWriteTimeout  = timeout_ms
+        if headers:
+            for k, v in headers.items():
+                req.Headers.Add(k, v)
+        req.ContentLength = body_bytes.Length
+        rs = req.GetRequestStream()
         try:
-            client.Encoding = _NetEncoding.UTF8
-            client.Headers.Add("Content-Type", "application/json; charset=utf-8")
-            if headers:
-                for k, v in headers.items():
-                    client.Headers.Add(k, v)
-            resp_bytes = client.UploadData(url, "POST", body_bytes)
-            return _NetEncoding.UTF8.GetString(resp_bytes)
+            rs.Write(body_bytes, 0, body_bytes.Length)
         finally:
+            rs.Close()
+        resp = req.GetResponse()
+        try:
+            reader = StreamReader(resp.GetResponseStream(), _NetEncoding.UTF8)
             try:
-                client.Dispose()
-            except Exception:
-                pass
+                return reader.ReadToEnd()
+            finally:
+                reader.Close()
+        finally:
+            resp.Close()
 
     if _HAS_URLLIB:
         if isinstance(body, type(u"")):
@@ -123,7 +144,7 @@ def http_post(url, payload, headers=None):
         if headers:
             req_headers.update(headers)
         req = Request(url, body_bytes, req_headers)
-        resp = urlopen(req, timeout=60)
+        resp = urlopen(req, timeout=float(timeout_ms) / 1000.0)
         raw = resp.read()
         return raw.decode("utf-8") if isinstance(raw, bytes) else raw
 

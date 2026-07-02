@@ -38,13 +38,24 @@ def _get_watcher():
     return get_task_watcher()
 
 
+def _get_paths_module():
+    _ensure_lib_in_path()
+    from core import paths
+    return paths
+
+
 def _get_data_dir():
     _ensure_lib_in_path()
     try:
         from core.file_watcher import T3LAB_DATA_DIR
         return T3LAB_DATA_DIR
     except Exception:
-        return os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data')
+        try:
+            return _get_paths_module().get_setting(
+                'data_dir',
+                lambda: os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data'))
+        except Exception:
+            return os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data')
 
 
 def _get_bridge_path():
@@ -53,6 +64,77 @@ def _get_bridge_path():
     lib_dir     = os.path.dirname(here)                        # lib
     bridge_path = os.path.join(lib_dir, 'core', 'bridge.py')
     return bridge_path.replace('\\', '/')
+
+
+def _find_python_executable():
+    """
+    Locate a CPython 3 interpreter to run core/bridge.py.
+
+    bridge.py needs f-strings and urllib.request (Python 3.6+) — the
+    IronPython interpreter running this Revit process can't run it, and a
+    bare "python" command isn't guaranteed to resolve on every machine
+    (e.g. python.org installs that only register "python3", or a PATH
+    that hasn't picked up a fresh install yet). Search PATH first, then
+    fall back to common per-user/system install locations, and only use
+    the bare command name as a last resort so Claude Desktop still gets
+    something to try.
+
+    The resolved path is read from / written to mcp_paths.json (see
+    core/paths.py) so the scan only runs once per machine and the result
+    is hand-editable afterwards; the cached value is revalidated on every
+    call in case Python was reinstalled elsewhere.
+    """
+    paths = _get_paths_module()
+    cached_path = paths.load_settings().get('python_executable')
+    if cached_path and os.path.isfile(cached_path):
+        return cached_path
+
+    is_windows = os.name == 'nt'
+    exe_names = ['python.exe', 'python3.exe'] if is_windows else ['python3', 'python']
+    found = None
+
+    # 1) Search PATH directories for a real interpreter.
+    path_dirs = os.environ.get('PATH', '').split(os.pathsep)
+    for d in path_dirs:
+        for name in exe_names:
+            candidate = os.path.join(d, name)
+            if os.path.isfile(candidate):
+                found = candidate
+                break
+        if found:
+            break
+
+    # 2) Common install locations not always present on PATH.
+    if not found:
+        home = os.path.expanduser('~')
+        fallback_globs = []
+        if is_windows:
+            fallback_globs.append(os.path.join(home, 'AppData', 'Local', 'Programs', 'Python', 'Python*', 'python.exe'))
+            fallback_globs.append(os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Microsoft', 'WindowsApps', 'python.exe'))
+            fallback_globs.append('C:/Python*/python.exe')
+            fallback_globs.append('C:/Program Files/Python*/python.exe')
+        else:
+            fallback_globs.append('/usr/local/bin/python3')
+            fallback_globs.append('/usr/bin/python3')
+            fallback_globs.append(os.path.join(home, '.pyenv', 'shims', 'python3'))
+
+        try:
+            import glob
+            for pattern in fallback_globs:
+                matches = sorted(glob.glob(pattern), reverse=True)
+                if matches:
+                    found = matches[0]
+                    break
+        except Exception:
+            pass
+
+    if found:
+        paths.set_setting('python_executable', found)
+        return found
+
+    # 3) Give up — return the bare command name and let the OS PATH try.
+    # Not cached: it isn't a real resolved path, so nothing to reuse.
+    return 'python' if is_windows else 'python3'
 
 
 # ─── MCPService ────────────────────────────────────────────────────────────────
@@ -158,6 +240,67 @@ class MCPService(object):
             ok, err = MCPService.start_server(port=current_port)
             return ('running' if ok else 'stopped'), err
 
+    # ── Active document pinning ────────────────────────────────────────────────
+
+    @staticmethod
+    def list_open_documents():
+        """
+        List documents open in this Revit instance.
+
+        Returns:
+            (documents: list[dict] with keys title/is_active/is_pinned, error: str|None)
+        """
+        try:
+            server = _get_server()
+            return server.get_open_documents(), None
+        except Exception as ex:
+            return [], str(ex)
+
+    @staticmethod
+    def pin_document(title):
+        """
+        Pin a document by title so MCP tool calls always target it, even if
+        another document becomes the active window in Revit.
+
+        Returns:
+            (success: bool, error_message: str)
+        """
+        try:
+            server = _get_server()
+            server.pin_document(title)
+            return True, None
+        except Exception as ex:
+            return False, str(ex)
+
+    @staticmethod
+    def unpin_document():
+        """
+        Clear the pin — tool calls fall back to Revit's active document.
+
+        Returns:
+            (success: bool, error_message: str)
+        """
+        try:
+            server = _get_server()
+            server.unpin_document()
+            return True, None
+        except Exception as ex:
+            return False, str(ex)
+
+    @staticmethod
+    def pinned_document():
+        """
+        Return the currently pinned document title.
+
+        Returns:
+            (title: str|None, error: str|None)
+        """
+        try:
+            server = _get_server()
+            return server.get_pinned_document(), None
+        except Exception as ex:
+            return None, str(ex)
+
     # ── File watcher ───────────────────────────────────────────────────────────
 
     @staticmethod
@@ -247,11 +390,12 @@ class MCPService(object):
                 port = 48884
 
         bridge = _get_bridge_path()
+        python = _find_python_executable().replace('\\', '/')
         return (
             '{\n'
             '  "mcpServers": {\n'
             '    "t3lab-revit": {\n'
-            '      "command": "python",\n'
+            '      "command": "' + python + '",\n'
             '      "args": [\n'
             '        "' + bridge + '",\n'
             '        "' + str(port) + '"\n'
@@ -293,18 +437,30 @@ class MCPService(object):
 
     @staticmethod
     def find_claude_desktop_config():
-        """Return the expected Claude Desktop config file path for this OS."""
-        import platform
-        home = os.path.expanduser('~')
-        system = platform.system()
-        if system == 'Windows':
-            appdata = os.environ.get('APPDATA', os.path.join(home, 'AppData', 'Roaming'))
-            return os.path.join(appdata, 'Claude', 'claude_desktop_config.json')
-        elif system == 'Darwin':
-            return os.path.join(home, 'Library', 'Application Support', 'Claude',
-                                'claude_desktop_config.json')
-        else:
-            return os.path.join(home, '.config', 'Claude', 'claude_desktop_config.json')
+        """
+        Return the Claude Desktop config file path.
+
+        Read from mcp_paths.json ('claude_desktop_config' key) if the user
+        has set it there (e.g. a non-standard install); otherwise compute
+        the standard per-OS default and persist it so it becomes editable.
+        """
+        def _default():
+            import platform
+            home = os.path.expanduser('~')
+            system = platform.system()
+            if system == 'Windows':
+                appdata = os.environ.get('APPDATA', os.path.join(home, 'AppData', 'Roaming'))
+                return os.path.join(appdata, 'Claude', 'claude_desktop_config.json')
+            elif system == 'Darwin':
+                return os.path.join(home, 'Library', 'Application Support', 'Claude',
+                                    'claude_desktop_config.json')
+            else:
+                return os.path.join(home, '.config', 'Claude', 'claude_desktop_config.json')
+
+        try:
+            return _get_paths_module().get_setting('claude_desktop_config', _default)
+        except Exception:
+            return _default()
 
     @staticmethod
     def claude_desktop_status():
@@ -355,6 +511,7 @@ class MCPService(object):
                     port = 48884
 
             bridge = _get_bridge_path()
+            python = _find_python_executable()
             path = MCPService.find_claude_desktop_config()
 
             config = {}
@@ -370,7 +527,7 @@ class MCPService(object):
             if 'mcpServers' not in config:
                 config['mcpServers'] = {}
             config['mcpServers']['t3lab-revit'] = {
-                'command': 'python',
+                'command': python,
                 'args': [bridge, str(port)],
             }
 

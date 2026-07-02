@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Quick Select"
+        Title="Quick Select"
         Width="1100" Height="700"
         MinWidth="900" MinHeight="550"
         WindowStartupLocation="CenterScreen"
@@ -1211,74 +1211,87 @@
                 </Grid>
             </Border>
             
-            <!-- Right Panel - DataGrid -->
-            <DataGrid Grid.Column="1" x:Name="dataGrid"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="False"
-                      SelectionMode="Extended"
-                      SelectionUnit="FullRow"
-                      CanUserAddRows="False"
-                      CanUserDeleteRows="False"
-                      CanUserReorderColumns="True"
-                      CanUserResizeColumns="True"
-                      CanUserSortColumns="True"
-                      HeadersVisibility="Column"
-                      Background="White"
-                      BorderBrush="#E2E8F0"
-                      GridLinesVisibility="Horizontal"
-                      HorizontalGridLinesBrush="#F1F5F9"
-                      RowBackground="White"
-                      AlternatingRowBackground="#F8FAFC"
-                      FontSize="12">
-                <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="☐" Width="40">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <CheckBox IsChecked="{Binding is_checked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="ID" Binding="{Binding element_id}" Width="85" IsReadOnly="True"/>
-                    <DataGridTextColumn Header="Category" Binding="{Binding category}" Width="130" IsReadOnly="True"/>
-                    <DataGridTextColumn Header="Family" Binding="{Binding family}" Width="160" IsReadOnly="True"/>
-                    <DataGridTextColumn Header="Type" Binding="{Binding type_name}" Width="160" IsReadOnly="True"/>
-                    <DataGridTextColumn Header="Name/Mark" Binding="{Binding name}" Width="*" MinWidth="120" IsReadOnly="True"/>
-                    <DataGridTextColumn Header="Level" Binding="{Binding level}" Width="100" IsReadOnly="True"/>
-                </DataGrid.Columns>
-            </DataGrid>
+            <!-- Right Panel - Toolbar + DataGrid -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Selection toolbar (Check All / Uncheck All / Invert) - sits directly above the DataGrid -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+                    <Button x:Name="btnCheckAll" Content="Check All" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
+                    <Button x:Name="btnCheckNone" Content="Uncheck All" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
+                    <Button x:Name="btnInvert" Content="Invert" Style="{StaticResource SecondaryButton}" Margin="0,0,0,0"/>
+                </StackPanel>
+
+                <DataGrid Grid.Row="1" x:Name="dataGrid"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="False"
+                          SelectionMode="Extended"
+                          SelectionUnit="FullRow"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          CanUserReorderColumns="True"
+                          CanUserResizeColumns="True"
+                          CanUserSortColumns="True"
+                          HeadersVisibility="Column"
+                          Background="White"
+                          BorderBrush="#E2E8F0"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#F1F5F9"
+                          RowBackground="White"
+                          AlternatingRowBackground="#F8FAFC"
+                          FontSize="12">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="☐" Width="40">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding is_checked, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="ID" Binding="{Binding element_id}" Width="85" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Category" Binding="{Binding category}" Width="130" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Family" Binding="{Binding family}" Width="160" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Type" Binding="{Binding type_name}" Width="160" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Name/Mark" Binding="{Binding name}" Width="*" MinWidth="120" IsReadOnly="True"/>
+                        <DataGridTextColumn Header="Level" Binding="{Binding level}" Width="100" IsReadOnly="True"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
         </Grid>
         
         <!-- Action Buttons -->
         <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,16,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                
-                <!-- Left - Selection buttons -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button x:Name="btnCheckAll" Content="Check All" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
-                    <Button x:Name="btnCheckNone" Content="Uncheck All" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"/>
-                    <Button x:Name="btnInvert" Content="Invert" Style="{StaticResource SecondaryButton}"/>
-                </StackPanel>
-                
+            <!--
+                Single WrapPanel instead of a 3-column Grid (Auto/*/Auto).
+                Rationale: the old layout put the center group in a star column with
+                HorizontalAlignment="Center" and fixed Widths on every button. WPF Grid
+                does not clip oversized children to their cell, so once the available
+                width dropped below the combined natural width of all three groups
+                (~915px), the center group visually bled into the left/right groups
+                and overlapped them. This happens whenever this XAML's content is
+                reused at a narrower width than its own standalone Window declares
+                (e.g. embedded inside ManaSelect.xaml, which only has ~754-914px of
+                content width after its 66px sidebar rail).
+                A WrapPanel has no such failure mode: buttons lay out left-to-right in
+                natural (unconstrained) width and simply wrap onto a new line the
+                moment they run out of horizontal room, so overlap is impossible at
+                any width, not just the widths this file happens to be tested at.
+            -->
+            <WrapPanel Orientation="Horizontal">
                 <!-- Center - Main actions -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button x:Name="btnZoom" Content="🔍 Zoom To" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Width="100"/>
-                    <Button x:Name="btnSelect" Content="✓ Select in Model" Style="{StaticResource AccentButton}" Margin="0,0,8,0" Width="140"/>
-                    <Button x:Name="btnIsolate" Content="👁 Isolate" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Width="100"/>
-                    <Button x:Name="btnShow" Content="📍 Show Element" Style="{StaticResource PrimaryButton}" Width="135"/>
-                </StackPanel>
-                
-                <!-- Right - Refresh -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="btnRefresh" Content="🔄 Refresh" Style="{StaticResource SecondaryButton}" Margin="0,0,6,0" Width="95"/>
-                    <Button x:Name="btnClose" Content="Close" Style="{StaticResource SecondaryButton}" Width="80"/>
-                </StackPanel>
-            </Grid>
+                <Button x:Name="btnZoom" Content="🔍 Zoom To" Style="{StaticResource PrimaryButton}" Margin="0,0,8,6"/>
+                <Button x:Name="btnSelect" Content="✓ Select in Model" Style="{StaticResource AccentButton}" Margin="0,0,8,6"/>
+                <Button x:Name="btnIsolate" Content="👁 Isolate" Style="{StaticResource PrimaryButton}" Margin="0,0,8,6"/>
+                <Button x:Name="btnShow" Content="📍 Show Element" Style="{StaticResource PrimaryButton}" Margin="0,0,18,6"/>
+
+                <!-- Right - Refresh / Close -->
+                <Button x:Name="btnRefresh" Content="🔄 Refresh" Style="{StaticResource SecondaryButton}" Margin="0,0,6,6"/>
+                <Button x:Name="btnClose" Content="Close" Style="{StaticResource SecondaryButton}" Margin="0,0,0,6"/>
+            </WrapPanel>
         </Border>
         
         <!-- Footer -->

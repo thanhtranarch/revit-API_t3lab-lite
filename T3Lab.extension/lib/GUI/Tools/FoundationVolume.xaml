@@ -1,7 +1,7 @@
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="T3Lab — Foundation Volume"
+    Title="Foundation Volume"
     Width="540"
     SizeToContent="Height"
     MinHeight="520" MaxHeight="760"

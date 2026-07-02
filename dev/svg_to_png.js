@@ -9,7 +9,7 @@ const targets = [
   { panel: 'Standard.panel', tools: ['AutoWork.pushbutton', 'UIShowcase.pushbutton'] },
   { panel: 'Standards & Settings.panel', tools: ['ManaLoca.pushbutton', 'ModelAuditor.pushbutton', 'ManaStyles.pushbutton', 'ManaWorkset.pushbutton'] },
   { panel: 'Annotation & Select.panel', tools: ['ManaAnno.pushbutton'] },
-  { panel: 'Annotation & Select.panel/Mana.stack', tools: ['ManaAlign.pushbutton', 'ManaDWG.pushbutton', 'ManaSelect.pushbutton'] },
+  { panel: 'Annotation & Select.panel/Mana.stack', tools: ['AutoDimension.pushbutton', 'ManaDWG.pushbutton', 'ManaSelect.pushbutton'] },
   { panel: 'Modeling & Datum.panel', tools: ['FamiGen.pushbutton', 'ManaFami.pushbutton', 'ElementAdjust.pulldown'] },
   { panel: 'Modeling & Datum.panel/Create.stack', tools: ['PropertyLine.pushbutton', 'Tile Layout.pushbutton', 'Create Elements.pulldown'] },
   { panel: 'Modeling & Datum.panel/Create.stack/Create Elements.pulldown', tools: ['CADToElements.pushbutton', 'DoorThreshold.pushbutton', 'ImageToDrafting.pushbutton', 'ManaDatums.pushbutton', 'PointCloud.pushbutton', 'RoomToFloor.pushbutton', 'Text to Element.pushbutton'] },

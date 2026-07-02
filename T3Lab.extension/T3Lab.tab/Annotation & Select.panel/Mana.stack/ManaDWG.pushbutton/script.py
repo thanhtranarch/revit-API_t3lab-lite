@@ -169,7 +169,7 @@ class DWGManagementWindow(forms.WPFWindow):
         try:
             self._all_items = _collect_dwg_items(doc)
         except Exception as ex:
-            forms.alert("Error collecting CAD data:\n{}".format(ex), title="DWG Management")
+            forms.alert("Error collecting CAD data:\n{}".format(ex), title="ManaDWG")
             self._all_items = []
 
         self._apply_filter()
@@ -417,8 +417,8 @@ class DWGManagementWindow(forms.WPFWindow):
 
 if not os.path.isfile(XAML_FILE):
     forms.alert(
-        "XAML file not found:\n{}\n\nCannot open DWG Management window.".format(XAML_FILE),
-        title="DWG Management"
+        "XAML file not found:\n{}\n\nCannot open ManaDWG window.".format(XAML_FILE),
+        title="ManaDWG"
     )
     script.exit()
 
@@ -427,6 +427,6 @@ try:
     window.ShowDialog()
 except Exception as launch_ex:
     forms.alert(
-        "Failed to open DWG Management window:\n{}".format(launch_ex),
-        title="DWG Management"
+        "Failed to open ManaDWG window:\n{}".format(launch_ex),
+        title="ManaDWG"
     )

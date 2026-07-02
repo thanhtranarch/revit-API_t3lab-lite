@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Send Feedback"
+        Title="Send Feedback"
         Width="600" Height="690"
         MinWidth="520" MinHeight="610"
         WindowStartupLocation="CenterScreen"

@@ -1,7 +1,7 @@
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="T3Lab — Ribbon Names" Height="560" Width="560"
+    Title="Ribbon Names" Height="560" Width="560"
     WindowStartupLocation="CenterScreen" ResizeMode="CanResizeWithGrip"
     Background="#E4E4E7"
     FontFamily="Hanken Grotesk"

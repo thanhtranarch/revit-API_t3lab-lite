@@ -171,9 +171,16 @@ class OllamaProvider(BaseLLMProvider):
         }
 
         try:
+            # Local CPU/GPU inference on a multi-billion-parameter model can
+            # legitimately take minutes, especially with "format": "json"
+            # grammar-constrained decoding — the shared http_post() default
+            # (60s, tuned for cloud APIs) was silently killing every slower
+            # local generation. The caller saw a plain None with no error,
+            # indistinguishable from "the model answered but scored unknown".
             resp_text = http_post(
                 self._get_host() + "/api/chat",
                 payload,
+                timeout_ms=180000,
             )
             data = json.loads(resp_text)
             return data.get("message", {}).get("content", "")

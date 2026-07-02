@@ -1,7 +1,7 @@
 ﻿
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Location Manager"
+        Title="ManaLoca"
         Width="1200" Height="720"
         MinWidth="900" MinHeight="500"
         WindowStartupLocation="CenterScreen"
@@ -1269,7 +1269,7 @@
 
                 <StackPanel Grid.Column="0" Orientation="Vertical" Margin="20,0,0,0" VerticalAlignment="Center"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="Location Manager"
+                    <TextBlock Text="ManaLoca"
                                FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
                     <TextBlock Text="Review &amp; adjust element positions"
                                FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>

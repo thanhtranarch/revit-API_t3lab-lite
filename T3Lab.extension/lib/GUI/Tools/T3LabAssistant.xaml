@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       Title="T3Lab — T3Lab Assistant"
+       Title="T3Lab Assistant"
        Width="560" Height="720"
        MinWidth="480" MinHeight="580"
        WindowStartupLocation="CenterScreen"

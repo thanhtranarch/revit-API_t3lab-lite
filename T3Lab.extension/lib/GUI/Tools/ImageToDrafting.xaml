@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Image To Drafting" 
+        Title="Image To Drafting" 
         Height="540" Width="460"
         MinWidth="400" MinHeight="480"
         WindowStartupLocation="CenterScreen"

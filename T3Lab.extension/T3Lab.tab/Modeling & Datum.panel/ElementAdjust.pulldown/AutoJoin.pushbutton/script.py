@@ -39,6 +39,7 @@ from Autodesk.Revit.DB import (
     BuiltInCategory, ElementCategoryFilter,
     JoinGeometryUtils, BoundingBoxIntersectsFilter,
     Outline, ElementId,
+    IFailuresPreprocessor, FailureProcessingResult, FailureSeverity,
 )
 from Autodesk.Revit.UI import TaskDialog, TaskDialogCommonButtons, TaskDialogResult
 from pyrevit import revit, forms, script
@@ -112,6 +113,54 @@ class RuleItem(object):
         self.Number       = index
         self.PriorityName = priority_name
         self.JoinWithName = join_with_name
+
+
+# ==================================================
+# FAILURE HANDLING
+# ==================================================
+
+class _JoinFailuresPreprocessor(IFailuresPreprocessor):
+    """Auto-dismiss warnings raised during join/unjoin so Revit's native
+    failure-resolution dialog never blocks the transaction commit.
+
+    Blocking errors (e.g. Design Option violations) are prevented earlier by
+    skipping cross-Design-Option candidate pairs before JoinGeometryUtils is
+    ever called. Any error that still slips through gets a best-effort
+    default resolution attempt — never element deletion, since the elements
+    involved are the user's existing model elements (walls/floors/columns),
+    not disposable tool-created geometry.
+    """
+
+    def PreprocessFailures(self, failuresAccessor):
+        for f in failuresAccessor.GetFailureMessages():
+            sev = f.GetSeverity()
+            if sev == FailureSeverity.Warning:
+                failuresAccessor.DeleteWarning(f)
+            elif sev == FailureSeverity.Error and f.HasResolutions():
+                try:
+                    failuresAccessor.ResolveFailure(f)
+                except Exception:
+                    pass
+        return FailureProcessingResult.Continue
+
+
+def _design_option_id(el):
+    """Return the eid_value of el's Design Option, or None if el is in the
+    main model (not part of any Design Option)."""
+    try:
+        do = el.DesignOption
+    except Exception:
+        do = None
+    return eid_value(do.Id) if do else None
+
+
+def _same_design_option(el, cand):
+    """Two elements can only be joined if they belong to the same Design
+    Option, or if neither is in a Design Option. Joining across different
+    options (or option <-> main model) raises a blocking Revit error:
+    'No element in a secondary Option can be referenced by an element
+    outside that Option.'"""
+    return _design_option_id(el) == _design_option_id(cand)
 
 
 # ==================================================
@@ -201,6 +250,10 @@ def run_join(rules, scope, mode, switch_order, progress_callback=None, cancel_ch
     total_rules = len(rules)
 
     t = Transaction(doc, "Auto {} Elements".format(mode))
+    fho = t.GetFailureHandlingOptions()
+    fho.SetFailuresPreprocessor(_JoinFailuresPreprocessor())
+    fho.SetForcedModalHandling(False)
+    t.SetFailureHandlingOptions(fho)
     t.Start()
 
     try:
@@ -239,6 +292,10 @@ def run_join(rules, scope, mode, switch_order, progress_callback=None, cancel_ch
                 )
 
                 for cand in candidates:
+                    if not _same_design_option(el, cand):
+                        total_skipped += 1
+                        continue
+
                     if same_category:
                         pair_key = (
                             min(eid_value(el.Id), eid_value(cand.Id)),

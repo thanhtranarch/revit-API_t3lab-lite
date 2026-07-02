@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — View Hub"
+        Title="View Hub"
         Width="460" Height="360"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"

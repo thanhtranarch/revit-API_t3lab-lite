@@ -273,6 +273,7 @@ class T3LabAIServer(object):
         self._external_event = None
         self._event_handler = None
         self._token = self._get_or_create_token()
+        self._pinned_doc_title = None
         self._initialized = True
 
         # Register default Revit tools
@@ -1183,6 +1184,81 @@ class T3LabAIServer(object):
         if client_id in self._clients:
             del self._clients[client_id]
 
+    # ── Active document pinning ────────────────────────────────────────────
+    # Every tool call resolves its target document from pyrevit.revit.doc,
+    # which follows whichever document/window Revit itself last activated.
+    # When several documents are open in this same Revit instance, that
+    # "last activated" doc can silently change from under the AI client
+    # (e.g. the user clicks into another tab). Pinning lets the user lock
+    # tool execution onto one specific open document regardless of which
+    # window currently has focus.
+
+    def get_open_documents(self):
+        """List non-linked documents open in this Revit instance.
+
+        Returns a list of {'title', 'is_active', 'is_pinned'} dicts. Used by
+        the MCP Control dialog to populate the document picker.
+        """
+        try:
+            from pyrevit import HOST_APP, revit
+            uiapp = HOST_APP.uiapp
+            active_title = None
+            try:
+                active_title = revit.doc.Title
+            except Exception:
+                pass
+
+            docs = []
+            for d in uiapp.Application.Documents:
+                if d.IsLinked:
+                    continue
+                docs.append({
+                    'title': d.Title,
+                    'is_active': d.Title == active_title,
+                    'is_pinned': d.Title == self._pinned_doc_title,
+                })
+            return docs
+        except Exception:
+            return []
+
+    def pin_document(self, title):
+        """Pin a document by title so tool calls always target it."""
+        self._pinned_doc_title = title or None
+
+    def unpin_document(self):
+        """Clear the pin — tool calls fall back to Revit's active document."""
+        self._pinned_doc_title = None
+
+    def get_pinned_document(self):
+        """Return the pinned document title, or None if unpinned."""
+        return self._pinned_doc_title
+
+    def _resolve_target_document(self, doc, uidoc):
+        """Return (doc, uidoc) to use for this tool call.
+
+        If a document is pinned and it isn't the currently active one,
+        switch Revit's active window to it so uidoc-dependent tools (active
+        view, selection, etc.) operate on the pinned document too. Falls
+        back to the live active document if the pinned one is no longer
+        open (e.g. it was closed).
+        """
+        if not self._pinned_doc_title:
+            return doc, uidoc
+        if doc is not None and doc.Title == self._pinned_doc_title:
+            return doc, uidoc
+        try:
+            from pyrevit import HOST_APP
+            uiapp = HOST_APP.uiapp
+            for d in uiapp.Application.Documents:
+                if not d.IsLinked and d.Title == self._pinned_doc_title:
+                    target_uidoc = uiapp.OpenAndActivateDocument(d)
+                    return d, target_uidoc
+            # Pinned document is no longer open — clear the stale pin.
+            self._pinned_doc_title = None
+        except Exception:
+            pass
+        return doc, uidoc
+
     def _handle_initialize(self, params):
         """Handle MCP initialize request"""
         return {
@@ -1262,6 +1338,7 @@ class T3LabAIServer(object):
             from pyrevit import revit
             doc = revit.doc
             uidoc = revit.uidoc
+            doc, uidoc = self._resolve_target_document(doc, uidoc)
         except ImportError:
             return {'error': 'Revit API not available', 'tool': tool_name}
 
@@ -2768,9 +2845,6 @@ class T3LabAIServer(object):
                 if not target_view:
                     return {'error': 'View not found'}
                 try:
-                    from pyrevit import HOST_APP
-                    uiapp = HOST_APP.uiapp
-                    uidoc  = uiapp.ActiveUIDocument
                     uidoc.ActiveView = target_view
                     return {'success': True, 'view_id': eid_value(target_view.Id), 'view_name': target_view.Name}
                 except Exception as e:

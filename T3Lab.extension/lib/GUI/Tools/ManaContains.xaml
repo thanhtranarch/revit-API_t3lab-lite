@@ -1,6 +1,6 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Contains Manager"
+        Title="ManaContains"
         Height="780" Width="1350"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
@@ -1180,7 +1180,7 @@
                         <!-- Title & Subtitle -->
                         <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                                     WindowChrome.IsHitTestVisibleInChrome="True">
-                            <TextBlock Text="Contains Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
+                            <TextBlock Text="ManaContains" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
                             <TextBlock Text="Spatial elements and room data collector" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
                         </StackPanel>
 
@@ -1439,7 +1439,7 @@
                             <!-- Actions Footer -->
                             <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
                                 <Grid>
-                                    <TextBlock Text="Dang Quoc Truong (DQT) - Contains Manager" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                                    <TextBlock Text="Dang Quoc Truong (DQT) - ManaContains" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" HorizontalAlignment="Left"/>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                         <Button x:Name="tab1_btn_reset" Content="Reset" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Width="85" Height="28"/>
                                         <Button x:Name="tab1_btn_viz" Content="Visualize" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Width="85" Height="28"/>

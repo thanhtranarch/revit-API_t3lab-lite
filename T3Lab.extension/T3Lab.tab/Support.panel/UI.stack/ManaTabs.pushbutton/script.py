@@ -5,6 +5,7 @@ Manage visibility of Extension/Add-in tabs in Revit
 Copyright (c) 2025 by Dang Quoc Truong (DQT)
 """
 
+__title__ = "Tab\nManager"
 __author__ = "Dang Quoc Truong (DQT)"
 __version__ = "1.0.0"
 __copyright__ = "Copyright (c) 2025 by Dang Quoc Truong (DQT)"
@@ -114,7 +115,7 @@ def main_task():
     currentLst = CheckBoxForListItem(extensionTabNameLst, visibleTabNameLst)
     
     # Import custom Tab Manager Dialog from lib/GUI
-    from GUI.TabManagerDialog import show_tab_manager_dialog
+    from GUI.ManaTabsDialog import show_tab_manager_dialog
     
     selectedTabNameLst = show_tab_manager_dialog(currentLst)
 
@@ -139,12 +140,6 @@ def main_task():
                         textfile.write("\n")
                     else:
                         tab.IsVisible = True
-                        
-            visible_count = len(selectedTabNameLst)
-            hidden_count = len(hideTabNameLst)
-            alert("Extension Tab Manager completed!\n\nVisible: {}\nHidden: {}\n\nCopyright (c) 2025 by Dang Quoc Truong (DQT)".format(
-                visible_count, hidden_count), 
-                title="Extension Tab Manager")
         except Exception as e:
             alert("Error: {}".format(str(e)), title="Error")
 

@@ -62,7 +62,7 @@ doc = revit.doc
 
 # XAML Path
 GUI_DIR = os.path.dirname(__file__)
-XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ViewManager.xaml')
+XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaViews.xaml')
 
 
 # =====================================================

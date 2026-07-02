@@ -8,7 +8,6 @@ import codecs
 import datetime
 import re
 import csv
-import glob
 import traceback
 from collections import OrderedDict, defaultdict
 
@@ -224,6 +223,96 @@ METRIC_THRESHOLDS = OrderedDict([
         "recommendation": "Review and delete overlapping duplicate elements."
     })
 ])
+
+# ============================================================================
+# CONFIGURABLE THRESHOLDS/WEIGHTS + RAG STATUS + HISTORY
+# (Mirrors Autodesk Model Analytics: company/project-configurable health
+#  indicators, red/orange/green health status, and historical score trends.
+#  https://help.autodesk.com/view/MODALY/ENU/?guid=MODALY_Understanding_Data_ama_reports_html)
+# ============================================================================
+_CONFIG_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources', 'model_auditor_thresholds.json'))
+_HISTORY_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), 'Resources', 'ModelAuditorHistory'))
+
+
+def _save_metric_config():
+    """Write current thresholds/weights to disk so they can be tuned per company/project."""
+    data = OrderedDict()
+    for key, info in METRIC_THRESHOLDS.items():
+        data[key] = {"thresholds": info["thresholds"], "weight": info["weight"]}
+    try:
+        with codecs.open(_CONFIG_PATH, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
+def _load_metric_config():
+    """Overlay user-editable thresholds/weights from model_auditor_thresholds.json onto the defaults.
+    If the file doesn't exist yet, seed it from the built-in defaults above."""
+    if not os.path.isfile(_CONFIG_PATH):
+        _save_metric_config()
+        return
+    try:
+        with codecs.open(_CONFIG_PATH, 'r', encoding='utf-8') as f:
+            overrides = json.load(f)
+    except Exception:
+        return
+    for key, cfg in overrides.items():
+        if key not in METRIC_THRESHOLDS:
+            continue
+        if "thresholds" in cfg and len(cfg["thresholds"]) == 5:
+            METRIC_THRESHOLDS[key]["thresholds"] = cfg["thresholds"]
+        if "weight" in cfg:
+            METRIC_THRESHOLDS[key]["weight"] = cfg["weight"]
+
+
+_load_metric_config()
+
+
+def _rag_status(score):
+    """Red/Orange/Green classification matching Autodesk Model Analytics' health-check indicators."""
+    if score >= 75:
+        return "Green", "#10B981", "#DCFCE7"
+    elif score >= 40:
+        return "Orange", "#F59E0B", "#FFFBEB"
+    else:
+        return "Red", "#EF4444", "#FEE2E2"
+
+
+def _history_file_for_doc(doc):
+    name = os.path.basename(doc.PathName) if doc.PathName else doc.Title
+    safe = re.sub(r'[^A-Za-z0-9_.-]', '_', name) or "UnsavedProject"
+    if not os.path.isdir(_HISTORY_DIR):
+        try:
+            os.makedirs(_HISTORY_DIR)
+        except Exception:
+            pass
+    return os.path.join(_HISTORY_DIR, safe + '.json')
+
+
+def _load_history(doc):
+    path = _history_file_for_doc(doc)
+    if not os.path.isfile(path):
+        return []
+    try:
+        with codecs.open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+def _append_history(doc, record):
+    """Append a health-run snapshot (timestamp, score, grade, RAG) and keep the last 50 runs."""
+    history = _load_history(doc)
+    history.append(record)
+    history = history[-50:]
+    try:
+        with codecs.open(_history_file_for_doc(doc), 'w', encoding='utf-8') as f:
+            json.dump(history, f, indent=2)
+    except Exception:
+        pass
+    return history
+
 
 # ============================================================================
 # MODEL HEALTH ANALYZER
@@ -1003,7 +1092,37 @@ class ModelAuditorWindow(forms.WPFWindow):
         self.txt_health_title.Text = "Model Health: {}".format(desc)
         self.txt_health_weighted_score.Text = "Weighted Score: {}/100".format(score)
         self.txt_health_weighted_grade.Text = "Grade: {} ({})".format(grade, desc)
-        
+
+        # RAG (Red/Orange/Green) status — Autodesk Model Analytics style
+        rag_label, rag_fg, rag_bg = _rag_status(score)
+        self.txt_health_rag.Text = "RAG: {}".format(rag_label)
+        self.txt_health_rag.Foreground = BrushConverter().ConvertFromString(rag_fg)
+        self.border_health_rag.Background = BrushConverter().ConvertFromString(rag_bg)
+
+        # Historical trend — compare against the previous run for this model
+        history = _load_history(self.doc)
+        prev_score = history[-1]["score"] if history else None
+        _append_history(self.doc, {
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "score": score,
+            "grade": grade,
+            "rag": rag_label,
+        })
+        if prev_score is None:
+            self.txt_health_trend.Text = "No previous run to compare"
+            self.txt_health_trend.Foreground = BrushConverter().ConvertFromString("#94A3B8")
+        else:
+            delta = round(score - prev_score, 1)
+            if delta > 0:
+                self.txt_health_trend.Text = u"▲ +{} vs last run".format(delta)
+                self.txt_health_trend.Foreground = BrushConverter().ConvertFromString("#10B981")
+            elif delta < 0:
+                self.txt_health_trend.Text = u"▼ {} vs last run".format(delta)
+                self.txt_health_trend.Foreground = BrushConverter().ConvertFromString("#EF4444")
+            else:
+                self.txt_health_trend.Text = u"— No change vs last run"
+                self.txt_health_trend.Foreground = BrushConverter().ConvertFromString("#64748B")
+
         # Update text info
         doc_name = os.path.basename(self.doc.PathName) if self.doc.PathName else "Unsaved Project"
         self.txt_health_doc_name.Text = "Model: {}".format(doc_name)
@@ -1105,15 +1224,7 @@ class ModelAuditorWindow(forms.WPFWindow):
         
         self.dg_health_metrics.ItemsSource = grid_data
         self.lst_health_recommendations.ItemsSource = recs_data
-        
-        # Collect and bind worksharing performance
-        try:
-            performance_data = self._collect_worksharing_performance()
-            self.dg_sync_performance.ItemsSource = performance_data
-        except Exception as ex:
-            print("Error loading worksharing performance: {}".format(ex))
-            traceback.print_exc()
-            
+
         self.status_text.Text = "Health analysis complete. Score: {}".format(score)
 
     def on_health_metric_select(self, sender, e):
@@ -1160,158 +1271,6 @@ class ModelAuditorWindow(forms.WPFWindow):
             forms.alert("Health report exported successfully to:\n\n{}".format(filepath), title="Model Health Check")
         except Exception as ex:
             forms.alert("Failed to export health report:\n{}".format(ex))
-
-    def _collect_worksharing_performance(self):
-        # Dictionary to store stats by user
-        # user -> {'sync_times': [], 'open_times': []}
-        user_data = defaultdict(lambda: {'sync_times': [], 'open_times': []})
-        
-        # 1. Try to read central slog file if workshared and local/network based
-        slog_path = None
-        if self.doc.IsWorkshared:
-            try:
-                central_path = self.doc.GetWorksharingCentralModelPath()
-                if central_path:
-                    model_guid = central_path.GetModelGUID().ToString() if hasattr(central_path, "GetModelGUID") else None
-                    project_guid = central_path.GetProjectGUID().ToString() if hasattr(central_path, "GetProjectGUID") else None
-                    
-                    central_path_str = ModelPathUtils.ConvertModelPathToUserVisiblePath(central_path)
-                    if central_path_str and os.path.exists(central_path_str):
-                        backup_dir = central_path_str.replace(".rvt", "_backup")
-                        if os.path.exists(backup_dir):
-                            for name in ["central.slog", "wslog.slog"]:
-                                p = os.path.join(backup_dir, name)
-                                if os.path.exists(p):
-                                    slog_path = p
-                                    break
-                                    
-                    # 2. Try collaboration cache for cloud worksharing
-                    if not slog_path and model_guid and project_guid:
-                        appdata = os.getenv("LOCALAPPDATA")
-                        version = self.doc.Application.VersionNumber
-                        collab_pattern = os.path.join(
-                            appdata, "Autodesk", "Revit", 
-                            "Autodesk Revit " + version, 
-                            "CollaborationCache", "*", project_guid, 
-                            model_guid + "_backup", "wslog.slog"
-                        )
-                        matches = glob.glob(collab_pattern)
-                        if matches:
-                            slog_path = matches[0]
-            except Exception as e:
-                pass
-                
-        # If we have a slog path, parse it
-        log_files_to_parse = []
-        if slog_path and os.path.exists(slog_path):
-            log_files_to_parse.append((slog_path, True)) # (filepath, is_slog)
-            
-        # 3. Always include local journals as fallback/supplement (last 10 journals)
-        try:
-            appdata = os.getenv("LOCALAPPDATA")
-            version = self.doc.Application.VersionNumber
-            journal_dir = os.path.join(appdata, "Autodesk", "Revit", "Autodesk Revit " + version, "Journals")
-            if os.path.exists(journal_dir):
-                journals = glob.glob(os.path.join(journal_dir, "journal.*.txt"))
-                journals.sort(key=os.path.getmtime, reverse=True)
-                for j in journals[:10]:
-                    log_files_to_parse.append((j, False))
-        except Exception as e:
-            pass
-            
-        # Parse all identified log files
-        for filepath, is_slog in log_files_to_parse:
-            try:
-                # Read lines safely
-                with open(filepath, "r") as f:
-                    lines = f.readlines()
-                
-                sessions = {} # session_id -> {'user': ..., 'open_start': ..., 'sync_start': ...}
-                
-                for line in lines:
-                    if "SLOG" not in line:
-                        continue
-                        
-                    parts = line.split("SLOG")
-                    if len(parts) < 2:
-                        continue
-                    slog_content = parts[1].strip()
-                    
-                    # Associate username
-                    if "user=" in slog_content:
-                        match_user = re.search(r'user="([^"]+)"', slog_content)
-                        if match_user:
-                            username = match_user.group(1)
-                            match_sess = re.search(r'\$(\w+)', slog_content)
-                            if match_sess:
-                                sess_id = match_sess.group(1)
-                                if sess_id not in sessions:
-                                    sessions[sess_id] = {'user': username}
-                                else:
-                                    sessions[sess_id]['user'] = username
-                            continue
-                            
-                    # Event parsing
-                    match_event = re.search(r'\$(\w+)\s+([\d\-:\.\s]+)\s+([><\.]\w+)', slog_content)
-                    if match_event:
-                        sess_id = match_event.group(1)
-                        time_str = match_event.group(2)
-                        event_type = match_event.group(3)
-                        
-                        t = parse_slog_time(time_str)
-                        if not t:
-                            continue
-                            
-                        if sess_id not in sessions:
-                            sessions[sess_id] = {'user': 'Unknown'}
-                            
-                        user = sessions[sess_id].get('user', 'Unknown')
-                        
-                        # Open events
-                        if event_type in [">Open", ">Open:Local"]:
-                            sessions[sess_id]['open_start'] = t
-                        elif event_type in ["<Open", "<Open:Local"]:
-                            if 'open_start' in sessions[sess_id]:
-                                dur = (t - sessions[sess_id]['open_start']).total_seconds()
-                                if 0 < dur < 1800:
-                                    user_data[user]['open_times'].append(dur)
-                                    # Clear to prevent double matches
-                                    del sessions[sess_id]['open_start']
-                                    
-                        # Sync events
-                        elif event_type == ">STC":
-                            sessions[sess_id]['sync_start'] = t
-                        elif event_type == "<STC":
-                            if 'sync_start' in sessions[sess_id]:
-                                dur = (t - sessions[sess_id]['sync_start']).total_seconds()
-                                if 0 < dur < 1800:
-                                    user_data[user]['sync_times'].append(dur)
-                                    del sessions[sess_id]['sync_start']
-            except Exception as ex:
-                pass
-                
-        # Aggregate results into list of GridRow
-        performance_rows = []
-        for user, data in user_data.items():
-            if user == "Unknown" or (not data['sync_times'] and not data['open_times']):
-                continue
-                
-            avg_sync = "-"
-            if data['sync_times']:
-                avg_sync = "{:.1f}s".format(sum(data['sync_times']) / len(data['sync_times']))
-                
-            avg_open = "-"
-            if data['open_times']:
-                avg_open = "{:.1f}s".format(sum(data['open_times']) / len(data['open_times']))
-                
-            performance_rows.append(GridRow(
-                user=user,
-                avg_sync=avg_sync,
-                avg_open=avg_open,
-                sync_count=str(len(data['sync_times']))
-            ))
-            
-        return performance_rows
 
     # ========================================================================
     # TAB 2: COMPLIANCE CHECKER

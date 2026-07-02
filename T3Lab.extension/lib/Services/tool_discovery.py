@@ -16,6 +16,7 @@ __title__   = "Tool Discovery"
 
 import os
 import re
+import io
 import json
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -24,6 +25,10 @@ _LIB_DIR      = os.path.dirname(_SERVICES_DIR)
 _EXT_DIR      = os.path.dirname(_LIB_DIR)
 _TAB_DIR      = os.path.join(_EXT_DIR, 'T3Lab.tab')
 REGISTRY_FILE = os.path.join(_LIB_DIR, 'config', 'tool_registry.json')
+
+# Bump when the entry schema changes — a mismatched on-disk registry is
+# rebuilt from scratch so every entry carries the new fields (doc, xaml).
+REGISTRY_VERSION = 2
 
 # ── Buttons that are infrastructure / already hardcoded in TOOL_LAUNCHERS ─────
 _SKIP_BUTTONS = {
@@ -74,29 +79,57 @@ def scan_all_pushbuttons():
             script = os.path.join(root, 'script.py')
             if not os.path.exists(script):
                 continue
-            title = _read_title(script) or btn.replace('.pushbutton', '')
+            title, doc, xamls = _read_meta(script)
+            title = title or btn.replace('.pushbutton', '')
             results.append({
                 'button':      btn,
                 'panel':       panel,
                 'script_path': script,
                 'title':       title,
+                'doc':         doc,
+                'xamls':       xamls,
             })
     return results
 
 
-def _read_title(script_path):
-    """Extract __title__ from the first 40 lines of a script file."""
+def _read_meta(script_path):
+    """Extract (__title__, first doc line, referenced .xaml basenames) from a
+    script source file. All three feed the assistant's tool catalog so a tool
+    is recognisable by every name it carries (title / folder / XAML)."""
+    title, doc, xamls = None, '', []
     try:
-        with open(script_path, 'r') as f:
-            for i, line in enumerate(f):
-                if i > 40:
-                    break
-                m = re.match(r'__title__\s*=\s*["\'](.+?)["\']', line)
-                if m:
-                    return m.group(1).replace('\\n', ' ').strip()
+        with io.open(script_path, 'r', encoding='utf-8', errors='ignore') as f:
+            src = f.read()
     except Exception:
-        pass
-    return None
+        return title, doc, xamls
+
+    m = re.search(r'__title__\s*=\s*["\'](.+?)["\']', src)
+    if m:
+        title = m.group(1).replace('\\n', ' ').strip()
+
+    # Tooltip: explicit __doc__ assignment wins, else module docstring
+    m = re.search(r'__doc__\s*=\s*u?["\'](.+?)["\']', src)
+    if not m:
+        m = re.search(r'^\s*u?"""(.*?)"""', src, re.S | re.M)
+    if not m:
+        m = re.search(r"^\s*u?'''(.*?)'''", src, re.S | re.M)
+    if m:
+        for ln in m.group(1).strip().splitlines():
+            ln = ln.strip()
+            if not ln or ln.startswith(('#', '-', '=', '~')):
+                continue
+            # First meaningful line that is not just the title repeated
+            if title and ln.lower() == title.lower():
+                continue
+            doc = ln[:140]
+            break
+
+    # XAML files the script loads — their basenames are tool aliases
+    for x in re.findall(r'([\w\-. ]+?\.xaml)', src):
+        base = os.path.basename(x).rsplit('.xaml', 1)[0].strip()
+        if base and base.lower() != 'wpf_styles' and base not in xamls:
+            xamls.append(base)
+    return title, doc, xamls
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -111,7 +144,7 @@ def load_registry():
                 return json.load(f)
     except Exception:
         pass
-    return {'version': 1, 'tools': {}}
+    return {'version': REGISTRY_VERSION, 'tools': {}}
 
 
 def save_registry(reg):
@@ -141,16 +174,26 @@ def _button_to_intent(btn_name):
     return 'open_' + name.lower()
 
 
-def _gen_keywords(title, btn_name):
+def _camel_split(text):
+    """'DWGManagement' → 'DWG Management' (word boundaries for keyword gen)."""
+    return re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', text)
+
+
+def _gen_keywords(title, btn_name, xamls=None):
     """
-    Generate lowercase keyword hints from the button name and title.
-    Returns a deduplicated list sorted by length desc.
+    Generate lowercase keyword hints from the button name, title, and any
+    XAML basenames the script references. Returns a deduplicated list
+    sorted by length desc.
     """
-    combined = (btn_name.replace('.pushbutton', '') + ' ' + title).lower()
+    base = btn_name.replace('.pushbutton', '')
+    parts = [base, _camel_split(base), title]
+    for x in (xamls or []):
+        parts.append(x)
+        parts.append(_camel_split(x))
+    combined = ' '.join(parts).lower()
     words = re.findall(r'[a-z][a-z0-9]*', combined)
-    # Add the raw name and title as extra hints
-    extras = [btn_name.replace('.pushbutton', '').lower(),
-               title.lower()]
+    # Add the raw names as extra hints
+    extras = [base.lower(), title.lower()] + [x.lower() for x in (xamls or [])]
     all_kw = list(set(words + extras))
     all_kw = [k for k in all_kw if len(k) > 1]
     return sorted(all_kw, key=len, reverse=True)
@@ -168,7 +211,11 @@ def discover_new_tools():
     Returns:
         list of tool dicts (empty if nothing new was found)
     """
-    reg   = load_registry()
+    reg = load_registry()
+    # Schema migration: rebuild from scratch so every entry gains the
+    # newer fields (doc, xaml) used by the assistant's tool catalog.
+    if reg.get('version') != REGISTRY_VERSION:
+        reg = {'version': REGISTRY_VERSION, 'tools': {}}
     known = set(reg.get('tools', {}).keys())
 
     new_tools = []
@@ -182,8 +229,10 @@ def discover_new_tools():
             'panel':       tool['panel'],
             'script_path': tool['script_path'],
             'title':       tool['title'],
+            'doc':         tool.get('doc', ''),
+            'xaml':        tool.get('xamls', []),
             'intent':      intent,
-            'keywords':    _gen_keywords(tool['title'], btn),
+            'keywords':    _gen_keywords(tool['title'], btn, tool.get('xamls')),
         }
         reg.setdefault('tools', {})[btn] = entry
         new_tools.append(entry)

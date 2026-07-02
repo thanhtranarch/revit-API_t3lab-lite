@@ -51,7 +51,7 @@ except Exception as e:
     print("Error importing services: {}".format(e))
 
 doc = revit.doc
-XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'SheetManager.xaml')
+XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaSheets.xaml')
 
 
 # =====================================================

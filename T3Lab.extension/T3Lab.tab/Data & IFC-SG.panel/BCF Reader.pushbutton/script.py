@@ -765,7 +765,7 @@ class BCFManagerWindow(WPFWindow):
     def load_bcf(self, filepath):
         """Load a BCF file. Parsing runs on a background thread so the Revit
         UI thread is never blocked; UI updates are marshalled back via Dispatcher."""
-        from System.Threading import Thread, ThreadStart
+        from System.Threading import Thread, ThreadStart, ApartmentState
         from System import Action as _SysAction
 
         self.set_status("Loading: " + IOPath.GetFileName(filepath) + "...")
@@ -840,6 +840,7 @@ class BCFManagerWindow(WPFWindow):
 
         t = Thread(ThreadStart(_parse_worker))
         t.IsBackground = True
+        t.SetApartmentState(ApartmentState.STA)
         t.Start()
 
     # ------------------------------------------------------------------
@@ -3012,11 +3013,11 @@ def main():
             if parent == current_dir:
                 break
             current_dir = parent
-        xaml_file = os.path.join(current_dir, "lib", "GUI", "Tools", "BCFReaderWindow.xaml")
+        xaml_file = os.path.join(current_dir, "lib", "GUI", "Tools", "BCFReader.xaml")
 
         if not os.path.exists(xaml_file):
             TaskDialog.Show("BCF Reader",
-                "BCFReaderWindow.xaml not found in central Tools folder.\n"
+                "BCFReader.xaml not found in central Tools folder.\n"
                 "Expected: " + xaml_file)
             return
 

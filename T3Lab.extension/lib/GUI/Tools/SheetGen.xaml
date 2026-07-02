@@ -1,12 +1,16 @@
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Extension Tab Manager" Height="480" Width="440"
-        WindowStartupLocation="CenterScreen" ResizeMode="CanResizeWithGrip"
-        Background="#E4E4E7"
-        FontFamily="Hanken Grotesk"
-        FontSize="12">
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       Title="Create Room Plan"
+       Width="750" Height="700"
+       MinWidth="600" MinHeight="550"
+       WindowStartupLocation="CenterScreen"
+       ResizeMode="CanResizeWithGrip"
+       ShowInTaskbar="True"
+       Background="#E4E4E7"
+       FontFamily="Hanken Grotesk"
+       FontSize="12">
 
-    <WindowChrome.WindowChrome>
+        <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="64"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
@@ -1075,109 +1079,638 @@
         </Style>
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
+
     </Window.Resources>
 
+
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
-        <Grid Background="White">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="66"/>   <!-- Col 0: Left Sidebar Rail -->
+                <ColumnDefinition Width="*"/>    <!-- Col 1: Main content area -->
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
-                <RowDefinition Height="64"/>
-                <RowDefinition Height="1"/>
-                <RowDefinition Height="44"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="64"/>     <!-- Row 0: Title bar -->
+                <RowDefinition Height="Auto"/>   <!-- Row 1: Toolbar -->
+                <RowDefinition Height="*"/>      <!-- Row 2: Content -->
+                <RowDefinition Height="Auto"/>   <!-- Row 3: Footer -->
             </Grid.RowDefinitions>
 
-            <!-- TITLE BAR -->
-            <Grid Grid.Row="0" Background="#F4F4F6">
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- COL 0: LEFT SIDEBAR ICON RAIL (all rows)                    -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <Border Grid.Column="0" Grid.RowSpan="4"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+                <Grid Margin="0,16,0,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>  <!-- Logo icon -->
+                        <RowDefinition Height="Auto"/>  <!-- Nav: Rooms -->
+                        <RowDefinition Height="Auto"/>  <!-- Nav: Sheet Layout -->
+                        <RowDefinition Height="*"/>     <!-- Spacer -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Tool logo icon: floor-plan symbol -->
+                    <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                            HorizontalAlignment="Center" Margin="0,0,0,20">
+                        <Path Data="M3 3 h18 v18 H3 z M3 12 h18 M12 3 v9"
+                              Stroke="#18181B" StrokeThickness="1.6"
+                              StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="16" Height="16" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Nav: Room list -->
+                    <ToggleButton x:Name="nav_rooms" Grid.Row="1"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  IsChecked="True" Margin="0,0,0,8"
+                                  ToolTip="Room List" Click="nav_toggle_clicked">
+                        <!-- Rooms icon: stacked rows / table rows -->
+                        <Path Data="M2 5 h20 M2 5 v14 h20 V5 M2 10 h20 M2 15 h20 M8 5 v14"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <!-- Nav: Sheet Layout -->
+                    <ToggleButton x:Name="nav_layout" Grid.Row="2"
+                                  Style="{StaticResource T3SidebarToggle}"
+                                  Margin="0,0,0,8"
+                                  ToolTip="Sheet Layout" Click="nav_toggle_clicked">
+                        <!-- Layout icon: sheet with viewport boxes -->
+                        <Path Data="M4 2 h16 v20 H4 z M4 8 h16 M4 13 h7 v6 H4 z M13 13 h7 v6 h-7 z"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                              StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="19" Height="19" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- ROW 0 / COL 1: TITLE BAR (#F4F4F6, 64px)                   -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <Grid Grid.Column="1" Grid.Row="0" Background="#F4F4F6">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
+
+                <!-- Title + Subtitle -->
+                <StackPanel Grid.Column="0" Orientation="Vertical"
+                            Margin="22,0,0,0" VerticalAlignment="Center"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock Text="Extension Tab Manager" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                    <TextBlock x:Name="HeaderSub" Text="Select tabs to show or hide" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="T3Lab" FontSize="11" FontWeight="Bold"
+                                   Foreground="#71717A" VerticalAlignment="Bottom" Margin="0,0,6,2"/>
+                        <TextBlock Text="Create Room Plan" FontSize="16" FontWeight="Bold"
+                                   Foreground="#18181B"/>
+                    </StackPanel>
+                    <TextBlock x:Name="lbl_subtitle" Text="Generate plan views from selected rooms"
+                               FontSize="12" Foreground="#71717A" Margin="0,2,0,0"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
+                <!-- Window control buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            VerticalAlignment="Top" Margin="0,0,5,0"
                             WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Button x:Name="btn_minimize" WindowChrome.IsHitTestVisibleInChrome="True"
-                            Style="{StaticResource WinCtrlButton}"
-                            Click="minimize_button_clicked" ToolTip="Minimize">
+                    <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
+                            ToolTip="Minimize" Click="minimize_button_clicked">
                         <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_maximize" WindowChrome.IsHitTestVisibleInChrome="True"
-                            Style="{StaticResource WinCtrlButton}"
-                            Click="maximize_button_clicked" ToolTip="Maximize">
+                    <Button x:Name="btn_maximize" Style="{StaticResource WinCtrlButton}"
+                            ToolTip="Maximize" Click="maximize_button_clicked">
                         <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
-                    <Button x:Name="btn_close" WindowChrome.IsHitTestVisibleInChrome="True"
-                            Style="{StaticResource CloseButton}"
-                            Click="close_button_clicked" ToolTip="Close">
+                    <Button x:Name="btn_close" Style="{StaticResource CloseButton}"
+                            ToolTip="Close" Click="close_button_clicked">
                         <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                     </Button>
                 </StackPanel>
 
-                <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
+                <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
             </Grid>
 
-            <!-- Separator -->
-            <Border Grid.Row="1" Background="#DCDCE0"/>
-
-            <!-- FILTER SEARCH -->
-            <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1" CornerRadius="13" Margin="16,8,16,0" Padding="10,0,10,0" Height="36">
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- ROW 1 / COL 1: TOOLBAR                                      -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <Border Grid.Column="1" Grid.Row="1"
+                    Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="14,7">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>  <!-- Select buttons + search -->
+                        <ColumnDefinition Width="*"/>     <!-- Spacer -->
                     </Grid.ColumnDefinitions>
-                    <!-- Search Icon -->
-                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
-                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox Grid.Column="1" x:Name="SearchBox" Style="{StaticResource T3InputField}" 
-                             Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Center" 
-                             Height="24" FontSize="12.5" Tag="Search tabs..." TextChanged="SearchBox_TextChanged"/>
+
+                    <!-- Left: select + search pill -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="btn_select_all" Content="Select All"
+                                Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"
+                                Click="select_all_clicked"/>
+                        <Button x:Name="btn_select_none" Content="Select None"
+                                Style="{StaticResource SecondaryButton}" Margin="0,0,6,0"
+                                Click="select_none_clicked"/>
+                        <Rectangle Width="1" Fill="#E2E8F0" Margin="6,6,12,6"/>
+                        <!-- Search pill -->
+                        <Border Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                CornerRadius="16" Padding="10,0,12,0" VerticalAlignment="Center">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Path Grid.Column="0"
+                                      Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                      Stroke="#71717A" StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      Width="13" Height="13" Stretch="Uniform"
+                                      VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                <TextBox x:Name="txt_search" Width="180" Grid.Column="1"
+                                         Background="Transparent" BorderThickness="0" Padding="0"
+                                         VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                         Height="22" FontSize="13" FontFamily="Hanken Grotesk"
+                                         Foreground="#18181B"
+                                         TextChanged="search_changed"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- LIST OF TABS -->
-            <Border Grid.Row="3" Padding="16,12">
-                <ListBox x:Name="TabListBox" SelectionMode="Multiple" BorderBrush="#E2E8F0" BorderThickness="1" Background="White"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <CheckBox Style="{StaticResource T3CheckBox}" IsChecked="{Binding IsChecked}" Margin="4,2" Content="{Binding Name}"/>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="BorderThickness" Value="0"/>
-                            <Setter Property="Padding" Value="4"/>
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- ROW 2 / COL 1: CONTENT (white rounded card)                 -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <Border Grid.Column="1" Grid.Row="2"
+                    Background="White" Margin="14,12,14,12"
+                    CornerRadius="20" BorderBrush="#E2E8F0" BorderThickness="1"
+                    ClipToBounds="True">
+                <TabControl x:Name="main_tab_control" BorderThickness="0" Background="Transparent" Padding="0">
+                    <TabControl.Resources>
+                        <Style TargetType="TabItem">
+                            <Setter Property="Visibility" Value="Collapsed"/> <!-- Headerless TabControl -->
                         </Style>
-                    </ListBox.ItemContainerStyle>
-                </ListBox>
+                    </TabControl.Resources>
+
+                    <!-- TAB 0: ROOM LIST & VIEW SETTINGS -->
+                    <TabItem Header="Rooms">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>     <!-- Room list DataGrid -->
+                                <ColumnDefinition Width="1"/>     <!-- Vertical separator -->
+                                <ColumnDefinition Width="264"/>   <!-- Settings panel -->
+                            </Grid.ColumnDefinitions>
+
+                            <!-- ── Room List DataGrid ── -->
+                            <DataGrid x:Name="room_datagrid" Grid.Column="0"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      SelectionMode="Extended"
+                                      IsReadOnly="False"
+                                      Background="White"
+                                      BorderThickness="0"
+                                      AlternatingRowBackground="#FAFAFA"
+                                      GridLinesVisibility="Horizontal"
+                                      HorizontalGridLinesBrush="#F1F1F4"
+                                      FontFamily="Hanken Grotesk"
+                                      FontSize="13"
+                                      SelectionChanged="room_selection_changed">
+                                <DataGrid.ColumnHeaderStyle>
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="Background"       Value="#F4F4F6"/>
+                                        <Setter Property="Foreground"       Value="#18181B"/>
+                                        <Setter Property="FontWeight"       Value="SemiBold"/>
+                                        <Setter Property="FontFamily"       Value="Hanken Grotesk"/>
+                                        <Setter Property="FontSize"         Value="12"/>
+                                        <Setter Property="Padding"          Value="10,8"/>
+                                        <Setter Property="BorderBrush"      Value="#E2E8F0"/>
+                                        <Setter Property="BorderThickness"  Value="0,0,1,1"/>
+                                        <Setter Property="Height"           Value="36"/>
+                                    </Style>
+                                </DataGrid.ColumnHeaderStyle>
+                                <DataGrid.RowStyle>
+                                    <Style TargetType="DataGridRow">
+                                        <Setter Property="FontFamily" Value="Hanken Grotesk"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="#F4F4F6"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#ECECEF"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGrid.RowStyle>
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" Width="38"/>
+                                    <DataGridTextColumn Header="Room Number" Binding="{Binding Number}" IsReadOnly="True" Width="100"/>
+                                    <DataGridTextColumn Header="Room Name"   Binding="{Binding Name}"   IsReadOnly="True" Width="*"/>
+                                    <DataGridTextColumn Header="Type"        Binding="{Binding RoomType}" IsReadOnly="True" Width="100"/>
+                                    <DataGridTextColumn Header="Level"       Binding="{Binding Level}"   IsReadOnly="True" Width="100"/>
+                                    <DataGridTextColumn Header="Existing Plans" Binding="{Binding FloorPlanCount}" IsReadOnly="True" Width="100"/>
+                                    <DataGridTextColumn Header="Qty to Create" Binding="{Binding GenQty, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" Width="90"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- Vertical separator -->
+                            <Border Grid.Column="1" Background="#E2E8F0"/>
+
+                            <!-- ── Settings Panel ── -->
+                            <ScrollViewer x:Name="settings_scrollviewer" Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="0,0,0,8">
+
+                                    <!-- Plan Type card -->
+                                    <GroupBox Header="Plan Type" Style="{StaticResource T3PremiumCard}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="chk_floor_plan"   Content="Floor Plan"
+                                                      Style="{StaticResource T3CheckBox}"
+                                                      IsChecked="True" Margin="0,0,0,10"
+                                                      Checked="mockup_setting_changed"
+                                                      Unchecked="mockup_setting_changed"/>
+                                            <CheckBox x:Name="chk_ceiling_plan" Content="Ceiling Plan"
+                                                      Style="{StaticResource T3CheckBox}"
+                                                      Margin="0,0,0,10"
+                                                      Checked="mockup_setting_changed"
+                                                      Unchecked="mockup_setting_changed"/>
+                                            <CheckBox x:Name="chk_elevations"   Content="Interior Elevations"
+                                                      Style="{StaticResource T3CheckBox}"
+                                                      Checked="mockup_setting_changed"
+                                                      Unchecked="mockup_setting_changed"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- View Templates card -->
+                                    <GroupBox Header="View Templates" Style="{StaticResource T3PremiumCard}">
+                                        <StackPanel>
+                                            <TextBlock Text="Floor Plan Template"
+                                                       FontSize="11" FontWeight="Medium"
+                                                       Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                       Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="cmb_plan_template"
+                                                      Style="{StaticResource T3ComboBoxSmall}"
+                                                      Margin="0,0,0,12"
+                                                      SelectionChanged="mockup_setting_changed"/>
+
+                                            <TextBlock Text="Ceiling Plan Template"
+                                                       FontSize="11" FontWeight="Medium"
+                                                       Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                       Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="cmb_rcp_template"
+                                                      Style="{StaticResource T3ComboBoxSmall}"
+                                                      Margin="0,0,0,12"
+                                                      SelectionChanged="mockup_setting_changed"/>
+
+                                            <TextBlock Text="Elevation Template"
+                                                       FontSize="11" FontWeight="Medium"
+                                                       Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                       Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="cmb_elev_template"
+                                                      Style="{StaticResource T3ComboBoxSmall}"
+                                                      SelectionChanged="mockup_setting_changed"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- Options card -->
+                                    <GroupBox Header="Options" Style="{StaticResource T3PremiumCard}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="chk_cropbox_visible" Content="Show Crop Box"
+                                                      Style="{StaticResource T3CheckBox}"
+                                                      IsChecked="True" Margin="0,0,0,12"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="Offset (m):"
+                                                           FontSize="12" FontWeight="Medium"
+                                                           Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                           VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <TextBox x:Name="txt_offset" Grid.Column="1" Text="1.0"
+                                                         Style="{StaticResource T3InputFieldSmall}"
+                                                         TextChanged="offset_changed"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- Tip card -->
+                                    <Border Background="#F4F4F6" CornerRadius="16"
+                                            BorderBrush="#E2E8F0" BorderThickness="1"
+                                            Padding="14,12" Margin="16,0,16,8">
+                                        <StackPanel>
+                                            <TextBlock Text="💡  Tip"
+                                                       FontWeight="SemiBold" FontSize="12"
+                                                       Foreground="{StaticResource T3SecondaryTextBrush}"
+                                                       Margin="0,0,0,6"/>
+                                            <TextBlock Text="Select rooms and choose plan types. Interior Elevations creates views for all boundary walls."
+                                                       Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                       FontSize="11" TextWrapping="Wrap" LineHeight="18"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- TAB 1: SHEET LAYOUT & MOCKUP -->
+                    <TabItem Header="Layout">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>     <!-- Visual Mockup area -->
+                                <ColumnDefinition Width="1"/>     <!-- Vertical separator -->
+                                <ColumnDefinition Width="264"/>   <!-- Settings panel -->
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Sheet Mockup Area -->
+                            <Grid Grid.Column="0" Background="#F8FAFC" ClipToBounds="True">
+                                <Viewbox Stretch="Uniform" Margin="16">
+                                    <Grid Width="640" Height="420">
+                                        
+                                        <!-- Fallback Text when all view types are unchecked -->
+                                        <TextBlock Text="Select view types (Floor Plan, Ceiling Plan, or Elevations) to preview sheet layouts"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="#94A3B8" FontSize="14" FontWeight="Medium" Margin="40">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding ElementName=chk_floor_plan, Path=IsChecked}" Value="False"/>
+                                                                <Condition Binding="{Binding ElementName=chk_ceiling_plan, Path=IsChecked}" Value="False"/>
+                                                                <Condition Binding="{Binding ElementName=chk_elevations, Path=IsChecked}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <!-- Combined Layout Mockup (One Sheet per Room) -->
+                                        <Border x:Name="CombinedSheetMockup" Width="580" Height="380" Background="White" BorderBrush="#94A3B8" BorderThickness="1.5" CornerRadius="8">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="12" Color="#000000" Opacity="0.08" ShadowDepth="3" Direction="270"/>
+                                            </Border.Effect>
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ElementName=rdo_layout_combined, Path=IsChecked}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding ElementName=chk_floor_plan, Path=IsChecked}" Value="False"/>
+                                                                <Condition Binding="{Binding ElementName=chk_ceiling_plan, Path=IsChecked}" Value="False"/>
+                                                                <Condition Binding="{Binding ElementName=chk_elevations, Path=IsChecked}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            
+                                            <Grid>
+                                                <!-- Vertical Title Block Strip on the right -->
+                                                <Border Width="60" HorizontalAlignment="Right" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" CornerRadius="0,6,6,0">
+                                                    <Grid VerticalAlignment="Bottom" Margin="0,0,0,15">
+                                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                                                            <Border Width="24" Height="24" CornerRadius="6" Background="#EFF6FF" HorizontalAlignment="Center" Margin="0,0,0,20" BorderBrush="#DBEAFE" BorderThickness="1">
+                                                                <TextBlock Text="T3" FontSize="9" FontWeight="Bold" Foreground="#2563EB" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            </Border>
+                                                            <Border Width="40" Height="2" Background="#E2E8F0" Margin="0,5"/>
+                                                            <Border Width="40" Height="2" Background="#E2E8F0" Margin="0,5"/>
+                                                            <Border Width="40" Height="2" Background="#E2E8F0" Margin="0,5"/>
+                                                            <TextBlock Text="A1" FontSize="11" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                                
+                                                <!-- Dynamic Viewports layout canvas inside printable area -->
+                                                <Canvas x:Name="combined_canvas" Margin="16,16,76,16" Background="Transparent" ClipToBounds="True"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Separate Layout Mockup (Plans & Elevations Sheets) -->
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ElementName=rdo_layout_separate, Path=IsChecked}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding ElementName=chk_floor_plan, Path=IsChecked}" Value="False"/>
+                                                                <Condition Binding="{Binding ElementName=chk_ceiling_plan, Path=IsChecked}" Value="False"/>
+                                                                <Condition Binding="{Binding ElementName=chk_elevations, Path=IsChecked}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            
+                                            <!-- Sheet 1: Plans Sheet -->
+                                            <Border x:Name="PlansSheetMockup" Width="300" Height="200" Background="White" BorderBrush="#94A3B8" BorderThickness="1.2" CornerRadius="6" Margin="8">
+                                                <Border.Effect>
+                                                    <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.06" ShadowDepth="2" Direction="270"/>
+                                                </Border.Effect>
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ElementName=chk_floor_plan, Path=IsChecked}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding ElementName=chk_ceiling_plan, Path=IsChecked}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                
+                                                <Grid>
+                                                    <!-- Vertical Title Block strip on right -->
+                                                    <Border Width="30" HorizontalAlignment="Right" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" CornerRadius="0,5,5,0">
+                                                        <TextBlock Text="A1" FontSize="7.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                                                    </Border>
+                                                    
+                                                    <!-- Dynamic Printable Area margin -->
+                                                    <Canvas x:Name="plans_canvas" Margin="8,8,38,8" Background="Transparent" ClipToBounds="True"/>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Sheet 2: Elevations Sheet -->
+                                            <Border x:Name="ElevationsSheetMockup" Width="300" Height="200" Background="White" BorderBrush="#94A3B8" BorderThickness="1.2" CornerRadius="6" Margin="8">
+                                                <Border.Effect>
+                                                    <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.06" ShadowDepth="2" Direction="270"/>
+                                                </Border.Effect>
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ElementName=chk_elevations, Path=IsChecked}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                
+                                                <Grid>
+                                                    <!-- Vertical Title Block strip on right -->
+                                                    <Border Width="30" HorizontalAlignment="Right" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" CornerRadius="0,5,5,0">
+                                                        <TextBlock Text="A1" FontSize="7.5" FontWeight="Bold" Foreground="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8"/>
+                                                    </Border>
+                                                    
+                                                    <!-- Dynamic Printable Area Grid -->
+                                                    <Canvas x:Name="elevations_canvas" Margin="8,8,38,8" Background="Transparent" ClipToBounds="True"/>
+                                                </Grid>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </Viewbox>
+                            </Grid>
+
+                            <!-- Vertical separator -->
+                            <Border Grid.Column="1" Background="#E2E8F0"/>
+
+                            <!-- ── Sheet Settings & Preview Panel ── -->
+                            <ScrollViewer x:Name="layout_scrollviewer" Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="0,0,0,8">
+
+                                    <!-- Sheet Layout card -->
+                                    <GroupBox Header="Sheet Layout" Style="{StaticResource T3PremiumCard}">
+                                        <StackPanel>
+                                            <CheckBox x:Name="chk_layout_on_sheet"
+                                                      Content="Place views on sheets"
+                                                      Style="{StaticResource T3CheckBox}"
+                                                      Margin="0,0,0,12"
+                                                      Checked="layout_toggle_changed"
+                                                      Unchecked="layout_toggle_changed"/>
+
+                                            <StackPanel x:Name="pnl_layout_options" IsEnabled="False" Opacity="0.45">
+                                                <TextBlock Text="Title Block"
+                                                           FontSize="11" FontWeight="Medium"
+                                                           Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                           Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="cmb_titleblock"
+                                                          Style="{StaticResource T3ComboBoxSmall}"
+                                                          Margin="0,0,0,12"
+                                                          SelectionChanged="mockup_setting_changed"/>
+
+                                                <TextBlock Text="Layout Mode"
+                                                           FontSize="11" FontWeight="Medium"
+                                                           Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                           Margin="0,0,0,8"/>
+                                                <RadioButton x:Name="rdo_layout_combined"
+                                                             Content="Plan + Elevations on one sheet"
+                                                             Style="{StaticResource T3RadioButton}"
+                                                             GroupName="LayoutMode"
+                                                             IsChecked="True" Margin="0,0,0,6"
+                                                             Checked="mockup_setting_changed"/>
+                                                <RadioButton x:Name="rdo_layout_separate"
+                                                             Content="Plans and Elevations separate"
+                                                             Style="{StaticResource T3RadioButton}"
+                                                             GroupName="LayoutMode"
+                                                             Checked="mockup_setting_changed"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- Generated Sheets Preview card -->
+                                    <GroupBox Header="Generated Sheets" Style="{StaticResource T3PremiumCard}">
+                                        <StackPanel>
+                                            <TextBlock Text="Select Sheet to Open"
+                                                       FontSize="11" FontWeight="Medium"
+                                                       Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                       Margin="0,0,0,6"/>
+                                            <ComboBox x:Name="cmb_generated_sheets"
+                                                      Style="{StaticResource T3ComboBoxSmall}"
+                                                      IsEnabled="False"
+                                                      Margin="0,0,0,12">
+                                                <!-- Will be populated dynamically in Python -->
+                                            </ComboBox>
+                                            <Button x:Name="btn_open_sheet"
+                                                    Content="Open Selected Sheet"
+                                                    Style="{StaticResource PrimaryButton}"
+                                                    IsEnabled="False"
+                                                    Height="36"
+                                                    Click="open_sheet_clicked"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- Tip card -->
+                                    <Border Background="#F4F4F6" CornerRadius="16"
+                                            BorderBrush="#E2E8F0" BorderThickness="1"
+                                            Padding="14,12" Margin="16,0,16,8">
+                                        <StackPanel>
+                                            <TextBlock Text="💡  Tip"
+                                                       FontWeight="SemiBold" FontSize="12"
+                                                       Foreground="{StaticResource T3SecondaryTextBrush}"
+                                                       Margin="0,0,0,6"/>
+                                            <TextBlock Text="After views are generated, they are automatically placed on sheets using the selected Title Block. Use the selector above to preview them."
+                                                       Foreground="{StaticResource T3TertiaryTextBrush}"
+                                                       FontSize="11" TextWrapping="Wrap" LineHeight="18"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
             </Border>
 
-            <!-- ACTIONS -->
-            <Border Grid.Row="4" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <!-- ROW 3 / COL 1: FOOTER / ACTION BAR                          -->
+            <!-- ════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="3" Grid.Column="1"
+                    Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>     <!-- Copyright + status -->
+                        <ColumnDefinition Width="Auto"/>  <!-- Action buttons -->
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B"/>
+
+                    <!-- Left: copyright + status + count -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="© Copyright by T3Lab"
+                                   FontSize="11" Foreground="#F59E0B"
+                                   VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="#DCDCE0"
+                                VerticalAlignment="Center" Margin="12,0,12,0"/>
+                        <TextBlock x:Name="status_text" Text="Ready"
+                                   FontSize="12.5" Foreground="#71717A"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Border Width="1" Height="14" Background="#CBD5E1"
+                                VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock x:Name="status_count" Text="0 rooms"
+                                   FontSize="12.5" Foreground="#71717A"
+                                   VerticalAlignment="Center"/>
                     </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="BtnApply" Content="Apply" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Width="80"/>
-                        <Button x:Name="BtnClose" Content="Close" Style="{StaticResource SecondaryButton}" Width="80"/>
+
+                    <!-- Right: Cancel + Create Plans -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Button x:Name="btn_cancel" Content="Cancel"
+                                Style="{StaticResource SecondaryButton}"
+                                Width="90" Margin="0,0,10,0"
+                                Click="close_button_clicked"/>
+                        <Button x:Name="btn_create" Content="Create Plans"
+                                Style="{StaticResource SuccessButton}"
+                                Width="120"
+                                Click="create_plans_clicked"/>
                     </StackPanel>
                 </Grid>
             </Border>
+
         </Grid>
     </Border>
+
 </Window>

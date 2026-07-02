@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-__title__ = "Visual &amp;\nStyles"
+__title__ = "Visual &\nStyles"
 __author__ = "T3Lab"
 __doc__ = "Visual & Style Manager — Manage fill patterns, line styles, line patterns, color splasher overrides, and coordinate locations."
 

@@ -63,6 +63,42 @@ class SelectFromDict(my_WPF):
         self.main_ListBox.ItemsSource = self.items
         self.ShowDialog()
 
+    def generate_list_items(self):
+        return [ListItem(Name=name, element=element)
+                for name, element in self.given_dict_items.items()]
+
+    def button_select_all(self, sender, e):
+        for item in self.items:
+            item.IsChecked = True
+        self.main_ListBox.Items.Refresh()
+
+    def button_select_none(self, sender, e):
+        for item in self.items:
+            item.IsChecked = False
+        self.main_ListBox.Items.Refresh()
+
+    def UIe_ItemChecked(self, sender, e):
+        if self.SelectMultiple:
+            return
+        checked_item = sender.DataContext
+        for item in self.items:
+            if item is not checked_item:
+                item.IsChecked = False
+        self.main_ListBox.Items.Refresh()
+
+    def text_filter_updated(self, sender, e):
+        filter_text = self.textbox_filter.Text.strip().lower() if self.textbox_filter.Text else ''
+        if filter_text:
+            self.main_ListBox.ItemsSource = [
+                item for item in self.items if filter_text in item.Name.lower()
+            ]
+        else:
+            self.main_ListBox.ItemsSource = self.items
+
+    def button_select(self, sender, e):
+        self.selected_items = [item.element for item in self.items if item.IsChecked]
+        self.Close()
+
 def select_from_dict(elements_dict,
                      title='__title__',
                      label="Select Elements:",
@@ -77,4 +113,4 @@ def select_from_dict(elements_dict,
         button_name=button_name, version=version,
         SelectMultiple=SelectMultiple
     )
-    return list(GUI_select)
+    return GUI_select.selected_items

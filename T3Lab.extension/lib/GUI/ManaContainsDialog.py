@@ -91,6 +91,16 @@ def _eid_int(eid):
         except:
             return -1
 
+def _safe_call(fn, label=""):
+    """Run fn(); on failure, log and continue so the window still opens with blank data."""
+    try:
+        fn()
+    except Exception as ex:
+        try:
+            print("[ManaContains] Failed to load '{}': {}".format(label, ex))
+        except:
+            pass
+
 def get_room_parameters(elem):
     params = []
     if not elem:
@@ -1383,10 +1393,10 @@ class ManaContainsWindow(forms.WPFWindow):
         self.tab1_type_cb.SelectedIndex = 0
 
     def _t1_load(self):
-        self._t1_load_sp()
-        self._t1_load_cat()
-        self._t1_ucards()
-        self._t1_update_available_params()
+        _safe_call(self._t1_load_sp, "spatial elements")
+        _safe_call(self._t1_load_cat, "categories")
+        _safe_call(self._t1_ucards, "summary cards")
+        _safe_call(self._t1_update_available_params, "available params")
         
     def _t1_update_available_params(self):
         self.t1_available_params = []
@@ -1407,7 +1417,13 @@ class ManaContainsWindow(forms.WPFWindow):
         elif st == SCOPEBOXES: elems = get_scopeboxes(vo)
         
         for e in elems:
-            self.t1_spatial_items.append(Tab1SpatialItem(e, st))
+            try:
+                self.t1_spatial_items.append(Tab1SpatialItem(e, st))
+            except Exception as ex:
+                try:
+                    print("[ManaContains] Skipped spatial element {}: {}".format(_eid_int(e.Id), ex))
+                except:
+                    pass
         self._t1_ref_sp()
 
     def _t1_load_cat(self):
@@ -1781,11 +1797,11 @@ class ManaContainsWindow(forms.WPFWindow):
             item.Content = agg
             self.tab2_cmb_agg_type.Items.Add(item)
         self.tab2_cmb_agg_type.SelectedIndex = 0
-        
-        self._t2_load_spatial()
-        self._t2_load_cats()
-        self._t2_load_target_params()
-        self._t2_update_cards()
+
+        _safe_call(self._t2_load_spatial, "spatial elements (collector)")
+        _safe_call(self._t2_load_cats, "categories (collector)")
+        _safe_call(self._t2_load_target_params, "target params")
+        _safe_call(self._t2_update_cards, "summary cards (collector)")
 
     def _t2_load_spatial(self):
         self.t2_spatial_items = []
@@ -1798,7 +1814,13 @@ class ManaContainsWindow(forms.WPFWindow):
         elif stype == SPACES: elems = get_spaces(vo)
         
         for e in elems:
-            self.t2_spatial_items.append(Tab2SpatialData(e, stype))
+            try:
+                self.t2_spatial_items.append(Tab2SpatialData(e, stype))
+            except Exception as ex:
+                try:
+                    print("[ManaContains] Skipped spatial element {}: {}".format(_eid_int(e.Id), ex))
+                except:
+                    pass
         self._t2_refresh_spatial_list()
 
     def _t2_load_cats(self):

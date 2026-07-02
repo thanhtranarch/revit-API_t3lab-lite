@@ -2761,10 +2761,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if has_attach:
                 rag_context = build_text_context(attached)
 
-            # For NLP routing we use only the raw text (no PDF dump)
+            # For NLP routing we use ONLY the raw user text. Prepending the
+            # ContextScout model summary here poisoned the offline NLU and
+            # keyword scoring (its words — "sheet", "view", "wall"... — leak
+            # into intent triggers) and duplicated context the LLM already
+            # receives via the system prompt in do_nlp().
             captured = raw
-            if HAS_SCOUT:
-                captured = ContextScout.get_context_summary_for_ai() + "\n" + raw
 
             history  = list(self._conversation_history[:-1])
 
@@ -2794,7 +2796,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if HAS_NLP and not has_attach:
                 nlu_result = parse_command_nlu(captured, history)
                 if nlu_result and nlu_result.get("intent") not in (None, "unknown"):
+                    # _authoritative = answered from the real tool catalog
+                    # (capability questions, ambiguity clarifications) — the
+                    # LLM must not get a chance to override it with a guess.
                     if nlu_result["intent"] not in ("chat", "help") \
+                            or nlu_result.get("_authoritative") \
                             or not (use_local or use_claude):
                         self._execute_result(nlu_result)
                         return
@@ -2806,6 +2812,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                 def do_nlp():
                     result = None
+                    # Distinguishes "the model returned nothing at all" (timeout,
+                    # connection error, empty body) from "the model answered but
+                    # picked an unrecognised intent" — without this, both looked
+                    # identical to the user: the same generic offline fallback
+                    # text, no matter what they typed.
+                    llm_call_failed = False
                     from Intelligence.llm_router import LLMRouter
                     import json as _json
 
@@ -2875,6 +2887,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             logger.debug("Router chat error: {}".format(chat_ex))
 
                         if not _resp or not _resp.strip():
+                            llm_call_failed = True
                             break
 
                         # Parse response JSON
@@ -2953,6 +2966,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 current_query = u"Tool `{}` successfully returned: {}. Please proceed to the next step or conclude if done.".format(intent, _json.dumps(tool_result, ensure_ascii=False))
                                 continue
                             else:
+                                # A model that picks "unknown" but still wrote a
+                                # message (small/local models do this a lot —
+                                # they don't map cleanly to one of the listed
+                                # intents but still try to answer) should have
+                                # that answer shown, not silently swapped out
+                                # for the generic offline fallback in finish().
+                                if intent == "unknown" and message.strip():
+                                    _parsed["intent"] = "chat"
                                 result = _parsed
                                 break
                         else:
@@ -2992,9 +3013,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             if has_stream:
                                 self._remove_stream_bubble()
                             self._hide_typing_indicator()
+                            # A generic "I didn't understand" guess from the offline
+                            # NLU is only worth showing when the LLM call actually
+                            # completed and ALSO had nothing better — if the LLM
+                            # never responded at all, that guess would silently
+                            # masquerade as "the assistant tried and failed to
+                            # match your request", which is misleading; the
+                            # llm_call_failed branch below gives the real reason.
+                            nlu_hint_usable = (
+                                nlu_hint and nlu_hint.get("intent") not in (None, "unknown")
+                                and not (llm_call_failed and nlu_hint.get("_generic_fallback"))
+                            )
                             if result and result.get("intent") not in (None, "unknown"):
                                 self._execute_result(result)
-                            elif nlu_hint and nlu_hint.get("intent") not in (None, "unknown"):
+                            elif nlu_hint_usable:
                                 self._execute_result(nlu_hint)
                             else:
                                 if has_attach and not use_claude and not use_local:
@@ -3011,6 +3043,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 fb = keyword_parse(captured)
                                 if fb:
                                     self._execute_result(fb)
+                                elif llm_call_failed:
+                                    # The AI genuinely never answered (timeout /
+                                    # connection error / empty response) — say
+                                    # so plainly instead of the generic "didn't
+                                    # understand", which wrongly implies the
+                                    # request was received and just unmatched.
+                                    label = get_provider_display_label()
+                                    msg = (u"⚠️ Model AI ({}) không phản hồi kịp (có thể do model quá nặng hoặc mất kết nối). "
+                                           u"Thử lại, chọn model nhẹ hơn trong Cài đặt, hoặc dùng lệnh cụ thể: "
+                                           u"'mở batchout', 'xuất pdf G sheet'...".format(label)
+                                           if _is_viet_text(captured) else
+                                           u"⚠️ The AI model ({}) didn't respond in time (it may be too heavy or "
+                                           u"disconnected). Try again, pick a lighter model in Settings, or use a "
+                                           u"specific command: 'open batchout', 'export pdf G sheet'...".format(label))
+                                    self._append_bot_message(msg)
+                                    self._set_busy(False)
                                 else:
                                     msg = (u"Không hiểu lệnh. Thử: 'mở batchout', 'xuất pdf G sheet'..."
                                            if _is_viet_text(captured) else
@@ -3067,6 +3115,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
         def _learn(msg=''):
             """Record successful command→intent mapping."""
             learn_pattern(raw, intent, params, msg)
+
+        # ── Conversational-input guard (last line of defence) ─────────────────
+        # Pure small talk ("morning", "thanks", "ok"...) must never launch a
+        # tool, no matter which layer produced the intent — a mis-learned
+        # pattern or an LLM hallucination could map it to open_*/export.
+        if intent not in ("help", "chat", "greet", "unknown") and HAS_NLP:
+            try:
+                from Intelligence.nlu_engine import is_conversational
+                _is_smalltalk = is_conversational(raw)
+            except Exception:
+                _is_smalltalk = False
+            if _is_smalltalk:
+                conv = parse_command_nlu(raw) or {}
+                if conv.get("intent") in ("greet", "chat", "help") and conv.get("message"):
+                    reply = conv["message"]
+                elif _is_viet_text(raw):
+                    reply = u"Xin chào! Tôi là T3Lab Assistant 👋\nBạn muốn làm gì hôm nay?"
+                else:
+                    reply = u"Hello! I'm T3Lab Assistant 👋\nWhat would you like to do today?"
+                _bot(reply)
+                self._set_busy(False)
+                return
 
         # ── Conversation (no action needed) ──────────────────────────────────
         if intent in ("help", "chat", "greet"):
@@ -3141,6 +3211,30 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 return
         except Exception as _mcp_ex:
             logger.debug("MCP intent handler error: {}".format(_mcp_ex))
+
+        # ── Recover hallucinated open_* intents ──────────────────────────────
+        # The LLM sometimes invents a near-miss intent name ("open_mcp_control"
+        # instead of "open_mcpcontrol"). Before declaring the tool missing,
+        # resolve the user's own words against the full tool catalog and
+        # launch the tool only if one clearly wins.
+        if intent.startswith("open_") and HAS_NLP:
+            _match = None
+            try:
+                from Intelligence.nlu_engine import resolve_tool
+                _match, _cands = resolve_tool(raw)
+            except Exception:
+                _match = None
+            if _match and _match['intent'] in TOOL_LAUNCHERS:
+                label = _match.get('title', _match['intent'])
+                confirm = (u"Đang mở {}...".format(label) if _is_viet_text(raw)
+                           else u"Opening {}...".format(label))
+                _bot(confirm)
+                learn_pattern(raw, _match['intent'], {}, confirm)
+                ok = TOOL_LAUNCHERS[_match['intent']]()
+                if not ok:
+                    self._append_bot_message(u"Không thể mở công cụ. Xem console.")
+                self._set_busy(False)
+                return
 
         # ── Unknown / fallthrough ─────────────────────────────────────────────
         # Reaching here with a non-empty, non-"unknown" intent means the model

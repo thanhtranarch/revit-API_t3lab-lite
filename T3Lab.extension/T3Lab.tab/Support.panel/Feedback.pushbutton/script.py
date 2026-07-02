@@ -138,7 +138,7 @@ class FeedbackWindow(forms.WPFWindow):
     """Popup window to collect and send feedback by email."""
 
     def __init__(self):
-        xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'FeedbackWindow.xaml')
+        xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'Feedback.xaml')
         forms.WPFWindow.__init__(self, xaml_file_path)
         self.doc = revit.doc
 

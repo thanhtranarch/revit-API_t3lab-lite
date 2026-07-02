@@ -215,7 +215,12 @@ class LMStudioProvider(BaseLLMProvider):
             payload["response_format"] = response_format
 
         try:
-            resp_text = http_post(self._get_chat_endpoint(), payload, headers=self._auth_headers())
+            # Local CPU/GPU inference on a multi-billion-parameter model can
+            # legitimately take minutes — the shared http_post() default
+            # (60s, tuned for cloud APIs) was silently killing every slower
+            # local generation, indistinguishable from "the model failed".
+            resp_text = http_post(self._get_chat_endpoint(), payload,
+                                  headers=self._auth_headers(), timeout_ms=180000)
             data = json.loads(resp_text)
             msg = data.get("choices", [{}])[0].get("message", {})
 

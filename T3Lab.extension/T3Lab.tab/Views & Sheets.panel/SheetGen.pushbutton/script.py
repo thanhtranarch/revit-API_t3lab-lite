@@ -68,7 +68,7 @@ lib_dir    = os.path.join(EXT_DIR, 'lib')
 if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
-XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'CreateRoomPlan.xaml')
+XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'SheetGen.xaml')
 
 
 # ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
@@ -295,19 +295,50 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             return "{} - Copy {}".format(base, copy_index)
         return base
 
+    def _unique_view_name(self, base_name, view_type):
+        """
+        Return base_name, or base_name with an incrementing " (n)" suffix if
+        a view of the same ViewType already has that name (Revit only
+        requires view names to be unique within the same ViewType, so a
+        Floor Plan and a Ceiling Plan may legitimately share a name).
+        Tracks names it hands out in self._used_view_names so repeated
+        calls within the same run don't collide with each other either.
+        """
+        used = self._used_view_names.setdefault(view_type, set())
+        name = base_name
+        i = 2
+        while name in used:
+            name = "{} ({})".format(base_name, i)
+            i += 1
+        used.add(name)
+        return name
+
     def _find_plan_view_for_level(self, level_id):
-        """Find an existing floor plan view for the given level."""
+        """Find an existing floor plan view for the given level.
+
+        Excludes the "ENLARGED PLAN - ..." views this same tool generates
+        (see _build_view_name) - those are tightly cropped per-room views and
+        make a poor host for a building-wide interior elevation marker.
+        Prefers a candidate whose crop box is not active, if one exists.
+        """
         views = FilteredElementCollector(doc) \
             .OfClass(ViewPlan) \
             .WhereElementIsNotElementType() \
             .ToElements()
+        fallback = None
         for v in views:
-            if (not v.IsTemplate
-                    and v.ViewType == ViewType.FloorPlan
-                    and v.GenLevel is not None
-                    and v.GenLevel.Id == level_id):
+            if (v.IsTemplate
+                    or v.ViewType != ViewType.FloorPlan
+                    or v.GenLevel is None
+                    or v.GenLevel.Id != level_id):
+                continue
+            if v.Name.upper().startswith("ENLARGED PLAN"):
+                continue
+            if not v.CropBoxActive:
                 return v
-        return None
+            if fallback is None:
+                fallback = v
+        return fallback
 
     def _get_boundary_wall_ids(self, room):
         """Return set of wall element ids forming the room boundary."""
@@ -326,6 +357,30 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         except Exception:
             pass
         return wall_ids
+
+    def _create_interior_elevation_view(self, marker, host_plan, idx, directions,
+                                         room_item, cropbox_visible, max_dim,
+                                         offset, elev_template_id):
+        """Create and configure one elevation view at the given marker index."""
+        ev = marker.CreateElevation(doc, host_plan.Id, idx)
+        try:
+            base_name = "INTERIOR ELEV - {} - {} ({})".format(
+                room_item.Name, directions[idx], room_item.Number
+            )
+            ev.Name = self._unique_view_name(base_name, ev.ViewType)
+        except Exception:
+            pass
+        ev.CropBoxActive  = True
+        ev.CropBoxVisible = cropbox_visible
+        p_far = ev.get_Parameter(DB.BuiltInParameter.VIEWER_BOUND_FAR_CLIPPING)
+        if p_far:
+            p_far.Set(1)
+        p_off = ev.get_Parameter(DB.BuiltInParameter.VIEWER_BOUND_OFFSET_FAR)
+        if p_off:
+            p_off.Set(max_dim / 2 + offset)
+        if elev_template_id:
+            ev.ViewTemplateId = elev_template_id
+        return ev
 
     # ── Window chrome handlers ────────────────────────
     def minimize_button_clicked(self, sender, e):
@@ -738,6 +793,19 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         error_count    = 0
         active_view    = doc.ActiveView
 
+        # Seed name/number uniqueness trackers from what's already in the
+        # document, so re-running this tool on a room that already has
+        # views/sheets auto-suffixes instead of crashing with
+        # "Name must be unique" / "Sheet Number is already in use".
+        self._used_view_names = {}
+        for v in FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType().ToElements():
+            self._used_view_names.setdefault(v.ViewType, set()).add(v.Name)
+        self._used_sheet_numbers = set()
+        for sh in FilteredElementCollector(doc).OfClass(ViewSheet).ToElements():
+            p = sh.get_Parameter(DB.BuiltInParameter.SHEET_NUMBER)
+            if p:
+                self._used_sheet_numbers.add(p.AsString())
+
         # Collect per-room results for sheet layout
         room_results = []  # list of dicts
 
@@ -769,7 +837,9 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             # ── Floor Plan ─────────────────────────────
             if do_floor and self._floor_plan_type_id and qty > 0:
                 for idx in range(qty):
-                    view_name = self._build_view_name(room_item, copy_index=idx)
+                    view_name = self._unique_view_name(
+                        self._build_view_name(room_item, copy_index=idx),
+                        ViewType.FloorPlan)
                     try:
                         with Transaction(doc, "Create Floor Plan") as t:
                             t.Start()
@@ -794,6 +864,8 @@ class CreateRoomPlanWindow(forms.WPFWindow):
 
             # ── Ceiling Plan ────────────────────────────
             if do_ceiling and self._ceiling_plan_type_id:
+                ceiling_view_name = self._unique_view_name(
+                    self._build_view_name(room_item), ViewType.CeilingPlan)
                 try:
                     with Transaction(doc, "Create Ceiling Plan") as t:
                         t.Start()
@@ -801,7 +873,7 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                         vp.CropBoxActive  = True
                         vp.CropBoxVisible = cropbox_visible
                         vp.CropBox        = new_bbox
-                        vp.Name           = view_name
+                        vp.Name           = ceiling_view_name
                         t.Commit()
                     result['ceiling_plan'] = vp
                     created_count += 1
@@ -812,7 +884,7 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                             t2.Commit()
                 except Exception as ex:
                     error_count += 1
-                    logger.error("Ceiling plan error for {}: {}".format(view_name, ex))
+                    logger.error("Ceiling plan error for {}: {}".format(ceiling_view_name, ex))
 
             # ── Interior Elevations ─────────────────────
             if do_elevations and self._elevation_type_id:
@@ -833,38 +905,71 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                             marker = ElevationMarker.CreateElevationMarker(
                                 doc, self._elevation_type_id, center, scale
                             )
+                            doc.Regenerate()
                             directions = ["South", "West", "North", "East"]
+
+                            # Revit only reports the marker's other 3 heads
+                            # as available *after* the first elevation on
+                            # this marker actually exists and the document
+                            # has regenerated - checking IsAvailableIndex()
+                            # for all 4 slots before any of them exist
+                            # under-reports what the marker can really hold.
+                            # Place one elevation first, regenerate, then
+                            # open the remaining ones.
+                            first_idx = None
                             for idx in range(4):
+                                if marker.IsAvailableIndex(idx):
+                                    first_idx = idx
+                                    break
+
+                            if first_idx is None:
+                                error_count += 1
+                                logger.error(
+                                    "No elevation index available on marker "
+                                    "for room {}".format(room_item.Number))
+                            else:
                                 try:
-                                    ev = marker.CreateElevation(doc, host_plan.Id, idx)
-                                    try:
-                                        ev.Name = "INTERIOR ELEV - {} - {} ({})".format(
-                                            room_item.Name, directions[idx], room_item.Number
-                                        )
-                                    except Exception:
-                                        pass
-                                    ev.CropBoxActive  = True
-                                    ev.CropBoxVisible = cropbox_visible
-                                    p_far = ev.get_Parameter(
-                                        DB.BuiltInParameter.VIEWER_BOUND_FAR_CLIPPING)
-                                    if p_far:
-                                        p_far.Set(1)
-                                    p_off = ev.get_Parameter(
-                                        DB.BuiltInParameter.VIEWER_BOUND_OFFSET_FAR)
-                                    if p_off:
-                                        p_off.Set(max_dim / 2 + offset)
-                                    if elev_template_id:
-                                        ev.ViewTemplateId = elev_template_id
+                                    ev = self._create_interior_elevation_view(
+                                        marker, host_plan, first_idx, directions,
+                                        room_item, cropbox_visible, max_dim,
+                                        offset, elev_template_id)
                                     result['elevations'].append(ev)
                                     created_count += 1
                                 except Exception as ex:
                                     error_count += 1
                                     logger.error("Elevation {} error: {}".format(
-                                        directions[idx], ex))
+                                        directions[first_idx], ex))
+
+                                doc.Regenerate()
+
+                                for idx in range(4):
+                                    if idx == first_idx:
+                                        continue
+                                    if not marker.IsAvailableIndex(idx):
+                                        error_count += 1
+                                        logger.error(
+                                            "Elevation {} (index {}) skipped "
+                                            "for room {} - marker does not "
+                                            "support this index".format(
+                                                directions[idx], idx, room_item.Number))
+                                        continue
+                                    try:
+                                        ev = self._create_interior_elevation_view(
+                                            marker, host_plan, idx, directions,
+                                            room_item, cropbox_visible, max_dim,
+                                            offset, elev_template_id)
+                                        result['elevations'].append(ev)
+                                        created_count += 1
+                                        doc.Regenerate()
+                                    except Exception as ex:
+                                        error_count += 1
+                                        logger.error("Elevation {} error: {}".format(
+                                            directions[idx], ex))
                             t.Commit()
                 except Exception as ex:
                     error_count += 1
-                    logger.error("Elevation error for {}: {}".format(view_name, ex))
+                    logger.error("Elevation error for room {}: {}".format(
+                        room_item.Number, ex))
 
             room_results.append(result)
 
@@ -943,12 +1048,29 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         base = "EPL-{}".format(room_item.Number)
         return "{}-{}".format(base, suffix) if suffix else base
 
+    def _unique_sheet_number(self, base_number):
+        """
+        Return base_number, or base_number with an incrementing "-n" suffix
+        if that sheet number is already in use (e.g. from a previous run of
+        this tool on the same room). Tracks numbers it hands out in
+        self._used_sheet_numbers so repeated calls within the same run
+        don't collide with each other either.
+        """
+        number = base_number
+        i = 2
+        while number in self._used_sheet_numbers:
+            number = "{}-{}".format(base_number, i)
+            i += 1
+        self._used_sheet_numbers.add(number)
+        return number
+
     def _create_sheet(self, room_item, titleblock_id, name_suffix="", num_suffix=""):
         """Create a ViewSheet. Returns the sheet element."""
         sheet_name = self._build_view_name(room_item)
         if name_suffix:
             sheet_name = "{} — {}".format(sheet_name, name_suffix)
-        sheet_num = self._build_sheet_number(room_item, num_suffix)
+        sheet_name = self._unique_view_name(sheet_name, ViewType.DrawingSheet)
+        sheet_num = self._unique_sheet_number(self._build_sheet_number(room_item, num_suffix))
 
         with Transaction(doc, "Create Sheet") as t:
             t.Start()
@@ -956,10 +1078,17 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             sheet.Name = sheet_name
             p_num = sheet.get_Parameter(DB.BuiltInParameter.SHEET_NUMBER)
             if p_num and not p_num.IsReadOnly:
-                try:
-                    p_num.Set(sheet_num)
-                except Exception:
-                    pass
+                attempt = sheet_num
+                for _ in range(25):
+                    try:
+                        p_num.Set(attempt)
+                        break
+                    except Exception:
+                        attempt = self._unique_sheet_number(attempt)
+                else:
+                    logger.error(
+                        "Could not assign a unique sheet number based on "
+                        "{}".format(sheet_num))
             t.Commit()
         return sheet
 

@@ -1,6 +1,6 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="T3Lab — Transfer Parameter Value"
+        Title="Transfer Parameter Value"
         Height="820" Width="1050"
         MinHeight="650" MinWidth="850"
         WindowStartupLocation="CenterScreen"
