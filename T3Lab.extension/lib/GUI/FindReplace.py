@@ -47,3 +47,7 @@ class FindReplace(my_WPF):
 
         self.ShowDialog()
 
+    def button_run(self, sender, e):
+        self.run = True
+        self.Close()
+

@@ -8,35 +8,35 @@
 ### F1 — `FindReplace.py` thiếu handler `button_run` 🔴
 `lib/GUI/Tools/FindReplace.xaml:1181` khai báo `Click="button_run"` → XamlParseException khi mở.
 
-- [ ] Đọc `lib/GUI/FindReplace.py` xác định hành vi Run mong muốn (class có `run = False` → pattern: set `self.run = True` rồi `self.Close()`)
-- [ ] Thêm method:
+- [x] Đọc `lib/GUI/FindReplace.py` xác định hành vi Run mong muốn (class có `run = False` → pattern: set `self.run = True` rồi `self.Close()`)
+- [x] Thêm method:
   ```python
   def button_run(self, sender, e):
       self.run = True
       self.Close()
   ```
-- [ ] Kiểm tra các handler khác trong `FindReplace.xaml` (`TextChanged`, v.v.) đều có method
-- [ ] Chạy `python3 dev/audit_tools.py --quiet` → hết dòng FindReplace
+- [x] Kiểm tra các handler khác trong `FindReplace.xaml` (`TextChanged`, v.v.) đều có method — chỉ có 4 handler tổng cộng (minimize/maximize/close từ `WPF_Base.my_WPF` + `button_run` mới thêm), không còn thiếu
+- [x] Chạy `python3 dev/audit_tools.py --quiet` → hết dòng FindReplace
 
 ### F2 — `CreateFromRooms.py` thiếu 4 handler 🔴
 Thiếu: `NumberValidationTextBox`, `UIe_ItemChecked`, `button_run`, `text_filter_updated`. Không nơi nào import → dead code.
 
-- [ ] Xác nhận lần cuối không ai dùng: `grep -rn "CreateFromRooms" --include="*.py" T3Lab.extension`
-- [ ] **Quyết định**: archive (khuyến nghị) hay hoàn thiện handler
-- [ ] Nếu archive → chuyển `lib/GUI/CreateFromRooms.py` + `lib/GUI/Tools/CreateFromRooms.xaml` vào `_archive/` (Ngày 2)
-- [ ] Nếu giữ → viết đủ 4 handler theo pattern của `SelectFromDict.py` (đã có `UIe_ItemChecked`, `text_filter_updated` tham khảo)
+- [x] Xác nhận lần cuối không ai dùng: `grep -rn "CreateFromRooms" --include="*.py" T3Lab.extension` → chỉ xuất hiện trong chính `CreateFromRooms.py` (class def + đường dẫn XAML của chính nó), 0 tham chiếu ngoài
+- [x] **Quyết định**: archive (khuyến nghị) — dead code, không tool nào import
+- [ ] Chuyển `lib/GUI/CreateFromRooms.py` + `lib/GUI/Tools/CreateFromRooms.xaml` vào `_archive/` (thực hiện ở Ngày 2 cùng đợt archive XAML mồ côi/dialog chết)
+- [ ] ~~Nếu giữ → viết đủ 4 handler~~ (không áp dụng — đã quyết định archive)
 
 ### F3 — UIShowcase load XAML ngoài extension 🟠
 `lib/GUI/UIShowcaseDialog.py:33` trỏ `[repo]/.claude/standard/UIStandardShowcase.xaml` — hỏng khi deploy extension rời repo.
 
-- [ ] Copy `.claude/standard/UIStandardShowcase.xaml` → `lib/GUI/Tools/UIStandardShowcase.xaml`
-- [ ] Sửa `UIShowcaseDialog.py`: ưu tiên bản trong `lib/GUI/Tools/`, fallback về `.claude/standard/` (giữ tương thích repo dev)
-- [ ] Lưu ý: `.claude/standard/` vẫn là bản canonical cho design reference — thêm comment nêu rõ khi sửa chuẩn UI phải cập nhật cả 2 (hoặc để `dev/sync_wpf_styles.py` xử lý nếu tiện)
-- [ ] Chạy `python3 dev/audit_ui.py` — file mới copy phải pass các check Lumina
+- [x] Copy `.claude/standard/UIStandardShowcase.xaml` → `lib/GUI/Tools/UIStandardShowcase.xaml`
+- [x] Sửa `UIShowcaseDialog.py`: ưu tiên bản trong `lib/GUI/Tools/`, fallback về `.claude/standard/` (giữ tương thích repo dev)
+- [x] Lưu ý: `.claude/standard/` vẫn là bản canonical cho design reference — đã thêm comment nêu rõ khi sửa chuẩn UI phải cập nhật cả 2; `dev/sync_wpf_styles.py` đã tự loại trừ `UIStandardShowcase.xaml` khỏi vòng kiểm tra style-block đồng bộ (giữ nguyên hành vi cũ)
+- [x] Chạy `python3 dev/audit_ui.py` — file mới copy pass, không bị flag trong danh sách vi phạm
 
 ### Chốt ngày 1
-- [ ] `python3 dev/audit_tools.py --quiet` — chỉ còn cảnh báo orphan XAML (xử lý Ngày 2)
-- [ ] Commit: `fix: add missing XAML handlers, make UIShowcase XAML path deploy-safe`
+- [x] `python3 dev/audit_tools.py --quiet` — chỉ còn cảnh báo orphan XAML + `CreateFromRooms` (xử lý Ngày 2, đã quyết định archive)
+- [x] Commit: `fix: add missing XAML handlers, make UIShowcase XAML path deploy-safe`
 
 ---
 

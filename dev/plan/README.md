@@ -30,7 +30,7 @@
 
 | Ngày | Giai đoạn | Việc | File | Trạng thái |
 |------|-----------|------|------|-----------|
-| 1 | GĐ1 | Sửa F1 FindReplace · F2 CreateFromRooms · F3 UIShowcase | `phase-1-cleanup-fixes.md` §Ngày 1 | ⬜ |
+| 1 | GĐ1 | Sửa F1 FindReplace · F2 CreateFromRooms · F3 UIShowcase | `phase-1-cleanup-fixes.md` §Ngày 1 | ✅ |
 | 2 | GĐ1 | Archive 15 XAML mồ côi + 6 dialog chết · chạy lại audit | `phase-1-cleanup-fixes.md` §Ngày 2 | ⬜ |
 | 3 | GĐ2 | Sửa T3LabAssistant.xaml (palette + copyright) + AssistantPane.xaml → audit UI sạch | `phase-2-ui-consistency.md` §Ngày 3 | ⬜ |
 | 4 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 4 | ⬜ |
