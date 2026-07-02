@@ -27,6 +27,21 @@ import os
 import sys
 
 
+def _debug_log(msg):
+    """Best-effort debug log via pyRevit's logger; never raises.
+
+    Several except-blocks in this module used to swallow failures with zero
+    trace (e.g. a provider silently failing to import looked identical to
+    "not installed"). Lazy-imported so this module stays importable outside
+    a pyRevit/Revit process.
+    """
+    try:
+        from pyrevit import script
+        script.get_logger().debug(msg)
+    except Exception:
+        pass
+
+
 # ─── Router ────────────────────────────────────────────────────────────────────
 
 class LLMRouter(object):
@@ -54,11 +69,18 @@ class LLMRouter(object):
     def __init__(self):
         if self._initialized:
             return
+        import threading
         self._providers     = {}
         self._active_name   = "claude"
         self._fallback_on   = True
         self._status_cache  = None   # cached result of get_status()
         self._status_ts     = 0.0    # epoch time of last cache fill
+        # Guards reads/writes of _status_cache/_status_ts. script.py fires
+        # get_status()/probe_provider() from several independent background
+        # threads (startup probe, sidebar open, provider switch) that can
+        # overlap; without a lock, one thread's cache write can race another
+        # thread's cache read/iteration over the same dict.
+        self._status_lock   = threading.Lock()
         self._initialized   = True
 
         self._load_providers()
@@ -81,8 +103,12 @@ class LLMRouter(object):
                 mod    = __import__(module_path, fromlist=[parts[-1]])
                 cls_   = getattr(mod, class_name)
                 self._providers[name] = cls_()
-            except Exception:
-                pass
+            except Exception as ex:
+                # A real bug here (typo, missing dependency) looks identical
+                # to "provider not installed" without this — log it so the
+                # difference is visible when debugging why a provider never
+                # shows up.
+                _debug_log("LLMRouter: failed to load provider '{}': {}".format(name, ex))
 
     def _restore_settings(self):
         """Load the last-used provider and per-provider model from settings."""
@@ -107,8 +133,8 @@ class LLMRouter(object):
             active_provider = self.get_active_provider()
             active_model = active_provider.get_active_model() if active_provider else None
             s.log_model_usage("STARTUP_RESTORE", self._active_name, active_model)
-        except Exception:
-            pass
+        except Exception as ex:
+            _debug_log("LLMRouter: failed to restore settings: {}".format(ex))
 
     # ── Provider management ────────────────────────────────────────────────────
 
@@ -315,13 +341,14 @@ class LLMRouter(object):
         """
         import time
         now = time.time()
-        if use_cache and self._status_cache is not None and (now - self._status_ts) < 30:
-            # Return cached snapshot but update the "active" flag live
-            snap = {}
-            for name, info in self._status_cache.items():
-                snap[name] = dict(info)
-                snap[name]["active"] = (name == self._active_name)
-            return snap
+        with self._status_lock:
+            if use_cache and self._status_cache is not None and (now - self._status_ts) < 30:
+                # Return cached snapshot but update the "active" flag live
+                snap = {}
+                for name, info in self._status_cache.items():
+                    snap[name] = dict(info)
+                    snap[name]["active"] = (name == self._active_name)
+                return snap
 
         import threading
         status = {}
@@ -363,8 +390,9 @@ class LLMRouter(object):
         for t in threads:
             t.join()
 
-        self._status_cache = status
-        self._status_ts    = now
+        with self._status_lock:
+            self._status_cache = status
+            self._status_ts    = now
         return status
 
     def probe_provider(self, name):
@@ -394,9 +422,10 @@ class LLMRouter(object):
             "supports_vision": provider.SUPPORTS_VISION,
         }
         # Merge into cache so subsequent get_status(use_cache=True) sees it
-        if self._status_cache is None:
-            self._status_cache = {}
-        self._status_cache[name] = dict(info)
+        with self._status_lock:
+            if self._status_cache is None:
+                self._status_cache = {}
+            self._status_cache[name] = dict(info)
         return info
 
     def get_local_provider_names(self):
@@ -410,7 +439,8 @@ class LLMRouter(object):
 
     def invalidate_status_cache(self):
         """Force the next get_status() call to do a live probe."""
-        self._status_ts = 0.0
+        with self._status_lock:
+            self._status_ts = 0.0
 
     def get_display_label(self):
         """

@@ -159,7 +159,8 @@ class ClaudeProvider(BaseLLMProvider):
             resp_text  = http_post(CLAUDE_API_URL, payload, headers)
             api_result = json.loads(resp_text)
             return api_result["content"][0]["text"].strip()
-        except Exception:
+        except Exception as ex:
+            self._debug_log("chat() failed: {}".format(ex))
             return None
 
     def chat_stream(self, messages, system_prompt, user_content,

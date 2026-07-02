@@ -41,3 +41,11 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# T3Lab Assistant runtime-generated data — machine-local, regenerated on
+# first use, and previously leaked developer machine paths/conversation
+# content into the repo. See T3Lab.extension/lib/Services/tool_discovery.py
+# and Intelligence/t3lab_assistant.py — both handle a missing file gracefully.
+T3Lab.extension/lib/config/tool_registry.json
+T3Lab.extension/lib/config/learned_patterns.json
+T3Lab.extension/lib/config/chat_history/

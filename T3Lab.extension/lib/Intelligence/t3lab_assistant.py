@@ -145,11 +145,11 @@ def inject_discovered_tools(tools):
     _EXTRA_TOOLS_SECTION = '\n'.join(lines)
 
 
-def _build_system_prompt():
+def _build_system_prompt(revit_context=u""):
     """Return the comprehensive agent-aware system prompt, with auto-discovered tools appended."""
     try:
         from Intelligence.t3lab_agent import build_system_prompt
-        base = build_system_prompt()
+        base = build_system_prompt(revit_context=revit_context)
     except Exception:
         # Fallback to static prompt if t3lab_agent is unavailable
         base = SYSTEM_PROMPT
@@ -232,7 +232,13 @@ def find_learned_match(raw):
     """Check learned patterns for a fuzzy match.
 
     Returns result dict {intent, params, message} or None.
-    Uses Jaccard similarity on normalized word sets (threshold 0.65).
+    Uses Jaccard similarity on normalized word sets (threshold 0.8), plus a
+    minimum-2-shared-words requirement once the stored pattern has 3+ words.
+    The old 0.65 threshold was too permissive for the short 2-4 word
+    commands typical here: a single shared word was often enough to clear
+    it (e.g. "open material" vs a stored "material select" pattern scores
+    1/3 ≈ 0.67 — a false positive that silently launches the wrong tool
+    with high confidence, which is worse than falling through to the LLM).
     """
     try:
         patterns = load_learned_patterns()
@@ -250,14 +256,16 @@ def find_learned_match(raw):
             stored_words = set(stored_key.split()) if stored_key else set()
             if not stored_words:
                 continue
-            inter = len(key_words & stored_words)
-            union = len(key_words | stored_words)
-            score = inter / union if union else 0.0
+            inter = key_words & stored_words
+            if len(stored_words) >= 3 and len(inter) < 2:
+                continue
+            union = key_words | stored_words
+            score = len(inter) / len(union) if union else 0.0
             if score > best_score:
                 best_score = score
                 best_data  = data
 
-        if best_score >= 0.65 and best_data:
+        if best_score >= 0.8 and best_data:
             return {
                 'intent':  best_data['intent'],
                 'params':  best_data.get('params', {}),
@@ -402,6 +410,47 @@ def get_provider_display_label():
         return LLMRouter().get_display_label()
     except Exception:
         return "AI"
+
+
+# ─── No-provider setup guidance ────────────────────────────────────────────────
+# Shown instead of the generic "didn't understand" reply whenever NO LLM
+# provider is configured at all (offline NLU/keyword matching still handles
+# tool commands fine — this only fires for open-ended chat that genuinely
+# needs a model). Also shown once as a proactive nudge on a fresh chat.
+
+def get_setup_guidance_message(viet=True):
+    """Return a detailed, step-by-step setup guide covering every provider option."""
+    if viet:
+        return (
+            u"🤖 Hiện chưa có AI nào được kết nối, nên tôi chỉ hiểu được lệnh cụ thể "
+            u"(vd: 'mở batchout', 'xuất pdf G sheet'). Để trò chuyện tự nhiên hơn, "
+            u"nhấn ⚙ ở góc trên rồi chọn 1 trong 2 cách:\n\n"
+            u"1️⃣ Dùng AI trên mây (Claude / OpenAI / DeepSeek) — trả lời nhanh, "
+            u"không cần máy mạnh:\n"
+            u"   • Mở phần Cài đặt → chọn Provider → dán API Key vào ô tương ứng.\n"
+            u"   • Lấy API Key tại: Claude → console.anthropic.com | "
+            u"OpenAI → platform.openai.com | DeepSeek → platform.deepseek.com\n\n"
+            u"2️⃣ Dùng AI cục bộ (Ollama) — miễn phí, chạy ngay trên máy, không cần internet:\n"
+            u"   • Cài đặt tại ollama.ai, sau đó mở terminal chạy:\n"
+            u"     ollama pull qwen2.5:1.5b\n"
+            u"   • Mở lại T3Lab Assistant — hệ thống tự nhận diện model đã cài.\n\n"
+            u"Trong lúc chưa kết nối, tôi vẫn mở được các tool T3Lab và xuất sheet "
+            u"theo lệnh cụ thể như bình thường."
+        )
+    return (
+        u"🤖 No AI provider is connected yet, so I can only understand specific "
+        u"commands (e.g. 'open batchout', 'export pdf G sheet'). For more natural "
+        u"conversation, click ⚙ at the top and pick one of two options:\n\n"
+        u"1️⃣ Cloud AI (Claude / OpenAI / DeepSeek) — fast, no local hardware needed:\n"
+        u"   • Open Settings → pick a Provider → paste your API key.\n"
+        u"   • Get a key at: Claude → console.anthropic.com | "
+        u"OpenAI → platform.openai.com | DeepSeek → platform.deepseek.com\n\n"
+        u"2️⃣ Local AI (Ollama) — free, runs on your machine, no internet needed:\n"
+        u"   • Install from ollama.ai, then in a terminal run:\n"
+        u"     ollama pull qwen2.5:1.5b\n"
+        u"   • Reopen T3Lab Assistant — it will auto-detect the installed model.\n\n"
+        u"Meanwhile I can still open T3Lab tools and export sheets from specific commands."
+    )
 
 
 # ─── Keyword fallback ─────────────────────────────────────────────────────────
