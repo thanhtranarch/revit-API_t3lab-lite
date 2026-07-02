@@ -33,26 +33,26 @@ Audit 76 XAML trong `lib/GUI/Tools/` theo chuẩn Lumina:
 ## Ngày 3 — Sửa outlier T3LabAssistant + chốt audit sạch
 
 ### 3a. `T3LabAssistant.xaml` — palette Terra
-- [ ] Xem context 2 chỗ dùng màu: `#15803D` → `#10B981` (success), `#166534` → `#059669` (success hover). Nếu ngữ cảnh không phải nút Success thì đối chiếu bảng migration trong `ui-design-standard.md`
+- [x] Xem context 2 chỗ dùng màu: `#15803D` → `#10B981` (success), `#166534` → `#059669` (success hover). Ngữ cảnh xác nhận: ô kết quả "Test Connection" (success state), khớp đúng bảng migration trong `ui-design-standard.md`
 
 ### 3b. `T3LabAssistant.xaml` — copyright về footer-trái
-- [ ] Đọc layout vùng đáy cửa sổ chat (quanh dòng 2100–2115): copyright đang là child cuối của StackPanel chứa input, `HorizontalAlignment="Center"`
-- [ ] Nếu cửa sổ **có status bar** dạng chuẩn → chuyển copyright vào đó theo snippet chuẩn (copyright → divider `#DCDCE0` → status text)
-- [ ] Nếu **không có status bar** (chat UI full-height) → hoặc thêm status bar chuẩn (khuyến nghị, đồng bộ toàn codebase), hoặc tối thiểu đổi TextBlock hiện tại sang `HorizontalAlignment="Left"` + margin trái 14px
-- [ ] Không đụng block shared styles
+- [x] Đọc layout vùng đáy cửa sổ chat (dòng ~2022–2109): copyright là child cuối của StackPanel bên trong `Border Grid.Row="4"` (Padding="16,8,16,10"), `HorizontalAlignment="Center"` — đây chính là footer/input-bar (Auto height, row cuối), không có status bar riêng
+- [x] Không có status bar chuẩn (chat UI) → đổi TextBlock hiện tại sang `HorizontalAlignment="Left"`; không thêm margin trái 14px vì Border cha đã có `Padding="16,..."` bên trái — thêm margin nữa sẽ lệch khỏi rhythm 16px sẵn có của toàn khối input
+- [x] Không đụng block shared styles
 
 ### 3c. `AssistantPane.xaml` — copyright về footer-trái
-- [ ] Dockable pane variant B (root Grid, không status bar) → áp dụng **fallback Variant B** trong chuẩn mới: TextBlock cuối root Grid với `HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="14,0,0,8" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"`
-- [ ] Pane là UI nhúng trong Revit dockable panel — kiểm tra góc trái-dưới không đè lên control nào
+- [x] Dockable pane variant B (root Grid, 4 row: header/chat/quick-actions/input — **không có row footer riêng**, row cuối = input bar full-width) — **đã kiểm tra và phát hiện fallback overlay chuẩn (bottom-left) sẽ đè lên ô chat input** (input textbox chiếm gần hết chiều rộng cột 0 ở row cuối, overlay bottom-left rơi đúng vào góc dưới-trái của textbox)
+- [x] **Quyết định (deviate có chủ đích khỏi fallback overlay mặc định):** thêm hẳn 1 row Auto mới (Row 4 — Footer) thay vì overlay đè lên nội dung, tránh xung đột layout. Copyright đặt trong `Border Grid.Row="4"` nền `#F8FAFC`, border-top `#E2E8F0`, `Padding="14,4"`, `TextBlock HorizontalAlignment="Left"` — vẫn đúng chuẩn amber/FontSize 11/trái, chỉ khác cách neo vị trí (footer bar thật thay vì overlay ảo) để đảm bảo không che control. Tốn thêm ~24px chiều cao dockable pane — chấp nhận được.
+- [x] Pane là UI nhúng trong Revit dockable panel — đã kiểm tra góc trái-dưới: **không còn đè lên control nào** nhờ dùng row riêng thay vì overlay
 
 ### 3d. Kiểm tra bản copy UIStandardShowcase (từ GĐ1-F3)
-- [ ] `UIStandardShowcase.xaml` copy vào `lib/GUI/Tools/` phải pass `audit_ui.py` (bản gốc `.claude/standard/` đã đúng footer-trái)
+- [x] `UIStandardShowcase.xaml` copy vào `lib/GUI/Tools/` pass `audit_ui.py` (0 vấn đề, đã verify lại cùng lượt chạy audit hôm nay)
 
 ### Chốt ngày 3
-- [ ] `python3 dev/audit_ui.py --quiet` → **exit 0**
-- [ ] `python3 dev/sync_wpf_styles.py --check` → 0 lệch
-- [ ] `python3 dev/audit_tools.py --quiet` → không phát sinh mới
-- [ ] Commit: `style: migrate T3LabAssistant to Lumina palette, move copyright to footer-left`
+- [x] `python3 dev/audit_ui.py --quiet` → **exit 0** (`UI AUDIT: 0/54 file có vấn đề (chỉ file UI-locked) — OK`)
+- [x] `python3 dev/sync_wpf_styles.py --check` → 0 lệch (53 file)
+- [x] `python3 dev/audit_tools.py --quiet` → không phát sinh mới (`AUDIT: clean`)
+- [x] Commit: `style: migrate T3LabAssistant to Lumina palette, move copyright to footer-left`
 
 ---
 
@@ -80,4 +80,5 @@ Checklist mỗi cửa sổ (mở lần lượt 41 tool + dialog phụ):
 
 ## Phát sinh trong giai đoạn 2
 
-_(ghi tại đây: file bị vỡ layout sau fix, màu sai ngữ cảnh, v.v.)_
+- **Ngày 3 — `AssistantPane.xaml`:** fallback overlay bottom-left chuẩn (theo `ui-design-standard.md`) sẽ đè lên ô chat input vì root Grid của pane này không có row footer riêng — row cuối (Row 3) là input bar full-width. Đã xử lý bằng cách thêm Row 4 (Auto height) làm footer thật thay vì dùng kỹ thuật overlay `Grid.RowSpan="99"`. Cần user xác nhận trực quan trong Revit ở Ngày 4 rằng dockable pane không bị vỡ layout / không quá chật do thêm ~24px chiều cao footer.
+- Chưa phát sinh vấn đề khác trong Ngày 3.

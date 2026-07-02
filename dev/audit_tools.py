@@ -62,7 +62,11 @@ def all_py_files():
 FSTRING = re.compile(r'''(?<![A-Za-z0-9_])[fF](["']).*?\{''')
 
 # Các XAML đã biết là legacy/mồ côi có chủ đích — thêm vào đây nếu chấp nhận giữ.
-KNOWN_ORPHAN_XAML = set()
+KNOWN_ORPHAN_XAML = {
+    # Wizard-nav reference example named in .claude/CLAUDE.md — kept in place on
+    # purpose, not wired to any pushbutton. See phase-1-cleanup-fixes.md Ngày 2.
+    "ExportManagerTest.xaml",
+}
 
 # File chạy bằng CPython 3 (ngoài Revit) — bỏ qua check syntax IronPython 2.7.
 CPYTHON_ONLY = {os.path.join("T3Lab.extension", "lib", "core", "bridge.py")}

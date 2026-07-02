@@ -1176,6 +1176,7 @@
             <RowDefinition Height="*"/>    <!-- Row 1: Scrollable chat messages -->
             <RowDefinition Height="Auto"/> <!-- Row 2: Quick MCP actions strip -->
             <RowDefinition Height="Auto"/> <!-- Row 3: Text input + send -->
+            <RowDefinition Height="Auto"/> <!-- Row 4: Footer (copyright) -->
         </Grid.RowDefinitions>
 
         <!-- ═══ ROW 0: HEADER BAR ═══ -->
@@ -1353,16 +1354,16 @@
             </Grid>
         </Border>
 
-        <!-- Copyright notice — last child of root Grid, floating overlay -->
-        <TextBlock Text="© Copyright by T3Lab"
-                   HorizontalAlignment="Right"
-                   VerticalAlignment="Bottom"
-                   Margin="0,0,14,8"
-                   Foreground="#F59E0B"
-                   FontSize="11"
-                   IsHitTestVisible="False"
-                   Panel.ZIndex="999"
-                   Grid.RowSpan="99"
-                   Grid.ColumnSpan="99"/>
+        <!-- ═══ ROW 4: FOOTER (copyright) ═══ -->
+        <Border Grid.Row="4"
+                Background="#F8FAFC"
+                BorderBrush="#E2E8F0"
+                BorderThickness="0,1,0,0"
+                Padding="14,4">
+            <TextBlock Text="© Copyright by T3Lab"
+                       HorizontalAlignment="Left"
+                       Foreground="#F59E0B"
+                       FontSize="11"/>
+        </Border>
     </Grid>
 </UserControl>

@@ -28,9 +28,16 @@ from System.Collections.ObjectModel import ObservableCollection
 from pyrevit import revit, DB, forms
 
 # XAML Path
+# Prefer the in-extension copy so this still works when the extension is
+# deployed on its own (e.g. %APPDATA%\pyRevit\Extensions), without the rest
+# of the repo checkout. Fall back to the repo canonical copy for repo dev.
+# NOTE: the canonical design reference is `.claude/standard/UIStandardShowcase.xaml`;
+# if you edit the UI standard, update BOTH copies (or use dev/sync_wpf_styles.py).
 GUI_DIR = os.path.dirname(__file__)  # [repo]/T3Lab.extension/lib/GUI
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.dirname(GUI_DIR)))  # [repo]
-XAML_FILE = os.path.join(REPO_DIR, '.claude', 'standard', 'UIStandardShowcase.xaml')
+_EXTENSION_XAML = os.path.join(GUI_DIR, 'Tools', 'UIStandardShowcase.xaml')
+_REPO_XAML = os.path.join(REPO_DIR, '.claude', 'standard', 'UIStandardShowcase.xaml')
+XAML_FILE = _EXTENSION_XAML if os.path.exists(_EXTENSION_XAML) else _REPO_XAML
 
 
 class ShowcaseItem(object):
