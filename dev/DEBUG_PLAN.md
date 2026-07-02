@@ -1,7 +1,9 @@
 # T3Lab — Review & Kế hoạch Debug từng Tool
 
 > Cập nhật: 2026-07-02 · Phạm vi: toàn bộ 41 pushbutton trong `T3Lab.extension/T3Lab.tab/`
-> Công cụ đi kèm: `python3 dev/audit_tools.py` (audit tĩnh) · `python3 dev/sync_wpf_styles.py --check` (đồng bộ style)
+> Công cụ đi kèm: `python3 dev/audit_tools.py` (audit tĩnh) · `python3 dev/audit_ui.py` (audit UI Lumina) · `python3 dev/sync_wpf_styles.py --check` (đồng bộ style)
+>
+> **📅 Kế hoạch thực hiện theo ngày (14 ngày, chia theo panel): xem [`dev/plan/README.md`](plan/README.md)** — file này là bản ghi review gốc; checklist thực hiện hằng ngày nằm trong `dev/plan/`.
 
 ---
 
@@ -65,6 +67,19 @@ Khi debug các tool này, lỗi thật sẽ bị nuốt im lặng → phải t�
 
 ### 🟡 F6 — BatchOut: module "Intelligence" degrade im lặng
 - `BatchOut/script.py:62-67`: import `api_learner`/`api_updater` bọc trong bare except → nếu fail, `HAS_API_LEARNER=False` không có log. Cần in cảnh báo khi debug.
+
+### 🟠 F7 — UI: 75/76 XAML sai vị trí copyright block (bổ sung 2026-07-02)
+- Audit UI Lumina (`dev/audit_ui.py`): copyright TextBlock đang nhúng trong status bar/StackPanel thay vì snippet chuẩn (overlay con trực tiếp của root Grid, `Grid.RowSpan/ColumnSpan="99"`) theo `ui-design-standard.md`.
+- Các hạng mục UI khác đều đạt: palette Lumina (trừ F8), font, WindowChrome, glyph, shared styles, không dot-notation.
+- **Hành động**: chuẩn hoá hàng loạt bằng script — kế hoạch chi tiết tại `dev/plan/phase-2-ui-consistency.md`. KHÔNG sửa 2 file UI-locked (`DWGManagement.xaml`, `ExportManager.xaml`).
+
+### 🟡 F8 — T3LabAssistant.xaml sót palette Terra cũ
+- `#15803D` (Terra success) ×1, `#166534` (Terra success hover) ×1 → migrate sang `#10B981` / `#059669`.
+
+### 🟠 F9 — Mở rộng F4: thêm dead code phát hiện sau (bổ sung 2026-07-02)
+- XAML mồ côi thêm: `InPlaceModelRename.xaml`, `InPlaceModelSettings.xaml`, `ParaSync.xaml` (tổng 15 file).
+- 6 dialog trung gian **không pushbutton nào gọi tới**: `DatumManagerDialog.py` (+`DatumManager.xaml`), `FamilyBatchCreatorDialog.py`, `OpeningAssignValuesDialog.py`, `SheetHubDialog.py`, `ViewHubDialog.py`, `ViewTemplateDialog.py` (+2 XAML).
+- Danh sách archive đầy đủ: `dev/plan/phase-1-cleanup-fixes.md`.
 
 ---
 
