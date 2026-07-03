@@ -1191,10 +1191,10 @@
                                Foreground="#18181B" Margin="0,16,0,6"/>
                     <DataGrid x:Name="dg_preview"
                               Background="White"
-                              BorderBrush="#E4E4E7"
+                              BorderBrush="#E2E8F0"
                               BorderThickness="1"
                               AutoGenerateColumns="False"
-                              AlternatingRowBackground="#F4F4F6"
+                              AlternatingRowBackground="#F8FAFC"
                               CanUserAddRows="False"
                               IsReadOnly="True"
                               Height="180"
@@ -1204,15 +1204,17 @@
                               RowHeight="28"
                               FontFamily="Inter"
                               FontSize="12"
+                              Foreground="#27272A"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Auto">
                         <DataGrid.ColumnHeaderStyle>
                             <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Background" Value="#F4F4F6"/>
-                                <Setter Property="Foreground" Value="#18181B"/>
-                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Setter Property="Background" Value="#FFFFFF"/>
+                                <Setter Property="Foreground" Value="#9A9AA2"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="FontSize" Value="11"/>
                                 <Setter Property="Height" Value="34"/>
-                                <Setter Property="BorderBrush" Value="#E4E4E7"/>
+                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
                                 <Setter Property="BorderThickness" Value="0,0,0,1"/>
                                 <Setter Property="Padding" Value="8,0"/>
                             </Style>

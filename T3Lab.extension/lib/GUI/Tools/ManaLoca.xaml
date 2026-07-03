@@ -1490,7 +1490,7 @@
                                   AlternatingRowBackground="#F8FAFC"
                                   GridLinesVisibility="Horizontal"
                                   HorizontalGridLinesBrush="#F1F5F9"
-                                  FontFamily="Hanken Grotesk" FontSize="12"
+                                  FontFamily="Hanken Grotesk" FontSize="12" Foreground="#27272A"
                                   ScrollViewer.VerticalScrollBarVisibility="Auto"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto">
                             <DataGrid.ColumnHeaderStyle>
@@ -1510,7 +1510,7 @@
                                     <Setter Property="VerticalAlignment" Value="Center"/>
                                     <Style.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Background" Value="#F8FAFC"/>
+                                            <Setter Property="Background" Value="#F1F5F9"/>
                                         </Trigger>
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter Property="Background" Value="#E2E8F0"/>

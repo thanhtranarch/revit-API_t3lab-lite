@@ -1495,8 +1495,9 @@
                                           AutoGenerateColumns="False" CanUserAddRows="False"
                                           Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
                                           AlternatingRowBackground="#F8FAFC" FontFamily="Inter" FontSize="12"
+                                          Foreground="#27272A"
                                           HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                          HorizontalGridLinesBrush="#EFF2F2" SelectionMode="Extended"
+                                          HorizontalGridLinesBrush="#F1F5F9" SelectionMode="Extended"
                                           VerticalScrollBarVisibility="Auto">
                                     <DataGrid.ColumnHeaderStyle>
                                         <Style TargetType="DataGridColumnHeader">

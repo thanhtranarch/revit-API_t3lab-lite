@@ -1354,7 +1354,7 @@
                             <DataGrid x:Name="blocks_grid" Grid.Row="3" Margin="16,6,16,0"
                                       AutoGenerateColumns="False" CanUserAddRows="False"
                                       Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                      AlternatingRowBackground="#F8FAFC" FontFamily="Hanken Grotesk" FontSize="12"
+                                      AlternatingRowBackground="#F8FAFC" FontFamily="Hanken Grotesk" FontSize="12" Foreground="#27272A"
                                       HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                                       HorizontalGridLinesBrush="#F1F5F9" SelectionMode="Single"
                                       VerticalScrollBarVisibility="Auto">

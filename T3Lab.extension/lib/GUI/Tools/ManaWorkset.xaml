@@ -1348,6 +1348,7 @@
                                           CanUserDeleteRows="False"
                                           SelectionMode="Extended"
                                           GridLinesVisibility="Horizontal"
+                                          HorizontalGridLinesBrush="#F1F5F9"
                                           AlternatingRowBackground="#F8FAFC"
                                           Background="White"
                                           BorderBrush="#E2E8F0"
@@ -1356,6 +1357,7 @@
                                           HeadersVisibility="Column"
                                           FontFamily="Hanken Grotesk"
                                           FontSize="12"
+                                          Foreground="#27272A"
                                           IsReadOnly="True">
 
                                     <DataGrid.ColumnHeaderStyle>
@@ -1376,7 +1378,7 @@
                                         <Style TargetType="DataGridRow">
                                             <Style.Triggers>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#F8FAFC"/>
+                                                    <Setter Property="Background" Value="#F1F5F9"/>
                                                 </Trigger>
                                                 <Trigger Property="IsSelected" Value="True">
                                                     <Setter Property="Background" Value="#E2E8F0"/>

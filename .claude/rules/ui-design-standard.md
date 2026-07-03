@@ -173,12 +173,37 @@ to white on its red hover.
 
 ## DataGrid Style
 
+> Ground truth is the `sample_grid` DataGrid in `UIStandardShowcase.xaml` (search `DataGrid standard style`).
+> This section previously listed stale values (Header `Background="#F8FAFC"`, `Foreground="#0F172A"`,
+> `FontWeight="SemiBold"`, `Height="34"`) that never matched the canonical showcase file — corrected below,
+> same class of doc drift as the copyright-placement and title-bar-wordmark fixes above.
+
 - `Background="White"`, `BorderBrush="#E2E8F0"`, `BorderThickness="1"`
-- `AlternatingRowBackground="#F8FAFC"`, `FontFamily="Inter"`, `FontSize="12"`
+- `AlternatingRowBackground="#F8FAFC"`, `FontFamily="Hanken Grotesk"` (or `"Inter"` as fallback), `FontSize="13.5"`, `Foreground="#27272A"`
 - `GridLinesVisibility="Horizontal"`, `HorizontalGridLinesBrush="#F1F5F9"`
-- Headers: `Background="#F8FAFC"`, `Foreground="#0F172A"`, `FontWeight="SemiBold"`, `Height="34"`, `BorderBrush="#E2E8F0"`
+- Headers (`DataGrid.Resources` or `DataGrid.ColumnHeaderStyle`, both valid): `Background="#FFFFFF"`, `Foreground="#9A9AA2"`, `FontWeight="Bold"`, `FontSize="11"`, `Padding="10,8"`, `BorderBrush="#E2E8F0"`, `BorderThickness="0,0,0,1"`
 - Row hover: `#F1F5F9`
 - Row selected: `#E2E8F0`
+
+```xml
+<DataGrid AutoGenerateColumns="False"
+          Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+          GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F1F5F9"
+          RowBackground="White" AlternatingRowBackground="#F8FAFC"
+          FontFamily="Hanken Grotesk" FontSize="13.5" Foreground="#27272A">
+    <DataGrid.Resources>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#FFFFFF"/>
+            <Setter Property="Foreground" Value="#9A9AA2"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+        </Style>
+    </DataGrid.Resources>
+</DataGrid>
+```
 
 ## Info / Tip Box
 
