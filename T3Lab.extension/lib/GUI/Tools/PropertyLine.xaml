@@ -1704,13 +1704,6 @@
                                        FontWeight="Bold"/>
                         </StackPanel>
                     </Button>
-
-                    <Button x:Name="btn_cancel"
-                            Content="Close"
-                            Width="90"
-                            Style="{StaticResource SecondaryButton}"
-                            Click="btn_close_Click"
-                            Margin="0,0,0,0"/>
                 </StackPanel>
             </Grid>
         </Border>
