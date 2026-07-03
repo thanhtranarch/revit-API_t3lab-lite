@@ -1473,9 +1473,6 @@
                                         <TextBox x:Name="tb_search" Width="250" Height="30" Style="{StaticResource T3InputFieldSmall}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,16,0">
-                                        <Button x:Name="btn_refresh" Width="32" Height="30" Margin="0,0,8,0" Style="{StaticResource SecondaryButton}" ToolTip="Refresh DataGrid">
-                                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        </Button>
                                         <Button x:Name="btn_export_list" Content="Export List" Height="30" Style="{StaticResource SecondaryButton}" Padding="10,2" FontSize="11"/>
                                     </StackPanel>
                                     <Border Height="1" VerticalAlignment="Bottom" Background="#E2E8F0" Grid.ColumnSpan="3"/>

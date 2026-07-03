@@ -373,7 +373,6 @@ class ManaFamiWindow(forms.WPFWindow):
 
         # Management workspace area
         self.tb_search = self.FindName('tb_search')
-        self.btn_refresh = self.FindName('btn_refresh')
         self.btn_export_list = self.FindName('btn_export_list')
         self.dg_families = self.FindName('dg_families')
         self.btn_select_all_mgmt = self.FindName('btn_select_all_mgmt')
@@ -423,7 +422,6 @@ class ManaFamiWindow(forms.WPFWindow):
         self.btn_case_sentence.Click += self.case_sentence_click
         self.btn_clear_settings.Click += self.clear_settings_click
         self.tb_search.TextChanged += self.search_changed
-        self.btn_refresh.Click += self.refresh_click
         self.btn_export_list.Click += self.export_list_click
         self.btn_select_all_mgmt.Click += self.select_all_click
         self.btn_deselect_all_mgmt.Click += self.deselect_all_click
@@ -439,8 +437,9 @@ class ManaFamiWindow(forms.WPFWindow):
 
     def window_loaded(self, sender, e):
         """Restore saved folder, load worksets, and refresh grid data"""
+        # Loader setup — isolated in its own try so a folder-scan failure
+        # can never block the Management tab's project data below.
         try:
-            # Loader setup
             saved_folder = self.config.get('last_folder', '')
             if saved_folder and os.path.exists(saved_folder):
                 self.current_folder = saved_folder
@@ -448,13 +447,19 @@ class ManaFamiWindow(forms.WPFWindow):
                 self.scan_families()
             else:
                 self.txt_current_folder.Text = "Click 'Update Folder' to select a folder or switch to Cloud mode"
-            
-            # Management setup
+        except Exception as ex:
+            logger.error("Error loading saved folder: {}".format(ex))
+
+        # Management setup — always runs even if the Loader setup above
+        # failed; surfaces failures in the status bar instead of staying
+        # silently empty.
+        try:
             self._load_worksets()
             self._refresh_data()
             self._update_counts()
         except Exception as ex:
-            logger.error("Error in window_loaded: {}".format(ex))
+            logger.error("Error refreshing project data: {}".format(ex))
+            self.status_text.Text = "Failed to load data from the project: {}".format(ex)
 
     # NAVIGATION ROUTING
     # ==============================================================================
@@ -1118,10 +1123,6 @@ class ManaFamiWindow(forms.WPFWindow):
 
     def search_changed(self, sender, e):
         self._apply_filter()
-
-    def refresh_click(self, sender, e):
-        self._refresh_data()
-        self.status_text.Text = "Data refreshed from Revit."
 
     def select_all_click(self, sender, e):
         for r in self._visible_rows:
