@@ -247,66 +247,76 @@ def get_levels(doc):
 # ===========================================================================
 
 def get_cad_layers_wall(doc, cad_instance):
-    """Return sorted list of layer names present in a CAD instance."""
-    layers = set()
+    """Return sorted list of every layer defined on the CAD instance (not just ones with detected geometry)."""
+    layers = []
     try:
-        geo_elem = cad_instance.get_Geometry(DB.Options())
-        if geo_elem is None:
-            return sorted(list(layers))
-        for geo_obj in geo_elem:
-            if isinstance(geo_obj, DB.GeometryInstance):
-                sub_geo = geo_obj.GetInstanceGeometry()
-                if sub_geo:
-                    for sub_obj in sub_geo:
-                        try:
-                            gstyle = doc.GetElement(sub_obj.GraphicsStyleId)
-                            if gstyle:
-                                cat = gstyle.GraphicsStyleCategory
-                                if cat:
-                                    layers.add(cat.Name)
-                        except Exception:
-                            pass
+        import_cat = cad_instance.Category
+        for sc in import_cat.SubCategories:
+            try:
+                layers.append(sc.Name)
+            except Exception:
+                pass
     except Exception:
         pass
-    return sorted(list(layers))
+    return sorted(layers)
 
 
 def extract_lines_from_cad(doc, cad_instance, selected_layers):
-    """Extract line segments from a CAD instance on the given layers."""
+    """Extract line segments from a CAD instance on the given layers.
+
+    Recurses to arbitrary depth through nested DB.GeometryInstance objects
+    (CAD blocks nested inside other blocks). No manual Transform is applied
+    at any depth: GeometryInstance.GetInstanceGeometry() already returns
+    geometry pre-transformed into the coordinate system of its immediate
+    container, so repeatedly calling it while descending already yields
+    fully-composed document-space coordinates at any nesting level (matching
+    the original single-level implementation's behavior, which never applied
+    a transform either). A previous revision of this function re-applied
+    each nested instance's own .Transform via CreateTransformed()/OfPoint(),
+    which double-transforms geometry whenever the CAD import itself has a
+    non-identity placement transform (rotated/offset to match site
+    coordinates) — walls still got created, just silently shifted/rotated
+    away from their real position. Do not reintroduce that.
+    """
     lines = []
     selected_set = set(selected_layers)
+
+    def scan_geo(geo_iterable):
+        for sub_obj in geo_iterable:
+            if isinstance(sub_obj, DB.GeometryInstance):
+                sub_geo = sub_obj.GetInstanceGeometry()
+                if sub_geo:
+                    scan_geo(sub_geo)
+                continue
+            try:
+                layer_name = ""
+                gstyle = doc.GetElement(sub_obj.GraphicsStyleId)
+                if gstyle:
+                    cat = gstyle.GraphicsStyleCategory
+                    if cat:
+                        layer_name = cat.Name
+                if layer_name not in selected_set:
+                    continue
+                if isinstance(sub_obj, DB.Line):
+                    p0 = sub_obj.GetEndPoint(0)
+                    p1 = sub_obj.GetEndPoint(1)
+                    if p0.DistanceTo(p1) > TOLERANCE:
+                        lines.append({"start": p0, "end": p1, "layer": layer_name})
+                elif isinstance(sub_obj, DB.PolyLine):
+                    coords = sub_obj.GetCoordinates()
+                    for i in range(len(coords) - 1):
+                        p0 = coords[i]
+                        p1 = coords[i + 1]
+                        if p0.DistanceTo(p1) > TOLERANCE:
+                            lines.append({"start": p0, "end": p1, "layer": layer_name})
+            except Exception:
+                pass
+
     try:
         geo_elem = cad_instance.get_Geometry(DB.Options())
         if geo_elem is None:
             return lines
-        for geo_obj in geo_elem:
-            if isinstance(geo_obj, DB.GeometryInstance):
-                sub_geo = geo_obj.GetInstanceGeometry()
-                if sub_geo:
-                    for sub_obj in sub_geo:
-                        try:
-                            layer_name = ""
-                            gstyle = doc.GetElement(sub_obj.GraphicsStyleId)
-                            if gstyle:
-                                cat = gstyle.GraphicsStyleCategory
-                                if cat:
-                                    layer_name = cat.Name
-                            if layer_name not in selected_set:
-                                continue
-                            if isinstance(sub_obj, DB.Line):
-                                p0 = sub_obj.GetEndPoint(0)
-                                p1 = sub_obj.GetEndPoint(1)
-                                if p0.DistanceTo(p1) > TOLERANCE:
-                                    lines.append({"start": p0, "end": p1, "layer": layer_name})
-                            elif isinstance(sub_obj, DB.PolyLine):
-                                coords = sub_obj.GetCoordinates()
-                                for i in range(len(coords) - 1):
-                                    p0 = coords[i]
-                                    p1 = coords[i + 1]
-                                    if p0.DistanceTo(p1) > TOLERANCE:
-                                        lines.append({"start": p0, "end": p1, "layer": layer_name})
-                        except Exception:
-                            pass
+        scan_geo(geo_elem)
     except Exception as ex:
         print("Error extracting CAD lines: {}".format(str(ex)))
     return lines
@@ -668,10 +678,15 @@ def create_walls_auto(doc, centerlines, unpaired, level_id, height, use_unpaired
                 except Exception:
                     failed += 1
 
-        t.Commit()
+        status = t.Commit()
+        if status != DB.TransactionStatus.Committed:
+            print("Wall transaction did not commit, status: {}".format(status))
+            return 0, created + failed, skipped, []
     except Exception as ex:
-        t.RollBack()
+        if t.HasStarted() and not t.HasEnded():
+            t.RollBack()
         print("Wall transaction error: {}".format(str(ex)))
+        return 0, created + failed, skipped, []
 
     return created, failed, skipped, types_created
 
@@ -746,6 +761,17 @@ def get_cad_layer_geometry_floor(doc, cad_instance):
                         _process_geom_obj_floor(sub_obj, layers, layer_name)
             else:
                 _process_geom_obj_floor(geom_obj, layers, "Default")
+    except Exception:
+        pass
+
+    try:
+        import_cat = cad_instance.Category
+        for sc in import_cat.SubCategories:
+            try:
+                if sc.Name not in layers:
+                    layers[sc.Name] = {"curves": [], "closed_loops": [], "all_curves_count": 0}
+            except Exception:
+                pass
     except Exception:
         pass
     return layers
@@ -935,6 +961,25 @@ def create_part_from_loop(doc, curve_loop, category_bic, level_id, thickness_mm=
     except Exception:
         pass
     return None
+
+
+def build_rect_loop_from_centerline(start_xyz, end_xyz, half_width_ft):
+    """Build a closed rectangular CurveLoop by offsetting a centerline segment
+    perpendicular by half_width_ft on each side. start_xyz/end_xyz must already
+    be at the same Z (the loop is flat)."""
+    direction = (end_xyz - start_xyz).Normalize()
+    perp = DB.XYZ(-direction.Y, direction.X, 0).Normalize()
+    offset = perp.Multiply(half_width_ft)
+    p1 = start_xyz + offset
+    p2 = end_xyz + offset
+    p3 = end_xyz - offset
+    p4 = start_xyz - offset
+    loop = DB.CurveLoop()
+    loop.Append(DB.Line.CreateBound(p1, p2))
+    loop.Append(DB.Line.CreateBound(p2, p3))
+    loop.Append(DB.Line.CreateBound(p3, p4))
+    loop.Append(DB.Line.CreateBound(p4, p1))
+    return loop
 
 
 # ===========================================================================
@@ -2150,7 +2195,7 @@ class _CADtoBeamWindow(forms.WPFWindow):
                 beam = self.doc.Create.NewFamilyInstance(
                     beam_line, fam_sym, level, DB.Structure.StructuralType.Beam)
 
-                p_offset = beam.get_Parameter(DB.BuiltInParameter.STRUCTURAL_BEAM_Z_OFFSET_VALUE)
+                p_offset = beam.get_Parameter(DB.BuiltInParameter.Z_OFFSET_VALUE)
                 if p_offset:
                     p_offset.Set(default_z_offset * MM_TO_FT)
 
@@ -2213,6 +2258,7 @@ class CADToElementsWindow(forms.WPFWindow):
         self._ds_categories = []  # list of dicts from get_ds_categories()
         self._family_names = []   # beam family names (strings)
         self._beam_cad_layers = []  # beam layer names from current CAD
+        self._beam_layer_checkboxes = {}   # name -> CheckBox
 
         # Wall layer state
         self._wall_layer_checkboxes = {}   # name -> CheckBox
@@ -2235,6 +2281,8 @@ class CADToElementsWindow(forms.WPFWindow):
         self.btn_wall_select_all.Click += self._on_wall_select_all
         self.btn_wall_clear.Click += self._on_wall_clear
         self.txt_layer_search.TextChanged += self._on_wall_search_changed
+        self.rb_wall_mode.Checked += self._on_wall_mode_changed
+        self.rb_wall_part_mode.Checked += self._on_wall_mode_changed
 
         # Wire floor helpers
         self.btn_floor_select_all.Click += self._on_floor_select_all
@@ -2242,6 +2290,13 @@ class CADToElementsWindow(forms.WPFWindow):
         self.txt_floor_layer_search.TextChanged += self._on_floor_search_changed
         self.rb_floor_mode.Checked += self._on_floor_mode_changed
         self.rb_part_mode.Checked += self._on_floor_mode_changed
+
+        # Wire beam helpers
+        self.btn_beam_select_all.Click += self._on_beam_select_all
+        self.btn_beam_clear.Click += self._on_beam_clear
+        self.txt_beam_layer_search.TextChanged += self._on_beam_search_changed
+        self.rb_beam_mode.Checked += self._on_beam_mode_changed
+        self.rb_beam_part_mode.Checked += self._on_beam_mode_changed
 
         # Wire window chrome
         self.btn_minimize.Click += self._on_minimize
@@ -2326,13 +2381,15 @@ class CADToElementsWindow(forms.WPFWindow):
 
     def _populate_ds_categories(self):
         self._ds_categories = get_ds_categories()
-        self.cmb_part_category.Items.Clear()
-        for cat in self._ds_categories:
-            item = ComboBoxItem()
-            item.Content = cat["name"]
-            self.cmb_part_category.Items.Add(item)
-        if self._ds_categories:
-            self.cmb_part_category.SelectedIndex = 0
+        for combo in (self.cmb_part_category, self.cmb_wall_part_category,
+                      self.cmb_beam_part_category):
+            combo.Items.Clear()
+            for cat in self._ds_categories:
+                item = ComboBoxItem()
+                item.Content = cat["name"]
+                combo.Items.Add(item)
+            if self._ds_categories:
+                combo.SelectedIndex = 0
 
     def _populate_beam_families(self):
         try:
@@ -2358,10 +2415,10 @@ class CADToElementsWindow(forms.WPFWindow):
     def _switch_type(self, type_name):
         self._active_type = type_name
         bc = BrushConverter()
-        active_bg = bc.ConvertFromString("#3B82F6")
+        active_bg = bc.ConvertFromString("#18181B")
         active_fg = bc.ConvertFromString("#FFFFFF")
         inactive_bg = bc.ConvertFromString("Transparent")
-        inactive_fg = bc.ConvertFromString("#64748B")
+        inactive_fg = bc.ConvertFromString("#71717A")
 
         # Reset all three buttons then activate the chosen one
         for btn, key in [
@@ -2409,6 +2466,34 @@ class CADToElementsWindow(forms.WPFWindow):
             else:
                 self.pnl_part_category.Visibility = Visibility.Visible
                 self.pnl_part_thickness.Visibility = Visibility.Visible
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Wall mode toggle (Wall / Part)
+    # ------------------------------------------------------------------
+
+    def _on_wall_mode_changed(self, sender, e):
+        try:
+            is_wall_mode = safe_bool(self.rb_wall_mode.IsChecked)
+            if is_wall_mode:
+                self.pnl_wall_part_category.Visibility = Visibility.Collapsed
+            else:
+                self.pnl_wall_part_category.Visibility = Visibility.Visible
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # Beam mode toggle (Beam / Part)
+    # ------------------------------------------------------------------
+
+    def _on_beam_mode_changed(self, sender, e):
+        try:
+            is_beam_mode = safe_bool(self.rb_beam_mode.IsChecked)
+            if is_beam_mode:
+                self.pnl_beam_part_category.Visibility = Visibility.Collapsed
+            else:
+                self.pnl_beam_part_category.Visibility = Visibility.Visible
         except Exception:
             pass
 
@@ -2487,6 +2572,13 @@ class CADToElementsWindow(forms.WPFWindow):
 
     def _on_wall_search_changed(self, sender, e):
         try:
+            if self.txt_layer_search.Text:
+                self.lbl_wall_search_placeholder.Visibility = Visibility.Collapsed
+            else:
+                self.lbl_wall_search_placeholder.Visibility = Visibility.Visible
+        except Exception:
+            pass
+        try:
             txt = self.txt_layer_search.Text.strip().lower()
         except Exception:
             return
@@ -2529,7 +2621,6 @@ class CADToElementsWindow(forms.WPFWindow):
             self._set_status("Error scanning floor layers: {}".format(str(ex)))
             return
         self._build_floor_layer_panel()
-        self._update_floor_stats()
         total_closed = sum(ld.closed_count for ld in self._floor_layer_data)
         self._set_status("Found {} floor layers with {} closed loops.".format(
             len(self._floor_layer_data), total_closed))
@@ -2587,25 +2678,11 @@ class CADToElementsWindow(forms.WPFWindow):
             def make_chk_handler(layer_data, checkbox):
                 def handler(s, args):
                     layer_data.is_selected = safe_bool(checkbox.IsChecked)
-                    self._update_floor_stats()
                 return handler
 
             h = make_chk_handler(ld, cb)
             cb.Checked += h
             cb.Unchecked += h
-
-    def _update_floor_stats(self):
-        total = len(self._floor_layer_data)
-        selected = sum(1 for _, ld in self._floor_layer_checkboxes if ld.is_selected)
-        total_closed = sum(ld.closed_count for ld in self._floor_layer_data)
-        selected_closed = sum(ld.closed_count for _, ld in self._floor_layer_checkboxes
-                              if ld.is_selected)
-        try:
-            self.txt_floor_total_layers.Text = str(total)
-            self.txt_floor_selected.Text = str(selected)
-            self.txt_floor_loops.Text = str(selected_closed)
-        except Exception:
-            pass
 
     def _on_floor_select_all(self, sender, e):
         for cb, ld in self._floor_layer_checkboxes:
@@ -2614,7 +2691,6 @@ class CADToElementsWindow(forms.WPFWindow):
             except Exception:
                 pass
             ld.is_selected = True
-        self._update_floor_stats()
 
     def _on_floor_clear(self, sender, e):
         for cb, ld in self._floor_layer_checkboxes:
@@ -2623,9 +2699,15 @@ class CADToElementsWindow(forms.WPFWindow):
             except Exception:
                 pass
             ld.is_selected = False
-        self._update_floor_stats()
 
     def _on_floor_search_changed(self, sender, e):
+        try:
+            if self.txt_floor_layer_search.Text:
+                self.lbl_floor_search_placeholder.Visibility = Visibility.Collapsed
+            else:
+                self.lbl_floor_search_placeholder.Visibility = Visibility.Visible
+        except Exception:
+            pass
         try:
             txt = self.txt_floor_layer_search.Text
         except Exception:
@@ -2649,14 +2731,78 @@ class CADToElementsWindow(forms.WPFWindow):
         except Exception as ex:
             self._set_status("Error scanning beam layers: {}".format(str(ex)))
             return
-        self.cb_layers.Items.Clear()
-        for ln in self._beam_cad_layers:
-            item = ComboBoxItem()
-            item.Content = ln
-            self.cb_layers.Items.Add(item)
-        if self._beam_cad_layers:
-            self.cb_layers.SelectedIndex = 0
+        self._build_beam_layer_panel(self._beam_cad_layers)
         self._set_status("{} beam layers found.".format(len(self._beam_cad_layers)))
+
+    def _build_beam_layer_panel(self, layers):
+        self.pnl_beam_layers.Children.Clear()
+        self._beam_layer_checkboxes = {}
+        if not layers:
+            tb = TextBlock()
+            tb.Text = "No layers found"
+            tb.FontSize = 11
+            tb.Margin = Thickness(8, 8, 8, 8)
+            self.pnl_beam_layers.Children.Add(tb)
+            return
+        for layer_name in layers:
+            border = Border()
+            border.Padding = Thickness(8, 4, 8, 4)
+            border.Margin = Thickness(0, 0, 0, 1)
+            border.Tag = layer_name
+            sp = StackPanel()
+            sp.Orientation = Orientation.Horizontal
+            cb = CheckBox()
+            cb.VerticalContentAlignment = VerticalAlignment.Center
+            cb.Margin = Thickness(0, 0, 8, 0)
+            cb.IsChecked = System.Nullable[System.Boolean](False)
+            cb.Tag = layer_name
+            tb = TextBlock()
+            tb.Text = layer_name
+            tb.FontSize = 11
+            tb.VerticalAlignment = VerticalAlignment.Center
+            sp.Children.Add(cb)
+            sp.Children.Add(tb)
+            border.Child = sp
+            self.pnl_beam_layers.Children.Add(border)
+            self._beam_layer_checkboxes[layer_name] = cb
+
+    def _on_beam_select_all(self, sender, e):
+        for cb in self._beam_layer_checkboxes.values():
+            cb.IsChecked = System.Nullable[System.Boolean](True)
+
+    def _on_beam_clear(self, sender, e):
+        for cb in self._beam_layer_checkboxes.values():
+            cb.IsChecked = System.Nullable[System.Boolean](False)
+
+    def _on_beam_search_changed(self, sender, e):
+        try:
+            if self.txt_beam_layer_search.Text:
+                self.lbl_beam_search_placeholder.Visibility = Visibility.Collapsed
+            else:
+                self.lbl_beam_search_placeholder.Visibility = Visibility.Visible
+        except Exception:
+            pass
+        try:
+            txt = self.txt_beam_layer_search.Text.strip().lower()
+        except Exception:
+            return
+        for i in range(self.pnl_beam_layers.Children.Count):
+            child = self.pnl_beam_layers.Children[i]
+            if isinstance(child, Border) and child.Tag is not None:
+                name = str(child.Tag).lower()
+                child.Visibility = (Visibility.Visible
+                                    if not txt or txt in name
+                                    else Visibility.Collapsed)
+
+    def _get_beam_selected_layers(self):
+        selected = []
+        for name, cb in self._beam_layer_checkboxes.items():
+            try:
+                if cb.IsChecked == True:
+                    selected.append(name)
+            except Exception:
+                pass
+        return selected
 
     # ------------------------------------------------------------------
     # Run button dispatcher
@@ -2725,8 +2871,12 @@ class CADToElementsWindow(forms.WPFWindow):
 
         self._set_status("Extracting lines from CAD...")
         try:
-            centerlines, unpaired, raw_count, merged_count = extract_lines_from_cad(
-                self._doc, cad["element"], selected_layers, merge_col)
+            lines = extract_lines_from_cad(self._doc, cad["element"], selected_layers)
+            raw_count = len(lines)
+            if merge_col:
+                lines = merge_collinear_lines(lines)
+            merged_count = len(lines)
+            centerlines, unpaired = find_parallel_pairs(lines)
         except Exception as ex:
             self._set_status("Error extracting lines: {}".format(str(ex)))
             forms.alert("Error extracting lines:\n{}".format(str(ex)), title="CAD to Wall")
@@ -2738,26 +2888,127 @@ class CADToElementsWindow(forms.WPFWindow):
             self._set_status("No lines found.")
             return
 
-        self._set_status("Creating {} walls...".format(total))
+        is_wall_mode = True
         try:
-            created, failed, skipped, types_created = create_walls_auto(
-                self._doc, centerlines, unpaired, lv["id"],
-                height_ft, include_unpaired, default_thk_mm, structural)
-        except Exception as ex:
-            self._set_status("Error creating walls: {}".format(str(ex)))
-            forms.alert("Error creating walls:\n{}".format(str(ex)), title="CAD to Wall")
-            return
+            is_wall_mode = safe_bool(self.rb_wall_mode.IsChecked)
+        except Exception:
+            pass
 
-        msg = "Created: {} walls".format(created)
-        if failed:
-            msg += u" | Failed: {}".format(failed)
-        if skipped:
-            msg += u" | Skipped: {}".format(skipped)
-        self._set_status(msg)
-        forms.alert(
-            u"Created: {}\nFailed: {}\nSkipped: {}\nTypes used: {}".format(
-                created, failed, skipped, len(types_created)),
-            title="CAD to Wall")
+        if is_wall_mode:
+            self._set_status("Creating {} walls...".format(total))
+            try:
+                created, failed, skipped, types_created = create_walls_auto(
+                    self._doc, centerlines, unpaired, lv["id"],
+                    height_ft, include_unpaired, default_thk_mm, structural)
+            except Exception as ex:
+                self._set_status("Error creating walls: {}".format(str(ex)))
+                forms.alert("Error creating walls:\n{}".format(str(ex)), title="CAD to Wall")
+                return
+
+            msg = "Created: {} walls".format(created)
+            if failed:
+                msg += u" | Failed: {}".format(failed)
+            if skipped:
+                msg += u" | Skipped: {}".format(skipped)
+            self._set_status(msg)
+            forms.alert(
+                u"Created: {}\nFailed: {}\nSkipped: {}\nTypes used: {}".format(
+                    created, failed, skipped, len(types_created)),
+                title="CAD to Wall")
+        else:
+            cat_idx = self.cmb_wall_part_category.SelectedIndex
+            if cat_idx < 0 or cat_idx >= len(self._ds_categories):
+                forms.alert("Select a Part Category.", title="CAD to Wall Part")
+                return
+            category_bic = self._ds_categories[cat_idx]["bic"]
+
+            self._set_status("Creating {} wall parts...".format(total))
+            try:
+                created, failed, skipped, category_used = self._create_wall_parts(
+                    centerlines, unpaired, lv["id"], height_ft,
+                    include_unpaired, default_thk_mm, category_bic)
+            except Exception as ex:
+                self._set_status("Error creating wall parts: {}".format(str(ex)))
+                forms.alert("Error creating wall parts:\n{}".format(str(ex)), title="CAD to Wall Part")
+                return
+
+            msg = "Created: {} part(s)".format(created)
+            if failed:
+                msg += u" | Failed: {}".format(failed)
+            if skipped:
+                msg += u" | Skipped: {}".format(skipped)
+            self._set_status(msg)
+            forms.alert(
+                u"Created: {}\nFailed: {}\nSkipped: {}\nCategory: {}".format(
+                    created, failed, skipped, category_used),
+                title="CAD to Wall Part")
+
+    def _create_wall_parts(self, centerlines, unpaired, level_id, height_ft,
+                            use_unpaired, default_thickness_mm, category_bic):
+        """Create DirectShape 'parts' for wall centerlines instead of real Wall
+        elements — mirrors create_walls_auto's grouping/looping structure but
+        extrudes a rectangular footprint upward by the wall height."""
+        created = 0
+        failed = 0
+        skipped = 0
+
+        level = self._doc.GetElement(level_id)
+        level_elev = level.Elevation
+        height_mm = height_ft * FT_TO_MM
+
+        cat_name = category_bic.ToString()
+        for cat in self._ds_categories:
+            if cat["bic"] == category_bic:
+                cat_name = cat["name"]
+                break
+
+        t = Transaction(self._doc, "T3Lab: CAD to Wall Part")
+        t.Start()
+        try:
+            all_lines = list(centerlines)
+            if use_unpaired and unpaired:
+                all_lines = all_lines + list(unpaired)
+
+            for cl in all_lines:
+                try:
+                    s = cl["start"]
+                    e = cl["end"]
+                    start = XYZ(s.X, s.Y, level_elev)
+                    end = XYZ(e.X, e.Y, level_elev)
+                    if start.DistanceTo(end) < TOLERANCE:
+                        skipped += 1
+                        continue
+                    if abs(end.X - start.X) < TOLERANCE and abs(end.Y - start.Y) < TOLERANCE:
+                        skipped += 1
+                        continue
+
+                    thickness_mm = _round_thickness_mm(cl.get("thickness", mm_to_ft(default_thickness_mm)))
+                    if thickness_mm <= 0:
+                        thickness_mm = default_thickness_mm
+                    half_width_ft = mm_to_ft(thickness_mm) / 2.0
+
+                    rect_loop = build_rect_loop_from_centerline(start, end, half_width_ft)
+                    ds = create_part_from_loop(
+                        self._doc, rect_loop, category_bic, level_id,
+                        thickness_mm=height_mm, offset_mm=0)
+                    if ds:
+                        created += 1
+                    else:
+                        failed += 1
+                except Exception:
+                    failed += 1
+
+            status = t.Commit()
+            if status != DB.TransactionStatus.Committed:
+                print("Wall part transaction did not commit, status: {}".format(status))
+                return 0, created + failed, skipped, cat_name
+        except Exception as ex:
+            if t.HasStarted() and not t.HasEnded():
+                t.RollBack()
+            print("Wall part transaction error: {}".format(str(ex)))
+            return 0, created + failed, skipped, cat_name
+
+        return created, failed, skipped, cat_name
 
     # ------------------------------------------------------------------
     # Floor / Part creation
@@ -2844,11 +3095,6 @@ class CADToElementsWindow(forms.WPFWindow):
             forms.alert("Error creating floors:\n{}".format(str(ex)), title="CAD to Floor")
             return
 
-        try:
-            self.txt_floor_created.Text = str(created)
-        except Exception:
-            pass
-
         msg = "Created: {} floor(s), Failed: {}".format(created, failed)
         self._set_status(msg)
         if created > 0:
@@ -2905,11 +3151,6 @@ class CADToElementsWindow(forms.WPFWindow):
             forms.alert("Error creating parts:\n{}".format(str(ex)), title="CAD to Part")
             return
 
-        try:
-            self.txt_floor_created.Text = str(created)
-        except Exception:
-            pass
-
         msg = "Created: {} part(s), Failed: {}".format(created, failed)
         self._set_status(msg)
         if created > 0:
@@ -2928,15 +3169,10 @@ class CADToElementsWindow(forms.WPFWindow):
             return
         cad = self._cad_list[cad_idx]
 
-        layer_item = self.cb_layers.SelectedItem
-        if layer_item is None:
-            forms.alert("Select a layer (click Refresh first).", title="CAD to Beam")
+        selected_layers = self._get_beam_selected_layers()
+        if not selected_layers:
+            forms.alert("Select at least one beam layer (click Refresh first).", title="CAD to Beam")
             return
-        # SelectedItem may be a ComboBoxItem or a raw string
-        try:
-            layer_name = layer_item.Content
-        except Exception:
-            layer_name = str(layer_item)
 
         family_item = self.cb_beam_types.SelectedItem
         if family_item is None:
@@ -2959,75 +3195,143 @@ class CADToElementsWindow(forms.WPFWindow):
         except Exception:
             z_offset_mm = -50.0
 
-        # Find GraphicsStyle ID for the chosen layer
-        beam_gs_id = None
-        try:
-            instance = cad["element"]
-            import_cat = instance.Category
-            for sc in import_cat.SubCategories:
-                if sc.Name == layer_name:
-                    beam_gs_id = sc.GetGraphicsStyle(DB.GraphicsStyleType.Projection).Id
-                    break
-        except Exception:
-            pass
+        instance = cad["element"]
+        import_cat = instance.Category
 
-        if not beam_gs_id:
-            forms.alert(
-                "Could not find GraphicsStyle for layer '{}'.".format(layer_name),
-                title="CAD to Beam")
-            return
-
-        # Extract geometry curves for the layer
-        raw_curves = []
-        try:
-            opt = DB.Options()
-            geom = cad["element"].get_Geometry(opt)
-
-            def scan_geo(geo_iterable, transform=None):
-                for obj in geo_iterable:
-                    if isinstance(obj, DB.GeometryInstance):
-                        scan_geo(obj.GetInstanceGeometry(), obj.Transform)
-                    elif isinstance(obj, (DB.Line, DB.Curve)):
-                        if obj.GraphicsStyleId == beam_gs_id:
-                            if transform:
-                                raw_curves.append(obj.CreateTransformed(transform))
-                            else:
-                                raw_curves.append(obj)
-
-            scan_geo(geom)
-        except Exception as ex:
-            forms.alert("Error extracting geometry:\n{}".format(str(ex)), title="CAD to Beam")
-            return
-
-        # Classify lines as horizontal or vertical
-        lines_h = []
-        lines_v = []
-        for c in raw_curves:
+        # Extract + pair lines across every selected layer, combining into one list
+        all_pairs = []
+        for layer_name in selected_layers:
+            # Find GraphicsStyle ID for this layer
+            beam_gs_id = None
             try:
-                sp = c.GetEndPoint(0)
-                ep = c.GetEndPoint(1)
-                dx = ep.X - sp.X
-                dy = ep.Y - sp.Y
-                length_2d = math.sqrt(dx * dx + dy * dy) * FT_TO_MM
-                if length_2d < 10:
-                    continue
-                angle = abs(math.degrees(math.atan2(dy, dx))) % 180
-                entry = {
-                    "x1": sp.X * FT_TO_MM, "y1": sp.Y * FT_TO_MM,
-                    "x2": ep.X * FT_TO_MM, "y2": ep.Y * FT_TO_MM,
-                    "z": sp.Z * FT_TO_MM, "length": length_2d
-                }
-                if angle < 10 or angle > 170:
-                    lines_h.append(entry)
-                elif 80 < angle < 100:
-                    lines_v.append(entry)
+                for sc in import_cat.SubCategories:
+                    if sc.Name == layer_name:
+                        beam_gs_id = sc.GetGraphicsStyle(DB.GraphicsStyleType.Projection).Id
+                        break
             except Exception:
                 pass
 
-        all_pairs = _pair_lines_h(lines_h) + _pair_lines_v(lines_v)
+            if not beam_gs_id:
+                continue
+
+            # Extract geometry curves for the layer
+            raw_curves = []
+            try:
+                opt = DB.Options()
+                geom = instance.get_Geometry(opt)
+
+                def scan_geo(geo_iterable, transform=None):
+                    for obj in geo_iterable:
+                        if isinstance(obj, DB.GeometryInstance):
+                            scan_geo(obj.GetInstanceGeometry(), obj.Transform)
+                        elif isinstance(obj, (DB.Line, DB.Curve)):
+                            if obj.GraphicsStyleId == beam_gs_id:
+                                if transform:
+                                    raw_curves.append(obj.CreateTransformed(transform))
+                                else:
+                                    raw_curves.append(obj)
+
+                scan_geo(geom)
+            except Exception:
+                continue
+
+            # Classify lines as horizontal or vertical
+            lines_h = []
+            lines_v = []
+            for c in raw_curves:
+                try:
+                    sp = c.GetEndPoint(0)
+                    ep = c.GetEndPoint(1)
+                    dx = ep.X - sp.X
+                    dy = ep.Y - sp.Y
+                    length_2d = math.sqrt(dx * dx + dy * dy) * FT_TO_MM
+                    if length_2d < 10:
+                        continue
+                    angle = abs(math.degrees(math.atan2(dy, dx))) % 180
+                    entry = {
+                        "x1": sp.X * FT_TO_MM, "y1": sp.Y * FT_TO_MM,
+                        "x2": ep.X * FT_TO_MM, "y2": ep.Y * FT_TO_MM,
+                        "z": sp.Z * FT_TO_MM, "length": length_2d
+                    }
+                    if angle < 10 or angle > 170:
+                        lines_h.append(entry)
+                    elif 80 < angle < 100:
+                        lines_v.append(entry)
+                except Exception:
+                    pass
+
+            all_pairs.extend(_pair_lines_h(lines_h) + _pair_lines_v(lines_v))
+
         if not all_pairs:
-            forms.alert("No parallel pairs found in layer '{}'.".format(layer_name),
+            forms.alert("No parallel pairs found in the selected layer(s).",
                         title="CAD to Beam")
+            return
+
+        is_beam_mode = True
+        try:
+            is_beam_mode = safe_bool(self.rb_beam_mode.IsChecked)
+        except Exception:
+            pass
+
+        if not is_beam_mode:
+            cat_idx = self.cmb_beam_part_category.SelectedIndex
+            if cat_idx < 0 or cat_idx >= len(self._ds_categories):
+                forms.alert("Select a Part Category.", title="CAD to Beam Part")
+                return
+            category_bic = self._ds_categories[cat_idx]["bic"]
+            cat_name = self._ds_categories[cat_idx]["name"]
+
+            self._set_status("Creating {} beam parts...".format(len(all_pairs)))
+
+            t = Transaction(self._doc, "T3Lab: CAD to Beam Part")
+            t.Start()
+            try:
+                created = 0
+                failed = 0
+                for p in all_pairs:
+                    try:
+                        width_rounded = round(p["width"] / 50) * 50
+                        height_mm = _get_height_for_width(width_rounded)
+
+                        z_ft = level.Elevation + (z_offset_mm * MM_TO_FT)
+
+                        if p["dir"] == "H":
+                            sp_pt = DB.XYZ(p["main_s"] * MM_TO_FT, p["perp"] * MM_TO_FT, z_ft)
+                            ep_pt = DB.XYZ(p["main_e"] * MM_TO_FT, p["perp"] * MM_TO_FT, z_ft)
+                        else:
+                            sp_pt = DB.XYZ(p["perp"] * MM_TO_FT, p["main_s"] * MM_TO_FT, z_ft)
+                            ep_pt = DB.XYZ(p["perp"] * MM_TO_FT, p["main_e"] * MM_TO_FT, z_ft)
+
+                        if sp_pt.DistanceTo(ep_pt) < 0.1:
+                            continue
+
+                        half_width_ft = mm_to_ft(width_rounded) / 2.0
+                        rect_loop = build_rect_loop_from_centerline(sp_pt, ep_pt, half_width_ft)
+                        ds = create_part_from_loop(
+                            self._doc, rect_loop, category_bic, lv_dict["id"],
+                            thickness_mm=height_mm, offset_mm=0)
+                        if ds:
+                            created += 1
+                        else:
+                            failed += 1
+                    except Exception:
+                        failed += 1
+
+                status = t.Commit()
+                if status != DB.TransactionStatus.Committed:
+                    self._set_status("Beam part transaction did not commit, status: {}".format(status))
+                    forms.alert("Beam part transaction did not commit.", title="CAD to Beam Part")
+                    return
+            except Exception as ex:
+                if t.HasStarted() and not t.HasEnded():
+                    t.RollBack()
+                self._set_status("Error creating beam parts: {}".format(str(ex)))
+                forms.alert("Error creating beam parts:\n{}".format(str(ex)), title="CAD to Beam Part")
+                return
+
+            msg = "Created: {} part(s) | Failed: {} | Category: {}".format(created, failed, cat_name)
+            self._set_status(msg)
+            forms.alert(msg, title="CAD to Beam Part")
             return
 
         self._set_status("Creating {} beams...".format(len(all_pairs)))
@@ -3061,7 +3365,7 @@ class CADToElementsWindow(forms.WPFWindow):
                 beam = self._doc.Create.NewFamilyInstance(
                     beam_line, fam_sym, level, DB.Structure.StructuralType.Beam)
 
-                p_offset = beam.get_Parameter(DB.BuiltInParameter.STRUCTURAL_BEAM_Z_OFFSET_VALUE)
+                p_offset = beam.get_Parameter(DB.BuiltInParameter.Z_OFFSET_VALUE)
                 if p_offset:
                     p_offset.Set(z_offset_mm * MM_TO_FT)
 

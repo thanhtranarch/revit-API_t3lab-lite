@@ -7,15 +7,24 @@
 ## Ngày 6 — Nhóm Create (7 tool)
 
 ### Tool 1/7 — CADToElements
-Chain: launcher → `CADToElementsDialog.py` (3143 loc) → `CADToElements.xaml` + 4 XAML con (CADtoBeam / CadtoFloor / CadtoFloorLayerItem / CadtoWall)
+Chain: launcher → `CADToElementsDialog.py` (3143+ loc) → `CADToElements.xaml` + 4 XAML con (CADtoBeam / CadtoFloor / CadtoFloorLayerItem / CadtoWall)
 
-- [ ] Mở cửa sổ chính + từng flow con (Wall / Floor / Beam) không lỗi XAML
-- [ ] Import DWG mẫu → convert Wall theo layer → wall tạo đúng vị trí/đơn vị
-- [ ] Convert Floor (có layer item list — CadtoFloorLayerItem variant B load đúng)
-- [ ] Convert Beam
-- [ ] DWG không có layer khớp → thông báo, không crash
-- [ ] Ctrl+Z sau mỗi convert → revert 1 bước
-- [ ] Ghi chú:
+- [x] Mở cửa sổ chính + từng flow con (Wall / Floor / Beam) không lỗi XAML — UI đã sửa lại toàn bộ (sidebar rail + logo, search bar pill, layout card đồng bộ 3 tab, chiều cao cửa sổ) trong phiên debug 2026-07-03
+- [x] Import DWG mẫu → convert Wall theo layer → wall tạo đúng vị trí/đơn vị — user xác nhận "tool ok r" sau khi sửa
+- [x] Convert Floor (có layer item list — CadtoFloorLayerItem variant B load đúng)
+- [x] Convert Beam
+- [ ] DWG không có layer khớp → thông báo, không crash — chưa test riêng edge case này
+- [ ] Ctrl+Z sau mỗi convert → revert 1 bước — chưa test riêng
+- [x] Ghi chú: **Loạt bug functional phát hiện + sửa trong phiên 2026-07-03** (ngoài phạm vi checklist gốc, ghi lại để tham khảo):
+  1. `extract_lines_from_cad()` gọi sai 4 tham số / mong 4 giá trị trả về trong khi hàm chỉ nhận 3 tham số, 1 giá trị — sửa lại đúng chuỗi `extract_lines_from_cad()` → `merge_collinear_lines()` → `find_parallel_pairs()`.
+  2. `get_cad_layers_wall()`/`get_cad_layer_geometry_floor()` chỉ liệt kê layer có geometry phát hiện được (dò 1 lớp GeometryInstance, bỏ sót layer rỗng/lồng block) — đổi Wall sang liệt kê toàn bộ qua `Category.SubCategories` (giống Beam vốn đã đúng); Floor giữ quét geometry nhưng bổ sung layer rỗng vào danh sách.
+  3. `extract_lines_from_cad()` áp `Transform` 2 lần (double-transform) cho block không lồng — gây tường/dầm bị lệch vị trí khi CAD import có transform khác Identity (xoay/lệch theo toạ độ site) — bỏ áp transform thủ công, chỉ đệ quy gọi `GetInstanceGeometry()`.
+  4. `create_walls_auto()` không kiểm tra status trả về của `Transaction.Commit()` — nếu Revit tự rollback mà không throw exception, hàm vẫn báo "Created: N" giả — đã thêm kiểm tra status, báo trung thực.
+  5. Beam: `DB.BuiltInParameter.STRUCTURAL_BEAM_Z_OFFSET_VALUE` không tồn tại (tên enum sai) → crash ngay dầm đầu tiên, rollback toàn bộ, 0 dầm được tạo — sửa thành `Z_OFFSET_VALUE` (đúng tên chuẩn Revit API), sửa ở cả bản mới và class legacy CadtoBeam (dòng ~2198).
+  6. Thêm tính năng mới **Create Mode: Wall/Beam thật ↔ Part (DirectShape)** cho cả Wall và Beam (trước đó chỉ Floor có), dùng chung `create_part_from_loop()` + helper mới `build_rect_loop_from_centerline()`.
+  7. Beam layer picker đổi từ ComboBox chọn 1 layer → bảng checklist đa chọn (Select All/Clear/search) giống Wall/Floor, `_run_beam()` gộp kết quả nhiều layer vào 1 dialog.
+  8. UI: xoá hàng thống kê Floor (4 ô Total/Selected/Closed Loops/Created — không dùng), xoá box "Tip" thừa ở Beam, đồng bộ `MinHeight` card settings giữa 3 tab, tắt scrollbar khu vực content tổng (chỉ còn scrollbar trong bảng CAD Layers).
+  - **Còn nợ, chưa xác nhận trong Revit**: Ctrl+Z revert 1 bước; edge case DWG không có layer khớp; Floor's `get_cad_layer_geometry_floor()` vẫn có bug đệ quy 1-lớp giống Wall từng có (đã tách thành task riêng `task_5c67d3b1`, chưa làm).
 
 ### Tool 2/7 — DoorThreshold
 Chain: self-contained (356 loc, **3 bare except**) → `DoorThreshold.xaml`
@@ -139,7 +148,7 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 
 | # | Tool | Ngày | Trạng thái | Ghi chú |
 |---|------|------|-----------|---------|
-| 1 | CADToElements | 6 | ⬜ | |
+| 1 | CADToElements | 6 | 🔄 | Wall/Floor/Beam tạo đúng, user xác nhận OK (2026-07-03) — còn thiếu test Ctrl+Z revert + edge case DWG không có layer khớp |
 | 2 | DoorThreshold | 6 | ⬜ | |
 | 3 | ImageToDrafting | 6 | ⬜ | |
 | 4 | Text to Element | 6 | ⬜ | |
