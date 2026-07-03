@@ -1827,11 +1827,11 @@
                         <StackPanel>
                             <TextBlock x:Name="sidebar_test_label"
                                        Text="Result" FontSize="10" FontWeight="SemiBold"
-                                       Foreground="#15803D" FontFamily="Hanken Grotesk"
+                                       Foreground="#10B981" FontFamily="Hanken Grotesk"
                                        Margin="0,0,0,4"/>
                             <TextBlock x:Name="sidebar_test_result"
                                        Text="" TextWrapping="Wrap"
-                                       FontSize="11" Foreground="#166534"
+                                       FontSize="11" Foreground="#059669"
                                        FontFamily="Hanken Grotesk" LineHeight="16"/>
                         </StackPanel>
                     </Border>
@@ -2106,7 +2106,7 @@
                         </Button>
                     </Grid>
                 </Border>
-                <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Center" Margin="0,8,0,0" Foreground="#F59E0B" FontSize="11"/>
+                <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Left" Margin="0,8,0,0" Foreground="#F59E0B" FontSize="11"/>
             </StackPanel>
         </Border>
 

@@ -40,7 +40,7 @@ The rest of this document targets **Variant A** unless otherwise noted.
 | Accent (blue)    | `#3B82F6` | Secondary active states, focus borders, primary actions|
 | Success green    | `#10B981` | Success/confirm buttons (hover: `#059669`)              |
 | Danger red       | `#EF4444` | Delete/destructive buttons (hover: `#DC2626`)           |
-| Amber highlight  | `#F59E0B` | Warning labels, highlights, copyright overlay          |
+| Amber highlight  | `#F59E0B` | Warning labels, highlights, copyright (footer left)    |
 | Ink text         | `#0F172A` | Headings, labels, main text                            |
 | Muted text       | `#64748B` | Subtitles, secondary labels, disabled state text       |
 | Faint text       | `#94A3B8` | Placeholders, disabled text                            |
@@ -92,13 +92,12 @@ The rest of this document targets **Variant A** unless otherwise noted.
    </WindowChrome.WindowChrome>
    ```
 3. **Title bar** (Row 0, Height=64): White bg
-   - Left: `T3Lab` (11px Bold `#0F172A`) + Tool Name (18px Bold `#0F172A`)
-   - Below: Separator (1px `#E2E8F0`) + subtitle (10px Italic `#64748B`)
+   - Left: Tool Name (15px Bold `#0F172A`) + Subtitle (12.5px Italic `#64748B`), stacked vertically. No separate "T3Lab" wordmark — confirmed converged codebase pattern (0/50 files, including the canonical `UIStandardShowcase.xaml`, carry a standalone `T3Lab` label in the title bar).
    - Right: Min/Max/Close buttons (Segoe MDL2 Assets glyphs — see table below)
    - Bottom: Border 1px `#E2E8F0`
 4. **Content area** — tool-specific. 16px horizontal margins; 10–12px vertical rhythm between sections.
 5. **Status bar** (last row): `Background="#F8FAFC"`, `BorderBrush="#E2E8F0"`, `BorderThickness="0,1,0,0"`, `Padding="14,8"`
-6. **Copyright overlay** — always before closing root `<Grid>`
+6. **Copyright** — inside the status bar (footer), **left-most element** — see "Copyright Notice" below
 
 ## Shared Styles (single source of truth)
 
@@ -206,16 +205,32 @@ When a tool has multiple steps (BatchOut / TileLayout / ExportManager):
 
 ## Copyright Notice
 
-**Exactly one copyright TextBlock per file**, placed as the **last child of the root `<Grid>`** (immediately before the closing `</Grid>`), using this **verbatim snippet** — same for Variant A and Variant B:
+**Exactly one copyright TextBlock per file**, placed **inside the status bar (footer), as the LEFT-most element** — matching the canonical `UIStandardShowcase.xaml`:
 
 ```xml
-<!-- Copyright added automatically -->
-<TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,14,8" Foreground="#F59E0B" FontSize="11" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"/>
+<!-- Status bar (last row) — Left: Copyright first, then status beside it -->
+<Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,8">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+            <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+            <TextBlock x:Name="status_text" Text="Ready" FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+        </StackPanel>
+        <!-- Grid.Column="1": contextual info / counters (right side) -->
+    </Grid>
+</Border>
 ```
 
-- Do **not** embed it inside the status bar, action bar, or any other content `<Border>` / `<StackPanel>` — it must float as an overlay.
-- `Grid.RowSpan="99"` and `Grid.ColumnSpan="99"` are **required** — without them WPF confines the element to Row 0 only (the 64px title bar), so `VerticalAlignment="Bottom"` lands inside the header instead of the window bottom.
-- Do **not** use `&#169;` — use the literal `©` character.
+Rules:
+- Text is verbatim `© Copyright by T3Lab`, `FontSize="11"`, `Foreground="#F59E0B"` (amber). Use the literal `©` character — never `&#169;`.
+- It is always the **first (left-most) element of the footer**; the status text sits beside it, separated by a 1px vertical divider (`#DCDCE0`, 14px tall, `Margin="12,0,12,0"`).
+- Do **not** right-align or center it, and do **not** float it as an overlay on top of the content area.
+- **Variant B** (`<Grid>` root modal) with no status bar: place the same TextBlock as the last child of the root Grid with `HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="14,0,0,8" IsHitTestVisible="False" Panel.ZIndex="999" Grid.RowSpan="99" Grid.ColumnSpan="99"` (RowSpan/ColumnSpan required so the bottom-left anchor works regardless of row count).
+- Item-template XAML files (root is a list-row `<Border>`/`<DataTemplate>`, e.g. `CadtoFloorLayerItem.xaml`) are **exempt** — no copyright there.
 - Do **not** duplicate it.
 
 ## Common Deviations to Avoid
@@ -224,5 +239,5 @@ When a tool has multiple steps (BatchOut / TileLayout / ExportManager):
 - Single-line `<WindowChrome>` tags (silently drops corner radius).
 - Non-embedded text or wrong Segoe icons on control buttons.
 - Hardcoded button background hexes.
-- Copyright block embedded inside templates instead of direct root Grid child.
+- Copyright block right-aligned, centered, or floating as an overlay instead of sitting at the **left of the status bar (footer)**.
 - **Dot-notation definitions**: Never use `<Grid.ColumnDefinition ... />` or `<Grid.RowDefinition ... />`. Always use standard `<ColumnDefinition ... />` and `<RowDefinition ... />` inside definition blocks. The dot-notation is parsed as an empty property element and will cause the runtime crash `Unexpected 'EMPTYPROPERTYELEMENT'`.

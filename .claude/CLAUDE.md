@@ -11,6 +11,28 @@ Framework: IronPython 2.7 + WPF + Revit API
 - Shared button styles live in `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` and are propagated into every tool XAML with `python3 dev/sync_wpf_styles.py` (`--check` to verify) — never hand-edit the marked style block inside a tool XAML
 - **Path Portability Rule**: All file paths in agent definitions and documentation must be relative to the repository workspace (e.g. `T3Lab.extension/...`) to ensure portability.
 
+## Daily Debug Workflow — lệnh `gd# revitapi`
+
+Kế hoạch debug & UI consistency theo ngày nằm ở `dev/plan/`. **Nguồn trạng thái duy nhất**: bảng "Lịch thực hiện" trong `dev/plan/README.md` + các checkbox `- [ ]`/`- [x]` trong từng file plan.
+
+Khi user chat **`gd<N> revitapi`** (ví dụ `gd1 revitapi`), thực hiện đúng quy trình sau:
+
+1. **Đọc `dev/plan/README.md`** để xác định trạng thái GĐ<N>:
+   | Lệnh | Giai đoạn | Ngày | File plan |
+   |------|-----------|------|-----------|
+   | `gd1 revitapi` | Sửa lỗi tĩnh & dọn dẹp | 1–2 | `dev/plan/phase-1-cleanup-fixes.md` |
+   | `gd2 revitapi` | UI Consistency (Lumina) | 3–4 | `dev/plan/phase-2-ui-consistency.md` |
+   | `gd3 revitapi` | Debug chức năng theo panel | 5–11 | `dev/plan/panel-1..6-*.md` |
+   | `gd4 revitapi` | Regression & tổng kết | 12 | mục cuối `dev/plan/README.md` |
+2. **Nếu GĐ<N> đã hoàn thành** (mọi ngày của nó ✅): báo "GĐ<N> đã thực hiện xong" + tóm tắt kết quả và commit liên quan. KHÔNG làm lại.
+3. **Nếu chưa hoàn thành**: báo "Đang thực hiện GĐ<N>" rồi thực hiện **ngày ⬜ kế tiếp** của giai đoạn đó theo đúng checklist trong file plan. Việc bắt buộc cần Revit (Ngày 4 visual QA, toàn bộ GĐ3 smoke test) thì không tự bịa kết quả — xuất checklist cho user tự test trong Revit, và tick kết quả dựa trên phản hồi user báo lại.
+4. **Sau khi làm xong phần việc**: tick `- [x]` trong file plan, cập nhật bảng tiến độ README (⬜ → 🔄/✅), chạy regression:
+   `python3 dev/audit_tools.py --quiet` · `python3 dev/audit_ui.py --quiet` · `python3 dev/sync_wpf_styles.py --check`
+   rồi commit + push (kèm cả file plan đã tick).
+5. **Luôn kết thúc câu trả lời** bằng danh sách các GĐ còn chưa thực hiện (và GĐ đang dở nếu có).
+
+Lỗi phát sinh ngoài checklist → ghi vào mục "Phát sinh" của file plan tương ứng, không sửa lan man ngoài phạm vi ngày.
+
 ## UI-Frozen Files (DO NOT MODIFY UI)
 
 The following XAML files are **UI-locked** — their visual design is finalized and must never be altered by any UI sweep, agent, or style sync operation. Logic/script changes are still allowed, but the XAML UI must remain untouched:
