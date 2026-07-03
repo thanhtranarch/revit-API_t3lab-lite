@@ -27,7 +27,7 @@ Chain: launcher → `ManaContainsDialog.py` (2204 loc) → `ManaContains.xaml`
 - [ ] Element ngoài room / trên biên → hành vi nhất quán
 - [ ] Element trong **link model** → hoạt động hoặc thông báo giới hạn
 - [ ] Model lớn → đo thời gian, có progress không treo
-- [ ] Ghi chú:
+- [x] Ghi chú: **2026-07-03 (theo screenshot user)** — pyRevit output console bị flood bởi `print("[ManaContains] Skipped spatial element {}: {}"...)` lặp lại liên tục (mỗi room/space bị lỗi in ra 1 dòng). Đã xoá cả 3 chỗ `print()` trong file (2 chỗ "Skipped spatial element" ở `_t1_load_sp`/`_t2_load_spatial`, 1 chỗ "Failed to load" ở `_safe_call`) — except block vẫn skip phần tử lỗi như cũ, chỉ không in ra console nữa. **⚠️ Chưa điều tra nguyên nhân gốc**: log cho thấy rất nhiều spatial element liên tiếp bị skip cùng lỗi "Index was outside the bounds of the array" khi khởi tạo `Tab1SpatialItem`/`Tab2SpatialData` — nghi ngờ đây là bug thật (có thể liên quan Revit 2026 API) khiến danh sách room/space trong tool bị thiếu dữ liệu đáng kể, không chỉ là spam console. Cần điều tra riêng ở GĐ3 khi test functional với model thật.
 
 ## Tool 4/6 — ManaSched
 Chain: launcher → `ManaSchedDialog.py` (1601 loc) → `ManaSched.xaml`
