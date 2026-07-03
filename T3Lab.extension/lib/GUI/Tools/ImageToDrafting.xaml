@@ -1102,22 +1102,13 @@
             <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <TextBlock Text="Image To Drafting" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                <TextBlock Text="Convert images or clipboard screenshots to detail vector lines"
+                <TextBlock Text="Convert images to vector drafting lines"
                            FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <!-- Window Control Buttons -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,5,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <!-- Profile circular icon from design image -->
-                <Border Width="32" Height="32" CornerRadius="16" Background="#F3F4F6" BorderBrush="#E5E7EB" BorderThickness="1" 
-                        VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="User Profile">
-                    <Grid>
-                        <!-- Stylized modern human head outline -->
-                        <Ellipse Width="10" Height="10" Fill="#9CA3AF" VerticalAlignment="Top" Margin="0,6,0,0"/>
-                        <Path Data="M 6,24 A 10,10 0 0,1 26,24 Z" Fill="#9CA3AF" Stretch="Fill" VerticalAlignment="Bottom" Height="10" Margin="4,0,4,3"/>
-                    </Grid>
-                </Border>
                 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
                         ToolTip="Minimize" Click="minimize_button_clicked">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
