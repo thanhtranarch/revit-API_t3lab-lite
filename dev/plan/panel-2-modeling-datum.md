@@ -109,7 +109,7 @@ Chain: launcher → `ManaFamiDialog.py` (1428 loc) → `ManaFami.xaml`
 - [ ] Batch rename family → đúng, Ctrl+Z OK
 - [ ] Family đang in-use / editable=false (workshared) → xử lý đẹp
 - [ ] Purge family không dùng (nếu có chức năng) → xác nhận trước khi xoá
-- [ ] Ghi chú:
+- [x] Ghi chú: **UI + bug fix 2026-07-03 (theo báo cáo user: field trống/rỗng ở tab Management)**: xoá nút "Refresh DataGrid" (`btn_refresh`, icon-only, tab Management toolbar) theo yêu cầu user — không cần thiết vì `window_loaded()` đã tự gọi `_refresh_data()` khi mở cửa sổ; xoá luôn handler chết `refresh_click`. Đồng thời phát hiện & sửa lỗi tiềm ẩn qua đọc code: `window_loaded()` trước đây gói TOÀN BỘ init (Loader tab + Management tab) trong 1 khối `try/except` duy nhất — nếu bước scan folder của Loader tab lỗi, `_load_worksets()`/`_refresh_data()` của Management tab **không bao giờ chạy**, khiến DataGrid trống mà không có thông báo (chỉ log ngầm). Đã tách thành 2 khối try/except độc lập + hiện lỗi ra `status_text` thay vì nuốt âm thầm. **Chưa xác nhận đây có phải nguyên nhân gốc của "field trống" hay không** — cần user mở lại ManaFami trong Revit, nếu Management tab vẫn trống thì đọc dòng status bar (giờ sẽ hiện lỗi cụ thể thay vì im lặng) và báo lại.
 
 ### Tool 11/14 — Wall_Adjust Base
 Chain: self-contained (311 loc, **4 bare except**), không XAML riêng
