@@ -17,7 +17,10 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\tran_tienthanh\\\\OneDrive - Woh Hup \\(Private\\) Limited\\\\Documents\\\\T3Lab Architect\\\\t3lab-revit-api\\\\T3Lab.extension\\\\T3Lab.tab\" -Directory)",
       "mcp__28e2678a-7319-4b62-9637-2cb91b1cb099__notion_create_page",
       "mcp__28e2678a-7319-4b62-9637-2cb91b1cb099__notion_query_database",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "Bash(\"/c/Users/tran_tienthanh/AppData/Local/Microsoft/WindowsApps/python.exe\" --version)",
+      "Bash(echo \"EXIT:$?\")",
+      "PowerShell($t = Join-Path $env:APPDATA 'T3LabAI\\\\mcp_token.txt'; if \\(Test-Path $t\\) { \"EXISTS, length=\" + \\(Get-Content $t -Raw\\).Length } else { \"NOT FOUND: $t\" })"
     ]
   }
 }

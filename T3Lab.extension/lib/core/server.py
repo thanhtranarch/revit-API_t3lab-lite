@@ -3329,6 +3329,7 @@ class T3LabAIServer(object):
 
         if self._http_server:
             self._http_server.shutdown()
+            self._http_server.server_close()
             self._http_server = None
 
         if self._server_thread:
