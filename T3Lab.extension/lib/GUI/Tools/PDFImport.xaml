@@ -1421,8 +1421,7 @@
                                 <DataGridTemplateColumn Header="" Width="42" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <CheckBox Style="{StaticResource T3CheckBox}"
-                                                      IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                       HorizontalAlignment="Center"
                                                       Checked="view_selection_changed"
                                                       Unchecked="view_selection_changed"/>
