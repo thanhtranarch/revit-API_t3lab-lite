@@ -1468,10 +1468,22 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="16,0,0,0">
-                                        <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBox x:Name="tb_search" Width="250" Height="30" Style="{StaticResource T3InputFieldSmall}" VerticalAlignment="Center"/>
-                                    </StackPanel>
+                                    <Border Grid.Column="0" Width="260" Height="34" Margin="16,0,0,0"
+                                            Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                                            CornerRadius="17" Padding="12,0,10,0" VerticalAlignment="Center">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                  Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                  Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBox Grid.Column="1" x:Name="tb_search" BorderThickness="0" Background="Transparent"
+                                                     VerticalContentAlignment="Center" VerticalAlignment="Center"
+                                                     FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A" Padding="0"/>
+                                        </Grid>
+                                    </Border>
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,0,16,0">
                                         <Button x:Name="btn_export_list" Content="Export List" Height="30" Style="{StaticResource SecondaryButton}" Padding="10,2" FontSize="11"/>
                                     </StackPanel>
