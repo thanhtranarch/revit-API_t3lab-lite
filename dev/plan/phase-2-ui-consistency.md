@@ -65,20 +65,28 @@ Checklist mỗi cửa sổ (mở lần lượt 41 tool + dialog phụ):
 4. Font toàn cửa sổ là Hanken Grotesk/Inter
 5. Resize cửa sổ → footer/copyright không vỡ layout
 
-- [ ] Panel 1 (4 cửa sổ + dialog phụ)
-- [ ] Panel 2 (14 cửa sổ + dialog phụ)
-- [ ] Panel 3 (4 cửa sổ)
-- [ ] Panel 4 (6 cửa sổ)
-- [ ] Panel 5 (4 cửa sổ)
-- [ ] Panel 6 (9 cửa sổ + AssistantPane dockable)
-- [ ] Screenshot mỗi cửa sổ lưu `dev/plan/screenshots/` (đặt tên `<panel>-<tool>.png`)
+- [x] Panel 1 — Annotation & Select (4/4 cửa sổ: AutoDimension, ManaDWG, ManaSelect, ManaAnno) — mở OK, chrome OK, copyright footer-trái OK, resize không vỡ layout
+- [🔄] Panel 2 — Modeling & Datum: mới xác nhận Auto Join + Split Elements (qua dropdown "Element Adjust") mở OK, chrome/copyright OK. **Chưa xong**: Wall Cut Profile & Auto Adj Base Offset không hiện dialog trên project trống (có thể cần selection/wall thật trước khi mở UI — cần model test thật của GĐ3 để xác nhận là bug hay by-design); ManaFami và FamiGen không phản hồi khi click dù đã xác nhận đúng toạ độ qua tooltip hover — cần điều tra thêm (nghi vấn lỗi, chưa xác nhận được là do UI automation hay lỗi thật). Các tool còn lại của Panel 2 theo `panel-2-modeling-datum.md` (CADToElements, DoorThreshold, ImageToDrafting, TextToElement, PointCloud, RoomToFloor, TileLayout, PropertyLine, Wall_Adjust Base — không có XAML riêng) **chưa tìm thấy đúng vị trí trên ribbon / chưa kiểm tra**.
+- [ ] Panel 3 (4 cửa sổ) — chưa làm
+- [ ] Panel 4 (6 cửa sổ) — chưa làm
+- [ ] Panel 5 (4 cửa sổ) — chưa làm
+- [ ] Panel 6 (9 cửa sổ + AssistantPane dockable) — chưa làm
+- [ ] Screenshot mỗi cửa sổ lưu `dev/plan/screenshots/` — chưa làm (chỉ QA trực tiếp qua computer-use, chưa lưu file ảnh)
 - [ ] File nào layout vỡ → ghi vào Phát sinh, sửa tay từng file
-- [ ] Commit cuối: `style: visual QA pass for Lumina consistency`
+- [ ] Commit cuối: `style: visual QA pass for Lumina consistency` — chưa commit (đang dở)
 - [ ] Cập nhật bảng tiến độ `dev/plan/README.md`
+
+> **Tạm dừng 2026-07-02**: đã QA xong Panel 1, một phần Panel 2. Lý do dừng: (1) click icon nhỏ trên ribbon qua computer-use rất chậm/khó trúng toạ độ chính xác; (2) project test đang trống (không wall/room/family) nên nhiều tool cần selection không mở được UI; (3) nhiều tool trong `panel-2..6-*.md` không nằm ở vị trí ribbon như dự đoán, cần dò lại.
+>
+> **Quyết định 2026-07-03 (theo yêu cầu user)**: chấp nhận GĐ2 Ngày 4 dừng ở mức chưa hoàn thành 100% (Panel 1 xong, Panel 2 một phần, Panel 3–6 chưa làm) — bỏ qua phần còn lại, chuyển sang GĐ3. Phần UI QA trực quan còn thiếu (Panel 2 nốt + Panel 3–6) có thể bổ sung sau nếu cần, không chặn tiến độ GĐ3.
 
 ---
 
 ## Phát sinh trong giai đoạn 2
 
+- **Ngày 4 — Title bar thiếu wordmark "T3Lab" (phát hiện qua visual QA + xác nhận bằng grep source) — ĐÃ XỬ LÝ:** `ui-design-standard.md` mục "Window Structure" từng yêu cầu title bar có "Left: T3Lab (11px Bold) + Tool Name (18px Bold)". Thực tế `grep -c 'Text="T3Lab"'` trên toàn bộ `lib/GUI/Tools/*.xaml` cho kết quả **0/50 file có wordmark này — kể cả `UIStandardShowcase.xaml` (chính file canonical reference)**. Toàn bộ codebase hội tụ về pattern "Tool Name (15px Bold) + Subtitle (12.5px)" không có wordmark riêng. Giống trường hợp copyright ở Ngày 3 → đã cập nhật `.claude/rules/ui-design-standard.md` mục 3 (Title bar) để khớp thực tế đã hội tụ (2026-07-02), không cần sửa lại 50 file XAML.
+- **Ngày 4 — Wall Cut Profile / Auto Adj Base Offset** (trong dropdown "Element Adjust"): không hiện dialog nào khi bấm trên project trống, không có wall để chọn trước. Chưa xác định được là do cần selection trước (by-design) hay lỗi thật (tool này vốn được panel-2 đánh dấu "rủi ro cao nhất — 37 bare except"). Cần test lại với model có wall thật ở GĐ3.
+- **Ngày 4 — ManaFami, FamiGen** (panel Modeling & Datum): không phản hồi khi click dù đã xác nhận đúng toạ độ button qua tooltip hover (tên hiện đúng "FamiGen" khi hover). Không rõ do vấn đề UI automation hay lỗi thật trong tool — cần xác minh lại trực tiếp trong Revit bởi người dùng hoặc thử lại ở phiên làm việc sau.
+- **Ngày 4 — nhiều tool trong `panel-2..6-*.md` chưa tìm thấy trên ribbon**: các file plan panel-N liệt kê tool theo nhóm chức năng riêng của kế hoạch debug, không nhất thiết khớp 1:1 với tên panel ribbon thật. Cần dò lại vị trí thật trên ribbon (có thể nằm trong dropdown/stack ẩn như trường hợp "Element Adjust") trước khi QA tiếp.
 - **Ngày 3 — `AssistantPane.xaml`:** fallback overlay bottom-left chuẩn (theo `ui-design-standard.md`) sẽ đè lên ô chat input vì root Grid của pane này không có row footer riêng — row cuối (Row 3) là input bar full-width. Đã xử lý bằng cách thêm Row 4 (Auto height) làm footer thật thay vì dùng kỹ thuật overlay `Grid.RowSpan="99"`. Cần user xác nhận trực quan trong Revit ở Ngày 4 rằng dockable pane không bị vỡ layout / không quá chật do thêm ~24px chiều cao footer.
 - Chưa phát sinh vấn đề khác trong Ngày 3.

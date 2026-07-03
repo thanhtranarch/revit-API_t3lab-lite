@@ -92,8 +92,7 @@ The rest of this document targets **Variant A** unless otherwise noted.
    </WindowChrome.WindowChrome>
    ```
 3. **Title bar** (Row 0, Height=64): White bg
-   - Left: `T3Lab` (11px Bold `#0F172A`) + Tool Name (18px Bold `#0F172A`)
-   - Below: Separator (1px `#E2E8F0`) + subtitle (10px Italic `#64748B`)
+   - Left: Tool Name (15px Bold `#0F172A`) + Subtitle (12.5px Italic `#64748B`), stacked vertically. No separate "T3Lab" wordmark — confirmed converged codebase pattern (0/50 files, including the canonical `UIStandardShowcase.xaml`, carry a standalone `T3Lab` label in the title bar).
    - Right: Min/Max/Close buttons (Segoe MDL2 Assets glyphs — see table below)
    - Bottom: Border 1px `#E2E8F0`
 4. **Content area** — tool-specific. 16px horizontal margins; 10–12px vertical rhythm between sections.
