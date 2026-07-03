@@ -48,11 +48,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -411,11 +411,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -447,11 +447,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -487,11 +487,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1219,7 +1219,16 @@
             </Border>
 
             <!-- ═══ CONTENT (Row 1, Column 1) ═══ -->
-            <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
+            <!-- Opaque surface fill: guarantees no window-gray (#E4E4E7) can ever show through
+                 any internal padding/gap inside the tab content, regardless of card layout. -->
+            <Border Grid.Row="1" Grid.Column="1" Background="#F8FAFC">
+            <TabControl x:Name="tab_control" BorderThickness="0" Background="Transparent" Margin="0">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                        <ContentPresenter ContentSource="SelectedContent"/>
+                    </ControlTemplate>
+                </TabControl.Template>
                 <TabControl.Resources>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
@@ -1230,13 +1239,13 @@
                 <TabItem x:Name="tab_sheets_item">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                             <RowDefinition Height="*"/>    <!-- DataGrid & Filters -->
+                            <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                             <RowDefinition Height="Auto"/> <!-- Actions Footer -->
                         </Grid.RowDefinitions>
 
-                        <!-- Cards Summary -->
-                        <Border Grid.Row="0" Background="Transparent" Padding="16,10,16,4" BorderThickness="0">
+                        <!-- Cards Summary: uniform 16px spacing on every edge, including between cards -->
+                        <Border Grid.Row="1" Background="Transparent" Padding="16,16,16,16" BorderThickness="0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1245,21 +1254,21 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
                                     <StackPanel>
                                         <TextBlock Text="TOTAL SHEETS" FontSize="9" Foreground="#71717A" FontWeight="Bold"/>
                                         <TextBlock x:Name="sheets_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
+                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
                                     <StackPanel>
                                         <TextBlock Text="SELECTED" FontSize="9" Foreground="#71717A" FontWeight="Bold"/>
                                         <TextBlock x:Name="sheets_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
+                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
                                     <StackPanel>
                                         <TextBlock Text="CATEGORIES" FontSize="9" Foreground="#71717A" FontWeight="Bold"/>
                                         <TextBlock x:Name="sheets_categories_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
@@ -1275,15 +1284,15 @@
                             </Grid>
                         </Border>
 
-                        <!-- DataGrid & Filters -->
-                        <Grid Grid.Row="1" Margin="16,0,16,0">
+                        <!-- DataGrid & Filters: full-bleed, square corners (unlike the padded/rounded summary tiles below) -->
+                        <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Filters & Quick Tools Panel -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12" Margin="0,10,12,10">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Padding="12">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
                                         <TextBlock Text="SEARCH" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
@@ -1313,27 +1322,27 @@
                                         </ComboBox>
 
                                         <TextBlock Text="QUICK SELECT" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
-                                        <Button x:Name="sheets_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
-                                        <Button x:Name="sheets_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,20" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="sheets_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="sheets_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,20" HorizontalAlignment="Stretch"/>
 
                                         <TextBlock Text="ADVANCED TOOLS" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" Foreground="#9A9AA2"/>
-                                        <Button x:Name="sheets_sets_btn" Content="ViewSheet Sets..." Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                                        <Button x:Name="sheets_place_views_btn" Content="Place Views on Sheet..." Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
-                                        <Button x:Name="sheets_custom_params_btn" Content="Custom Parameters..." Style="{StaticResource SecondaryButton}" Height="32" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="sheets_sets_btn" Content="ViewSheet Sets..." Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="sheets_place_views_btn" Content="Place Views on Sheet..." Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,8" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="sheets_custom_params_btn" Content="Custom Parameters..." Style="{StaticResource SecondaryButton}" Height="28" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                 </ScrollViewer>
                             </Border>
 
                             <!-- Right Sheets DataGrid -->
-                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="6" Margin="0,10,0,10">
-                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0">
+                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="0" Background="#F8FAFC">
                                     <DataGrid x:Name="sheets_grid" AutoGenerateColumns="False" IsReadOnly="False"
                                               SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
                                               Background="White" BorderThickness="0"
                                               GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
                                               RowBackground="White" AlternatingRowBackground="#FAFAFA"
                                               FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
-                                              HeadersVisibility="Column" Margin="4">
+                                              HeadersVisibility="Column">
                                         <DataGrid.Resources>
                                             <Style TargetType="DataGridColumnHeader">
                                                 <Setter Property="Background" Value="#FFFFFF"/>
@@ -1379,9 +1388,17 @@
                                             </Style>
                                         </DataGrid.Resources>
                                         <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding is_selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  Checked="sheets_row_checkbox_changed" Unchecked="sheets_row_checkbox_changed"
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                             <DataGridTextColumn Header="Sheet Number" Binding="{Binding sheet_number}" Width="110" IsReadOnly="False"/>
                                             <DataGridTextColumn Header="Sheet Name" Binding="{Binding sheet_name}" Width="250" IsReadOnly="False"/>
-                                            <DataGridCheckBoxColumn Header="Placeholder" Binding="{Binding element.IsPlaceholder}" Width="90" IsReadOnly="True"/>
                                             <DataGridTextColumn Header="Designed By" Binding="{Binding designed_by}" Width="120" IsReadOnly="False"/>
                                             <DataGridTextColumn Header="Checked By" Binding="{Binding checked_by}" Width="120" IsReadOnly="False"/>
                                             <DataGridTextColumn Header="Approved By" Binding="{Binding approved_by}" Width="120" IsReadOnly="False"/>
@@ -1417,14 +1434,14 @@
                         </Grid.RowDefinitions>
 
                         <!-- Renumber Content -->
-                        <Grid Grid.Row="0" Margin="16,16,16,10">
+                        <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="280"/>
+                                <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Controls Card -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="16" Margin="0,0,16,0">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Padding="16">
                                 <StackPanel>
                                     <TextBlock Text="RENUMBER CONFIGURATION" FontSize="11" FontWeight="Bold" Margin="0,0,0,16" Foreground="#9A9AA2"/>
 
@@ -1451,22 +1468,15 @@
 
                             <!-- Right Renumber Preview Grid -->
                             <Grid Grid.Column="1">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0" Text="SELECT SHEETS TO RENUMBER" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" Foreground="#9A9AA2"/>
-
-                                <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="6">
-                                    <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                                <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0">
+                                    <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="0" Background="#F8FAFC">
                                         <DataGrid x:Name="renum_grid" AutoGenerateColumns="False" IsReadOnly="True"
                                                   SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
                                                   Background="White" BorderThickness="0"
                                                   GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
                                                   RowBackground="White" AlternatingRowBackground="#FAFAFA"
                                                   FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
-                                                  HeadersVisibility="Column" Margin="4">
+                                                  HeadersVisibility="Column">
                                             <DataGrid.Resources>
                                                 <Style TargetType="DataGridColumnHeader">
                                                     <Setter Property="Background" Value="#FFFFFF"/>
@@ -1512,6 +1522,14 @@
                                                 </Style>
                                             </DataGrid.Resources>
                                             <DataGrid.Columns>
+                                                <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                      HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
                                                 <DataGridTextColumn Header="Original Number" Binding="{Binding orig_number}" Width="150"/>
                                                 <DataGridTextColumn Header="Sheet Name" Binding="{Binding name}" Width="250"/>
                                                 <DataGridTextColumn Header="Preview New Number" Binding="{Binding preview_number}" Width="180"/>
@@ -1538,6 +1556,7 @@
                     </Grid>
                 </TabItem>
             </TabControl>
+            </Border>
 
             <!-- ═══ STATUS BAR ═══ -->
             <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0"

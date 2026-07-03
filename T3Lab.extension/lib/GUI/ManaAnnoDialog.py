@@ -312,6 +312,11 @@ class AnnotationManagerWindow(forms.WPFWindow):
             self.btn_util_copy_anno.Click += self._on_launch_copier
             self.btn_util_renumber_spline.Click += self._on_launch_renumber
             self.btn_util_upper_all.Click += self._on_launch_upper_all
+
+            # Force initial tab content to render: nav_dim.IsChecked was already
+            # True when the XAML was parsed, so no explicit SelectedIndex was ever
+            # set on the headerless TabControl (same fix as ManaSheets/ManaViews).
+            self.main_tabs.SelectedIndex = 0
         except Exception as ex:
             logger.error("Error initializing window: {}".format(ex))
             raise

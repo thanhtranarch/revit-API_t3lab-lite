@@ -88,7 +88,7 @@ Chain: self-contained (353 loc) → `AutoWork.xaml` · không có Transaction tr
 |------|-----------|---------|
 | MCPControl | ⬜ | Bug path (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | Feedback | ⬜ | |
-| PDF import | ⬜ | |
+| PDF import | ⬜ | Gray-gutter fix (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | T3LabAssistant | ⬜ | |
 | ManaTabs | ⬜ | |
 | Ribbon Names | ⬜ | |
@@ -100,3 +100,4 @@ Chain: self-contained (353 loc) → `AutoWork.xaml` · không có Transaction tr
 ## Phát sinh
 
 - **2026-07-03 — MCPControl không mở được**: cùng bug path như ManaSheets/ManaViews (xem `panel-3-views-sheets.md` Phát sinh) — `EXT_DIR` đi lên thừa 1 cấp, vượt quá `T3Lab.extension`. Đã sửa, verify path trỏ đúng `MCPControl.xaml`. Chưa được user xác nhận mở thử trong Revit.
+- **2026-07-03 — PDF import: gray gutter quanh 2 panel nội dung** (yêu cầu UI trực tiếp từ user, không phải bug): `PDFImport.xaml` có background cửa sổ `#E4E4E7` lộ ra thành viền/khe hở quanh 2 panel trắng ("PDF File" settings bên trái, "Target Views" bên phải) do content `Grid Grid.Row="1"` có `Margin="18,18,18,10"` và khoảng cách `Margin="0,0,14,0"` giữa 2 panel — cùng lớp bug đã gặp ở ManaSelect/ManaDWG (xem `panel-1-annotation-select.md` Phát sinh). Giao cho `@ui-agent` sửa theo đúng pattern đã dùng ở `ManaViews.xaml`: bọc content trong `Border Background="#F8FAFC"` full-bleed (bỏ Margin ngoài), 2 panel giờ `BorderThickness="0"`/`CornerRadius="0"` sát cạnh cửa sổ, khe hở giữa 2 panel thay bằng 1 đường viền mảnh `#E2E8F0` thay vì khoảng gray. Đã verify `sync_wpf_styles.py --check` (0 lệch) + `audit_ui.py --quiet` (0/54 vấn đề) + XML well-formed. Chưa được user xác nhận trực quan trong Revit.

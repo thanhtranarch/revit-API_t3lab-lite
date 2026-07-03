@@ -66,6 +66,7 @@ class RenumberItem(INotifyPropertyChanged):
         self.orig_number = sheet_model.sheet_number
         self.name = sheet_model.sheet_name
         self._preview_number = sheet_model.sheet_number
+        self._is_selected = False
 
     @property
     def preview_number(self):
@@ -75,6 +76,15 @@ class RenumberItem(INotifyPropertyChanged):
         if self._preview_number != value:
             self._preview_number = value
             self.OnPropertyChanged("preview_number")
+
+    @property
+    def IsSelected(self):
+        return self._is_selected
+    @IsSelected.setter
+    def IsSelected(self, value):
+        if self._is_selected != value:
+            self._is_selected = value
+            self.OnPropertyChanged("IsSelected")
 
     def add_PropertyChanged(self, handler):
         self._property_changed_handlers.append(handler)
@@ -166,6 +176,11 @@ class SheetManagerWindow(forms.WPFWindow):
         self._apply_sheets_filters()
         self._load_renumber_preview_data()
 
+        # Force initial tab content to render: nav_sheets.IsChecked was already
+        # True when the XAML was parsed, so its Checked event fired before this
+        # handler was wired above and tab_control.SelectedIndex was never set.
+        self.tab_control.SelectedIndex = 0
+
     # ── Chrome Event Handlers ────────────────────────────────────
     def _minimize(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -227,7 +242,7 @@ class SheetManagerWindow(forms.WPFWindow):
 
     def _update_sheets_summary(self):
         self.sheets_total_text.Text = str(len(self.all_sheets))
-        self.sheets_selected_text.Text = str(self.sheets_grid.SelectedItems.Count)
+        self.sheets_selected_text.Text = str(len([s for s in self.filtered_sheets if s.is_selected]))
         
         categories = set()
         for s in self.all_sheets:
@@ -245,12 +260,23 @@ class SheetManagerWindow(forms.WPFWindow):
         self._apply_sheets_filters()
 
     def _on_sheets_select_all(self, sender, args):
-        self.sheets_grid.SelectAll()
+        for s in self.filtered_sheets:
+            s.is_selected = True
+        self.sheets_grid.Items.Refresh()
+        self._update_sheets_summary()
 
     def _on_sheets_clear_all(self, sender, args):
-        self.sheets_grid.UnselectAll()
+        for s in self.filtered_sheets:
+            s.is_selected = False
+        self.sheets_grid.Items.Refresh()
+        self._update_sheets_summary()
 
     def _on_sheets_selection_changed(self, sender, args):
+        self._update_sheets_summary()
+
+    def sheets_row_checkbox_changed(self, sender, args):
+        """Fires immediately when a row's selection checkbox is toggled (template column,
+        so CellEditEnding does not fire for it) — keep the SELECTED counter live."""
         self._update_sheets_summary()
 
     def _on_sheets_cell_edit(self, sender, args):
@@ -501,7 +527,7 @@ class SheetManagerWindow(forms.WPFWindow):
         self._load_renumber_preview_data()
 
     def _on_renum_preview(self, sender, args):
-        selected_preview = [item for item in self.renum_grid.SelectedItems]
+        selected_preview = [item for item in self.renumber_items if item.IsSelected]
         if not selected_preview:
             MessageBox.Show("Please select sheets in the preview grid first.", "Info")
             return
@@ -521,7 +547,7 @@ class SheetManagerWindow(forms.WPFWindow):
             item.preview_number = new_num
 
     def _on_renum_run(self, sender, args):
-        selected_preview = [item for item in self.renum_grid.SelectedItems]
+        selected_preview = [item for item in self.renumber_items if item.IsSelected]
         if not selected_preview:
             MessageBox.Show("Please select sheets in the preview grid to renumber.", "Info")
             return

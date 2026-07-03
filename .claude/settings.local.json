@@ -20,7 +20,28 @@
       "Bash(python -c ' *)",
       "Bash(\"/c/Users/tran_tienthanh/AppData/Local/Microsoft/WindowsApps/python.exe\" --version)",
       "Bash(echo \"EXIT:$?\")",
-      "PowerShell($t = Join-Path $env:APPDATA 'T3LabAI\\\\mcp_token.txt'; if \\(Test-Path $t\\) { \"EXISTS, length=\" + \\(Get-Content $t -Raw\\).Length } else { \"NOT FOUND: $t\" })"
+      "PowerShell($t = Join-Path $env:APPDATA 'T3LabAI\\\\mcp_token.txt'; if \\(Test-Path $t\\) { \"EXISTS, length=\" + \\(Get-Content $t -Raw\\).Length } else { \"NOT FOUND: $t\" })",
+      "PowerShell(Get-ChildItem \"T3Lab.extension\\\\T3Lab.tab\" -Recurse -Directory | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\(\\(Get-Location\\).Path + '\\\\', ''\\) })",
+      "PowerShell(python dev/audit_tools.py --quiet)",
+      "PowerShell(python dev/audit_ui.py --quiet)",
+      "PowerShell(python dev/sync_wpf_styles.py --check)",
+      "PowerShell($env:PYTHONIOENCODING = 'utf-8'; python dev/audit_tools.py --quiet; python dev/audit_ui.py --quiet; python dev/sync_wpf_styles.py --check)",
+      "Bash(PYTHONIOENCODING=utf-8 python3 dev/audit_ui.py --quiet)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(echo \"audit_ui exit: $?\")",
+      "Bash(python3 dev/audit_tools.py --quiet)",
+      "Bash(echo \"audit_tools exit: $?\")",
+      "Bash(python3 dev/sync_wpf_styles.py --check)",
+      "Bash(echo \"sync_check exit: $?\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('T3Lab.extension/T3Lab.tab/Views & Sheets.panel/SheetGen.pushbutton/script.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "Bash(python3 -c \"import xml.dom.minidom as m; m.parse\\('T3Lab.extension/lib/GUI/Tools/ManaViews.xaml'\\); print\\('XML_OK'\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import xml.dom.minidom as m; m.parse\\('T3Lab.extension/lib/GUI/Tools/ManaSheets.xaml'\\); print\\('XML_OK'\\)\")",
+      "Bash(python3 dev/audit_ui.py --quiet)",
+      "Bash(cd \"T3Lab.extension/..\")",
+      "Bash(echo \"audit_tools exit=$?\")",
+      "Bash(echo \"audit_ui exit=$?\")",
+      "Bash(echo \"sync exit=$?\")"
     ]
   }
 }

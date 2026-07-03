@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
-        Background="#E4E4E7"
+        Background="#F4F4F6"
         FontFamily="Hanken Grotesk">
 
     <WindowChrome.WindowChrome>
@@ -51,11 +51,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -414,11 +414,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -450,11 +450,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -490,11 +490,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1194,7 +1194,7 @@
         </Style>
     </Window.Resources>
     <!-- ═══ Outer Border: CornerRadius + ClipToBounds (Lumina standard) ═══ -->
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#F4F4F6">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="66"/>    <!-- Col 0: Left Sidebar Icon Rail -->
@@ -1351,34 +1351,34 @@
 
                     <WrapPanel Grid.Column="0" VerticalAlignment="Center">
                         <Button x:Name="btn_refresh" Content="Refresh"
-                                Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,4,0"
+                                Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,4,0"
                                 Click="refresh_clicked"
                                 ToolTip="Reload elements for the current source mode"/>
                         <Button x:Name="btn_get_sel" Content="Get Selection"
-                                Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,4,0"
+                                Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,4,0"
                                 Click="get_selection_clicked"
                                 ToolTip="Load currently selected elements in Revit"/>
                         <Button x:Name="btn_pick" Content="Pick Elements"
-                                Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,4,0"
+                                Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,4,0"
                                 Click="pick_elements_clicked"
                                 ToolTip="Pick elements directly from Revit canvas"/>
                         <Button x:Name="btn_sync_sel" Content="Sync Selection"
-                                Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,4,0"
+                                Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,4,0"
                                 Click="sync_selection_clicked"
                                 ToolTip="Select highlighted rows in Revit"/>
 
                         <Rectangle Width="1" Fill="#E2E8F0" Margin="6,8,8,8" VerticalAlignment="Stretch"/>
 
                         <Button x:Name="btn_round_5mm" Content="Round 5mm"
-                                Style="{StaticResource PrimaryButton}" Height="32" Margin="0,0,4,0"
+                                Style="{StaticResource PrimaryButton}" Height="28" Margin="0,0,4,0"
                                 Click="round_to_5mm_clicked"
                                 ToolTip="Round coordinates to nearest 5mm (selected rows, or all if none)"/>
                         <Button x:Name="btn_override_odd" Content="Override Odd"
-                                Style="{StaticResource DangerButton}" Height="32" Margin="0,0,4,0"
+                                Style="{StaticResource DangerButton}" Height="28" Margin="0,0,4,0"
                                 Click="override_odd_clicked"
                                 ToolTip="Highlight elements with non-integer mm coordinates — red fill"/>
                         <Button x:Name="btn_clear_override" Content="Clear Override"
-                                Style="{StaticResource SecondaryButton}" Height="32" Margin="0,0,0,0"
+                                Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,0"
                                 Click="clear_overrides_clicked"
                                 ToolTip="Remove graphic overrides from all loaded elements"/>
 
@@ -1397,22 +1397,22 @@
                     </WrapPanel>
 
                     <Button Grid.Column="2" x:Name="btn_apply" Content="Apply Changes"
-                            Style="{StaticResource SuccessButton}" Height="32"
+                            Style="{StaticResource SuccessButton}" Height="28"
                             Click="apply_clicked" ToolTip="Move elements to edited coordinates"/>
                 </Grid>
             </Border>
 
             <!-- COL 1, ROW 2: CONTENT — category filter + datagrid -->
-            <Grid Grid.Column="1" Grid.Row="2" Margin="14,12,14,0">
+            <Grid Grid.Column="1" Grid.Row="2" Margin="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="190" MinWidth="130" MaxWidth="250"/>
-                    <ColumnDefinition Width="5"/>
+                    <ColumnDefinition Width="1"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- LEFT: Category Filter Panel -->
                 <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0"
-                        BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        BorderThickness="1" CornerRadius="0" ClipToBounds="True">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -1421,7 +1421,7 @@
 
                         <Border Grid.Row="0" Background="#F8FAFC" BorderBrush="#E2E8F0"
                                 BorderThickness="0,0,0,1" Padding="10,8"
-                                CornerRadius="12,12,0,0">
+                                CornerRadius="0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1475,11 +1475,11 @@
                 </Border>
 
                 <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch"
-                              Background="Transparent" Cursor="SizeWE" Margin="0,2"/>
+                              Background="#E2E8F0" Cursor="SizeWE" Margin="0"/>
 
                 <!-- RIGHT: DataGrid in white rounded card -->
                 <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0"
-                        BorderThickness="1" CornerRadius="12" ClipToBounds="True">
+                        BorderThickness="1" CornerRadius="0" ClipToBounds="True">
                     <Grid>
                         <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                             <DataGrid x:Name="elem_datagrid"

@@ -49,11 +49,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -412,11 +412,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -448,11 +448,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -488,11 +488,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1082,11 +1082,11 @@
     
         
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
-<Grid Margin="16">
+<Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>      <!-- Header -->
-            <RowDefinition Height="Auto"/>      <!-- Summary Cards -->
             <RowDefinition Height="*"/>         <!-- Main Content -->
+            <RowDefinition Height="Auto"/>      <!-- Summary Cards -->
             <RowDefinition Height="Auto"/>      <!-- Action Buttons -->
             <RowDefinition Height="Auto"/>      <!-- Footer -->
         </Grid.RowDefinitions>
@@ -1128,7 +1128,7 @@
         </Grid>
         
         <!-- Summary Cards -->
-        <Grid Grid.Row="1" Margin="0,0,0,16">
+        <Grid Grid.Row="2" Margin="16,16,16,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
@@ -1166,12 +1166,12 @@
         </Grid>
         
         <!-- Main Content -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="1" Margin="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="240"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            
+
             <!-- Left Panel - Filters -->
             <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,16,0">
                 <Grid>
@@ -1225,7 +1225,7 @@
                     <Button x:Name="btnInvert" Content="Invert" Style="{StaticResource SecondaryButton}" Margin="0,0,0,0"/>
                 </StackPanel>
 
-                <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                <Border Grid.Row="1" Background="#F8FAFC">
                     <DataGrid x:Name="dataGrid"
                               AutoGenerateColumns="False"
                               IsReadOnly="False"
@@ -1279,7 +1279,7 @@
         </Grid>
         
         <!-- Action Buttons -->
-        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,16,0,0">
+        <Border Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12" Margin="16,16,16,0">
             <!--
                 Single WrapPanel instead of a 3-column Grid (Auto/*/Auto).
                 Rationale: the old layout put the center group in a star column with
@@ -1310,7 +1310,7 @@
         </Border>
         
         <!-- Footer -->
-        <Grid Grid.Row="4" Margin="0,12,0,0">
+        <Grid Grid.Row="4" Margin="16,12,16,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>

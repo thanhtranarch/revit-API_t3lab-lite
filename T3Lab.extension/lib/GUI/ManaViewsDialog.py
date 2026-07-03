@@ -36,6 +36,7 @@ from Autodesk.Revit.DB import (
 from core.advanced_view_manager import (
     _eid_int,
     EnhancedViewItem,
+    build_viewport_map,
     update_view_name,
     update_view_template,
     update_scale,
@@ -236,6 +237,11 @@ class ViewManagerWindow(forms.WPFWindow):
         self._apply_views_filters()
         self._apply_tmpl_filters()
 
+        # Force initial tab content to render: nav_views.IsChecked was already
+        # True when the XAML was parsed, so its Checked event fired before this
+        # handler was wired above and tab_control.SelectedIndex was never set.
+        self.tab_control.SelectedIndex = 0
+
     # ── Chrome Event Handlers ────────────────────────────────────
     def _minimize(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -266,6 +272,7 @@ class ViewManagerWindow(forms.WPFWindow):
     # ── VIEWS Tab Logics ──────────────────────────────────────────
     def _load_views_data(self):
         self.all_views = []
+        viewport_map = build_viewport_map(self.doc)
         collector = FilteredElementCollector(self.doc).OfClass(View).WhereElementIsNotElementType()
         for view in collector:
             if view.ViewType in [ViewType.ProjectBrowser, ViewType.SystemBrowser,
@@ -274,7 +281,7 @@ class ViewManagerWindow(forms.WPFWindow):
             if view.IsTemplate:
                 continue
             try:
-                item = EnhancedViewItem(view, self.doc)
+                item = EnhancedViewItem(view, self.doc, viewport_map)
                 self.all_views.append(item)
             except:
                 pass
@@ -283,8 +290,14 @@ class ViewManagerWindow(forms.WPFWindow):
         templates = ["None"]
         collector = FilteredElementCollector(self.doc).OfClass(View).WhereElementIsNotElementType()
         for view in collector:
-            if view.IsTemplate:
-                templates.append(view.Name)
+            if view.ViewType in [ViewType.ProjectBrowser, ViewType.SystemBrowser,
+                                 ViewType.Undefined, ViewType.Internal]:
+                continue
+            try:
+                if view.IsTemplate:
+                    templates.append(view.Name)
+            except:
+                pass
         return templates
 
     def _get_combo_value(self, combo, default=""):
@@ -333,7 +346,7 @@ class ViewManagerWindow(forms.WPFWindow):
                           (self.views_search_box.Text != ""))
         self.views_filters_text.Text = "Yes" if filters_active else "No"
         
-        self.views_selected_text.Text = str(self.views_grid.SelectedItems.Count)
+        self.views_selected_text.Text = str(len([v for v in self.filtered_views if v.is_selected]))
 
     def _on_views_search_changed(self, sender, args):
         self._apply_views_filters()
@@ -342,13 +355,19 @@ class ViewManagerWindow(forms.WPFWindow):
         self._apply_views_filters()
 
     def _on_views_select_all(self, sender, args):
-        self.views_grid.SelectAll()
+        for v in self.filtered_views:
+            v.is_selected = True
+        self.views_grid.Items.Refresh()
+        self.views_selected_text.Text = str(len([v for v in self.filtered_views if v.is_selected]))
 
     def _on_views_clear_all(self, sender, args):
-        self.views_grid.UnselectAll()
+        for v in self.filtered_views:
+            v.is_selected = False
+        self.views_grid.Items.Refresh()
+        self.views_selected_text.Text = str(len([v for v in self.filtered_views if v.is_selected]))
 
     def _on_views_selection_changed(self, sender, args):
-        self.views_selected_text.Text = str(self.views_grid.SelectedItems.Count)
+        self.views_selected_text.Text = str(len([v for v in self.filtered_views if v.is_selected]))
 
     def _on_views_cell_edit(self, sender, args):
         from System.Windows.Controls import DataGridEditAction
@@ -544,8 +563,8 @@ class ViewManagerWindow(forms.WPFWindow):
 
     def _update_tmpl_summary(self):
         self.tmpl_total_text.Text = str(len(self.all_templates_data))
-        self.tmpl_selected_text.Text = str(self.tmpl_grid.SelectedItems.Count)
-        
+        self.tmpl_selected_text.Text = str(len([t for t in self.filtered_templates if t.is_selected]))
+
         used = sum(1 for item in self.all_templates_data if item.usage_count > 0)
         unused = len(self.all_templates_data) - used
         self.tmpl_used_text.Text = str(used)
@@ -558,19 +577,25 @@ class ViewManagerWindow(forms.WPFWindow):
         self._apply_tmpl_filters()
 
     def _on_tmpl_select_all(self, sender, args):
-        self.tmpl_grid.SelectAll()
+        for item in self.filtered_templates:
+            item.is_selected = True
+        self.tmpl_grid.Items.Refresh()
+        self.tmpl_selected_text.Text = str(len([t for t in self.filtered_templates if t.is_selected]))
 
     def _on_tmpl_clear_all(self, sender, args):
-        self.tmpl_grid.UnselectAll()
+        for item in self.filtered_templates:
+            item.is_selected = False
+        self.tmpl_grid.Items.Refresh()
+        self.tmpl_selected_text.Text = str(len([t for t in self.filtered_templates if t.is_selected]))
 
     def _on_tmpl_select_unused(self, sender, args):
-        self.tmpl_grid.UnselectAll()
         for item in self.filtered_templates:
-            if item.usage_count == 0:
-                self.tmpl_grid.SelectedItems.Add(item)
+            item.is_selected = (item.usage_count == 0)
+        self.tmpl_grid.Items.Refresh()
+        self.tmpl_selected_text.Text = str(len([t for t in self.filtered_templates if t.is_selected]))
 
     def _on_tmpl_selection_changed(self, sender, args):
-        self.tmpl_selected_text.Text = str(self.tmpl_grid.SelectedItems.Count)
+        self.tmpl_selected_text.Text = str(len([t for t in self.filtered_templates if t.is_selected]))
 
     def _on_tmpl_refresh(self, sender, args):
         self._load_templates_data()

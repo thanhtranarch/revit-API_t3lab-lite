@@ -33,11 +33,11 @@
 | 1 | GĐ1 | Sửa F1 FindReplace · F2 CreateFromRooms · F3 UIShowcase | `phase-1-cleanup-fixes.md` §Ngày 1 | ✅ |
 | 2 | GĐ1 | Archive 15 XAML mồ côi + 6 dialog chết · chạy lại audit | `phase-1-cleanup-fixes.md` §Ngày 2 | ✅ |
 | 3 | GĐ2 | Sửa T3LabAssistant.xaml (palette + copyright) + AssistantPane.xaml → audit UI sạch | `phase-2-ui-consistency.md` §Ngày 3 | ✅ |
-| 4 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 4 | 🔄 (Panel 1 ✅, Panel 2 ✅ xác nhận user 2026-07-03 — Panel 3–6 còn lại: checklist đã gửi, chờ user tự test trong Revit) |
+| 4 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 4 | ✅ **Hoàn thành 2026-07-03** — user xác nhận "tất cả UI đều okay". Panel 1–3 xác nhận qua nhiều screenshot thực tế trước đó (gray-gutter/layout/copyright đã sửa); Panel 4–6 xác nhận đợt này. Screenshot file riêng skip có lý do (QA trực tiếp trong Revit thay vì lưu ảnh). ⚠️ Ngoại lệ: `audit_ui.py` còn 1 lỗi biết trước chưa sửa (IFCSG copyright trùng lặp x2, task nền riêng) — chưa phải audit sạch 100% |
 | 5 | GĐ3 | Debug Panel: Annotation & Select (4 tool) | `panel-1-annotation-select.md` | 🔄 (checklist đã gửi user, chờ kết quả test) |
 | 6 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Create (7 tool) | `panel-2-modeling-datum.md` §Ngày 6 | 🔄 (CADToElements: Wall/Floor/Beam OK, user xác nhận · ImageToDrafting/TextToElement/TileLayout: UI+bug sửa xong 2026-07-03, chưa test functional · DoorThreshold/PointCloud/RoomToFloor: chưa làm) |
 | 7 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Adjust/Family (7 tool) | `panel-2-modeling-datum.md` §Ngày 7 | ⬜ |
-| 8 | GĐ3 | Debug Panel: Views & Sheets (4 tool, trọng tâm BatchOut) | `panel-3-views-sheets.md` | ⬜ |
+| 8 | GĐ3 | Debug Panel: Views & Sheets (4 tool, trọng tâm BatchOut) | `panel-3-views-sheets.md` | 🔄 (ManaSheets/ManaViews: UI đã user xác nhận OK 2026-07-03 — mở được, không crash/lỗi, layout/gray-gutter/Summary Cards đúng; còn thiếu test functional — batch rename/renumber/duplicate/delete, Ctrl+Z, edge case, Excel Import/Export. SheetGen/BatchOut: chưa test) |
 | 9 | GĐ3 | Debug Panel: Data & IFC-SG (6 tool) | `panel-4-data-ifcsg.md` | ⬜ |
 | 10 | GĐ3 | Debug Panel: Standards & Settings (4 tool) | `panel-5-standards-settings.md` | ⬜ |
 | 11 | GĐ3 | Debug Panel: Support + Standard (9 tool) | `panel-6-support-standard.md` | ⬜ |

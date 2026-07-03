@@ -49,11 +49,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -412,11 +412,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -448,11 +448,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -488,11 +488,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1201,6 +1201,12 @@
 
             <!-- ═══ COLUMN 1, ROW 1: TAB CONTROL CONTENT ═══ -->
             <TabControl x:Name="main_tab_control" Grid.Column="1" Grid.Row="1" Margin="0" BorderThickness="0" Background="Transparent">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                        <ContentPresenter ContentSource="SelectedContent"/>
+                    </ControlTemplate>
+                </TabControl.Template>
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -1231,10 +1237,10 @@
                                 <TextBlock x:Name="txtHeader" Grid.Column="1" Text="Load Industry Mapping Excel to start" 
                                            FontSize="13.5" Foreground="#64748B" VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
                                 
-                                <Button x:Name="btnLoadExcel" Grid.Column="2" Content="📁 Load Excel" 
-                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="32" MinWidth="120"/>
-                                <Button x:Name="btnAutoAssign" Grid.Column="3" Content="⚡ Auto Assign" 
-                                        Style="{StaticResource SuccessButton}" Margin="6,0,0,0" Height="32" MinWidth="130"/>
+                                <Button x:Name="btnLoadExcel" Grid.Column="2" Content="📁 Load Excel"
+                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="28" MinWidth="120"/>
+                                <Button x:Name="btnAutoAssign" Grid.Column="3" Content="⚡ Auto Assign"
+                                        Style="{StaticResource SuccessButton}" Margin="6,0,0,0" Height="28" MinWidth="130"/>
                             </Grid>
                         </Border>
 
@@ -1296,8 +1302,8 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="Assign Subtype:" FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold" Foreground="#0F172A"/>
                                                 <ComboBox x:Name="cmbSubtype" Style="{StaticResource T3ComboBoxSmall}" Width="300" Height="32" VerticalAlignment="Center"/>
-                                                <Button x:Name="btnApply" Content="Apply to Selected" Style="{StaticResource AccentButton}" Margin="12,0,0,0" Height="32" MinWidth="140"/>
-                                                <Button x:Name="btnApplyAll" Content="Apply to ALL" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Height="32" MinWidth="110"/>
+                                                <Button x:Name="btnApply" Content="Apply to Selected" Style="{StaticResource AccentButton}" Margin="12,0,0,0" Height="28" MinWidth="140"/>
+                                                <Button x:Name="btnApplyAll" Content="Apply to ALL" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Height="28" MinWidth="110"/>
                                             </StackPanel>
                                         </Border>
                                     </Grid>
@@ -1364,7 +1370,7 @@
                         </Grid>
 
                         <!-- Row 2: Bottom Status & Actions Footer -->
-                        <Border Grid.Row="2" Background="#F4F4F6" Height="64" Padding="20,0" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                        <Border Grid.Row="2" Background="#F4F4F6" Height="64" Padding="20,0" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,0">
                             <Grid VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -1413,14 +1419,14 @@
                                            FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#0F172A"/>
                                 <ComboBox x:Name="cmbConfig" Grid.Column="1" Style="{StaticResource T3ComboBoxSmall}" Height="32" FontSize="12.5"/>
                                 
-                                <Button x:Name="btnImportXML" Grid.Column="2" Content="Import XML" 
-                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="32" MinWidth="100"/>
-                                <Button x:Name="btnImportExcel" Grid.Column="3" Content="Import Excel" 
-                                        Style="{StaticResource PrimaryButton}" Margin="6,0,0,0" Height="32" MinWidth="110"/>
-                                <Button x:Name="btnSaveConfig" Grid.Column="4" Content="Save JSON" 
-                                        Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Height="32" MinWidth="100"/>
-                                <Button x:Name="btnDeleteConfig" Grid.Column="5" Content="Delete" 
-                                        Style="{StaticResource DangerButton}" Margin="6,0,0,0" Height="32" MinWidth="80"/>
+                                <Button x:Name="btnImportXML" Grid.Column="2" Content="Import XML"
+                                        Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Height="28" MinWidth="100"/>
+                                <Button x:Name="btnImportExcel" Grid.Column="3" Content="Import Excel"
+                                        Style="{StaticResource PrimaryButton}" Margin="6,0,0,0" Height="28" MinWidth="110"/>
+                                <Button x:Name="btnSaveConfig" Grid.Column="4" Content="Save JSON"
+                                        Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Height="28" MinWidth="100"/>
+                                <Button x:Name="btnDeleteConfig" Grid.Column="5" Content="Delete"
+                                        Style="{StaticResource DangerButton}" Margin="6,0,0,0" Height="28" MinWidth="80"/>
                             </Grid>
                         </Border>
 
@@ -1649,21 +1655,26 @@
                         </Grid>
 
                         <!-- Row 3: Action Buttons & Bottom Status -->
-                        <Border Grid.Row="3" Background="#F4F4F6" Height="64" Padding="20,0" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,20">
+                        <Border Grid.Row="3" Background="#F4F4F6" Height="64" Padding="20,0" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="-16,16,-16,-16" CornerRadius="0,0,20,0">
                             <Grid VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBlock x:Name="txtStatus" Grid.Column="0" Text="Ready. Import a config or select saved config."
-                                           FontSize="12.5" Foreground="#71717A" VerticalAlignment="Center" FontWeight="Medium"/>
+                                <!-- Left: copyright + status -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                                    <Border Width="1" Height="14" Background="#DCDCE0" VerticalAlignment="Center" Margin="12,0,12,0"/>
+                                    <TextBlock x:Name="txtStatus" Text="Ready. Import a config or select saved config."
+                                               FontSize="12.5" Foreground="#71717A" VerticalAlignment="Center" FontWeight="Medium"/>
+                                </StackPanel>
 
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
                                     <Button x:Name="btnRunCheck" Content="▶ Run Check"
-                                            Style="{StaticResource SuccessButton}" Margin="0,0,8,0" IsEnabled="False" MinWidth="120" Height="32"/>
+                                            Style="{StaticResource SuccessButton}" Margin="0,0,8,0" IsEnabled="False" MinWidth="120" Height="28"/>
                                     <Button x:Name="btnExportExcel" Content="📊 Export Excel"
-                                            Style="{StaticResource PrimaryButton}" IsEnabled="False" MinWidth="130" Height="32"/>
+                                            Style="{StaticResource PrimaryButton}" IsEnabled="False" MinWidth="130" Height="28"/>
                                 </StackPanel>
                             </Grid>
                         </Border>

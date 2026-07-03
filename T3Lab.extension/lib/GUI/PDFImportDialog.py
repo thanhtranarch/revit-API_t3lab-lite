@@ -6,12 +6,10 @@ clr.AddReference('PresentationFramework')
 clr.AddReference('WindowsBase')
 clr.AddReference('System.Windows.Forms')
 
-from System import Action
 from System.Collections.ObjectModel import ObservableCollection
 from System.Windows import WindowState, Visibility
 from System.Windows.Controls import DataGridEditAction
 from System.Windows.Forms import OpenFileDialog, DialogResult
-from System.Windows.Threading import DispatcherPriority
 
 from pyrevit import forms, DB, revit
 
@@ -51,21 +49,48 @@ class PDFImportDialog(forms.WPFWindow):
         self._loading   = False
         self._oc        = None   # ObservableCollection bound once, updated in-place
         self._mode      = _MODE_SEQUENTIAL
+        self._views_loaded = False
         forms.WPFWindow.__init__(self, _XAML)
         self.Loaded += self._on_loaded
+        self.ContentRendered += self._on_content_rendered
 
     def _on_loaded(self, sender, args):
         # Bind the persistent OC once — never replace ItemsSource.
         # Replacing it forces WPF to destroy/recreate all row containers (the
         # root cause of the "empty grid" bug from the previous version).
-        self._oc = ObservableCollection[object]()
-        self.grid_views.ItemsSource = self._oc
-        self.Dispatcher.BeginInvoke(DispatcherPriority.Background, Action(self._load_views))
+        # Only bind here; do NOT populate. Mutating the grid's bound collection
+        # during Loaded (before the first layout pass completes) can hard-crash
+        # WPF/Revit — the population is deferred to _on_content_rendered.
+        try:
+            if self._oc is None:
+                self._oc = ObservableCollection[object]()
+                self.grid_views.ItemsSource = self._oc
+        except Exception:
+            pass
+
+    def _on_content_rendered(self, sender, args):
+        # Populate the grid AFTER the window's first render pass — the safe
+        # point to mutate a bound ObservableCollection. ContentRendered fires
+        # reliably for a shown window (unlike a Background-priority dispatch,
+        # which could silently never run under a modal ShowDialog). Guard fully
+        # so a read failure can never propagate out and take down Revit.
+        if self._views_loaded:
+            return
+        self._views_loaded = True
+        try:
+            self._load_views()
+        except Exception as ex:
+            try:
+                self.pnl_loading.Visibility = Visibility.Collapsed
+                self.txt_status.Text = u"Could not load views: {}".format(ex)
+            except Exception:
+                pass
 
     # ── Data ──────────────────────────────────────────────────────────────────
 
     def _load_views(self):
         items = []
+        load_error = None
         try:
             doc = revit.doc
             for v in DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan):
@@ -83,13 +108,18 @@ class PDFImportDialog(forms.WPFWindow):
                     items.append(ViewItem(v.Name or "Unnamed", "Drafting", v.Id))
                 except Exception:
                     pass
-        except Exception:
-            pass
+        except Exception as ex:
+            load_error = str(ex)
+        finally:
+            # Always clear the overlay — otherwise any failure above leaves the
+            # window stuck showing "Loading views…" forever.
+            self.pnl_loading.Visibility = Visibility.Collapsed
 
         items.sort(key=lambda x: x.Name)
         self._all_items = items
-        self.pnl_loading.Visibility = Visibility.Collapsed
         self._refresh_list()
+        if load_error:
+            self.txt_status.Text = u"Could not read views: {}".format(load_error)
 
     def _refresh_list(self):
         q = self.txt_search.Text.strip().lower()

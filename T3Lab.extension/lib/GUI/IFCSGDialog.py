@@ -1125,6 +1125,12 @@ class IFCSGSuiteWindow(forms.WPFWindow):
                     pass
         self._load_saved_configs()
 
+        # Force initial tab content to render: btn_tab_assigner.IsChecked was already
+        # True when the XAML was parsed, so its Checked event fired before the
+        # += wiring above and main_tab_control.SelectedIndex was never explicitly
+        # set (same fix as ManaSheets/ManaViews/ManaAnno/ManaPara/ManaContains).
+        self.main_tab_control.SelectedIndex = 0
+
     # ==============================================================================
     # Window Chrome Handlers
     # ==============================================================================

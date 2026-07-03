@@ -50,11 +50,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -413,11 +413,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -449,11 +449,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -489,11 +489,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1177,6 +1177,12 @@
 
             <!-- CONTENT: TabControl with hidden headers -->
             <TabControl x:Name="main_tab_control" Grid.Row="1" Grid.Column="1" Margin="0" BorderThickness="0" Background="Transparent">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                        <ContentPresenter ContentSource="SelectedContent"/>
+                    </ControlTemplate>
+                </TabControl.Template>
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -1201,6 +1207,12 @@
                         </Border>
 
                         <TabControl x:Name="style_tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent">
+                            <TabControl.Template>
+                                <ControlTemplate TargetType="TabControl">
+                                    <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                                    <ContentPresenter ContentSource="SelectedContent"/>
+                                </ControlTemplate>
+                            </TabControl.Template>
                             <TabControl.ItemContainerStyle>
                                 <Style TargetType="TabItem">
                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -1224,8 +1236,8 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBox x:Name="txt_search_style" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search line styles..." Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_style_calc_usage" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Calculate Usage" Height="32" Padding="12,0" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_style_refresh" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="32" Padding="12,0"/>
+                                        <Button x:Name="btn_style_calc_usage" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Calculate Usage" Height="28" Padding="12,0" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_style_refresh" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="28" Padding="12,0"/>
                                     </Grid>
 
                                     <!-- Table -->
@@ -1294,13 +1306,13 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                            <Button x:Name="btn_style_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="34" Margin="0,0,6,0"/>
-                                            <Button x:Name="btn_style_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="34" Margin="0,0,6,0"/>
-                                            <Button x:Name="btn_style_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="34"/>
+                                            <Button x:Name="btn_style_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="28" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_style_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="28" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_style_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="28"/>
                                         </StackPanel>
                                         <TextBlock x:Name="txt_stats_style" Grid.Column="1" Text="Showing 0 / 0 items" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#71717A" FontSize="12" FontStyle="Italic"/>
-                                        <Button x:Name="btn_style_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="34" Width="90" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_style_delete" Grid.Column="3" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="34" Width="130"/>
+                                        <Button x:Name="btn_style_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="28" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_style_delete" Grid.Column="3" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="28" Width="130"/>
                                     </Grid>
                                 </Grid>
                             </TabItem>
@@ -1321,7 +1333,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBox x:Name="txt_search_pattern" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search line patterns..." Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_pattern_refresh" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="32" Padding="12,0"/>
+                                        <Button x:Name="btn_pattern_refresh" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="28" Padding="12,0"/>
                                     </Grid>
 
                                     <!-- Table -->
@@ -1390,14 +1402,14 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                            <Button x:Name="btn_pattern_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="34" Margin="0,0,6,0"/>
-                                            <Button x:Name="btn_pattern_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="34" Margin="0,0,6,0"/>
-                                            <Button x:Name="btn_pattern_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="34"/>
+                                            <Button x:Name="btn_pattern_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="28" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_pattern_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="28" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_pattern_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="28"/>
                                         </StackPanel>
                                         <TextBlock x:Name="txt_stats_pattern" Grid.Column="1" Text="Showing 0 / 0 items" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#71717A" FontSize="12" FontStyle="Italic"/>
-                                        <Button x:Name="btn_pattern_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="34" Width="90" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_pattern_duplicate" Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Duplicate" Height="34" Width="90" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_pattern_delete" Grid.Column="4" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="34" Width="130"/>
+                                        <Button x:Name="btn_pattern_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="28" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_pattern_duplicate" Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Duplicate" Height="28" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_pattern_delete" Grid.Column="4" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="28" Width="130"/>
                                     </Grid>
                                 </Grid>
                             </TabItem>
@@ -1424,7 +1436,7 @@
                                             <ComboBoxItem Content="Drafting"/>
                                             <ComboBoxItem Content="Model"/>
                                         </ComboBox>
-                                        <Button x:Name="btn_fill_refresh" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="32" Padding="12,0"/>
+                                        <Button x:Name="btn_fill_refresh" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="28" Padding="12,0"/>
                                     </Grid>
 
                                     <!-- Table -->
@@ -1491,14 +1503,14 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                            <Button x:Name="btn_fill_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="34" Margin="0,0,6,0"/>
-                                            <Button x:Name="btn_fill_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="34" Margin="0,0,6,0"/>
-                                            <Button x:Name="btn_fill_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="34"/>
+                                            <Button x:Name="btn_fill_select_all" Style="{StaticResource TertiaryButton}" Content="Select All" Height="28" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_fill_select_custom" Style="{StaticResource TertiaryButton}" Content="Select Custom" Height="28" Margin="0,0,6,0"/>
+                                            <Button x:Name="btn_fill_clear_all" Style="{StaticResource TertiaryButton}" Content="Clear Selection" Height="28"/>
                                         </StackPanel>
                                         <TextBlock x:Name="txt_stats_fill" Grid.Column="1" Text="Showing 0 / 0 items" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="#71717A" FontSize="12" FontStyle="Italic"/>
-                                        <Button x:Name="btn_fill_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="34" Width="90" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_fill_duplicate" Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Duplicate" Height="34" Width="90" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_fill_delete" Grid.Column="4" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="34" Width="130"/>
+                                        <Button x:Name="btn_fill_rename" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Rename" Height="28" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_fill_duplicate" Grid.Column="3" Style="{StaticResource SecondaryButton}" Content="Duplicate" Height="28" Width="90" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_fill_delete" Grid.Column="4" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="28" Width="130"/>
                                     </Grid>
                                 </Grid>
                             </TabItem>
@@ -1583,10 +1595,10 @@
 
                                 <!-- Palette Colors Buttons -->
                                 <UniformGrid Grid.Row="3" Columns="4" Margin="0,12,0,12">
-                                    <Button x:Name="btnGradient" Style="{StaticResource SecondaryButton}" Content="Gradient" Height="36" Margin="0,0,6,0"/>
-                                    <Button x:Name="btnRandom" Style="{StaticResource SecondaryButton}" Content="Random" Height="36" Margin="0,0,6,0"/>
-                                    <Button x:Name="btnLegend" Style="{StaticResource SecondaryButton}" Content="Create Legend" Height="36" Margin="0,0,6,0"/>
-                                    <Button x:Name="btnFilters" Style="{StaticResource SecondaryButton}" Content="View Filters" Height="36"/>
+                                    <Button x:Name="btnGradient" Style="{StaticResource SecondaryButton}" Content="Gradient" Height="28" Margin="0,0,6,0"/>
+                                    <Button x:Name="btnRandom" Style="{StaticResource SecondaryButton}" Content="Random" Height="28" Margin="0,0,6,0"/>
+                                    <Button x:Name="btnLegend" Style="{StaticResource SecondaryButton}" Content="Create Legend" Height="28" Margin="0,0,6,0"/>
+                                    <Button x:Name="btnFilters" Style="{StaticResource SecondaryButton}" Content="View Filters" Height="28"/>
                                 </UniformGrid>
 
                                 <!-- Bottom actions -->
@@ -1598,8 +1610,8 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock x:Name="txtFooterStatus" Grid.Column="0" Text="Active View: -" FontSize="11" Foreground="#71717A" FontStyle="Italic" VerticalAlignment="Center"/>
-                                        <Button x:Name="btnReset" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Reset overrides" Height="38" Width="130" Margin="0,0,8,0"/>
-                                        <Button x:Name="btnApply" Grid.Column="2" Style="{StaticResource SuccessButton}" Content="Apply Colors" Height="38" Width="140"/>
+                                        <Button x:Name="btnReset" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Reset overrides" Height="28" Width="130" Margin="0,0,8,0"/>
+                                        <Button x:Name="btnApply" Grid.Column="2" Style="{StaticResource SuccessButton}" Content="Apply Colors" Height="28" Width="140"/>
                                     </Grid>
                                 </Border>
                             </Grid>

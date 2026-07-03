@@ -37,6 +37,7 @@ from core.advanced_view_manager import (
     _eid_int,
     _make_eid,
     EnhancedViewItem,
+    build_viewport_map,
     update_view_name,
     update_view_template,
     update_scale,
@@ -247,21 +248,22 @@ class AdvancedViewManagerWindow(forms.WPFWindow):
     def _load_all_views(self):
         """Load views"""
         self.all_views = []
-        
+        viewport_map = build_viewport_map(self.doc)
+
         collector = FilteredElementCollector(self.doc)\
             .OfClass(View)\
             .WhereElementIsNotElementType()
-        
+
         for view in collector:
             if view.ViewType in [ViewType.ProjectBrowser, ViewType.SystemBrowser,
                                 ViewType.Undefined, ViewType.Internal]:
                 continue
-            
+
             if view.IsTemplate:
                 continue
-            
+
             try:
-                item = EnhancedViewItem(view, self.doc)
+                item = EnhancedViewItem(view, self.doc, viewport_map)
                 self.all_views.append(item)
             except:
                 pass

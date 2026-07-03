@@ -49,9 +49,10 @@ Chain: launcher → `ModelAuditorDialog.py` (1828 loc) → `ModelAuditor.xaml`
 |------|-----------|---------|
 | ManaLoca | ⬜ | |
 | ManaStyles | ⬜ | |
-| ManaWorkset | ⬜ | |
+| ManaWorkset | ⬜ | Gray-gutter fix (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | ModelAuditor | ⬜ | |
 
 ## Phát sinh
 
-_(ghi lỗi mới tại đây)_
+- **2026-07-03 — ManaWorkset: gray gutter quanh vùng nội dung** (yêu cầu UI trực tiếp từ user, không phải bug): `ManaWorkset.xaml` có `TabControl x:Name="tab_control"` (Grid.Row="1"/Col="1") với `Background="Transparent"` → nền xám cửa sổ `#E4E4E7` lộ ra qua mọi khe hở giữa các card trắng bên trong (cùng lớp bug đã gặp ở ManaSelect/ManaDWG/PDFImport, xem `panel-1-annotation-select.md` Phát sinh). Đã sửa theo đúng pattern chuẩn: bọc toàn bộ `TabControl` trong 1 `Border Background="#F8FAFC"` full-bleed (không margin) phủ kín ô Grid.Row=1/Col=1, không còn khe hở nào lộ màu xám gốc. Verify: XML well-formed, `audit_tools.py --quiet` clean, `sync_wpf_styles.py --check` 53/53 khớp. Chưa được user xác nhận trực quan trong Revit.
+- **2026-07-03 (tiếp) — ManaWorkset: user báo tiếp "remove all gutter or gap" sau lần fix nền F8FAFC đầu tiên** — lần fix trước chỉ đổi màu (xám → F8FAFC) chứ chưa bỏ khoảng hở kết cấu: cả 3 tab (Worksets/Bulk Tools/3D Views) đều dùng pattern "floating card" — card nội dung chính có `Margin` (18px các cạnh) + `CornerRadius="20"` nổi giữa nền, để lộ viền F8FAFC quanh card dù không còn xám. Áp dụng đúng pattern "full-screen" đã dùng cho DWGManagement/ManaSelect trước đây (xem `panel-1-annotation-select.md` Phát sinh, mục "user yêu cầu áp dụng cách full-screen"): bỏ `Margin`/`CornerRadius` của card chính ở cả 3 tab, card giờ phủ kín edge-to-edge, chỉ giữ `BorderThickness="1"` (viền mảnh, không bo góc, không margin) — Tab 1 "Worksets card" (`Margin="18,14,18,18"` → `"0"`, `CornerRadius="20"` → `"0"`), Tab 2 "Bulk Tools" (`Grid Margin="18"` → bỏ, `CornerRadius="20"` → `"0"`), Tab 3 "3D Views" (tương tự Tab 2). Giữ nguyên `Padding` nội bộ của card (đó là khoảng cách nội dung bên trong, không phải gutter lộ nền ngoài) và banner cảnh báo "Enable Worksharing" ở Tab 1 (alert box nhỏ, có margin riêng theo đúng chuẩn thiết kế, không phải là "cái bảng" đang bị phàn nàn). Verify: XML well-formed, `audit_tools.py --quiet` clean, `sync_wpf_styles.py --check` 53/53 khớp. Chưa được user xác nhận trực quan trong Revit.

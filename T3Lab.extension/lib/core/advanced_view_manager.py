@@ -46,19 +46,40 @@ def _make_eid(int_val):
             return ElementId(int_val)
 
 
+def build_viewport_map(doc):
+    """Build a {view_id_int: [viewports]} map with a single collector pass.
+
+    Callers building many EnhancedViewItem instances should build this once
+    and pass it in, instead of letting each item re-scan every viewport in
+    the model (that pattern is O(views * viewports) and is slow to open on
+    larger models).
+    """
+    vp_map = {}
+    try:
+        collector = FilteredElementCollector(doc).OfClass(Viewport).WhereElementIsNotElementType()
+        for vp in collector:
+            key = _eid_int(vp.ViewId)
+            vp_map.setdefault(key, []).append(vp)
+    except:
+        pass
+    return vp_map
+
+
 # =====================================================
 # ENHANCED VIEW ITEM
 # =====================================================
 
 class EnhancedViewItem(object):
     """Enhanced view item with all properties"""
-    
-    def __init__(self, view, doc):
+
+    def __init__(self, view, doc, viewport_map=None):
         self.element = view
         self.doc = doc
         self.id = view.Id
         self.name = view.Name
         self.is_selected = False
+        self._viewports = (viewport_map if viewport_map is not None
+                            else build_viewport_map(doc)).get(_eid_int(view.Id), [])
         self.view_type = self._get_view_type_name(view)
         self.view_template = self._get_view_template(view)
         self.scale = self._get_scale(view)
@@ -167,34 +188,21 @@ class EnhancedViewItem(object):
     
     def _get_sheet_count(self, view):
         try:
-            count = 0
-            collector = FilteredElementCollector(self.doc)\
-                .OfClass(Viewport)\
-                .WhereElementIsNotElementType()
-            
-            for vp in collector:
-                if vp.ViewId == view.Id:
-                    count += 1
-            return count
+            return len(self._viewports)
         except:
             return 0
-    
+
     def _get_title_on_sheet(self, view):
         try:
-            collector = FilteredElementCollector(self.doc)\
-                .OfClass(Viewport)\
-                .WhereElementIsNotElementType()
-            
-            for vp in collector:
-                if vp.ViewId == view.Id:
-                    title_param = vp.get_Parameter(BuiltInParameter.VIEWPORT_DETAIL_NUMBER)
-                    if title_param:
-                        return title_param.AsString() or "N/A"
-                    return "N/A"
+            for vp in self._viewports:
+                title_param = vp.get_Parameter(BuiltInParameter.VIEWPORT_DETAIL_NUMBER)
+                if title_param:
+                    return title_param.AsString() or "N/A"
+                return "N/A"
             return "N/A"
         except:
             return "N/A"
-    
+
     def _get_referencing_sheet(self, view):
         try:
             param = view.get_Parameter(BuiltInParameter.VIEW_REFERENCING_SHEET)
@@ -203,33 +211,23 @@ class EnhancedViewItem(object):
             return "N/A"
         except:
             return "N/A"
-    
+
     def _get_sheet_number(self, view):
         try:
-            collector = FilteredElementCollector(self.doc)\
-                .OfClass(Viewport)\
-                .WhereElementIsNotElementType()
-            
-            for vp in collector:
-                if vp.ViewId == view.Id:
-                    sheet = self.doc.GetElement(vp.SheetId)
-                    if sheet:
-                        return sheet.SheetNumber or "N/A"
+            for vp in self._viewports:
+                sheet = self.doc.GetElement(vp.SheetId)
+                if sheet:
+                    return sheet.SheetNumber or "N/A"
             return "N/A"
         except:
             return "N/A"
-    
+
     def _get_sheet_name(self, view):
         try:
-            collector = FilteredElementCollector(self.doc)\
-                .OfClass(Viewport)\
-                .WhereElementIsNotElementType()
-            
-            for vp in collector:
-                if vp.ViewId == view.Id:
-                    sheet = self.doc.GetElement(vp.SheetId)
-                    if sheet:
-                        return sheet.Name or "N/A"
+            for vp in self._viewports:
+                sheet = self.doc.GetElement(vp.SheetId)
+                if sheet:
+                    return sheet.Name or "N/A"
             return "N/A"
         except:
             return "N/A"

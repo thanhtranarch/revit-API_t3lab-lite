@@ -1352,7 +1352,13 @@ class ManaContainsWindow(forms.WPFWindow):
         self.tab1_type_cb.SelectionChanged += self._t1_type
         self._t1_load()
         self._t2_load_data()
-        
+
+        # Force initial tab content to render: nav_contains.IsChecked was already
+        # True when the XAML was parsed, so its Checked event fired before the
+        # += wiring above and tab_control.SelectedIndex was never explicitly set
+        # (same fix as ManaSheets/ManaViews/ManaAnno/ManaPara).
+        self.tab_control.SelectedIndex = 0
+
     # ── Chrome Event Handlers ────────────────────────────────────
     def _minimize(self, sender, e):
         self.WindowState = WindowState.Minimized

@@ -1710,6 +1710,12 @@ class ManaParaWindow(forms.WPFWindow):
         # Load parameter data
         self._load_param_data()
 
+        # Force initial tab content to render: btn_nav_browse.IsChecked was already
+        # True when the XAML was parsed, so its Checked event fired before the
+        # += wiring above and tab_main.SelectedIndex was never explicitly set
+        # (same fix as ManaSheets/ManaViews/ManaAnno).
+        self.tab_main.SelectedIndex = 0
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------

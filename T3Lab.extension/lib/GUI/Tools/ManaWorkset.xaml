@@ -49,11 +49,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -412,11 +412,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -448,11 +448,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -488,11 +488,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1255,7 +1255,16 @@
             </Border>
 
             <!-- ═══ CONTENT (Row 1, Column 1) ═══ -->
-            <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
+            <!-- Opaque surface fill: guarantees no window-gray (#E4E4E7) can show through
+                 the TabControl's transparent background or any inner margin/gap. -->
+            <Border Grid.Row="1" Grid.Column="1" Background="#F8FAFC">
+            <TabControl x:Name="tab_control" BorderThickness="0" Background="Transparent" Margin="0">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                        <ContentPresenter ContentSource="SelectedContent"/>
+                    </ControlTemplate>
+                </TabControl.Template>
                 <TabControl.Resources>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
@@ -1305,7 +1314,7 @@
 
                         <!-- Worksets card -->
                         <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                CornerRadius="20" Margin="18,14,18,18" Padding="0">
+                                CornerRadius="0" Margin="0" Padding="0">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/> <!-- Card header / actions -->
@@ -1475,8 +1484,8 @@
 
                 <!-- TAB 2: BULK TOOLS -->
                 <TabItem x:Name="tab_bulk_item">
-                    <Grid Margin="18">
-                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="20">
+                    <Grid>
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Padding="20">
                             <StackPanel>
                                 <TextBlock Text="BULK TOOLS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,4"/>
                                 <TextBlock Text="Manage worksets in bulk using a reference list of workset names."
@@ -1546,8 +1555,8 @@
 
                 <!-- TAB 3: 3D VIEWS -->
                 <TabItem x:Name="tab_views_item">
-                    <Grid Margin="18">
-                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="20" Padding="20">
+                    <Grid>
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Padding="20">
                             <StackPanel>
                                 <TextBlock Text="3D VIEWS" FontSize="11" FontWeight="Bold" Foreground="#9A9AA2" Margin="1,0,0,4"/>
                                 <TextBlock Text="Generate isolated 3D views to quickly review each workset's contents."
@@ -1577,6 +1586,7 @@
                 </TabItem>
 
             </TabControl>
+            </Border>
 
             <!-- ═══ STATUS BAR (Row 2, Column 1) ═══ -->
             <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6"

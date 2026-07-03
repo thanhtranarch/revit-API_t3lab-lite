@@ -1547,6 +1547,20 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception:
             pass
 
+    def window_content_rendered(self, sender, e):
+        """Force one column-fill pass once the window has its final rendered size.
+
+        The Selection tab's ListView populates its ItemsSource during __init__,
+        before the window is shown, so the first SizeChanged on sheets_listview
+        can fire with a stale/intermediate width and leave a gap between the
+        last column and the scrollbar. Re-run the same fill logic now that
+        ContentRendered guarantees layout is final.
+        """
+        try:
+            self.on_listview_size_changed(self.sheets_listview, None)
+        except Exception:
+            pass
+
     def header_checkbox_clicked(self, sender, e):
         """Handle header checkbox click to select/deselect all items."""
         is_checked = sender.IsChecked

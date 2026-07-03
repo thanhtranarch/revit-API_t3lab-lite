@@ -48,11 +48,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -411,11 +411,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -447,11 +447,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -487,11 +487,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1218,7 +1218,16 @@
             </Border>
 
             <!-- ═══ CONTENT (Row 1, Column 1) ═══ -->
-            <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
+            <!-- Opaque surface fill: guarantees no window-gray (#E4E4E7) can ever show through
+                 any internal padding/gap inside the tab content, regardless of card layout. -->
+            <Border Grid.Row="1" Grid.Column="1" Background="#F8FAFC">
+            <TabControl x:Name="tab_control" Padding="0" Background="Transparent">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                        <ContentPresenter ContentSource="SelectedContent"/>
+                    </ControlTemplate>
+                </TabControl.Template>
                 <TabControl.Resources>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
@@ -1229,60 +1238,20 @@
                 <TabItem x:Name="tab_views_item">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                             <RowDefinition Height="*"/>    <!-- DataGrid & Filters -->
+                            <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                             <RowDefinition Height="Auto"/> <!-- Actions Footer -->
                         </Grid.RowDefinitions>
 
-                        <!-- Cards Summary -->
-                        <Border Grid.Row="0" Background="Transparent" Padding="16,10,16,4" BorderThickness="0">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="TOTAL" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="views_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="SELECTED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="views_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="TYPES" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="views_types_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="FILTERS ACTIVE" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="views_filters_text" Text="No" FontSize="22" FontWeight="Bold" Foreground="#71717A"/>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                        </Border>
-
                         <!-- DataGrid & Filters -->
-                        <Grid Grid.Row="1" Margin="16,0,16,0">
+                        <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Filters Panel -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="16" Padding="12" Margin="0,10,12,10">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="12">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
                                         <TextBlock Text="SEARCH" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
@@ -1316,8 +1285,8 @@
                                         </ComboBox>
 
                                         <TextBlock Text="QUICK SELECT" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
-                                        <Button x:Name="views_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
-                                        <Button x:Name="views_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="views_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="views_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,16" HorizontalAlignment="Stretch"/>
 
                                         <TextBlock Text="ADDITIONAL FILTERS" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
                                         <TextBlock Text="Has Template:" FontSize="9" Margin="0,0,0,3" Foreground="#71717A"/>
@@ -1338,15 +1307,15 @@
                             </Border>
 
                             <!-- Right DataGrid -->
-                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="6" Margin="0,10,0,10">
-                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0">
+                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="0" Background="#F8FAFC">
                                     <DataGrid x:Name="views_grid" AutoGenerateColumns="False" IsReadOnly="False"
                                               SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
                                               Background="White" BorderThickness="0"
                                               GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
                                               RowBackground="White" AlternatingRowBackground="#FAFAFA"
                                               FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
-                                              HeadersVisibility="Column" Margin="4">
+                                              HeadersVisibility="Column">
                                         <DataGrid.Resources>
                                             <Style TargetType="DataGridColumnHeader">
                                                 <Setter Property="Background" Value="#FFFFFF"/>
@@ -1414,12 +1383,52 @@
                             </Border>
                         </Grid>
 
+                        <!-- Cards Summary -->
+                        <Border Grid.Row="1" Background="Transparent" Padding="16,16,16,16" BorderThickness="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
+                                    <StackPanel>
+                                        <TextBlock Text="TOTAL" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="views_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
+                                    <StackPanel>
+                                        <TextBlock Text="SELECTED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="views_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
+                                    <StackPanel>
+                                        <TextBlock Text="TYPES" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="views_types_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
+                                    <StackPanel>
+                                        <TextBlock Text="FILTERS ACTIVE" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="views_filters_text" Text="No" FontSize="22" FontWeight="Bold" Foreground="#71717A"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
+
                         <!-- Actions Footer -->
                         <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="12,8">
                             <Grid>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                    <Button x:Name="views_excel_btn" Content="Excel Export/Import" Style="{StaticResource SuccessButton}" Width="150" Margin="0,0,8,0"/>
-                                    <Button x:Name="views_refresh_btn" Content="Refresh List" Style="{StaticResource SecondaryButton}" Width="110"/>
+                                    <Button x:Name="views_refresh_btn" Content="Refresh List" Style="{StaticResource SecondaryButton}" Width="110" Margin="0,0,8,0"/>
+                                    <Button x:Name="views_excel_btn" Content="Excel Export/Import" Style="{StaticResource SuccessButton}" Width="150"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <Button x:Name="views_rename_btn" Content="Batch Rename" Style="{StaticResource PrimaryButton}" Width="120" Margin="0,0,8,0"/>
@@ -1436,60 +1445,20 @@
                 <TabItem x:Name="tab_templates_item">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                             <RowDefinition Height="*"/>    <!-- DataGrid & Filters -->
+                            <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                             <RowDefinition Height="Auto"/> <!-- Actions Footer -->
                         </Grid.RowDefinitions>
 
-                        <!-- Cards Summary -->
-                        <Border Grid.Row="0" Background="Transparent" Padding="16,10,16,4" BorderThickness="0">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-
-                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="TOTAL TEMPLATES" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="tmpl_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="SELECTED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="tmpl_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="IN USE" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="tmpl_used_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
-                                    </StackPanel>
-                                </Border>
-
-                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
-                                    <StackPanel>
-                                        <TextBlock Text="UNUSED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
-                                        <TextBlock x:Name="tmpl_unused_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#F59E0B"/>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                        </Border>
-
                         <!-- DataGrid & Filters -->
-                        <Grid Grid.Row="1" Margin="16,0,16,0">
+                        <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="220"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
                             <!-- Left Filters Panel -->
-                            <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="16" Padding="12" Margin="0,10,12,10">
+                            <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="12">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
                                         <TextBlock Text="SEARCH TEMPLATES" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
@@ -1524,23 +1493,23 @@
                                         </ComboBox>
 
                                         <TextBlock Text="QUICK SELECT" FontSize="11" FontWeight="Bold" Margin="0,0,0,6" Foreground="#9A9AA2"/>
-                                        <Button x:Name="tmpl_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
-                                        <Button x:Name="tmpl_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="30" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
-                                        <Button x:Name="tmpl_select_unused_btn" Content="Select Unused" Style="{StaticResource SecondaryButton}" Height="30" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="tmpl_select_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="tmpl_clear_btn" Content="Clear Selection" Style="{StaticResource SecondaryButton}" Height="28" Margin="0,0,0,6" HorizontalAlignment="Stretch"/>
+                                        <Button x:Name="tmpl_select_unused_btn" Content="Select Unused" Style="{StaticResource SecondaryButton}" Height="28" HorizontalAlignment="Stretch"/>
                                     </StackPanel>
                                 </ScrollViewer>
                             </Border>
 
                             <!-- Right DataGrid -->
-                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="6" Margin="0,10,0,10">
-                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0">
+                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="0" Background="#F8FAFC">
                                     <DataGrid x:Name="tmpl_grid" AutoGenerateColumns="False" IsReadOnly="False"
                                               SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" RowHeaderWidth="0"
                                               Background="White" BorderThickness="0"
                                               GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
                                               RowBackground="White" AlternatingRowBackground="#FAFAFA"
                                               FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
-                                              HeadersVisibility="Column" Margin="4">
+                                              HeadersVisibility="Column">
                                         <DataGrid.Resources>
                                             <Style TargetType="DataGridColumnHeader">
                                                 <Setter Property="Background" Value="#FFFFFF"/>
@@ -1606,6 +1575,46 @@
                             </Border>
                         </Grid>
 
+                        <!-- Cards Summary -->
+                        <Border Grid.Row="1" Background="Transparent" Padding="16,16,16,16" BorderThickness="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
+                                    <StackPanel>
+                                        <TextBlock Text="TOTAL TEMPLATES" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="tmpl_total_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#18181B"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
+                                    <StackPanel>
+                                        <TextBlock Text="SELECTED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="tmpl_selected_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#3B82F6"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8" Margin="0,0,16,0">
+                                    <StackPanel>
+                                        <TextBlock Text="IN USE" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="tmpl_used_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#10B981"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Grid.Column="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="12,8">
+                                    <StackPanel>
+                                        <TextBlock Text="UNUSED" FontSize="11" Foreground="#9A9AA2" FontWeight="Bold"/>
+                                        <TextBlock x:Name="tmpl_unused_text" Text="0" FontSize="22" FontWeight="Bold" Foreground="#F59E0B"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
+
                         <!-- Actions Footer -->
                         <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="12,8">
                             <Grid>
@@ -1625,6 +1634,7 @@
                     </Grid>
                 </TabItem>
             </TabControl>
+            </Border>
 
             <!-- ═══ STATUS BAR ═══ -->
             <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0"

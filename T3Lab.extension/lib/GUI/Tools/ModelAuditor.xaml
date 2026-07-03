@@ -5,7 +5,7 @@
         MinWidth="900" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        Background="#E4E4E7"
+        Background="#F4F4F6"
         FontFamily="Hanken Grotesk">
 
     <WindowChrome.WindowChrome>
@@ -48,11 +48,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -411,11 +411,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -447,11 +447,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -487,11 +487,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1079,7 +1079,7 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
     </Window.Resources>
 
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#F4F4F6">
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="66"/>
@@ -1218,69 +1218,104 @@
 
             <!-- CONTENT: TabControl with hidden headers -->
             <TabControl x:Name="main_tab_control" Grid.Row="1" Grid.Column="1" Margin="0" BorderThickness="0" Background="Transparent">
+                <TabControl.Template>
+                    <ControlTemplate TargetType="TabControl">
+                        <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                        <ContentPresenter ContentSource="SelectedContent"/>
+                    </ControlTemplate>
+                </TabControl.Template>
                 <TabControl.ItemContainerStyle>
                     <Style TargetType="TabItem">
                         <Setter Property="Visibility" Value="Collapsed"/>
                     </Style>
                 </TabControl.ItemContainerStyle>
                 <TabItem>
-                    <Grid x:Name="grid_health_check" Background="Transparent" Margin="14">
+                    <Grid x:Name="grid_health_check" Background="Transparent" Margin="0">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/> <!-- Header Profile Box -->
+                            <RowDefinition Height="Auto"/> <!-- Header Profile Box + Recommendations -->
                             <RowDefinition Height="Auto"/> <!-- Health Scale Legend -->
                             <RowDefinition Height="*"/>    <!-- DataGrid -->
-                            <RowDefinition Height="Auto"/> <!-- Recommendations -->
                         </Grid.RowDefinitions>
-                        
-                        <!-- Row 0: Header Profile Box -->
-                        <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="20,16" Margin="0,0,0,14">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/> <!-- Circle Score Badge -->
-                                    <ColumnDefinition Width="*"/>    <!-- Middle Profile Info -->
-                                    <ColumnDefinition Width="Auto"/> <!-- Right Actions & Score -->
-                                </Grid.ColumnDefinitions>
-                                
-                                <!-- Circle Score Badge -->
-                                <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
-                                    <Grid Width="70" Height="70">
-                                        <Ellipse Fill="#F1F5F9" x:Name="ellipse_health_bg"/>
-                                        <Ellipse Fill="#A1A1AA" x:Name="ellipse_health_color" Margin="4"/>
-                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                            <TextBlock x:Name="txt_health_grade" Text="-" FontSize="24" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
-                                            <TextBlock x:Name="txt_health_score" Text="--" FontSize="11" Foreground="White" HorizontalAlignment="Center" Margin="0,-2,0,0"/>
-                                        </StackPanel>
-                                    </Grid>
-                                    <TextBlock x:Name="txt_health_badge_label" Text="Pending" FontSize="12.5" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" Margin="0,6,0,0"/>
-                                    <Border x:Name="border_health_rag" Background="#F1F5F9" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center" Margin="0,6,0,0">
-                                        <TextBlock x:Name="txt_health_rag" Text="RAG: --" FontSize="10.5" FontWeight="SemiBold" Foreground="#64748B"/>
-                                    </Border>
-                                </StackPanel>
-                                
-                                <!-- Middle Profile Info -->
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock x:Name="txt_health_title" Text="Model Health: Pending" FontSize="19" FontWeight="Bold" Foreground="#0F172A"/>
-                                    <TextBlock x:Name="txt_health_summary" Text="Run diagnostics to analyze model health." FontSize="12.5" Foreground="#475569" Margin="0,4,0,0"/>
-                                    <TextBlock x:Name="txt_health_summary_metrics" Text="" FontSize="11.5" Foreground="#64748B" Margin="0,4,0,0"/>
-                                    <TextBlock x:Name="txt_health_last_run" Text="Last analyzed: --" FontSize="11" Foreground="#94A3B8" Margin="0,4,0,0"/>
-                                    <TextBlock x:Name="txt_health_doc_name" Text="Model: --" FontSize="11.5" Foreground="#64748B" Margin="0,4,0,0"/>
-                                </StackPanel>
-                                
-                                <!-- Right Actions & Score -->
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                        <Button x:Name="btn_health_run" Style="{StaticResource PrimaryButton}" Content="⟳ Re-Analyze" Height="32" Padding="14,0" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_health_export" Style="{StaticResource SecondaryButton}" Content="Export Report" Height="32" Padding="14,0"/>
+
+                        <!-- Row 0: Header Profile Box (left) + Recommendations (right) -->
+                        <Grid Grid.Row="0" Margin="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="320"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Padding="20,16" Margin="0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/> <!-- Circle Score Badge -->
+                                        <ColumnDefinition Width="*"/>    <!-- Middle Profile Info -->
+                                        <ColumnDefinition Width="Auto"/> <!-- Right Actions & Score -->
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Circle Score Badge -->
+                                    <StackPanel VerticalAlignment="Top" Margin="0,0,20,0">
+                                        <Grid Width="70" Height="70">
+                                            <Ellipse Fill="#F1F5F9" x:Name="ellipse_health_bg"/>
+                                            <Ellipse Fill="#A1A1AA" x:Name="ellipse_health_color" Margin="4"/>
+                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                <TextBlock x:Name="txt_health_grade" Text="-" FontSize="24" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                                <TextBlock x:Name="txt_health_score" Text="--" FontSize="11" Foreground="White" HorizontalAlignment="Center" Margin="0,-2,0,0"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock x:Name="txt_health_badge_label" Text="Pending" FontSize="12.5" FontWeight="Bold" Foreground="#71717A" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                                        <Border x:Name="border_health_rag" Background="#F1F5F9" CornerRadius="4" Padding="8,3" HorizontalAlignment="Center" Margin="0,6,0,0">
+                                            <TextBlock x:Name="txt_health_rag" Text="RAG: --" FontSize="10.5" FontWeight="SemiBold" Foreground="#64748B"/>
+                                        </Border>
                                     </StackPanel>
-                                    <TextBlock x:Name="txt_health_weighted_score" Text="Weighted Score: --/100" FontSize="11" Foreground="#475569" HorizontalAlignment="Right"/>
-                                    <TextBlock x:Name="txt_health_weighted_grade" Text="Grade: --" FontSize="11" Foreground="#475569" HorizontalAlignment="Right" Margin="0,2,0,0"/>
-                                    <TextBlock x:Name="txt_health_trend" Text="No previous run to compare" FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Right" Margin="0,2,0,0"/>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-                        
+
+                                    <!-- Middle Profile Info -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                        <TextBlock x:Name="txt_health_title" Text="Model Health: Pending" FontSize="19" FontWeight="Bold" Foreground="#0F172A"/>
+                                        <TextBlock x:Name="txt_health_summary" Text="Run diagnostics to analyze model health." FontSize="12.5" Foreground="#475569" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="txt_health_summary_metrics" Text="" FontSize="11.5" Foreground="#64748B" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                        <TextBlock x:Name="txt_health_last_run" Text="Last analyzed: --" FontSize="11" Foreground="#94A3B8" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="txt_health_doc_name" Text="Model: --" FontSize="11.5" Foreground="#64748B" Margin="0,4,0,0"/>
+                                    </StackPanel>
+
+                                    <!-- Right Actions & Score -->
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Right">
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                            <Button x:Name="btn_health_run" Style="{StaticResource PrimaryButton}" Content="⟳ Re-Analyze" Height="28" Padding="14,0" Margin="0,0,8,0"/>
+                                            <Button x:Name="btn_health_export" Style="{StaticResource SecondaryButton}" Content="Export Report" Height="28" Padding="14,0"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="txt_health_weighted_score" Text="Weighted Score: --/100" FontSize="11" Foreground="#475569" HorizontalAlignment="Right"/>
+                                        <TextBlock x:Name="txt_health_weighted_grade" Text="Grade: --" FontSize="11" Foreground="#475569" HorizontalAlignment="Right" Margin="0,2,0,0"/>
+                                        <TextBlock x:Name="txt_health_trend" Text="No previous run to compare" FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Right" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Recommendations Panel (right side of Model Health card) -->
+                            <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Padding="16">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="RECOMMENDATIONS" FontSize="12" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,10"/>
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" MaxHeight="150">
+                                        <ListBox x:Name="lst_health_recommendations" BorderThickness="0" Background="Transparent">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" Margin="0,3">
+                                                        <Ellipse Fill="{Binding bullet_brush}" Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                        <TextBlock Text="{Binding text}" FontSize="12" Foreground="#3F3F46" TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
                         <!-- Row 1: Health Scale Legend -->
-                        <Border Grid.Row="1" Background="#FFFBEB" BorderBrush="#FEF3C7" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,14">
+                        <Border Grid.Row="1" Background="#FFFBEB" BorderBrush="#FEF3C7" BorderThickness="1" CornerRadius="0" Padding="12,8" Margin="0">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="Health Scale:" FontWeight="SemiBold" Foreground="#92400E" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
                                 <Border Background="#10B981" CornerRadius="4" Padding="6,2" Margin="0,0,8,0"><TextBlock Text="Good" Foreground="White" FontSize="11" FontWeight="SemiBold"/></Border>
@@ -1293,7 +1328,7 @@
                         </Border>
                         
                         <!-- Row 2: DataGrid -->
-                        <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC" Margin="0,0,0,14">
+                        <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="0" Background="#F8FAFC">
                             <DataGrid x:Name="dg_health_metrics" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="52" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
                                 <DataGrid.ColumnHeaderStyle>
                                     <Style TargetType="DataGridColumnHeader">
@@ -1362,46 +1397,23 @@
                                     <DataGridTemplateColumn Header="Action" Width="100">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <Button Content="→ Select" Visibility="{Binding select_visibility}" Click="on_health_metric_select" Style="{StaticResource SecondaryButton}" Height="26" Padding="8,0" FontSize="11.5" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                <Button Content="→ Select" Visibility="{Binding select_visibility}" Click="on_health_metric_select" Style="{StaticResource SecondaryButton}" Height="28" Padding="8,0" FontSize="11.5" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Border>
-                        
-                        <!-- Row 3: Recommendations Panel -->
-                        <Border Grid.Row="3" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="16">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="RECOMMENDATIONS" FontSize="12" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,10"/>
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                    <ListBox x:Name="lst_health_recommendations" BorderThickness="0" Background="Transparent">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel Orientation="Horizontal" Margin="0,3">
-                                                    <Ellipse Fill="{Binding bullet_brush}" Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBlock Text="{Binding text}" FontSize="12" Foreground="#3F3F46" TextWrapping="Wrap"/>
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                </ScrollViewer>
-                            </Grid>
-                        </Border>
                     </Grid>
                 </TabItem>
                 <TabItem>
-                    <Grid x:Name="grid_model_checker" Background="Transparent" Margin="14">
+                    <Grid x:Name="grid_model_checker" Background="Transparent" Margin="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <!-- Top Bar -->
-                        <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Margin="0,0,0,14" Padding="12">
+                        <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1,1,1,0" CornerRadius="0" Padding="12">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>
@@ -1412,13 +1424,13 @@
                                 <TextBlock Text="Checkset Name:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#3F3F46" Margin="0,0,10,0"/>
                                 <ComboBox x:Name="cb_checkset" Grid.Column="1" Height="32" Style="{StaticResource T3ComboBoxSmall}"/>
                                 <StackPanel Grid.Column="3" Orientation="Horizontal">
-                                    <Button x:Name="btn_checker_run" Style="{StaticResource PrimaryButton}" Content="Run Compliance Check" Height="32" Padding="14,0" Margin="0,0,8,0"/>
-                                    <Button x:Name="btn_checker_export" Style="{StaticResource SecondaryButton}" Content="Export Report" Height="32" Padding="14,0"/>
+                                    <Button x:Name="btn_checker_run" Style="{StaticResource PrimaryButton}" Content="Run Compliance Check" Height="28" Padding="14,0" Margin="0,0,8,0"/>
+                                    <Button x:Name="btn_checker_export" Style="{StaticResource SecondaryButton}" Content="Export Report" Height="28" Padding="14,0"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
                         <!-- Results Table -->
-                        <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                        <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="0" Background="#F8FAFC">
                             <DataGrid x:Name="dg_checker_results" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
                                 <DataGrid.ColumnHeaderStyle>
                                     <Style TargetType="DataGridColumnHeader">
@@ -1457,13 +1469,13 @@
                     </Grid>
                 </TabItem>
                 <TabItem>
-                    <Grid x:Name="grid_warning_manager" Background="Transparent" Margin="14">
+                    <Grid x:Name="grid_warning_manager" Background="Transparent" Margin="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="2*"/>
                             <ColumnDefinition Width="1*"/>
                         </Grid.ColumnDefinitions>
                         <!-- Left: Grouped Warnings -->
-                        <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Margin="0,0,14,0" Padding="1">
+                        <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Margin="0" Padding="1">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="*"/>
@@ -1502,14 +1514,14 @@
                                     </DataGrid>
                                 </Border>
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Background="#F8FAFC">
-                                    <Button x:Name="btn_warning_reload" Style="{StaticResource SecondaryButton}" Content="Reload List" Height="32" Margin="0,0,8,0"/>
-                                    <Button x:Name="btn_warning_autofix" Style="{StaticResource DangerButton}" Content="Resolve Overlapping Duplicates" Height="32" Margin="0,0,8,0" Padding="14,0"/>
-                                    <Button x:Name="btn_warning_export" Style="{StaticResource SecondaryButton}" Content="Export Warnings" Height="32"/>
+                                    <Button x:Name="btn_warning_reload" Style="{StaticResource SecondaryButton}" Content="Reload List" Height="28" Margin="0,0,8,0"/>
+                                    <Button x:Name="btn_warning_autofix" Style="{StaticResource DangerButton}" Content="Resolve Overlapping Duplicates" Height="28" Margin="0,0,8,0" Padding="14,0"/>
+                                    <Button x:Name="btn_warning_export" Style="{StaticResource SecondaryButton}" Content="Export Warnings" Height="28"/>
                                 </StackPanel>
                             </Grid>
                         </Border>
                         <!-- Right: Elements involved -->
-                        <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="16">
+                        <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="0" Padding="16">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -1518,7 +1530,7 @@
                                 </Grid.RowDefinitions>
                                 <TextBlock Text="ELEMENTS IN WARNING:" FontSize="12.5" FontWeight="Bold" Foreground="#71717A" Margin="0,0,0,10"/>
                                 <ListBox x:Name="lst_warning_elements" Grid.Row="1" BorderThickness="0" FontSize="12.5" SelectionMode="Extended"/>
-                                <Button x:Name="btn_warning_select_elements" Grid.Row="2" Style="{StaticResource PrimaryButton}" Content="Select in Model" Height="36" Margin="0,12,0,0"/>
+                                <Button x:Name="btn_warning_select_elements" Grid.Row="2" Style="{StaticResource PrimaryButton}" Content="Select in Model" Height="28" Margin="0,12,0,0"/>
                             </Grid>
                         </Border>
                     </Grid>
@@ -1538,13 +1550,19 @@
                             </StackPanel>
                         </Border>
                         <TabControl x:Name="cleanup_tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent">
+                            <TabControl.Template>
+                                <ControlTemplate TargetType="TabControl">
+                                    <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                                    <ContentPresenter ContentSource="SelectedContent"/>
+                                </ControlTemplate>
+                            </TabControl.Template>
                             <TabControl.ItemContainerStyle>
                                 <Style TargetType="TabItem">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </Style>
                             </TabControl.ItemContainerStyle>
                             <TabItem>
-                                <Grid Margin="14">
+                                <Grid Margin="0">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
@@ -1584,14 +1602,14 @@
                                         </DataGrid>
                                     </Border>
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                                        <Button x:Name="btn_smart_purge_check_all" Style="{StaticResource SecondaryButton}" Content="Select All" Height="32" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_smart_purge_uncheck_all" Style="{StaticResource SecondaryButton}" Content="Deselect All" Height="32" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_smart_purge_run" Style="{StaticResource DangerButton}" Content="Purge Selected" Height="32" Padding="16,0"/>
+                                        <Button x:Name="btn_smart_purge_check_all" Style="{StaticResource SecondaryButton}" Content="Select All" Height="28" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_smart_purge_uncheck_all" Style="{StaticResource SecondaryButton}" Content="Deselect All" Height="28" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_smart_purge_run" Style="{StaticResource DangerButton}" Content="Purge Selected" Height="28" Padding="16,0"/>
                                     </StackPanel>
                                 </Grid>
                             </TabItem>
                             <TabItem>
-                                <Grid Margin="14">
+                                <Grid Margin="0">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
@@ -1607,11 +1625,11 @@
                                             <CheckBox x:Name="chk_adv_styles" Style="{StaticResource T3CheckBox}" Content="Purge Unused Line Styles / Fill Patterns" Margin="0,0,0,12"/>
                                         </StackPanel>
                                     </Border>
-                                    <Button x:Name="btn_adv_purge_run" Grid.Row="1" Style="{StaticResource DangerButton}" Content="Run Deep Purge" Height="36" Padding="24,0" HorizontalAlignment="Right" Margin="0,14,0,0"/>
+                                    <Button x:Name="btn_adv_purge_run" Grid.Row="1" Style="{StaticResource DangerButton}" Content="Run Deep Purge" Height="28" Padding="24,0" HorizontalAlignment="Right" Margin="0,14,0,0"/>
                                 </Grid>
                             </TabItem>
                             <TabItem>
-                                <Grid Margin="14">
+                                <Grid Margin="0">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
@@ -1627,7 +1645,7 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="Element IDs to Delete:" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#3F3F46" Margin="0,0,10,0"/>
                                             <TextBox x:Name="tb_delete_ids" Grid.Column="1" Height="32" Style="{StaticResource T3InputFieldSmall}" Margin="0,0,10,0"/>
-                                            <Button x:Name="btn_delete_analyze" Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Analyze Dependencies" Height="32" Padding="14,0"/>
+                                            <Button x:Name="btn_delete_analyze" Grid.Column="2" Style="{StaticResource PrimaryButton}" Content="Analyze Dependencies" Height="28" Padding="14,0"/>
                                         </Grid>
                                     </Border>
                                     <!-- Dependency Tree/List -->
@@ -1642,7 +1660,7 @@
                                         </Grid>
                                     </Border>
                                     <!-- Danger Delete Button -->
-                                    <Button x:Name="btn_delete_run" Grid.Row="2" Style="{StaticResource DangerButton}" Content="Delete Elements Safely" Height="36" Padding="24,0" HorizontalAlignment="Right" Margin="0,14,0,0" IsEnabled="False"/>
+                                    <Button x:Name="btn_delete_run" Grid.Row="2" Style="{StaticResource DangerButton}" Content="Delete Elements Safely" Height="28" Padding="24,0" HorizontalAlignment="Right" Margin="0,14,0,0" IsEnabled="False"/>
                                 </Grid>
                             </TabItem>
                         </TabControl>
@@ -1662,13 +1680,19 @@
                             </StackPanel>
                         </Border>
                         <TabControl x:Name="sub_tab_control" Grid.Row="1" BorderThickness="0" Background="Transparent">
+                            <TabControl.Template>
+                                <ControlTemplate TargetType="TabControl">
+                                    <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                                    <ContentPresenter ContentSource="SelectedContent"/>
+                                </ControlTemplate>
+                            </TabControl.Template>
                             <TabControl.ItemContainerStyle>
                                 <Style TargetType="TabItem">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </Style>
                             </TabControl.ItemContainerStyle>
                             <TabItem>
-                                <Grid Margin="14">
+                                <Grid Margin="0">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
@@ -1708,14 +1732,14 @@
                                         </DataGrid>
                                     </Border>
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                                        <Button x:Name="btn_special_inplace_reload" Style="{StaticResource SecondaryButton}" Content="Reload" Height="32" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_special_inplace_select" Style="{StaticResource PrimaryButton}" Content="Select in Model" Height="32" Margin="0,0,8,0" Padding="14,0"/>
-                                        <Button x:Name="btn_special_inplace_delete" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="32" Padding="14,0"/>
+                                        <Button x:Name="btn_special_inplace_reload" Style="{StaticResource SecondaryButton}" Content="Reload" Height="28" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_special_inplace_select" Style="{StaticResource PrimaryButton}" Content="Select in Model" Height="28" Margin="0,0,8,0" Padding="14,0"/>
+                                        <Button x:Name="btn_special_inplace_delete" Style="{StaticResource DangerButton}" Content="Delete Selected" Height="28" Padding="14,0"/>
                                     </StackPanel>
                                 </Grid>
                             </TabItem>
                             <TabItem>
-                                <Grid Margin="14">
+                                <Grid Margin="0">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
@@ -1755,8 +1779,8 @@
                                         </DataGrid>
                                     </Border>
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                                        <Button x:Name="btn_special_materials_reload" Style="{StaticResource SecondaryButton}" Content="Reload" Height="32" Margin="0,0,8,0"/>
-                                        <Button x:Name="btn_special_materials_export" Style="{StaticResource SuccessButton}" Content="Export to CSV" Height="32" Padding="16,0"/>
+                                        <Button x:Name="btn_special_materials_reload" Style="{StaticResource SecondaryButton}" Content="Reload" Height="28" Margin="0,0,8,0"/>
+                                        <Button x:Name="btn_special_materials_export" Style="{StaticResource SuccessButton}" Content="Export to CSV" Height="28" Padding="16,0"/>
                                     </StackPanel>
                                 </Grid>
                             </TabItem>

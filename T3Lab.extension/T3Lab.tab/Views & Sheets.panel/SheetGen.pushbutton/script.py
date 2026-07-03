@@ -26,8 +26,8 @@ clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
 
 from System.Windows import WindowState, Visibility, Thickness, CornerRadius, HorizontalAlignment, VerticalAlignment, FontWeights
-from System.Windows.Controls import Border, Grid, TextBlock, Canvas
-from System.Windows.Media import SolidColorBrush, Color
+from System.Windows.Controls import Border, Grid, TextBlock, Canvas, DataGridRow, CheckBox, TextBox
+from System.Windows.Media import SolidColorBrush, Color, VisualTreeHelper
 from System.Windows.Shapes import Line
 
 from rpw import revit, DB
@@ -427,6 +427,34 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         """Handle selected room change to update the realtime preview."""
         self._update_status()
         self._update_mockup()
+
+    def room_row_clicked(self, sender, e):
+        """Handle click on a Room List row to toggle its checkbox.
+
+        Lets users click anywhere on a row to toggle IsSelected, in addition
+        to using the checkbox itself (same UX as BatchOut's sheet list).
+        """
+        try:
+            row = None
+            element = e.OriginalSource
+            while element is not None:
+                if isinstance(element, (TextBox, CheckBox)):
+                    # Click was on the checkbox or an editable cell - let it handle itself
+                    return
+                if isinstance(element, DataGridRow):
+                    row = element
+                    break
+                element = VisualTreeHelper.GetParent(element)
+
+            if row is not None:
+                data_item = row.Item
+                if data_item is not None:
+                    data_item.IsSelected = not data_item.IsSelected
+                    self.room_datagrid.Items.Refresh()
+                    self._update_status()
+                    self._update_mockup()
+        except Exception as ex:
+            logger.debug("Error handling room row click: {}".format(ex))
 
     def mockup_setting_changed(self, sender, e):
         """Handle view checkbox or ComboBox changes to redraw mockup."""

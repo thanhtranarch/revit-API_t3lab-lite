@@ -4,7 +4,7 @@
         Height="780" Width="1350"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
-        Background="#E4E4E7"
+        Background="#F4F4F6"
         FontFamily="Hanken Grotesk">
 
     <WindowChrome.WindowChrome>
@@ -47,11 +47,11 @@
         <Style x:Key="TertiaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#ECECEF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -410,11 +410,11 @@
         <Style x:Key="PrimaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
             <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -446,11 +446,11 @@
         <Style x:Key="SecondaryButton" TargetType="Button">
             <Setter Property="Background"      Value="#FFFFFF"/>
             <Setter Property="Foreground"      Value="#27272A"/>
-            <Setter Property="Padding"         Value="14,7"/>
+            <Setter Property="Padding"         Value="12,5"/>
             <Setter Property="FontSize"        Value="13.5"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="Height"          Value="40"/>
+            <Setter Property="Height"          Value="28"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush"     Value="#DEDEE2"/>
@@ -486,11 +486,11 @@
         <Style x:Key="GhostButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="#52525B"/>
-            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="Padding" Value="12,5"/>
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="FontFamily" Value="Hanken Grotesk"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="28"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
@@ -1120,7 +1120,7 @@
         </Style>
     </Window.Resources>
 
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#F4F4F6">
         <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="66"/>  <!-- Col 0: Sidebar icon rail -->
@@ -1204,6 +1204,12 @@
 
                 <!-- ═══ CONTENT (ROW 1, COL 1) ═══ -->
                 <TabControl x:Name="tab_control" Grid.Row="1" Grid.Column="1" BorderThickness="0" Background="Transparent" Margin="0">
+                    <TabControl.Template>
+                        <ControlTemplate TargetType="TabControl">
+                            <!-- Headerless template: bare content, no default TabControl chrome/padding -->
+                            <ContentPresenter ContentSource="SelectedContent"/>
+                        </ControlTemplate>
+                    </TabControl.Template>
                     <TabControl.Resources>
                         <Style TargetType="TabItem">
                             <Setter Property="Visibility" Value="Collapsed"/> <!-- Hides Tab Headers -->
@@ -1318,8 +1324,8 @@
                                         <ListBox x:Name="tab1_sp_list" Grid.Row="4" SelectionMode="Extended" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
                                         
                                         <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,4">
-                                            <Button x:Name="tab1_sp_all_btn" Content="Select All" Width="80" Height="24" Margin="0,0,4,0"/>
-                                            <Button x:Name="tab1_sp_clr_btn" Content="Clear" Width="80" Height="24"/>
+                                            <Button x:Name="tab1_sp_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11" Margin="0,0,4,0"/>
+                                            <Button x:Name="tab1_sp_clr_btn" Content="Clear" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11"/>
                                         </StackPanel>
                                         
                                         <CheckBox x:Name="tab1_sp_hide" Grid.Row="6" Content="Hide unchecked" FontSize="11" Foreground="#475569"/>
@@ -1360,8 +1366,8 @@
                                         <ListBox x:Name="tab1_cat_list" Grid.Row="2" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
                                         
                                         <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,4">
-                                            <Button x:Name="tab1_cat_all_btn" Content="Select All" Width="80" Height="24" Margin="0,0,4,0"/>
-                                            <Button x:Name="tab1_cat_clr_btn" Content="Clear" Width="80" Height="24"/>
+                                            <Button x:Name="tab1_cat_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11" Margin="0,0,4,0"/>
+                                            <Button x:Name="tab1_cat_clr_btn" Content="Clear" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11"/>
                                         </StackPanel>
                                         
                                         <CheckBox x:Name="tab1_cat_hide" Grid.Row="4" Content="Hide unchecked" FontSize="11" Foreground="#475569"/>
@@ -1403,7 +1409,7 @@
                                                              VerticalAlignment="Center" Height="24" FontSize="13.5"/>
                                                 </Grid>
                                             </Border>
-                                            <Button x:Name="tab1_btn_cfg" Grid.Column="2" Content="Configure Value..." Height="26" HorizontalAlignment="Right" Padding="10,0" Style="{StaticResource SecondaryButton}"/>
+                                            <Button x:Name="tab1_btn_cfg" Grid.Column="2" Content="Configure Value..." Height="28" HorizontalAlignment="Right" Padding="10,0" Style="{StaticResource SecondaryButton}"/>
                                         </Grid>
 
                                         <!-- Row 1: Clickable Sorting Headers -->
@@ -1419,11 +1425,11 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <CheckBox x:Name="tab1_res_all_cb" Grid.Column="0" IsChecked="True" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                <Button x:Name="tab1_sort_cat" Grid.Column="1" Content="Category" Style="{StaticResource SecondaryButton}" Height="20" Padding="0" FontSize="11" Margin="2,0"/>
-                                                <Button x:Name="tab1_sort_fam" Grid.Column="2" Content="Family Name" Style="{StaticResource SecondaryButton}" Height="20" Padding="0" FontSize="11" Margin="2,0"/>
-                                                <Button x:Name="tab1_sort_type" Grid.Column="3" Content="Type Name" Style="{StaticResource SecondaryButton}" Height="20" Padding="0" FontSize="11" Margin="2,0"/>
-                                                <Button x:Name="tab1_sort_val" Grid.Column="4" Content="Define Value" Style="{StaticResource SecondaryButton}" Height="20" Padding="0" FontSize="11" Margin="2,0"/>
-                                                <Button x:Name="tab1_sort_cnt" Grid.Column="5" Content="Count" Style="{StaticResource SecondaryButton}" Height="20" Padding="0" FontSize="11" Margin="2,0"/>
+                                                <Button x:Name="tab1_sort_cat" Grid.Column="1" Content="Category" Style="{StaticResource SecondaryButton}" Height="28" Padding="0" FontSize="11" Margin="2,0"/>
+                                                <Button x:Name="tab1_sort_fam" Grid.Column="2" Content="Family Name" Style="{StaticResource SecondaryButton}" Height="28" Padding="0" FontSize="11" Margin="2,0"/>
+                                                <Button x:Name="tab1_sort_type" Grid.Column="3" Content="Type Name" Style="{StaticResource SecondaryButton}" Height="28" Padding="0" FontSize="11" Margin="2,0"/>
+                                                <Button x:Name="tab1_sort_val" Grid.Column="4" Content="Define Value" Style="{StaticResource SecondaryButton}" Height="28" Padding="0" FontSize="11" Margin="2,0"/>
+                                                <Button x:Name="tab1_sort_cnt" Grid.Column="5" Content="Count" Style="{StaticResource SecondaryButton}" Height="28" Padding="0" FontSize="11" Margin="2,0"/>
                                             </Grid>
                                         </Border>
 
@@ -1439,8 +1445,7 @@
                             <!-- Actions Footer -->
                             <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
                                 <Grid>
-                                    <TextBlock Text="Dang Quoc Truong (DQT) - ManaContains" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button x:Name="tab1_btn_reset" Content="Reset" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Width="85" Height="28"/>
                                         <Button x:Name="tab1_btn_viz" Content="Visualize" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Width="85" Height="28"/>
                                         <Button x:Name="tab1_btn_find" Content="Find" Style="{StaticResource SuccessButton}" Margin="0,0,4,0" Width="85" Height="28"/>
@@ -1516,9 +1521,9 @@
                                             <!-- Spatial Elements checklist -->
                                             <TextBlock Text="Spatial Elements" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,4,0,2"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                <Button x:Name="tab2_sp_all_btn" Content="All" Width="55" Height="20" Margin="0,0,4,0"/>
-                                                <Button x:Name="tab2_sp_none_btn" Content="None" Width="55" Height="20" Margin="0,0,4,0"/>
-                                                <Button x:Name="tab2_sp_invert_btn" Content="Invert" Width="55" Height="20"/>
+                                                <Button x:Name="tab2_sp_all_btn" Content="All" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
+                                                <Button x:Name="tab2_sp_none_btn" Content="None" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
+                                                <Button x:Name="tab2_sp_invert_btn" Content="Invert" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5"/>
                                             </StackPanel>
                                             <Border Margin="0,0,0,4" Height="34"
                                                     Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
@@ -1544,8 +1549,8 @@
                                             <!-- Categories checklist -->
                                             <TextBlock Text="Element Categories" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,4,0,2"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                <Button x:Name="tab2_cat_all_btn" Content="All" Width="55" Height="20" Margin="0,0,4,0"/>
-                                                <Button x:Name="tab2_cat_none_btn" Content="None" Width="55" Height="20"/>
+                                                <Button x:Name="tab2_cat_all_btn" Content="All" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
+                                                <Button x:Name="tab2_cat_none_btn" Content="None" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5"/>
                                             </StackPanel>
                                             <Border Margin="0,0,0,4" Height="34"
                                                     Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
@@ -1622,8 +1627,8 @@
 
                                         <!-- Select controls -->
                                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                                            <Button x:Name="tab2_res_all_btn" Content="Select All" Width="80" Height="22" Margin="0,0,4,0"/>
-                                            <Button x:Name="tab2_res_none_btn" Content="Select None" Width="80" Height="22"/>
+                                            <Button x:Name="tab2_res_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11" Margin="0,0,4,0"/>
+                                            <Button x:Name="tab2_res_none_btn" Content="Select None" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11"/>
                                         </StackPanel>
 
                                         <!-- Results content ScrollViewer containing programmatically filled StackPanel -->
@@ -1637,8 +1642,7 @@
                             <!-- Actions Footer -->
                             <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
                                 <Grid>
-                                    <TextBlock Text="Dang Quoc Truong (DQT) - Room Data Collector" FontSize="10" Foreground="#94A3B8" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button x:Name="tab2_btn_collect" Content="Collect Data" Style="{StaticResource AccentButton}" Margin="0,0,4,0" Width="120" Height="28"/>
                                         <Button x:Name="tab2_btn_apply" Content="Apply to Rooms" Style="{StaticResource SuccessButton}" Margin="0,0,4,0" Width="130" Height="28"/>
                                         <Button x:Name="tab2_btn_select" Content="Select Elements" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Width="130" Height="28"/>
