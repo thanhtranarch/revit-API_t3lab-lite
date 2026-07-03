@@ -1207,7 +1207,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="&#x1F552;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="#64748B" VerticalAlignment="Center" Margin="10,0,2,0"/>
+                                        <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#64748B" VerticalAlignment="Center" Margin="10,0,4,0"/>
                                         <TextBox x:Name="txt_search" Grid.Column="1" BorderThickness="0" Background="Transparent" VerticalContentAlignment="Center" FontSize="13" Foreground="#0F172A" Padding="6,0,8,0" Height="34"/>
                                     </Grid>
                                 </Border>
