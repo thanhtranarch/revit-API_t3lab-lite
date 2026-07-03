@@ -1218,7 +1218,7 @@
 
                     <!-- ── TAB 1: CONTAINS MANAGER (Rooms to Elements) ── -->
                     <TabItem x:Name="tab_contains_item">
-                        <Grid Margin="12,12,12,12">
+                        <Grid Margin="0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                                 <RowDefinition Height="*"/>    <!-- Panels -->
@@ -1226,7 +1226,7 @@
                             </Grid.RowDefinitions>
 
                             <!-- Cards Summary -->
-                            <Border Grid.Row="0" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1" Margin="0,0,0,10">
+                            <Border Grid.Row="0" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1" Margin="0">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
@@ -1282,69 +1282,20 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Left: Spatial Elements -->
-                                <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10" Margin="0,0,8,0">
+                                <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="10" Margin="0">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/> <!-- Title -->
+                                            <RowDefinition Height="Auto"/> <!-- Search Box -->
                                             <RowDefinition Height="Auto"/> <!-- Scope Selection -->
                                             <RowDefinition Height="Auto"/> <!-- Spatial Type Combo -->
-                                            <RowDefinition Height="Auto"/> <!-- Search Box -->
-                                            <RowDefinition Height="*"/>    <!-- Scrollable ListBox -->
                                             <RowDefinition Height="Auto"/> <!-- Action Buttons -->
                                             <RowDefinition Height="Auto"/> <!-- CheckBox Option -->
+                                            <RowDefinition Height="*"/>    <!-- Scrollable ListBox -->
                                         </Grid.RowDefinitions>
-                                        
-                                        <TextBlock Grid.Row="0" Text="Select Spatial Elements" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
-                                        
-                                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
-                                            <RadioButton x:Name="tab1_rb_whole" Content="Whole Model" IsChecked="True" Margin="0,0,12,0" GroupName="Tab1Scope"/>
-                                            <RadioButton x:Name="tab1_rb_view" Content="Active View" GroupName="Tab1Scope"/>
-                                        </StackPanel>
-                                        
-                                        <ComboBox x:Name="tab1_type_cb" Grid.Row="2" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6"/>
-                                        
-                                        <Border Grid.Row="3" Margin="0,0,0,6" Height="36"
-                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
-                                                CornerRadius="18" Padding="10,0,10,0">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                    <ColumnDefinition Width="*"/>
-                                                </Grid.ColumnDefinitions>
-                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
-                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBox x:Name="tab1_sp_search" Grid.Column="1"
-                                                         Style="{StaticResource T3InputField}" Tag="Search spatial elements…"
-                                                         Background="Transparent" BorderThickness="0" Padding="0"
-                                                         VerticalAlignment="Center" Height="24" FontSize="13.5"/>
-                                            </Grid>
-                                        </Border>
-                                        
-                                        <ListBox x:Name="tab1_sp_list" Grid.Row="4" SelectionMode="Extended" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
-                                        
-                                        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,4">
-                                            <Button x:Name="tab1_sp_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11" Margin="0,0,4,0"/>
-                                            <Button x:Name="tab1_sp_clr_btn" Content="Clear" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11"/>
-                                        </StackPanel>
-                                        
-                                        <CheckBox x:Name="tab1_sp_hide" Grid.Row="6" Content="Hide unchecked" FontSize="11" Foreground="#475569"/>
-                                    </Grid>
-                                </Border>
 
-                                <!-- Middle: Categories -->
-                                <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10" Margin="0,0,8,0">
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/> <!-- Title -->
-                                            <RowDefinition Height="Auto"/> <!-- Search Box -->
-                                            <RowDefinition Height="*"/>    <!-- Scrollable ListBox -->
-                                            <RowDefinition Height="Auto"/> <!-- Action Buttons -->
-                                            <RowDefinition Height="Auto"/> <!-- CheckBox Option -->
-                                        </Grid.RowDefinitions>
-                                        
-                                        <TextBlock Grid.Row="0" Text="Select Category" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
-                                        
+                                        <TextBlock Grid.Row="0" Text="Select Spatial Elements" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
+
                                         <Border Grid.Row="1" Margin="0,0,0,6" Height="36"
                                                 Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
                                                 CornerRadius="18" Padding="10,0,10,0">
@@ -1356,26 +1307,105 @@
                                                 <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
                                                       Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                                       Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                <TextBox x:Name="tab1_cat_search" Grid.Column="1"
-                                                         Style="{StaticResource T3InputField}" Tag="Search categories…"
-                                                         Background="Transparent" BorderThickness="0" Padding="0"
-                                                         VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox x:Name="tab1_sp_search"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                             Height="24" FontSize="13.5" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                    <TextBlock Text="Search spatial elements…" Foreground="#71717A" FontSize="13.5" FontFamily="Hanken Grotesk"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=tab1_sp_search}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
                                             </Grid>
                                         </Border>
-                                        
-                                        <ListBox x:Name="tab1_cat_list" Grid.Row="2" BorderBrush="#DCDCE0" BorderThickness="1" Margin="0,0,0,6"/>
-                                        
-                                        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,4">
+
+                                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
+                                            <RadioButton x:Name="tab1_rb_whole" Content="Whole Model" IsChecked="True" Margin="0,0,12,0" GroupName="Tab1Scope"/>
+                                            <RadioButton x:Name="tab1_rb_view" Content="Active View" GroupName="Tab1Scope"/>
+                                        </StackPanel>
+
+                                        <ComboBox x:Name="tab1_type_cb" Grid.Row="3" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6"/>
+
+                                        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,6">
+                                            <Button x:Name="tab1_sp_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11" Margin="0,0,4,0"/>
+                                            <Button x:Name="tab1_sp_clr_btn" Content="Clear" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11"/>
+                                        </StackPanel>
+
+                                        <CheckBox x:Name="tab1_sp_hide" Grid.Row="5" Content="Hide unchecked" FontSize="11" Foreground="#475569" Margin="0,0,0,6"/>
+
+                                        <ListBox x:Name="tab1_sp_list" Grid.Row="6" SelectionMode="Extended" BorderThickness="0"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Middle: Categories -->
+                                <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="10" Margin="0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/> <!-- Title -->
+                                            <RowDefinition Height="Auto"/> <!-- Search Box -->
+                                            <RowDefinition Height="Auto"/> <!-- Action Buttons -->
+                                            <RowDefinition Height="Auto"/> <!-- CheckBox Option -->
+                                            <RowDefinition Height="*"/>    <!-- Scrollable ListBox -->
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Select Category" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
+
+                                        <Border Grid.Row="1" Margin="0,0,0,6" Height="36"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="18" Padding="10,0,10,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox x:Name="tab1_cat_search"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                             Height="24" FontSize="13.5" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                    <TextBlock Text="Search categories…" Foreground="#71717A" FontSize="13.5" FontFamily="Hanken Grotesk"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=tab1_cat_search}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+
+                                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,6">
                                             <Button x:Name="tab1_cat_all_btn" Content="Select All" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11" Margin="0,0,4,0"/>
                                             <Button x:Name="tab1_cat_clr_btn" Content="Clear" Style="{StaticResource SecondaryButton}" Width="80" Height="28" Padding="0" FontSize="11"/>
                                         </StackPanel>
-                                        
-                                        <CheckBox x:Name="tab1_cat_hide" Grid.Row="4" Content="Hide unchecked" FontSize="11" Foreground="#475569"/>
+
+                                        <CheckBox x:Name="tab1_cat_hide" Grid.Row="3" Content="Hide unchecked" FontSize="11" Foreground="#475569" Margin="0,0,0,6"/>
+
+                                        <ListBox x:Name="tab1_cat_list" Grid.Row="4" BorderThickness="0"/>
                                     </Grid>
                                 </Border>
 
                                 <!-- Right: Results Grid -->
-                                <Border Grid.Column="2" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10">
+                                <Border Grid.Column="2" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="10">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/> <!-- Title & Controls -->
@@ -1403,10 +1433,25 @@
                                                     <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
                                                           Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                                           Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBox x:Name="tab1_res_search" Grid.Column="1"
-                                                             Style="{StaticResource T3InputField}" Tag="Search results…"
-                                                             Background="Transparent" BorderThickness="0" Padding="0"
-                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                    <Grid Grid.Column="1">
+                                                        <TextBox x:Name="tab1_res_search"
+                                                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                                                 VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                                 Height="24" FontSize="13.5" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                        <TextBlock Text="Search results…" Foreground="#71717A" FontSize="13.5" FontFamily="Hanken Grotesk"
+                                                                   VerticalAlignment="Center" IsHitTestVisible="False">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Text, ElementName=tab1_res_search}" Value="">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
                                                 </Grid>
                                             </Border>
                                             <Button x:Name="tab1_btn_cfg" Grid.Column="2" Content="Configure Value..." Height="28" HorizontalAlignment="Right" Padding="10,0" Style="{StaticResource SecondaryButton}"/>
@@ -1443,7 +1488,7 @@
                             </Grid>
 
                             <!-- Actions Footer -->
-                            <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
+                            <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button x:Name="tab1_btn_reset" Content="Reset" Style="{StaticResource SecondaryButton}" Margin="0,0,4,0" Width="85" Height="28"/>
@@ -1460,7 +1505,7 @@
 
                     <!-- ── TAB 2: ROOM DATA COLLECTOR (Elements to Rooms) ── -->
                     <TabItem x:Name="tab_collector_item">
-                        <Grid Margin="12,12,12,12">
+                        <Grid Margin="0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/> <!-- Cards Summary -->
                                 <RowDefinition Height="*"/>    <!-- Panels -->
@@ -1468,7 +1513,7 @@
                             </Grid.RowDefinitions>
 
                             <!-- Cards Summary -->
-                            <Border Grid.Row="0" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1" Margin="0,0,0,10">
+                            <Border Grid.Row="0" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,0,0,1" Margin="0">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                                     <Border Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="10" Padding="10,4" Margin="0,0,2,0" MinWidth="85">
                                         <StackPanel HorizontalAlignment="Center">
@@ -1500,96 +1545,151 @@
                             <!-- Panels -->
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="320"/> <!-- Left: Config -->
+                                    <ColumnDefinition Width="280"/> <!-- Left: Spatial Elements -->
+                                    <ColumnDefinition Width="230"/> <!-- Middle: Categories -->
                                     <ColumnDefinition Width="*"/>   <!-- Right: Results -->
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Left Config ScrollViewer -->
-                                <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10" Margin="0,0,8,0">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                        <StackPanel>
-                                            <!-- Spatial Type Selection -->
-                                            <TextBlock Text="Spatial Type" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,4"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                <RadioButton x:Name="tab2_rb_rooms" Content="Rooms" IsChecked="True" Margin="0,0,12,0" GroupName="Tab2Scope"/>
-                                                <RadioButton x:Name="tab2_rb_areas" Content="Areas" Margin="0,0,12,0" GroupName="Tab2Scope"/>
-                                                <RadioButton x:Name="tab2_rb_spaces" Content="Spaces" GroupName="Tab2Scope"/>
-                                            </StackPanel>
-                                            
-                                            <CheckBox x:Name="tab2_cb_view_only" Content="Active View Only" Margin="0,0,0,8"/>
+                                <!-- Left: Spatial Elements -->
+                                <Border Grid.Column="0" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="10" Margin="0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/> <!-- Title -->
+                                            <RowDefinition Height="Auto"/> <!-- Search box -->
+                                            <RowDefinition Height="Auto"/> <!-- Spatial Type radios -->
+                                            <RowDefinition Height="Auto"/> <!-- Active View Only -->
+                                            <RowDefinition Height="Auto"/> <!-- All/None/Invert buttons -->
+                                            <RowDefinition Height="*"/>    <!-- Scrollable list -->
+                                        </Grid.RowDefinitions>
 
-                                            <!-- Spatial Elements checklist -->
-                                            <TextBlock Text="Spatial Elements" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,4,0,2"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                <Button x:Name="tab2_sp_all_btn" Content="All" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
-                                                <Button x:Name="tab2_sp_none_btn" Content="None" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
-                                                <Button x:Name="tab2_sp_invert_btn" Content="Invert" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5"/>
-                                            </StackPanel>
-                                            <Border Margin="0,0,0,4" Height="34"
-                                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
-                                                    CornerRadius="17" Padding="10,0,10,0">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
-                                                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBox x:Name="tab2_spatial_search" Grid.Column="1"
-                                                             Style="{StaticResource T3InputField}" Tag="Search spatial elements…"
+                                        <TextBlock Grid.Row="0" Text="Select Spatial Elements" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
+
+                                        <Border Grid.Row="1" Margin="0,0,0,6" Height="34"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="17" Padding="10,0,10,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox x:Name="tab2_spatial_search"
                                                              Background="Transparent" BorderThickness="0" Padding="0"
-                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                             Height="24" FontSize="13.5" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                    <TextBlock Text="Search spatial elements…" Foreground="#71717A" FontSize="13.5" FontFamily="Hanken Grotesk"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=tab2_spatial_search}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
                                                 </Grid>
-                                            </Border>
-                                            <ScrollViewer x:Name="tab2_spatial_scroll" Height="140" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#DCDCE0" BorderThickness="1">
-                                                <StackPanel x:Name="tab2_spatial_panel" Background="White"/>
-                                            </ScrollViewer>
+                                            </Grid>
+                                        </Border>
 
-                                            <!-- Categories checklist -->
-                                            <TextBlock Text="Element Categories" FontSize="12" FontWeight="Bold" Foreground="#18181B" Margin="0,4,0,2"/>
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                                <Button x:Name="tab2_cat_all_btn" Content="All" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
-                                                <Button x:Name="tab2_cat_none_btn" Content="None" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5"/>
-                                            </StackPanel>
-                                            <Border Margin="0,0,0,4" Height="34"
-                                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
-                                                    CornerRadius="17" Padding="10,0,10,0">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
-                                                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBox x:Name="tab2_cat_search" Grid.Column="1"
-                                                             Style="{StaticResource T3InputField}" Tag="Search categories…"
-                                                             Background="Transparent" BorderThickness="0" Padding="0"
-                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
-                                                </Grid>
-                                            </Border>
-                                            <ScrollViewer x:Name="tab2_cat_scroll" Height="120" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderBrush="#DCDCE0" BorderThickness="1">
-                                                <StackPanel x:Name="tab2_cat_panel" Background="White"/>
-                                            </ScrollViewer>
-
-                                            <!-- Aggregation source -->
-                                            <TextBlock Text="Source Parameter (from elements):" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
-                                            <ComboBox x:Name="tab2_cmb_source_param" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6" IsEditable="True"/>
-
-                                            <!-- Aggregation type -->
-                                            <TextBlock Text="Aggregation Method:" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
-                                            <ComboBox x:Name="tab2_cmb_agg_type" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6"/>
-
-                                            <!-- Aggregation target -->
-                                            <TextBlock Text="Target Parameter (on Room/Area/Space):" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
-                                            <ComboBox x:Name="tab2_cmb_target_param" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6" IsEditable="True"/>
+                                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+                                            <RadioButton x:Name="tab2_rb_rooms" Content="Rooms" IsChecked="True" Margin="0,0,12,0" GroupName="Tab2Scope"/>
+                                            <RadioButton x:Name="tab2_rb_areas" Content="Areas" Margin="0,0,12,0" GroupName="Tab2Scope"/>
+                                            <RadioButton x:Name="tab2_rb_spaces" Content="Spaces" GroupName="Tab2Scope"/>
                                         </StackPanel>
-                                    </ScrollViewer>
+
+                                        <CheckBox Grid.Row="3" x:Name="tab2_cb_view_only" Content="Active View Only" Margin="0,0,0,8"/>
+
+                                        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,4">
+                                            <Button x:Name="tab2_sp_all_btn" Content="All" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
+                                            <Button x:Name="tab2_sp_none_btn" Content="None" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
+                                            <Button x:Name="tab2_sp_invert_btn" Content="Invert" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5"/>
+                                        </StackPanel>
+
+                                        <ScrollViewer Grid.Row="5" x:Name="tab2_spatial_scroll" VerticalScrollBarVisibility="Auto" BorderThickness="0">
+                                            <StackPanel x:Name="tab2_spatial_panel" Background="White"/>
+                                        </ScrollViewer>
+                                    </Grid>
                                 </Border>
 
-                                <!-- Right Results Grid -->
-                                <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="12" Padding="10">
+                                <!-- Middle: Categories -->
+                                <Border Grid.Column="1" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="10" Margin="0">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/> <!-- Title -->
+                                            <RowDefinition Height="Auto"/> <!-- Search box -->
+                                            <RowDefinition Height="Auto"/> <!-- All/None buttons -->
+                                            <RowDefinition Height="*"/>    <!-- Scrollable list -->
+                                            <RowDefinition Height="Auto"/> <!-- Source Parameter label -->
+                                            <RowDefinition Height="Auto"/> <!-- Source Parameter combo -->
+                                            <RowDefinition Height="Auto"/> <!-- Aggregation Method label -->
+                                            <RowDefinition Height="Auto"/> <!-- Aggregation Method combo -->
+                                            <RowDefinition Height="Auto"/> <!-- Target Parameter label -->
+                                            <RowDefinition Height="Auto"/> <!-- Target Parameter combo -->
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Select Category" FontSize="13" FontWeight="Bold" Foreground="#18181B" Margin="0,0,0,6"/>
+
+                                        <Border Grid.Row="1" Margin="0,0,0,6" Height="34"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="17" Padding="10,0,10,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox x:Name="tab2_cat_search"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                             Height="24" FontSize="13.5" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                    <TextBlock Text="Search categories…" Foreground="#71717A" FontSize="13.5" FontFamily="Hanken Grotesk"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=tab2_cat_search}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+
+                                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,4">
+                                            <Button x:Name="tab2_cat_all_btn" Content="All" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5" Margin="0,0,4,0"/>
+                                            <Button x:Name="tab2_cat_none_btn" Content="None" Style="{StaticResource SecondaryButton}" Width="55" Height="28" Padding="0" FontSize="10.5"/>
+                                        </StackPanel>
+
+                                        <ScrollViewer Grid.Row="3" x:Name="tab2_cat_scroll" Margin="0,0,0,10" VerticalScrollBarVisibility="Auto" BorderThickness="0">
+                                            <StackPanel x:Name="tab2_cat_panel" Background="White"/>
+                                        </ScrollViewer>
+
+                                        <TextBlock Grid.Row="4" Text="Source Parameter (from elements):" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
+                                        <ComboBox Grid.Row="5" x:Name="tab2_cmb_source_param" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6" IsEditable="True"/>
+
+                                        <TextBlock Grid.Row="6" Text="Aggregation Method:" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
+                                        <ComboBox Grid.Row="7" x:Name="tab2_cmb_agg_type" Style="{StaticResource T3ComboBoxSmall}" Margin="0,0,0,6"/>
+
+                                        <TextBlock Grid.Row="8" Text="Target Parameter (on Room/Area/Space):" FontSize="11" Foreground="#475569" Margin="0,4,0,2"/>
+                                        <ComboBox Grid.Row="9" x:Name="tab2_cmb_target_param" Style="{StaticResource T3ComboBoxSmall}" Margin="0"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Right: Results Grid -->
+                                <Border Grid.Column="2" Background="White" BorderBrush="#DCDCE0" BorderThickness="1" CornerRadius="0" Padding="10">
                                     <Grid>
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="Auto"/> <!-- Title & search -->
@@ -1616,10 +1716,25 @@
                                                     <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
                                                           Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                                           Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBox x:Name="tab2_result_search" Grid.Column="1"
-                                                             Style="{StaticResource T3InputField}" Tag="Search results…"
-                                                             Background="Transparent" BorderThickness="0" Padding="0"
-                                                             VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                                    <Grid Grid.Column="1">
+                                                        <TextBox x:Name="tab2_result_search"
+                                                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                                                 VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                                 Height="24" FontSize="13.5" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                        <TextBlock Text="Search results…" Foreground="#71717A" FontSize="13.5" FontFamily="Hanken Grotesk"
+                                                                   VerticalAlignment="Center" IsHitTestVisible="False">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Text, ElementName=tab2_result_search}" Value="">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
                                                 </Grid>
                                             </Border>
                                             <TextBlock x:Name="tab2_lbl_info" Grid.Column="2" Text="No results" FontSize="11" Foreground="#71717A" VerticalAlignment="Center" HorizontalAlignment="Right"/>
@@ -1640,7 +1755,7 @@
                             </Grid>
 
                             <!-- Actions Footer -->
-                            <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0,10,0,0">
+                            <Border Grid.Row="2" Background="#F4F4F6" Padding="12,8" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Margin="0">
                                 <Grid>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                         <Button x:Name="tab2_btn_collect" Content="Collect Data" Style="{StaticResource AccentButton}" Margin="0,0,4,0" Width="120" Height="28"/>

@@ -1136,9 +1136,26 @@
                     <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
                           Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                           Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBox Grid.Column="1" x:Name="SearchBox" Style="{StaticResource T3InputField}" 
-                             Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Center" 
-                             Height="24" FontSize="12.5" Tag="Search tabs..." TextChanged="SearchBox_TextChanged"/>
+                    <Grid Grid.Column="1">
+                        <TextBox x:Name="SearchBox"
+                                 Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Center"
+                                 VerticalContentAlignment="Center"
+                                 Height="24" FontSize="12.5" FontFamily="Hanken Grotesk" Foreground="#18181B"
+                                 TextChanged="SearchBox_TextChanged"/>
+                        <TextBlock Text="Search tabs..." Foreground="#71717A" FontSize="12.5" FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center" IsHitTestVisible="False">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
                 </Grid>
             </Border>
 

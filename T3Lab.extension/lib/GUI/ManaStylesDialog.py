@@ -976,7 +976,13 @@ class ManaStylesWindow(forms.WPFWindow):
         self.btn_sub_line_styles.Checked += self._on_style_sub_tab_changed
         self.btn_sub_line_patterns.Checked += self._on_style_sub_tab_changed
         self.btn_sub_fill_patterns.Checked += self._on_style_sub_tab_changed
-        
+
+        # Force initial sub-tab content to render: btn_sub_line_styles.IsChecked was
+        # already True when the XAML was parsed, so its Checked event fired before
+        # the += wiring above and style_tab_control.SelectedIndex was never
+        # explicitly set (same fix as ManaSheets/ManaViews/ManaAnno/ManaPara/ManaContains).
+        self.style_tab_control.SelectedIndex = 0
+
         # Bind Style Manager UI actions
         self.txt_search_style.TextChanged += self._on_style_filter_changed
         self.btn_style_calc_usage.Click += self._on_style_calc_usage

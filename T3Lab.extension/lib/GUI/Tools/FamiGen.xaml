@@ -1468,7 +1468,7 @@
                                 </Border>
                                 <TextBlock Grid.Column="1" FontSize="13" Foreground="#3F3F46" TextWrapping="Wrap">
                                     <Run Text="Tip. " FontWeight="Bold" Foreground="#18181B"/>
-                                    <Run Text="Paste a JSON schema below. Supported shapes: Extrusion · Sweep · Revolve · Blend · SweptBlend · ModelText · Voids"/>
+                                    <Run Text="Paste a JSON schema below. Supported forms: Extrusion · Blend · Revolution · Sweep — curves: Line · Arc · Circle · Ellipse — voids via inner_loops"/>
                                 </TextBlock>
                             </Grid>
                         </Border>

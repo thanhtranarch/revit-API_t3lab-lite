@@ -1125,14 +1125,39 @@
         <Rectangle Grid.Row="1" Fill="#E2E8F0"/>
 
         <!-- FILTER -->
-        <DockPanel Grid.Row="2" Margin="12,8,12,0">
-            <TextBlock Text="&#x1F50D;" FontSize="13" Foreground="#64748B"
-                       VerticalAlignment="Center" Margin="0,0,6,0"/>
-            <TextBox x:Name="textbox_filter" Height="26" VerticalAlignment="Center"
-                     Foreground="#0F172A" Background="White"
-                     BorderBrush="#CBD5E1" BorderThickness="1" Padding="6,3"
-                     TextChanged="text_filter_updated"/>
-        </DockPanel>
+        <Border Grid.Row="2" Margin="12,8,12,0" Height="32"
+                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                CornerRadius="16" Padding="10,0,10,0" VerticalAlignment="Center">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <Grid Grid.Column="1">
+                    <TextBox x:Name="textbox_filter"
+                             Background="Transparent" BorderThickness="0" Padding="0"
+                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                             Height="24" FontSize="13" FontFamily="Hanken Grotesk" Foreground="#18181B"
+                             TextChanged="text_filter_updated"/>
+                    <TextBlock Text="Filter items…" Foreground="#71717A" FontSize="13" FontFamily="Hanken Grotesk"
+                               VerticalAlignment="Center" IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=textbox_filter}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Grid>
+        </Border>
 
         <!-- LIST -->
         <Grid Grid.Row="3" Margin="12,6,12,0">

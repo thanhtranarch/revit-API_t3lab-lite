@@ -1396,8 +1396,8 @@
                                 </Grid>
 
                                 <!-- Search -->
-                                <Border Grid.Row="1" Height="30" Background="White" BorderBrush="#CBD5E1"
-                                        BorderThickness="1" CornerRadius="15" Padding="10,0,10,0" Margin="0,0,0,6">
+                                <Border Grid.Row="1" Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="16" Padding="10,0,10,0" Margin="0,0,0,6">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -1408,10 +1408,11 @@
                                               Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"/>
                                         <Grid Grid.Column="1">
                                             <TextBlock x:Name="lbl_wall_search_placeholder" Text="Search layers..."
-                                                       Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk" VerticalAlignment="Center"
                                                        IsHitTestVisible="False"/>
                                             <TextBox x:Name="txt_layer_search" Background="Transparent" BorderThickness="0"
-                                                     Padding="0" VerticalAlignment="Center" Height="22" FontSize="12"/>
+                                                     Padding="0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1564,8 +1565,8 @@
                                             Height="28" Padding="10,4" FontSize="11"/>
                                 </Grid>
 
-                                <Border Grid.Row="1" Height="30" Background="White" BorderBrush="#CBD5E1"
-                                        BorderThickness="1" CornerRadius="15" Padding="10,0,10,0" Margin="0,0,0,6">
+                                <Border Grid.Row="1" Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="16" Padding="10,0,10,0" Margin="0,0,0,6">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -1576,10 +1577,11 @@
                                               Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"/>
                                         <Grid Grid.Column="1">
                                             <TextBlock x:Name="lbl_floor_search_placeholder" Text="Search layers..."
-                                                       Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk" VerticalAlignment="Center"
                                                        IsHitTestVisible="False"/>
                                             <TextBox x:Name="txt_floor_layer_search" Background="Transparent" BorderThickness="0"
-                                                     Padding="0" VerticalAlignment="Center" Height="22" FontSize="12"/>
+                                                     Padding="0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -1709,8 +1711,8 @@
                                 </Grid>
 
                                 <!-- Search -->
-                                <Border Grid.Row="1" Height="30" Background="White" BorderBrush="#CBD5E1"
-                                        BorderThickness="1" CornerRadius="15" Padding="10,0,10,0" Margin="0,0,0,6">
+                                <Border Grid.Row="1" Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="16" Padding="10,0,10,0" Margin="0,0,0,6">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
@@ -1721,10 +1723,11 @@
                                               Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"/>
                                         <Grid Grid.Column="1">
                                             <TextBlock x:Name="lbl_beam_search_placeholder" Text="Search layers..."
-                                                       Foreground="#94A3B8" FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk" VerticalAlignment="Center"
                                                        IsHitTestVisible="False"/>
                                             <TextBox x:Name="txt_beam_layer_search" Background="Transparent" BorderThickness="0"
-                                                     Padding="0" VerticalAlignment="Center" Height="22" FontSize="12"/>
+                                                     Padding="0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
                                         </Grid>
                                     </Grid>
                                 </Border>

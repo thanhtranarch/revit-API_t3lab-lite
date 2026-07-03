@@ -1176,7 +1176,10 @@
             </Grid>
 
             <!-- CONTENT: TabControl with hidden headers -->
-            <TabControl x:Name="main_tab_control" Grid.Row="1" Grid.Column="1" Margin="0" BorderThickness="0" Background="Transparent">
+            <!-- Opaque surface fill: guarantees no window-gray (#E4E4E7) can ever show through
+                 any internal padding/gap inside the tab content, regardless of card layout. -->
+            <Border Grid.Row="1" Grid.Column="1" Background="#F8FAFC">
+            <TabControl x:Name="main_tab_control" Margin="0" BorderThickness="0" Background="Transparent">
                 <TabControl.Template>
                     <ControlTemplate TargetType="TabControl">
                         <!-- Headerless template: bare content, no default TabControl chrome/padding -->
@@ -1235,14 +1238,45 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="txt_search_style" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search line styles..." Margin="0,0,8,0"/>
+                                        <Border Grid.Column="0" Height="36" Margin="0,0,8,0"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="18" Padding="10,0,10,0" VerticalAlignment="Center">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox x:Name="txt_search_style"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                             Height="24" FontSize="13" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                    <TextBlock Text="Search line styles..." Foreground="#71717A" FontSize="13" FontFamily="Hanken Grotesk"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=txt_search_style}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
                                         <Button x:Name="btn_style_calc_usage" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Calculate Usage" Height="28" Padding="12,0" Margin="0,0,8,0"/>
                                         <Button x:Name="btn_style_refresh" Grid.Column="2" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="28" Padding="12,0"/>
                                     </Grid>
 
                                     <!-- Table -->
                                     <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
-                                        <DataGrid x:Name="grid_style" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
+                                        <DataGrid x:Name="grid_style" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" VerticalContentAlignment="Center" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">
                                                     <Setter Property="Background" Value="#FFFFFF"/>
@@ -1289,9 +1323,47 @@
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
                                                 <DataGridTextColumn Header="Color" Binding="{Binding color}" Width="100" IsReadOnly="True"/>
-                                                <DataGridTextColumn Header="Weight" Binding="{Binding weight}" Width="80" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Weight" Binding="{Binding weight}" Width="80" IsReadOnly="True">
+                                                    <DataGridTextColumn.HeaderStyle>
+                                                        <Style TargetType="DataGridColumnHeader">
+                                                            <Setter Property="Background" Value="#FFFFFF"/>
+                                                            <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="11"/>
+                                                            <Setter Property="Padding" Value="10,8"/>
+                                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.HeaderStyle>
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                            <Setter Property="TextAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
                                                 <DataGridTextColumn Header="Pattern" Binding="{Binding pattern}" Width="150" IsReadOnly="True"/>
-                                                <DataGridTextColumn Header="Usage" Binding="{Binding usage_count}" Width="80" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Usage" Binding="{Binding usage_count}" Width="80" IsReadOnly="True">
+                                                    <DataGridTextColumn.HeaderStyle>
+                                                        <Style TargetType="DataGridColumnHeader">
+                                                            <Setter Property="Background" Value="#FFFFFF"/>
+                                                            <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="11"/>
+                                                            <Setter Property="Padding" Value="10,8"/>
+                                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.HeaderStyle>
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                            <Setter Property="TextAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
                                                 <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
                                             </DataGrid.Columns>
                                         </DataGrid>
@@ -1332,13 +1404,44 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="txt_search_pattern" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search line patterns..." Margin="0,0,8,0"/>
+                                        <Border Grid.Column="0" Height="36" Margin="0,0,8,0"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="18" Padding="10,0,10,0" VerticalAlignment="Center">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox x:Name="txt_search_pattern"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                             Height="24" FontSize="13" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                    <TextBlock Text="Search line patterns..." Foreground="#71717A" FontSize="13" FontFamily="Hanken Grotesk"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=txt_search_pattern}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
                                         <Button x:Name="btn_pattern_refresh" Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Refresh" Height="28" Padding="12,0"/>
                                     </Grid>
 
                                     <!-- Table -->
                                     <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
-                                        <DataGrid x:Name="grid_pattern" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
+                                        <DataGrid x:Name="grid_pattern" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" VerticalContentAlignment="Center" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">
                                                     <Setter Property="Background" Value="#FFFFFF"/>
@@ -1384,8 +1487,46 @@
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
-                                                <DataGridTextColumn Header="Segments Count" Binding="{Binding segment_count}" Width="120" IsReadOnly="True"/>
-                                                <DataGridTextColumn Header="Segments Type" Binding="{Binding segments_type}" Width="150" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Segments Count" Binding="{Binding segment_count}" Width="120" IsReadOnly="True">
+                                                    <DataGridTextColumn.HeaderStyle>
+                                                        <Style TargetType="DataGridColumnHeader">
+                                                            <Setter Property="Background" Value="#FFFFFF"/>
+                                                            <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="11"/>
+                                                            <Setter Property="Padding" Value="10,8"/>
+                                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.HeaderStyle>
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                            <Setter Property="TextAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
+                                                <DataGridTextColumn Header="Segments Type" Binding="{Binding segments_type}" Width="150" IsReadOnly="True">
+                                                    <DataGridTextColumn.HeaderStyle>
+                                                        <Style TargetType="DataGridColumnHeader">
+                                                            <Setter Property="Background" Value="#FFFFFF"/>
+                                                            <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="11"/>
+                                                            <Setter Property="Padding" Value="10,8"/>
+                                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.HeaderStyle>
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                            <Setter Property="TextAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
                                                 <DataGridTextColumn Header="Segments Value" Binding="{Binding segments_value}" Width="200" IsReadOnly="True"/>
                                                 <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
                                             </DataGrid.Columns>
@@ -1430,7 +1571,38 @@
                                             <ColumnDefinition Width="150"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="txt_search_fill" Grid.Column="0" Style="{StaticResource T3InputFieldSmall}" Tag="Search fill patterns..." Margin="0,0,8,0"/>
+                                        <Border Grid.Column="0" Height="36" Margin="0,0,8,0"
+                                                Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                                CornerRadius="18" Padding="10,0,10,0" VerticalAlignment="Center">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                                      Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <Grid Grid.Column="1">
+                                                    <TextBox x:Name="txt_search_fill"
+                                                             Background="Transparent" BorderThickness="0" Padding="0"
+                                                             VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                             Height="24" FontSize="13" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                    <TextBlock Text="Search fill patterns..." Foreground="#71717A" FontSize="13" FontFamily="Hanken Grotesk"
+                                                               VerticalAlignment="Center" IsHitTestVisible="False">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Text, ElementName=txt_search_fill}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
                                         <ComboBox x:Name="cmb_type_fill" Grid.Column="1" Style="{StaticResource T3ComboBoxSmall}" Height="32" Margin="0,0,8,0">
                                             <ComboBoxItem Content="All" IsSelected="True"/>
                                             <ComboBoxItem Content="Drafting"/>
@@ -1441,7 +1613,7 @@
 
                                     <!-- Table -->
                                     <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
-                                        <DataGrid x:Name="grid_fill" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
+                                        <DataGrid x:Name="grid_fill" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" VerticalContentAlignment="Center" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">
                                                     <Setter Property="Background" Value="#FFFFFF"/>
@@ -1485,9 +1657,47 @@
                                                         </DataTemplate>
                                                     </DataGridTemplateColumn.CellTemplate>
                                                 </DataGridTemplateColumn>
-                                                <DataGridTextColumn Header="Pattern Type" Binding="{Binding pattern_type}" Width="120" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Pattern Type" Binding="{Binding pattern_type}" Width="120" IsReadOnly="True">
+                                                    <DataGridTextColumn.HeaderStyle>
+                                                        <Style TargetType="DataGridColumnHeader">
+                                                            <Setter Property="Background" Value="#FFFFFF"/>
+                                                            <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="11"/>
+                                                            <Setter Property="Padding" Value="10,8"/>
+                                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.HeaderStyle>
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                            <Setter Property="TextAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
                                                 <DataGridTextColumn Header="Settings" Binding="{Binding settings}" Width="250" IsReadOnly="True"/>
-                                                <DataGridTextColumn Header="Grid Lines" Binding="{Binding grid_count}" Width="100" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Grid Lines" Binding="{Binding grid_count}" Width="100" IsReadOnly="True">
+                                                    <DataGridTextColumn.HeaderStyle>
+                                                        <Style TargetType="DataGridColumnHeader">
+                                                            <Setter Property="Background" Value="#FFFFFF"/>
+                                                            <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                            <Setter Property="FontSize" Value="11"/>
+                                                            <Setter Property="Padding" Value="10,8"/>
+                                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.HeaderStyle>
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                                                            <Setter Property="TextAlignment" Value="Center"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
                                                 <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
                                             </DataGrid.Columns>
                                         </DataGrid>
@@ -1518,15 +1728,14 @@
                     </Grid>
                 </TabItem>
                 <TabItem>
-                    <Grid x:Name="grid_color_splasher" Background="Transparent" Margin="14">
+                    <Grid x:Name="grid_color_splasher" Background="Transparent">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="280"/>
-                            <ColumnDefinition Width="14"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
                         <!-- Left Panel: Selector -->
-                        <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14">
+                        <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0" CornerRadius="0" Padding="14">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -1549,7 +1758,38 @@
 
                                 <!-- Search parameters -->
                                 <TextBlock Grid.Row="4" Text="SEARCH PARAMETER" FontSize="11" FontWeight="Bold" Foreground="#71717A" Margin="0,0,0,4"/>
-                                <TextBox x:Name="txtSearch" Grid.Row="5" Style="{StaticResource T3InputFieldSmall}" Tag="Search parameter name..." Margin="0,0,0,8"/>
+                                <Border Grid.Row="5" Height="36" Margin="0,0,0,8"
+                                        Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                        CornerRadius="18" Padding="10,0,10,0" VerticalAlignment="Center">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                              Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <Grid Grid.Column="1">
+                                            <TextBox x:Name="txtSearch"
+                                                     Background="Transparent" BorderThickness="0" Padding="0"
+                                                     VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="13" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                            <TextBlock Text="Search parameter name..." Foreground="#71717A" FontSize="13" FontFamily="Hanken Grotesk"
+                                                       VerticalAlignment="Center" IsHitTestVisible="False">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Text, ElementName=txtSearch}" Value="">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
 
                                 <!-- Parameters list -->
                                 <Border Grid.Row="6" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="1">
@@ -1561,7 +1801,7 @@
                         </Border>
 
                         <!-- Right Panel: Values Legend -->
-                        <Border Grid.Column="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="14">
+                        <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="0" CornerRadius="0" Padding="14">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
@@ -1619,6 +1859,7 @@
                     </Grid>
                 </TabItem>
             </TabControl>
+            </Border>
 
             <!-- STATUS BAR -->
             <Border Grid.Row="2" Grid.Column="1" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,16">

@@ -32,16 +32,21 @@ _LIB_DIR = os.path.dirname(_GUI_DIR)
 if _LIB_DIR not in sys.path:
     sys.path.insert(0, _LIB_DIR)
 
+_EXTENSION_DIR = os.path.dirname(_LIB_DIR)
+_SYSTEM_PROMPT_PATH = os.path.join(
+    _EXTENSION_DIR, 'T3Lab.tab', 'Modeling & Datum.panel',
+    'FamiGen.pushbutton', 'SYSTEM_PROMPT.md')
+
 from Autodesk.Revit.DB import (
     ImportInstance, FilteredElementCollector,
     Options, GeometryInstance,
-    Line, Arc, XYZ, Plane,
+    Line, Arc, Ellipse, XYZ, Plane,
     CurveArray, CurveArrArray,
     SketchPlane, SaveAsOptions,
     Transaction, ElementId,
     View, ViewType, ReferencePlane, ReferenceArray,
     PlanarFace, Solid, IFailuresPreprocessor, FailureProcessingResult, FailureSeverity,
-    Transform,
+    Transform, ProfilePlaneLocation,
 )
 
 from Utils.DWGFamilyHelpers import get_xy_bounds, _project_curve_to_z as _dwg_project_curve
@@ -2187,12 +2192,12 @@ class FamilyCreatorDialog(forms.WPFWindow):
 
     def copy_prompt_clicked(self, sender, e):
         try:
-            text = self.json_tb.Text
-            if text:
-                Clipboard.SetText(text)
-                self.lbl_status.Text = "JSON copied to clipboard."
+            with open(_SYSTEM_PROMPT_PATH, 'r') as f:
+                text = f.read()
+            Clipboard.SetText(text)
+            self.lbl_status.Text = "System prompt copied to clipboard."
         except Exception as ex:
-            forms.alert("Could not copy: {}".format(ex))
+            forms.alert("Could not copy system prompt: {}".format(ex))
 
     def cancel_clicked(self, sender, e):
         self.Close()
@@ -2213,14 +2218,15 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 t = Transaction(self._doc, "T3Lab - JSON to Family")
                 start_transaction(t)
                 try:
-                    self._generate_json_family(self._doc, schema)
+                    built, total, skipped = self._generate_json_family(self._doc, schema)
                     t.Commit()
                 except Exception:
                     try: t.RollBack()
                     except Exception: pass
                     raise
-                self.lbl_status.Text = "Family updated successfully."
-                forms.alert("Family generated successfully!", title="Success")
+                self.lbl_status.Text = "Built {}/{} parts.".format(built, total)
+                forms.alert(self._json_result_message(built, total, skipped),
+                            title="Family Generated" if not skipped else "Family Generated (with warnings)")
             except Exception as ex:
                 self.lbl_status.Text = "Error."
                 forms.alert("Error:\n{}".format(ex), title="Error")
@@ -2242,7 +2248,7 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 t = Transaction(fam_doc, "T3Lab - JSON to Family")
                 start_transaction(t)
                 try:
-                    self._generate_json_family(fam_doc, schema)
+                    built, total, skipped = self._generate_json_family(fam_doc, schema)
                     t.Commit()
                 except Exception:
                     try: t.RollBack()
@@ -2254,8 +2260,11 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 opts = SaveAsOptions()
                 opts.OverwriteExistingFile = True
                 fam_doc.SaveAs(save_path, opts)
-                self.lbl_status.Text = "Saved: {}".format(os.path.basename(save_path))
-                forms.alert("Family saved:\n{}".format(save_path), title="Success")
+                self.lbl_status.Text = "Saved ({}/{} parts): {}".format(
+                    built, total, os.path.basename(save_path))
+                msg = self._json_result_message(built, total, skipped)
+                forms.alert("{}\n\nSaved to:\n{}".format(msg, save_path),
+                            title="Family Saved" if not skipped else "Family Saved (with warnings)")
             except Exception as ex:
                 self.lbl_status.Text = "Error."
                 forms.alert("Error:\n{}".format(ex), title="Error")
@@ -2263,29 +2272,271 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 try: fam_doc.Close(False)
                 except Exception: pass
 
-    def _json_curve(self, seg, offset_z=0.0):
-        """Parse a JSON curve segment into a Revit Curve."""
+    def _json_result_message(self, built, total, skipped):
+        """Compose a user-facing summary of the JSON build result."""
+        if total == 0:
+            return "No geometry found in the schema — nothing was built."
+        lines = ["Built {} of {} geometry parts.".format(built, total)]
+        if skipped:
+            lines.append("")
+            lines.append("Skipped {} part(s):".format(len(skipped)))
+            for s in skipped[:12]:
+                lines.append("  - {}".format(s))
+            if len(skipped) > 12:
+                lines.append("  ... and {} more".format(len(skipped) - 12))
+        return "\n".join(lines)
+
+    # ── JSON geometry parsing (with auto-heal) ──────────────────────────────
+    # AI-generated JSON is often "almost right": profile points drawn off the
+    # sketch plane, blend loops wound in opposite directions, small endpoint
+    # gaps, zero-length closing segments.  These helpers project, snap,
+    # bridge and re-wind the input before it reaches the Revit API, so a
+    # near-miss schema still builds instead of dying with a cryptic error.
+
+    _PLANE_AXES = {
+        'z': (XYZ.BasisX, XYZ.BasisY),
+        'x': (XYZ.BasisY, XYZ.BasisZ),   # arcs on an X-facing plane: 0 rad = +Y
+        'y': (XYZ.BasisZ, XYZ.BasisX),   # arcs on a Y-facing plane: 0 rad = +Z
+    }
+    _SNAP_TOL = 2.0 * SCL   # snap endpoint gaps under ~2 mm
+    _MIN_LEN  = 1.0 * SCL   # drop segments under ~1 mm (Revit short-curve tol ~0.8 mm)
+
+    def _plane_info(self, geom_data):
+        """Which plane the entry sketches on: ('x'|'y'|'z', value in feet)."""
+        if "sketch_plane_x" in geom_data:
+            return ('x', geom_data["sketch_plane_x"] * SCL)
+        if "sketch_plane_y" in geom_data:
+            return ('y', geom_data["sketch_plane_y"] * SCL)
+        return ('z', geom_data.get("sketch_plane_z", 0.0) * SCL)
+
+    def _make_sketch_plane(self, fam_doc, plane):
+        """Create the SketchPlane for a ('x'|'y'|'z', value) plane tuple."""
+        kind, val = plane
+        if kind == 'x':
+            base_plane = Plane.CreateByNormalAndOrigin(XYZ.BasisX, XYZ(val, 0, 0))
+        elif kind == 'y':
+            base_plane = Plane.CreateByNormalAndOrigin(XYZ.BasisY, XYZ(0, val, 0))
+        else:
+            base_plane = Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ(0, 0, val))
+        return SketchPlane.Create(fam_doc, base_plane)
+
+    def _json_point(self, coords, plane):
+        """mm triple -> XYZ (feet), projected onto the sketch plane if given."""
+        x, y, z = coords[0] * SCL, coords[1] * SCL, coords[2] * SCL
+        if plane is not None:
+            kind, val = plane
+            if kind == 'x':
+                x = val
+            elif kind == 'y':
+                y = val
+            else:
+                z = val
+        return XYZ(x, y, z)
+
+    def _json_curve(self, seg, plane):
+        """Parse one JSON segment into a Revit Curve (None = unusable)."""
         try:
             seg_type = seg.get("type", "Line")
+            ax, ay = self._PLANE_AXES[plane[0] if plane else 'z']
             if seg_type == "Line":
-                p0 = seg["start"]
-                p1 = seg["end"]
-                return Line.CreateBound(
-                    XYZ(p0[0] * SCL, p0[1] * SCL, p0[2] * SCL + offset_z),
-                    XYZ(p1[0] * SCL, p1[1] * SCL, p1[2] * SCL + offset_z))
-            elif seg_type == "Arc":
-                c = seg["center"]
+                p0 = self._json_point(seg["start"], plane)
+                p1 = self._json_point(seg["end"], plane)
+                if p0.DistanceTo(p1) < self._MIN_LEN:
+                    return None            # degenerate; _heal_loop bridges the gap
+                return Line.CreateBound(p0, p1)
+            elif seg_type in ("Arc", "Circle"):
+                nc = self._json_point(seg["center"], plane)
                 r = seg["radius"] * SCL
+                if seg_type == "Circle":
+                    a0, a1 = 0.0, 6.283185307
+                else:
+                    a0 = seg.get("start_angle", 0.0)
+                    a1 = seg.get("end_angle", 6.283185307)
+                return Arc.Create(nc, r, a0, a1, ax, ay)
+            elif seg_type == "Ellipse":
+                nc = self._json_point(seg["center"], plane)
+                rx = seg["radius_x"] * SCL
+                ry = seg["radius_y"] * SCL
                 a0 = seg.get("start_angle", 0.0)
                 a1 = seg.get("end_angle", 6.283185307)
-                nc = XYZ(c[0] * SCL, c[1] * SCL, c[2] * SCL + offset_z)
-                return Arc.Create(nc, r, a0, a1, XYZ.BasisX, XYZ.BasisY)
+                return Ellipse.CreateCurve(nc, rx, ry, ax, ay, a0, a1)
         except Exception:
-            pass
+            logger.warning("JSON curve skip: {}".format(traceback.format_exc()))
         return None
 
+    @staticmethod
+    def _endpoints(curve):
+        try:
+            return curve.GetEndPoint(0), curve.GetEndPoint(1)
+        except Exception:
+            return None, None              # closed curve (full circle/ellipse)
+
+    def _heal_loop(self, curves, close=True):
+        """Snap sub-2mm endpoint gaps, then bridge remaining spans with lines."""
+        if len(curves) < 2:
+            return curves
+        curves = list(curves)
+        n = len(curves)
+        pair_count = n if close else n - 1
+        for i in range(pair_count):
+            j = (i + 1) % n
+            a_end = self._endpoints(curves[i])[1]
+            b_start = self._endpoints(curves[j])[0]
+            if a_end is None or b_start is None:
+                continue
+            gap = a_end.DistanceTo(b_start)
+            if gap <= 1e-9 or gap > self._SNAP_TOL:
+                continue
+            if isinstance(curves[i], Line):
+                a_start = curves[i].GetEndPoint(0)
+                if a_start.DistanceTo(b_start) >= self._MIN_LEN:
+                    curves[i] = Line.CreateBound(a_start, b_start)
+            elif isinstance(curves[j], Line):
+                b_end = curves[j].GetEndPoint(1)
+                if a_end.DistanceTo(b_end) >= self._MIN_LEN:
+                    curves[j] = Line.CreateBound(a_end, b_end)
+        healed = []
+        for i in range(n):
+            healed.append(curves[i])
+            if i == n - 1 and not close:
+                break
+            j = (i + 1) % n
+            a_end = self._endpoints(curves[i])[1]
+            b_start = self._endpoints(curves[j])[0]
+            if a_end is None or b_start is None:
+                continue
+            if a_end.DistanceTo(b_start) >= self._MIN_LEN:
+                healed.append(Line.CreateBound(a_end, b_start))
+        return healed
+
+    def _json_loop(self, segs, plane, close=True):
+        """Parse + heal a list of JSON segments into a python list of Curves."""
+        curves = []
+        for seg in segs or []:
+            c = self._json_curve(seg, plane)
+            if c is not None:
+                curves.append(c)
+        return self._heal_loop(curves, close)
+
+    @staticmethod
+    def _curve_arr(curves):
+        arr = CurveArray()
+        for c in curves:
+            arr.Append(c)
+        return arr
+
+    def _json_profile(self, geom_data, plane):
+        """Build a CurveArrArray (outer profile + inner hole loops)."""
+        outer = self._json_loop(geom_data.get("profile", []), plane)
+        if not outer:
+            return None
+        profile = CurveArrArray()
+        profile.Append(self._curve_arr(outer))
+        for inner in geom_data.get("inner_loops", []):
+            inner_curves = self._json_loop(inner, plane)
+            if inner_curves:
+                profile.Append(self._curve_arr(inner_curves))
+        return profile
+
+    def _loop_area(self, curves, plane):
+        """Signed area of a loop in sketch-plane UV coords (CCW > 0)."""
+        ax, ay = self._PLANE_AXES[plane[0] if plane else 'z']
+        pts = []
+        for c in curves:
+            try:
+                tess = list(c.Tessellate())
+            except Exception:
+                continue
+            for p in tess[:-1]:
+                pts.append((p.X * ax.X + p.Y * ax.Y + p.Z * ax.Z,
+                            p.X * ay.X + p.Y * ay.Y + p.Z * ay.Z))
+        if len(pts) < 3:
+            return 0.0
+        area = 0.0
+        for i in range(len(pts)):
+            u0, v0 = pts[i]
+            u1, v1 = pts[(i + 1) % len(pts)]
+            area += u0 * v1 - u1 * v0
+        return 0.5 * area
+
+    @staticmethod
+    def _reversed_loop(curves):
+        return [c.CreateReversed() for c in reversed(curves)]
+
+    def _align_loop_start(self, loop, ref_loop, plane):
+        """Rotate a blend loop's segment order so its start vertex sits at
+        roughly the same angular position as the reference loop's start.
+
+        NewBlend pairs the first vertex of the top loop with the first
+        vertex of the base loop; a mismatched start twists the solid or
+        makes the vertex pairing fail outright ("internal error code 1")."""
+        if len(loop) < 2:
+            return loop
+        ax, ay = self._PLANE_AXES[plane[0] if plane else 'z']
+
+        def _uv(p):
+            return (p.X * ax.X + p.Y * ax.Y + p.Z * ax.Z,
+                    p.X * ay.X + p.Y * ay.Y + p.Z * ay.Z)
+
+        def _starts(curves):
+            pts = []
+            for c in curves:
+                s = self._endpoints(c)[0]
+                if s is None:
+                    return None
+                pts.append(_uv(s))
+            return pts
+
+        ref_pts = _starts(ref_loop)
+        pts = _starts(loop)
+        if not ref_pts or not pts:
+            return loop
+        rcu = sum(p[0] for p in ref_pts) / len(ref_pts)
+        rcv = sum(p[1] for p in ref_pts) / len(ref_pts)
+        cu = sum(p[0] for p in pts) / len(pts)
+        cv = sum(p[1] for p in pts) / len(pts)
+        ref_ang = math.atan2(ref_pts[0][1] - rcv, ref_pts[0][0] - rcu)
+        best_k, best_d = 0, None
+        for k in range(len(pts)):
+            ang = math.atan2(pts[k][1] - cv, pts[k][0] - cu)
+            d = abs(math.atan2(math.sin(ang - ref_ang), math.cos(ang - ref_ang)))
+            if best_d is None or d < best_d:
+                best_k, best_d = k, d
+        if best_k == 0:
+            return loop
+        return loop[best_k:] + loop[:best_k]
+
+    def _loop_plane_offset(self, segs, plane):
+        """Constant signed offset (feet) of raw JSON points from the plane.
+
+        AI output often draws a blend's top profile at its real height
+        instead of on the sketch plane; recover that height so it can be
+        used as the implicit top offset."""
+        kind, val = plane
+        idx = {'x': 0, 'y': 1, 'z': 2}[kind]
+        vals = []
+        for seg in segs or []:
+            for key in ("start", "end", "center"):
+                if key in seg:
+                    try:
+                        vals.append(seg[key][idx] * SCL)
+                    except Exception:
+                        pass
+        if not vals:
+            return 0.0
+        lo, hi = min(vals), max(vals)
+        if hi - lo > self._SNAP_TOL:       # not a constant offset — ignore
+            return 0.0
+        return (lo + hi) / 2.0 - val
+
     def _generate_json_family(self, fam_doc, schema):
-        """Apply a JSON schema to a (possibly new) family document."""
+        """Apply a JSON schema to a (possibly new) family document.
+
+        Returns (built, total, skipped) where ``skipped`` is a list of
+        human-readable strings describing every geometry entry that failed,
+        so the caller can warn the user instead of silently saving a
+        family that is missing parts.
+        """
         fm = fam_doc.FamilyManager
         param_dict = {}
         for param_data in schema.get("parameters", []):
@@ -2301,46 +2552,140 @@ class FamilyCreatorDialog(forms.WPFWindow):
                         pass
                     break
 
-        for geom_data in schema.get("geometry", []):
+        geometry = schema.get("geometry", [])
+        total   = len(geometry)
+        built   = 0
+        skipped = []
+        for idx, geom_data in enumerate(geometry):
+            geom_type = geom_data.get("type", "Extrusion")
+            label = geom_data.get("id") or "#{} ({})".format(idx + 1, geom_type)
             try:
-                is_solid  = geom_data.get("is_solid", True)
-                geom_type = geom_data.get("type", "Extrusion")
-
-                if "sketch_plane_x" in geom_data:
-                    base_plane = Plane.CreateByNormalAndOrigin(
-                        XYZ.BasisX, XYZ(geom_data["sketch_plane_x"] * SCL, 0, 0))
-                elif "sketch_plane_y" in geom_data:
-                    base_plane = Plane.CreateByNormalAndOrigin(
-                        XYZ.BasisY, XYZ(0, geom_data["sketch_plane_y"] * SCL, 0))
-                else:
-                    z = geom_data.get("sketch_plane_z", 0.0) * SCL
-                    base_plane = Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ(0, 0, z))
-
-                sketch_plane = SketchPlane.Create(fam_doc, base_plane)
+                is_solid = geom_data.get("is_solid", True)
+                plane = self._plane_info(geom_data)
+                sketch_plane = self._make_sketch_plane(fam_doc, plane)
 
                 if geom_type == "Extrusion":
-                    profile = CurveArrArray()
-                    loop = CurveArray()
-                    for seg in geom_data.get("profile", []):
-                        c = self._json_curve(seg)
-                        if c:
-                            loop.Append(c)
-                    if loop.Size > 0:
-                        profile.Append(loop)
-                        for inner in geom_data.get("inner_loops", []):
-                            inner_loop = CurveArray()
-                            for seg in inner:
-                                c = self._json_curve(seg)
-                                if c:
-                                    inner_loop.Append(c)
-                            if inner_loop.Size > 0:
-                                profile.Append(inner_loop)
-                        ext = fam_doc.FamilyCreate.NewExtrusion(
-                            is_solid, profile, sketch_plane,
-                            geom_data.get("extrusion_end", 1.0) * SCL)
-                        ext.StartOffset = geom_data.get("extrusion_start", 0.0) * SCL
-            except Exception:
+                    profile = self._json_profile(geom_data, plane)
+                    if not profile:
+                        skipped.append("{}: empty/invalid profile".format(label))
+                        continue
+                    start_ft = geom_data.get("extrusion_start", 0.0) * SCL
+                    end_ft   = geom_data.get("extrusion_end", 1.0) * SCL
+                    if end_ft < start_ft:
+                        start_ft, end_ft = end_ft, start_ft
+                    if end_ft - start_ft < self._MIN_LEN:
+                        end_ft = start_ft + self._MIN_LEN
+                    ext = fam_doc.FamilyCreate.NewExtrusion(
+                        is_solid, profile, sketch_plane, end_ft - start_ft)
+                    # reassign offsets keeping end > start at every step
+                    if end_ft > 0:
+                        ext.EndOffset = end_ft
+                        ext.StartOffset = start_ft
+                    else:
+                        ext.StartOffset = start_ft
+                        ext.EndOffset = end_ft
+
+                elif geom_type == "Blend":
+                    base_segs = geom_data.get("profile", [])
+                    top_segs  = geom_data.get("top_profile", [])
+                    base_loop = self._json_loop(base_segs, plane)
+                    top_loop  = self._json_loop(top_segs, plane)
+                    if not base_loop or not top_loop:
+                        skipped.append("{}: Blend needs both 'profile' and 'top_profile'".format(label))
+                        continue
+                    # NewBlend is picky: it wants both loops counter-clockwise
+                    # and pairs first vertices.  Normalize to CCW, align the
+                    # top loop's start vertex with the base's, then fall back
+                    # through reversed combinations if Revit still balks.
+                    if self._loop_area(base_loop, plane) < 0:
+                        base_loop = self._reversed_loop(base_loop)
+                    if self._loop_area(top_loop, plane) < 0:
+                        top_loop = self._reversed_loop(top_loop)
+                    top_aligned = self._align_loop_start(top_loop, base_loop, plane)
+                    attempts = [(top_aligned, base_loop)]
+                    if top_aligned is not top_loop:
+                        attempts.append((top_loop, base_loop))
+                    attempts.append((self._reversed_loop(top_aligned),
+                                     self._reversed_loop(base_loop)))
+                    blend = None
+                    last_err = None
+                    for t_loop, b_loop in attempts:
+                        try:
+                            blend = fam_doc.FamilyCreate.NewBlend(
+                                is_solid, self._curve_arr(t_loop),
+                                self._curve_arr(b_loop), sketch_plane)
+                            break
+                        except Exception as blend_err:
+                            last_err = blend_err
+                    if blend is None:
+                        raise last_err
+                    base_off = geom_data.get("base_offset")
+                    top_off  = geom_data.get("top_offset")
+                    base_ft = (base_off * SCL if base_off is not None
+                               else self._loop_plane_offset(base_segs, plane))
+                    top_ft  = (top_off * SCL if top_off is not None
+                               else self._loop_plane_offset(top_segs, plane))
+                    if top_ft < base_ft:
+                        base_ft, top_ft = top_ft, base_ft
+                    if top_ft - base_ft < self._MIN_LEN:
+                        top_ft = base_ft + self._MIN_LEN
+                    # assign offsets keeping top > base at every step
+                    if base_ft < 0:
+                        blend.BaseOffset = base_ft
+                        blend.TopOffset  = top_ft
+                    else:
+                        blend.TopOffset  = top_ft
+                        blend.BaseOffset = base_ft
+
+                elif geom_type == "Revolution":
+                    profile = self._json_profile(geom_data, plane)
+                    ax_pt = geom_data.get("axis_start")
+                    bx_pt = geom_data.get("axis_end")
+                    if not (profile and ax_pt and bx_pt):
+                        skipped.append("{}: Revolution needs 'profile', 'axis_start', 'axis_end'".format(label))
+                        continue
+                    # the axis must lie in the sketch plane — project it too
+                    p0 = self._json_point(ax_pt, plane)
+                    p1 = self._json_point(bx_pt, plane)
+                    if p0.DistanceTo(p1) < self._MIN_LEN:
+                        skipped.append("{}: Revolution axis has zero length".format(label))
+                        continue
+                    axis = Line.CreateBound(p0, p1)
+                    a0 = geom_data.get("start_angle", 0.0)
+                    a1 = geom_data.get("end_angle", 6.283185307)
+                    fam_doc.FamilyCreate.NewRevolution(
+                        is_solid, profile, sketch_plane, axis, a0, a1)
+
+                elif geom_type == "Sweep":
+                    path_curves = self._json_loop(
+                        geom_data.get("path", []), plane, close=False)
+                    prof_curves = self._json_loop(
+                        geom_data.get("profile", []), None)
+                    if not path_curves or not prof_curves:
+                        skipped.append("{}: Sweep needs both 'path' and 'profile'".format(label))
+                        continue
+                    prof_arr = CurveArrArray()
+                    prof_arr.Append(self._curve_arr(prof_curves))
+                    sweep_profile = fam_doc.Application.NewCurveLoopsProfile(prof_arr)
+                    fam_doc.FamilyCreate.NewSweep(
+                        is_solid, self._curve_arr(path_curves), sketch_plane,
+                        sweep_profile, 0, ProfilePlaneLocation.Start)
+
+                else:
+                    skipped.append("{}: unsupported type '{}'".format(label, geom_type))
+                    continue
+
+                built += 1
+            except Exception as ex:
+                msg = "{}".format(ex)
+                if "conditions for the inputs" in msg:
+                    msg += " [profile likely open or self-intersecting]"
+                elif "internal error" in msg.lower():
+                    msg += " [blend loops may self-intersect or pair badly]"
+                skipped.append("{}: {}".format(label, msg))
                 logger.warning("JSON geometry skip: {}".format(traceback.format_exc()))
+
+        return built, total, skipped
 
     # ── Batch mode ───────────────────────────────────────────────────────────
 

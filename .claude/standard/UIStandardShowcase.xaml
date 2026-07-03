@@ -1227,7 +1227,25 @@
                                     <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7" 
                                           Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                           Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBox Grid.Column="1" Style="{StaticResource T3InputField}" Text="" Tag="Search views, IDs, categories…" Background="Transparent" BorderThickness="0" Padding="0" VerticalAlignment="Center" Height="24" FontSize="13.5"/>
+                                    <Grid Grid.Column="1">
+                                        <TextBox x:Name="showcase_search_box"
+                                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                                 VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                 Height="24" FontSize="13.5" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                        <TextBlock Text="Search views, IDs, categories…" Foreground="#71717A" FontSize="13.5" FontFamily="Hanken Grotesk"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Text, ElementName=showcase_search_box}" Value="">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
                                 </Grid>
                             </Border>
 

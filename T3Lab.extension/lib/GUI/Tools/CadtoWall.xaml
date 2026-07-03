@@ -1193,7 +1193,38 @@
 
                 <TextBlock Grid.Row="0" Text="CAD Layers (select layers containing wall lines)"
                            FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="0,0,0,4"/>
-                <TextBox Grid.Row="1" x:Name="txtSearch" Style="{StaticResource T3InputField}" Height="30" Margin="0,0,0,8"/>
+                <Border Grid.Row="1" Height="32" Margin="0,0,0,8"
+                        Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                        CornerRadius="16" Padding="10,0,10,0" VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                              Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <Grid Grid.Column="1">
+                            <TextBox x:Name="txtSearch"
+                                     Background="Transparent" BorderThickness="0" Padding="0"
+                                     VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                     Height="24" FontSize="13" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                            <TextBlock Text="Search layers…" Foreground="#71717A" FontSize="13" FontFamily="Hanken Grotesk"
+                                       VerticalAlignment="Center" IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=txtSearch}" Value="">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </Grid>
+                </Border>
                 <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel x:Name="layerPanel" Margin="4"/>

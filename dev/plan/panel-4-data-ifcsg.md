@@ -64,7 +64,7 @@ Chain: self-contained (3041 loc, 4 transaction) → `BCFReader.xaml`
 | IFC-SG | ⬜ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | Foundation Volume | ⬜ | |
 | ManaContains | ⬜ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| ManaSched | ⬜ | Gray-gutter + footer height fix (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
+| ManaSched | ⬜ | Gray-gutter + footer height fix + đồng bộ header/cột/chiều cao bảng Tab1↔Tab2 (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | ManaPara | ⬜ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | BCF Reader | ⬜ | |
 

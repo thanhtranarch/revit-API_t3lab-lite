@@ -1137,7 +1137,38 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="tbSearch" Grid.Column="0" Style="{StaticResource T3InputField}" Height="32" Padding="8,4"/>
+                            <Border Grid.Column="0" Height="32"
+                                    Background="#F4F4F6" BorderBrush="#E6E6EA" BorderThickness="1"
+                                    CornerRadius="16" Padding="10,0,10,0" VerticalAlignment="Center">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                          Stroke="#71717A" StrokeThickness="1.9" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Grid Grid.Column="1">
+                                        <TextBox x:Name="tbSearch"
+                                                 Background="Transparent" BorderThickness="0" Padding="0"
+                                                 VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                 Height="24" FontSize="13" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                        <TextBlock Text="Search categories…" Foreground="#71717A" FontSize="13" FontFamily="Hanken Grotesk"
+                                                   VerticalAlignment="Center" IsHitTestVisible="False">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Text, ElementName=tbSearch}" Value="">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                </Grid>
+                            </Border>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
                                 <Button x:Name="btnSelectAll" Content="All" Style="{StaticResource SecondaryButton}" Height="28" Width="55" Margin="0,0,4,0"/>
                                 <Button x:Name="btnSelectNone" Content="None" Style="{StaticResource SecondaryButton}" Height="28" Width="60"/>
@@ -1164,9 +1195,9 @@
 
                 <!-- BUTTONS ROW 1 -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                    <Button x:Name="btnCheck" Content="Check Tags" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Width="120"/>
-                    <Button x:Name="btnAutoTag" Content="Tag All Untagged" Style="{StaticResource SuccessButton}" IsEnabled="False" Margin="0,0,8,0" Width="150"/>
-                    <Button x:Name="btnSelect" Content="Select Untagged" Style="{StaticResource AccentButton}" IsEnabled="False" Width="150"/>
+                    <Button x:Name="btnCheck" Content="Check Tags" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" MinWidth="120" Padding="16,5"/>
+                    <Button x:Name="btnAutoTag" Content="Tag All Untagged" Style="{StaticResource SuccessButton}" IsEnabled="False" Margin="0,0,8,0" MinWidth="150" Padding="16,5"/>
+                    <Button x:Name="btnSelect" Content="Select Untagged" Style="{StaticResource AccentButton}" IsEnabled="False" MinWidth="150" Padding="16,5"/>
                 </StackPanel>
                 
                 <!-- BUTTONS ROW 2 -->

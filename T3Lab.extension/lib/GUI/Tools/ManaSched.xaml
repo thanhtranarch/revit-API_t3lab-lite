@@ -1244,25 +1244,42 @@
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="300"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                            <!-- Content: Left browser + Right preview -->
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="300"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                            <!-- LEFT: Schedule browser — direct child of the root Grid (not the shared content
+                                 wrapper) with RowSpan="2" so the DataGrid extends through the footer row too:
+                                 the footer lives only under Grid.Column="2" now, so column 0's footer-row space
+                                 is free for this panel to occupy, keeping it flush with the right column's height. -->
+                            <Grid Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Margin="16,12,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
 
-                                <!-- LEFT: Schedule browser -->
-                                <Grid Grid.Column="0" Margin="16,12,0,8">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-
-                                    <TextBlock Grid.Row="0" Text="Select Schedules"
-                                               FontSize="13" FontWeight="SemiBold" Foreground="#18181B" Margin="0,0,0,8"/>
+                                <!-- Header row: title + selection actions, aligned with RIGHT panel's Row 0 -->
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Select Schedules"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="#18181B" VerticalAlignment="Center"/>
+                                    <Button x:Name="xl_select_all_btn" Grid.Column="1"
+                                            Content="All" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
+                                    <Button x:Name="xl_clear_btn" Grid.Column="2"
+                                            Content="Clear" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="8,3" FontSize="11" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="xl_count_text" Grid.Column="3" Text="—"
+                                               FontSize="10" Foreground="#9A9AA2" VerticalAlignment="Center"/>
+                                </Grid>
 
                                     <!-- Search pill -->
                                     <Border Grid.Row="1" Height="34" Background="#F4F4F6" BorderBrush="#E6E6EA"
@@ -1275,10 +1292,25 @@
                                             <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
                                                   Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                                   Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBox x:Name="xl_search_box" Grid.Column="1"
-                                                     Style="{StaticResource T3InputField}"
-                                                     Background="Transparent" BorderThickness="0" Padding="0"
-                                                     VerticalAlignment="Center" Height="22" FontSize="12"/>
+                                            <Grid Grid.Column="1">
+                                                <TextBox x:Name="xl_search_box"
+                                                         Background="Transparent" BorderThickness="0" Padding="0"
+                                                         VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                         Height="22" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                                <TextBlock Text="Search schedules…" Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk"
+                                                           VerticalAlignment="Center" IsHitTestVisible="False">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Text, ElementName=xl_search_box}" Value="">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Grid>
                                         </Grid>
                                     </Border>
 
@@ -1349,37 +1381,16 @@
                                                         </Style>
                                                     </DataGridCheckBoxColumn.EditingElementStyle>
                                                 </DataGridCheckBoxColumn>
-                                                <DataGridTextColumn Header="Schedule Name" Binding="{Binding name}" Width="*" MinWidth="110" IsReadOnly="True"/>
-                                                <DataGridTextColumn Header="Fields" Binding="{Binding field_count}" Width="52" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Schedule Name" Binding="{Binding name}" Width="*" MinWidth="120" IsReadOnly="True"/>
+                                                <DataGridTextColumn Header="Fields" Binding="{Binding field_count}" Width="55" IsReadOnly="True"/>
                                                 <DataGridTextColumn Header="Key" Binding="{Binding is_key_text}" Width="44" IsReadOnly="True"/>
                                             </DataGrid.Columns>
                                         </DataGrid>
                                     </Border>
-
-                                    <!-- Selection bar -->
-                                    <Grid Grid.Row="3" Margin="0,6,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Button x:Name="xl_select_all_btn" Grid.Column="0"
-                                                Content="All" Style="{StaticResource SecondaryButton}"
-                                                Height="28" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
-                                        <Button x:Name="xl_clear_btn" Grid.Column="1"
-                                                Content="Clear" Style="{StaticResource SecondaryButton}"
-                                                Height="28" Padding="8,3" FontSize="11"/>
-                                        <TextBlock x:Name="xl_count_text" Grid.Column="2" Text="—"
-                                                   FontSize="10" Foreground="#9A9AA2"
-                                                   VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                                    </Grid>
                                 </Grid>
 
-                                <!-- Vertical divider -->
-                                <Border Grid.Column="0" Width="1" Background="#DCDCE0" HorizontalAlignment="Right"/>
-
-                                <!-- RIGHT: Options + Info + Preview + Progress -->
-                                <Grid Grid.Column="1" Margin="16,12,16,0">
+                            <!-- RIGHT: Options + Info + Preview + Progress -->
+                            <Grid Grid.Row="0" Grid.Column="2" Margin="0,12,16,0">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -1409,11 +1420,10 @@
                                                  Height="5" Visibility="Collapsed"
                                                  Foreground="#3B82F6" Background="#E4E4E7"
                                                  BorderThickness="0" Margin="0,4,0,0"/>
-                                </Grid>
                             </Grid>
 
-                            <!-- Footer: Actions full-width -->
-                            <Border Grid.Row="1" Background="#F4F4F6" BorderBrush="#DCDCE0"
+                            <!-- Footer: bar + buttons confined to the RIGHT (preview) column only — left column (under Selection table) has no footer at all -->
+                            <Border Grid.Row="1" Grid.Column="2" Background="#F4F4F6" BorderBrush="#DCDCE0"
                                     BorderThickness="0,1,0,0" Padding="16,6">
                                 <Grid>
                                     <Grid.RowDefinitions>
@@ -1443,7 +1453,7 @@
 
                     <!-- ═══ TAB 2 — DUPLICATOR ═══ -->
                     <TabItem x:Name="tab_duplicator">
-                        <Grid Margin="16,14,16,14">
+                        <Grid Margin="16,12,16,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="300"/>
                                 <ColumnDefinition Width="16"/>
@@ -1456,12 +1466,27 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
-                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <TextBlock Grid.Row="0" Text="Select Schedules"
-                                           FontSize="13" FontWeight="SemiBold" Foreground="#27272A"
-                                           Margin="0,0,0,8"/>
+                                <!-- Header row: title + selection actions, aligned with RIGHT panel's Row 0 -->
+                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Select Schedules"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="#27272A" VerticalAlignment="Center"/>
+                                    <Button x:Name="dup_select_all_btn" Grid.Column="1"
+                                            Content="All" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
+                                    <Button x:Name="dup_clear_btn" Grid.Column="2"
+                                            Content="Clear" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="8,3" FontSize="11" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="dup_count_text" Grid.Column="3" Text="—"
+                                               FontSize="10" Foreground="#9A9AA2" VerticalAlignment="Center"/>
+                                </Grid>
 
                                 <!-- Search pill -->
                                 <Border Grid.Row="1" Height="34" Background="#F4F4F6" BorderBrush="#E6E6EA"
@@ -1474,10 +1499,25 @@
                                         <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
                                               Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                               Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBox x:Name="dup_search_box" Grid.Column="1"
-                                                 Style="{StaticResource T3InputField}"
-                                                 Background="Transparent" BorderThickness="0" Padding="0"
-                                                 VerticalAlignment="Center" Height="22" FontSize="12"/>
+                                        <Grid Grid.Column="1">
+                                            <TextBox x:Name="dup_search_box"
+                                                     Background="Transparent" BorderThickness="0" Padding="0"
+                                                     VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="22" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                            <TextBlock Text="Search schedules…" Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk"
+                                                       VerticalAlignment="Center" IsHitTestVisible="False">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Text, ElementName=dup_search_box}" Value="">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
                                     </Grid>
                                 </Border>
 
@@ -1550,30 +1590,11 @@
                                             </DataGridCheckBoxColumn>
                                             <DataGridTextColumn Header="Schedule Name" Binding="{Binding name}" Width="*" MinWidth="120" IsReadOnly="True"/>
                                             <DataGridTextColumn Header="Fields" Binding="{Binding field_count}" Width="55" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="" Width="44" IsReadOnly="True"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Border>
-
-                                <!-- Selection bar -->
-                                <Grid Grid.Row="3" Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Button x:Name="dup_select_all_btn" Grid.Column="0"
-                                            Content="All" Style="{StaticResource SecondaryButton}"
-                                            Height="28" Padding="8,3" FontSize="11" Margin="0,0,4,0"/>
-                                    <Button x:Name="dup_clear_btn" Grid.Column="1"
-                                            Content="Clear" Style="{StaticResource SecondaryButton}"
-                                            Height="28" Padding="8,3" FontSize="11"/>
-                                    <TextBlock x:Name="dup_count_text" Grid.Column="2" Text="—"
-                                               FontSize="10" Foreground="#9A9AA2"
-                                               VerticalAlignment="Center" HorizontalAlignment="Right"/>
-                                </Grid>
                             </Grid>
-
-                            <!-- Spacer column -->
 
                             <!-- Right: options form -->
                             <Grid Grid.Column="2">
@@ -1683,7 +1704,7 @@
 
                                 <!-- Dup status -->
                                 <TextBlock x:Name="txt_dup_status" Grid.Row="9"
-                                           FontSize="11" Foreground="#71717A"/>
+                                           FontSize="11" Foreground="#71717A" Margin="0,0,0,8"/>
                             </Grid>
                         </Grid>
                     </TabItem>
