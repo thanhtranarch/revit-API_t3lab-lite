@@ -1402,6 +1402,7 @@
 
                         <!-- Views DataGrid (Row="2" handled by outer Grid) -->
                         <Grid Grid.Row="2">
+                        <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                         <DataGrid x:Name="grid_views"
                                   AutoGenerateColumns="False" IsReadOnly="False"
                                   SelectionMode="Single" SelectionUnit="FullRow"
@@ -1496,6 +1497,7 @@
                                 </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
+                        </Border>
 
                         <!-- Loading overlay — shown until data is ready -->
                         <Border x:Name="pnl_loading" Background="White"

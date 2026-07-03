@@ -1339,76 +1339,78 @@
 
                             <!-- Right DataGrid -->
                             <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="6" Margin="0,10,0,10">
-                                <DataGrid x:Name="views_grid" AutoGenerateColumns="False" IsReadOnly="False"
-                                          SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
-                                          Background="White" BorderThickness="0"
-                                          GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
-                                          RowBackground="White" AlternatingRowBackground="#FAFAFA"
-                                          FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
-                                          HeadersVisibility="Column" Margin="4">
-                                    <DataGrid.Resources>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background" Value="#FFFFFF"/>
-                                            <Setter Property="Foreground" Value="#9A9AA2"/>
-                                            <Setter Property="FontWeight" Value="Bold"/>
-                                            <Setter Property="FontSize" Value="11"/>
-                                            <Setter Property="Padding" Value="10,8"/>
-                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
-                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                        </Style>
-                                        <Style TargetType="DataGridRow">
-                                            <Setter Property="Background" Value="White"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#F4F4F6"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="#F4F4F6"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="BorderThickness" Value="0"/>
-                                            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="DataGridCell">
-                                                        <Border Background="Transparent" Padding="0">
-                                                            <ContentPresenter VerticalAlignment="Center"/>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="Transparent"/>
-                                                    <Setter Property="Foreground" Value="#27272A"/>
-                                                </Trigger>
-                                                <Trigger Property="IsFocused" Value="True">
-                                                    <Setter Property="Background" Value="Transparent"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.Resources>
-                                    <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding is_selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                              HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="View Name" Binding="{Binding name}" Width="250" IsReadOnly="False"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding view_type}" Width="120" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="Level" Binding="{Binding level_name}" Width="110" IsReadOnly="True"/>
-                                        <DataGridComboBoxColumn x:Name="col_template" Header="View Template" Width="180" SelectedItemBinding="{Binding view_template}"/>
-                                        <DataGridTextColumn Header="Scale 1:" Binding="{Binding scale}" Width="70" IsReadOnly="False"/>
-                                        <DataGridComboBoxColumn x:Name="col_detail" Header="Detail Level" Width="100" SelectedItemBinding="{Binding detail_level}"/>
-                                        <DataGridTextColumn Header="Title on Sheet" Binding="{Binding title_on_sheet}" Width="160" IsReadOnly="False"/>
-                                        <DataGridTextColumn Header="Sheet Number" Binding="{Binding sheet_number}" Width="100" IsReadOnly="True"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
+                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                                    <DataGrid x:Name="views_grid" AutoGenerateColumns="False" IsReadOnly="False"
+                                              SelectionMode="Extended" CanUserSortColumns="True" RowHeaderWidth="0"
+                                              Background="White" BorderThickness="0"
+                                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
+                                              RowBackground="White" AlternatingRowBackground="#FAFAFA"
+                                              FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
+                                              HeadersVisibility="Column" Margin="4">
+                                        <DataGrid.Resources>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#FFFFFF"/>
+                                                <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                <Setter Property="FontSize" Value="11"/>
+                                                <Setter Property="Padding" Value="10,8"/>
+                                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                            </Style>
+                                            <Style TargetType="DataGridRow">
+                                                <Setter Property="Background" Value="White"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#F4F4F6"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#F4F4F6"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                            <Style TargetType="DataGridCell">
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="DataGridCell">
+                                                            <Border Background="Transparent" Padding="0">
+                                                                <ContentPresenter VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Setter Property="Foreground" Value="#27272A"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsFocused" Value="True">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.Resources>
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding is_selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="View Name" Binding="{Binding name}" Width="250" IsReadOnly="False"/>
+                                            <DataGridTextColumn Header="Type" Binding="{Binding view_type}" Width="120" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="Level" Binding="{Binding level_name}" Width="110" IsReadOnly="True"/>
+                                            <DataGridComboBoxColumn x:Name="col_template" Header="View Template" Width="180" SelectedItemBinding="{Binding view_template}"/>
+                                            <DataGridTextColumn Header="Scale 1:" Binding="{Binding scale}" Width="70" IsReadOnly="False"/>
+                                            <DataGridComboBoxColumn x:Name="col_detail" Header="Detail Level" Width="100" SelectedItemBinding="{Binding detail_level}"/>
+                                            <DataGridTextColumn Header="Title on Sheet" Binding="{Binding title_on_sheet}" Width="160" IsReadOnly="False"/>
+                                            <DataGridTextColumn Header="Sheet Number" Binding="{Binding sheet_number}" Width="100" IsReadOnly="True"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
                             </Border>
                         </Grid>
 
@@ -1531,74 +1533,76 @@
 
                             <!-- Right DataGrid -->
                             <Border Grid.Column="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="6" Margin="0,10,0,10">
-                                <DataGrid x:Name="tmpl_grid" AutoGenerateColumns="False" IsReadOnly="False"
-                                          SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" RowHeaderWidth="0"
-                                          Background="White" BorderThickness="0"
-                                          GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
-                                          RowBackground="White" AlternatingRowBackground="#FAFAFA"
-                                          FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
-                                          HeadersVisibility="Column" Margin="4">
-                                    <DataGrid.Resources>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background" Value="#FFFFFF"/>
-                                            <Setter Property="Foreground" Value="#9A9AA2"/>
-                                            <Setter Property="FontWeight" Value="Bold"/>
-                                            <Setter Property="FontSize" Value="11"/>
-                                            <Setter Property="Padding" Value="10,8"/>
-                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
-                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                        </Style>
-                                        <Style TargetType="DataGridRow">
-                                            <Setter Property="Background" Value="White"/>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#F4F4F6"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="#F4F4F6"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                        <Style TargetType="DataGridCell">
-                                            <Setter Property="BorderThickness" Value="0"/>
-                                            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="DataGridCell">
-                                                        <Border Background="Transparent" Padding="0">
-                                                            <ContentPresenter VerticalAlignment="Center"/>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="Transparent"/>
-                                                    <Setter Property="Foreground" Value="#27272A"/>
-                                                </Trigger>
-                                                <Trigger Property="IsFocused" Value="True">
-                                                    <Setter Property="Background" Value="Transparent"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.Resources>
-                                    <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding is_selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                              HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Template Name" Binding="{Binding name}" Width="350" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="View Type" Binding="{Binding view_type}" Width="150" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="Scale 1:" Binding="{Binding scale}" Width="100" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="Usage Count" Binding="{Binding usage_count}" Width="100" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="Usage %" Binding="{Binding usage_percentage}" Width="100" IsReadOnly="True"/>
-                                        <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
+                                <Border BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                                    <DataGrid x:Name="tmpl_grid" AutoGenerateColumns="False" IsReadOnly="False"
+                                              SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True" RowHeaderWidth="0"
+                                              Background="White" BorderThickness="0"
+                                              GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F4F4F6"
+                                              RowBackground="White" AlternatingRowBackground="#FAFAFA"
+                                              FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
+                                              HeadersVisibility="Column" Margin="4">
+                                        <DataGrid.Resources>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#FFFFFF"/>
+                                                <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                <Setter Property="FontSize" Value="11"/>
+                                                <Setter Property="Padding" Value="10,8"/>
+                                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                            </Style>
+                                            <Style TargetType="DataGridRow">
+                                                <Setter Property="Background" Value="White"/>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#F4F4F6"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#F4F4F6"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                            <Style TargetType="DataGridCell">
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                                <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="DataGridCell">
+                                                            <Border Background="Transparent" Padding="0">
+                                                                <ContentPresenter VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                        <Setter Property="Foreground" Value="#27272A"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsFocused" Value="True">
+                                                        <Setter Property="Background" Value="Transparent"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.Resources>
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="" Width="36" CanUserResize="False" CanUserSort="False" CanUserReorder="False">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding is_selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                  HorizontalAlignment="Center" VerticalAlignment="Center" Margin="4,0"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Template Name" Binding="{Binding name}" Width="350" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="View Type" Binding="{Binding view_type}" Width="150" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="Scale 1:" Binding="{Binding scale}" Width="100" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="Usage Count" Binding="{Binding usage_count}" Width="100" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="Usage %" Binding="{Binding usage_percentage}" Width="100" IsReadOnly="True"/>
+                                            <DataGridTextColumn Header="ID" Binding="{Binding id}" Width="100" IsReadOnly="True"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
                             </Border>
                         </Grid>
 

@@ -1229,7 +1229,7 @@
                                     </Grid>
 
                                     <!-- Table -->
-                                    <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                    <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                                         <DataGrid x:Name="grid_style" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">
@@ -1325,7 +1325,7 @@
                                     </Grid>
 
                                     <!-- Table -->
-                                    <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                    <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                                         <DataGrid x:Name="grid_pattern" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">
@@ -1428,7 +1428,7 @@
                                     </Grid>
 
                                     <!-- Table -->
-                                    <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                    <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                                         <DataGrid x:Name="grid_fill" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">

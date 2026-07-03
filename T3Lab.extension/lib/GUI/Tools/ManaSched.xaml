@@ -1274,8 +1274,8 @@
                                     </Border>
 
                                     <!-- DataGrid -->
-                                    <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12"
-                                            Background="White" Padding="4" Margin="0,0,8,0">
+                                    <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8"
+                                            Background="#F8FAFC" Margin="0,0,8,0">
                                         <DataGrid x:Name="xl_dg_schedules" AutoGenerateColumns="False" IsReadOnly="False"
                                                   SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True"
                                                   Background="White" BorderThickness="0"
@@ -1473,8 +1473,8 @@
                                 </Border>
 
                                 <!-- DataGrid -->
-                                <Border Grid.Row="2" BorderBrush="#E6E6EA" BorderThickness="1"
-                                        CornerRadius="12" Background="White" Padding="4">
+                                <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1"
+                                        CornerRadius="8" Background="#F8FAFC">
                                     <DataGrid x:Name="dup_dg_schedules" AutoGenerateColumns="False" IsReadOnly="False"
                                               SelectionMode="Extended" SelectionUnit="FullRow" CanUserSortColumns="True"
                                               Background="White" BorderThickness="0"

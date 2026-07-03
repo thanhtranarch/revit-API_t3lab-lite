@@ -1163,52 +1163,52 @@
             </Grid.ColumnDefinitions>
 
             <!-- Element List -->
-            <DataGrid x:Name="door_datagrid" Grid.Column="0"
-                      AutoGenerateColumns="False"
-                      CanUserAddRows="False"
-                      CanUserDeleteRows="False"
-                      SelectionMode="Extended"
-                      IsReadOnly="True"
-                      Background="White"
-                      BorderBrush="#E2E8F0"
-                      BorderThickness="1"
-                      AlternatingRowBackground="#F8FAFC"
-                      GridLinesVisibility="Horizontal"
-                      HorizontalGridLinesBrush="#F1F5F9"
-                      FontFamily="Hanken Grotesk"
-                      Foreground="#27272A"
-                      Margin="0,0,10,0">
-                <DataGrid.ColumnHeaderStyle>
-                    <Style TargetType="DataGridColumnHeader">
-                        <Setter Property="Background" Value="#FFFFFF"/>
-                        <Setter Property="Foreground" Value="#9A9AA2"/>
-                        <Setter Property="FontWeight" Value="Bold"/>
-                        <Setter Property="FontSize" Value="11"/>
-                        <Setter Property="Padding" Value="8,6"/>
-                        <Setter Property="BorderBrush" Value="#E2E8F0"/>
-                        <Setter Property="BorderThickness" Value="0,0,1,1"/>
-                        <Setter Property="Height" Value="34"/>
-                    </Style>
-                </DataGrid.ColumnHeaderStyle>
-                <DataGrid.RowStyle>
-                    <Style TargetType="DataGridRow">
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#F1F5F9"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#E2E8F0"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </DataGrid.RowStyle>
-                <DataGrid.Columns>
-                    <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="35"/>
-                    <DataGridTextColumn Header="Mark" Binding="{Binding Mark}" Width="80"/>
-                    <DataGridTextColumn Header="Door Type" Binding="{Binding Name}" Width="*"/>
-                    <DataGridTextColumn Header="Level" Binding="{Binding Level}" Width="100"/>
-                </DataGrid.Columns>
-            </DataGrid>
+            <Border Grid.Column="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC" Margin="0,0,10,0">
+                <DataGrid x:Name="door_datagrid"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          SelectionMode="Extended"
+                          IsReadOnly="True"
+                          Background="White"
+                          BorderThickness="0"
+                          AlternatingRowBackground="#F8FAFC"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="#F1F5F9"
+                          FontFamily="Hanken Grotesk"
+                          Foreground="#27272A">
+                    <DataGrid.ColumnHeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="Background" Value="#FFFFFF"/>
+                            <Setter Property="Foreground" Value="#9A9AA2"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
+                            <Setter Property="FontSize" Value="11"/>
+                            <Setter Property="Padding" Value="8,6"/>
+                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                            <Setter Property="Height" Value="34"/>
+                        </Style>
+                    </DataGrid.ColumnHeaderStyle>
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#F1F5F9"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#E2E8F0"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="" Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="35"/>
+                        <DataGridTextColumn Header="Mark" Binding="{Binding Mark}" Width="80"/>
+                        <DataGridTextColumn Header="Door Type" Binding="{Binding Name}" Width="*"/>
+                        <DataGridTextColumn Header="Level" Binding="{Binding Level}" Width="100"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
 
             <!-- Settings Panel -->
             <StackPanel Grid.Column="1">

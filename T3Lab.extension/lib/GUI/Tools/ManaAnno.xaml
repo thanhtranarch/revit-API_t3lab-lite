@@ -1501,7 +1501,8 @@
                         </Grid>
 
                         <!-- Results DataGrid (With explicitly declared modern columns) -->
-                        <DataGrid x:Name="dg_dim" Grid.Row="1" SelectionMode="Extended" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="True" AutoGenerateColumns="False">
+                        <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                        <DataGrid x:Name="dg_dim" BorderThickness="0" SelectionMode="Extended" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="True" AutoGenerateColumns="False">
                             <DataGrid.Columns>
                                 <DataGridTemplateColumn Width="40" IsReadOnly="False">
                                     <DataGridTemplateColumn.HeaderTemplate>
@@ -1559,6 +1560,7 @@
                                 <DataGridTextColumn Header="Color" Binding="{Binding Color}" Width="90" IsReadOnly="True" Visibility="Collapsed"/>
                             </DataGrid.Columns>
                         </DataGrid>
+                        </Border>
 
                         <!-- DataGrid Action Buttons -->
                         <Grid Grid.Row="2" Margin="0,10,0,12">
@@ -1688,7 +1690,8 @@
                         </Grid>
 
                         <!-- Results DataGrid (With explicitly declared modern columns) -->
-                        <DataGrid x:Name="dg_txt" Grid.Row="1" SelectionMode="Extended" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="True" AutoGenerateColumns="False">
+                        <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                        <DataGrid x:Name="dg_txt" BorderThickness="0" SelectionMode="Extended" CanUserAddRows="False" CanUserDeleteRows="False" CanUserSortColumns="True" AutoGenerateColumns="False">
                             <DataGrid.Columns>
                                 <DataGridTemplateColumn Width="40" IsReadOnly="False">
                                     <DataGridTemplateColumn.HeaderTemplate>
@@ -1746,6 +1749,7 @@
                                 <DataGridTextColumn Header="Color" Binding="{Binding Color}" Width="90" IsReadOnly="True" Visibility="Collapsed"/>
                             </DataGrid.Columns>
                         </DataGrid>
+                        </Border>
 
                         <!-- DataGrid Action Buttons -->
                         <Grid Grid.Row="2" Margin="0,10,0,12">

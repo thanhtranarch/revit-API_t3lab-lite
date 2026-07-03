@@ -1293,8 +1293,8 @@
                         </Border>
                         
                         <!-- Row 2: DataGrid -->
-                        <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1" Margin="0,0,0,14">
-                            <DataGrid x:Name="dg_health_metrics" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderBrush="Transparent" BorderThickness="0" RowHeight="52" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
+                        <Border Grid.Row="2" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC" Margin="0,0,0,14">
+                            <DataGrid x:Name="dg_health_metrics" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="52" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
                                 <DataGrid.ColumnHeaderStyle>
                                     <Style TargetType="DataGridColumnHeader">
                                         <Setter Property="Background" Value="#FFFFFF"/>
@@ -1418,8 +1418,8 @@
                             </Grid>
                         </Border>
                         <!-- Results Table -->
-                        <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
-                            <DataGrid x:Name="dg_checker_results" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderBrush="Transparent" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
+                        <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                            <DataGrid x:Name="dg_checker_results" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
                                 <DataGrid.ColumnHeaderStyle>
                                     <Style TargetType="DataGridColumnHeader">
                                         <Setter Property="Background" Value="#FFFFFF"/>
@@ -1469,36 +1469,38 @@
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <DataGrid x:Name="dg_warning_groups" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderBrush="Transparent" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
-                                    <DataGrid.ColumnHeaderStyle>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background" Value="#FFFFFF"/>
-                                            <Setter Property="Foreground" Value="#9A9AA2"/>
-                                            <Setter Property="FontWeight" Value="Bold"/>
-                                            <Setter Property="FontSize" Value="11"/>
-                                            <Setter Property="Padding" Value="10,8"/>
-                                            <Setter Property="BorderBrush" Value="#E2E8F0"/>
-                                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                            <Setter Property="Height" Value="38"/>
-                                        </Style>
-                                    </DataGrid.ColumnHeaderStyle>
-                                    <DataGrid.RowStyle>
-                                        <Style TargetType="DataGridRow">
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#F1F5F9"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="#E2E8F0"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.RowStyle>
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Warning Message" Binding="{Binding description}" Width="*"/>
-                                        <DataGridTextColumn Header="Count" Binding="{Binding count}" Width="70"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
+                                <Border Grid.Row="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                                    <DataGrid x:Name="dg_warning_groups" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
+                                        <DataGrid.ColumnHeaderStyle>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background" Value="#FFFFFF"/>
+                                                <Setter Property="Foreground" Value="#9A9AA2"/>
+                                                <Setter Property="FontWeight" Value="Bold"/>
+                                                <Setter Property="FontSize" Value="11"/>
+                                                <Setter Property="Padding" Value="10,8"/>
+                                                <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                                                <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                                <Setter Property="Height" Value="38"/>
+                                            </Style>
+                                        </DataGrid.ColumnHeaderStyle>
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#F1F5F9"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#E2E8F0"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Warning Message" Binding="{Binding description}" Width="*"/>
+                                            <DataGridTextColumn Header="Count" Binding="{Binding count}" Width="70"/>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
                                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10" Background="#F8FAFC">
                                     <Button x:Name="btn_warning_reload" Style="{StaticResource SecondaryButton}" Content="Reload List" Height="32" Margin="0,0,8,0"/>
                                     <Button x:Name="btn_warning_autofix" Style="{StaticResource DangerButton}" Content="Resolve Overlapping Duplicates" Height="32" Margin="0,0,8,0" Padding="14,0"/>
@@ -1547,7 +1549,7 @@
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                    <Border Grid.Row="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                                         <DataGrid x:Name="dg_smart_purge" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">
@@ -1671,7 +1673,7 @@
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                    <Border Grid.Row="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                                         <DataGrid x:Name="dg_special_inplace" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Extended" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">
@@ -1718,7 +1720,7 @@
                                         <RowDefinition Height="*"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Padding="1">
+                                    <Border Grid.Row="0" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                                         <DataGrid x:Name="dg_special_materials" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Single" GridLinesVisibility="Horizontal" AlternatingRowBackground="#F8FAFC" Background="White" BorderThickness="0" RowHeight="32" HeadersVisibility="Column" FontFamily="Hanken Grotesk" FontSize="12.5" Foreground="#27272A" IsReadOnly="True">
                                             <DataGrid.ColumnHeaderStyle>
                                                 <Style TargetType="DataGridColumnHeader">

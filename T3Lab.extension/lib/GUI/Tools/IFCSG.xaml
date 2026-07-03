@@ -1304,7 +1304,7 @@
                                 </Border>
 
                                 <!-- DataGrid -->
-                                <Border Grid.Row="1" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="16" Background="White" Padding="6">
+                                <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
                                     <DataGrid x:Name="dgTypes" AutoGenerateColumns="False"
                                               IsReadOnly="True" SelectionMode="Extended"
                                               CanUserSortColumns="True"

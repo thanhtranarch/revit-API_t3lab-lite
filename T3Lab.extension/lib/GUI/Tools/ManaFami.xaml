@@ -1491,67 +1491,69 @@
                                 </Grid>
 
                                 <!-- DATAGRID -->
-                                <DataGrid x:Name="dg_families" Grid.Row="1" Margin="16,12"
-                                          AutoGenerateColumns="False" CanUserAddRows="False"
-                                          Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                          AlternatingRowBackground="#F8FAFC" FontFamily="Inter" FontSize="12"
-                                          Foreground="#27272A"
-                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                          HorizontalGridLinesBrush="#F1F5F9" SelectionMode="Extended"
-                                          VerticalScrollBarVisibility="Auto">
-                                    <DataGrid.ColumnHeaderStyle>
-                                        <Style TargetType="DataGridColumnHeader">
-                                            <Setter Property="Background"      Value="#FFFFFF"/>
-                                            <Setter Property="Foreground"      Value="#9A9AA2"/>
-                                            <Setter Property="FontWeight"      Value="Bold"/>
-                                            <Setter Property="FontSize"        Value="11"/>
-                                            <Setter Property="Padding"         Value="8,6"/>
-                                            <Setter Property="BorderBrush"     Value="#E2E8F0"/>
-                                            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-                                            <Setter Property="Height"          Value="34"/>
-                                        </Style>
-                                    </DataGrid.ColumnHeaderStyle>
-                                    <DataGrid.RowStyle>
-                                        <Style TargetType="DataGridRow">
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="#F1F5F9"/>
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter Property="Background" Value="#E2E8F0"/>
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </DataGrid.RowStyle>
-                                    <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="&#x2713;" Width="40">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Family Name" Binding="{Binding FamilyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                        <DataGridTextColumn Header="Type Name" Binding="{Binding TypeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
-                                        <DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="150" IsReadOnly="True"/>
-                                        <DataGridTemplateColumn Header="Workset" Width="150">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <ComboBox ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}, Path=DataContext.Worksets}" SelectedValue="{Binding WorksetId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" DisplayMemberPath="Name" SelectedValuePath="Id" FontFamily="Inter" FontSize="11" Padding="4,2" Height="24"/>
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Action" Width="60">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate>
-                                                    <Button Click="delete_row_click" Style="{StaticResource WinCtrlButton}" Width="28" Height="24" ToolTip="Remove from list" HorizontalAlignment="Center">
-                                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#EF4444"/>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                    </DataGrid.Columns>
-                                </DataGrid>
+                                <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC" Margin="16,12">
+                                    <DataGrid x:Name="dg_families"
+                                              AutoGenerateColumns="False" CanUserAddRows="False"
+                                              Background="White" BorderThickness="0"
+                                              AlternatingRowBackground="#F8FAFC" FontFamily="Inter" FontSize="12"
+                                              Foreground="#27272A"
+                                              HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                                              HorizontalGridLinesBrush="#F1F5F9" SelectionMode="Extended"
+                                              VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.ColumnHeaderStyle>
+                                            <Style TargetType="DataGridColumnHeader">
+                                                <Setter Property="Background"      Value="#FFFFFF"/>
+                                                <Setter Property="Foreground"      Value="#9A9AA2"/>
+                                                <Setter Property="FontWeight"      Value="Bold"/>
+                                                <Setter Property="FontSize"        Value="11"/>
+                                                <Setter Property="Padding"         Value="8,6"/>
+                                                <Setter Property="BorderBrush"     Value="#E2E8F0"/>
+                                                <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                                                <Setter Property="Height"          Value="34"/>
+                                            </Style>
+                                        </DataGrid.ColumnHeaderStyle>
+                                        <DataGrid.RowStyle>
+                                            <Style TargetType="DataGridRow">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#F1F5F9"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter Property="Background" Value="#E2E8F0"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </DataGrid.RowStyle>
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="&#x2713;" Width="40">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Family Name" Binding="{Binding FamilyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                                            <DataGridTextColumn Header="Type Name" Binding="{Binding TypeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="*"/>
+                                            <DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="150" IsReadOnly="True"/>
+                                            <DataGridTemplateColumn Header="Workset" Width="150">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <ComboBox ItemsSource="{Binding RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}, Path=DataContext.Worksets}" SelectedValue="{Binding WorksetId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" DisplayMemberPath="Name" SelectedValuePath="Id" FontFamily="Inter" FontSize="11" Padding="4,2" Height="24"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                            <DataGridTemplateColumn Header="Action" Width="60">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Click="delete_row_click" Style="{StaticResource WinCtrlButton}" Width="28" Height="24" ToolTip="Remove from list" HorizontalAlignment="Center">
+                                                            <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#EF4444"/>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
 
                                 <!-- ACTION BAR -->
                                 <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,10">
