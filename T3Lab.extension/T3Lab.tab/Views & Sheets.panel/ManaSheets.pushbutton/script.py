@@ -13,7 +13,7 @@ import sys
 
 # Ensure lib directory is in sys.path
 SCRIPT_DIR = os.path.dirname(__file__)
-EXT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
+EXT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR)))
 LIB_DIR = os.path.join(EXT_DIR, 'lib')
 if LIB_DIR not in sys.path:
     sys.path.append(LIB_DIR)
