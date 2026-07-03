@@ -2406,9 +2406,31 @@ class TileLayoutWindow(forms.WPFWindow):
 # ENTRY POINT
 # ═════════════════════════════════════════════════════════════════════════════
 
+def _get_all_floors():
+    """Every Floor instance in the model (used as the default Step 1 list)."""
+    return list(FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_Floors)
+                .WhereElementIsNotElementType()
+                .ToElements())
+
+
 def _pick_floors_from_revit():
-    """Run PickObjects on the clean main UI thread (no modal window open)."""
-    # Honour a live pre-selection if it already contains floors.
+    """Run PickObjects on the clean main UI thread (no modal window open).
+    Used only by the "Pick Floors in Model" button's repick cycle — always
+    an interactive pick, never falls back to listing every floor."""
+    try:
+        refs = uidoc.Selection.PickObjects(
+            ObjectType.Element, _FloorFilter(),
+            "Select floor(s) for tile layout — press Finish when done")
+    except Exception:
+        return []
+    return [doc.GetElement(r.ElementId) for r in refs]
+
+
+def _initial_floors():
+    """Default floor set when the wizard first opens: honour a live
+    pre-selection if it already contains floors, otherwise list every
+    floor in the model so the user doesn't have to pick anything first."""
     try:
         sel_ids = list(uidoc.Selection.GetElementIds())
     except Exception:
@@ -2421,19 +2443,13 @@ def _pick_floors_from_revit():
             pre.append(el)
     if pre:
         return pre
-
-    try:
-        refs = uidoc.Selection.PickObjects(
-            ObjectType.Element, _FloorFilter(),
-            "Select floor(s) for tile layout — press Finish when done")
-    except Exception:
-        return []
-    return [doc.GetElement(r.ElementId) for r in refs]
+    return _get_all_floors()
 
 
 def run():
-    """Driver loop: pick → show dialog → maybe re-pick."""
-    floors = _pick_floors_from_revit()
+    """Driver loop: list all floors (or honour pre-selection) → show dialog
+    → user may re-pick specific floors via "Pick Floors in Model"."""
+    floors = _initial_floors()
     while True:
         win = TileLayoutWindow(preselected_floors=floors)
         win.ShowDialog()

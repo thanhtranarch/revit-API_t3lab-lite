@@ -1143,18 +1143,8 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal"
-                        VerticalAlignment="Center" Margin="0,0,5,0"
+                        VerticalAlignment="Center" Margin="0,0,16,0"
                         WindowChrome.IsHitTestVisibleInChrome="True">
-                <!-- Premium circular vector profile avatar -->
-                <!-- Profile circular icon from design image -->
-                <Border Width="32" Height="32" CornerRadius="16" Background="#F3F4F6" BorderBrush="#E5E7EB" BorderThickness="1" 
-                        VerticalAlignment="Center" Margin="0,0,8,0" ToolTip="User Profile">
-                    <Grid>
-                        <!-- Stylized modern human head outline -->
-                        <Ellipse Width="10" Height="10" Fill="#9CA3AF" VerticalAlignment="Top" Margin="0,6,0,0"/>
-                        <Path Data="M 6,24 A 10,10 0 0,1 26,24 Z" Fill="#9CA3AF" Stretch="Fill" VerticalAlignment="Bottom" Height="10" Margin="4,0,4,3"/>
-                    </Grid>
-                </Border>
                 <Button x:Name="btn_minimize" Style="{StaticResource WinCtrlButton}"
                         ToolTip="Minimize" Click="minimize_button_clicked">
                     <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
@@ -1234,7 +1224,7 @@
                                FontSize="18" FontWeight="SemiBold" Foreground="#0F172A"
                                Margin="0,0,0,6"/>
                     <TextBlock Grid.Row="1"
-                               Text="Pick one or more floors. The tool will read each top face and show its dimensions."
+                               Text="Every floor in the model is listed below by default. Use &quot;Pick Floors in Model&quot; to work with specific floors instead."
                                FontSize="12" Foreground="#64748B" Margin="0,0,0,18"
                                TextWrapping="Wrap"/>
 
@@ -1257,7 +1247,7 @@
 
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock x:Name="floors_count_text"
-                                                   Text="No floors selected yet"
+                                                   Text="No floors found in the model"
                                                    FontSize="13" FontWeight="SemiBold"
                                                    Foreground="#0F172A"/>
                                         <TextBlock x:Name="floors_total_text"
