@@ -1470,12 +1470,26 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Left: action buttons + status text -->
+                    <!-- Left: copyright + status text -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal"
                                 HorizontalAlignment="Left" VerticalAlignment="Center">
                         <!-- Hidden StatusBarText to satisfy Python script references -->
                         <TextBlock x:Name="StatusBarText" Visibility="Collapsed"/>
 
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="#DCDCE0" VerticalAlignment="Center" Margin="12,0,12,0"/>
+                        <TextBlock x:Name="StatusText"
+                                   Text="Ready"
+                                   FontSize="12.5" Foreground="#71717A"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock x:Name="CountText"
+                                   Text="" FontSize="12.5" Foreground="#71717A"
+                                   VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    </StackPanel>
+
+                    <!-- Right: action buttons -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="RefreshButton" Content="Refresh"
                                 Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
                                 Click="refresh_button_clicked"
@@ -1487,24 +1501,9 @@
                                 ToolTip="Rename the selected item"/>
 
                         <Button x:Name="DeleteButton" Content="Delete Selected"
-                                Style="{StaticResource DangerButton}" Margin="0,0,16,0"
+                                Style="{StaticResource DangerButton}"
                                 Click="delete_button_clicked"
                                 ToolTip="Delete all selected DWG imports or links"/>
-
-                        <TextBlock x:Name="StatusText"
-                                   Text="Ready"
-                                   FontSize="12.5" Foreground="#71717A"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <!-- Right: copyright + count -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
-                        <Border Width="1" Height="14" Background="#DCDCE0" VerticalAlignment="Center" Margin="12,0,12,0"/>
-                        <TextBlock x:Name="CountText"
-                                   Text="" FontSize="12.5" Foreground="#71717A"
-                                   VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
             </Border>
