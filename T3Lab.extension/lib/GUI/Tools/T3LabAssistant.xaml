@@ -2093,7 +2093,7 @@
                         <!-- Send button -->
                         <Button Grid.Column="2" x:Name="send_button"
                                  Style="{StaticResource PrimaryButton}"
-                                 Height="36"
+                                 Height="28"
                                  Margin="0,0,3,0"
                                  Padding="16,0"
                                  Click="send_clicked"
