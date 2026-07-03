@@ -1185,7 +1185,7 @@
                     <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
                         <TextBlock Text="Tracing Mode" FontWeight="SemiBold" FontSize="11"
                                    Foreground="#0F172A" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="TracingModeInput" Height="32" SelectedIndex="0" VerticalContentAlignment="Center" FontSize="13" SelectionChanged="TracingMode_SelectionChanged">
+                        <ComboBox x:Name="TracingModeInput" Style="{StaticResource T3ComboBoxSmall}" SelectedIndex="0" SelectionChanged="TracingMode_SelectionChanged">
                             <ComboBoxItem Content="Centerline (Auto-Thinning)"/>
                             <ComboBoxItem Content="Outline (Boundary)"/>
                         </ComboBox>
@@ -1204,7 +1204,7 @@
                     <StackPanel Grid.Row="1" Grid.Column="0">
                         <TextBlock Text="Threshold Mode" FontWeight="SemiBold" FontSize="11"
                                    Foreground="#0F172A" Margin="0,0,0,4"/>
-                        <ComboBox x:Name="ThresholdModeInput" Height="32" SelectedIndex="1" VerticalContentAlignment="Center" FontSize="13" SelectionChanged="ThresholdMode_SelectionChanged">
+                        <ComboBox x:Name="ThresholdModeInput" Style="{StaticResource T3ComboBoxSmall}" SelectedIndex="1" SelectionChanged="ThresholdMode_SelectionChanged">
                             <ComboBoxItem Content="Auto (Otsu's Method)"/>
                             <ComboBoxItem Content="Manual Threshold"/>
                         </ComboBox>
@@ -1262,23 +1262,30 @@
             </StackPanel>
 
             <!-- Drag & Drop Area / Preview -->
-            <Border Grid.Row="1" BorderBrush="#3B82F6" BorderThickness="1.5" CornerRadius="6"
-                    Background="#F8FAFC" AllowDrop="True" Drop="Border_Drop" Margin="0,0,0,16">
-                <Grid>
-                    <!-- Background instruction -->
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="0" Margin="20">
-                        <TextBlock Text="📎" FontSize="32" HorizontalAlignment="Center" Margin="0,0,0,8" Foreground="#94A3B8"/>
-                        <TextBlock Text="Paste Image (Ctrl+V) or Drag &amp; Drop Here"
-                                   HorizontalAlignment="Center" FontWeight="Medium"
-                                   Foreground="#64748B" FontSize="13" TextAlignment="Center"/>
-                        <TextBlock Text="Supports JPG, PNG, BMP, PDF"
-                                   HorizontalAlignment="Center" Margin="0,4,0,0"
-                                   Foreground="#94A3B8" FontSize="11" TextAlignment="Center"/>
-                    </StackPanel>
-                    <!-- Preview Image -->
-                    <Image x:Name="ImagePreview" Stretch="Uniform" Panel.ZIndex="1" Margin="8"/>
-                </Grid>
-            </Border>
+            <Grid Grid.Row="1" Margin="0,0,0,16">
+                <Border Background="#F8FAFC" CornerRadius="6" AllowDrop="True" Drop="Border_Drop">
+                    <Grid>
+                        <!-- Background instruction -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="0" Margin="20">
+                            <Path Data="M12 4 L12 15 M7 9 L12 4 L17 9 M4 16 v3 a1 1 0 0 0 1 1 h14 a1 1 0 0 0 1 -1 v-3"
+                                  Stroke="#94A3B8" StrokeThickness="1.8" StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  Width="28" Height="28" Stretch="Uniform"
+                                  HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                            <TextBlock Text="Paste Image (Ctrl+V) or Drag &amp; Drop Here"
+                                       HorizontalAlignment="Center" FontWeight="Medium"
+                                       Foreground="#64748B" FontSize="13" TextAlignment="Center"/>
+                            <TextBlock Text="Supports JPG, PNG, BMP, PDF"
+                                       HorizontalAlignment="Center" Margin="0,4,0,0"
+                                       Foreground="#94A3B8" FontSize="11" TextAlignment="Center"/>
+                        </StackPanel>
+                        <!-- Preview Image -->
+                        <Image x:Name="ImagePreview" Stretch="Uniform" Panel.ZIndex="1" Margin="8"/>
+                    </Grid>
+                </Border>
+                <Rectangle RadiusX="6" RadiusY="6" Stroke="#94A3B8" StrokeThickness="1.5"
+                           StrokeDashArray="4 3" IsHitTestVisible="False"/>
+            </Grid>
 
             <!-- Control Buttons -->
             <Grid Grid.Row="2" Margin="0,0,0,16">
