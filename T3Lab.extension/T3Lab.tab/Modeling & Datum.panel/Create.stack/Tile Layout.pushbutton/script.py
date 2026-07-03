@@ -1482,6 +1482,7 @@ class TileLayoutWindow(forms.WPFWindow):
         self._rows   = []        # [FloorRowVM] (parallel to _floors)
         self._params = {}
         self._step   = STEP_BOUNDARIES
+        self._max_step = STEP_BOUNDARIES   # furthest step reached — gates sidebar nav
         self._selection_buttons = {}   # (floor_idx, option_id) → Border
         self._pattern_ctrls     = []   # [(ComboBox, TextBox)] per floor
         self._applied = False
@@ -1509,26 +1510,25 @@ class TileLayoutWindow(forms.WPFWindow):
     def close_button_clicked(self, sender, args):
         self.Close()
 
+    # ── sidebar step navigation ──────────────────────────────────────────────
+    def step_nav_clicked(self, sender, args):
+        """Sidebar step icon clicked — jump back to an already-reached step."""
+        target = {"step1_toggle": STEP_BOUNDARIES,
+                  "step2_toggle": STEP_PATTERN,
+                  "step3_toggle": STEP_CONCEPTS}.get(sender.Name)
+        if target is not None and target <= self._max_step:
+            self._step = target
+        self._refresh_step_ui()
+
     # ── step indicator / action-bar refresh ──────────────────────────────────
     def _refresh_step_ui(self):
-        """Update step circles, Back/Next button state and labels."""
-        from System.Windows.Media import SolidColorBrush, Color as WColor
-        active = SolidColorBrush(WColor.FromRgb(52, 152, 219))   # #3498DB
-        inactive = SolidColorBrush(WColor.FromRgb(189, 195, 199)) # #BDC3C7
-        active_text = SolidColorBrush(WColor.FromRgb(44, 62, 80))
-        inactive_text = SolidColorBrush(WColor.FromRgb(127, 140, 141))
+        """Update sidebar step toggles, Back/Next button state and labels."""
+        self._max_step = max(self._max_step, self._step)
 
-        circles = [self.step1_circle, self.step2_circle, self.step3_circle]
-        labels  = [self.step1_label,  self.step2_label,  self.step3_label]
-        for i, (c, lb) in enumerate(zip(circles, labels)):
-            if i <= self._step:
-                c.Background = active
-                lb.Foreground = active_text
-                lb.FontWeight = __import__('System').Windows.FontWeights.SemiBold
-            else:
-                c.Background = inactive
-                lb.Foreground = inactive_text
-                lb.FontWeight = __import__('System').Windows.FontWeights.Normal
+        toggles = [self.step1_toggle, self.step2_toggle, self.step3_toggle]
+        for i, tb in enumerate(toggles):
+            tb.IsChecked = (i == self._step)
+            tb.IsEnabled = (i <= self._max_step)
 
         self.wizard_tabs.SelectedIndex = self._step
         self.btn_back.IsEnabled = self._step > STEP_BOUNDARIES

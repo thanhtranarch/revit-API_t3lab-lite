@@ -79,6 +79,7 @@ Chain: self-contained (2450 loc) → `TileLayout.xaml`
   2. **UX**: trước đây `run()` luôn ép pick floor (hoặc bắt buộc có sẵn selection) ngay khi mở tool, chưa mở được wizard nếu chưa pick gì. Tách thành `_initial_floors()` (mở tool lần đầu → tự động liệt kê toàn bộ Floor trong model qua `FilteredElementCollector`, không cần pick) và `_pick_floors_from_revit()` (chỉ dùng cho nút "Pick Floors in Model" — vẫn pick thủ công như cũ).
   3. **UI**: xoá icon "user profile" thừa ở title bar, chỉnh margin nút min/max/close về 16px chuẩn.
   - **Còn nợ, chưa test functional**: layout tile kích thước/góc, đổi origin/rotation, Ctrl+Z qua transaction wrapper.
+  4. **UI (2026-07-03, theo yêu cầu user)**: chuyển step-progress từ thanh ngang (Row 1, 3 vòng tròn số) sang **sidebar trái 66px** — theo đúng pattern sidebar rail của BatchOut (`ExportManager.xaml`, UI-locked, chỉ dùng làm tham chiếu đọc) và CADToElements: logo 42×42 trên cùng, 3 icon `ToggleButton` (`T3SidebarToggle`, đã có sẵn trong shared style) xếp dọc thay 3 vòng tròn ngang. Xoá style `StepCircle`/`StepLabel` không còn dùng. Code-behind: thêm `self._max_step` theo dõi bước xa nhất đã tới, `step_nav_clicked()` cho phép bấm quay lại bước đã hoàn thành (không cho nhảy vượt bước chưa tới), `_refresh_step_ui()` viết lại để đồng bộ `IsChecked`/`IsEnabled` 3 toggle thay vì set màu tay theo circle cũ. Đã pass `audit_tools`/`audit_ui`/`sync_wpf_styles --check` + xml well-formed + python ast parse. **Chưa test trực quan trong Revit.**
 
 ### Chốt ngày 6
 - [ ] Cập nhật bảng trạng thái + README · Commit nếu có fix

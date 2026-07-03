@@ -1096,21 +1096,6 @@
             <Setter Property="Margin" Value="0,14,0,8"/>
         </Style>
 
-        <Style x:Key="StepCircle" TargetType="Border">
-            <Setter Property="Width" Value="24"/>
-            <Setter Property="Height" Value="24"/>
-            <Setter Property="CornerRadius" Value="12"/>
-            <Setter Property="Background" Value="#E2E8F0"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-
-        <Style x:Key="StepLabel" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Foreground" Value="#64748B"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="8,0,18,0"/>
-        </Style>
-
         <Style x:Key="HiddenTab" TargetType="TabItem">
             <Setter Property="Visibility" Value="Collapsed"/>
         </Style>
@@ -1120,16 +1105,80 @@
     
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
 <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="66"/>  <!-- Col 0: Left Sidebar Rail (step progress) -->
+            <ColumnDefinition Width="*"/>   <!-- Col 1: Main content area -->
+        </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>  <!-- Title bar -->
-            <RowDefinition Height="52"/>  <!-- Step progress -->
             <RowDefinition Height="*"/>   <!-- Content -->
             <RowDefinition Height="64"/>  <!-- Action bar -->
             <RowDefinition Height="40"/>  <!-- Status bar -->
         </Grid.RowDefinitions>
 
+        <!-- ═══════════════ LEFT SIDEBAR RAIL — STEP PROGRESS (spans all rows) ═══════════════ -->
+        <Border Grid.Column="0" Grid.RowSpan="4"
+                Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,0,1,0">
+            <Grid Margin="0,16,0,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/> <!-- Logo -->
+                    <RowDefinition Height="Auto"/> <!-- Step 1 -->
+                    <RowDefinition Height="Auto"/> <!-- Step 2 -->
+                    <RowDefinition Height="Auto"/> <!-- Step 3 -->
+                    <RowDefinition Height="*"/>    <!-- Spacer -->
+                </Grid.RowDefinitions>
+
+                <!-- Logo -->
+                <Border Grid.Row="0" Width="42" Height="42" CornerRadius="13"
+                        Background="White" BorderBrush="#DCDCE0" BorderThickness="1"
+                        HorizontalAlignment="Center" Margin="0,0,0,20">
+                    <Path Data="M3 3 H21 V21 H3 Z M3 9 H21 M3 15 H21 M9 3 V21 M15 3 V21"
+                          Stroke="#18181B" StrokeThickness="1.4" StrokeLineJoin="Round"
+                          Width="18" Height="18" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+
+                <!-- Step 1: Boundaries -->
+                <ToggleButton x:Name="step1_toggle" Grid.Row="1"
+                              Style="{StaticResource T3SidebarToggle}"
+                              Margin="0,0,0,8" IsChecked="True"
+                              ToolTip="Step 1 — Boundaries" Click="step_nav_clicked">
+                    <Path Data="M4 20 L4 8 L12 4 L20 8 L20 20 Z"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                          StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Width="19" Height="19" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+
+                <!-- Step 2: Pattern -->
+                <ToggleButton x:Name="step2_toggle" Grid.Row="2"
+                              Style="{StaticResource T3SidebarToggle}"
+                              Margin="0,0,0,8" IsEnabled="False"
+                              ToolTip="Step 2 — Pattern" Click="step_nav_clicked">
+                    <Path Data="M4 4 H20 V20 H4 Z M4 12 H20 M12 4 V20"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                          StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Width="19" Height="19" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+
+                <!-- Step 3: Concepts -->
+                <ToggleButton x:Name="step3_toggle" Grid.Row="3"
+                              Style="{StaticResource T3SidebarToggle}"
+                              Margin="0,0,0,8" IsEnabled="False"
+                              ToolTip="Step 3 — Concepts" Click="step_nav_clicked">
+                    <Path Data="M4 12 L9 17 L20 5"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                          StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                          Width="19" Height="19" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </ToggleButton>
+
+            </Grid>
+        </Border>
+
         <!-- ═══════════════ TITLE BAR ═══════════════ -->
-        <Grid Grid.Row="0" Background="#F4F4F6">
+        <Grid Grid.Row="0" Grid.Column="1" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -1161,50 +1210,8 @@
             <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0"/>
         </Grid>
 
-        <!-- ═══════════════ STEP PROGRESS ═══════════════ -->
-        <Border Grid.Row="1" Background="#F8FAFC"
-                BorderBrush="#E2E8F0" BorderThickness="0,1,0,1">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
-                        VerticalAlignment="Center">
-
-                <StackPanel Orientation="Horizontal">
-                    <Border x:Name="step1_circle" Style="{StaticResource StepCircle}">
-                        <TextBlock x:Name="step1_num" Text="1" Foreground="White"
-                                   FontSize="12" FontWeight="Bold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock x:Name="step1_label" Text="Boundaries" Style="{StaticResource StepLabel}"/>
-                </StackPanel>
-
-                <TextBlock Text="→" Foreground="#64748B" VerticalAlignment="Center"
-                           Margin="0,0,18,0" FontSize="14"/>
-
-                <StackPanel Orientation="Horizontal">
-                    <Border x:Name="step2_circle" Style="{StaticResource StepCircle}">
-                        <TextBlock x:Name="step2_num" Text="2" Foreground="White"
-                                   FontSize="12" FontWeight="Bold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock x:Name="step2_label" Text="Pattern" Style="{StaticResource StepLabel}"/>
-                </StackPanel>
-
-                <TextBlock Text="→" Foreground="#64748B" VerticalAlignment="Center"
-                           Margin="0,0,18,0" FontSize="14"/>
-
-                <StackPanel Orientation="Horizontal">
-                    <Border x:Name="step3_circle" Style="{StaticResource StepCircle}">
-                        <TextBlock x:Name="step3_num" Text="3" Foreground="White"
-                                   FontSize="12" FontWeight="Bold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock x:Name="step3_label" Text="Concepts" Style="{StaticResource StepLabel}"/>
-                </StackPanel>
-
-            </StackPanel>
-        </Border>
-
         <!-- ═══════════════ CONTENT (3 steps) ═══════════════ -->
-        <TabControl Grid.Row="2" x:Name="wizard_tabs"
+        <TabControl Grid.Row="1" Grid.Column="1" x:Name="wizard_tabs"
                     BorderThickness="0" Background="White"
                     Padding="0">
             <TabControl.Resources>
@@ -1387,7 +1394,7 @@
         </TabControl>
 
         <!-- ═══════════════ ACTION BAR ═══════════════ -->
-        <Border Grid.Row="3" Background="White"
+        <Border Grid.Row="2" Grid.Column="1" Background="White"
                 BorderBrush="#E2E8F0" BorderThickness="0,1,0,1">
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
@@ -1432,7 +1439,7 @@
         </Border>
 
         <!-- ═══════════════ STATUS BAR ═══════════════ -->
-        <Border Grid.Row="4" Background="#F4F4F6"
+        <Border Grid.Row="3" Grid.Column="1" Background="#F4F4F6"
                 BorderBrush="#DCDCE0" BorderThickness="0,1,0,0">
             <Grid Margin="20,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
