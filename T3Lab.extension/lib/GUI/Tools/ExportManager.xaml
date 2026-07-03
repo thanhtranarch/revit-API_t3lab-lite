@@ -2058,13 +2058,13 @@
                         </Button>
                     </StackPanel>
 
-                    <!-- Right: count + copyright -->
+                    <!-- Right: copyright + count -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                        <Border Width="1" Height="14" Background="#DCDCE0" VerticalAlignment="Center" Margin="12,0,12,0"/>
                         <TextBlock x:Name="status_text"
                                    Text="Ready | 0 sheets | Revit" FontSize="12.5" Foreground="#71717A"
-                                   VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                                   VerticalAlignment="Center"/>
                     </StackPanel>
                 </Grid>
             </Border>
