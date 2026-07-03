@@ -92,14 +92,11 @@ def _eid_int(eid):
             return -1
 
 def _safe_call(fn, label=""):
-    """Run fn(); on failure, log and continue so the window still opens with blank data."""
+    """Run fn(); on failure, continue so the window still opens with blank data."""
     try:
         fn()
-    except Exception as ex:
-        try:
-            print("[ManaContains] Failed to load '{}': {}".format(label, ex))
-        except:
-            pass
+    except Exception:
+        pass
 
 def get_room_parameters(elem):
     params = []
@@ -1419,11 +1416,8 @@ class ManaContainsWindow(forms.WPFWindow):
         for e in elems:
             try:
                 self.t1_spatial_items.append(Tab1SpatialItem(e, st))
-            except Exception as ex:
-                try:
-                    print("[ManaContains] Skipped spatial element {}: {}".format(_eid_int(e.Id), ex))
-                except:
-                    pass
+            except Exception:
+                pass
         self._t1_ref_sp()
 
     def _t1_load_cat(self):
@@ -1816,11 +1810,8 @@ class ManaContainsWindow(forms.WPFWindow):
         for e in elems:
             try:
                 self.t2_spatial_items.append(Tab2SpatialData(e, stype))
-            except Exception as ex:
-                try:
-                    print("[ManaContains] Skipped spatial element {}: {}".format(_eid_int(e.Id), ex))
-                except:
-                    pass
+            except Exception:
+                pass
         self._t2_refresh_spatial_list()
 
     def _t2_load_cats(self):
