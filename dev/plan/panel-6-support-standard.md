@@ -86,7 +86,7 @@ Chain: self-contained (353 loc) → `AutoWork.xaml` · không có Transaction tr
 
 | Tool | Trạng thái | Ghi chú |
 |------|-----------|---------|
-| MCPControl | ⬜ | |
+| MCPControl | ⬜ | Bug path (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | Feedback | ⬜ | |
 | PDF import | ⬜ | |
 | T3LabAssistant | ⬜ | |
@@ -99,4 +99,4 @@ Chain: self-contained (353 loc) → `AutoWork.xaml` · không có Transaction tr
 
 ## Phát sinh
 
-_(ghi lỗi mới tại đây)_
+- **2026-07-03 — MCPControl không mở được**: cùng bug path như ManaSheets/ManaViews (xem `panel-3-views-sheets.md` Phát sinh) — `EXT_DIR` đi lên thừa 1 cấp, vượt quá `T3Lab.extension`. Đã sửa, verify path trỏ đúng `MCPControl.xaml`. Chưa được user xác nhận mở thử trong Revit.

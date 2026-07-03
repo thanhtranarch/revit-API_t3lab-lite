@@ -55,11 +55,11 @@ Test:
 
 | Tool | Trạng thái | Ghi chú |
 |------|-----------|---------|
-| ManaSheets | ⬜ | |
+| ManaSheets | ⬜ | Bug path (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | SheetGen | ⬜ | |
-| ManaViews | ⬜ | |
+| ManaViews | ⬜ | Bug path (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
 | BatchOut | ⬜ | |
 
 ## Phát sinh
 
-_(ghi lỗi mới tại đây)_
+- **2026-07-03 — ManaSheets, ManaViews không mở được**: `EXT_DIR` trong `script.py` đi lên thừa 1 cấp thư mục (`os.path.dirname` x4 thay vì x3 cần thiết cho `T3Lab.tab/<Panel>.panel/<Tool>.pushbutton/`), vượt quá `T3Lab.extension` tới tận thư mục gốc repo → `XAML_FILE` trỏ sai, tool không mở được (IOError). Phát hiện qua quét hệ thống sau khi user báo lỗi tương tự ở Tile Layout (thiếu 1 cấp, chiều ngược lại). Đã sửa cả 2 file, verify lại path trỏ đúng file `.xaml` thật. Chưa được user xác nhận mở thử trong Revit.

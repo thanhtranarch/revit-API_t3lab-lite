@@ -42,14 +42,14 @@ Chain: self-contained (1585 loc) → `ImageToDrafting.xaml` · **compile C# Vect
 - [ ] Mode Outline (không cần compile C#) → hoạt động
 - [ ] Xác nhận compile C# thành công trên máy triển khai (không chỉ máy dev) — nếu fail phải ra alert "Failed to compile C# vectorizer" chứ không crash
 - [ ] Ảnh màu / ảnh lớn → threshold tự động hợp lý, không treo Revit
-- [ ] Ghi chú:
+- [x] Ghi chú: **UI fix 2026-07-03** (chưa test functional ở trên, chỉ sửa UI): dropdown "Tracing Mode"/"Threshold Mode" thiếu style (`ComboBox` trần) → gán `T3ComboBoxSmall`; làm lại khu vực Drag & Drop (border xanh đặc `#3B82F6` → nét đứt xám chuẩn drop-zone, icon emoji 📎 → vector Path); xoá icon "user profile" thừa ở title bar; rút gọn subtitle.
 
 ### Tool 4/7 — Text to Element
 Chain: launcher → `TextToElementDialog.py` (466 loc) → `TextToElement.xaml`
 
 - [ ] Text note hợp lệ → element tạo đúng
 - [ ] Text rác / rỗng → validate, không crash
-- [ ] Ghi chú:
+- [x] Ghi chú: **UI fix 2026-07-03** (chưa test functional ở trên, chỉ sửa UI): nút min/max/close bị sai vị trí (`VerticalAlignment="Top"` không margin → dính sát góc bo tròn cửa sổ), sửa về `Center` + `Margin="0,0,16,0"` đúng chuẩn canonical; nội dung vượt quá chiều cao cửa sổ (620px, cần ~870px) luôn phải cuộn → tăng `Height` 620→880, `MinHeight` 520→750, ẩn scrollbar (`Hidden`, vẫn cuộn được bằng chuột).
 
 ### Tool 5/7 — PointCloud
 Chain: self-contained (1502 loc, 6 transaction) → `PointCloud.xaml`
@@ -74,7 +74,11 @@ Chain: self-contained (2450 loc) → `TileLayout.xaml`
 - [ ] Layout tile trên floor nhỏ → kết quả đúng kích thước/góc
 - [ ] Đổi origin/rotation → cập nhật đúng
 - [ ] ⚠️ Script không gọi Transaction trực tiếp — xác định wrapper nào ghi model (revit.Transaction? helper?) và Ctrl+Z hoạt động đúng
-- [ ] Ghi chú:
+- [x] Ghi chú: **Bug path + UX fix 2026-07-03**:
+  1. **Tool không mở được** — `EXT_DIR` trong `script.py` chỉ đi lên 3 cấp thư mục (`os.path.dirname` x3) thay vì 4 cấp cần thiết (`T3Lab.extension/T3Lab.tab/Modeling & Datum.panel/Create.stack/Tile Layout.pushbutton/`), dừng ở `T3Lab.tab` thay vì `T3Lab.extension` → `IOError: Could not find a part of the path ...T3Lab.tab\lib\GUI\Tools\TileLayout.xaml`. Đã sửa thành x4. **Quét toàn bộ codebase phát hiện thêm 3 tool khác cũng bị lỗi tương tự (chiều ngược lại — thừa 1 cấp): MCPControl, ManaSheets, ManaViews — đã sửa cả 3 (xem Support.panel/Views & Sheets.panel).**
+  2. **UX**: trước đây `run()` luôn ép pick floor (hoặc bắt buộc có sẵn selection) ngay khi mở tool, chưa mở được wizard nếu chưa pick gì. Tách thành `_initial_floors()` (mở tool lần đầu → tự động liệt kê toàn bộ Floor trong model qua `FilteredElementCollector`, không cần pick) và `_pick_floors_from_revit()` (chỉ dùng cho nút "Pick Floors in Model" — vẫn pick thủ công như cũ).
+  3. **UI**: xoá icon "user profile" thừa ở title bar, chỉnh margin nút min/max/close về 16px chuẩn.
+  - **Còn nợ, chưa test functional**: layout tile kích thước/góc, đổi origin/rotation, Ctrl+Z qua transaction wrapper.
 
 ### Chốt ngày 6
 - [ ] Cập nhật bảng trạng thái + README · Commit nếu có fix
@@ -150,11 +154,11 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 |---|------|------|-----------|---------|
 | 1 | CADToElements | 6 | 🔄 | Wall/Floor/Beam tạo đúng, user xác nhận OK (2026-07-03) — còn thiếu test Ctrl+Z revert + edge case DWG không có layer khớp |
 | 2 | DoorThreshold | 6 | ⬜ | |
-| 3 | ImageToDrafting | 6 | ⬜ | |
-| 4 | Text to Element | 6 | ⬜ | |
+| 3 | ImageToDrafting | 6 | 🔄 | UI sửa xong (dropdown style, drop zone, title bar) 2026-07-03 — chưa test functional (compile C# vectorizer, centerline/outline mode) |
+| 4 | Text to Element | 6 | 🔄 | UI sửa xong (vị trí nút chrome, hết cuộn) 2026-07-03 — chưa test functional (tạo element từ text note) |
 | 5 | PointCloud | 6 | ⬜ | |
 | 6 | RoomToFloor | 6 | ⬜ | |
-| 7 | Tile Layout | 6 | ⬜ | |
+| 7 | Tile Layout | 6 | 🔄 | Sửa bug không mở được (path sai) + tính năng list toàn bộ sàn mặc định 2026-07-03 — chưa test functional (layout tile, Ctrl+Z) |
 | 8 | PropertyLine | 7 | ⬜ | |
 | 9 | FamiGen | 7 | ⬜ | |
 | 10 | ManaFami | 7 | ⬜ | |
