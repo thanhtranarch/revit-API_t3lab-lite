@@ -33,7 +33,7 @@
 | 1 | GĐ1 | Sửa F1 FindReplace · F2 CreateFromRooms · F3 UIShowcase | `phase-1-cleanup-fixes.md` §Ngày 1 | ✅ |
 | 2 | GĐ1 | Archive 15 XAML mồ côi + 6 dialog chết · chạy lại audit | `phase-1-cleanup-fixes.md` §Ngày 2 | ✅ |
 | 3 | GĐ2 | Sửa T3LabAssistant.xaml (palette + copyright) + AssistantPane.xaml → audit UI sạch | `phase-2-ui-consistency.md` §Ngày 3 | ✅ |
-| 4 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 4 | ⏭️ (chấp nhận dở dang theo yêu cầu user 2026-07-03, xem ghi chú trong file) |
+| 4 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 4 | 🔄 (quyết định skip 2026-07-03 đã bị user HỦY cùng ngày — tiếp tục; đã dò xong vị trí ribbon thật của toàn bộ tool còn lại, checklist Panel 2 nốt + Panel 3–6 đã gửi user tự test trong Revit, chờ phản hồi để tick) |
 | 5 | GĐ3 | Debug Panel: Annotation & Select (4 tool) | `panel-1-annotation-select.md` | 🔄 (checklist đã gửi user, chờ kết quả test) |
 | 6 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Create (7 tool) | `panel-2-modeling-datum.md` §Ngày 6 | 🔄 (CADToElements: Wall/Floor/Beam OK, user xác nhận · ImageToDrafting/TextToElement/TileLayout: UI+bug sửa xong 2026-07-03, chưa test functional · DoorThreshold/PointCloud/RoomToFloor: chưa làm) |
 | 7 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Adjust/Family (7 tool) | `panel-2-modeling-datum.md` §Ngày 7 | ⬜ |

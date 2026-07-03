@@ -78,7 +78,37 @@ Checklist mỗi cửa sổ (mở lần lượt 41 tool + dialog phụ):
 
 > **Tạm dừng 2026-07-02**: đã QA xong Panel 1, một phần Panel 2. Lý do dừng: (1) click icon nhỏ trên ribbon qua computer-use rất chậm/khó trúng toạ độ chính xác; (2) project test đang trống (không wall/room/family) nên nhiều tool cần selection không mở được UI; (3) nhiều tool trong `panel-2..6-*.md` không nằm ở vị trí ribbon như dự đoán, cần dò lại.
 >
-> **Quyết định 2026-07-03 (theo yêu cầu user)**: chấp nhận GĐ2 Ngày 4 dừng ở mức chưa hoàn thành 100% (Panel 1 xong, Panel 2 một phần, Panel 3–6 chưa làm) — bỏ qua phần còn lại, chuyển sang GĐ3. Phần UI QA trực quan còn thiếu (Panel 2 nốt + Panel 3–6) có thể bổ sung sau nếu cần, không chặn tiến độ GĐ3.
+> **Quyết định 2026-07-03 (theo yêu cầu user)**: ~~chấp nhận GĐ2 Ngày 4 dừng ở mức chưa hoàn thành 100%~~ — **ĐÃ HỦY cùng ngày 2026-07-03 theo yêu cầu user: không skip nữa, tiếp tục GĐ2 Ngày 4.**
+>
+> **Kế hoạch tiếp tục (2026-07-03)**: blocker (3) "không tìm thấy tool trên ribbon" đã giải quyết — dò xong vị trí thật của toàn bộ cửa sổ còn lại từ cấu trúc `T3Lab.tab/` (bảng bên dưới). Blocker (1) computer-use chậm → chuyển hẳn sang **user tự test trong Revit theo checklist**, kết quả tick dựa trên phản hồi user (đúng quy trình CLAUDE.md — không tự bịa kết quả visual QA). Blocker (2) project trống → các cửa sổ thuần UI vẫn mở được không cần model; riêng tool cần selection (Wall Cut Profile, Wall_Adjust Base) test cùng model thật của GĐ3.
+
+### Vị trí ribbon thật của các cửa sổ còn lại (dò từ source `T3Lab.tab/` 2026-07-03)
+
+Ký hiệu: ▸ = pulldown/stack phải bấm mũi tên mở ra.
+
+**Panel 2 nốt — tab T3Lab → panel "Modeling & Datum":**
+
+| Cửa sổ | Đường đi trên ribbon | Ghi chú |
+|--------|---------------------|---------|
+| DoorThreshold | Create.stack ▸ Create Elements ▸ DoorThreshold | |
+| ImageToDrafting | Create.stack ▸ Create Elements ▸ ImageToDrafting | UI đã sửa 2026-07-03 — verify dropdown có style, drop-zone nét đứt, hết icon user |
+| Text to Element | Create.stack ▸ Create Elements ▸ Text to Element | UI đã sửa — verify nút chrome đúng vị trí, hết cuộn |
+| PointCloud | Create.stack ▸ Create Elements ▸ PointCloud | |
+| RoomToFloor | Create.stack ▸ Create Elements ▸ RoomToFloor | |
+| Tile Layout | Create.stack ▸ Tile Layout (nút riêng, KHÔNG trong pulldown) | Path đã sửa — verify mở được + list sàn tự động |
+| PropertyLine | Create.stack ▸ PropertyLine (nút riêng) | |
+| FamiGen | nút riêng trên panel | Lần trước không phản hồi qua automation — thử click trực tiếp |
+| ManaFami | nút riêng trên panel | Tương tự FamiGen |
+| Wall Cut Profile | ElementAdjust ▸ Wall Cut Profile | Cần model có wall + selection → test cùng GĐ3 |
+| Wall_Adjust Base | ElementAdjust ▸ Wall_Adjust Base | Không có XAML riêng → miễn QA UI, chỉ cần không crash |
+
+**Panel 3 — panel "Views & Sheets":** BatchOut (**UI-locked** — chỉ verify mở được + chrome hoạt động, không soi style) · ManaSheets (path đã sửa — verify mở được) · ManaViews (path đã sửa — verify; mở thêm dialog phụ AdvancedViewManager) · SheetGen.
+
+**Panel 4 — panel "Data & IFC-SG":** IFC-SG (+ dialog phụ SubtypeDefiner column mapping) · Foundation Volume · BCF Reader · manaData.stack ▸ ManaContains / ManaPara / ManaSched.
+
+**Panel 5 — panel "Standards & Settings":** ManaLoca (⚠️ chỉ MỞ XEM, không apply đổi toạ độ trong QA UI) · ManaStyles · ManaWorkset (file thường có thể chặn yêu cầu worksharing — nếu ra thông báo thân thiện thay vì mở UI thì ghi nhận, coi là pass UI) · ModelAuditor.
+
+**Panel 6 — panel "Support" + panel "Standard":** MCPControl (path đã sửa — verify mở được) · Feedback · PDF import · T3LabAssistant (verify kết quả Ngày 3: copyright footer-TRÁI, không còn màu Terra) · UI.stack ▸ BG Theme / ManaTabs / Ribbon Names · Standard.panel: UIShowcase · AutoWork · **AssistantPane dockable** (verify footer Row 4 mới thêm Ngày 3: không che ô chat input, pane không vỡ layout).
 
 ---
 
@@ -87,6 +117,6 @@ Checklist mỗi cửa sổ (mở lần lượt 41 tool + dialog phụ):
 - **Ngày 4 — Title bar thiếu wordmark "T3Lab" (phát hiện qua visual QA + xác nhận bằng grep source) — ĐÃ XỬ LÝ:** `ui-design-standard.md` mục "Window Structure" từng yêu cầu title bar có "Left: T3Lab (11px Bold) + Tool Name (18px Bold)". Thực tế `grep -c 'Text="T3Lab"'` trên toàn bộ `lib/GUI/Tools/*.xaml` cho kết quả **0/50 file có wordmark này — kể cả `UIStandardShowcase.xaml` (chính file canonical reference)**. Toàn bộ codebase hội tụ về pattern "Tool Name (15px Bold) + Subtitle (12.5px)" không có wordmark riêng. Giống trường hợp copyright ở Ngày 3 → đã cập nhật `.claude/rules/ui-design-standard.md` mục 3 (Title bar) để khớp thực tế đã hội tụ (2026-07-02), không cần sửa lại 50 file XAML.
 - **Ngày 4 — Wall Cut Profile / Auto Adj Base Offset** (trong dropdown "Element Adjust"): không hiện dialog nào khi bấm trên project trống, không có wall để chọn trước. Chưa xác định được là do cần selection trước (by-design) hay lỗi thật (tool này vốn được panel-2 đánh dấu "rủi ro cao nhất — 37 bare except"). Cần test lại với model có wall thật ở GĐ3.
 - **Ngày 4 — ManaFami, FamiGen** (panel Modeling & Datum): không phản hồi khi click dù đã xác nhận đúng toạ độ button qua tooltip hover (tên hiện đúng "FamiGen" khi hover). Không rõ do vấn đề UI automation hay lỗi thật trong tool — cần xác minh lại trực tiếp trong Revit bởi người dùng hoặc thử lại ở phiên làm việc sau.
-- **Ngày 4 — nhiều tool trong `panel-2..6-*.md` chưa tìm thấy trên ribbon**: các file plan panel-N liệt kê tool theo nhóm chức năng riêng của kế hoạch debug, không nhất thiết khớp 1:1 với tên panel ribbon thật. Cần dò lại vị trí thật trên ribbon (có thể nằm trong dropdown/stack ẩn như trường hợp "Element Adjust") trước khi QA tiếp.
+- **Ngày 4 — nhiều tool trong `panel-2..6-*.md` chưa tìm thấy trên ribbon — ĐÃ XỬ LÝ (2026-07-03)**: dò lại từ cấu trúc thư mục `T3Lab.tab/` → toàn bộ tool đều tồn tại trên ribbon, phần lớn nằm trong pulldown/stack ẩn (`Create Elements.pulldown`, `ElementAdjust.pulldown`, `manaData.stack`, `UI.stack`). Bảng vị trí đầy đủ đã ghi ở mục "Vị trí ribbon thật" phía trên.
 - **Ngày 3 — `AssistantPane.xaml`:** fallback overlay bottom-left chuẩn (theo `ui-design-standard.md`) sẽ đè lên ô chat input vì root Grid của pane này không có row footer riêng — row cuối (Row 3) là input bar full-width. Đã xử lý bằng cách thêm Row 4 (Auto height) làm footer thật thay vì dùng kỹ thuật overlay `Grid.RowSpan="99"`. Cần user xác nhận trực quan trong Revit ở Ngày 4 rằng dockable pane không bị vỡ layout / không quá chật do thêm ~24px chiều cao footer.
 - Chưa phát sinh vấn đề khác trong Ngày 3.
