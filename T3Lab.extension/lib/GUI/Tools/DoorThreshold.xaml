@@ -1256,20 +1256,6 @@
                         <TextBox x:Name="txt_offset" Height="26"
                                  Text="0" VerticalContentAlignment="Center"
                                  Padding="6,2" BorderBrush="#CBD5E1"
-                                 BorderThickness="1" Margin="0,0,0,12"/>
-
-                        <TextBlock Text="Width Extension (mm)" FontSize="11"
-                                   Foreground="#64748B" Margin="0,0,0,4"/>
-                        <TextBox x:Name="txt_width_ext" Height="26"
-                                 Text="0" VerticalContentAlignment="Center"
-                                 Padding="6,2" BorderBrush="#CBD5E1"
-                                 BorderThickness="1" Margin="0,0,0,12"/>
-
-                        <TextBlock Text="Depth Extension (mm)" FontSize="11"
-                                   Foreground="#64748B" Margin="0,0,0,4"/>
-                        <TextBox x:Name="txt_depth_ext" Height="26"
-                                 Text="0" VerticalContentAlignment="Center"
-                                 Padding="6,2" BorderBrush="#CBD5E1"
                                  BorderThickness="1"/>
                     </StackPanel>
                 </Border>
@@ -1280,7 +1266,7 @@
                     <StackPanel>
                         <TextBlock Text="How it works:" FontWeight="Bold" Foreground="#1E293B"
                                    Margin="0,0,0,4" FontSize="11"/>
-                        <TextBlock Text="Creates threshold floor elements at the base of selected doors. Dimensions automatically match the door width and host wall thickness, plus any specified extensions."
+                        <TextBlock Text="Creates threshold floor elements at the base of selected doors. Dimensions automatically match the door width and the real host wall thickness at that location."
                                    Foreground="#0F172A" FontSize="11" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>

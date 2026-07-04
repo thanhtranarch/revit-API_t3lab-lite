@@ -29,11 +29,15 @@ Chain: launcher → `CADToElementsDialog.py` (3143+ loc) → `CADToElements.xaml
 ### Tool 2/7 — DoorThreshold
 Chain: self-contained (356 loc, **3 bare except**) → `DoorThreshold.xaml`
 
-- [ ] Trước khi test: tạm thêm traceback log vào 3 nhánh `except:` để lỗi không bị nuốt
-- [ ] Door trên wall thường → threshold tạo đúng
-- [ ] Door trên curtain wall / wall nghiêng → hành vi hợp lý
-- [ ] Thiếu family threshold trong model → thông báo rõ ràng
-- [ ] Ghi chú:
+- [x] Trước khi test: tạm thêm traceback log vào 3 nhánh `except:` để lỗi không bị nuốt — thay bằng `logger.error` + gom `error_messages` hiện trực tiếp trong TaskDialog kết quả (không cần mở log riêng)
+- [x] Door trên wall thường → threshold tạo đúng — user xác nhận "đã xong" 2026-07-04 sau 2 vòng fix (xem Ghi chú)
+- [ ] Door trên curtain wall / wall nghiêng → hành vi hợp lý — chưa test
+- [ ] Thiếu family threshold trong model → thông báo rõ ràng — chưa test
+- [x] Ghi chú: **Bug fix 2026-07-04** (phát hiện qua smoke test user, không nằm trong checklist gốc):
+  1. **Sai kích thước ban đầu**: threshold không khớp đúng bề rộng cửa/độ dày tường khi tường có nhiều lớp (compound) hoặc bị tường khác join vào — do dùng `wall.Width` (giá trị nominal cố định của loại tường) thay vì đo thực tế tại vị trí cửa. Sửa: thêm `_get_wall_thickness_at_point()` — chiếu điểm cửa lên mặt ngoài/trong của tường (`HostObjectUtils.GetSideFaces` + `Face.Project`), đo khoảng cách thật tại đúng vị trí đó, fallback về `wall.Width` nếu không lấy được mặt (ví dụ Stacked Wall/Curtain Wall).
+  2. **UI**: theo yêu cầu user, bỏ hẳn 2 ô nhập tay "Width Extension (mm)" / "Depth Extension (mm)" — vì kích thước giờ tự động khớp chính xác, không cần chỉnh tay. Chỉ còn "Height Offset (mm)".
+  3. **Bug thứ 2 lộ ra sau khi test thật**: `Successfully created 0 thresholds, 4 errors` — nguyên nhân là `BuiltInParameter.DOOR_WIDTH` và `Symbol.FAMILY_WIDTH_PARAM` đều trả về `0` cho family cửa đang dùng (width không map vào 2 param chuẩn này). Sửa: thêm `_get_door_width_ft()` — thử `DOOR_WIDTH` → `FAMILY_WIDTH_PARAM` → `LookupParameter("Width")` (instance rồi symbol) → cuối cùng fallback đo trực tiếp bounding box của instance chiếu lên trục `HandOrientation` (đúng bất kể family map tham số kiểu gì).
+  4. User xác nhận kết quả đúng sau khi áp cả 2 fix (width + thickness) — nhưng **mới test 1 kịch bản** (cửa trên tường thường/compound). Curtain wall, wall nghiêng, model thiếu family threshold chưa qua kiểm.
 
 ### Tool 3/7 — ImageToDrafting
 Chain: self-contained (1585 loc) → `ImageToDrafting.xaml` · **compile C# Vectorizer lúc runtime**
@@ -161,7 +165,7 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 | # | Tool | Ngày | Trạng thái | Ghi chú |
 |---|------|------|-----------|---------|
 | 1 | CADToElements | 6 | 🔄 | Wall/Floor/Beam tạo đúng, user xác nhận OK (2026-07-03) — còn thiếu test Ctrl+Z revert + edge case DWG không có layer khớp |
-| 2 | DoorThreshold | 6 | ⬜ | |
+| 2 | DoorThreshold | 6 | 🔄 | Width=0 + thickness sai (compound/joined wall) → sửa xong, user xác nhận OK 2026-07-04 (đã bỏ Width/Depth Extension khỏi UI). Còn thiếu: curtain wall/wall nghiêng, model thiếu family threshold |
 | 3 | ImageToDrafting | 6 | 🔄 | UI sửa xong (dropdown style, drop zone, title bar) 2026-07-03 — chưa test functional (compile C# vectorizer, centerline/outline mode) |
 | 4 | Text to Element | 6 | 🔄 | UI sửa xong (vị trí nút chrome, hết cuộn) 2026-07-03 — chưa test functional (tạo element từ text note) |
 | 5 | PointCloud | 6 | ⬜ | |

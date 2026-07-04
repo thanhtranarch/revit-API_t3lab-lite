@@ -36,7 +36,10 @@ from Autodesk.Revit.DB import (
     Floor,
     ElementId,
     XYZ,
-    Line
+    Line,
+    HostObjectUtils,
+    ShellLayerType,
+    Wall
 )
 from Autodesk.Revit.UI import TaskDialog
 from pyrevit import forms, script
@@ -87,18 +90,90 @@ class DoorItem(object):
         except Exception:
             self.Level = ""
 
+def _get_wall_thickness_at_point(wall, point):
+    """Measure the actual wall thickness at a given point by projecting it
+    onto the wall's exterior and interior side faces. This reflects the
+    real built-up thickness at that location (compound layers, and any
+    local geometry change from walls joined to this one), unlike the
+    nominal Wall.Width property which is constant along the wall's length.
+    Returns thickness in feet, or None if it cannot be determined.
+    """
+    try:
+        if not isinstance(wall, Wall):
+            return None
+
+        ext_refs = HostObjectUtils.GetSideFaces(wall, ShellLayerType.Exterior)
+        int_refs = HostObjectUtils.GetSideFaces(wall, ShellLayerType.Interior)
+        if not ext_refs or not int_refs or ext_refs.Count == 0 or int_refs.Count == 0:
+            return None
+
+        ext_face = wall.GetGeometryObjectFromReference(ext_refs[0])
+        int_face = wall.GetGeometryObjectFromReference(int_refs[0])
+        if not ext_face or not int_face:
+            return None
+
+        ext_proj = ext_face.Project(point)
+        int_proj = int_face.Project(point)
+        if not ext_proj or not int_proj:
+            return None
+
+        thickness = ext_proj.XYZPoint.DistanceTo(int_proj.XYZPoint)
+        if thickness > 0.001:
+            return thickness
+    except Exception:
+        pass
+    return None
+
+def _get_door_width_ft(door):
+    """Get the door's actual width in feet, trying parameters first and
+    falling back to measuring the instance's bounding box along its
+    HandOrientation axis. Some door families leave DOOR_WIDTH / the
+    symbol's Width parameter unset (0), even though the door clearly has
+    a real width, so the geometric fallback is required for correctness.
+    """
+    for param in (
+        lambda: door.get_Parameter(BuiltInParameter.DOOR_WIDTH),
+        lambda: door.Symbol.get_Parameter(BuiltInParameter.FAMILY_WIDTH_PARAM),
+        lambda: door.LookupParameter("Width"),
+        lambda: door.Symbol.LookupParameter("Width"),
+    ):
+        try:
+            p = param()
+            if p and p.AsDouble() > 0.001:
+                return p.AsDouble()
+        except Exception:
+            pass
+
+    try:
+        bbox = door.get_BoundingBox(None)
+        if bbox:
+            v = door.HandOrientation
+            corners = [
+                XYZ(bbox.Min.X, bbox.Min.Y, bbox.Min.Z),
+                XYZ(bbox.Max.X, bbox.Min.Y, bbox.Min.Z),
+                XYZ(bbox.Min.X, bbox.Max.Y, bbox.Min.Z),
+                XYZ(bbox.Max.X, bbox.Max.Y, bbox.Min.Z),
+            ]
+            projections = [c.DotProduct(v) for c in corners]
+            width = max(projections) - min(projections)
+            if width > 0.001:
+                return width
+    except Exception:
+        pass
+
+    return 900 * MM_TO_FT
+
 class ThresholdGenerator:
     def __init__(self, doc):
         self.doc = doc
 
-    def generate_thresholds(self, doors, floor_type, offset_mm, ext_w_mm, ext_d_mm):
+    def generate_thresholds(self, doors, floor_type, offset_mm):
         offset_ft = offset_mm * MM_TO_FT
-        ext_w_ft = ext_w_mm * MM_TO_FT
-        ext_d_ft = ext_d_mm * MM_TO_FT
-        
+
         created_count = 0
         error_count = 0
         new_floors = []
+        error_messages = []
 
         with Transaction(self.doc, "T3Lab: Door Threshold") as t:
             t.Start()
@@ -107,46 +182,52 @@ class ThresholdGenerator:
             t.SetFailureHandlingOptions(failOpt)
 
             for door in doors:
+                mark_param = door.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)
+                door_label = "Door {}".format(mark_param.AsString() if (mark_param and mark_param.AsString()) else door.Id)
                 try:
                     level_id = door.LevelId
                     level = self.doc.GetElement(level_id)
                     if not level:
                         error_count += 1
+                        error_messages.append("{}: no level found".format(door_label))
                         continue
                     z = level.Elevation
 
                     # Get width
-                    w_param = door.get_Parameter(BuiltInParameter.DOOR_WIDTH)
-                    if not w_param:
-                        w_param = door.Symbol.get_Parameter(BuiltInParameter.FAMILY_WIDTH_PARAM)
-                    
-                    if w_param:
-                        w = w_param.AsDouble()
-                    else:
-                        w = 900 * MM_TO_FT # fallback
+                    w = _get_door_width_ft(door)
 
-                    # Get host wall thickness
-                    wall = door.Host
-                    if wall:
-                        thickness = wall.Width
-                    else:
-                        thickness = 150 * MM_TO_FT # fallback
-                    
                     # Geometry
                     loc = door.Location
                     if not loc:
                         error_count += 1
+                        error_messages.append("{}: no location point".format(door_label))
                         continue
-                    
+
                     p = XYZ(loc.Point.X, loc.Point.Y, z)
+
+                    # Get host wall thickness at the door's exact location.
+                    # Measured via side-face projection so it reflects the
+                    # real thickness (compound layers, walls joined to this
+                    # one), not just the host wall type's nominal Width.
+                    wall = door.Host
+                    if wall:
+                        thickness = _get_wall_thickness_at_point(wall, p)
+                        if thickness is None:
+                            thickness = wall.Width
+                    else:
+                        thickness = 150 * MM_TO_FT # fallback
+
                     v = door.HandOrientation
                     u = door.FacingOrientation
                     
-                    half_w = w / 2.0 + ext_w_ft
-                    half_d = thickness / 2.0 + ext_d_ft
+                    half_w = w / 2.0
+                    half_d = thickness / 2.0
 
                     if half_w < 0.001 or half_d < 0.001:
                         error_count += 1
+                        error_messages.append(
+                            "{}: invalid size (width={:.1f}mm, thickness={:.1f}mm)".format(
+                                door_label, w * FT_TO_MM, thickness * FT_TO_MM))
                         continue
 
                     # XYZ * float (not float * XYZ) — avoids IronPython __rmul__ issues
@@ -190,12 +271,13 @@ class ThresholdGenerator:
                         created_count += 1
 
                 except Exception as ex:
-                    logger.debug("Error creating threshold for door {}: {}".format(door.Id, ex))
+                    logger.error("Error creating threshold for {}: {}".format(door_label, ex))
+                    error_messages.append("{}: {}".format(door_label, ex))
                     error_count += 1
 
             t.Commit()
-            
-        return new_floors, created_count, error_count
+
+        return new_floors, created_count, error_count, error_messages
 
 class DoorThresholdWindow(forms.WPFWindow):
     def __init__(self):
@@ -320,19 +402,13 @@ class DoorThresholdWindow(forms.WPFWindow):
         
         try: offset_mm = float(self.txt_offset.Text)
         except: offset_mm = 0
-            
-        try: ext_w_mm = float(self.txt_width_ext.Text)
-        except: ext_w_mm = 0
-            
-        try: ext_d_mm = float(self.txt_depth_ext.Text)
-        except: ext_d_mm = 0
 
-        new_floors, created, errors = self.generator.generate_thresholds(
+        new_floors, created, errors, error_messages = self.generator.generate_thresholds(
             [d.Element for d in selected_doors],
             floor_type,
-            offset_mm, ext_w_mm, ext_d_mm
+            offset_mm
         )
-        
+
         if new_floors:
             try:
                 uidoc.Selection.SetElementIds(List[ElementId]([f.Id for f in new_floors if f.IsValidObject]))
@@ -341,8 +417,12 @@ class DoorThresholdWindow(forms.WPFWindow):
 
         msg = "Successfully created {} thresholds.".format(created)
         if errors > 0:
-            msg += "\n{} errors occurred.".format(errors)
-        
+            msg += "\n{} errors occurred:".format(errors)
+            for err in error_messages[:10]:
+                msg += "\n- {}".format(err)
+            if len(error_messages) > 10:
+                msg += "\n... and {} more".format(len(error_messages) - 10)
+
         TaskDialog.Show("Door Threshold", msg)
         self.Close()
 

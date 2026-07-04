@@ -35,7 +35,7 @@
 | 3 | GĐ2 | Sửa T3LabAssistant.xaml (palette + copyright) + AssistantPane.xaml → audit UI sạch | `phase-2-ui-consistency.md` §Ngày 3 | ✅ |
 | 4 | GĐ2 | Mở từng cửa sổ trong Revit, verify trực quan + screenshot | `phase-2-ui-consistency.md` §Ngày 4 | ✅ **Hoàn thành 2026-07-03** — user xác nhận "tất cả UI đều okay". Panel 1–3 xác nhận qua nhiều screenshot thực tế trước đó (gray-gutter/layout/copyright đã sửa); Panel 4–6 xác nhận đợt này. Screenshot file riêng skip có lý do (QA trực tiếp trong Revit thay vì lưu ảnh). ⚠️ Ngoại lệ: `audit_ui.py` còn 1 lỗi biết trước chưa sửa (IFCSG copyright trùng lặp x2, task nền riêng) — chưa phải audit sạch 100% |
 | 5 | GĐ3 | Debug Panel: Annotation & Select (4 tool) | `panel-1-annotation-select.md` | 🔄 (checklist đã gửi user, chờ kết quả test) |
-| 6 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Create (7 tool) | `panel-2-modeling-datum.md` §Ngày 6 | 🔄 (CADToElements: Wall/Floor/Beam OK, user xác nhận · ImageToDrafting/TextToElement/TileLayout: UI+bug sửa xong 2026-07-03, chưa test functional · DoorThreshold/PointCloud/RoomToFloor: chưa làm) |
+| 6 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Create (7 tool) | `panel-2-modeling-datum.md` §Ngày 6 | 🔄 (CADToElements: Wall/Floor/Beam OK, user xác nhận · DoorThreshold: sửa xong bug width=0 + thickness sai ở compound/joined wall, user xác nhận OK 2026-07-04 (còn thiếu curtain wall/nghiêng + thiếu family threshold) · ImageToDrafting/TextToElement/TileLayout: UI+bug sửa xong 2026-07-03, chưa test functional · PointCloud/RoomToFloor: chưa làm) |
 | 7 | GĐ3 | Debug Panel: Modeling & Datum — nhóm Adjust/Family (7 tool) | `panel-2-modeling-datum.md` §Ngày 7 | 🔄 (FamiGen: sub-mode "From JSON" cải tiến prompt 2026-07-04 — de-bias, +7 ví dụ, recipe ống gấp khúc; chưa test functional. 6 tool còn lại chưa làm) |
 | 8 | GĐ3 | Debug Panel: Views & Sheets (4 tool, trọng tâm BatchOut) | `panel-3-views-sheets.md` | 🔄 (ManaSheets/ManaViews: UI đã user xác nhận OK 2026-07-03 — mở được, không crash/lỗi, layout/gray-gutter/Summary Cards đúng; còn thiếu test functional — batch rename/renumber/duplicate/delete, Ctrl+Z, edge case, Excel Import/Export. SheetGen/BatchOut: chưa test) |
 | 9 | GĐ3 | Debug Panel: Data & IFC-SG (6 tool) | `panel-4-data-ifcsg.md` | 🔄 (pre-flight tĩnh sạch 2026-07-04: 3 fix trang trắng còn nguyên [ManaContains 1360 / ManaPara 1717 / IFC-SG 1132], print flood ManaContains đã xoá, 2 tool chưa đụng [Foundation Volume + BCF Reader] review load-time không crash; regression audit_tools/audit_ui/sync đều sạch. Checklist functional đã gửi user, chờ test trong Revit) |
@@ -66,3 +66,20 @@
 3. Edge case (không chọn gì / model rỗng / cancel) ra thông báo thân thiện, không stacktrace.
 4. Không exception bị nuốt trong pyRevit log khi thao tác bình thường.
 5. Tick ✅ vào bảng panel + ghi chú nếu có hành vi lạ.
+
+---
+
+## Roadmap độc lập theo tool (ngoài bảng `gd<N> revitapi` ở trên)
+
+> Các roadmap này **không** thuộc 4 giai đoạn/12 ngày phía trên — mỗi cái đi theo nhịp riêng
+> của tool/tính năng đó. Gộp vào đây chỉ để có 1 chỗ theo dõi tổng, không đổi cách vận hành
+> từng file (vẫn tick `- [x]` trực tiếp trong file gốc).
+
+| Roadmap | File | Trạng thái | Việc còn lại |
+|---------|------|-----------|--------------|
+| T3Lab Assistant — Agentic Upgrade | `assistant-agentic-upgrade-roadmap.md` | 🔄 GĐ A + B1/B2/B3/B6 code xong, chưa smoke test | B4 (TransactionGroup), B5 (confirm destructive), GĐ C (C1–C4), GĐ D (D1–D3 smoke test) |
+| AutoDimension — Cải thiện | `autodimension-improvement-roadmap.md` | 🔄 GĐ A code xong, chưa smoke test | GĐ B (idempotent, dim mặt tường, core-layer, stacking, EQ), GĐ C (trục xiên, grid cong, scope box, link), GĐ D (preset, preview, progress bar, modeless) |
+| FamiGen — From JSON | `famigen-from-json-roadmap.md` | 🔄 Phần lớn workstream xong | WS4 (cảnh báo part rời rạc), WS5 (sketch plane tùy ý), test basket đa dạng (chair/cabinet/faucet/door/lamp) |
+| MCP Tools — Expansion | `mcp-tools-roadmap.md` | 🔄 ALL SHIPPED (code), chưa smoke test | Live smoke test trong Revit sau reload pyRevit; verify riêng Tier-3 (`create_project_parameter`, `room_to_floor`, `purge_unused`) trên scratch model |
+
+> Điểm chung: cả 4 đều nghẽn ở bước **smoke test trong Revit** — cần user tự test và báo lại kết quả, không tự bịa.
