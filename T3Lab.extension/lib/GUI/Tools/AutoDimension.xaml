@@ -1186,29 +1186,41 @@
                 <GroupBox Header="Plan Views"
                           Style="{StaticResource SectionGroup}">
                     <StackPanel>
-                        <TextBlock Text="Select views to dimension (leave empty to use active view):"
-                                   FontSize="11"
-                                   Foreground="#64748B"
-                                   Margin="0,0,0,4"/>
-                        <ListBox x:Name="lst_views"
-                                 Height="90"
-                                 SelectionMode="Extended"
-                                 BorderBrush="#E2E8F0"
-                                 BorderThickness="1"
-                                 FontSize="12"
-                                 Foreground="#0F172A"/>
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button Content="Select All"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Click="select_all_views_clicked"
-                                    Padding="10,4"
-                                    FontSize="11"
-                                    Margin="0,0,6,0"/>
-                            <Button Content="Clear"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Click="clear_views_clicked"
-                                    Padding="10,4"
-                                    FontSize="11"/>
+                        <CheckBox x:Name="chk_specific_views"
+                                  Content="Choose specific plan views (default: active view)"
+                                  IsChecked="False"
+                                  FontSize="13"
+                                  Foreground="#0F172A"
+                                  Margin="0,2,0,0"
+                                  Checked="specific_views_changed"
+                                  Unchecked="specific_views_changed"/>
+                        <StackPanel x:Name="pnl_views_list"
+                                    Visibility="Collapsed"
+                                    Margin="0,8,0,0">
+                            <TextBlock Text="Select views to dimension:"
+                                       FontSize="11"
+                                       Foreground="#64748B"
+                                       Margin="0,0,0,4"/>
+                            <ListBox x:Name="lst_views"
+                                     Height="90"
+                                     SelectionMode="Extended"
+                                     BorderBrush="#E2E8F0"
+                                     BorderThickness="1"
+                                     FontSize="12"
+                                     Foreground="#0F172A"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <Button Content="Select All"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="select_all_views_clicked"
+                                        Padding="10,4"
+                                        FontSize="11"
+                                        Margin="0,0,6,0"/>
+                                <Button Content="Clear"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="clear_views_clicked"
+                                        Padding="10,4"
+                                        FontSize="11"/>
+                            </StackPanel>
                         </StackPanel>
                     </StackPanel>
                 </GroupBox>

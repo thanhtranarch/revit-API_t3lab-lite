@@ -712,6 +712,18 @@ class AutoDimensionWindow(forms.WPFWindow):
     def clear_views_clicked(self, sender, args):
         self.lst_views.UnselectAll()
 
+    def specific_views_changed(self, sender, args):
+        """Toggle the plan-view picker. When off, the tool dimensions the
+        active view; clear any lingering selection so the run falls back to it."""
+        try:
+            is_specific = self.chk_specific_views.IsChecked == True
+            self.pnl_views_list.Visibility = (
+                Visibility.Visible if is_specific else Visibility.Collapsed)
+            if not is_specific:
+                self.lst_views.UnselectAll()
+        except Exception:
+            pass
+
     # ── Offset mode toggle ────────────────────────────────────────────────
 
     def offset_mode_changed(self, sender, args):
