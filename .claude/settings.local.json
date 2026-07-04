@@ -41,7 +41,17 @@
       "Bash(cd \"T3Lab.extension/..\")",
       "Bash(echo \"audit_tools exit=$?\")",
       "Bash(echo \"audit_ui exit=$?\")",
-      "Bash(echo \"sync exit=$?\")"
+      "Bash(echo \"sync exit=$?\")",
+      "Bash(python -m py_compile \"T3Lab.extension/lib/core/server.py\")",
+      "Bash(python dev/audit_tools.py --quiet)",
+      "Bash(python dev/audit_ui.py --quiet)",
+      "Bash(python dev/sync_wpf_styles.py --check)",
+      "Bash(PYTHONIOENCODING=utf-8 python dev/audit_ui.py --quiet)",
+      "Bash(PYTHONIOENCODING=utf-8 python dev/audit_ui.py)",
+      "Bash(curl -s -m 5 http://localhost:48884/health)",
+      "Bash(curl -s -m 5 http://localhost:48884/)",
+      "mcp__t3lab-revit__file_watcher_status",
+      "mcp__t3lab-revit__get_revit_context"
     ]
   }
 }

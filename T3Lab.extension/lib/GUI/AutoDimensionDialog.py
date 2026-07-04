@@ -13,7 +13,7 @@ Author: Tran Tien Thanh & Dang Quoc Truong
 
 __author__  = "Tran Tien Thanh & Dang Quoc Truong"
 __title__   = "Auto Dimension"
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 
 # IMPORT LIBRARIES
 # ==================================================
@@ -1030,6 +1030,12 @@ class AutoDimensionWindow(forms.WPFWindow):
         Run all dimensioning phases on a single view.
         Returns (dims_created, attempts, failures_list, created_dims).
         """
+        # Section / Elevation views live in their own vertical plane — the XY
+        # plan math below cannot produce valid dim lines there (it used to
+        # yield 0 dims with a confusing diagnostic). Handle them separately.
+        if view.ViewType in (ViewType.Section, ViewType.Elevation):
+            return self._dim_section_view(view, do_grids, dim_type, l3_feet)
+
         # Use the level elevation for plan views — view.Origin.Z can be unreliable.
         try:
             dim_z = view.GenLevel.Elevation
@@ -1073,9 +1079,25 @@ class AutoDimensionWindow(forms.WPFWindow):
         all_cols    = struct_cols + arch_cols
 
         # ── Compute bounding box for overall dim placement ─────────────────
+        # Use full element bounding boxes, not centroids: with centroids the
+        # extents stop at the middle of the outermost wall/column, so offset
+        # dims (y_max + L3 …) land on top of the model instead of outside it.
         all_elems_for_bb = walls + all_cols + windows + doors + lifts
-        all_cx = [_elem_centroid(e, view)[0] for e in all_elems_for_bb]
-        all_cy = [_elem_centroid(e, view)[1] for e in all_elems_for_bb]
+        all_cx, all_cy = [], []
+        for e in all_elems_for_bb:
+            bb_e = None
+            try:
+                bb_e = e.get_BoundingBox(view) or e.get_BoundingBox(None)
+            except Exception:
+                pass
+            if bb_e:
+                all_cx += [bb_e.Min.X, bb_e.Max.X]
+                all_cy += [bb_e.Min.Y, bb_e.Max.Y]
+            else:
+                cx_e, cy_e = _elem_centroid(e, view)
+                if cx_e or cy_e:   # skip the (0,0) "unknown" fallback
+                    all_cx.append(cx_e)
+                    all_cy.append(cy_e)
         for g in v_grids:
             all_cx.append(_grid_pos(g, 'X'))
         for g in h_grids:
@@ -1205,43 +1227,95 @@ class AutoDimensionWindow(forms.WPFWindow):
                             created_dims.extend(made)
                             dims_created += len(made)
                 else:
-                    # Per-element: dim each column individually to nearest grid
-                    # so no column is missed when reference extraction fails for one.
-                    for col in all_cols:
-                        cx, cy = col_ctr[element_id_int(col.Id)]
-                        bb_c = col.get_BoundingBox(view)
-                        if run_x:
+                    # Row/column strings: ONE chained dimension per column row
+                    # (X) and per column line (Y). Each chain runs
+                    # flanking grid → col face L → col face R → … → flanking grid,
+                    # giving offset + width + offset segments like a manual
+                    # structural plan. The old per-column loop created a
+                    # separate 2-ref dim for every column at the same offset,
+                    # which stacked dozens of overlapping strings.
+                    # A column whose references cannot be extracted simply
+                    # drops out of the chain — no column blocks the others.
+                    if run_x:
+                        for row_y, row_cols in _group_elements_by_pos(
+                            all_cols,
+                            lambda c: col_ctr[element_id_int(c.Id)][1],
+                            GROUPING_TOL
+                        ):
+                            xs = [col_ctr[element_id_int(c.Id)][0] for c in row_cols]
                             ref_pos = []
-                            r = _col_ref_one(col, view, 'X',
-                                             FamilyInstanceReferenceType.Left,
-                                             FamilyInstanceReferenceType.Right,
-                                             FamilyInstanceReferenceType.CenterLeftRight)
-                            if r:
-                                ref_pos.append((cx, r))
-                            ng, ng_pos = _nearest_grid_nonzero(cx, cy, v_grids, 'X')
-                            if ng:
-                                nr = _get_grid_reference(ng, view)
-                                if nr:
-                                    ref_pos.append((ng_pos, nr))
-                            made = _chain(ref_pos, 'X', cy, l2_feet,
-                                          mirror_perp=y_min)
+                            lg, rg = _flanking_grids(v_grids, min(xs), max(xs), 'X')
+                            for g in (lg, rg):
+                                if g:
+                                    r = _get_grid_reference(g, view)
+                                    if r:
+                                        ref_pos.append((_grid_pos(g, 'X'), r))
+                            for col in row_cols:
+                                cx = col_ctr[element_id_int(col.Id)][0]
+                                bb_c = col.get_BoundingBox(view)
+                                added = 0
+                                for rt, pos_fn in (
+                                    (FamilyInstanceReferenceType.Left,
+                                     lambda b, c: b.Min.X if b else c - 0.01),
+                                    (FamilyInstanceReferenceType.Right,
+                                     lambda b, c: b.Max.X if b else c + 0.01),
+                                ):
+                                    try:
+                                        refs = list(col.GetReferences(rt))
+                                        if refs:
+                                            ref_pos.append((pos_fn(bb_c, cx), refs[0]))
+                                            added += 1
+                                    except Exception:
+                                        pass
+                                if added == 0:
+                                    r = _col_ref_one(col, view, 'X',
+                                                     FamilyInstanceReferenceType.Left,
+                                                     FamilyInstanceReferenceType.Right,
+                                                     FamilyInstanceReferenceType.CenterLeftRight)
+                                    if r:
+                                        ref_pos.append((cx, r))
+                            made = _chain(ref_pos, 'X', row_y, l2_feet)
                             created_dims.extend(made)
                             dims_created += len(made)
-                        if run_y:
+                    if run_y:
+                        for col_x, line_cols in _group_elements_by_pos(
+                            all_cols,
+                            lambda c: col_ctr[element_id_int(c.Id)][0],
+                            GROUPING_TOL
+                        ):
+                            ys = [col_ctr[element_id_int(c.Id)][1] for c in line_cols]
                             ref_pos = []
-                            r = _col_ref_one(col, view, 'Y',
-                                             FamilyInstanceReferenceType.Front,
-                                             FamilyInstanceReferenceType.Back,
-                                             FamilyInstanceReferenceType.CenterFrontBack)
-                            if r:
-                                ref_pos.append((cy, r))
-                            ng, ng_pos = _nearest_grid_nonzero(cx, cy, h_grids, 'Y')
-                            if ng:
-                                nr = _get_grid_reference(ng, view)
-                                if nr:
-                                    ref_pos.append((ng_pos, nr))
-                            made = _chain(ref_pos, 'Y', cx, -l2_feet,
-                                          mirror_perp=x_max)
+                            bg, tg = _flanking_grids(h_grids, min(ys), max(ys), 'Y')
+                            for g in (bg, tg):
+                                if g:
+                                    r = _get_grid_reference(g, view)
+                                    if r:
+                                        ref_pos.append((_grid_pos(g, 'Y'), r))
+                            for col in line_cols:
+                                cy = col_ctr[element_id_int(col.Id)][1]
+                                bb_c = col.get_BoundingBox(view)
+                                added = 0
+                                for rt, pos_fn in (
+                                    (FamilyInstanceReferenceType.Front,
+                                     lambda b, c: b.Min.Y if b else c - 0.01),
+                                    (FamilyInstanceReferenceType.Back,
+                                     lambda b, c: b.Max.Y if b else c + 0.01),
+                                ):
+                                    try:
+                                        refs = list(col.GetReferences(rt))
+                                        if refs:
+                                            ref_pos.append((pos_fn(bb_c, cy), refs[0]))
+                                            added += 1
+                                    except Exception:
+                                        pass
+                                if added == 0:
+                                    r = _col_ref_one(col, view, 'Y',
+                                                     FamilyInstanceReferenceType.Front,
+                                                     FamilyInstanceReferenceType.Back,
+                                                     FamilyInstanceReferenceType.CenterFrontBack)
+                                    if r:
+                                        ref_pos.append((cy, r))
+                            made = _chain(ref_pos, 'Y', col_x, -l2_feet)
                             created_dims.extend(made)
                             dims_created += len(made)
 
@@ -1412,6 +1486,13 @@ class AutoDimensionWindow(forms.WPFWindow):
                     all_wall_refs = _collect_wall_core_refs(wall)
                     if not all_wall_refs:
                         continue
+                    loc = wall.Location
+                    if isinstance(loc, LocationCurve):
+                        d = _curve_direction(loc.Curve)
+                        if min(abs(d.X), abs(d.Y)) > AXIS_TOLERANCE:
+                            # Diagonal wall — an X/Y-aligned chain would land
+                            # off the wall and NewDimension usually rejects it.
+                            continue
                     cx, cy = _elem_centroid(wall, view)
                     is_h   = _wall_is_horizontal(wall)
                     bb     = wall.get_BoundingBox(view)
@@ -1715,6 +1796,132 @@ class AutoDimensionWindow(forms.WPFWindow):
 
         return (dims_created, dim_attempts[0], dim_failures, created_dims)
 
+    def _dim_section_view(self, view, do_grids, dim_type, l3_feet):
+        """
+        Dimension a Section/Elevation view (gated by the Grids checkbox):
+        one horizontal chain across the vertical grids near the top of the
+        crop, and one vertical chain across the levels near its left edge.
+        Geometry is computed in the view's own plane via the crop-box
+        transform (BasisX = view right, BasisY = view up, Z=0 = view plane).
+        Returns (dims_created, attempts, failures_list, created_dims).
+        """
+        if not do_grids:
+            return (0, 0, [], [])
+        try:
+            cb = view.CropBox
+            tf = cb.Transform
+        except Exception as ex:
+            return (0, 0, ["Crop box unavailable for '{}': {}".format(
+                view.Name, ex)], [])
+
+        margin = l3_feet * 0.5
+
+        def _datum_elems(category):
+            try:
+                return list(
+                    FilteredElementCollector(self.doc, view.Id)
+                    .OfCategory(category)
+                    .WhereElementIsNotElementType()
+                    .ToElements()
+                )
+            except Exception:
+                return []
+
+        # Grids → position along the view's right direction.
+        grid_rp = []
+        for g in _datum_elems(BuiltInCategory.OST_Grids):
+            try:
+                r = _get_grid_reference(g, view)
+                if not r:
+                    continue
+                p = g.Curve.GetEndPoint(0)
+                pos = p.Subtract(tf.Origin).DotProduct(tf.BasisX)
+                grid_rp.append((pos, r))
+            except Exception:
+                continue
+
+        # Levels → position along the view's up direction.
+        # _get_grid_reference works on any DatumPlane, Level included.
+        level_rp = []
+        for lv in _datum_elems(BuiltInCategory.OST_Levels):
+            try:
+                r = _get_grid_reference(lv, view)
+                if not r:
+                    continue
+                q = XYZ(tf.Origin.X, tf.Origin.Y, lv.Elevation)
+                pos = q.Subtract(tf.Origin).DotProduct(tf.BasisY)
+                level_rp.append((pos, r))
+            except Exception:
+                continue
+
+        dims_created = 0
+        created_dims = []
+        attempts = [0]
+        failures = []
+
+        def _view_plane_chain(rp_list, fixed, horizontal):
+            """Chain dim in the view plane. horizontal=True → line along
+            BasisX at view-Y=fixed; False → along BasisY at view-X=fixed."""
+            if len(rp_list) < 2:
+                return None
+            rp_sorted = sorted(rp_list, key=lambda rp: rp[0])
+            deduped = [rp_sorted[0]]
+            for rp in rp_sorted[1:]:
+                if abs(rp[0] - deduped[-1][0]) > 1e-4:
+                    deduped.append(rp)
+            if len(deduped) < 2:
+                return None
+            lo = deduped[0][0] - margin
+            hi = deduped[-1][0] + margin
+            ra = ReferenceArray()
+            for _, r in deduped:
+                ra.Append(r)
+            if horizontal:
+                p0 = tf.OfPoint(XYZ(lo, fixed, 0.0))
+                p1 = tf.OfPoint(XYZ(hi, fixed, 0.0))
+            else:
+                p0 = tf.OfPoint(XYZ(fixed, lo, 0.0))
+                p1 = tf.OfPoint(XYZ(fixed, hi, 0.0))
+            attempts[0] += 1
+            try:
+                return self.doc.Create.NewDimension(
+                    view, Line.CreateBound(p0, p1), ra, dim_type)
+            except Exception as ex:
+                msg = str(ex)
+                logger.warning("Section chain dim failed: {}".format(msg))
+                if len(failures) < 5:
+                    failures.append(msg)
+                return None
+
+        t = Transaction(self.doc, "T3Lab: Auto Dimension [{}]".format(view.Name))
+        try:
+            t.Start()
+            options = t.GetFailureHandlingOptions()
+            options.SetFailuresPreprocessor(WarningSwallower())
+            t.SetFailureHandlingOptions(options)
+
+            d = _view_plane_chain(grid_rp, cb.Max.Y - l3_feet, True)
+            if d:
+                created_dims.append(d)
+                dims_created += 1
+            d = _view_plane_chain(level_rp, cb.Min.X + l3_feet, False)
+            if d:
+                created_dims.append(d)
+                dims_created += 1
+
+            t.Commit()
+        except Exception as ex:
+            try:
+                t.RollBack()
+            except Exception:
+                pass
+            msg = "Transaction failed for view '{}': {}".format(view.Name, ex)
+            logger.error(msg)
+            TaskDialog.Show("Auto Dimension — Error", msg)
+            return (0, attempts[0], failures, [])
+
+        return (dims_created, attempts[0], failures, created_dims)
+
 
 # MAIN SCRIPT
 # ==================================================
@@ -1726,8 +1933,13 @@ def show_dialog():
     doc_inst   = uidoc_inst.Document
 
     window = AutoDimensionWindow(uidoc_inst, doc_inst)
-    # Modeless so the user can interact with the viewport (pick elements/views) while open
-    window.show(modal=False)
+    # Modal (ShowDialog) is required: Run starts a Transaction directly in the
+    # button handler, which is only legal while the command is still inside
+    # Revit API context. A modeless window drops that context and
+    # Transaction.Start/NewDimension throw "outside of API context"
+    # (TagCheckerDialog reverted to modal for the same reason). View selection
+    # happens in-dialog, so viewport interaction is not needed while open.
+    window.show(modal=True)
 
 if __name__ == '__main__':
     show_dialog()

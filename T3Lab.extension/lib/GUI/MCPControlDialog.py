@@ -255,6 +255,13 @@ class MCPControlWindow(forms.WPFWindow):
             logger.error('MCP server toggle error: {}'.format(err))
         else:
             logger.info('MCP server: {}'.format(new_state))
+            # We're on the UI thread here (button click) — a valid Revit API
+            # context — so guarantee the ExternalEvent exists for model-editing
+            # tools even if the server was auto-started from a background probe.
+            if new_state == 'running':
+                ok, ee_err = MCPService.ensure_external_event()
+                if not ok:
+                    logger.error('MCP ExternalEvent init error: {}'.format(ee_err))
         self._refresh_server()
 
     def _on_pin_toggle(self, sender, e):

@@ -719,7 +719,9 @@ class T3LabAIServer(object):
             # ── Modify / delete tools ─────────────────────────────────────────
             'delete_element': {
                 'name': 'delete_element',
-                'description': 'Delete one or more Revit elements by their IDs',
+                'description': ('Delete one or more Revit elements by their IDs. Deletion cascades '
+                                '(deleting a wall removes its hosted doors/windows), so prefer a '
+                                'dry_run=true preview first to see everything that would be removed.'),
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -727,6 +729,10 @@ class T3LabAIServer(object):
                             'type': 'array',
                             'items': {'type': 'integer'},
                             'description': 'List of element IDs to delete'
+                        },
+                        'dry_run': {
+                            'type': 'boolean',
+                            'description': 'If true, do NOT delete — return the full list of elements that WOULD be removed (including cascade deletions). Default false.'
                         }
                     },
                     'required': ['element_ids']
@@ -1104,6 +1110,292 @@ class T3LabAIServer(object):
                     'required': ['file_path']
                 }
             },
+            # ── Geometry editing ──────────────────────────────────────────────
+            'split_curve': {
+                'name': 'split_curve',
+                'description': ('Split a model or detail curve (line, arc, ellipse or spline) into '
+                                'segments while preserving the EXACT original geometry — arcs stay '
+                                'arcs, splines stay splines (never flattened to straight lines). '
+                                'Provide either "segments" for equal-length division or '
+                                '"split_at_ratios" for explicit cut positions.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_id': {
+                            'type': 'integer',
+                            'description': 'Element ID of the model curve or detail curve to split'
+                        },
+                        'segments': {
+                            'type': 'integer',
+                            'description': 'Number of equal-length pieces to split into (default 2, min 2, max 200)'
+                        },
+                        'split_at_ratios': {
+                            'type': 'array',
+                            'items': {'type': 'number'},
+                            'description': 'Optional explicit cut positions as normalized fractions 0..1 along the curve (e.g. [0.25, 0.5]). Overrides "segments".'
+                        }
+                    },
+                    'required': ['element_id']
+                }
+            },
+            'split_element': {
+                'name': 'split_element',
+                'description': ('Split a location-curve element (wall, beam, pipe, duct, model line) '
+                                'into two at a point or ratio, preserving the exact curve geometry.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_id': {'type': 'integer', 'description': 'Element ID with a location curve (wall/beam/pipe/etc.)'},
+                        'at_ratio': {'type': 'number', 'description': 'Split position as a fraction 0..1 along the curve (default 0.5)'},
+                        'x': {'type': 'number', 'description': 'Optional split point X in meters (overrides at_ratio)'},
+                        'y': {'type': 'number', 'description': 'Optional split point Y in meters (used with x)'}
+                    },
+                    'required': ['element_id']
+                }
+            },
+            'join_geometry': {
+                'name': 'join_geometry',
+                'description': 'Join (or unjoin) the geometry of two elements, e.g. wall-to-floor or wall-to-column.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_id_a': {'type': 'integer', 'description': 'First element ID'},
+                        'element_id_b': {'type': 'integer', 'description': 'Second element ID'},
+                        'unjoin': {'type': 'boolean', 'description': 'If true, unjoin instead of join (default false)'}
+                    },
+                    'required': ['element_id_a', 'element_id_b']
+                }
+            },
+            # ── Bulk parameter / selection / tagging ──────────────────────────
+            'bulk_set_parameter': {
+                'name': 'bulk_set_parameter',
+                'description': ('Set one parameter to the same value across MANY elements of a category, '
+                                'optionally narrowed by a filter parameter/value substring match.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'category': {'type': 'string', 'description': 'Category to target (e.g. Walls, Doors, Rooms)'},
+                        'parameter_name': {'type': 'string', 'description': 'Parameter to set on each element'},
+                        'value': {'type': 'string', 'description': 'New value (string; coerced to the parameter storage type)'},
+                        'filter_parameter': {'type': 'string', 'description': 'Optional parameter to filter elements by before setting'},
+                        'filter_value': {'type': 'string', 'description': 'Optional value substring the filter_parameter must contain'},
+                        'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Optional explicit element IDs (overrides category collection)'},
+                        'limit': {'type': 'integer', 'description': 'Max elements to modify (default 500)'}
+                    },
+                    'required': ['parameter_name', 'value']
+                }
+            },
+            'select_elements': {
+                'name': 'select_elements',
+                'description': 'Set the Revit selection to elements matched by category + optional parameter filter, or explicit IDs.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'category': {'type': 'string', 'description': 'Category to select (e.g. Walls, Doors)'},
+                        'parameter_name': {'type': 'string', 'description': 'Optional parameter to filter on'},
+                        'parameter_value': {'type': 'string', 'description': 'Optional value substring to match'},
+                        'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Optional explicit IDs to select (overrides category)'},
+                        'add_to_selection': {'type': 'boolean', 'description': 'Add to the current selection instead of replacing (default false)'},
+                        'limit': {'type': 'integer', 'description': 'Max elements to select (default 500)'}
+                    },
+                    'required': []
+                }
+            },
+            'tag_elements': {
+                'name': 'tag_elements',
+                'description': 'Tag all elements of a category in the active view (generic version of tag_all_walls/rooms).',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'category': {'type': 'string', 'description': 'Category to tag (e.g. Doors, Windows, Walls, Rooms)'},
+                        'tag_type': {'type': 'string', 'description': 'Tag family type name (optional, uses first available)'},
+                        'leader': {'type': 'boolean', 'description': 'Add tag leader line (default false)'}
+                    },
+                    'required': ['category']
+                }
+            },
+            'create_dimension': {
+                'name': 'create_dimension',
+                'description': ('Create an aligned dimension across a set of grids (or elements with a '
+                                'straight location curve) in the active view.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs of grids (or line-based elements) to dimension between — at least 2'},
+                        'offset': {'type': 'number', 'description': 'Perpendicular offset of the dimension line in meters (default 1.0)'}
+                    },
+                    'required': ['element_ids']
+                }
+            },
+            # ── Schedules ─────────────────────────────────────────────────────
+            'get_schedule_data': {
+                'name': 'get_schedule_data',
+                'description': 'Read a schedule (ViewSchedule) as a JSON table with a header row and data rows.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'schedule_name': {'type': 'string', 'description': 'Schedule name (partial match allowed)'},
+                        'schedule_id': {'type': 'integer', 'description': 'Schedule element ID (alternative to name)'},
+                        'limit': {'type': 'integer', 'description': 'Max data rows to return (default 200)'}
+                    },
+                    'required': []
+                }
+            },
+            'create_schedule': {
+                'name': 'create_schedule',
+                'description': 'Create a new schedule for a category with an optional explicit field list.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'category': {'type': 'string', 'description': 'Category to schedule (e.g. Walls, Doors, Rooms)'},
+                        'fields': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Parameter names to add as columns (optional; adds a sensible default set if omitted)'},
+                        'name': {'type': 'string', 'description': 'Schedule name (optional)'}
+                    },
+                    'required': ['category']
+                }
+            },
+            # ── View / sheet automation ───────────────────────────────────────
+            'duplicate_view': {
+                'name': 'duplicate_view',
+                'description': 'Duplicate a view (plain, with detailing, or as a dependent view).',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'view_id': {'type': 'integer', 'description': 'View element ID to duplicate'},
+                        'mode': {'type': 'string', 'description': '"plain" (default), "with_detailing", or "dependent"'},
+                        'name': {'type': 'string', 'description': 'Name for the new view (optional)'}
+                    },
+                    'required': ['view_id']
+                }
+            },
+            'apply_view_template': {
+                'name': 'apply_view_template',
+                'description': 'Apply a view template to one or more views.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'view_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'View IDs to apply the template to'},
+                        'template_name': {'type': 'string', 'description': 'View template name (partial match allowed)'}
+                    },
+                    'required': ['view_ids', 'template_name']
+                }
+            },
+            'create_view_filter': {
+                'name': 'create_view_filter',
+                'description': ('Create a rule-based view filter and apply it to a view, optionally hiding '
+                                'matching elements or overriding their color.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string', 'description': 'Filter name'},
+                        'categories': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Categories the filter applies to (e.g. ["Walls"])'},
+                        'parameter_name': {'type': 'string', 'description': 'Optional parameter to build a "contains" rule on'},
+                        'parameter_value': {'type': 'string', 'description': 'Optional value the parameter must contain'},
+                        'view_id': {'type': 'integer', 'description': 'View to apply the filter to (default active view)'},
+                        'hide': {'type': 'boolean', 'description': 'Hide matching elements (default false)'},
+                        'color': {'type': 'string', 'description': 'Optional hex/CSS color to override matching elements'}
+                    },
+                    'required': ['name', 'categories']
+                }
+            },
+            'place_views_on_sheets': {
+                'name': 'place_views_on_sheets',
+                'description': 'Place one or more views onto sheets as viewports (one view per sheet by default).',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'view_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'View IDs to place'},
+                        'title_block': {'type': 'string', 'description': 'Title block family type name (optional)'},
+                        'sheet_id': {'type': 'integer', 'description': 'Existing sheet to place all views on (optional; otherwise a sheet is created per view)'}
+                    },
+                    'required': ['view_ids']
+                }
+            },
+            'export_dwg': {
+                'name': 'export_dwg',
+                'description': 'Export sheets or views to DWG files in a folder.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'sheet_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Sheet IDs to export'},
+                        'view_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'View IDs to export (used if sheet_ids omitted)'},
+                        'output_folder': {'type': 'string', 'description': 'Destination folder (default: same folder as the .rvt)'}
+                    },
+                    'required': []
+                }
+            },
+            'export_image': {
+                'name': 'export_image',
+                'description': 'Export a view (or the active view) to a PNG image.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'view_id': {'type': 'integer', 'description': 'View to export (default active view)'},
+                        'output_folder': {'type': 'string', 'description': 'Destination folder (default: same folder as the .rvt)'},
+                        'width': {'type': 'integer', 'description': 'Pixel width of the image (default 1600)'}
+                    },
+                    'required': []
+                }
+            },
+            # ── Standards / model management ──────────────────────────────────
+            'create_project_parameter': {
+                'name': 'create_project_parameter',
+                'description': ('Create a project parameter bound to one or more categories using a shared '
+                                'parameter file (created automatically if absent).'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string', 'description': 'Parameter name'},
+                        'categories': {'type': 'array', 'items': {'type': 'string'}, 'description': 'Categories to bind to (e.g. ["Walls","Doors"])'},
+                        'type': {'type': 'string', 'description': 'Parameter data type: Text (default), Integer, Number, Length, Area, YesNo'},
+                        'group': {'type': 'string', 'description': 'Parameter group name (optional, default "Data")'},
+                        'instance': {'type': 'boolean', 'description': 'Instance binding (default true) vs type binding'}
+                    },
+                    'required': ['name', 'categories']
+                }
+            },
+            'room_to_floor': {
+                'name': 'room_to_floor',
+                'description': 'Create a floor matching the boundary of one or more rooms.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'room_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Room element IDs to build floors from'},
+                        'room_id': {'type': 'integer', 'description': 'Single room element ID (alternative to room_ids)'},
+                        'floor_type': {'type': 'string', 'description': 'Floor type name (optional)'}
+                    },
+                    'required': []
+                }
+            },
+            'purge_unused': {
+                'name': 'purge_unused',
+                'description': ('Report (and optionally delete) unused family symbols and view templates. '
+                                'Defaults to a safe dry run that only reports counts.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'dry_run': {'type': 'boolean', 'description': 'If true (default) only report; if false, delete unused items'}
+                    },
+                    'required': []
+                }
+            },
+            'audit_model': {
+                'name': 'audit_model',
+                'description': ('Detailed model audit: warnings by type, imported CAD, groups, in-place '
+                                'families, unused types/templates, and basic naming issues.'),
+                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+            },
+            'create_workset': {
+                'name': 'create_workset',
+                'description': 'Create a new user workset (workshared models only).',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string', 'description': 'Workset name'}
+                    },
+                    'required': ['name']
+                }
+            },
             # ── Utility / assistant control ───────────────────────────────────
             'file_watcher_status': {
                 'name': 'file_watcher_status',
@@ -1237,10 +1529,12 @@ class T3LabAIServer(object):
         """Return (doc, uidoc) to use for this tool call.
 
         If a document is pinned and it isn't the currently active one,
-        switch Revit's active window to it so uidoc-dependent tools (active
-        view, selection, etc.) operate on the pinned document too. Falls
-        back to the live active document if the pinned one is no longer
-        open (e.g. it was closed).
+        redirect tool execution onto the pinned document: build a UIDocument
+        that points at it (so uidoc-dependent tools — active view, selection,
+        etc. — operate on the pinned document) and best-effort bring its
+        window to the front so the visible Revit view matches. Falls back to
+        the live active document if the pinned one is no longer open (e.g. it
+        was closed).
         """
         if not self._pinned_doc_title:
             return doc, uidoc
@@ -1249,12 +1543,51 @@ class T3LabAIServer(object):
         try:
             from pyrevit import HOST_APP
             uiapp = HOST_APP.uiapp
+
+            target_doc = None
             for d in uiapp.Application.Documents:
                 if not d.IsLinked and d.Title == self._pinned_doc_title:
-                    target_uidoc = uiapp.OpenAndActivateDocument(d)
-                    return d, target_uidoc
-            # Pinned document is no longer open — clear the stale pin.
-            self._pinned_doc_title = None
+                    target_doc = d
+                    break
+
+            if target_doc is None:
+                # Pinned document is no longer open — clear the stale pin.
+                self._pinned_doc_title = None
+                return doc, uidoc
+
+            # Best-effort: bring the pinned document's window to the front so
+            # the visible Revit view matches where tools operate. Only saved
+            # documents can be re-activated (OpenAndActivateDocument takes a
+            # file path — there is NO Document overload; passing the Document
+            # object, as the previous implementation did, silently threw and
+            # left the pin completely ineffective). Already-open paths are
+            # activated in place rather than reopened.
+            try:
+                path = target_doc.PathName
+                if path:
+                    uiapp.OpenAndActivateDocument(path)
+            except Exception:
+                pass
+
+            # Resolve a UIDocument that actually points at the pinned document.
+            # This is what genuinely redirects the tool call, independent of
+            # whether the window switch above succeeded.
+            target_uidoc = uidoc
+            try:
+                from Autodesk.Revit.UI import UIDocument
+                active = uiapp.ActiveUIDocument
+                if active is not None and active.Document.Title == self._pinned_doc_title:
+                    target_uidoc = active
+                else:
+                    target_uidoc = UIDocument(target_doc)
+            except Exception:
+                try:
+                    from Autodesk.Revit.UI import UIDocument
+                    target_uidoc = UIDocument(target_doc)
+                except Exception:
+                    target_uidoc = uidoc
+
+            return target_doc, target_uidoc
         except Exception:
             pass
         return doc, uidoc
@@ -1310,6 +1643,52 @@ class T3LabAIServer(object):
                 'isError': True
             }
 
+    # Tools that open a Transaction / mutate the model. These MUST run on
+    # Revit's main thread via the ExternalEvent — starting a transaction from
+    # the HTTP worker thread throws "outside of API context is not allowed".
+    _WRITE_TOOLS = frozenset([
+        'revit_override_color', 'create_level', 'place_wall', 'set_parameter',
+        'create_point_based_element', 'create_line_based_element',
+        'create_surface_based_element', 'create_grid', 'create_room',
+        'create_structural_framing_system', 'delete_element', 'operate_element',
+        'color_elements', 'tag_all_walls', 'tag_all_rooms', 'move_elements',
+        'copy_elements', 'rotate_element', 'create_view', 'set_active_view',
+        'rename_element', 'create_sheet', 'add_view_to_sheet', 'create_text_note',
+        'set_element_workset', 'load_family', 'send_code_to_revit',
+        'store_project_data', 'store_room_data', 'export_sheets_pdf', 'say_hello',
+        'show_assistant_pane', 'split_curve', 'split_element', 'join_geometry',
+        'bulk_set_parameter', 'select_elements', 'tag_elements', 'create_dimension',
+        'create_schedule', 'duplicate_view', 'apply_view_template',
+        'create_view_filter', 'place_views_on_sheets', 'export_dwg', 'export_image',
+        'create_project_parameter', 'room_to_floor', 'purge_unused', 'create_workset',
+    ])
+
+    def ensure_external_event(self):
+        """Create the ExternalEvent used to marshal tool execution onto Revit's
+        main thread.
+
+        This MUST be invoked from a valid Revit API context — i.e. the pyRevit
+        pushbutton's main (UI) thread. ExternalEvent.Create() throws
+        InvalidOperationException when called from a background worker thread,
+        which is exactly why start_server() (run from the assistant's
+        background startup probe) cannot create it: every write tool would then
+        fall back to running its Transaction outside API context and fail.
+
+        Returns (ok: bool, error: str|None).
+        """
+        if not HAS_REVIT_UI:
+            return False, 'Revit UI API not available (RevitAPIUI not loaded)'
+        if self._external_event is not None:
+            return True, None
+        try:
+            self._event_handler = MCPExternalEventHandler(self)
+            self._external_event = ExternalEvent.Create(self._event_handler)
+            return True, None
+        except Exception as e:
+            self._event_handler = None
+            self._external_event = None
+            return False, str(e)
+
     def _execute_tool(self, tool_name, arguments):
         """Execute a Revit tool in a thread-safe manner using External Events."""
         if self._external_event:
@@ -1317,17 +1696,114 @@ class T3LabAIServer(object):
             self._event_handler.arguments = arguments
             self._event_handler._lock.clear()
             self._external_event.Raise()
-            
-            # Wait for main UI thread execution (10s timeout)
-            success = self._event_handler._lock.wait(timeout=10)
+
+            # Wait for main UI thread execution. Large operations (framing
+            # systems, PDF export, bulk deletes) legitimately take far longer
+            # than 10s, so allow up to 120s before giving up.
+            success = self._event_handler._lock.wait(timeout=120)
             if not success:
                 return {'error': 'Execution timed out waiting for Revit thread context', 'tool': tool_name}
             if self._event_handler.exception:
                 return {'error': str(self._event_handler.exception), 'tool': tool_name}
             return self._event_handler.result
         else:
-            # Fallback if external event is not available (e.g. running headlessly or test context)
+            # No ExternalEvent — we're stuck on the HTTP worker thread. Read
+            # tools tolerate this, but any write tool would throw a cryptic
+            # "transaction outside API context" error. Surface a clear,
+            # actionable message instead so the failure is diagnosable.
+            if tool_name in self._WRITE_TOOLS:
+                return {
+                    'error': ('Revit ExternalEvent is not initialised, so model-editing tools '
+                              'cannot run on the Revit main thread. Open (or reopen) the T3Lab '
+                              'Assistant window once so it can register the event on the UI '
+                              'thread, then retry.'),
+                    'tool': tool_name,
+                    'external_event_ready': False,
+                }
             return self._execute_tool_in_context(tool_name, arguments)
+
+    # ── Shared tool helpers ────────────────────────────────────────────────
+    def _bic_map(self):
+        """Human-facing category name → BuiltInCategory. Superset of the inline
+        maps scattered through the older tools, used by the newer bulk/select/
+        tag/filter tools so they all accept the same category vocabulary."""
+        from Autodesk.Revit.DB import BuiltInCategory as B
+        return {
+            'Walls': B.OST_Walls, 'Floors': B.OST_Floors, 'Doors': B.OST_Doors,
+            'Windows': B.OST_Windows, 'Rooms': B.OST_Rooms, 'Columns': B.OST_Columns,
+            'StructuralColumns': B.OST_StructuralColumns, 'Beams': B.OST_StructuralFraming,
+            'StructuralFraming': B.OST_StructuralFraming, 'Ceilings': B.OST_Ceilings,
+            'Roofs': B.OST_Roofs, 'Furniture': B.OST_Furniture, 'Casework': B.OST_Casework,
+            'Grids': B.OST_Grids, 'Levels': B.OST_Levels, 'Sheets': B.OST_Sheets,
+            'Stairs': B.OST_Stairs, 'Railings': B.OST_StairsRailing,
+            'Pipes': B.OST_PipeCurves, 'Ducts': B.OST_DuctCurves,
+            'GenericModel': B.OST_GenericModel,
+            'PlumbingFixtures': B.OST_PlumbingFixtures,
+            'LightingFixtures': B.OST_LightingFixtures,
+            'ElectricalFixtures': B.OST_ElectricalFixtures,
+            'MechanicalEquipment': B.OST_MechanicalEquipment,
+            'Parking': B.OST_Parking, 'PlantingArea': B.OST_Planting,
+            'CurtainPanels': B.OST_CurtainWallPanels,
+            'GenericAnnotations': B.OST_GenericAnnotation,
+        }
+
+    def _parse_color(self, color_str):
+        """Parse a hex (#RRGGBB / #RGB) or CSS-name color into an (r, g, b)
+        tuple, or None if unparseable. Mirrors the inline parser in
+        revit_override_color so filter overrides accept the same vocabulary."""
+        if not color_str:
+            return None
+        s = color_str.lower().strip()
+        css = {
+            'red': (255, 0, 0), 'green': (0, 255, 0), 'blue': (0, 0, 255),
+            'orange': (255, 165, 0), 'cyan': (0, 255, 255), 'yellow': (255, 255, 0),
+            'magenta': (255, 0, 255), 'black': (0, 0, 0), 'white': (255, 255, 255),
+            'gray': (128, 128, 128), 'grey': (128, 128, 128), 'pink': (255, 192, 203),
+            'purple': (128, 0, 128), 'violet': (238, 130, 238),
+        }
+        if s in css:
+            return css[s]
+        if s.startswith('#'):
+            h = s[1:]
+            try:
+                if len(h) == 6:
+                    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+                if len(h) == 3:
+                    return (int(h[0] * 2, 16), int(h[1] * 2, 16), int(h[2] * 2, 16))
+            except ValueError:
+                return None
+        return None
+
+    def _apply_param_value(self, param, value):
+        """Coerce a string value onto a Revit parameter honouring its storage
+        type. Returns (ok, error). Mirrors the single-element set_parameter tool
+        so bulk_set_parameter behaves identically per element."""
+        from Autodesk.Revit.DB import StorageType, ElementId
+        if param is None:
+            return False, 'parameter not found'
+        if param.IsReadOnly:
+            return False, 'read-only'
+        try:
+            st = param.StorageType
+            if st == StorageType.String:
+                param.Set(value)
+            elif st == StorageType.Double:
+                parsed = False
+                try:
+                    parsed = param.SetValueString(value)
+                except Exception:
+                    parsed = False
+                if not parsed:
+                    param.Set(float(value))
+            elif st == StorageType.Integer:
+                param.Set(int(float(value)))
+            elif st == StorageType.ElementId:
+                param.Set(ElementId(int(value)))
+            else:
+                return False, 'unsupported storage type'
+            return True, None
+        except Exception as e:
+            return False, str(e)
 
     def _execute_tool_in_context(self, tool_name, arguments):
         """Execute a Revit tool directly (must be inside Revit context thread)"""
@@ -1533,7 +2009,16 @@ class T3LabAIServer(object):
             try:
                 new_level = Level.Create(doc, elevation_ft)
                 if level_name:
-                    new_level.Name = level_name
+                    try:
+                        new_level.Name = level_name
+                    except Exception:
+                        # Name already taken — uniquify instead of failing
+                        for suffix in range(2, 100):
+                            try:
+                                new_level.Name = '{} ({})'.format(level_name, suffix)
+                                break
+                            except Exception:
+                                continue
                 t.Commit()
                 return {
                     'success': True,
@@ -1573,7 +2058,10 @@ class T3LabAIServer(object):
             if target_level is None:
                 return {'error': 'No levels found in the document'}
 
-            # Find wall type
+            # Find wall type — exact name, then substring, then first Basic
+            # wall (curtain/stacked types can't be created via Wall.Create
+            # with an arbitrary line + height).
+            from Autodesk.Revit.DB import WallKind
             wall_types = list(FilteredElementCollector(doc).OfClass(WallType).ToElements())
             target_wall_type = None
             if wall_type_name_arg:
@@ -1581,6 +2069,21 @@ class T3LabAIServer(object):
                     if wt.Name == wall_type_name_arg:
                         target_wall_type = wt
                         break
+                if target_wall_type is None:
+                    for wt in wall_types:
+                        if wall_type_name_arg.lower() in wt.Name.lower():
+                            target_wall_type = wt
+                            break
+                if target_wall_type is None:
+                    return {'error': 'Wall type "{}" not found'.format(wall_type_name_arg)}
+            if target_wall_type is None:
+                for wt in wall_types:
+                    try:
+                        if wt.Kind == WallKind.Basic:
+                            target_wall_type = wt
+                            break
+                    except Exception:
+                        pass
             if target_wall_type is None and wall_types:
                 target_wall_type = wall_types[0]
             if target_wall_type is None:
@@ -1805,15 +2308,19 @@ class T3LabAIServer(object):
 
         # ── get_material_quantities ──────────────────────────────────────────
         elif tool_name == 'get_material_quantities':
-            from Autodesk.Revit.DB import Wall, Floor, Roof
             cat_arg   = arguments.get('category', 'Walls')
             lvl_arg   = arguments.get('level_name')
-            CAT_TO_CLASS = {
-                'Walls': (Wall, 'Area', 'Volume'),
-                'Floors': (Floor, 'Area', 'Volume'),
+            QTY_CATEGORY_MAP = {
+                'Walls':    BuiltInCategory.OST_Walls,
+                'Floors':   BuiltInCategory.OST_Floors,
+                'Roofs':    BuiltInCategory.OST_Roofs,
+                'Ceilings': BuiltInCategory.OST_Ceilings,
             }
-            clz, area_p, vol_p = CAT_TO_CLASS.get(cat_arg, (Wall, 'Area', 'Volume'))
-            collector = FilteredElementCollector(doc).OfClass(clz).WhereElementIsNotElementType()
+            bic = QTY_CATEGORY_MAP.get(cat_arg)
+            if bic is None:
+                return {'error': 'Unsupported category "{}". Use one of: {}'.format(
+                    cat_arg, ', '.join(sorted(QTY_CATEGORY_MAP.keys())))}
+            collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
             total_area_m2   = 0.0
             total_volume_m3 = 0.0
             items = []
@@ -1825,18 +2332,26 @@ class T3LabAIServer(object):
                         lvl_name = lv.Name if lv else ''
                     except Exception:
                         pass
+                    if not lvl_name:
+                        # Roofs/ceilings expose their level as a parameter
+                        try:
+                            lp = elem.LookupParameter('Level')
+                            if lp:
+                                lvl_name = lp.AsValueString() or ''
+                        except Exception:
+                            pass
                     if lvl_arg and lvl_name != lvl_arg:
                         continue
                     area_ft2 = 0.0
                     vol_ft3  = 0.0
                     try:
-                        ap = elem.LookupParameter(area_p)
+                        ap = elem.LookupParameter('Area')
                         if ap:
                             area_ft2 = ap.AsDouble()
                     except Exception:
                         pass
                     try:
-                        vp = elem.LookupParameter(vol_p)
+                        vp = elem.LookupParameter('Volume')
                         if vp:
                             vol_ft3 = vp.AsDouble()
                     except Exception:
@@ -1943,22 +2458,34 @@ class T3LabAIServer(object):
 
         # ── create_point_based_element ───────────────────────────────────────
         elif tool_name == 'create_point_based_element':
-            from Autodesk.Revit.DB import FamilySymbol, FamilyInstance, XYZ, Transaction
-            from Autodesk.Revit.DB import Structure
+            from Autodesk.Revit.DB import FamilySymbol, XYZ, Transaction, Wall
+            from Autodesk.Revit.DB.Structure import StructuralType
+            M2FT = 3.28084
             ftype_name = arguments.get('family_type', '')
-            x_m = float(arguments.get('x', 0)) * 3.28084
-            y_m = float(arguments.get('y', 0)) * 3.28084
-            z_m = float(arguments.get('z', 0)) * 3.28084
+            x_ft = float(arguments.get('x', 0)) * M2FT
+            y_ft = float(arguments.get('y', 0)) * M2FT
+            z_arg = arguments.get('z')
             lvl_name = arguments.get('level_name')
-            point = XYZ(x_m, y_m, z_m)
+            host_id_arg = arguments.get('host_wall_id')
 
+            # Resolve family symbol: exact type name, "Family:Type", then
+            # case-insensitive substring match as a fallback.
             sym = None
+            partial = None
             for s in FilteredElementCollector(doc).OfClass(FamilySymbol):
-                if s.Name == ftype_name or (s.Family and '{}:{}'.format(s.Family.Name, s.Name) == ftype_name):
-                    sym = s
-                    break
+                try:
+                    full = '{}:{}'.format(s.Family.Name, s.Name) if s.Family else s.Name
+                    if s.Name == ftype_name or full == ftype_name:
+                        sym = s
+                        break
+                    if partial is None and ftype_name.lower() in full.lower():
+                        partial = s
+                except Exception:
+                    pass
             if sym is None:
-                return {'error': 'Family type "{}" not found'.format(ftype_name)}
+                sym = partial
+            if sym is None:
+                return {'error': 'Family type "{}" not found. Use get_available_family_types to list loaded types.'.format(ftype_name)}
 
             levels = list(FilteredElementCollector(doc).OfClass(Level).ToElements())
             target_level = levels[0] if levels else None
@@ -1967,6 +2494,48 @@ class T3LabAIServer(object):
                     if lv.Name == lvl_name:
                         target_level = lv
                         break
+            if target_level is None:
+                return {'error': 'No levels found in the document'}
+
+            # Default Z to the target level's elevation so the element lands
+            # on the level rather than at absolute 0.
+            z_ft = float(z_arg) * M2FT if z_arg is not None else target_level.Elevation
+            point = XYZ(x_ft, y_ft, z_ft)
+
+            cat_name = sym.Category.Name if sym.Category else ''
+            needs_host = cat_name in ('Doors', 'Windows')
+            try:
+                placement = str(sym.Family.FamilyPlacementType)
+                if 'Hosted' in placement:
+                    needs_host = True
+            except Exception:
+                pass
+
+            host_elem = None
+            if host_id_arg:
+                host_elem = doc.GetElement(ElementId(int(host_id_arg)))
+                if host_elem is None:
+                    return {'error': 'Host element not found: {}'.format(host_id_arg)}
+            elif needs_host:
+                # Auto-pick the nearest wall to the placement point.
+                best_d = 1e30
+                for w in FilteredElementCollector(doc).OfClass(Wall):
+                    try:
+                        crv = w.Location.Curve
+                        d = crv.Distance(XYZ(x_ft, y_ft, crv.GetEndPoint(0).Z))
+                        if d < best_d:
+                            best_d = d
+                            host_elem = w
+                    except Exception:
+                        pass
+                # Reject hosts farther than ~2 m — the point is nowhere near a wall.
+                if host_elem is None or best_d > 2.0 * M2FT:
+                    return {'error': '"{}" is a hosted family (doors/windows need a wall). '
+                                     'Pass host_wall_id or place the point on/near a wall.'.format(ftype_name)}
+
+            struct_type = StructuralType.NonStructural
+            if cat_name == 'Structural Columns':
+                struct_type = StructuralType.Column
 
             t = Transaction(doc, 'T3Lab AI Create Element')
             t.Start()
@@ -1974,12 +2543,17 @@ class T3LabAIServer(object):
                 if not sym.IsActive:
                     sym.Activate()
                     doc.Regenerate()
-                inst = doc.Create.NewFamilyInstance(
-                    point, sym, target_level,
-                    Structure.StructuralType.NonStructural
-                )
+                if host_elem is not None:
+                    inst = doc.Create.NewFamilyInstance(point, sym, host_elem, target_level, struct_type)
+                else:
+                    inst = doc.Create.NewFamilyInstance(point, sym, target_level, struct_type)
                 t.Commit()
-                return {'success': True, 'element_id': eid_value(inst.Id), 'type': ftype_name}
+                result = {'success': True, 'element_id': eid_value(inst.Id),
+                          'type': '{}:{}'.format(sym.Family.Name, sym.Name) if sym.Family else sym.Name,
+                          'level': target_level.Name}
+                if host_elem is not None:
+                    result['host_id'] = eid_value(host_elem.Id)
+                return result
             except Exception as e:
                 t.RollBack()
                 return {'error': str(e)}
@@ -1987,23 +2561,33 @@ class T3LabAIServer(object):
         # ── create_line_based_element ────────────────────────────────────────
         elif tool_name == 'create_line_based_element':
             from Autodesk.Revit.DB import FamilySymbol, XYZ, Line, Transaction
-            from Autodesk.Revit.DB import Structure
+            from Autodesk.Revit.DB.Structure import StructuralType
+            M2FT = 3.28084
             ftype_name = arguments.get('family_type', '')
-            sx = float(arguments.get('start_x', 0)) * 3.28084
-            sy = float(arguments.get('start_y', 0)) * 3.28084
-            sz = float(arguments.get('start_z', 0)) * 3.28084
-            ex = float(arguments.get('end_x', 0)) * 3.28084
-            ey = float(arguments.get('end_y', 0)) * 3.28084
-            ez = float(arguments.get('end_z', 0)) * 3.28084
+            sx = float(arguments.get('start_x', 0)) * M2FT
+            sy = float(arguments.get('start_y', 0)) * M2FT
+            ex = float(arguments.get('end_x', 0)) * M2FT
+            ey = float(arguments.get('end_y', 0)) * M2FT
+            sz_arg = arguments.get('start_z')
+            ez_arg = arguments.get('end_z')
             lvl_name = arguments.get('level_name')
 
             sym = None
+            partial = None
             for s in FilteredElementCollector(doc).OfClass(FamilySymbol):
-                if s.Name == ftype_name or (s.Family and '{}:{}'.format(s.Family.Name, s.Name) == ftype_name):
-                    sym = s
-                    break
+                try:
+                    full = '{}:{}'.format(s.Family.Name, s.Name) if s.Family else s.Name
+                    if s.Name == ftype_name or full == ftype_name:
+                        sym = s
+                        break
+                    if partial is None and ftype_name.lower() in full.lower():
+                        partial = s
+                except Exception:
+                    pass
             if sym is None:
-                return {'error': 'Family type "{}" not found'.format(ftype_name)}
+                sym = partial
+            if sym is None:
+                return {'error': 'Family type "{}" not found. Use get_available_family_types to list loaded types.'.format(ftype_name)}
 
             levels = list(FilteredElementCollector(doc).OfClass(Level).ToElements())
             target_level = levels[0] if levels else None
@@ -2012,31 +2596,53 @@ class T3LabAIServer(object):
                     if lv.Name == lvl_name:
                         target_level = lv
                         break
+            if target_level is None:
+                return {'error': 'No levels found in the document'}
 
-            curve = Line.CreateBound(XYZ(sx, sy, sz), XYZ(ex, ey, ez))
+            # Default Z to the reference level's elevation so beams land on
+            # the level instead of absolute 0.
+            sz = float(sz_arg) * M2FT if sz_arg is not None else target_level.Elevation
+            ez = float(ez_arg) * M2FT if ez_arg is not None else target_level.Elevation
+
+            p1 = XYZ(sx, sy, sz)
+            p2 = XYZ(ex, ey, ez)
+            if p1.DistanceTo(p2) < 0.01:
+                return {'error': 'Start and end points are (nearly) identical — cannot create a line element.'}
+            curve = Line.CreateBound(p1, p2)
+
+            cat_name = sym.Category.Name if sym.Category else ''
+            if cat_name == 'Structural Framing':
+                struct_type = StructuralType.Beam
+            elif cat_name == 'Structural Columns':
+                struct_type = StructuralType.Column
+            else:
+                struct_type = StructuralType.NonStructural
+
             t = Transaction(doc, 'T3Lab AI Create Line Element')
             t.Start()
             try:
                 if not sym.IsActive:
                     sym.Activate()
                     doc.Regenerate()
-                inst = doc.Create.NewFamilyInstance(
-                    curve, sym, target_level,
-                    Structure.StructuralType.Beam
-                )
+                inst = doc.Create.NewFamilyInstance(curve, sym, target_level, struct_type)
                 t.Commit()
-                return {'success': True, 'element_id': eid_value(inst.Id)}
+                return {'success': True, 'element_id': eid_value(inst.Id),
+                        'type': '{}:{}'.format(sym.Family.Name, sym.Name) if sym.Family else sym.Name,
+                        'level': target_level.Name}
             except Exception as e:
                 t.RollBack()
                 return {'error': str(e)}
 
         # ── create_surface_based_element ─────────────────────────────────────
         elif tool_name == 'create_surface_based_element':
-            from Autodesk.Revit.DB import XYZ, Line, CurveArray, Transaction, Floor, FloorType
+            from Autodesk.Revit.DB import (XYZ, Line, CurveArray, CurveLoop,
+                                           Transaction, Floor, FloorType)
+            from System.Collections.Generic import List as NetList
             elem_type = (arguments.get('element_type') or 'floor').lower()
             boundary  = arguments.get('boundary_points', [])
             lvl_name  = arguments.get('level_name')
             type_name = arguments.get('type_name')
+            M2FT = 3.28084
 
             if len(boundary) < 3:
                 return {'error': 'boundary_points must have at least 3 points'}
@@ -2048,29 +2654,99 @@ class T3LabAIServer(object):
                     if lv.Name == lvl_name:
                         target_level = lv
                         break
+            if target_level is None:
+                return {'error': 'No levels found in the document'}
 
-            def m_to_ft(v): return v * 3.28084
+            try:
+                rev_ver = int(doc.Application.VersionNumber)
+            except Exception:
+                rev_ver = 0
 
-            curves = CurveArray()
-            pts = [[m_to_ft(p[0]), m_to_ft(p[1])] for p in boundary]
+            # Build the boundary at the level's elevation so the sketch sits
+            # on the level (offset 0) instead of at absolute Z=0.
+            z_ft = target_level.Elevation
+            pts = [XYZ(float(p[0]) * M2FT, float(p[1]) * M2FT, z_ft) for p in boundary]
+            segments = []
             for i in range(len(pts)):
-                p1 = XYZ(pts[i][0], pts[i][1], 0)
-                p2 = XYZ(pts[(i + 1) % len(pts)][0], pts[(i + 1) % len(pts)][1], 0)
-                curves.Append(Line.CreateBound(p1, p2))
+                p1 = pts[i]
+                p2 = pts[(i + 1) % len(pts)]
+                if p1.DistanceTo(p2) > 0.01:
+                    segments.append(Line.CreateBound(p1, p2))
+            if len(segments) < 3:
+                return {'error': 'boundary_points do not form a valid polygon (duplicate/too-close points)'}
+
+            def _pick_type(types):
+                picked = types[0] if types else None
+                if type_name:
+                    for candidate in types:
+                        if candidate.Name == type_name:
+                            return candidate
+                    for candidate in types:
+                        if type_name.lower() in candidate.Name.lower():
+                            return candidate
+                return picked
 
             t = Transaction(doc, 'T3Lab AI Create Surface Element')
             t.Start()
             try:
-                floor_types = list(FilteredElementCollector(doc).OfClass(FloorType).ToElements())
-                ft = floor_types[0] if floor_types else None
-                if type_name:
-                    for flt in floor_types:
-                        if flt.Name == type_name:
-                            ft = flt
-                            break
-                new_elem = doc.Create.NewFloor(curves, ft, target_level, False)
+                if elem_type == 'ceiling':
+                    if rev_ver < 2022:
+                        t.RollBack()
+                        return {'error': 'Ceiling creation via API requires Revit 2022 or newer (running {}).'.format(rev_ver or 'unknown')}
+                    from Autodesk.Revit.DB import Ceiling, CeilingType
+                    ceil_types = list(FilteredElementCollector(doc).OfClass(CeilingType).ToElements())
+                    ct = _pick_type(ceil_types)
+                    if ct is None:
+                        t.RollBack()
+                        return {'error': 'No ceiling types found in the document'}
+                    loop = CurveLoop()
+                    for seg in segments:
+                        loop.Append(seg)
+                    profile = NetList[CurveLoop]()
+                    profile.Add(loop)
+                    new_elem = Ceiling.Create(doc, profile, ct.Id, target_level.Id)
+                    type_used = ct.Name
+
+                elif elem_type == 'roof':
+                    from Autodesk.Revit.DB import RoofType, ModelCurveArray, BuiltInCategory as _BIC
+                    roof_types = list(FilteredElementCollector(doc)
+                                      .OfCategory(_BIC.OST_Roofs)
+                                      .OfClass(RoofType).ToElements())
+                    rt = _pick_type(roof_types)
+                    if rt is None:
+                        t.RollBack()
+                        return {'error': 'No roof types found in the document'}
+                    ca = CurveArray()
+                    for seg in segments:
+                        ca.Append(seg)
+                    ma = ModelCurveArray()
+                    new_elem = doc.Create.NewFootPrintRoof(ca, target_level, rt, ma)
+                    type_used = rt.Name
+
+                else:  # floor (default)
+                    floor_types = list(FilteredElementCollector(doc).OfClass(FloorType).ToElements())
+                    ft = _pick_type(floor_types)
+                    if ft is None:
+                        t.RollBack()
+                        return {'error': 'No floor types found in the document'}
+                    if rev_ver >= 2022:
+                        loop = CurveLoop()
+                        for seg in segments:
+                            loop.Append(seg)
+                        profile = NetList[CurveLoop]()
+                        profile.Add(loop)
+                        new_elem = Floor.Create(doc, profile, ft.Id, target_level.Id)
+                    else:
+                        ca = CurveArray()
+                        for seg in segments:
+                            ca.Append(seg)
+                        new_elem = doc.Create.NewFloor(ca, ft, target_level, False)
+                    type_used = ft.Name
+
                 t.Commit()
-                return {'success': True, 'element_id': eid_value(new_elem.Id), 'type': elem_type}
+                return {'success': True, 'element_id': eid_value(new_elem.Id),
+                        'element_type': elem_type, 'type_used': type_used,
+                        'level': target_level.Name}
             except Exception as e:
                 t.RollBack()
                 return {'error': str(e)}
@@ -2096,41 +2772,52 @@ class T3LabAIServer(object):
             if not y_labels:
                 y_labels = [str(i + 1) for i in range(len(y_spacings) + 1)]
 
-            line_len_ft = 100.0
+            M2FT = 3.28084
+            total_x_ft = sum(x_spacings) * M2FT
+            total_y_ft = sum(y_spacings) * M2FT
+            # Extend grid lines past the last gridline on each side (min ~3 m)
+            margin_ft = max(10.0, 0.15 * max(total_x_ft, total_y_ft))
+
+            def _safe_name(grid, wanted, warnings):
+                """Rename a grid, falling back to auto name on duplicates
+                instead of failing the whole transaction."""
+                try:
+                    grid.Name = wanted
+                except Exception:
+                    warnings.append('Grid name "{}" already in use — kept auto name "{}"'.format(wanted, grid.Name))
+
             grid_ids = []
+            name_warnings = []
             t = Transaction(doc, 'T3Lab AI Create Grid')
             t.Start()
             try:
                 # Vertical lines (along Y) at X positions
                 x_pos = ox
-                for i, (spacing) in enumerate([0.0] + [s * 3.28084 for s in x_spacings]):
-                    if i > 0:
-                        x_pos += spacing
-                    else:
-                        x_pos = ox
-                    start = XYZ(x_pos, oy - line_len_ft / 2, 0)
-                    end   = XYZ(x_pos, oy + line_len_ft / 2, 0)
+                for i, spacing in enumerate([0.0] + [s * M2FT for s in x_spacings]):
+                    x_pos = ox if i == 0 else x_pos + spacing
+                    start = XYZ(x_pos, oy - margin_ft, 0)
+                    end   = XYZ(x_pos, oy + total_y_ft + margin_ft, 0)
                     g = Grid.Create(doc, Line.CreateBound(start, end))
                     if i < len(x_labels):
-                        g.Name = x_labels[i]
+                        _safe_name(g, x_labels[i], name_warnings)
                     grid_ids.append(eid_value(g.Id))
 
                 # Horizontal lines (along X) at Y positions
                 y_pos = oy
-                for i, (spacing) in enumerate([0.0] + [s * 3.28084 for s in y_spacings]):
-                    if i > 0:
-                        y_pos += spacing
-                    else:
-                        y_pos = oy
-                    start = XYZ(ox - line_len_ft / 2, y_pos, 0)
-                    end   = XYZ(ox + line_len_ft / 2, y_pos, 0)
+                for i, spacing in enumerate([0.0] + [s * M2FT for s in y_spacings]):
+                    y_pos = oy if i == 0 else y_pos + spacing
+                    start = XYZ(ox - margin_ft, y_pos, 0)
+                    end   = XYZ(ox + total_x_ft + margin_ft, y_pos, 0)
                     g = Grid.Create(doc, Line.CreateBound(start, end))
                     if i < len(y_labels):
-                        g.Name = y_labels[i]
+                        _safe_name(g, y_labels[i], name_warnings)
                     grid_ids.append(eid_value(g.Id))
 
                 t.Commit()
-                return {'success': True, 'grid_count': len(grid_ids), 'grid_ids': grid_ids}
+                result = {'success': True, 'grid_count': len(grid_ids), 'grid_ids': grid_ids}
+                if name_warnings:
+                    result['warnings'] = name_warnings
+                return result
             except Exception as e:
                 t.RollBack()
                 return {'error': str(e)}
@@ -2164,8 +2851,22 @@ class T3LabAIServer(object):
                     room.Name = room_name
                 if room_num:
                     room.Number = room_num
+                doc.Regenerate()
+                area_ft2 = 0.0
+                try:
+                    area_ft2 = room.Area
+                except Exception:
+                    pass
                 t.Commit()
-                return {'success': True, 'room_id': eid_value(room.Id), 'name': room.Name, 'number': room.Number}
+                result = {'success': True, 'room_id': eid_value(room.Id),
+                          'name': room.Name, 'number': room.Number,
+                          'area_m2': round(area_ft2 * 0.0929, 2),
+                          'enclosed': area_ft2 > 0}
+                if area_ft2 <= 0:
+                    result['warning'] = ('Room was placed but is not enclosed — no bounding walls '
+                                         'around ({}, {}) on level "{}".'.format(
+                                             arguments.get('x'), arguments.get('y'), target_level.Name))
+                return result
             except Exception as e:
                 t.RollBack()
                 return {'error': str(e)}
@@ -2189,15 +2890,35 @@ class T3LabAIServer(object):
                         target_level = lv
                         break
 
-            sym = None
+            framing_syms = []
             for s in FilteredElementCollector(doc).OfClass(FamilySymbol):
                 cat = s.Category.Name if s.Category else ''
                 if cat == 'Structural Framing':
-                    if beam_type is None or s.Name == beam_type or (s.Family and s.Family.Name == beam_type):
+                    framing_syms.append(s)
+            sym = None
+            if beam_type:
+                for s in framing_syms:
+                    if s.Name == beam_type or (s.Family and s.Family.Name == beam_type):
                         sym = s
                         break
+                if sym is None:
+                    for s in framing_syms:
+                        full = '{}:{}'.format(s.Family.Name, s.Name) if s.Family else s.Name
+                        if beam_type.lower() in full.lower():
+                            sym = s
+                            break
+                if sym is None:
+                    return {'error': 'Structural framing type "{}" not found. Available: {}'.format(
+                        beam_type, ', '.join(sorted(set(s.Name for s in framing_syms))[:20]) or '(none)')}
+            elif framing_syms:
+                sym = framing_syms[0]
             if sym is None:
                 return {'error': 'No structural framing family type found. Load a beam family first.'}
+
+            if target_level is None:
+                return {'error': 'No levels found in the document'}
+            # Place beams at the level's elevation, not absolute Z=0
+            z_ft = target_level.Elevation
 
             x_positions = [ox]
             cur = ox
@@ -2220,16 +2941,16 @@ class T3LabAIServer(object):
                 # Beams in X direction
                 for y_pos in y_positions:
                     for i in range(len(x_positions) - 1):
-                        p1 = XYZ(x_positions[i], y_pos, 0)
-                        p2 = XYZ(x_positions[i + 1], y_pos, 0)
+                        p1 = XYZ(x_positions[i], y_pos, z_ft)
+                        p2 = XYZ(x_positions[i + 1], y_pos, z_ft)
                         crv = Line.CreateBound(p1, p2)
                         inst = doc.Create.NewFamilyInstance(crv, sym, target_level, Structure.StructuralType.Beam)
                         beam_ids.append(eid_value(inst.Id))
                 # Beams in Y direction
                 for x_pos in x_positions:
                     for j in range(len(y_positions) - 1):
-                        p1 = XYZ(x_pos, y_positions[j], 0)
-                        p2 = XYZ(x_pos, y_positions[j + 1], 0)
+                        p1 = XYZ(x_pos, y_positions[j], z_ft)
+                        p2 = XYZ(x_pos, y_positions[j + 1], z_ft)
                         crv = Line.CreateBound(p1, p2)
                         inst = doc.Create.NewFamilyInstance(crv, sym, target_level, Structure.StructuralType.Beam)
                         beam_ids.append(eid_value(inst.Id))
@@ -2245,6 +2966,52 @@ class T3LabAIServer(object):
             ids = arguments.get('element_ids', [])
             if not ids:
                 return {'error': 'No element_ids provided'}
+            dry_run = bool(arguments.get('dry_run', False))
+
+            def _describe(eid):
+                el = doc.GetElement(eid)
+                if el is None:
+                    return {'id': eid_value(eid), 'name': '(unknown)', 'category': ''}
+                return {
+                    'id': eid_value(eid),
+                    'name': el.Name if hasattr(el, 'Name') and el.Name else str(el.GetType().Name),
+                    'category': el.Category.Name if el.Category else '',
+                }
+
+            # ── Preview mode: run the delete inside a transaction to collect the
+            # full cascade (doc.Delete returns EVERY affected element id), then
+            # roll back. After rollback the elements are restored, so we can
+            # resolve their names/categories for a readable preview.
+            if dry_run:
+                requested = [_describe(ElementId(int(v))) for v in ids]
+                affected_raw = set()
+                t = Transaction(doc, 'T3Lab AI Delete Preview')
+                t.Start()
+                try:
+                    for eid_val in ids:
+                        try:
+                            removed = doc.Delete(ElementId(int(eid_val)))
+                            if removed:
+                                for rid in removed:
+                                    affected_raw.add(eid_value(rid))
+                        except Exception:
+                            pass
+                finally:
+                    t.RollBack()
+
+                requested_ids = set(int(v) for v in ids)
+                cascade_ids = sorted(i for i in affected_raw if i not in requested_ids)
+                cascade = [_describe(ElementId(i)) for i in cascade_ids]
+                return {
+                    'dry_run': True,
+                    'requested': requested,
+                    'requested_count': len(requested),
+                    'cascade': cascade,
+                    'cascade_count': len(cascade),
+                    'total_affected': len(affected_raw),
+                    'note': 'Nothing was deleted. Call again with dry_run=false to apply.',
+                }
+
             t = Transaction(doc, 'T3Lab AI Delete Elements')
             t.Start()
             deleted = []
@@ -2628,9 +3395,18 @@ class T3LabAIServer(object):
                     if st == StorageType.String:
                         param.Set(value)
                     elif st == StorageType.Double:
-                        param.Set(float(value))
+                        # Try display-unit parsing first ("3000" mm, "3.5 m",
+                        # etc. — matches what the user sees in Revit), then
+                        # fall back to a raw internal-unit float.
+                        parsed = False
+                        try:
+                            parsed = param.SetValueString(value)
+                        except Exception:
+                            parsed = False
+                        if not parsed:
+                            param.Set(float(value))
                     elif st == StorageType.Integer:
-                        param.Set(int(value))
+                        param.Set(int(float(value)))
                     elif st == StorageType.ElementId:
                         param.Set(ElementId(int(value)))
                     t.Commit()
@@ -2680,7 +3456,7 @@ class T3LabAIServer(object):
         elif tool_name == 'move_elements':
             try:
                 from Autodesk.Revit.DB import (Transaction, ElementTransformUtils,
-                                               XYZ, ICollection_1)
+                                               XYZ)
                 import System.Collections.Generic as SCG
                 ft = 3.28084
                 dx = float(arguments.get('dx', 0)) * ft
@@ -2902,11 +3678,30 @@ class T3LabAIServer(object):
                 t.Start()
                 try:
                     sheet = ViewSheet.Create(doc, tb_id)
-                    sheet.SheetNumber = sheet_number
+                    final_number = sheet_number
+                    try:
+                        sheet.SheetNumber = sheet_number
+                    except Exception:
+                        # Duplicate sheet number — uniquify instead of failing
+                        final_number = None
+                        for suffix in range(2, 100):
+                            candidate = '{}-{}'.format(sheet_number, suffix)
+                            try:
+                                sheet.SheetNumber = candidate
+                                final_number = candidate
+                                break
+                            except Exception:
+                                continue
+                        if final_number is None:
+                            t.RollBack()
+                            return {'error': 'Sheet number "{}" already exists and no free variant found'.format(sheet_number)}
                     sheet.Name = sheet_name
                     t.Commit()
-                    return {'success': True, 'sheet_id': eid_value(sheet.Id),
-                            'sheet_number': sheet_number, 'sheet_name': sheet_name}
+                    result = {'success': True, 'sheet_id': eid_value(sheet.Id),
+                              'sheet_number': final_number, 'sheet_name': sheet_name}
+                    if final_number != sheet_number:
+                        result['warning'] = 'Sheet number "{}" was taken — used "{}" instead'.format(sheet_number, final_number)
+                    return result
                 except Exception as e:
                     t.RollBack()
                     return {'error': str(e)}
@@ -2928,6 +3723,13 @@ class T3LabAIServer(object):
                     return {'error': 'Sheet not found: {}'.format(sheet_id)}
                 if not view:
                     return {'error': 'View not found: {}'.format(view_id)}
+                try:
+                    if not Viewport.CanAddViewToSheet(doc, sheet.Id, view.Id):
+                        return {'error': 'View "{}" cannot be placed on sheet "{}" — it is probably '
+                                         'already placed on a sheet, or is a view type (schedule/legend) '
+                                         'that needs a different placement method.'.format(view.Name, sheet.SheetNumber)}
+                except Exception:
+                    pass
                 t = Transaction(doc, 'T3Lab AI Add View to Sheet')
                 t.Start()
                 try:
@@ -2948,32 +3750,68 @@ class T3LabAIServer(object):
                                                TextNoteOptions, XYZ,
                                                FilteredElementCollector, TextNoteType)
                 text      = arguments.get('text', '')
+                if not text:
+                    return {'error': 'No text provided'}
                 ft = 3.28084
                 x  = float(arguments.get('x', 0)) * ft
                 y  = float(arguments.get('y', 0)) * ft
                 type_name = arguments.get('text_type')
+                font_size = arguments.get('font_size')
 
                 active_view = doc.ActiveView
                 if not active_view:
                     return {'error': 'No active view'}
 
-                # Resolve text note type
-                tn_type_id = active_view.Document.GetDefaultElementTypeId(
-                    __import__('Autodesk.Revit.DB', fromlist=['ElementTypeGroup']).ElementTypeGroup.TextNoteType
-                ) if False else None  # fallback below
-                if not tn_type_id or tn_type_id == ElementId.InvalidElementId:
-                    tn_types = (FilteredElementCollector(doc)
-                                .OfClass(TextNoteType).ToElements())
-                    if tn_types:
-                        tn_type_id = tn_types[0].Id
+                # Resolve text note type: named type > closest font size >
+                # document default > first available.
+                tn_types = list(FilteredElementCollector(doc).OfClass(TextNoteType).ToElements())
+                if not tn_types:
+                    return {'error': 'No text note types found in the document'}
+                tn_type = None
+                if type_name:
+                    for tt in tn_types:
+                        if tt.Name == type_name:
+                            tn_type = tt
+                            break
+                    if tn_type is None:
+                        for tt in tn_types:
+                            if type_name.lower() in tt.Name.lower():
+                                tn_type = tt
+                                break
+                if tn_type is None and font_size:
+                    # Pick the loaded type whose text height (mm) is closest
+                    target_ft = float(font_size) / 304.8
+                    best_diff = 1e30
+                    for tt in tn_types:
+                        try:
+                            sp = tt.get_Parameter(
+                                __import__('Autodesk.Revit.DB', fromlist=['BuiltInParameter']).BuiltInParameter.TEXT_SIZE)
+                            if sp:
+                                diff = abs(sp.AsDouble() - target_ft)
+                                if diff < best_diff:
+                                    best_diff = diff
+                                    tn_type = tt
+                        except Exception:
+                            pass
+                if tn_type is None:
+                    try:
+                        from Autodesk.Revit.DB import ElementTypeGroup
+                        default_id = doc.GetDefaultElementTypeId(ElementTypeGroup.TextNoteType)
+                        if default_id and default_id != ElementId.InvalidElementId:
+                            tn_type = doc.GetElement(default_id)
+                    except Exception:
+                        pass
+                if tn_type is None:
+                    tn_type = tn_types[0]
 
                 t = Transaction(doc, 'T3Lab AI Create Text Note')
                 t.Start()
                 try:
-                    opts = TextNoteOptions(tn_type_id) if tn_type_id else TextNoteOptions()
+                    opts = TextNoteOptions(tn_type.Id)
                     note = TextNote.Create(doc, active_view.Id, XYZ(x, y, 0), text, opts)
                     t.Commit()
-                    return {'success': True, 'text_note_id': eid_value(note.Id), 'text': text}
+                    return {'success': True, 'text_note_id': eid_value(note.Id),
+                            'text': text, 'type_used': tn_type.Name}
                 except Exception as e:
                     t.RollBack()
                     return {'error': str(e)}
@@ -3100,10 +3938,14 @@ class T3LabAIServer(object):
                 t = Transaction(doc, 'T3Lab AI Load Family')
                 t.Start()
                 try:
-                    fam = None
-                    success = doc.LoadFamily(file_path, fam)
+                    success = doc.LoadFamily(file_path)
                     t.Commit()
-                    return {'success': success, 'file_path': file_path}
+                    result = {'success': bool(success), 'file_path': file_path}
+                    if not success:
+                        result['note'] = ('LoadFamily returned False — the family is probably '
+                                          'already loaded in this project (Revit does not '
+                                          'overwrite without IFamilyLoadOptions).')
+                    return result
                 except Exception as e:
                     t.RollBack()
                     return {'error': str(e)}
@@ -3246,6 +4088,1085 @@ class T3LabAIServer(object):
             except Exception as e:
                 return {'error': str(e)}
 
+        # ── split_curve ──────────────────────────────────────────────────────
+        elif tool_name == 'split_curve':
+            from Autodesk.Revit.DB import (ElementId, Transaction, CurveElement,
+                                           ModelCurve, DetailCurve)
+            try:
+                raw_id = arguments.get('element_id')
+                if raw_id is None:
+                    return {'error': 'element_id is required'}
+
+                el = doc.GetElement(ElementId(int(raw_id)))
+                if el is None:
+                    return {'error': 'No element with id {}'.format(raw_id)}
+                if not isinstance(el, CurveElement):
+                    return {'error': ('Element {} is a {}, not a curve element. Only model curves '
+                                      'and detail curves (line / arc / spline) can be split.'
+                                      ).format(raw_id, el.GetType().Name)}
+
+                is_model  = isinstance(el, ModelCurve)
+                is_detail = isinstance(el, DetailCurve)
+                if not (is_model or is_detail):
+                    return {'error': ('Unsupported curve element type {} — only model curves and '
+                                      'detail curves can be split.').format(el.GetType().Name)}
+
+                curve = el.GeometryCurve
+                if curve is None:
+                    return {'error': 'Element has no geometry curve.'}
+                if not curve.IsBound:
+                    return {'error': ('Curve is periodic / unbound (e.g. a full circle or ellipse) '
+                                      '— it has no endpoints to split at.')}
+
+                # Build the list of normalized cut fractions (0..1 inclusive).
+                ratios = arguments.get('split_at_ratios')
+                if ratios:
+                    interior = sorted(set(round(float(r), 9) for r in ratios if 0.0 < float(r) < 1.0))
+                    if not interior:
+                        return {'error': 'split_at_ratios must contain at least one value strictly between 0 and 1.'}
+                    fracs = [0.0] + interior + [1.0]
+                else:
+                    n = int(arguments.get('segments', 2))
+                    if n < 2:
+                        return {'error': 'segments must be >= 2 (or provide split_at_ratios).'}
+                    if n > 200:
+                        return {'error': 'segments too large (max 200).'}
+                    fracs = [float(i) / n for i in range(n + 1)]
+
+                # Map the normalized fractions to RAW curve parameters (Revit maps
+                # [0,1] linearly onto [GetEndParameter(0), GetEndParameter(1)]), then
+                # slice the ORIGINAL curve with Clone()+MakeBound. This reuses the
+                # source geometry sub-range verbatim, so an arc stays an arc and a
+                # spline stays a spline — unlike rebuilding endpoints with
+                # Line.CreateBound, which flattens every curve into a straight line.
+                rp0 = curve.GetEndParameter(0)
+                rp1 = curve.GetEndParameter(1)
+                sub_curves = []
+                for i in range(len(fracs) - 1):
+                    a = rp0 + (rp1 - rp0) * fracs[i]
+                    b = rp0 + (rp1 - rp0) * fracs[i + 1]
+                    lo, hi = (a, b) if a < b else (b, a)
+                    seg = curve.Clone()
+                    seg.MakeBound(lo, hi)
+                    sub_curves.append(seg)
+
+                curve_kind = type(curve).__name__
+
+                # Host context needed to recreate sibling curve elements.
+                sketch_plane = el.SketchPlane if is_model else None
+                owner_view = None
+                if is_detail:
+                    try:
+                        owner_view = doc.GetElement(el.OwnerViewId)
+                    except Exception:
+                        owner_view = None
+                try:
+                    orig_style = el.LineStyle
+                except Exception:
+                    orig_style = None
+
+                new_ids = []
+                t = Transaction(doc, 'T3Lab AI Split Curve')
+                t.Start()
+                try:
+                    # Reshape the original element onto the first segment, then add
+                    # one new sibling per remaining segment (same style / host).
+                    el.GeometryCurve = sub_curves[0]
+                    for seg in sub_curves[1:]:
+                        if is_model:
+                            new_el = doc.Create.NewModelCurve(seg, sketch_plane)
+                        else:
+                            if owner_view is None:
+                                t.RollBack()
+                                return {'error': 'Cannot resolve owner view for the detail curve.'}
+                            new_el = doc.Create.NewDetailCurve(owner_view, seg)
+                        if orig_style is not None:
+                            try:
+                                new_el.LineStyle = orig_style
+                            except Exception:
+                                pass
+                        new_ids.append(eid_value(new_el.Id))
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+
+                return {
+                    'success': True,
+                    'curve_type': curve_kind,
+                    'geometry_preserved': True,
+                    'segment_count': len(sub_curves),
+                    'original_element_id': eid_value(el.Id),
+                    'new_element_ids': new_ids,
+                }
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── split_element ────────────────────────────────────────────────────
+        elif tool_name == 'split_element':
+            from Autodesk.Revit.DB import (ElementId, Transaction, XYZ,
+                                           LocationCurve, ElementTransformUtils)
+            try:
+                raw_id = arguments.get('element_id')
+                if raw_id is None:
+                    return {'error': 'element_id is required'}
+                el = doc.GetElement(ElementId(int(raw_id)))
+                if el is None:
+                    return {'error': 'No element with id {}'.format(raw_id)}
+                loc = el.Location
+                if not isinstance(loc, LocationCurve):
+                    return {'error': ('Element {} has no location curve (type {}). Only '
+                                      'location-curve elements (wall, beam, pipe, duct, line) '
+                                      'can be split; use split_curve for model/detail curves.'
+                                      ).format(raw_id, el.GetType().Name)}
+                curve = loc.Curve
+                if not curve.IsBound:
+                    return {'error': 'Location curve is unbound — cannot split.'}
+                rp0 = curve.GetEndParameter(0)
+                rp1 = curve.GetEndParameter(1)
+
+                # Determine the raw split parameter from an XY point or a ratio.
+                if arguments.get('x') is not None and arguments.get('y') is not None:
+                    M2FT = 3.28084
+                    pt = XYZ(float(arguments['x']) * M2FT, float(arguments['y']) * M2FT, 0)
+                    try:
+                        proj = curve.Project(pt)
+                        split_raw = proj.Parameter
+                    except Exception:
+                        return {'error': 'Could not project the given point onto the curve.'}
+                else:
+                    ratio = float(arguments.get('at_ratio', 0.5))
+                    if ratio <= 0.0 or ratio >= 1.0:
+                        return {'error': 'at_ratio must be strictly between 0 and 1.'}
+                    split_raw = rp0 + (rp1 - rp0) * ratio
+
+                lo, hi = (rp0, rp1) if rp0 < rp1 else (rp1, rp0)
+                if not (lo < split_raw < hi):
+                    return {'error': 'Split position lies outside the curve span.'}
+
+                first = curve.Clone();  first.MakeBound(min(rp0, split_raw), max(rp0, split_raw))
+                second = curve.Clone(); second.MakeBound(min(split_raw, rp1), max(split_raw, rp1))
+
+                t = Transaction(doc, 'T3Lab AI Split Element')
+                t.Start()
+                try:
+                    copied = ElementTransformUtils.CopyElement(doc, el.Id, XYZ(0, 0, 0))
+                    new_id = list(copied)[0] if copied else None
+                    loc.Curve = first
+                    if new_id is not None:
+                        new_el = doc.GetElement(new_id)
+                        new_el.Location.Curve = second
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {
+                    'success': True,
+                    'original_element_id': eid_value(el.Id),
+                    'new_element_id': eid_value(new_id) if new_id is not None else None,
+                    'category': el.Category.Name if el.Category else '',
+                }
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── join_geometry ────────────────────────────────────────────────────
+        elif tool_name == 'join_geometry':
+            from Autodesk.Revit.DB import ElementId, Transaction, JoinGeometryUtils
+            try:
+                a = doc.GetElement(ElementId(int(arguments.get('element_id_a', 0))))
+                b = doc.GetElement(ElementId(int(arguments.get('element_id_b', 0))))
+                if a is None or b is None:
+                    return {'error': 'Both element_id_a and element_id_b must resolve to elements.'}
+                unjoin = bool(arguments.get('unjoin', False))
+                t = Transaction(doc, 'T3Lab AI Join Geometry')
+                t.Start()
+                try:
+                    joined = JoinGeometryUtils.AreElementsJoined(doc, a, b)
+                    if unjoin:
+                        if joined:
+                            JoinGeometryUtils.UnjoinGeometry(doc, a, b)
+                        action = 'unjoined'
+                    else:
+                        if not joined:
+                            JoinGeometryUtils.JoinGeometry(doc, a, b)
+                        action = 'joined'
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'action': action,
+                        'element_id_a': eid_value(a.Id), 'element_id_b': eid_value(b.Id)}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── bulk_set_parameter ───────────────────────────────────────────────
+        elif tool_name == 'bulk_set_parameter':
+            from Autodesk.Revit.DB import Transaction, ElementId
+            try:
+                pname  = arguments.get('parameter_name')
+                value  = arguments.get('value')
+                if not pname or value is None:
+                    return {'error': 'parameter_name and value are required.'}
+                value  = str(value)
+                fparam = arguments.get('filter_parameter')
+                fval   = (arguments.get('filter_value') or '').lower()
+                limit  = int(arguments.get('limit', 500))
+                ids    = arguments.get('element_ids')
+
+                if ids:
+                    elements = [doc.GetElement(ElementId(int(i))) for i in ids]
+                    elements = [e for e in elements if e is not None]
+                else:
+                    cat = arguments.get('category')
+                    bic = self._bic_map().get(cat) if cat else None
+                    if cat and bic is None:
+                        return {'error': 'Unknown category "{}". Known: {}'.format(
+                            cat, ', '.join(sorted(self._bic_map().keys())))}
+                    coll = FilteredElementCollector(doc).WhereElementIsNotElementType()
+                    if bic is not None:
+                        coll = coll.OfCategory(bic)
+                    elements = list(coll)
+
+                modified, skipped, errors = 0, 0, 0
+                t = Transaction(doc, 'T3Lab AI Bulk Set Parameter')
+                t.Start()
+                try:
+                    for elem in elements:
+                        if modified >= limit:
+                            break
+                        try:
+                            if fparam:
+                                fp = elem.LookupParameter(fparam)
+                                pv = ''
+                                if fp:
+                                    pv = (fp.AsValueString() or fp.AsString() or '')
+                                if fval and fval not in pv.lower():
+                                    continue
+                            p = elem.LookupParameter(pname)
+                            ok, _err = self._apply_param_value(p, value)
+                            if ok:
+                                modified += 1
+                            elif p is None:
+                                skipped += 1
+                            else:
+                                errors += 1
+                        except Exception:
+                            errors += 1
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'parameter': pname, 'value': value,
+                        'modified': modified, 'skipped_no_param': skipped, 'errors': errors}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── select_elements ──────────────────────────────────────────────────
+        elif tool_name == 'select_elements':
+            from Autodesk.Revit.DB import ElementId
+            from System.Collections.Generic import List as NetList
+            try:
+                limit = int(arguments.get('limit', 500))
+                ids   = arguments.get('element_ids')
+                if ids:
+                    target = [ElementId(int(i)) for i in ids][:limit]
+                else:
+                    cat = arguments.get('category')
+                    bic = self._bic_map().get(cat) if cat else None
+                    if cat and bic is None:
+                        return {'error': 'Unknown category "{}".'.format(cat)}
+                    coll = FilteredElementCollector(doc).WhereElementIsNotElementType()
+                    if bic is not None:
+                        coll = coll.OfCategory(bic)
+                    pname = arguments.get('parameter_name')
+                    pval  = (arguments.get('parameter_value') or '').lower()
+                    target = []
+                    for elem in coll:
+                        if len(target) >= limit:
+                            break
+                        if pname:
+                            p = elem.LookupParameter(pname)
+                            if not p:
+                                continue
+                            v = (p.AsValueString() or p.AsString() or '')
+                            if pval and pval not in v.lower():
+                                continue
+                        target.append(elem.Id)
+
+                if bool(arguments.get('add_to_selection', False)):
+                    current = list(uidoc.Selection.GetElementIds())
+                    seen = set(eid_value(i) for i in current)
+                    for i in target:
+                        if eid_value(i) not in seen:
+                            current.append(i)
+                    target = current
+                net = NetList[ElementId]()
+                for i in target:
+                    net.Add(i)
+                uidoc.Selection.SetElementIds(net)
+                return {'success': True, 'selected_count': net.Count}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── tag_elements ─────────────────────────────────────────────────────
+        elif tool_name == 'tag_elements':
+            from Autodesk.Revit.DB import (Transaction, IndependentTag, TagMode,
+                                           TagOrientation, Reference, LocationCurve,
+                                           LocationPoint)
+            try:
+                cat = arguments.get('category')
+                bic = self._bic_map().get(cat)
+                if bic is None:
+                    return {'error': 'Unknown category "{}".'.format(cat)}
+                leader = bool(arguments.get('leader', False))
+                view = doc.ActiveView
+                elems = FilteredElementCollector(doc, view.Id).OfCategory(bic).WhereElementIsNotElementType().ToElements()
+                t = Transaction(doc, 'T3Lab AI Tag Elements')
+                t.Start()
+                tagged, failed = 0, 0
+                try:
+                    for elem in elems:
+                        try:
+                            loc = elem.Location
+                            if isinstance(loc, LocationPoint):
+                                pt = loc.Point
+                            elif isinstance(loc, LocationCurve):
+                                pt = loc.Curve.Evaluate(0.5, True)
+                            else:
+                                failed += 1
+                                continue
+                            IndependentTag.Create(doc, view.Id, Reference(elem), leader,
+                                                  TagMode.TM_ADDBY_CATEGORY,
+                                                  TagOrientation.Horizontal, pt)
+                            tagged += 1
+                        except Exception:
+                            failed += 1
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'category': cat, 'tagged_count': tagged, 'failed': failed}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── create_dimension ─────────────────────────────────────────────────
+        elif tool_name == 'create_dimension':
+            from Autodesk.Revit.DB import (Transaction, ElementId, Grid, Reference,
+                                           ReferenceArray, Line, XYZ)
+            try:
+                ids = arguments.get('element_ids', [])
+                if len(ids) < 2:
+                    return {'error': 'element_ids must contain at least 2 grids/line elements.'}
+                M2FT = 3.28084
+                offset = float(arguments.get('offset', 1.0)) * M2FT
+                view = doc.ActiveView
+
+                grids = []
+                for i in ids:
+                    e = doc.GetElement(ElementId(int(i)))
+                    if isinstance(e, Grid):
+                        grids.append(e)
+                if len(grids) < 2:
+                    return {'error': 'Need at least 2 grids. Only grids are supported by create_dimension.'}
+
+                refs = ReferenceArray()
+                pts = []
+                for g in grids:
+                    refs.Append(Reference(g))
+                    pts.append(g.Curve.GetEndPoint(0))
+
+                c0 = grids[0].Curve
+                gdir = (c0.GetEndPoint(1) - c0.GetEndPoint(0)).Normalize()
+                perp = XYZ(-gdir.Y, gdir.X, 0)
+                origin = pts[0] + gdir.Multiply(offset)
+                vals = [(p - origin).DotProduct(perp) for p in pts]
+                lo, hi = min(vals), max(vals)
+                if abs(hi - lo) < 1e-6:
+                    return {'error': 'Selected grids are coincident — nothing to dimension.'}
+                start = origin + perp.Multiply(lo)
+                end   = origin + perp.Multiply(hi)
+                dim_line = Line.CreateBound(start, end)
+
+                t = Transaction(doc, 'T3Lab AI Create Dimension')
+                t.Start()
+                try:
+                    dim = doc.Create.NewDimension(view, dim_line, refs)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'dimension_id': eid_value(dim.Id), 'grid_count': len(grids)}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── get_schedule_data ────────────────────────────────────────────────
+        elif tool_name == 'get_schedule_data':
+            from Autodesk.Revit.DB import ViewSchedule, ElementId, SectionType
+            try:
+                sched = None
+                sid = arguments.get('schedule_id')
+                sname = arguments.get('schedule_name')
+                if sid is not None:
+                    cand = doc.GetElement(ElementId(int(sid)))
+                    if isinstance(cand, ViewSchedule):
+                        sched = cand
+                if sched is None:
+                    all_sched = [s for s in FilteredElementCollector(doc).OfClass(ViewSchedule)
+                                 if not s.IsTemplate]
+                    if sname:
+                        for s in all_sched:
+                            if s.Name == sname:
+                                sched = s; break
+                        if sched is None:
+                            for s in all_sched:
+                                if sname.lower() in s.Name.lower():
+                                    sched = s; break
+                    elif all_sched:
+                        sched = all_sched[0]
+                if sched is None:
+                    return {'error': 'No matching schedule found.'}
+
+                defn = sched.Definition
+                headers = []
+                for i in range(defn.GetFieldCount()):
+                    try:
+                        headers.append(defn.GetField(i).GetName())
+                    except Exception:
+                        headers.append('Field{}'.format(i))
+
+                limit = int(arguments.get('limit', 200))
+                body = sched.GetTableData().GetSectionData(SectionType.Body)
+                n_rows = body.NumberOfRows
+                n_cols = body.NumberOfColumns
+                rows = []
+                for r in range(n_rows):
+                    if len(rows) >= limit:
+                        break
+                    row = []
+                    for c in range(n_cols):
+                        try:
+                            row.append(sched.GetCellText(SectionType.Body, r, c))
+                        except Exception:
+                            row.append('')
+                    rows.append(row)
+                return {'schedule': sched.Name, 'id': eid_value(sched.Id),
+                        'headers': headers, 'row_count': len(rows), 'rows': rows}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── create_schedule ──────────────────────────────────────────────────
+        elif tool_name == 'create_schedule':
+            from Autodesk.Revit.DB import (Transaction, ViewSchedule, ElementId,
+                                           SchedulableField)
+            try:
+                cat = arguments.get('category')
+                bic = self._bic_map().get(cat)
+                if bic is None:
+                    return {'error': 'Unknown category "{}".'.format(cat)}
+                fields = arguments.get('fields') or []
+                name = arguments.get('name')
+
+                t = Transaction(doc, 'T3Lab AI Create Schedule')
+                t.Start()
+                try:
+                    sched = ViewSchedule.CreateSchedule(doc, ElementId(bic))
+                    defn = sched.Definition
+                    available = {}
+                    for sf in defn.GetSchedulableFields():
+                        try:
+                            available[sf.GetName(doc)] = sf
+                        except Exception:
+                            pass
+                    added = []
+                    if fields:
+                        for fname in fields:
+                            sf = available.get(fname)
+                            if sf is None:
+                                for k, v in available.items():
+                                    if fname.lower() in k.lower():
+                                        sf = v; break
+                            if sf is not None:
+                                try:
+                                    defn.AddField(sf)
+                                    added.append(fname)
+                                except Exception:
+                                    pass
+                    else:
+                        # No fields specified — add a handful of common ones.
+                        for k in ['Family and Type', 'Type', 'Level', 'Count', 'Comments', 'Mark']:
+                            sf = available.get(k)
+                            if sf is not None:
+                                try:
+                                    defn.AddField(sf); added.append(k)
+                                except Exception:
+                                    pass
+                    if name:
+                        try:
+                            sched.Name = name
+                        except Exception:
+                            pass
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'schedule_id': eid_value(sched.Id),
+                        'name': sched.Name, 'fields_added': added}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── duplicate_view ───────────────────────────────────────────────────
+        elif tool_name == 'duplicate_view':
+            from Autodesk.Revit.DB import Transaction, ElementId, View, ViewDuplicateOption
+            try:
+                view = doc.GetElement(ElementId(int(arguments.get('view_id', 0))))
+                if not isinstance(view, View):
+                    return {'error': 'view_id does not refer to a view.'}
+                mode = (arguments.get('mode') or 'plain').lower()
+                opt = ViewDuplicateOption.Duplicate
+                if mode == 'with_detailing':
+                    opt = ViewDuplicateOption.WithDetailing
+                elif mode == 'dependent':
+                    opt = ViewDuplicateOption.AsDependent
+                if not view.CanViewBeDuplicated(opt):
+                    return {'error': 'This view cannot be duplicated with mode "{}".'.format(mode)}
+                name = arguments.get('name')
+                t = Transaction(doc, 'T3Lab AI Duplicate View')
+                t.Start()
+                try:
+                    new_id = view.Duplicate(opt)
+                    if name:
+                        try:
+                            doc.GetElement(new_id).Name = name
+                        except Exception:
+                            pass
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                new_v = doc.GetElement(new_id)
+                return {'success': True, 'new_view_id': eid_value(new_id), 'name': new_v.Name}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── apply_view_template ──────────────────────────────────────────────
+        elif tool_name == 'apply_view_template':
+            from Autodesk.Revit.DB import Transaction, ElementId, View
+            try:
+                tpl_name = arguments.get('template_name', '')
+                view_ids = arguments.get('view_ids', [])
+                if not view_ids:
+                    return {'error': 'view_ids is required.'}
+                templates = [v for v in FilteredElementCollector(doc).OfClass(View) if v.IsTemplate]
+                tpl = None
+                for v in templates:
+                    if v.Name == tpl_name:
+                        tpl = v; break
+                if tpl is None:
+                    for v in templates:
+                        if tpl_name.lower() in v.Name.lower():
+                            tpl = v; break
+                if tpl is None:
+                    return {'error': 'View template "{}" not found.'.format(tpl_name)}
+                t = Transaction(doc, 'T3Lab AI Apply View Template')
+                t.Start()
+                applied, failed = 0, 0
+                try:
+                    for vid in view_ids:
+                        try:
+                            v = doc.GetElement(ElementId(int(vid)))
+                            v.ViewTemplateId = tpl.Id
+                            applied += 1
+                        except Exception:
+                            failed += 1
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'template': tpl.Name, 'applied': applied, 'failed': failed}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── create_view_filter ───────────────────────────────────────────────
+        elif tool_name == 'create_view_filter':
+            from Autodesk.Revit.DB import (Transaction, ElementId, View,
+                                           ParameterFilterElement, ElementParameterFilter,
+                                           ParameterFilterRuleFactory, OverrideGraphicSettings,
+                                           Color)
+            from System.Collections.Generic import List as NetList
+            try:
+                name = arguments.get('name')
+                cats = arguments.get('categories', [])
+                cat_ids = NetList[ElementId]()
+                for c in cats:
+                    bic = self._bic_map().get(c)
+                    if bic is not None:
+                        cat_ids.Add(ElementId(bic))
+                if cat_ids.Count == 0:
+                    return {'error': 'No valid categories resolved from {}.'.format(cats)}
+
+                view = doc.GetElement(ElementId(int(arguments['view_id']))) if arguments.get('view_id') else doc.ActiveView
+
+                # Optional single "contains" rule on a parameter.
+                elem_filter = None
+                pname = arguments.get('parameter_name')
+                pval  = arguments.get('parameter_value')
+                if pname and pval is not None:
+                    # Resolve the parameter id from a sample element in one of the categories.
+                    pid = None
+                    for c in cats:
+                        bic = self._bic_map().get(c)
+                        if bic is None:
+                            continue
+                        for e in FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType():
+                            p = e.LookupParameter(pname)
+                            if p:
+                                pid = p.Id; break
+                        if pid:
+                            break
+                    if pid is not None:
+                        rule = None
+                        try:
+                            rule = ParameterFilterRuleFactory.CreateContainsRule(pid, str(pval))
+                        except Exception:
+                            try:
+                                rule = ParameterFilterRuleFactory.CreateContainsRule(pid, str(pval), False)
+                            except Exception:
+                                rule = None
+                        if rule is not None:
+                            elem_filter = ElementParameterFilter(rule)
+
+                t = Transaction(doc, 'T3Lab AI Create View Filter')
+                t.Start()
+                try:
+                    if elem_filter is not None:
+                        pfe = ParameterFilterElement.Create(doc, name, cat_ids, elem_filter)
+                    else:
+                        pfe = ParameterFilterElement.Create(doc, name, cat_ids)
+                    view.AddFilter(pfe.Id)
+                    if bool(arguments.get('hide', False)):
+                        view.SetFilterVisibility(pfe.Id, False)
+                    color = arguments.get('color')
+                    if color:
+                        rgb = self._parse_color(color)
+                        if rgb:
+                            ogs = OverrideGraphicSettings()
+                            col = Color(rgb[0], rgb[1], rgb[2])
+                            ogs.SetProjectionLineColor(col)
+                            ogs.SetSurfaceForegroundPatternColor(col)
+                            view.SetFilterOverrides(pfe.Id, ogs)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'filter_id': eid_value(pfe.Id), 'name': name,
+                        'view': view.Name}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── place_views_on_sheets ────────────────────────────────────────────
+        elif tool_name == 'place_views_on_sheets':
+            from Autodesk.Revit.DB import (Transaction, ElementId, ViewSheet, Viewport,
+                                           XYZ, FamilySymbol, BuiltInCategory)
+            try:
+                view_ids = arguments.get('view_ids', [])
+                if not view_ids:
+                    return {'error': 'view_ids is required.'}
+                tb_name = arguments.get('title_block')
+                existing_sheet_id = arguments.get('sheet_id')
+
+                tb = None
+                tbs = list(FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_TitleBlocks).OfClass(FamilySymbol))
+                if tb_name:
+                    for s in tbs:
+                        full = '{}:{}'.format(s.Family.Name, s.Name) if s.Family else s.Name
+                        if s.Name == tb_name or full == tb_name or tb_name.lower() in full.lower():
+                            tb = s; break
+                if tb is None and tbs:
+                    tb = tbs[0]
+
+                results = []
+                t = Transaction(doc, 'T3Lab AI Place Views On Sheets')
+                t.Start()
+                try:
+                    if existing_sheet_id:
+                        sheet = doc.GetElement(ElementId(int(existing_sheet_id)))
+                        col, row = 0, 0
+                        for vid in view_ids:
+                            v_eid = ElementId(int(vid))
+                            if Viewport.CanAddViewToSheet(doc, sheet.Id, v_eid):
+                                center = XYZ(0.5 + col * 0.9, 0.9 - row * 0.7, 0)
+                                vp = Viewport.Create(doc, sheet.Id, v_eid, center)
+                                results.append({'sheet_id': eid_value(sheet.Id), 'viewport_id': eid_value(vp.Id)})
+                                col += 1
+                                if col > 1:
+                                    col = 0; row += 1
+                    else:
+                        if tb is None:
+                            t.RollBack()
+                            return {'error': 'No title block available to create sheets.'}
+                        if not tb.IsActive:
+                            tb.Activate(); doc.Regenerate()
+                        for vid in view_ids:
+                            v_eid = ElementId(int(vid))
+                            sheet = ViewSheet.Create(doc, tb.Id)
+                            if Viewport.CanAddViewToSheet(doc, sheet.Id, v_eid):
+                                vp = Viewport.Create(doc, sheet.Id, v_eid, XYZ(1.0, 0.7, 0))
+                                results.append({'sheet_id': eid_value(sheet.Id),
+                                                'sheet_number': sheet.SheetNumber,
+                                                'viewport_id': eid_value(vp.Id)})
+                            else:
+                                results.append({'sheet_id': eid_value(sheet.Id), 'error': 'view could not be placed'})
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'placed': len(results), 'results': results}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── export_dwg ───────────────────────────────────────────────────────
+        elif tool_name == 'export_dwg':
+            from Autodesk.Revit.DB import DWGExportOptions, ElementId
+            from System.Collections.Generic import List as NetList
+            import os as _os
+            try:
+                ids = arguments.get('sheet_ids') or arguments.get('view_ids') or []
+                if not ids:
+                    return {'error': 'Provide sheet_ids or view_ids to export.'}
+                folder = arguments.get('output_folder', '')
+                if not folder:
+                    dp = doc.PathName
+                    folder = _os.path.dirname(dp) if dp else _os.path.expanduser('~')
+                if not _os.path.isdir(folder):
+                    _os.makedirs(folder)
+                id_list = NetList[ElementId]()
+                for i in ids:
+                    id_list.Add(ElementId(int(i)))
+                opts = DWGExportOptions()
+                ok = doc.Export(folder, 'T3Lab_Export', id_list, opts)
+                return {'success': bool(ok), 'count': id_list.Count, 'output_folder': folder}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── export_image ─────────────────────────────────────────────────────
+        elif tool_name == 'export_image':
+            from Autodesk.Revit.DB import (ImageExportOptions, ExportRange, ImageFileType,
+                                           ImageResolution, ElementId)
+            from System.Collections.Generic import List as NetList
+            import os as _os
+            try:
+                view = doc.GetElement(ElementId(int(arguments['view_id']))) if arguments.get('view_id') else doc.ActiveView
+                folder = arguments.get('output_folder', '')
+                if not folder:
+                    dp = doc.PathName
+                    folder = _os.path.dirname(dp) if dp else _os.path.expanduser('~')
+                if not _os.path.isdir(folder):
+                    _os.makedirs(folder)
+                safe = ''.join(ch for ch in view.Name if ch.isalnum() or ch in ' _-').strip() or 'view'
+                base = _os.path.join(folder, 'T3Lab_' + safe)
+                opts = ImageExportOptions()
+                opts.FilePath = base
+                opts.ExportRange = ExportRange.SetOfViews
+                view_ids = NetList[ElementId]()
+                view_ids.Add(view.Id)
+                opts.SetViewsAndSheets(view_ids)
+                opts.HLRandWFViewsFileType = ImageFileType.PNG
+                opts.ShadowViewsFileType = ImageFileType.PNG
+                opts.ImageResolution = ImageResolution.DPI_150
+                try:
+                    opts.PixelSize = int(arguments.get('width', 1600))
+                except Exception:
+                    pass
+                doc.ExportImage(opts)
+                return {'success': True, 'view': view.Name, 'output_folder': folder}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── create_project_parameter ─────────────────────────────────────────
+        elif tool_name == 'create_project_parameter':
+            from Autodesk.Revit.DB import (Transaction, BuiltInParameterGroup,
+                                           ExternalDefinitionCreationOptions)
+            import os as _os
+            try:
+                name = arguments.get('name')
+                cats = arguments.get('categories', [])
+                if not name or not cats:
+                    return {'error': 'name and categories are required.'}
+                group_name = arguments.get('group', 'Data')
+                instance = bool(arguments.get('instance', True))
+                type_name = (arguments.get('type') or 'Text')
+
+                app = doc.Application
+                # Ensure a shared-parameter file exists.
+                sp_path = app.SharedParametersFilename
+                if not sp_path or not _os.path.isfile(sp_path):
+                    data_dir = _os.path.join(_os.path.expanduser('~'), 'T3Lab_AI_Data')
+                    if not _os.path.isdir(data_dir):
+                        _os.makedirs(data_dir)
+                    sp_path = _os.path.join(data_dir, 'T3Lab_SharedParameters.txt')
+                    if not _os.path.isfile(sp_path):
+                        open(sp_path, 'w').close()
+                    app.SharedParametersFilename = sp_path
+                def_file = app.OpenSharedParameterFile()
+                if def_file is None:
+                    return {'error': 'Could not open shared parameter file.'}
+
+                grp = def_file.Groups.get_Item('T3Lab') or def_file.Groups.Create('T3Lab')
+
+                # Resolve the data type across Revit versions (SpecTypeId vs ParameterType).
+                spec = None
+                try:
+                    from Autodesk.Revit.DB import SpecTypeId
+                    spec_map = {
+                        'text': SpecTypeId.String.Text, 'integer': SpecTypeId.Int.Integer,
+                        'number': SpecTypeId.Number, 'length': SpecTypeId.Length,
+                        'area': SpecTypeId.Area, 'yesno': SpecTypeId.Boolean.YesNo,
+                    }
+                    spec = spec_map.get(type_name.lower(), SpecTypeId.String.Text)
+                    ext_opts = ExternalDefinitionCreationOptions(name, spec)
+                except Exception:
+                    from Autodesk.Revit.DB import ParameterType
+                    pt_map = {
+                        'text': ParameterType.Text, 'integer': ParameterType.Integer,
+                        'number': ParameterType.Number, 'length': ParameterType.Length,
+                        'area': ParameterType.Area, 'yesno': ParameterType.YesNo,
+                    }
+                    ext_opts = ExternalDefinitionCreationOptions(name, pt_map.get(type_name.lower(), ParameterType.Text))
+
+                ext_def = None
+                for d in grp.Definitions:
+                    if d.Name == name:
+                        ext_def = d; break
+                if ext_def is None:
+                    ext_def = grp.Definitions.Create(ext_opts)
+
+                cat_set = app.Create.NewCategorySet()
+                for c in cats:
+                    bic = self._bic_map().get(c)
+                    if bic is None:
+                        continue
+                    try:
+                        cat_set.Insert(doc.Settings.Categories.get_Item(bic))
+                    except Exception:
+                        pass
+                if cat_set.IsEmpty:
+                    return {'error': 'No valid categories resolved.'}
+
+                binding = (app.Create.NewInstanceBinding(cat_set) if instance
+                           else app.Create.NewTypeBinding(cat_set))
+
+                t = Transaction(doc, 'T3Lab AI Create Project Parameter')
+                t.Start()
+                try:
+                    ok = doc.ParameterBindings.Insert(ext_def, binding, BuiltInParameterGroup.PG_DATA)
+                    if not ok:
+                        ok = doc.ParameterBindings.ReInsert(ext_def, binding, BuiltInParameterGroup.PG_DATA)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'parameter': name, 'binding': 'instance' if instance else 'type',
+                        'categories': cats}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── room_to_floor ────────────────────────────────────────────────────
+        elif tool_name == 'room_to_floor':
+            from Autodesk.Revit.DB import (Transaction, ElementId, Floor, FloorType,
+                                           SpatialElementBoundaryOptions, CurveLoop)
+            from System.Collections.Generic import List as NetList
+            try:
+                ids = arguments.get('room_ids') or ([arguments['room_id']] if arguments.get('room_id') else [])
+                if not ids:
+                    return {'error': 'Provide room_id or room_ids.'}
+                ftype_name = arguments.get('floor_type')
+                ftypes = list(FilteredElementCollector(doc).OfClass(FloorType))
+                ftype = None
+                if ftype_name:
+                    for f in ftypes:
+                        if f.Name == ftype_name or ftype_name.lower() in f.Name.lower():
+                            ftype = f; break
+                if ftype is None and ftypes:
+                    ftype = ftypes[0]
+                if ftype is None:
+                    return {'error': 'No floor types available.'}
+
+                bopts = SpatialElementBoundaryOptions()
+                created = []
+                t = Transaction(doc, 'T3Lab AI Room To Floor')
+                t.Start()
+                try:
+                    for rid in ids:
+                        room = doc.GetElement(ElementId(int(rid)))
+                        if room is None:
+                            continue
+                        loops = room.GetBoundarySegments(bopts)
+                        if not loops or loops.Count == 0:
+                            continue
+                        loop = CurveLoop()
+                        for seg in loops[0]:
+                            loop.Append(seg.GetCurve())
+                        level_id = room.LevelId
+                        try:
+                            profile = NetList[CurveLoop]()
+                            profile.Add(loop)
+                            fl = Floor.Create(doc, profile, ftype.Id, level_id)
+                            created.append(eid_value(fl.Id))
+                        except Exception:
+                            # Older Revit fallback (NewFloor) — best effort.
+                            try:
+                                from Autodesk.Revit.DB import CurveArray
+                                ca = CurveArray()
+                                for seg in loops[0]:
+                                    ca.Append(seg.GetCurve())
+                                fl = doc.Create.NewFloor(ca, False)
+                                created.append(eid_value(fl.Id))
+                            except Exception:
+                                pass
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'floors_created': len(created), 'floor_ids': created}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── purge_unused ─────────────────────────────────────────────────────
+        elif tool_name == 'purge_unused':
+            from Autodesk.Revit.DB import (Transaction, FamilySymbol, View,
+                                           ElementId)
+            try:
+                dry_run = bool(arguments.get('dry_run', True))
+                used_type_ids = set()
+                from Autodesk.Revit.DB import FamilyInstance
+                for fi in FilteredElementCollector(doc).OfClass(FamilyInstance):
+                    try:
+                        used_type_ids.add(eid_value(fi.GetTypeId()))
+                    except Exception:
+                        pass
+                unused_syms = [s for s in FilteredElementCollector(doc).OfClass(FamilySymbol)
+                               if eid_value(s.Id) not in used_type_ids]
+
+                views = list(FilteredElementCollector(doc).OfClass(View))
+                used_tpl = set()
+                for v in views:
+                    try:
+                        if not v.IsTemplate and eid_value(v.ViewTemplateId) != -1:
+                            used_tpl.add(eid_value(v.ViewTemplateId))
+                    except Exception:
+                        pass
+                unused_tpl = [v for v in views if v.IsTemplate and eid_value(v.Id) not in used_tpl]
+
+                report = {
+                    'unused_family_types': len(unused_syms),
+                    'unused_family_type_names': [s.Name for s in unused_syms[:30]],
+                    'unused_view_templates': len(unused_tpl),
+                    'unused_view_template_names': [v.Name for v in unused_tpl[:30]],
+                }
+                if dry_run:
+                    report['dry_run'] = True
+                    report['note'] = 'Set dry_run=false to delete these items.'
+                    return report
+
+                deleted = 0
+                t = Transaction(doc, 'T3Lab AI Purge Unused')
+                t.Start()
+                try:
+                    for s in unused_syms:
+                        try:
+                            doc.Delete(s.Id); deleted += 1
+                        except Exception:
+                            pass
+                    for v in unused_tpl:
+                        try:
+                            doc.Delete(v.Id); deleted += 1
+                        except Exception:
+                            pass
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                report['dry_run'] = False
+                report['deleted'] = deleted
+                return report
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── audit_model ──────────────────────────────────────────────────────
+        elif tool_name == 'audit_model':
+            from Autodesk.Revit.DB import (View, FamilyInstance, FamilySymbol,
+                                           ImportInstance, Group, BuiltInCategory as _BIC)
+            try:
+                # Warnings grouped by description.
+                warn_groups = {}
+                try:
+                    for w in doc.GetWarnings():
+                        d = w.GetDescriptionText()
+                        warn_groups[d] = warn_groups.get(d, 0) + 1
+                except Exception:
+                    pass
+                top_warnings = sorted(warn_groups.items(), key=lambda kv: kv[1], reverse=True)[:15]
+
+                imported_cad = FilteredElementCollector(doc).OfClass(ImportInstance).GetElementCount()
+                model_groups = FilteredElementCollector(doc).OfCategory(_BIC.OST_IOSModelGroups).WhereElementIsNotElementType().GetElementCount()
+                in_place = 0
+                for fi in FilteredElementCollector(doc).OfClass(FamilyInstance):
+                    try:
+                        if fi.Symbol and fi.Symbol.Family and fi.Symbol.Family.IsInPlace:
+                            in_place += 1
+                    except Exception:
+                        pass
+
+                used_type_ids = set()
+                for fi in FilteredElementCollector(doc).OfClass(FamilyInstance):
+                    try:
+                        used_type_ids.add(eid_value(fi.GetTypeId()))
+                    except Exception:
+                        pass
+                unused_syms = sum(1 for s in FilteredElementCollector(doc).OfClass(FamilySymbol)
+                                  if eid_value(s.Id) not in used_type_ids)
+
+                views = list(FilteredElementCollector(doc).OfClass(View))
+                default_named = sum(1 for v in views if not v.IsTemplate and (
+                    v.Name.startswith('Copy of') or 'Copy 1' in v.Name))
+
+                return {
+                    'warnings_total': sum(warn_groups.values()),
+                    'warnings_by_type': [{'description': d, 'count': c} for d, c in top_warnings],
+                    'imported_cad_instances': imported_cad,
+                    'model_groups': model_groups,
+                    'in_place_families': in_place,
+                    'unused_family_types': unused_syms,
+                    'views_with_default_names': default_named,
+                    'total_views': len(views),
+                }
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── create_workset ───────────────────────────────────────────────────
+        elif tool_name == 'create_workset':
+            from Autodesk.Revit.DB import Transaction, Workset, WorksetTable, FilteredWorksetCollector, WorksetKind
+            try:
+                if not doc.IsWorkshared:
+                    return {'error': 'Document is not workshared — cannot create worksets.'}
+                name = arguments.get('name')
+                if not name:
+                    return {'error': 'name is required.'}
+                existing = [w.Name for w in FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset)]
+                if name in existing:
+                    return {'error': 'Workset "{}" already exists.'.format(name)}
+                t = Transaction(doc, 'T3Lab AI Create Workset')
+                t.Start()
+                try:
+                    ws = Workset.Create(doc, name)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e), 'tool': tool_name}
+                return {'success': True, 'workset': name, 'workset_id': eid_value(ws.Id)}
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
         return {'error': 'Tool not implemented'}
 
     def start_server(self):
@@ -3278,13 +5199,14 @@ class T3LabAIServer(object):
         except Exception:
             pass
 
-        # Initialize External Event for thread safety
+        # Initialize External Event for thread safety. NOTE: this only
+        # succeeds when start_server() is itself called on Revit's main
+        # thread (e.g. from an MCP Control dialog button). When the assistant
+        # auto-starts the server from a background probe thread,
+        # ExternalEvent.Create fails here and must instead be created up-front
+        # via ensure_external_event() on the pushbutton UI thread.
         if HAS_REVIT_UI and not self._external_event:
-            try:
-                self._event_handler = MCPExternalEventHandler(self)
-                self._external_event = ExternalEvent.Create(self._event_handler)
-            except Exception as e:
-                pass
+            self.ensure_external_event()
 
         # Activate pyRevit routes server
         try:
@@ -3346,7 +5268,8 @@ class T3LabAIServer(object):
             'total_clients': self._total_clients,
             'commands_processed': self._commands_processed,
             'current_clients': len(self._clients),
-            'tools_count': len(self._tools)
+            'tools_count': len(self._tools),
+            'external_event_ready': self._external_event is not None,
         }
 
     def register_tool(self, name, description, input_schema, handler):

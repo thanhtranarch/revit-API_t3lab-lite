@@ -25,9 +25,12 @@ from Intelligence.llm_provider import BaseLLMProvider, http_post, http_get
 class OllamaProvider(BaseLLMProvider):
     """Adapter for a locally-running Ollama LLM server."""
 
-    NAME            = "ollama"
-    DISPLAY_NAME    = "Local LLM (Ollama)"
-    SUPPORTS_VISION = False   # most small models don't support vision
+    NAME                  = "ollama"
+    DISPLAY_NAME          = "Local LLM (Ollama)"
+    SUPPORTS_VISION       = False   # most small models don't support vision
+    SUPPORTS_NATIVE_TOOLS = True    # qwen2.5 / llama3.1+ support /api/chat tools;
+                                    # unsupported models fail turn 1 → caller
+                                    # falls back to the legacy JSON-intent path
 
     def __init__(self):
         self._model = None        # None → auto-select best installed model
@@ -186,3 +189,72 @@ class OllamaProvider(BaseLLMProvider):
             return data.get("message", {}).get("content", "")
         except Exception:
             return None
+
+    # ── Agentic chat (native tool calling, blocking) ──────────────────────────
+
+    def chat_agent(self, system_prompt, messages, tools,
+                   on_delta=None, max_tokens=1500, **kwargs):
+        """One agentic turn via Ollama /api/chat `tools`.
+
+        NO "format": "json" here — the reply is free text plus structured
+        tool_calls. Ollama sends tool-call arguments as an object already.
+        """
+        model = self.get_active_model()
+        if not model:
+            return None
+
+        msgs = [{"role": "system", "content": system_prompt}]
+        msgs.extend(list(messages or []))
+
+        payload = {
+            "model":    model,
+            "messages": msgs,
+            "stream":   False,
+            "options":  {"temperature": 0.0, "num_predict": max_tokens},
+        }
+        if tools:
+            payload["tools"] = tools
+
+        try:
+            resp_text = http_post(
+                self._get_host() + "/api/chat",
+                payload,
+                timeout_ms=180000,
+            )
+            data = json.loads(resp_text)
+            msg  = data.get("message", {}) or {}
+
+            text = msg.get("content") or u""
+            import re as _re
+            text = _re.sub(r"<think>[\s\S]*?</think>", "", text).strip()
+
+            tool_calls = []
+            for c in (msg.get("tool_calls") or []):
+                fn   = c.get("function", {}) or {}
+                args = fn.get("arguments")
+                if not isinstance(args, dict):
+                    try:
+                        args = json.loads(args) if args else {}
+                    except Exception:
+                        args = {}
+                tool_calls.append({"id": "", "name": fn.get("name", ""),
+                                   "args": args})
+
+            return {
+                "text":          text,
+                "tool_calls":    tool_calls,
+                "assistant_msg": msg,
+                "stop_reason":   "tool_use" if tool_calls else "end_turn",
+            }
+        except Exception as ex:
+            self._debug_log("chat_agent() failed: {}".format(ex))
+            return None
+
+    @staticmethod
+    def agent_tool_results(tool_calls, result_strs):
+        """Ollama format: one role:"tool" message per call (no ids)."""
+        out = []
+        for i in range(len(tool_calls)):
+            res = result_strs[i] if i < len(result_strs) else u'{"cancelled": true}'
+            out.append({"role": "tool", "content": res})
+        return out

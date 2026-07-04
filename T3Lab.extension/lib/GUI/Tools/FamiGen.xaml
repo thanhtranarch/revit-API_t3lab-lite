@@ -1468,7 +1468,7 @@
                                 </Border>
                                 <TextBlock Grid.Column="1" FontSize="13" Foreground="#3F3F46" TextWrapping="Wrap">
                                     <Run Text="Tip. " FontWeight="Bold" Foreground="#18181B"/>
-                                    <Run Text="Paste a JSON schema below. Supported forms: Extrusion · Blend · Revolution · Sweep — curves: Line · Arc · Circle · Ellipse — voids via inner_loops"/>
+                                    <Run Text="Pick the Family type (bottom-right) first, then Copy Prompt — the prompt is tailored to that category. Paste the AI's JSON below. Forms: Extrusion · Blend · Revolution · Sweep — curves: Line · Arc · Arc3P · Circle · Ellipse · Spline — voids via inner_loops"/>
                                 </TextBlock>
                             </Grid>
                         </Border>
@@ -1487,6 +1487,12 @@
                                 <TextBlock x:Name="lbl_status" Grid.Column="0" Text="Ready"
                                            VerticalAlignment="Center" Foreground="#64748B" FontSize="12" HorizontalAlignment="Left"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                    <TextBlock Text="Family type" VerticalAlignment="Center"
+                                               Foreground="#3F3F46" FontSize="12" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="json_category_combo" Width="180"
+                                              Style="{StaticResource T3ComboBoxSmall}"
+                                              VerticalAlignment="Center" Margin="0,0,12,0"
+                                              ToolTip="Pick the family type first, then Copy Prompt to get a category-tailored prompt."/>
                                     <Button x:Name="copy_prompt_btn" Content="Copy Prompt"
                                             Width="130" Style="{StaticResource SuccessButton}"
                                             Click="copy_prompt_clicked" Margin="0,0,8,0"/>

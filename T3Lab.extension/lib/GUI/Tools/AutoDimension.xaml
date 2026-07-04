@@ -1,8 +1,8 @@
 ﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Auto Dimension"
-        Width="520" Height="820"
-        MinWidth="480" MinHeight="600"
+        Width="780" Height="700"
+        MinWidth="720" MinHeight="560"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="True"
@@ -18,26 +18,6 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
-
-        <!-- ── Section Header ── -->
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#0F172A"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
-        </Style>
-
-        <!-- ── GroupBox override ── -->
-        <Style x:Key="SectionGroup" TargetType="GroupBox">
-            <Setter Property="BorderBrush" Value="#E2E8F0"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="12,8,12,12"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
-            <Setter Property="FontFamily" Value="Inter"/>
-            <Setter Property="Foreground" Value="#0F172A"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
         <!-- ═══ T3LAB SHARED STYLES v2 — AUTO-SYNCED, DO NOT EDIT (edit lib/GUI/Resources/WPF_styles.xaml, then run dev/sync_wpf_styles.py) ═══ -->
         <!-- Central Color Brushes (Lumina / T3Lab Standard System) -->
         <SolidColorBrush x:Key="T3PrimaryInkBrush" Color="#18181B"/>
@@ -1175,531 +1155,486 @@
         <!--  MAIN CONTENT                                   -->
         <!-- ═══════════════════════════════════════════════ -->
         <ScrollViewer Grid.Row="1"
+                      Background="#FFFFFF"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       Padding="0">
-            <StackPanel Margin="18,14,18,10">
+            <Grid Margin="16,14,16,8">
+                <Grid.ColumnDefinitions>
+                    <!-- Left: WHERE + WHAT -->
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <!-- Right: HOW -->
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                <!-- ─────────────────────────────────────── -->
-                <!--  Section: Plan Views                    -->
-                <!-- ─────────────────────────────────────── -->
-                <GroupBox Header="Plan Views"
-                          Style="{StaticResource SectionGroup}">
-                    <StackPanel>
-                        <CheckBox x:Name="chk_specific_views"
-                                  Content="Choose specific plan views (default: active view)"
-                                  IsChecked="False"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,2,0,0"
-                                  Checked="specific_views_changed"
-                                  Unchecked="specific_views_changed"/>
-                        <StackPanel x:Name="pnl_views_list"
-                                    Visibility="Collapsed"
-                                    Margin="0,8,0,0">
-                            <TextBlock Text="Select views to dimension:"
+                <!-- ══════════ LEFT COLUMN — scope & elements ══════════ -->
+                <StackPanel Grid.Row="0" Grid.Column="0">
+
+                    <!-- Section: Views (scope) -->
+                    <GroupBox Header="1 · Views"
+                              Style="{StaticResource T3PremiumCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <CheckBox x:Name="chk_specific_views"
+                                      Content="Choose specific plan views"
+                                      IsChecked="False"
+                                      Style="{StaticResource T3CheckBox}"
+                                      FontSize="13"
+                                      Margin="0,2,0,0"
+                                      Checked="specific_views_changed"
+                                      Unchecked="specific_views_changed"
+                                      ToolTip="Off: the active view is dimensioned"/>
+                            <TextBlock Text="Default: active view (plan, section or elevation)"
                                        FontSize="11"
-                                       Foreground="#64748B"
-                                       Margin="0,0,0,4"/>
-                            <ListBox x:Name="lst_views"
-                                     Height="90"
-                                     SelectionMode="Extended"
-                                     BorderBrush="#E2E8F0"
-                                     BorderThickness="1"
-                                     FontSize="12"
-                                     Foreground="#0F172A"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                <Button Content="Select All"
-                                        Style="{StaticResource SecondaryButton}"
-                                        Click="select_all_views_clicked"
-                                        Padding="10,4"
-                                        FontSize="11"
-                                        Margin="0,0,6,0"/>
-                                <Button Content="Clear"
-                                        Style="{StaticResource SecondaryButton}"
-                                        Click="clear_views_clicked"
-                                        Padding="10,4"
-                                        FontSize="11"/>
+                                       Foreground="#71717A"
+                                       Margin="26,3,0,0"/>
+                            <StackPanel x:Name="pnl_views_list"
+                                        Visibility="Collapsed"
+                                        Margin="0,8,0,0">
+                                <ListBox x:Name="lst_views"
+                                         Height="110"
+                                         SelectionMode="Extended"
+                                         BorderBrush="#E2E8F0"
+                                         BorderThickness="1"
+                                         FontSize="12"
+                                         Foreground="#0F172A"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Content="Select All"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="select_all_views_clicked"
+                                            Padding="10,4"
+                                            FontSize="11"
+                                            Margin="0,0,6,0"/>
+                                    <Button Content="Clear"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="clear_views_clicked"
+                                            Padding="10,4"
+                                            FontSize="11"/>
+                                </StackPanel>
                             </StackPanel>
                         </StackPanel>
-                    </StackPanel>
-                </GroupBox>
+                    </GroupBox>
 
-                <!-- ─────────────────────────────────────── -->
-                <!--  Section 0: Checking Mode               -->
-                <!-- ─────────────────────────────────────── -->
-                <GroupBox Header="Checking Mode"
-                          Style="{StaticResource SectionGroup}">
-                    <StackPanel>
-                        <CheckBox x:Name="chk_checking_mode"
-                                  Content="Enable Checking Mode — align to nearest grid only"
-                                  IsChecked="False"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,2,0,6"
-                                  Checked="checking_mode_changed"
-                                  Unchecked="checking_mode_changed"/>
-                        <Grid x:Name="pnl_check_dim_type" Visibility="Collapsed">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="Check dim style:"
-                                       FontSize="13"
-                                       Foreground="#0F172A"
-                                       VerticalAlignment="Center"/>
-                            <ComboBox x:Name="cmb_check_dim_type"
-                                      Grid.Column="1"
-                                      Height="28"
-                                      FontSize="12"
-                                      Foreground="#0F172A"
-                                      BorderBrush="#CBD5E1"
-                                      BorderThickness="1"
-                                      VerticalContentAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
-                </GroupBox>
+                    <!-- Section: Elements (what to dimension) -->
+                    <GroupBox Header="2 · Elements"
+                              Style="{StaticResource T3PremiumCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <UniformGrid Columns="2">
+                                <CheckBox x:Name="chk_grids"
+                                          Content="Grid overall"
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          Margin="0,4,8,4"
+                                          ToolTip="Grid-to-grid overall chains (outermost string, offset L3)"/>
+                                <CheckBox x:Name="chk_walls"
+                                          Content="Walls"
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          Margin="0,4,0,4"/>
+                                <CheckBox x:Name="chk_struct_columns"
+                                          Content="Struct. columns"
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          Margin="0,4,8,4"/>
+                                <CheckBox x:Name="chk_arch_columns"
+                                          Content="Arch. columns"
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          Margin="0,4,0,4"/>
+                                <CheckBox x:Name="chk_windows"
+                                          Content="Windows"
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          Margin="0,4,8,4"
+                                          ToolTip="Opening width per row (offset L1)"/>
+                                <CheckBox x:Name="chk_doors"
+                                          Content="Doors"
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          Margin="0,4,0,4"
+                                          ToolTip="Opening width per row (offset L1)"/>
+                                <CheckBox x:Name="chk_lifts"
+                                          Content="Lifts / mech. equip."
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          Margin="0,4,8,4"/>
+                            </UniformGrid>
 
-                <!-- ─────────────────────────────────────── -->
-                <!--  Section 1: Element Types               -->
-                <!-- ─────────────────────────────────────── -->
-                <GroupBox Header="Element Types"
-                          Style="{StaticResource SectionGroup}">
-                    <StackPanel>
-                        <CheckBox x:Name="chk_walls"
-                                  Content="Walls (from core layer)"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,4"/>
-                        <CheckBox x:Name="chk_struct_columns"
-                                  Content="Structural Columns"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,4"/>
-                        <CheckBox x:Name="chk_arch_columns"
-                                  Content="Architectural Columns"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,4"/>
-                        <CheckBox x:Name="chk_grids"
-                                  Content="Grid-to-Grid Overall Chains"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,4"/>
-                        <CheckBox x:Name="chk_windows"
-                                  Content="Windows (opening width)"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,4"/>
-                        <CheckBox x:Name="chk_doors"
-                                  Content="Doors (opening width)"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,4"/>
-                        <CheckBox x:Name="chk_lifts"
-                                  Content="Lifts / Mechanical Equipment"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,0"/>
-                        <CheckBox x:Name="chk_facade"
-                                  Content="Facade Dimensions  (exterior walls — N / S / E / W)"
-                                  IsChecked="False"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,4,0,0"/>
-                    </StackPanel>
-                </GroupBox>
+                            <!-- Wall face options — belong to the Walls checkbox -->
+                            <Border x:Name="grp_wall_layer"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="0,8,0,0"
+                                    Margin="0,8,0,0">
+                                <StackPanel IsEnabled="{Binding IsChecked, ElementName=chk_walls}">
+                                    <TextBlock Text="Dimension walls to:"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="#71717A"
+                                               Margin="0,0,0,6"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <RadioButton x:Name="rad_wall_ext"
+                                                     Content="Exterior"
+                                                     IsChecked="True"
+                                                     GroupName="WallLayer"
+                                                     Style="{StaticResource T3RadioButton}"
+                                                     FontSize="12.5"
+                                                     Margin="0,0,14,0"/>
+                                        <RadioButton x:Name="rad_wall_int"
+                                                     Content="Interior"
+                                                     GroupName="WallLayer"
+                                                     Style="{StaticResource T3RadioButton}"
+                                                     FontSize="12.5"
+                                                     Margin="0,0,14,0"/>
+                                        <RadioButton x:Name="rad_wall_both"
+                                                     Content="Both faces"
+                                                     GroupName="WallLayer"
+                                                     Style="{StaticResource T3RadioButton}"
+                                                     FontSize="12.5"
+                                                     ToolTip="Dim string includes wall thickness"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </GroupBox>
 
-                <!-- ─────────────────────────────────────── -->
-                <!--  Section 2: Wall Reference Layer        -->
-                <!-- ─────────────────────────────────────── -->
-                <GroupBox x:Name="grp_wall_layer"
-                          Header="Wall Reference Layer"
-                          Style="{StaticResource SectionGroup}">
-                    <StackPanel IsEnabled="{Binding IsChecked, ElementName=chk_walls}">
-                        <TextBlock Text="Dimension walls to:"
-                                   FontSize="12"
-                                   Foreground="#64748B"
-                                   Margin="0,0,0,6"/>
-                        <RadioButton x:Name="rad_wall_ext"
-                                     Content="Exterior face"
-                                     IsChecked="True"
-                                     GroupName="WallLayer"
-                                     FontSize="13"
-                                     Foreground="#0F172A"
-                                     Margin="0,3,0,3"/>
-                        <RadioButton x:Name="rad_wall_int"
-                                     Content="Interior face"
-                                     GroupName="WallLayer"
-                                     FontSize="13"
-                                     Foreground="#0F172A"
-                                     Margin="0,3,0,3"/>
-                        <RadioButton x:Name="rad_wall_both"
-                                     Content="Both faces  (dim string shows wall thickness)"
-                                     GroupName="WallLayer"
-                                     FontSize="13"
-                                     Foreground="#0F172A"
-                                     Margin="0,3,0,0"/>
-                    </StackPanel>
-                </GroupBox>
-
-                <!-- ─────────────────────────────────────── -->
-                <!--  Section 3: Dimension Type              -->
-                <!-- ─────────────────────────────────────── -->
-                <GroupBox x:Name="grp_dim_type"
-                          Header="Linear Dimension Type"
-                          Style="{StaticResource SectionGroup}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <TextBlock Grid.Column="0"
-                                   Text="Linear Dim Style:"
-                                   FontSize="13"
-                                   Foreground="#0F172A"
-                                   VerticalAlignment="Center"/>
-
-                        <ComboBox x:Name="cmb_dim_type"
-                                  Grid.Column="1"
-                                  Height="28"
-                                  FontSize="12"
-                                  Foreground="#0F172A"
-                                  BorderBrush="#CBD5E1"
-                                  BorderThickness="1"
-                                  VerticalContentAlignment="Center">
-                            <!-- Items are populated from code -->
-                            <ComboBoxItem Content="Select dimension type..."
-                                          IsEnabled="False"
-                                          IsSelected="True"
-                                          Foreground="#64748B"/>
-                        </ComboBox>
-                    </Grid>
-                </GroupBox>
-
-                <!-- ─────────────────────────────────────── -->
-                <!--  Section 4: Dimension Settings          -->
-                <!-- ─────────────────────────────────────── -->
-                <GroupBox x:Name="grp_dim_settings"
-                          Header="Dimension Settings"
-                          Style="{StaticResource SectionGroup}">
-                    <StackPanel>
-
-                        <!-- Offset Mode row -->
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="Offset mode:"
-                                       FontSize="13"
-                                       Foreground="#0F172A"
-                                       VerticalAlignment="Center"/>
-                            <ComboBox x:Name="cmb_offset_mode"
-                                      Grid.Column="1"
-                                      Height="28"
-                                      FontSize="12"
-                                      Foreground="#0F172A"
-                                      BorderBrush="#CBD5E1"
-                                      BorderThickness="1"
-                                      VerticalContentAlignment="Center"
-                                      SelectionChanged="offset_mode_changed">
-                                <ComboBoxItem Content="Single offset" IsSelected="True"/>
-                                <ComboBoxItem Content="3-Level auto (L1 / L2 / L3)"/>
-                            </ComboBox>
-                        </Grid>
-
-                        <!-- Single offset panel -->
-                        <Grid x:Name="pnl_single_offset" Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="Offset distance:"
-                                       FontSize="13"
-                                       Foreground="#0F172A"
-                                       VerticalAlignment="Center"/>
-                            <TextBox x:Name="txt_offset"
-                                     Grid.Column="1"
-                                     Text="1000"
-                                     Height="28"
-                                     FontSize="13"
-                                     Foreground="#0F172A"
-                                     BorderBrush="#CBD5E1"
-                                     BorderThickness="1"
-                                     VerticalContentAlignment="Center"
-                                     Padding="6,0"
-                                     Margin="0,0,8,0"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="mm"
-                                       FontSize="13"
-                                       Foreground="#64748B"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
-
-                        <!-- 3-Level offsets panel -->
-                        <StackPanel x:Name="pnl_3level_offsets"
-                                    Visibility="Collapsed"
-                                    Margin="0,0,0,8">
-                            <!-- L1 -->
-                            <Grid Margin="0,0,0,4">
+                    <!-- Section: Checking Mode (special mode) -->
+                    <GroupBox Header="Checking Mode"
+                              Style="{StaticResource T3PremiumCard}" Margin="0,0,0,12">
+                        <StackPanel>
+                            <CheckBox x:Name="chk_checking_mode"
+                                      Content="Align each element to nearest grid only"
+                                      IsChecked="False"
+                                      Style="{StaticResource T3CheckBox}"
+                                      FontSize="13"
+                                      Margin="0,2,0,0"
+                                      Checked="checking_mode_changed"
+                                      Unchecked="checking_mode_changed"
+                                      ToolTip="Quick QA overlay — one short dim per element to its nearest grid, using the check style below"/>
+                            <Grid x:Name="pnl_check_dim_type" Visibility="Collapsed" Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="110"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0"
-                                           Text="L1 — Openings:"
-                                           FontSize="13"
-                                           Foreground="#0F172A"
+                                           Text="Check style:"
+                                           FontSize="12.5"
+                                           Foreground="#27272A"
                                            VerticalAlignment="Center"/>
-                                <TextBox x:Name="txt_l1"
-                                         Grid.Column="1"
-                                         Text="500"
-                                         Height="28"
-                                         FontSize="13"
-                                         Foreground="#0F172A"
-                                         BorderBrush="#CBD5E1"
-                                         BorderThickness="1"
-                                         VerticalContentAlignment="Center"
-                                         Padding="6,0"
-                                         Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="2"
-                                           Text="mm"
-                                           FontSize="13"
-                                           Foreground="#64748B"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-                            <!-- L2 -->
-                            <Grid Margin="0,0,0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"
-                                           Text="L2 — Columns/Walls:"
-                                           FontSize="13"
-                                           Foreground="#0F172A"
-                                           VerticalAlignment="Center"/>
-                                <TextBox x:Name="txt_l2"
-                                         Grid.Column="1"
-                                         Text="1000"
-                                         Height="28"
-                                         FontSize="13"
-                                         Foreground="#0F172A"
-                                         BorderBrush="#CBD5E1"
-                                         BorderThickness="1"
-                                         VerticalContentAlignment="Center"
-                                         Padding="6,0"
-                                         Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="2"
-                                           Text="mm"
-                                           FontSize="13"
-                                           Foreground="#64748B"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-                            <!-- L3 -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="130"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0"
-                                           Text="L3 — Grid overall:"
-                                           FontSize="13"
-                                           Foreground="#0F172A"
-                                           VerticalAlignment="Center"/>
-                                <TextBox x:Name="txt_l3"
-                                         Grid.Column="1"
-                                         Text="1500"
-                                         Height="28"
-                                         FontSize="13"
-                                         Foreground="#0F172A"
-                                         BorderBrush="#CBD5E1"
-                                         BorderThickness="1"
-                                         VerticalContentAlignment="Center"
-                                         Padding="6,0"
-                                         Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="2"
-                                           Text="mm"
-                                           FontSize="13"
-                                           Foreground="#64748B"
-                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="cmb_check_dim_type"
+                                          Grid.Column="1"
+                                          Style="{StaticResource T3ComboBoxSmall}"/>
                             </Grid>
                         </StackPanel>
+                    </GroupBox>
+                </StackPanel>
 
-                        <!-- Direction row -->
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="Direction:"
-                                       FontSize="13"
-                                       Foreground="#0F172A"
-                                       VerticalAlignment="Center"/>
-                            <ComboBox x:Name="cmb_direction"
-                                      Grid.Column="1"
-                                      Height="28"
-                                      FontSize="12"
-                                      Foreground="#0F172A"
-                                      BorderBrush="#CBD5E1"
-                                      BorderThickness="1"
-                                      VerticalContentAlignment="Center">
-                                <ComboBoxItem Content="Both X and Y" IsSelected="True"/>
-                                <ComboBoxItem Content="X only (above / below)"/>
-                                <ComboBoxItem Content="Y only (left / right)"/>
-                            </ComboBox>
-                        </Grid>
+                <!-- ══════════ RIGHT COLUMN — style & placement ══════════ -->
+                <StackPanel Grid.Row="0" Grid.Column="2">
 
-                        <!-- Both sides checkbox -->
-                        <CheckBox x:Name="chk_both_sides"
-                                  Content="Mirror dim strings to both sides of building"
-                                  IsChecked="True"
-                                  FontSize="13"
-                                  Foreground="#0F172A"
-                                  Margin="0,0,0,8"/>
+                    <!-- Section: Dimension style -->
+                    <GroupBox x:Name="grp_dim_type"
+                              Header="3 · Dimension Style"
+                              Style="{StaticResource T3PremiumCard}" Margin="0,0,0,12">
+                        <!-- Items are populated from code -->
+                        <ComboBox x:Name="cmb_dim_type"
+                                  Style="{StaticResource T3ComboBoxSmall}"/>
+                    </GroupBox>
 
-                        <!-- Conflict warning row -->
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <CheckBox x:Name="chk_min_seg"
-                                      Grid.Column="0"
-                                      Content="Warn if segment &lt; "
+                    <!-- Section: Placement -->
+                    <GroupBox x:Name="grp_dim_settings"
+                              Header="4 · Placement"
+                              Style="{StaticResource T3PremiumCard}" Margin="0,0,0,12">
+                        <StackPanel>
+
+                            <!-- Offset Mode row -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="Offset mode:"
+                                           FontSize="12.5"
+                                           Foreground="#27272A"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="cmb_offset_mode"
+                                          Grid.Column="1"
+                                          Style="{StaticResource T3ComboBoxSmall}"
+                                          SelectionChanged="offset_mode_changed">
+                                    <ComboBoxItem Content="Single offset" IsSelected="True"/>
+                                    <ComboBoxItem Content="3-Level auto (L1 / L2 / L3)"/>
+                                </ComboBox>
+                            </Grid>
+
+                            <!-- Single offset panel -->
+                            <Grid x:Name="pnl_single_offset" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="Offset:"
+                                           FontSize="12.5"
+                                           Foreground="#27272A"
+                                           VerticalAlignment="Center"/>
+                                <TextBox x:Name="txt_offset"
+                                         Grid.Column="1"
+                                         Text="1000"
+                                         Style="{StaticResource T3InputFieldSmall}"
+                                         Margin="0,0,8,0"/>
+                                <TextBlock Grid.Column="2"
+                                           Text="mm"
+                                           FontSize="12.5"
+                                           Foreground="#71717A"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <!-- 3-Level offsets panel -->
+                            <StackPanel x:Name="pnl_3level_offsets"
+                                        Visibility="Collapsed"
+                                        Margin="0,0,0,8">
+                                <!-- L1 -->
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="L1 · Openings:"
+                                               FontSize="12.5"
+                                               Foreground="#27272A"
+                                               VerticalAlignment="Center"/>
+                                    <TextBox x:Name="txt_l1"
+                                             Grid.Column="1"
+                                             Text="500"
+                                             Style="{StaticResource T3InputFieldSmall}"
+                                             Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="mm"
+                                               FontSize="12.5"
+                                               Foreground="#71717A"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                                <!-- L2 -->
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="L2 · Cols/Walls:"
+                                               FontSize="12.5"
+                                               Foreground="#27272A"
+                                               VerticalAlignment="Center"/>
+                                    <TextBox x:Name="txt_l2"
+                                             Grid.Column="1"
+                                             Text="1000"
+                                             Style="{StaticResource T3InputFieldSmall}"
+                                             Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="mm"
+                                               FontSize="12.5"
+                                               Foreground="#71717A"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                                <!-- L3 -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="L3 · Grid overall:"
+                                               FontSize="12.5"
+                                               Foreground="#27272A"
+                                               VerticalAlignment="Center"/>
+                                    <TextBox x:Name="txt_l3"
+                                             Grid.Column="1"
+                                             Text="1500"
+                                             Style="{StaticResource T3InputFieldSmall}"
+                                             Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="mm"
+                                               FontSize="12.5"
+                                               Foreground="#71717A"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Direction row -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0"
+                                           Text="Direction:"
+                                           FontSize="12.5"
+                                           Foreground="#27272A"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox x:Name="cmb_direction"
+                                          Style="{StaticResource T3ComboBoxSmall}"
+                                          Grid.Column="1">
+                                    <ComboBoxItem Content="Both X and Y" IsSelected="True"/>
+                                    <ComboBoxItem Content="X only (above / below)"/>
+                                    <ComboBoxItem Content="Y only (left / right)"/>
+                                </ComboBox>
+                            </Grid>
+
+                            <!-- Both sides checkbox -->
+                            <CheckBox x:Name="chk_both_sides"
+                                      Content="Mirror strings to both sides"
                                       IsChecked="True"
-                                      FontSize="13"
-                                      Foreground="#0F172A"
-                                      VerticalAlignment="Center"
-                                      Margin="0,0,4,0"/>
-                            <TextBox x:Name="txt_min_seg"
-                                     Grid.Column="1"
-                                     Text="300"
-                                     Height="28"
-                                     Width="60"
-                                     FontSize="13"
-                                     Foreground="#0F172A"
-                                     BorderBrush="#CBD5E1"
-                                     BorderThickness="1"
-                                     VerticalContentAlignment="Center"
-                                     HorizontalAlignment="Left"
-                                     Padding="6,0"
-                                     Margin="0,0,6,0"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="mm"
-                                       FontSize="13"
-                                       Foreground="#64748B"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
+                                      Style="{StaticResource T3CheckBox}"
+                                      FontSize="12.5"
+                                      Margin="0,0,0,8"
+                                      ToolTip="Grid / wall / opening chains repeat on the opposite side of the building"/>
 
-                        <!-- Facade offset -->
-                        <Grid Margin="0,10,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="Facade offset:"
-                                       FontSize="13"
-                                       Foreground="#0F172A"
-                                       VerticalAlignment="Center"/>
-                            <TextBox x:Name="txt_facade_offset"
-                                     Grid.Column="1"
-                                     Text="1200"
-                                     Height="28"
-                                     FontSize="13"
-                                     Foreground="#0F172A"
-                                     BorderBrush="#CBD5E1"
-                                     BorderThickness="1"
-                                     VerticalContentAlignment="Center"
-                                     Padding="6,0"
-                                     Margin="0,0,8,0"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="mm"
-                                       FontSize="13"
-                                       Foreground="#64748B"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
+                            <!-- Conflict warning row -->
+                            <StackPanel Orientation="Horizontal">
+                                <CheckBox x:Name="chk_min_seg"
+                                          Content="Warn if segment &lt;"
+                                          IsChecked="True"
+                                          Style="{StaticResource T3CheckBox}"
+                                          FontSize="12.5"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,8,0"/>
+                                <TextBox x:Name="txt_min_seg"
+                                         Text="300"
+                                         Width="64"
+                                         Style="{StaticResource T3InputFieldSmall}"
+                                         Margin="0,0,6,0"/>
+                                <TextBlock Text="mm"
+                                           FontSize="12.5"
+                                           Foreground="#71717A"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
 
-                        <!-- Facade perimeter tolerance -->
-                        <Grid Margin="0,0,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0"
-                                       Text="Perimeter tol.:"
-                                       FontSize="13"
-                                       Foreground="#0F172A"
-                                       VerticalAlignment="Center"/>
-                            <TextBox x:Name="txt_facade_tol"
-                                     Grid.Column="1"
-                                     Text="1800"
-                                     Height="28"
-                                     FontSize="13"
-                                     Foreground="#0F172A"
-                                     BorderBrush="#CBD5E1"
-                                     BorderThickness="1"
-                                     VerticalContentAlignment="Center"
-                                     Padding="6,0"
-                                     Margin="0,0,8,0"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="mm"
-                                       FontSize="13"
-                                       Foreground="#64748B"
-                                       VerticalAlignment="Center"/>
-                        </Grid>
+                            <!-- Facade sub-section -->
+                            <Border BorderBrush="#E2E8F0"
+                                    BorderThickness="0,1,0,0"
+                                    Padding="0,8,0,0"
+                                    Margin="0,10,0,0">
+                                <StackPanel>
+                                    <CheckBox x:Name="chk_facade"
+                                              Content="Facade chains (exterior walls · N/S/E/W)"
+                                              IsChecked="False"
+                                              Style="{StaticResource T3CheckBox}"
+                                              FontSize="12.5"
+                                              ToolTip="Dedicated string dim per facade side with wall + opening references"/>
+                                    <StackPanel x:Name="pnl_facade_settings" Margin="0,8,0,0">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked, ElementName=chk_facade}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="Facade offset:"
+                                                       FontSize="12.5"
+                                                       Foreground="#27272A"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBox x:Name="txt_facade_offset"
+                                                     Grid.Column="1"
+                                                     Text="1200"
+                                                     Style="{StaticResource T3InputFieldSmall}"
+                                                     Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="mm"
+                                                       FontSize="12.5"
+                                                       Foreground="#71717A"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="Perimeter tol.:"
+                                                       FontSize="12.5"
+                                                       Foreground="#27272A"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip="How far from the outermost extent a wall still counts as facade"/>
+                                            <TextBox x:Name="txt_facade_tol"
+                                                     Grid.Column="1"
+                                                     Text="1800"
+                                                     Style="{StaticResource T3InputFieldSmall}"
+                                                     Margin="0,0,8,0"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="mm"
+                                                       FontSize="12.5"
+                                                       Foreground="#71717A"
+                                                       VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
 
-                    </StackPanel>
-                </GroupBox>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
 
-                <!-- ─────────────────────────────────────── -->
-                <!--  Info box                               -->
-                <!-- ─────────────────────────────────────── -->
+                <!-- ══════════ Info box — spans both columns ══════════ -->
                 <Border x:Name="brd_info"
-                        Background="#F8FAFC"
-                        BorderBrush="#0F172A"
+                        Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                        Background="#FFFFFF"
+                        BorderBrush="#E2E8F0"
                         BorderThickness="1"
-                        CornerRadius="4"
-                        Padding="12,10"
-                        Margin="0,2,0,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE946;"
+                        CornerRadius="14"
+                        Padding="14,10"
+                        Margin="0,0,0,4">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   Text="&#xE946;"
                                    FontFamily="Segoe MDL2 Assets"
                                    FontSize="14"
-                                   Foreground="#1E293B"
+                                   Foreground="#3B82F6"
                                    VerticalAlignment="Top"
-                                   Margin="0,1,10,0"/>
-                        <TextBlock Text="3-level nested dims: ① Inner (L1) — windows + doors per row. ② Mid (L2) — columns &amp; walls per row. ③ Outer (L3) — grid-to-grid overall. Facade mode detects exterior walls (N/S/E/W) and creates dedicated facade string dims with opening references. Multi-view: select views above to process multiple plans in one run."
+                                   Margin="0,2,10,0"/>
+                        <TextBlock Grid.Column="1"
                                    FontSize="12"
-                                   Foreground="#0F172A"
+                                   Foreground="#27272A"
                                    TextWrapping="Wrap"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
+                                   VerticalAlignment="Center">
+                            <Run FontWeight="Bold" Foreground="#3B82F6">Tip:</Run>
+                            <Run Text="Three nested strings per view — L1 openings · L2 columns &amp; walls · L3 grid overall. On Section/Elevation views the tool chains grids (horizontal) and levels (vertical)."/>
+                        </TextBlock>
+                    </Grid>
                 </Border>
 
-            </StackPanel>
+            </Grid>
         </ScrollViewer>
 
         <!-- ═══════════════════════════════════════════════ -->
@@ -1735,7 +1670,7 @@
                             Content="Run Auto Dimension"
                             Style="{StaticResource PrimaryButton}"
                             Click="run_clicked"
-                            Padding="16,10"/>
+                            Padding="18,5"/>
                 </StackPanel>
             </Grid>
         </Border>

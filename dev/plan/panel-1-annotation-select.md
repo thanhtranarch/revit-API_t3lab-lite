@@ -63,6 +63,21 @@ Chain: `script.py` (36 loc) → `lib/GUI/ManaAnnoDialog.py` (1416 loc) → `Mana
 
 _(ghi lỗi mới tại đây)_
 
+- **2026-07-04 — AutoDimension: tái cấu trúc UI/UX 2 cột** (`AutoDimension.xaml`, không đổi Python — giữ nguyên toàn bộ `x:Name` + handler):
+  - Cửa sổ 520×820 một cột dài phải cuộn → **780×700 hai cột**: trái = phạm vi & đối tượng (1·Views, 2·Elements + wall faces, Checking Mode), phải = cách tạo dim (3·Dimension Style, 4·Placement). Info box rút gọn, span 2 cột dưới cùng.
+  - Element checkboxes xếp lưới 2 cột (UniformGrid); wall face radios chuyển nằm ngang ngay dưới nhóm Elements (gắn với checkbox Walls, vẫn `IsEnabled` binding); checkbox Facade chuyển từ "Element Types" về đúng chỗ — sub-section Facade trong Placement, 2 ô nhập offset/tolerance chỉ hiện khi bật (DataTrigger thuần XAML, không cần handler mới).
+  - Đổi control mặc định sang bộ style T3 sẵn có trong shared block: `T3CheckBox`, `T3RadioButton`, `T3ComboBoxSmall`, `T3InputFieldSmall`; thêm tooltip giải thích cho các option khó hiểu (Checking Mode, Mirror, Perimeter tol.).
+  - `grp_wall_layer` đổi GroupBox → Border nhưng giữ nguyên `x:Name` (checking_mode_changed chỉ set `.Visibility` nên tương thích).
+  - Verify: XML well-formed · 41/41 `x:Name` Python cần đều còn · `audit_tools`/`audit_ui` clean · `sync_wpf_styles --check` 53/53. **Chưa smoke test Revit** (mở cửa sổ, toggle Facade/Checking/3-Level, chạy dim).
+
+- **2026-07-04 — AutoDimension: sửa 5 lỗi logic + roadmap cải thiện** (chi tiết + checklist smoke test: `dev/plan/autodimension-improvement-roadmap.md`, dialog bump v2.2.0):
+  1. Modeless → **modal**: `Transaction.Start()` chạy trực tiếp trong WPF button handler của cửa sổ modeless nằm ngoài Revit API context → "outside of API context" (tiền lệ: TagCheckerDialog từng thử ExternalEvent bị native crash, revert modal).
+  2. Extent đặt dim: centroid → bounding box — dim tổng (y_max + L3…) không còn đè lên nửa ngoài tường/cột biên.
+  3. Cột (Phase 2, chế độ thường): per-column (N chuỗi 2-ref chồng nhau cùng offset) → 1 chuỗi/hàng-cột kiểu grid biên–mặt L–mặt R–grid biên; bỏ mirror per-row (trước dồn mọi hàng về cùng 1 đường).
+  4. Skip tường xiên (`AXIS_TOLERANCE`) — trước bị ép vào chuỗi X/Y → dim sai vị trí hoặc fail ngầm.
+  5. Section/Elevation: thêm `_dim_section_view` (chuỗi grid ngang gần đỉnh crop + chuỗi level dọc mép trái, tính trong mặt phẳng view qua `CropBox.Transform`) — trước đây các view này luôn ra 0 dim vì toàn bộ toán học là mặt bằng XY.
+  - Verify tĩnh: `ast.parse` OK · `audit_tools`/`audit_ui` clean · `sync_wpf_styles --check` 53/53. **Chưa smoke test Revit.**
+
 - **2026-07-04 — AutoDimension: mặc định dùng active view, ẩn danh sách Plan Views sau toggle** (yêu cầu UX trực tiếp từ user khi test Ngày 5): trước đây section "Plan Views" luôn hiện `ListBox lst_views` (list toàn bộ plan view) ngay khi mở → user phải cuộn qua/bỏ chọn thủ công dù thường chỉ muốn dim view đang mở. Logic `_run` vốn đã fallback active view khi `lst_views.SelectedItems` rỗng (`AutoDimensionDialog.py:904`), nên chỉ cần đổi UI. Đã sửa:
   - `AutoDimension.xaml`: thêm toggle `chk_specific_views` ("Choose specific plan views (default: active view)", mặc định OFF) ở đầu GroupBox; bọc helper text + `lst_views` + nút Select All/Clear vào `StackPanel x:Name="pnl_views_list" Visibility="Collapsed"`. Bỏ đoạn "(leave empty to use active view)" trong helper text vì giờ hành vi đã tường minh.
   - `AutoDimensionDialog.py`: thêm handler `specific_views_changed()` — bật/tắt `pnl_views_list.Visibility`; khi tắt gọi `lst_views.UnselectAll()` để chắc chắn `_run` rơi về active view (không dính selection cũ). `Visibility` đã import sẵn (dùng ở `checking_mode_changed`/`offset_mode_changed`).

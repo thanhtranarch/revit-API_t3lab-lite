@@ -18,7 +18,8 @@ import json
 import re as _re
 
 from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_post_stream,
-                                       http_get_auth, parse_openai_stream_line)
+                                       http_get_auth, parse_openai_stream_line,
+                                       openai_chat_agent, openai_agent_tool_results)
 
 
 # DeepSeek is OpenAI-compatible. Base URL https://api.deepseek.com works for both
@@ -39,9 +40,10 @@ def _lib_dir():
 
 class DeepSeekProvider(BaseLLMProvider):
 
-    NAME            = "deepseek"
-    DISPLAY_NAME    = "DeepSeek"
-    SUPPORTS_VISION = False
+    NAME                  = "deepseek"
+    DISPLAY_NAME          = "DeepSeek"
+    SUPPORTS_VISION       = False
+    SUPPORTS_NATIVE_TOOLS = True
 
     def __init__(self):
         self._model         = None
@@ -239,3 +241,23 @@ class DeepSeekProvider(BaseLLMProvider):
             return full if full else None
         except Exception:
             return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
+
+    # ── Agentic chat (native tool calling, blocking) ──────────────────────────
+
+    def chat_agent(self, system_prompt, messages, tools,
+                   on_delta=None, max_tokens=1500, **kwargs):
+        """One agentic turn via the OpenAI-compatible `tools` parameter."""
+        api_key = self._get_api_key()
+        if not api_key:
+            return None
+        try:
+            return openai_chat_agent(
+                _BASE_URL + "/chat/completions",
+                {"Authorization": "Bearer " + api_key},
+                self.get_active_model(),
+                system_prompt, messages, tools, max_tokens)
+        except Exception as ex:
+            self._debug_log("chat_agent() failed: {}".format(ex))
+            return None
+
+    agent_tool_results = staticmethod(openai_agent_tool_results)

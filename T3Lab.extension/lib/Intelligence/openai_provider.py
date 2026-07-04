@@ -23,6 +23,7 @@ import sys
 
 from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_post_stream,
                                        http_get_auth, parse_openai_stream_line,
+                                       openai_chat_agent, openai_agent_tool_results,
                                        HAS_HTTP)
 
 
@@ -58,9 +59,10 @@ VISION_CAPABLE = {"gpt-4o", "gpt-4o-mini", "gpt-4-turbo"}
 class OpenAIProvider(BaseLLMProvider):
     """Adapter for the OpenAI Chat Completions API."""
 
-    NAME            = "openai"
-    DISPLAY_NAME    = "GPT (OpenAI)"
-    SUPPORTS_VISION = True
+    NAME                  = "openai"
+    DISPLAY_NAME          = "GPT (OpenAI)"
+    SUPPORTS_VISION       = True
+    SUPPORTS_NATIVE_TOOLS = True
 
     def __init__(self):
         self._model         = MODEL_DEFAULT
@@ -248,6 +250,29 @@ class OpenAIProvider(BaseLLMProvider):
             # only the streaming-specific failure needs logging here.
             self._debug_log("chat_stream() failed, falling back to chat(): {}".format(ex))
             return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
+
+    # ── Agentic chat (native tool calling, blocking) ──────────────────────────
+
+    def chat_agent(self, system_prompt, messages, tools,
+                   on_delta=None, max_tokens=1500, **kwargs):
+        """One agentic turn via the `tools` parameter. Blocking (no SSE) —
+        the agent loop surfaces the text through on_text_delta itself."""
+        if not HAS_HTTP:
+            return None
+        api_key = self._get_api_key()
+        if not api_key:
+            return None
+        try:
+            return openai_chat_agent(
+                OPENAI_CHAT_URL,
+                {"Authorization": "Bearer {}".format(api_key)},
+                self._model or MODEL_DEFAULT,
+                system_prompt, messages, tools, max_tokens)
+        except Exception as ex:
+            self._debug_log("chat_agent() failed: {}".format(ex))
+            return None
+
+    agent_tool_results = staticmethod(openai_agent_tool_results)
 
     # ── Conversion helpers ─────────────────────────────────────────────────────
 

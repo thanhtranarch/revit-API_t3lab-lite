@@ -43,9 +43,10 @@ FALLBACK_MODELS = [
 class ClaudeProvider(BaseLLMProvider):
     """Adapter for the Anthropic Claude API."""
 
-    NAME            = "claude"
-    DISPLAY_NAME    = "Claude (Anthropic)"
-    SUPPORTS_VISION = True
+    NAME                  = "claude"
+    DISPLAY_NAME          = "Claude (Anthropic)"
+    SUPPORTS_VISION       = True
+    SUPPORTS_NATIVE_TOOLS = True
 
     def __init__(self):
         self._model         = None   # None → auto-select text vs vision model
@@ -209,6 +210,195 @@ class ClaudeProvider(BaseLLMProvider):
         except Exception:
             # Any streaming/transport error → fall back to a single blocking call.
             return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
+
+    # ── Agentic chat (native tool calling) ────────────────────────────────────
+
+    def _agent_payload(self, system_prompt, messages, tools, max_tokens, stream):
+        """Build a Messages API payload with prompt caching on system + tools.
+
+        cache_control markers go on the system block and the LAST tool — the
+        whole (tools + system) prefix is then cached server-side, so the ~75
+        tool schemas cost input tokens once per 5-minute window instead of on
+        every iteration of the agent loop.
+        """
+        model = self._model or MODEL_TEXT
+
+        cached_tools = list(tools or [])
+        if cached_tools:
+            last = dict(cached_tools[-1])          # copy — tool list is shared/cached
+            last["cache_control"] = {"type": "ephemeral"}
+            cached_tools = cached_tools[:-1] + [last]
+
+        payload = {
+            "model":      model,
+            "max_tokens": max_tokens,
+            "system":     [{"type": "text", "text": system_prompt,
+                            "cache_control": {"type": "ephemeral"}}],
+            "messages":   list(messages or []),
+        }
+        if cached_tools:
+            payload["tools"] = cached_tools
+        if stream:
+            payload["stream"] = True
+        return payload
+
+    def chat_agent(self, system_prompt, messages, tools,
+                   on_delta=None, max_tokens=1500, **kwargs):
+        """One agentic turn: streams text deltas, collects tool_use blocks.
+
+        Returns {"text", "tool_calls", "assistant_msg", "stop_reason"} or None.
+        `messages` must already end with the latest user / tool_result turn.
+        """
+        if not HAS_HTTP:
+            return None
+        api_key = self._get_api_key()
+        if not api_key:
+            return None
+
+        headers = {
+            "x-api-key":         api_key,
+            "anthropic-version": ANTHROPIC_API_VER,
+        }
+
+        # ── Streaming attempt ────────────────────────────────────────────────
+        state = {
+            "blocks":      [],     # finalized content blocks, in order
+            "cur":         None,   # block being streamed
+            "stop_reason": None,
+        }
+
+        def _on_line(line):
+            if not line:
+                return
+            line = line.strip()
+            if not line.startswith("data:"):
+                return
+            data = line[5:].strip()
+            if not data or data == "[DONE]":
+                return
+            try:
+                obj = json.loads(data)
+            except Exception:
+                return
+            etype = obj.get("type")
+
+            if etype == "content_block_start":
+                cb = obj.get("content_block", {}) or {}
+                if cb.get("type") == "tool_use":
+                    state["cur"] = {"type": "tool_use", "id": cb.get("id", ""),
+                                    "name": cb.get("name", ""), "parts": []}
+                else:
+                    state["cur"] = {"type": "text", "parts": []}
+
+            elif etype == "content_block_delta":
+                delta = obj.get("delta", {}) or {}
+                cur   = state["cur"]
+                if cur is None:
+                    return
+                if delta.get("type") == "text_delta":
+                    txt = delta.get("text") or u""
+                    cur["parts"].append(txt)
+                    if on_delta and txt:
+                        try:
+                            on_delta(txt)
+                        except Exception:
+                            pass
+                elif delta.get("type") == "input_json_delta":
+                    cur["parts"].append(delta.get("partial_json") or u"")
+
+            elif etype == "content_block_stop":
+                cur = state["cur"]
+                if cur is not None:
+                    state["blocks"].append(cur)
+                    state["cur"] = None
+
+            elif etype == "message_delta":
+                d = obj.get("delta", {}) or {}
+                if d.get("stop_reason"):
+                    state["stop_reason"] = d["stop_reason"]
+
+        streamed_ok = False
+        try:
+            payload = self._agent_payload(system_prompt, messages, tools,
+                                          max_tokens, stream=True)
+            http_post_stream(CLAUDE_API_URL, payload, headers, _on_line,
+                             timeout_ms=180000)
+            streamed_ok = bool(state["blocks"]) or state["stop_reason"] is not None
+        except Exception as ex:
+            self._debug_log("chat_agent stream failed: {}".format(ex))
+
+        if streamed_ok:
+            return self._agent_result_from_blocks(state["blocks"],
+                                                  state["stop_reason"])
+
+        # ── Blocking fallback ────────────────────────────────────────────────
+        try:
+            payload   = self._agent_payload(system_prompt, messages, tools,
+                                            max_tokens, stream=False)
+            resp_text = http_post(CLAUDE_API_URL, payload, headers,
+                                  timeout_ms=180000)
+            api_result = json.loads(resp_text)
+            blocks = []
+            for b in api_result.get("content", []) or []:
+                if b.get("type") == "text":
+                    blocks.append({"type": "text", "parts": [b.get("text", "")]})
+                elif b.get("type") == "tool_use":
+                    blocks.append({"type": "tool_use", "id": b.get("id", ""),
+                                   "name": b.get("name", ""),
+                                   "parts": [json.dumps(b.get("input") or {})]})
+            return self._agent_result_from_blocks(
+                blocks, api_result.get("stop_reason"))
+        except Exception as ex:
+            self._debug_log("chat_agent() failed: {}".format(ex))
+            return None
+
+    @staticmethod
+    def _agent_result_from_blocks(blocks, stop_reason):
+        """Assemble the uniform chat_agent result from streamed blocks."""
+        texts      = []
+        tool_calls = []
+        content    = []
+        for b in blocks:
+            joined = u"".join(b.get("parts", []))
+            if b["type"] == "text":
+                if joined:
+                    texts.append(joined)
+                    content.append({"type": "text", "text": joined})
+            else:  # tool_use
+                try:
+                    args = json.loads(joined) if joined.strip() else {}
+                except Exception:
+                    args = {}
+                tool_calls.append({"id": b.get("id", ""),
+                                   "name": b.get("name", ""), "args": args})
+                content.append({"type": "tool_use", "id": b.get("id", ""),
+                                "name": b.get("name", ""), "input": args})
+        if not content:
+            content = [{"type": "text", "text": u""}]
+        return {
+            "text":          u"\n".join(texts),
+            "tool_calls":    tool_calls,
+            "assistant_msg": {"role": "assistant", "content": content},
+            "stop_reason":   stop_reason or ("tool_use" if tool_calls else "end_turn"),
+        }
+
+    @staticmethod
+    def agent_tool_results(tool_calls, result_strs):
+        """Anthropic format: ONE user message holding all tool_result blocks.
+
+        `result_strs` are pre-serialized JSON strings (agent_loop truncates
+        them). Every tool_use id must be answered — missing results
+        (cancelled run) are padded so the transcript stays valid.
+        """
+        blocks = []
+        for i, tc in enumerate(tool_calls):
+            res = result_strs[i] if i < len(result_strs) else u'{"cancelled": true}'
+            blocks.append({
+                "type":        "tool_result",
+                "tool_use_id": tc.get("id", ""),
+                "content":     res,
+            })
+        return [{"role": "user", "content": blocks}]
 
 
 # ─── Path helper ───────────────────────────────────────────────────────────────

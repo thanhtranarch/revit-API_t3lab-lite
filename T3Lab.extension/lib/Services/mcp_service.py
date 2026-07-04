@@ -175,15 +175,37 @@ class MCPService(object):
             server = _get_server()
             stats  = server.get_server_stats()
             return {
-                'running':             stats.get('running', False),
-                'port':                stats.get('port', 48884),
-                'tools_count':         stats.get('tools_count', 0),
-                'commands_processed':  stats.get('commands_processed', 0),
-                'error':               None,
+                'running':              stats.get('running', False),
+                'port':                 stats.get('port', 48884),
+                'tools_count':          stats.get('tools_count', 0),
+                'commands_processed':   stats.get('commands_processed', 0),
+                'external_event_ready': stats.get('external_event_ready', False),
+                'error':                None,
             }
         except Exception as ex:
             return {'running': False, 'port': 48884, 'tools_count': 0,
-                    'commands_processed': 0, 'error': str(ex)}
+                    'commands_processed': 0, 'external_event_ready': False,
+                    'error': str(ex)}
+
+    @staticmethod
+    def ensure_external_event():
+        """
+        Create the Revit ExternalEvent that marshals model-editing tools onto
+        Revit's main thread.
+
+        MUST be called from Revit's UI thread (e.g. a pushbutton's main body),
+        NOT from a background worker — ExternalEvent.Create throws outside a
+        Revit API context. Without this, every create/modify/rename MCP tool
+        fails with "transaction outside API context". Safe and idempotent.
+
+        Returns:
+            (success: bool, error_message: str|None)
+        """
+        try:
+            server = _get_server()
+            return server.ensure_external_event()
+        except Exception as ex:
+            return False, str(ex)
 
     @staticmethod
     def start_server(port=None):

@@ -1409,8 +1409,6 @@
                                 </Grid.ColumnDefinitions>
 
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
-                                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
                                     <TextBlock Text="Ctrl+Click to multi-select in grid" FontSize="11.5" Foreground="#71717A" VerticalAlignment="Center"/>
                                 </StackPanel>
 

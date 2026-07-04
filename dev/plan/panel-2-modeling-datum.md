@@ -101,7 +101,14 @@ Chain: launcher → `FamiGenDialog.py` (2360 loc) → `FamiGen.xaml` · tạo fa
 - [ ] Gen 1 family đơn giản → load vào project OK
 - [ ] Huỷ giữa chừng → family document tạm được **đóng sạch** (kiểm tra không còn doc mở ngầm)
 - [ ] Template family thiếu → thông báo
-- [ ] Ghi chú:
+- [x] Ghi chú: **Cải tiến sub-mode "From JSON" 2026-07-04** (ngoài checklist smoke-test gốc, chỉ động vào `SYSTEM_PROMPT.md` — parser `FamiGenDialog.py` không đổi):
+  - **WS2 de-bias**: gỡ toàn bộ ví dụ nghiêng về đèn (Lotus lamp → Ceiling Medallion; wall-lamp arm → generic tube; part-inventory wall lantern → wall-mounted faucet). Prompt phải dùng được cho **mọi** loại family theo yêu cầu user.
+  - **WS3**: thêm recipe ống gấp khúc/vuông góc = các đoạn Extrusion-of-Circle theo trục chồng ~2mm ở khuỷu (thay Sweep cong dễ gãy vì parser chỉ hỗ trợ mặt phẳng X/Y/Z).
+  - **+7 ví dụ** (E8–E14) → tổng **14 ví dụ**, đủ 4 form type + 6 curve type, trải Furniture/Generic/Casework/Door. Đã validate 14/14 block JSON hợp lệ.
+  - Roadmap + backlog (WS4 cảnh báo part rời, WS5 mặt phẳng bất kỳ) + **kế hoạch tách prompt theo category**: `dev/plan/famigen-from-json-roadmap.md`.
+  - **WS1 + WS6 (2026-07-04, cùng ngày)**: user test lại → kết quả **tệ hơn** (mọi part dựng được nhưng rời hoàn toàn — riser lơ lửng, arm không chạm chao). Sửa prompt: bắt buộc 1 anchor part + key `"attaches_to"` từng part + key root `"_plan"` (bảng inventory/height/connection — parser bỏ qua key lạ, chỉ để ép AI suy luận); kiểm tra overlap 3 trục bằng số; cấm part mồ côi; cấm copy tọa độ literal từ ví dụ (nghi bleed-through tọa độ Example 7). Bài học: **build được ≠ ráp được**.
+  - **Chia prompt theo category (2026-07-04)**: thêm combo "Family type" ở action bar tab From JSON (`json_category_combo`) — chọn loại **trước**, bấm Copy Prompt sẽ copy `core chung + overlay của loại đó`. Core = `SYSTEM_PROMPT.md`; 13 overlay ở `FamiGen.pushbutton/prompts/<slug>.md` (mỗi category 1 file: inventory/convention/dimensions/pitfalls riêng). Code: `_PROMPTS_DIR`, `_init_json_panel()`, `_category_slug()`/`_overlay_path()`, `copy_prompt_clicked()` ghép core+overlay (thiếu overlay → fallback core-only). Đã pass audit_tools/audit_ui/sync + XAML well-formed + 13/13 overlay map đúng.
+  - **Chưa test functional trong Revit** (gen family từ JSON mới, chọn loại → copy → gen, đóng doc khi huỷ, thiếu template) — cần user reload pyRevit rồi test lại.
 
 ### Tool 10/14 — ManaFami
 Chain: launcher → `ManaFamiDialog.py` (1428 loc) → `ManaFami.xaml`
@@ -161,7 +168,7 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 | 6 | RoomToFloor | 6 | ⬜ | |
 | 7 | Tile Layout | 6 | 🔄 | Sửa bug không mở được (path sai) + tính năng list toàn bộ sàn mặc định 2026-07-03 — chưa test functional (layout tile, Ctrl+Z) |
 | 8 | PropertyLine | 7 | ⬜ | |
-| 9 | FamiGen | 7 | ⬜ | |
+| 9 | FamiGen | 7 | 🔄 | Sub-mode "From JSON" cải tiến 2026-07-04 (SYSTEM_PROMPT: de-bias khỏi đèn, +7 ví dụ → 14, recipe ống gấp khúc; roadmap tách prompt theo category) — chưa test functional trong Revit |
 | 10 | ManaFami | 7 | ⬜ | |
 | 11 | Wall_Adjust Base | 7 | ⬜ | |
 | 12 | SplitElements | 7 | ⬜ | |

@@ -559,6 +559,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # Restore window geometry and sidebar state from last session
         self._restore_window_state()
 
+        # ── Register the MCP ExternalEvent on the UI thread ────────────────────
+        # This MUST happen here, on Revit's main thread — ExternalEvent.Create
+        # throws if called from the background startup probe below, which would
+        # leave every model-editing MCP tool (create wall/floor/column, rename,
+        # set_parameter, …) unable to open a transaction. Creating it up-front
+        # here guarantees the server can marshal those tools onto the UI thread.
+        try:
+            from Services.mcp_service import MCPService as _MCPService
+            _ok, _ee_err = _MCPService.ensure_external_event()
+            if not _ok:
+                logger.debug("MCP ExternalEvent init failed: {}".format(_ee_err))
+        except Exception as _ex:
+            logger.debug("MCP ExternalEvent init error: {}".format(_ex))
+
         # Update AI badge, pre-load models cache, and warm up router status in background
         def _bg_startup_probe():
             try:

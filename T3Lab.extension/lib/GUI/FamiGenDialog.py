@@ -8,6 +8,7 @@ import os
 import re
 import sys
 import math
+import codecs
 import traceback
 import json
 
@@ -36,6 +37,10 @@ _EXTENSION_DIR = os.path.dirname(_LIB_DIR)
 _SYSTEM_PROMPT_PATH = os.path.join(
     _EXTENSION_DIR, 'T3Lab.tab', 'Modeling & Datum.panel',
     'FamiGen.pushbutton', 'SYSTEM_PROMPT.md')
+# Per-category prompt overlays: the shared SYSTEM_PROMPT.md is the general core,
+# and prompts/<slug>.md holds category-specific inventory/conventions appended on
+# top when the user picks a family type before "Copy Prompt".
+_PROMPTS_DIR = os.path.join(os.path.dirname(_SYSTEM_PROMPT_PATH), 'prompts')
 
 from Autodesk.Revit.DB import (
     ImportInstance, FilteredElementCollector,
@@ -46,8 +51,9 @@ from Autodesk.Revit.DB import (
     Transaction, ElementId,
     View, ViewType, ReferencePlane, ReferenceArray,
     PlanarFace, Solid, IFailuresPreprocessor, FailureProcessingResult, FailureSeverity,
-    Transform, ProfilePlaneLocation,
+    Transform, ProfilePlaneLocation, HermiteSpline,
 )
+from System.Collections.Generic import List as _NetList
 
 from Utils.DWGFamilyHelpers import get_xy_bounds, _project_curve_to_z as _dwg_project_curve
 
@@ -506,6 +512,7 @@ class FamilyCreatorDialog(forms.WPFWindow):
         self._pause_requested  = False
 
         self._init_cad_panel()
+        self._init_json_panel()
 
         if initial_mode == 'json':
             self._show_panel('json')
@@ -639,6 +646,21 @@ class FamilyCreatorDialog(forms.WPFWindow):
         b.UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged
         col.SelectedItemBinding = b
         self.blocks_grid.Columns.Add(col)
+
+    def _init_json_panel(self):
+        """Populate the family-type selector on the From JSON tab so 'Copy Prompt'
+        can append the matching per-category overlay before copying."""
+        try:
+            combo = (getattr(self, 'json_category_combo', None)
+                     or self.FindName('json_category_combo'))
+            if combo is None:
+                return
+            combo.Items.Clear()
+            for name, _ in CATEGORY_TEMPLATES:
+                combo.Items.Add(name)
+            combo.SelectedIndex = 0
+        except Exception:
+            logger.warning("json panel init: {}".format(traceback.format_exc()))
 
     def _init_filter_bar(self):
         self.combo_filter_suggested.Items.Add("All Categories")
@@ -2190,14 +2212,55 @@ class FamilyCreatorDialog(forms.WPFWindow):
 
     # ── JSON mode ────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _category_slug(cat_name):
+        """'Plumbing Fixture' -> 'plumbing_fixture' (overlay filename stem)."""
+        return re.sub(r'[^a-z0-9]+', '_', (cat_name or "").lower()).strip('_')
+
+    def _overlay_path(self, cat_name):
+        slug = self._category_slug(cat_name)
+        if not slug:
+            return None
+        return os.path.join(_PROMPTS_DIR, slug + '.md')
+
     def copy_prompt_clicked(self, sender, e):
+        # Assemble the prompt = shared general core + the overlay for the family
+        # type the user picked, so the pasted prompt is tailored to that category.
         try:
-            with open(_SYSTEM_PROMPT_PATH, 'r') as f:
-                text = f.read()
-            Clipboard.SetText(text)
-            self.lbl_status.Text = "System prompt copied to clipboard."
+            with codecs.open(_SYSTEM_PROMPT_PATH, 'r', 'utf-8') as f:
+                core = f.read()
         except Exception as ex:
-            forms.alert("Could not copy system prompt: {}".format(ex))
+            forms.alert("Could not read core prompt: {}".format(ex))
+            return
+
+        cat = None
+        try:
+            cat = self.json_category_combo.SelectedItem
+        except Exception:
+            cat = None
+
+        overlay = ""
+        opath = self._overlay_path(cat)
+        if opath and os.path.isfile(opath):
+            try:
+                with codecs.open(opath, 'r', 'utf-8') as f:
+                    overlay = f.read()
+            except Exception:
+                overlay = ""
+
+        if overlay:
+            text = core.rstrip() + "\n\n" + overlay
+            status = "Prompt copied: general core + '{}' overlay.".format(cat)
+        else:
+            text = core
+            status = ("Prompt copied: general core ('{}' has no overlay yet)."
+                      .format(cat) if cat else "Prompt copied: general core.")
+
+        try:
+            Clipboard.SetText(text)
+            self.lbl_status.Text = status
+        except Exception as ex:
+            forms.alert("Could not copy prompt: {}".format(ex))
 
     def cancel_clicked(self, sender, e):
         self.Close()
@@ -2333,8 +2396,13 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 z = val
         return XYZ(x, y, z)
 
-    def _json_curve(self, seg, plane):
-        """Parse one JSON segment into a Revit Curve (None = unusable)."""
+    def _json_curve(self, seg, plane, split_full=0):
+        """Parse one JSON segment into a Revit Curve (None = unusable).
+
+        With ``split_full`` >= 2, a full circle/ellipse is returned as a
+        LIST of that many arc segments instead of one closed curve —
+        NewBlend rejects single-curve cyclic loops because it needs
+        vertices to pair the two profiles ("internal error code 1")."""
         try:
             seg_type = seg.get("type", "Line")
             ax, ay = self._PLANE_AXES[plane[0] if plane else 'z']
@@ -2344,6 +2412,29 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 if p0.DistanceTo(p1) < self._MIN_LEN:
                     return None            # degenerate; _heal_loop bridges the gap
                 return Line.CreateBound(p0, p1)
+            elif seg_type in ("Arc3P", "ArcThreePoint"):
+                # three-point arc: start / end / any point on the arc between
+                # them — far easier for AI to emit than center+angles, and the
+                # right tool for organic outlines (petals, scallops, domes)
+                p0 = self._json_point(seg["start"], plane)
+                p1 = self._json_point(seg["end"], plane)
+                pm = self._json_point(seg["mid"], plane)
+                if p0.DistanceTo(p1) < self._MIN_LEN:
+                    return None
+                return Arc.Create(p0, p1, pm)
+            elif seg_type == "Spline":
+                pts = [self._json_point(p, plane)
+                       for p in (seg.get("points") or [])]
+                clean = []
+                for p in pts:
+                    if not clean or clean[-1].DistanceTo(p) >= self._MIN_LEN / 4.0:
+                        clean.append(p)
+                if len(clean) < 3:
+                    return None
+                net_pts = _NetList[XYZ]()
+                for p in clean:
+                    net_pts.Add(p)
+                return HermiteSpline.Create(net_pts, False)
             elif seg_type in ("Arc", "Circle"):
                 nc = self._json_point(seg["center"], plane)
                 r = seg["radius"] * SCL
@@ -2352,6 +2443,10 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 else:
                     a0 = seg.get("start_angle", 0.0)
                     a1 = seg.get("end_angle", 6.283185307)
+                if abs(a1 - a0) >= 6.2831 and split_full >= 2:
+                    step = (a1 - a0) / split_full
+                    return [Arc.Create(nc, r, a0 + i * step, a0 + (i + 1) * step, ax, ay)
+                            for i in range(split_full)]
                 return Arc.Create(nc, r, a0, a1, ax, ay)
             elif seg_type == "Ellipse":
                 nc = self._json_point(seg["center"], plane)
@@ -2359,6 +2454,11 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 ry = seg["radius_y"] * SCL
                 a0 = seg.get("start_angle", 0.0)
                 a1 = seg.get("end_angle", 6.283185307)
+                if abs(a1 - a0) >= 6.2831 and split_full >= 2:
+                    step = (a1 - a0) / split_full
+                    return [Ellipse.CreateCurve(nc, rx, ry, ax, ay,
+                                                a0 + i * step, a0 + (i + 1) * step)
+                            for i in range(split_full)]
                 return Ellipse.CreateCurve(nc, rx, ry, ax, ay, a0, a1)
         except Exception:
             logger.warning("JSON curve skip: {}".format(traceback.format_exc()))
@@ -2409,12 +2509,14 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 healed.append(Line.CreateBound(a_end, b_start))
         return healed
 
-    def _json_loop(self, segs, plane, close=True):
+    def _json_loop(self, segs, plane, close=True, split_full=0):
         """Parse + heal a list of JSON segments into a python list of Curves."""
         curves = []
         for seg in segs or []:
-            c = self._json_curve(seg, plane)
-            if c is not None:
+            c = self._json_curve(seg, plane, split_full)
+            if isinstance(c, list):
+                curves.extend(c)
+            elif c is not None:
                 curves.append(c)
         return self._heal_loop(curves, close)
 
@@ -2506,6 +2608,42 @@ class FamilyCreatorDialog(forms.WPFWindow):
             return loop
         return loop[best_k:] + loop[:best_k]
 
+    def _loop_centroid_uv(self, curves, plane):
+        """Average of a loop's tessellated points in sketch-plane UV coords."""
+        ax, ay = self._PLANE_AXES[plane[0] if plane else 'z']
+        us, vs = [], []
+        for c in curves:
+            try:
+                tess = list(c.Tessellate())
+            except Exception:
+                continue
+            for p in tess[:-1]:
+                us.append(p.X * ax.X + p.Y * ax.Y + p.Z * ax.Z)
+                vs.append(p.X * ay.X + p.Y * ay.Y + p.Z * ay.Z)
+        if not us:
+            return None
+        return (sum(us) / len(us), sum(vs) / len(vs))
+
+    def _loops_congruent(self, loop_a, loop_b, plane):
+        """True when two loops have essentially the same area and centroid.
+
+        A "Blend" between congruent profiles (e.g. a drum shade = circle to an
+        identical circle) is really a prism/cylinder — and NewBlend rejects such
+        pairs with "internal error code 1".  Detecting this lets the caller build
+        an Extrusion instead of losing the part."""
+        area_a = abs(self._loop_area(loop_a, plane))
+        area_b = abs(self._loop_area(loop_b, plane))
+        if area_a <= 0 or area_b <= 0:
+            return False
+        if abs(area_a - area_b) > 0.02 * max(area_a, area_b):
+            return False
+        ca = self._loop_centroid_uv(loop_a, plane)
+        cb = self._loop_centroid_uv(loop_b, plane)
+        if ca is None or cb is None:
+            return False
+        du, dv = ca[0] - cb[0], ca[1] - cb[1]
+        return (du * du + dv * dv) ** 0.5 <= self._SNAP_TOL
+
     def _loop_plane_offset(self, segs, plane):
         """Constant signed offset (feet) of raw JSON points from the plane.
 
@@ -2516,12 +2654,17 @@ class FamilyCreatorDialog(forms.WPFWindow):
         idx = {'x': 0, 'y': 1, 'z': 2}[kind]
         vals = []
         for seg in segs or []:
-            for key in ("start", "end", "center"):
+            for key in ("start", "end", "center", "mid"):
                 if key in seg:
                     try:
                         vals.append(seg[key][idx] * SCL)
                     except Exception:
                         pass
+            for p in seg.get("points") or []:
+                try:
+                    vals.append(p[idx] * SCL)
+                except Exception:
+                    pass
         if not vals:
             return 0.0
         lo, hi = min(vals), max(vals)
@@ -2588,8 +2731,13 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 elif geom_type == "Blend":
                     base_segs = geom_data.get("profile", [])
                     top_segs  = geom_data.get("top_profile", [])
-                    base_loop = self._json_loop(base_segs, plane)
-                    top_loop  = self._json_loop(top_segs, plane)
+                    # full circles/ellipses in blend loops must be split into
+                    # arcs (NewBlend needs vertices to pair); match the other
+                    # loop's segment count for a clean vertex mapping
+                    base_loop = self._json_loop(base_segs, plane,
+                                                split_full=max(2, len(top_segs or [])))
+                    top_loop  = self._json_loop(top_segs, plane,
+                                                split_full=max(2, len(base_segs or [])))
                     if not base_loop or not top_loop:
                         skipped.append("{}: Blend needs both 'profile' and 'top_profile'".format(label))
                         continue
@@ -2601,6 +2749,39 @@ class FamilyCreatorDialog(forms.WPFWindow):
                         base_loop = self._reversed_loop(base_loop)
                     if self._loop_area(top_loop, plane) < 0:
                         top_loop = self._reversed_loop(top_loop)
+                    # Base/top heights first (the extrusion fallback below needs them).
+                    base_off = geom_data.get("base_offset")
+                    top_off  = geom_data.get("top_offset")
+                    base_ft = (base_off * SCL if base_off is not None
+                               else self._loop_plane_offset(base_segs, plane))
+                    top_ft  = (top_off * SCL if top_off is not None
+                               else self._loop_plane_offset(top_segs, plane))
+                    if top_ft < base_ft:
+                        base_ft, top_ft = top_ft, base_ft
+                    if top_ft - base_ft < self._MIN_LEN:
+                        top_ft = base_ft + self._MIN_LEN
+
+                    # A Blend between two congruent loops (same size & centre —
+                    # e.g. a drum shade: circle -> identical circle) is really a
+                    # prism/cylinder.  NewBlend rejects it with "internal error
+                    # code 1", so build it as an Extrusion of the base loop instead.
+                    if self._loops_congruent(base_loop, top_loop, plane):
+                        prism = CurveArrArray()
+                        prism.Append(self._curve_arr(base_loop))
+                        ext = fam_doc.FamilyCreate.NewExtrusion(
+                            is_solid, prism, sketch_plane, top_ft - base_ft)
+                        if top_ft > 0:
+                            ext.EndOffset = top_ft
+                            ext.StartOffset = base_ft
+                        else:
+                            ext.StartOffset = base_ft
+                            ext.EndOffset = top_ft
+                        built += 1
+                        continue
+
+                    # NewBlend pairs the first vertices of the two loops; align the
+                    # top loop's start with the base's, then fall back through
+                    # reversed combinations if Revit still balks.
                     top_aligned = self._align_loop_start(top_loop, base_loop, plane)
                     attempts = [(top_aligned, base_loop)]
                     if top_aligned is not top_loop:
@@ -2619,16 +2800,6 @@ class FamilyCreatorDialog(forms.WPFWindow):
                             last_err = blend_err
                     if blend is None:
                         raise last_err
-                    base_off = geom_data.get("base_offset")
-                    top_off  = geom_data.get("top_offset")
-                    base_ft = (base_off * SCL if base_off is not None
-                               else self._loop_plane_offset(base_segs, plane))
-                    top_ft  = (top_off * SCL if top_off is not None
-                               else self._loop_plane_offset(top_segs, plane))
-                    if top_ft < base_ft:
-                        base_ft, top_ft = top_ft, base_ft
-                    if top_ft - base_ft < self._MIN_LEN:
-                        top_ft = base_ft + self._MIN_LEN
                     # assign offsets keeping top > base at every step
                     if base_ft < 0:
                         blend.BaseOffset = base_ft
@@ -2666,10 +2837,106 @@ class FamilyCreatorDialog(forms.WPFWindow):
                         continue
                     prof_arr = CurveArrArray()
                     prof_arr.Append(self._curve_arr(prof_curves))
-                    sweep_profile = fam_doc.Application.NewCurveLoopsProfile(prof_arr)
-                    fam_doc.FamilyCreate.NewSweep(
-                        is_solid, self._curve_arr(path_curves), sketch_plane,
-                        sweep_profile, 0, ProfilePlaneLocation.Start)
+                    sweep_profile = fam_doc.Application.Create.NewCurveLoopsProfile(prof_arr)
+                    try:
+                        fam_doc.FamilyCreate.NewSweep(
+                            is_solid, self._curve_arr(path_curves), sketch_plane,
+                            sweep_profile, 0, ProfilePlaneLocation.Start)
+                    except Exception:
+                        # sharp/kinked corners often kill a multi-segment sweep
+                        # (profile wider than the corner allows) — rebuild it as
+                        # one sweep per path segment instead of losing the part
+                        if len(path_curves) < 2:
+                            raise
+                        seg_ok = 0
+                        for pc in path_curves:
+                            try:
+                                one_path = CurveArray()
+                                one_path.Append(pc)
+                                seg_prof = CurveArrArray()
+                                seg_prof.Append(self._curve_arr(
+                                    self._json_loop(geom_data.get("profile", []), None)))
+                                fam_doc.FamilyCreate.NewSweep(
+                                    is_solid, one_path, sketch_plane,
+                                    fam_doc.Application.Create.NewCurveLoopsProfile(seg_prof),
+                                    0, ProfilePlaneLocation.Start)
+                                seg_ok += 1
+                            except Exception:
+                                pass
+                        if seg_ok == 0:
+                            raise
+                        logger.warning(
+                            "JSON sweep '{}' built per-segment ({}/{} runs)".format(
+                                label, seg_ok, len(path_curves)))
+
+                elif geom_type == "Cylinder":
+                    # Axis-agnostic rod/tube: the AI gives two axis endpoints +
+                    # radius and the parser derives the sketch plane & direction.
+                    # This removes the #1 tube failure — mismatching sketch_plane
+                    # with the extrusion axis (e.g. drawing a vertical rod on
+                    # sketch_plane_x, which actually extrudes horizontally).
+                    s = geom_data.get("start")
+                    e = geom_data.get("end")
+                    r = geom_data.get("radius")
+                    if not (s and e and r is not None):
+                        skipped.append("{}: Cylinder needs 'start', 'end', 'radius'".format(label))
+                        continue
+                    dx = abs(e[0] - s[0]); dy = abs(e[1] - s[1]); dz = abs(e[2] - s[2])
+                    tol = 1.0   # mm — treat as axis-aligned within 1 mm
+                    kind = None
+                    if dx <= tol and dy <= tol and dz > tol:
+                        kind = 'z'
+                    elif dy <= tol and dz <= tol and dx > tol:
+                        kind = 'x'
+                    elif dx <= tol and dz <= tol and dy > tol:
+                        kind = 'y'
+                    if kind is not None:
+                        val = {'x': s[0], 'y': s[1], 'z': s[2]}[kind] * SCL
+                        cyl_plane = (kind, val)
+                        cyl_sp = self._make_sketch_plane(fam_doc, cyl_plane)
+                        circ = self._json_curve(
+                            {"type": "Circle", "center": s, "radius": r}, cyl_plane)
+                        prof = CurveArrArray()
+                        prof.Append(self._curve_arr([circ]))
+                        end_norm = {'x': e[0], 'y': e[1], 'z': e[2]}[kind] * SCL
+                        length = end_norm - val
+                        ext = fam_doc.FamilyCreate.NewExtrusion(
+                            is_solid, prof, cyl_sp, abs(length))
+                        if length >= 0:
+                            ext.EndOffset = length
+                            ext.StartOffset = 0.0
+                        else:
+                            ext.StartOffset = length
+                            ext.EndOffset = 0.0
+                    else:
+                        # diagonal rod → Revolution of a rectangle about the rod's
+                        # OWN axis.  Revit's sweep engine is unreliable here, but
+                        # NewRevolution is solid, so build the cylinder as a solid
+                        # of revolution instead of sweeping a circle along a path.
+                        p0 = self._json_point(s, None)
+                        p1 = self._json_point(e, None)
+                        if p0.DistanceTo(p1) < self._MIN_LEN:
+                            skipped.append("{}: Cylinder has zero length".format(label))
+                            continue
+                        rr = r * SCL
+                        axis_dir = (p1 - p0).Normalize()
+                        ref = XYZ.BasisZ if abs(axis_dir.Z) < 0.9 else XYZ.BasisX
+                        normal = axis_dir.CrossProduct(ref).Normalize()   # sketch-plane normal ⟂ axis
+                        out = axis_dir.CrossProduct(normal).Normalize()   # in-plane, ⟂ axis
+                        o0 = p0 + out.Multiply(rr)
+                        o1 = p1 + out.Multiply(rr)
+                        rect = CurveArray()
+                        rect.Append(Line.CreateBound(p0, p1))   # on the axis
+                        rect.Append(Line.CreateBound(p1, o1))   # out by radius
+                        rect.Append(Line.CreateBound(o1, o0))   # back along axis
+                        rect.Append(Line.CreateBound(o0, p0))   # in to the axis
+                        prof = CurveArrArray()
+                        prof.Append(rect)
+                        cyl_sp = SketchPlane.Create(
+                            fam_doc, Plane.CreateByNormalAndOrigin(normal, p0))
+                        axis = Line.CreateBound(p0, p1)
+                        fam_doc.FamilyCreate.NewRevolution(
+                            is_solid, prof, cyl_sp, axis, 0.0, 6.283185307)
 
                 else:
                     skipped.append("{}: unsupported type '{}'".format(label, geom_type))
