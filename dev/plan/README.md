@@ -41,19 +41,19 @@
 | 9 | GĐ3 | Debug Panel: Data & IFC-SG (6 tool) | `panel-4-data-ifcsg.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung (pre-flight tĩnh sạch 2026-07-04: 3 fix trang trắng còn nguyên, print flood đã xoá) |
 | 10 | GĐ3 | Debug Panel: Standards & Settings (4 tool) | `panel-5-standards-settings.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung (đóng theo xác nhận, không có phiên review tĩnh riêng) |
 | 11 | GĐ3 | Debug Panel: Support + Standard (9 tool) | `panel-6-support-standard.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung (đóng theo xác nhận, không có phiên review tĩnh riêng) |
-| 12 | GĐ4 | Regression toàn bộ + tổng kết | mục dưới | ⬜ |
+| 12 | GĐ4 | Regression toàn bộ + tổng kết | mục dưới | ✅ **Hoàn thành 2026-07-05** — 3 audit sạch, 41/41 tool ✅, review code GĐ4 phát hiện + sửa F10 (2 điểm ghi JSON unicode không an toàn), tổng kết + danh sách issue còn lại: `dev/DEBUG_PLAN.md` mục 7 |
 
 > Nguyên tắc: **không nhảy giai đoạn**. GĐ1 dọn dead code trước để GĐ2 không tốn công sửa UI cho file sắp xoá; GĐ2 chốt UI trước để GĐ3 smoke test không bị nhiễu bởi thay đổi XAML.
 
-## Giai đoạn 4 — Ngày 12: Regression & tổng kết
+## Giai đoạn 4 — Ngày 12: Regression & tổng kết (✅ hoàn thành 2026-07-05)
 
-- [ ] `python3 dev/audit_tools.py --quiet` → exit 0
-- [ ] `python3 dev/audit_ui.py --quiet` → exit 0
-- [ ] `python3 dev/sync_wpf_styles.py --check` → 0 lệch
-- [ ] Mọi bảng panel: không còn ô ⬜ (hoặc có ghi chú lý do skip)
-- [ ] Tổng hợp mục "Phát sinh" của 6 file panel → tạo danh sách issue còn lại, xếp ưu tiên
-- [ ] Cập nhật `dev/DEBUG_PLAN.md` trạng thái cuối cùng
-- [ ] Screenshot bộ UI đã chuẩn hoá lưu vào `dev/plan/screenshots/` (nếu có)
+- [x] `python3 dev/audit_tools.py --quiet` → exit 0 (2026-07-05)
+- [x] `python3 dev/audit_ui.py --quiet` → exit 0 — 0/54 file có vấn đề (lỗi IFCSG copyright trùng ×2 ghi ở Ngày 4 nay đã hết)
+- [x] `python3 dev/sync_wpf_styles.py --check` → 53/53, 0 lệch
+- [x] Mọi bảng panel: không còn ô ⬜ (41/41 tool ✅ theo xác nhận chung của user 2026-07-05)
+- [x] Tổng hợp mục "Phát sinh" của 6 file panel → danh sách issue còn lại xếp ưu tiên: `dev/DEBUG_PLAN.md` mục 7 (1 🔴 ManaSheets Excel Import/Export · 2 🟡 tech debt · backlog 🟢)
+- [x] Cập nhật `dev/DEBUG_PLAN.md` trạng thái cuối cùng (banner trạng thái, findings F1–F9 chốt, thêm F10 phát hiện + sửa trong review GĐ4, bảng 41 tool ✅, mục 7 tổng kết)
+- [x] Screenshot bộ UI đã chuẩn hoá lưu vào `dev/plan/screenshots/` — ⏭️ skip có lý do: user QA trực tiếp trong Revit (tiền lệ Ngày 4)
 
 ## Quy ước trạng thái
 
