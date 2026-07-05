@@ -769,6 +769,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
+        # Persist window geometry/sidebar on close (custom X button was removed)
+        try:
+            self.Closing += self._on_closing
+        except Exception:
+            pass
+
     def setup_icon(self):
         """Override pyRevit's setup_icon to remove the window icon from the title bar."""
         pass
@@ -827,23 +833,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Window controls ──────────────────────────────────────────────────────
 
-    def close_clicked(self, sender, e):
-        self._save_window_state()
-        if self.is_docked:
-            try:
-                from Autodesk.Revit.UI import DockablePaneId
-                from System import Guid
-                from GUI.AssistantPaneControl import ASSISTANT_PANE_GUID
-                from pyrevit import HOST_APP
+    def _on_closing(self, sender, e):
+        """Persist window geometry/sidebar state when the window closes.
 
-                pane_id = DockablePaneId(ASSISTANT_PANE_GUID)
-                pane = HOST_APP.uiapp.GetDockablePane(pane_id)
-                if pane and pane.IsShown():
-                    pane.Hide()
-                    return
-            except Exception:
-                pass
-        self.Close()
+        Wired to the WPF Closing event in __init__. Previously this logic lived
+        in close_clicked (the custom X button), which was removed — this keeps
+        window-state saving alive for Alt+F4 / Revit pane close.
+        """
+        self._save_window_state()
 
     def minimize_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized

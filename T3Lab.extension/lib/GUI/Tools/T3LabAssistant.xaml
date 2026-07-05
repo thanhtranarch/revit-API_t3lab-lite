@@ -1436,13 +1436,6 @@
                         WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
                 </Button>
-                <!-- Close -->
-                <Button x:Name="btn_close"
-                        Style="{StaticResource CloseButton}"
-                        ToolTip="Close" Click="close_clicked"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                    <TextBlock x:Name="close_text" Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
-                </Button>
             </StackPanel>
         </Grid>
 
