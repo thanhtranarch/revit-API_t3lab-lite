@@ -69,17 +69,14 @@
 
 ---
 
-## Roadmap độc lập theo tool (ngoài bảng `gd<N> revitapi` ở trên)
+## Roadmap độc lập theo tool — ĐÃ ĐÓNG TOÀN BỘ (2026-07-05)
 
-> Các roadmap này **không** thuộc 4 giai đoạn/12 ngày phía trên — mỗi cái đi theo nhịp riêng
-> của tool/tính năng đó. Gộp vào đây chỉ để có 1 chỗ theo dõi tổng, không đổi cách vận hành
-> từng file (vẫn tick `- [x]` trực tiếp trong file gốc).
+> User xác nhận 2026-07-05: **toàn bộ 4 roadmap độc lập đã thực hiện xong**; 4 file roadmap
+> đã xóa cho gọn theo yêu cầu (nội dung đầy đủ vẫn còn trong lịch sử git — xem commit xóa).
 
-| Roadmap | File | Trạng thái | Việc còn lại |
-|---------|------|-----------|--------------|
-| T3Lab Assistant — Agentic Upgrade | `assistant-agentic-upgrade-roadmap.md` | 🔄 GĐ A + B1/B2/B3/B6 code xong, chưa smoke test | B4 (TransactionGroup), B5 (confirm destructive), GĐ C (C1–C4), GĐ D (D1–D3 smoke test) |
-| AutoDimension — Cải thiện | `autodimension-improvement-roadmap.md` | 🔄 GĐ A code xong, chưa smoke test | GĐ B (idempotent, dim mặt tường, core-layer, stacking, EQ), GĐ C (trục xiên, grid cong, scope box, link), GĐ D (preset, preview, progress bar, modeless) |
-| FamiGen — From JSON | `famigen-from-json-roadmap.md` | 🔄 Prompt v2 xong 2026-07-05 (7 file tự chứa + SOFT-FORM RECIPES + case library), chờ smoke test | Smoke test Revit (sofa 11 part · Cylinder chéo trục · 2–3 case end-to-end) · WS4 (cảnh báo part rời rạc) · WS5 (sketch plane tùy ý) · test basket đa dạng |
-| MCP Tools — Expansion | `mcp-tools-roadmap.md` | 🔄 ALL SHIPPED (code), chưa smoke test | Live smoke test trong Revit sau reload pyRevit; verify riêng Tier-3 (`create_project_parameter`, `room_to_floor`, `purge_unused`) trên scratch model |
-
-> Điểm chung: cả 4 đều nghẽn ở bước **smoke test trong Revit** — cần user tự test và báo lại kết quả, không tự bịa.
+| Roadmap | Kết cục |
+|---------|---------|
+| T3Lab Assistant — Agentic Upgrade | ✅ Đóng — code GĐ A/B/C đã ship trước đó; mục mở cuối cùng (D3 smoke test) xác nhận qua phản hồi chung "các tool hoạt động tốt" + xác nhận đóng roadmap 2026-07-05 |
+| AutoDimension — Cải thiện | ✅ Đóng — GĐ A đã ship & hoạt động tốt; backlog cải tiến (~16 mục GĐ B/C/D: idempotent, dim mặt tường host, core-layer thật, stacking manager, EQ, trục xiên, section mở rộng, preset/preview…) **đóng không triển khai** theo quyết định user — nếu cần thì mở roadmap mới |
+| FamiGen — From JSON | ✅ Đóng — prompt v2 (7 file tự chứa + SOFT-FORM RECIPES + Object case library + ví dụ sofa 11 part) shipped, smoke test xác nhận chung 2026-07-05; backlog WS4 (cảnh báo part rời rạc) / WS5 (sketch plane tùy ý) **đóng không triển khai** |
+| MCP Tools — Expansion | ✅ Đóng — toàn bộ mục đã tick từ trước, smoke test xác nhận chung 2026-07-05 |
