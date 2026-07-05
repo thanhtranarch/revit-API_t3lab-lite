@@ -15,6 +15,7 @@ __version__ = "1.0.0"
 
 # IMPORT LIBRARIES
 # ==================================================
+import io
 import os
 import sys
 import clr
@@ -82,8 +83,8 @@ except Exception as e:
     def get_active_provider_name(*a, **kw): return "claude"
     def get_provider_display_label(*a, **kw): return "AI"
     def get_setup_guidance_message(viet=True):
-        return (u"Chưa hiểu lệnh. Thử: 'mở batchout', 'xuất pdf G sheet'..." if viet
-                else "Didn't understand. Try: 'open batchout', 'export pdf G sheet'...")
+        return (u"Chưa hiểu yêu cầu — bạn mô tả cụ thể hơn nhé." if viet
+                else "I didn't understand — could you describe it more specifically?")
     def _build_system_prompt(revit_context=u""):
         from Intelligence.t3lab_agent import build_system_prompt
         return build_system_prompt(revit_context=revit_context)
@@ -446,9 +447,17 @@ def save_chat_history(doc_key, messages):
         path = _history_file(doc_key)
         # Keep only the last 60 messages
         to_save = messages[-60:]
-        with open(path, 'w') as f:
-            json.dump({"doc_key": doc_key, "messages": to_save}, f,
-                      ensure_ascii=False, indent=2)
+        # Serialize to an ASCII string FIRST, then write in one shot.
+        # json.dump(..., ensure_ascii=False) on a bytes-mode file blows up
+        # with UnicodeEncodeError mid-write under IronPython 2.7 as soon as
+        # the chat carries Vietnamese — truncating the history file to 0
+        # bytes, silently (same failure class as the tool_registry.json bug).
+        data = json.dumps({"doc_key": doc_key, "messages": to_save},
+                          ensure_ascii=True, indent=2)
+        if isinstance(data, bytes):
+            data = data.decode('ascii')
+        with io.open(path, 'w', encoding='utf-8') as f:
+            f.write(data)
     except Exception as ex:
         logger.debug("Could not save chat history: {}".format(ex))
 
@@ -459,7 +468,7 @@ def load_chat_history(doc_key):
         path = _history_file(doc_key)
         if not os.path.exists(path):
             return []
-        with open(path, 'r') as f:
+        with io.open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return data.get("messages", [])
     except Exception as ex:
@@ -475,6 +484,28 @@ def clear_chat_history(doc_key):
             os.remove(path)
     except Exception as ex:
         logger.debug("Could not clear chat history: {}".format(ex))
+
+
+# ─── Minimal icon vocabulary for bot chat messages ─────────────────────────────
+# Segoe MDL2 Assets glyphs already verified elsewhere in this codebase (window
+# chrome buttons, command palette, tool-card status) — reused here rather than
+# guessing new codepoints, per the Lumina rule that chat icons must be minimal
+# monochrome glyphs, never full-color detailed emoji (🔍🤖⚠️📎🔧👋🎉 etc.).
+_ICON_INFO    = u""   # Info — neutral notices ("no AI configured", RAG note)
+_ICON_SEARCH  = u""   # Zoom — tool discovery
+_ICON_WARNING = u""   # Warning triangle
+_ICON_SUCCESS = u""   # CheckMark
+_ICON_SYNC    = u""   # Sync — "in progress" (matches tool-card running glyph)
+_ICON_STOP    = u""   # Stop
+_ICON_REFRESH = u""   # Refresh (chat cleared)
+_ICON_ATTACH  = u""   # Attach (paperclip)
+_ICON_ANALYZE = u""   # Analyze — fast-context "instant DB answer" badge
+_ICON_LIST    = u""   # List/reference — stats & selection section headers
+
+_ICON_BLUE  = (59, 130, 246)     # #3B82F6 accent — info/discovery
+_ICON_AMBER = (245, 158, 11)     # #F59E0B — warning
+_ICON_GREEN = (16, 185, 129)     # #10B981 — success
+_ICON_SLATE = (100, 116, 139)    # #64748B — neutral/muted
 
 
 # CLASS/FUNCTIONS
@@ -507,13 +538,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._doc_key          = _get_doc_key() # document identifier for history
         self._persisted_msgs   = []             # flat list with timestamps, for save/load
         self._attached_files   = []             # list of file paths (images / PDFs)
-        self._models_cache     = {
-            "claude":    ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
-            "openai":    ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-            "deepseek":  ["deepseek-chat", "deepseek-coder"],
-            "ollama":    ["qwen2.5:0.5b", "qwen2.5:1.5b", "llama3", "mistral"],
-            "lmstudio":  ["local-model"],
-        }             # {provider_name: [model_list]} — avoids HTTP on sidebar open
+        # {provider_name: [model_list]} — filled ONLY by live probes against
+        # each vendor's models endpoint after a connection succeeds. Never
+        # pre-seeded with hardcoded names: the MODEL combo stays empty and
+        # disabled (with a hint) until the provider actually reports which
+        # models the account/server currently has.
+        self._models_cache     = {}
         
         # ── History & Typing Animation State ──────────────────────────────────
         self._input_history    = []
@@ -525,6 +555,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Live streaming bubble state ───────────────────────────────────────
         self._stream_row       = None           # Grid row of the live reply bubble
         self._stream_tb        = None           # TextBlock being filled token-by-token
+
+        # ── Native agent loop state ───────────────────────────────────────────
+        self._agent_loop        = None    # running AgentLoop (native tools path)
+        self._cancel_requested  = False   # Stop pressed before the loop existed
+        self._send_orig_content = None    # cached "Gửi" content of send_button
 
         # ── Easy-to-use input: multi-line with Shift+Enter ────────────────────
         try:
@@ -633,14 +668,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if not models:
                             # Notify user in the chat panel
                             self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
-                                u"📥 Không tìm thấy mô hình AI cục bộ nào. Đang tự động tải mô hình mặc định (qwen2.5:1.5b) về máy bạn. Quá trình này chạy ngầm và có thể mất vài phút..."
+                                u"Không tìm thấy mô hình AI cục bộ nào. Đang tự động tải mô hình mặc định (qwen2.5:1.5b) về máy bạn. Quá trình này chạy ngầm và có thể mất vài phút...",
+                                icon=_ICON_SYNC, icon_color=_ICON_SLATE
                             )))
-                            
+
                             payload = {"name": "qwen2.5:1.5b", "stream": False}
                             local_llm._post_json(local_llm.OLLAMA_HOST + "/api/pull", payload, timeout=600)
-                            
+
                             self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
-                                u"✅ Tải thành công mô hình AI qwen2.5:1.5b! Bạn có thể sử dụng T3Lab Assistant ngoại tuyến."
+                                u"Tải thành công mô hình AI qwen2.5:1.5b! Bạn có thể sử dụng T3Lab Assistant ngoại tuyến.",
+                                icon=_ICON_SUCCESS, icon_color=_ICON_GREEN
                             )))
                 except Exception as ex:
                     logger.debug("Auto-pull model failed: {}".format(ex))
@@ -702,7 +739,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     no_provider = not has_api_key() and not has_local_llm()
                     if already_onboarded and fresh_chat and no_provider:
                         def _nudge():
-                            self._append_bot_message(get_setup_guidance_message(True))
+                            self._append_bot_message(get_setup_guidance_message(True),
+                                                     icon=_ICON_INFO, icon_color=_ICON_SLATE)
                             self._add_to_history("assistant", get_setup_guidance_message(True))
                         self.Dispatcher.Invoke(Action(_nudge))
                 except Exception:
@@ -858,9 +896,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if len(new_tools) > 5:
                     names += u'...'
                 self._append_bot_message(
-                    u"🔍 Phát hiện {} công cụ mới: {}.\n"
+                    u"Phát hiện {} công cụ mới: {}.\n"
                     u"Tôi đã tự học và có thể mở chúng bằng lệnh tự nhiên.".format(
-                        len(new_tools), names)
+                        len(new_tools), names),
+                    icon=_ICON_SEARCH, icon_color=_ICON_BLUE
                 )
         except Exception as ex:
             logger.debug("_bootstrap_discovered_tools error: {}".format(ex))
@@ -924,8 +963,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._update_welcome_greeting()
             # Show fresh welcome message
             self._append_bot_message(
-                u"Cuộc trò chuyện đã được làm mới! 👋\n"
-                u"Tôi có thể giúp gì cho bạn?"
+                u"Cuộc trò chuyện đã được làm mới!\n"
+                u"Tôi có thể giúp gì cho bạn?",
+                icon=_ICON_REFRESH, icon_color=_ICON_SLATE
             )
         except Exception as ex:
             logger.debug("reset_chat error: {}".format(ex))
@@ -1101,7 +1141,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             greet = (u"Good morning" if h < 12 else
                      u"Good afternoon" if h < 18 else u"Good evening")
             try:
-                self.onboarding_greeting.Text = u"{}! 👋".format(greet)
+                self.onboarding_greeting.Text = u"{}!".format(greet)
             except Exception:
                 pass
 
@@ -1199,8 +1239,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 pass
 
             self._append_bot_message(
-                u"Rất vui được gặp bạn, {}! 🎉\n"
-                u"Hồ sơ của bạn đã được lưu. Hãy thử 'mở batchout' hoặc hỏi tôi bất cứ điều gì về Revit.".format(name))
+                u"Rất vui được gặp bạn, {}!\n"
+                u"Hồ sơ của bạn đã được lưu. Hãy thử 'mở batchout' hoặc hỏi tôi bất cứ điều gì về Revit.".format(name),
+                icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
         except Exception as ex:
             logger.debug("onboarding_save_clicked error: {}".format(ex))
 
@@ -1293,7 +1334,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from Intelligence.llm_router import LLMRouter
 
             router = LLMRouter()
-            status = router.get_status()
+            # Instant, zero-HTTP snapshot — the old get_status() call here
+            # probed every provider synchronously on the UI thread whenever
+            # the cache was cold, freezing the window for seconds on click.
+            status = router.get_status_instant()
 
             menu = ContextMenu()
 
@@ -1317,7 +1361,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                 item          = MenuItem()
                 item.Header   = header
-                item.IsEnabled = available and not is_active
+                # Switching is always allowed — the sidebar guides setup if the
+                # provider isn't configured yet (disabling based on a possibly
+                # stale snapshot locked users out of providers that were fine).
+                item.IsEnabled = not is_active
 
                 def _make_handler(n):
                     def _handler(s, e):
@@ -1326,6 +1373,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                 item.Click += _make_handler(name)
                 menu.Items.Add(item)
+
+            # Warm the real status cache in the background for the NEXT open.
+            def _warm():
+                try:
+                    LLMRouter().get_status(use_cache=True)
+                except Exception:
+                    pass
+            _wt = Thread(ThreadStart(_warm))
+            _wt.IsBackground = True
+            _wt.Start()
 
             menu.PlacementTarget = sender
             menu.Placement       = Primitives.PlacementMode.Bottom
@@ -1992,15 +2049,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             hint      = u""
 
             if enabled:
-                # Pin the saved model (stored per-provider) first if present.
+                # Pre-select the saved model (stored per-provider) ONLY if the
+                # vendor still reports it in the live list — never inject a
+                # name the vendor didn't confirm (it may be retired/renamed).
                 saved = None
                 try:
                     from config.settings import T3LabAISettings
                     saved = T3LabAISettings().get_provider_model(active)
                 except Exception:
                     pass
-                if saved and saved not in models:
-                    models.insert(0, saved)
                 for m in models:
                     self.sidebar_model_combo.Items.Add(m)
                 if saved and saved in models:
@@ -2130,7 +2187,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from Intelligence.llm_router import LLMRouter
 
             router = LLMRouter()
-            status = router.get_status(use_cache=True)   # cache already warm from bg probe
+            # NEVER get_status() here — this runs on the UI thread (Dispatcher),
+            # and when the 30s cache TTL has lapsed (probe_provider merges data
+            # but doesn't refresh the TTL) get_status(use_cache=True) silently
+            # re-probes EVERY provider synchronously: multi-second UI freeze on
+            # every sidebar open / provider switch. Cached-or-cheap only.
+            status = router.get_status_instant()
             active = router.get_active_name()
 
             _GRAY  = Color.FromRgb(230, 230, 234)
@@ -2199,11 +2261,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ─── Session guard & UI state ─────────────────────────────────────────────
 
     def _set_busy(self, busy):
-        """Lock/unlock the whole input area. Call from UI thread only."""
+        """Lock/unlock the input area. Call from UI thread only.
+
+        While busy the send button STAYS ENABLED and becomes a Stop button so
+        the user can cancel a running agent request mid-flight.
+        """
         self._busy = busy
+        if busy:
+            self._cancel_requested = False
         try:
-            self.send_button.IsEnabled  = not busy
-            self.chat_input.IsEnabled   = not busy
+            self.chat_input.IsEnabled = not busy
+            self._render_send_button(busy)
             # btn_attach stays locked (import file feature disabled)
         except Exception:
             pass
@@ -2227,6 +2295,66 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._show_typing_indicator()
         else:
             self._hide_typing_indicator()
+
+    def _render_send_button(self, busy):
+        """Swap the send button between 'Gửi ➢' and 'Dừng ⏹'. UI thread only."""
+        try:
+            from System.Windows.Controls import StackPanel, TextBlock, Orientation
+            from System.Windows.Media import SolidColorBrush, Color, FontFamily
+            from System.Windows import Thickness, VerticalAlignment
+
+            btn = self.send_button
+            if self._send_orig_content is None:
+                self._send_orig_content = btn.Content
+
+            if not busy:
+                btn.Content   = self._send_orig_content
+                btn.IsEnabled = True
+                btn.ToolTip   = u"Gửi (Enter)"
+                return
+
+            _white = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            sp = StackPanel()
+            sp.Orientation = Orientation.Horizontal
+
+            t1 = TextBlock()
+            t1.Text              = u"Dừng"
+            t1.FontSize          = 13
+            t1.FontWeight        = System.Windows.FontWeights.SemiBold
+            t1.Foreground        = _white
+            t1.VerticalAlignment = VerticalAlignment.Center
+
+            t2 = TextBlock()
+            t2.Text              = u""   # MDL2 Stop
+            t2.FontFamily        = FontFamily(u"Segoe MDL2 Assets")
+            t2.FontSize          = 11
+            t2.Foreground        = _white
+            t2.VerticalAlignment = VerticalAlignment.Center
+            t2.Margin            = Thickness(4, 0, 0, 0)
+
+            sp.Children.Add(t1)
+            sp.Children.Add(t2)
+            btn.Content   = sp
+            btn.IsEnabled = True
+            btn.ToolTip   = u"Dừng tác vụ đang chạy"
+        except Exception as ex:
+            logger.debug("_render_send_button error: {}".format(ex))
+
+    def _request_stop(self):
+        """Stop button pressed while a request is running (UI thread)."""
+        try:
+            self._cancel_requested = True
+            loop = self._agent_loop
+            if loop is not None:
+                loop.cancel()
+            try:
+                self.send_button.IsEnabled = False   # re-enabled by _set_busy(False)
+            except Exception:
+                pass
+            self._safe_update_typing_text(u"● ● ●  Đang dừng sau bước hiện tại…")
+        except Exception as ex:
+            logger.debug("_request_stop error: {}".format(ex))
+
     def _safe_update_typing_text(self, text):
         """Thread-safe update of the typing indicator text."""
         def action():
@@ -2339,10 +2467,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         return row
 
 
-    def _safe_append_bot(self, msg):
+    def _safe_append_bot(self, msg, icon=None, icon_color=None):
         """Thread-safe bot message append (can be called from background threads)."""
         try:
-            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(msg)))
+            self.Dispatcher.Invoke(Action(
+                lambda: self._append_bot_message(msg, icon=icon, icon_color=icon_color)))
         except Exception:
             pass
 
@@ -2396,8 +2525,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             import os as _os
 
             name = _os.path.basename(file_path)
-            ext  = _os.path.splitext(name)[1].lower()
-            icon = u"🖼️" if ext in ('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp') else u"📄"
 
             btn = Button()
             try:
@@ -2409,8 +2536,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             sp = StackPanel()
             sp.Orientation = System.Windows.Controls.Orientation.Horizontal
 
+            # Minimal MDL2 Attach glyph (same one used on the attach button
+            # itself) — replaces the old colored 🖼️/📄 emoji pair.
             icon_lbl = TextBlock()
-            icon_lbl.Text = icon + u" "
+            icon_lbl.Text = _ICON_ATTACH + u" "
+            icon_lbl.FontFamily = System.Windows.Media.FontFamily(u"Segoe MDL2 Assets")
+            icon_lbl.FontSize = 11
             icon_lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
             sp.Children.Add(icon_lbl)
 
@@ -2458,6 +2589,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ─── Chat input ───────────────────────────────────────────────────────────
 
     def send_clicked(self, sender, e):
+        if self._busy:
+            # While busy the button is a Stop button. Effective on the native
+            # agent path; the legacy path finishes its current step regardless.
+            self._request_stop()
+            return
         self._process_input()
 
     def input_keydown(self, sender, e):
@@ -2735,7 +2871,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # ── Concurrency guard ─────────────────────────────────────────────
             if self._busy:
                 self._append_bot_message(
-                    u"⏳ Đang xử lý lệnh trước, vui lòng chờ một chút..."
+                    u"Đang xử lý lệnh trước, vui lòng chờ một chút...",
+                    icon=_ICON_SYNC, icon_color=_ICON_SLATE
                 )
                 return
 
@@ -2744,12 +2881,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._last_raw = raw or u"[đính kèm tài liệu]"
 
             # ── Show user message in chat ──────────────────────────────────────
-            display_text = raw
-            if attached:
-                attach_label = u"\n📎 " + summarize_attachments(attached)
-                display_text = (raw + attach_label) if raw else attach_label.strip()
-            self._append_user_message(display_text)
-            self._add_to_history("user", display_text)
+            display_text     = raw
+            attachment_note  = summarize_attachments(attached) if attached else None
+            self._append_user_message(display_text, attachment_note=attachment_note)
+            # History/LLM context still gets plain text — no raw icon glyph.
+            history_text = (u"{}\n[đính kèm: {}]".format(display_text, attachment_note)
+                            if attachment_note else display_text)
+            self._add_to_history("user", history_text)
 
             # ── Clear attachments from UI after sending ────────────────────────
             if attached:
@@ -2760,9 +2898,48 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     pass
 
-            # Lock UI
+            # Lock UI + show the typing indicator IMMEDIATELY (set_busy does
+            # both). Everything further down — PDF text extraction, the
+            # Ollama HTTP probe, Revit-DB fast-answer collectors, NLU catalog
+            # scoring — takes tens of ms to SECONDS. It used to run right
+            # here on the UI thread, so every Enter press froze the window
+            # until routing finished. It now runs on a routing worker thread;
+            # only the results marshal back onto the dispatcher.
             self._set_busy(True)
 
+            def _route():
+                try:
+                    self._route_input(raw, attached)
+                except Exception as ex:
+                    logger.error("_route_input error: {}".format(ex))
+
+                    def _fail():
+                        self._hide_typing_indicator()
+                        self._set_busy(False)
+                    try:
+                        self.Dispatcher.Invoke(Action(_fail))
+                    except Exception:
+                        pass
+
+            rt = Thread(ThreadStart(_route))
+            rt.IsBackground = True
+            rt.SetApartmentState(ApartmentState.STA)
+            rt.Start()
+
+        except Exception as ex:
+            logger.error("Error in _process_input: {}".format(ex))
+            self._set_busy(False)
+
+    def _route_input(self, raw, attached):
+        """Classify + dispatch one user request. WORKER THREAD.
+
+        Runs the whole routing ladder (RAG context build → fast Revit-DB
+        answer → learned patterns → offline NLU → LLM turn) off the UI
+        thread, so pressing Enter stays instant no matter how heavy the
+        request is. All UI feedback and _execute_result calls marshal back
+        through the Dispatcher.
+        """
+        try:
             # ── If attachments present and no tool-like text, go straight to RAG ─
             has_attach = bool(attached) and HAS_RAG
             if has_attach and not raw:
@@ -2792,17 +2969,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if HAS_SCOUT and not has_attach:
                 fast = self._try_fast_context_answer(raw)
                 if fast:
-                    self._hide_typing_indicator()
-                    self._append_bot_message(fast)
-                    self._add_to_history("assistant", fast)
-                    self._set_busy(False)
+                    def _show_fast(_fast=fast):
+                        self._hide_typing_indicator()
+                        self._append_bot_message(_fast)
+                        self._add_to_history("assistant", _fast)
+                        self._set_busy(False)
+                    self.Dispatcher.Invoke(Action(_show_fast))
                     return
 
             # ── 1. Learned patterns (skip if attachments present) ─────────────
             if HAS_NLP and not has_attach:
                 learned = find_learned_match(raw)
                 if learned:
-                    self._execute_result(learned)
+                    def _run_learned(_r=learned):
+                        self._execute_result(_r)
+                    self.Dispatcher.Invoke(Action(_run_learned))
                     return
 
             # ── 2. Built-in NLU (skip for RAG / attachment queries) ───────────
@@ -2816,12 +2997,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     if nlu_result["intent"] not in ("chat", "help") \
                             or nlu_result.get("_authoritative") \
                             or not (use_local or use_claude):
-                        self._execute_result(nlu_result)
+                        def _run_nlu(_r=nlu_result):
+                            self._execute_result(_r)
+                        self.Dispatcher.Invoke(Action(_run_nlu))
                         return
 
             if use_local or use_claude or has_attach:
-                # ── 3/4. Async LLM path ────────────────────────────────────────
-                self._show_typing_indicator()
+                # ── 3/4. LLM path (typing indicator already showing) ──────────
                 nlu_hint = nlu_result if (HAS_NLP and not has_attach) else None
 
                 def do_nlp():
@@ -2837,6 +3019,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                     _router = LLMRouter()
                     _provider = _router.get_active_provider()
+
+                    # ── Native function-calling agent path ─────────────────────
+                    # Providers with SUPPORTS_NATIVE_TOOLS run the real agentic
+                    # loop: tool schemas travel through the API `tools` param,
+                    # replies are plain text (no JSON-in-prompt). If the path
+                    # can't even start (registry unavailable, provider mute on
+                    # turn 1 — e.g. an Ollama model without tool support), it
+                    # returns False and the legacy JSON-intent loop below runs.
+                    if not has_attach and not rag_context:
+                        _handled = False
+                        try:
+                            _handled = self._run_native_agent(
+                                _provider, list(history), captured)
+                        except Exception as _na_ex:
+                            logger.debug("native agent path error: {}".format(_na_ex))
+                        if _handled:
+                            return
 
                     # Run up to 5 iterations of tool execution
                     max_iterations = 5
@@ -2857,20 +3056,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             except Exception:
                                 pass
 
-                        # Retrieve registered tools from server.py
+                        # Retrieve registered tools from server.py — compact
+                        # catalog (C4): names + one-line purpose only. The full
+                        # JSON schemas of all ~75 tools used to be inlined here
+                        # on EVERY iteration, which crushed small local models
+                        # (token bloat + broken JSON). The model now requests a
+                        # schema on demand via the describe_tool meta-intent.
                         server_tools_str = u""
+                        tools_list = []
                         try:
                             from core.server import get_t3labai_server
                             srv = get_t3labai_server()
                             tools_list = srv._handle_tools_list().get('tools', [])
                             if tools_list:
-                                server_tools_str = u"\n\nLocal MCP Server Tools:\n"
+                                server_tools_str = u"\n\nLocal MCP Server Tools (name: purpose):\n"
                                 for tool in tools_list:
-                                    server_tools_str += u"- `{}`: {} (Schema: {})\n".format(
-                                        tool['name'],
-                                        tool['description'],
-                                        _json.dumps(tool['inputSchema'])
-                                    )
+                                    desc = (tool.get('description') or u'').strip()
+                                    desc = desc.splitlines()[0][:110] if desc else tool['name']
+                                    server_tools_str += u"- `{}`: {}\n".format(
+                                        tool['name'], desc)
+                                server_tools_str += (
+                                    u"\nTool calls need correct parameters. If you are "
+                                    u"unsure of a tool's parameters, FIRST reply exactly "
+                                    u'{"intent": "describe_tool", "params": {"name": "<tool_name>"}} '
+                                    u"to receive its full JSON schema, then call the tool "
+                                    u"in your next reply.\n")
                         except Exception as tool_err:
                             logger.debug("Failed to list server tools: {}".format(tool_err))
 
@@ -2932,6 +3142,42 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             params = _parsed.get("params", {}) or {}
                             message = _parsed.get("message", "")
 
+                            # C4 meta-intent: the model asks for one tool's full
+                            # schema (the catalog above only carries one-liners).
+                            # Feed the schema back and let it produce the real
+                            # tool call on the next iteration.
+                            if intent == "describe_tool":
+                                self.Dispatcher.Invoke(Action(self._remove_stream_bubble))
+                                tname = u"{}".format(
+                                    (params or {}).get("name")
+                                    or (params or {}).get("tool") or u"").strip()
+                                match = None
+                                for _t in (tools_list or []):
+                                    if _t.get('name') == tname:
+                                        match = _t
+                                        break
+                                if match:
+                                    info = _json.dumps(
+                                        {"name": match['name'],
+                                         "description": match.get('description', ''),
+                                         "inputSchema": match.get('inputSchema', {})},
+                                        ensure_ascii=False)
+                                else:
+                                    info = _json.dumps(
+                                        {"error": "unknown tool", "name": tname},
+                                        ensure_ascii=False)
+                                current_history.append(
+                                    {"role": "assistant",
+                                     "content": _json.dumps(_parsed, ensure_ascii=False)})
+                                current_history.append(
+                                    {"role": "user",
+                                     "content": u"Tool schema: {}".format(info)})
+                                current_query = (
+                                    u"Schema: {}. Now respond with the actual tool call as "
+                                    u'{{"intent": "<tool_name>", "params": {{...}}, '
+                                    u'"message": "..."}}.'.format(info))
+                                continue
+
                             # Determine if it's a local MCP tool call — check
                             # against the real registry, not a "revit_" prefix
                             # guess, since several real tool names don't start
@@ -2958,10 +3204,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 self._safe_update_typing_text(status_msg)
 
                                 # Display temporary feedback message in chat so the user is updated
-                                tool_display_msg = u"🔧 [Tool Call] `{}` (params: {})".format(intent, _json.dumps(params))
+                                tool_display_msg = u"[Tool Call] `{}` (params: {})".format(intent, _json.dumps(params))
                                 if message:
-                                    tool_display_msg = u"🔧 [Tool Call] {}\nRevit tool: `{}`".format(message, intent)
-                                self._safe_append_bot(tool_display_msg)
+                                    tool_display_msg = u"[Tool Call] {}\nRevit tool: `{}`".format(message, intent)
+                                self._safe_append_bot(tool_display_msg,
+                                                      icon=_ICON_SYNC, icon_color=_ICON_BLUE)
 
                                 # Execute the tool in the Revit context using the external event handler
                                 tool_result = None
@@ -3046,7 +3293,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 if has_attach and not use_claude and not use_local:
                                     if rag_context:
                                         self._append_bot_message(
-                                            u"📄 Nội dung tài liệu:\n\n" + rag_context[:2000]
+                                            u"Nội dung tài liệu:\n\n" + rag_context[:2000],
+                                            icon=_ICON_ATTACH, icon_color=_ICON_SLATE
                                         )
                                     else:
                                         self._append_bot_message(
@@ -3059,24 +3307,33 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     self._execute_result(fb)
                                 elif llm_call_failed:
                                     # The AI genuinely never answered (timeout /
-                                    # connection error / empty response) — say
-                                    # so plainly instead of the generic "didn't
-                                    # understand", which wrongly implies the
-                                    # request was received and just unmatched.
+                                    # connection error / API rejection) — say so
+                                    # plainly, WITH the provider's real reason
+                                    # when it was recorded (get_last_error).
                                     label = get_provider_display_label()
-                                    msg = (u"⚠️ Model AI ({}) không phản hồi kịp (có thể do model quá nặng hoặc mất kết nối). "
-                                           u"Thử lại, chọn model nhẹ hơn trong Cài đặt, hoặc dùng lệnh cụ thể: "
-                                           u"'mở batchout', 'xuất pdf G sheet'...".format(label)
+                                    detail = u""
+                                    try:
+                                        _le = (_provider.get_last_error()
+                                               if _provider else None)
+                                        if _le:
+                                            detail = (u"\nChi tiết: {}".format(_le)
+                                                      if _is_viet_text(captured)
+                                                      else u"\nDetail: {}".format(_le))
+                                    except Exception:
+                                        pass
+                                    msg = (u"Model AI ({}) không phản hồi (model quá nặng, mất "
+                                           u"kết nối hoặc API báo lỗi). Thử lại hoặc chọn model "
+                                           u"khác trong Cài đặt.{}".format(label, detail)
                                            if _is_viet_text(captured) else
-                                           u"⚠️ The AI model ({}) didn't respond in time (it may be too heavy or "
-                                           u"disconnected). Try again, pick a lighter model in Settings, or use a "
-                                           u"specific command: 'open batchout', 'export pdf G sheet'...".format(label))
-                                    self._append_bot_message(msg)
+                                           u"The AI model ({}) didn't respond (too heavy, "
+                                           u"disconnected, or the API returned an error). Try again "
+                                           u"or pick another model in Settings.{}".format(label, detail))
+                                    self._append_bot_message(msg, icon=_ICON_WARNING, icon_color=_ICON_AMBER)
                                     self._set_busy(False)
                                 else:
-                                    msg = (u"Không hiểu lệnh. Thử: 'mở batchout', 'xuất pdf G sheet'..."
+                                    msg = (u"Mình chưa hiểu yêu cầu này — bạn mô tả cụ thể hơn nhé."
                                            if _is_viet_text(captured) else
-                                           "I didn't understand. Try: 'open batchout', 'export pdf G sheets'...")
+                                           "I didn't understand this request — could you describe it more specifically?")
                                     self._append_bot_message(msg)
                                     self._set_busy(False)
                         except Exception as finish_ex:
@@ -3087,23 +3344,26 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                     self.Dispatcher.Invoke(Action(finish))
 
-                t = Thread(ThreadStart(do_nlp))
-                t.IsBackground = True
-                t.SetApartmentState(ApartmentState.STA)
-                t.Start()
+                # Already on the routing worker thread — run the LLM turn
+                # inline instead of spawning yet another thread.
+                do_nlp()
             else:
                 # ── 5. No provider configured at all — keyword fallback ─────────
                 fb = keyword_parse(raw)
-                if fb:
-                    self._execute_result(fb)
-                else:
-                    self._append_bot_message(
-                        get_setup_guidance_message(_is_viet_text(raw)))
-                    self._set_busy(False)
 
-        except Exception as ex:
-            logger.error("Error in _process_input: {}".format(ex))
-            self._set_busy(False)
+                def _finish_offline(_fb=fb):
+                    if _fb:
+                        self._execute_result(_fb)
+                    else:
+                        self._append_bot_message(
+                            get_setup_guidance_message(_is_viet_text(raw)),
+                            icon=_ICON_INFO, icon_color=_ICON_SLATE)
+                        self._set_busy(False)
+                self.Dispatcher.Invoke(Action(_finish_offline))
+        except Exception:
+            # Bubble to _route()'s handler in _process_input — it hides the
+            # typing indicator and releases the busy lock on the UI thread.
+            raise
 
     # ─── Execute intent ────────────────────────────────────────────────────────
 
@@ -3145,9 +3405,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if conv.get("intent") in ("greet", "chat", "help") and conv.get("message"):
                     reply = conv["message"]
                 elif _is_viet_text(raw):
-                    reply = u"Xin chào! Tôi là T3Lab Assistant 👋\nBạn muốn làm gì hôm nay?"
+                    reply = u"Xin chào! Tôi là T3Lab Assistant.\nBạn muốn làm gì hôm nay?"
                 else:
-                    reply = u"Hello! I'm T3Lab Assistant 👋\nWhat would you like to do today?"
+                    reply = u"Hello! I'm T3Lab Assistant.\nWhat would you like to do today?"
                 _bot(reply)
                 self._set_busy(False)
                 return
@@ -3256,17 +3516,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # or MCP tool) — say so plainly instead of the misleading "Đã thực
         # hiện." ("Done."), since nothing was actually executed.
         if intent == "unknown":
-            _bot(params.get("message", u"Lệnh không rõ. Thử: 'mở batchout', 'xuất pdf G sheet'..."))
+            _bot(params.get("message", u"Yêu cầu chưa rõ — bạn mô tả cụ thể hơn nhé."))
         elif message:
             _bot(message)
         else:
-            _bot(u"Công cụ `{}` không tồn tại. Thử: 'mở batchout', 'xuất pdf G sheet'...".format(intent))
+            _bot(u"Công cụ `{}` không tồn tại — kiểm tra lại tên hoặc mô tả việc cần làm.".format(intent))
         self._set_busy(False)
 
     def _run_tool(self, intent, default_msg):
         """Helper for quick-button clicks: guard, show message, run launcher."""
         if self._busy:
-            self._append_bot_message(u"⏳ Đang xử lý lệnh trước, vui lòng chờ...")
+            self._append_bot_message(u"Đang xử lý lệnh trước, vui lòng chờ...",
+                                     icon=_ICON_SYNC, icon_color=_ICON_SLATE)
             return
         self._set_busy(True)
         self._last_raw = default_msg
@@ -3279,23 +3540,774 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._append_bot_message(u"Không thể mở công cụ. Xem console.")
         self._set_busy(False)
 
+    # ─── Native agentic loop (function calling) ────────────────────────────────
+
+    def _run_native_agent(self, provider, history, captured):
+        """Run the native tool-calling agent loop. WORKER THREAD.
+
+        Returns True when the request was fully handled (UI updated, busy
+        released). Returns False so the legacy JSON-intent path can run —
+        only when nothing was shown to the user yet.
+        """
+        if provider is None or not getattr(provider, "SUPPORTS_NATIVE_TOOLS", False):
+            return False
+
+        from Intelligence.agent_loop import AgentLoop, build_agent_system_prompt
+        from Intelligence import tool_schema
+
+        try:
+            from core.server import get_t3labai_server
+            srv = get_t3labai_server()
+        except Exception:
+            return False
+
+        launcher = tool_schema.make_launcher_tool(list(TOOL_LAUNCHERS.keys()))
+        tools = tool_schema.get_tools_for_provider(provider.NAME, [launcher])
+        if len(tools) <= 1:          # only the launcher → MCP registry unavailable
+            return False
+
+        ctx = u""
+        if HAS_SCOUT:
+            try:
+                ctx = ContextScout.get_context_summary_for_ai()
+            except Exception:
+                pass
+        system_prompt = build_agent_system_prompt(ctx)
+
+        viet = _is_viet_text(captured)
+
+        # ── C2: vision — "look at this view" ships a snapshot of the active
+        # view as an image block (Claude agent path only; other providers'
+        # agent calls don't convert Claude-format blocks).
+        user_content = captured
+        if self._wants_view_snapshot(captured, provider):
+            self._safe_update_typing_text(
+                u"● ● ●  Đang chụp active view…" if viet
+                else u"● ● ●  Capturing the active view…")
+            shot = self._capture_active_view(srv)
+            if shot:
+                try:
+                    from Intelligence.rag_processor import build_vision_content_blocks
+                    user_content = build_vision_content_blocks(captured, [shot])
+                except Exception:
+                    user_content = captured
+
+        # ── B4 + B5: tool-execution wrapper ───────────────────────────────────
+        # B4: the first model-mutating tool opens ONE TransactionGroup on the
+        #     Revit main thread (via the __begin_action_group pseudo-tool), so
+        #     the whole request assimilates into a single Undo entry.
+        # B5: destructive tools block on an in-chat Confirm/Cancel card; the
+        #     first purge_unused of a request is always forced to dry_run.
+        req_title = u" ".join((captured or u"AI request").split())[:60]
+        group = {"open": False}
+        purge = {"first_done": False}
+        # Write tools that must NOT trigger the request group: they don't
+        # change the model (selection / export / UI) or run arbitrary code.
+        _group_exempt = frozenset((
+            'say_hello', 'show_assistant_pane', 'set_active_view',
+            'select_elements', 'export_sheets_pdf', 'export_dwg',
+            'export_image', 'send_code_to_revit',
+            '__begin_action_group', '__end_action_group',
+        ))
+
+        def _exec_tool(name, args):
+            args = dict(args or {})
+            if name == 'purge_unused' and not purge["first_done"]:
+                purge["first_done"] = True
+                if not bool(args.get('dry_run', True)):
+                    args['dry_run'] = True   # first pass is ALWAYS a report
+            destructive = (
+                name == 'delete_element'
+                or (name == 'purge_unused' and not bool(args.get('dry_run', True))))
+            if destructive and not self._confirm_tool_blocking(name, args, viet):
+                return {"cancelled": True,
+                        "note": "User declined the '{}' action.".format(name)}
+            if (not group["open"] and name in srv._WRITE_TOOLS
+                    and name not in _group_exempt):
+                try:
+                    res = srv._execute_tool(
+                        "__begin_action_group",
+                        {"title": u"T3Lab AI: " + req_title})
+                    group["open"] = isinstance(res, dict) and bool(res.get("success"))
+                except Exception:
+                    group["open"] = False
+            return srv._execute_tool(name, args)
+
+        # ── D1: cancel the loop when the user switches documents mid-request ──
+        doc_key0 = _get_doc_key()
+
+        def _guard_check():
+            try:
+                cur = _get_doc_key()
+                # "default" = the read failed (API busy / no context) — that is
+                # UNKNOWN, not "changed"; only trip on a positive mismatch.
+                return cur != "default" and cur != doc_key0
+            except Exception:
+                return False
+
+        import time as _time
+        stream = {"text": u"", "last": 0.0, "open": False}
+        card   = {"cur": None}
+
+        # ── Throttled live-stream rendering ───────────────────────────────────
+        # Deltas are batched: at most ~25 UI updates/second, pushed with
+        # BeginInvoke so the worker never blocks on the dispatcher. Only
+        # state-transition callbacks below use the synchronous Invoke.
+        def _push_stream(force):
+            now = _time.time()
+            if not force and (now - stream["last"]) < 0.04:
+                return
+            stream["last"] = now
+            snap = stream["text"]
+
+            def _ui():
+                try:
+                    if not stream["open"]:
+                        stream["open"] = True
+                        self._hide_typing_indicator()
+                        self._begin_stream_bubble()
+                    if self._stream_tb is not None:
+                        self._stream_tb.Text = snap
+                        self._scroll_to_bottom()
+                except Exception:
+                    pass
+
+            try:
+                self.Dispatcher.BeginInvoke(Action(_ui))
+            except Exception:
+                pass
+
+        def on_text_delta(chunk):
+            stream["text"] += chunk
+            _push_stream(False)
+
+        def on_turn_text(text, is_final):
+            stream["text"] = u""
+
+            def _ui():
+                try:
+                    if stream["open"]:
+                        stream["open"] = False
+                        self._finalize_stream_bubble(text)
+                        self._clear_stream_refs()
+                    else:
+                        self._hide_typing_indicator()
+                        self._append_bot_message(text)
+                    self._add_to_history("assistant", text)
+                except Exception:
+                    pass
+
+            try:
+                self.Dispatcher.Invoke(Action(_ui))
+            except Exception:
+                pass
+
+        def on_tool_start(name, args, iteration):
+            def _ui():
+                try:
+                    self._hide_typing_indicator()
+                    card["cur"] = self._append_tool_card(name, args)
+                    self._show_typing_indicator()
+                    if getattr(self, "_typing_text_block", None) is not None:
+                        self._typing_text_block.Text = (
+                            u"● ● ●  Đang chạy `{}`…".format(name))
+                except Exception:
+                    pass
+
+            try:
+                self.Dispatcher.Invoke(Action(_ui))
+            except Exception:
+                pass
+
+        def on_tool_done(name, result, ok, seconds):
+            def _ui():
+                try:
+                    self._update_tool_card(card["cur"], ok, seconds, result)
+                except Exception:
+                    pass
+
+            try:
+                self.Dispatcher.Invoke(Action(_ui))
+            except Exception:
+                pass
+
+        loop = AgentLoop(
+            provider, _exec_tool, tools,
+            callbacks={
+                "on_text_delta": on_text_delta,
+                "on_turn_text":  on_turn_text,
+                "on_tool_start": on_tool_start,
+                "on_tool_done":  on_tool_done,
+                "guard_check":   _guard_check,
+            },
+            max_iterations=10, max_tokens=1500)
+
+        self._agent_loop = loop
+        if self._cancel_requested:
+            loop.cancel()
+        try:
+            result = loop.run(history, system_prompt, user_content)
+        finally:
+            self._agent_loop = None
+            # B4: always close the request group — a group left open would
+            # block every subsequent transaction in the session.
+            if group["open"]:
+                group["open"] = False
+                try:
+                    srv._execute_tool("__end_action_group", {})
+                except Exception:
+                    pass
+
+        # Provider never answered turn 1 and nothing reached the UI →
+        # hand back to the legacy path (it has its own fallbacks).
+        if (result.get("status") == "failed"
+                and result.get("iterations", 0) <= 1
+                and not result.get("text")
+                and not result.get("tool_runs")
+                and not stream["open"]):
+            return False
+
+        def _finish_ui():
+            try:
+                # A turn interrupted mid-stream leaves an open live bubble.
+                if stream["open"]:
+                    stream["open"] = False
+                    txt = stream["text"]
+                    self._finalize_stream_bubble(txt)
+                    self._clear_stream_refs()
+                    if txt:
+                        self._add_to_history("assistant", txt)
+                self._hide_typing_indicator()
+
+                st = result.get("status")
+                if st == "cancelled":
+                    self._append_bot_message(
+                        u"Đã dừng theo yêu cầu." if viet else u"Stopped.",
+                        icon=_ICON_STOP, icon_color=_ICON_SLATE)
+                elif st == "doc_changed":
+                    self._append_bot_message(
+                        (u"Bạn đã chuyển sang document khác — yêu cầu bị hủy "
+                         u"để tránh sửa nhầm model.") if viet else
+                        (u"The active document changed — request cancelled "
+                         u"to avoid editing the wrong model."),
+                        icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                elif st == "failed":
+                    label = get_provider_display_label()
+                    detail = u""
+                    try:
+                        _le = provider.get_last_error()
+                        if _le:
+                            detail = (u"\nChi tiết: {}".format(_le) if viet
+                                      else u"\nDetail: {}".format(_le))
+                    except Exception:
+                        pass
+                    self._append_bot_message(
+                        (u"Model AI ({}) bị gián đoạn giữa chừng — kết quả có "
+                         u"thể chưa trọn vẹn. Thử lại nhé.{}".format(label, detail))
+                        if viet else
+                        (u"The AI model ({}) dropped mid-request — the result "
+                         u"may be incomplete. Please retry.{}".format(label, detail)),
+                        icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                elif st in ("max_iterations", "timeout"):
+                    self._append_bot_message(
+                        (u"Yêu cầu quá dài — đã dừng sau {} bước. Hãy chia nhỏ "
+                         u"yêu cầu để tiếp tục.").format(result.get("iterations"))
+                        if viet else
+                        (u"Request too long — stopped after {} steps. Split it "
+                         u"up to continue.").format(result.get("iterations")),
+                        icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                elif (st == "done" and not result.get("text")
+                        and result.get("tool_runs")):
+                    self._append_bot_message(
+                        u"Đã thực hiện xong {} bước công cụ.".format(
+                            result.get("tool_runs")) if viet else
+                        u"Completed {} tool step(s).".format(
+                            result.get("tool_runs")),
+                        icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
+
+                li = result.get("launch_intent")
+                if li:
+                    # Terminal launcher: _execute_result opens the window on
+                    # the UI thread and releases the busy state itself.
+                    self._execute_result({"intent": li, "message": u"",
+                                          "params": {}})
+                else:
+                    self._set_busy(False)
+            except Exception as ex:
+                logger.error("native agent finish error: {}".format(ex))
+                self._set_busy(False)
+
+        self.Dispatcher.Invoke(Action(_finish_ui))
+        return True
+
+    # ─── Tool-call cards ───────────────────────────────────────────────────────
+
+    def _append_tool_card(self, name, args):
+        """Add a tool-call status card to the chat. UI thread only.
+
+        Returns a handle dict for _update_tool_card, or None on failure.
+        """
+        try:
+            from System.Windows.Controls import Border, TextBlock, StackPanel, Orientation
+            from System.Windows import Thickness, CornerRadius, TextWrapping
+            from System.Windows.Media import SolidColorBrush, Color, FontFamily
+
+            card = Border()
+            card.Background      = SolidColorBrush(Color.FromRgb(248, 250, 252))  # #F8FAFC
+            card.BorderBrush     = SolidColorBrush(Color.FromRgb(226, 232, 240))  # #E2E8F0
+            card.BorderThickness = Thickness(1)
+            card.CornerRadius    = CornerRadius(8)
+            card.Padding         = Thickness(12, 8, 12, 8)
+            # Left margin lines the card up with bot bubbles (avatar 36 + 10).
+            card.Margin          = Thickness(46, 0, 60, 8)
+
+            panel = StackPanel()
+
+            head = StackPanel()
+            head.Orientation = Orientation.Horizontal
+
+            status = TextBlock()
+            status.Text       = u""   # MDL2 Sync — running
+            status.FontFamily = FontFamily(u"Segoe MDL2 Assets")
+            status.FontSize   = 12
+            status.Foreground = SolidColorBrush(Color.FromRgb(59, 130, 246))      # #3B82F6
+            status.Margin     = Thickness(0, 1, 8, 0)
+
+            title = TextBlock()
+            title.Text       = name
+            title.FontFamily = FontFamily(u"Consolas")
+            title.FontSize   = 12
+            title.FontWeight = System.Windows.FontWeights.SemiBold
+            title.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))          # #0F172A
+
+            dur = TextBlock()
+            dur.Text       = u"đang chạy…"
+            dur.FontSize   = 11
+            dur.Foreground = SolidColorBrush(Color.FromRgb(148, 163, 184))         # #94A3B8
+            dur.Margin     = Thickness(8, 1, 0, 0)
+
+            head.Children.Add(status)
+            head.Children.Add(title)
+            head.Children.Add(dur)
+            panel.Children.Add(head)
+
+            try:
+                args_s = json.dumps(args, ensure_ascii=False)
+            except Exception:
+                args_s = u"{}".format(args)
+            if len(args_s) > 160:
+                args_s = args_s[:160] + u"…"
+            args_tb = TextBlock()
+            args_tb.Text         = args_s
+            args_tb.FontSize     = 11
+            args_tb.Foreground   = SolidColorBrush(Color.FromRgb(100, 116, 139))   # #64748B
+            args_tb.TextWrapping = TextWrapping.Wrap
+            args_tb.Margin       = Thickness(20, 2, 0, 0)
+            panel.Children.Add(args_tb)
+
+            result_tb = TextBlock()
+            result_tb.FontSize     = 11
+            result_tb.Foreground   = SolidColorBrush(Color.FromRgb(51, 65, 85))    # #334155
+            result_tb.TextWrapping = TextWrapping.Wrap
+            result_tb.Margin       = Thickness(20, 3, 0, 0)
+            result_tb.Visibility   = Visibility.Collapsed
+            panel.Children.Add(result_tb)
+
+            card.Child = panel
+            self.chat_history_panel.Children.Add(card)
+            self._scroll_to_bottom()
+            return {"card": card, "status": status, "dur": dur,
+                    "result": result_tb}
+        except Exception as ex:
+            logger.debug("_append_tool_card error: {}".format(ex))
+            return None
+
+    def _update_tool_card(self, handle, ok, seconds, result):
+        """Mark a tool card done/failed and show the result summary. UI thread."""
+        if not handle:
+            return
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+
+            status = handle["status"]
+            if ok:
+                status.Text       = u""   # MDL2 CheckMark
+                status.Foreground = SolidColorBrush(Color.FromRgb(16, 185, 129))   # #10B981
+            else:
+                status.Text       = u""   # MDL2 Cancel
+                status.Foreground = SolidColorBrush(Color.FromRgb(239, 68, 68))    # #EF4444
+
+            handle["dur"].Text = u"{0:.1f}s".format(seconds)
+
+            try:
+                res_s = json.dumps(result, ensure_ascii=False)
+            except Exception:
+                res_s = u"{}".format(result)
+            rt = handle["result"]
+            rt.Text       = res_s[:240] + (u"…" if len(res_s) > 240 else u"")
+            rt.ToolTip    = res_s[:4000]
+            rt.Visibility = Visibility.Visible
+
+            # C1: clickable element-id links → select & zoom in Revit.
+            try:
+                ids = self._extract_element_ids(result)
+                if ok and ids:
+                    from System.Windows.Controls import StackPanel, TextBlock, Orientation
+                    from System.Windows import Thickness, TextDecorations
+                    from System.Windows.Input import Cursors
+
+                    links = StackPanel()
+                    links.Orientation = Orientation.Horizontal
+                    links.Margin = Thickness(20, 4, 0, 0)
+
+                    def _mk_link(label, id_list):
+                        tb = TextBlock()
+                        tb.Text           = label
+                        tb.FontSize       = 11
+                        tb.Foreground     = SolidColorBrush(Color.FromRgb(59, 130, 246))  # #3B82F6
+                        tb.TextDecorations = TextDecorations.Underline
+                        tb.Cursor         = Cursors.Hand
+                        tb.Margin         = Thickness(0, 0, 10, 0)
+                        tb.ToolTip        = u"Chọn & zoom trong Revit"
+
+                        def _click(s, e, _ids=list(id_list)):
+                            self._select_in_revit_async(_ids)
+
+                        tb.MouseLeftButtonUp += _click
+                        return tb
+
+                    for eid in ids[:6]:
+                        links.Children.Add(_mk_link(u"#{}".format(eid), [eid]))
+                    if len(ids) > 1:
+                        links.Children.Add(
+                            _mk_link(u"chọn cả {}".format(len(ids)), ids))
+                    handle["card"].Child.Children.Add(links)
+            except Exception:
+                pass
+
+            self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug("_update_tool_card error: {}".format(ex))
+
+    @staticmethod
+    def _extract_element_ids(result, _limit=60):
+        """Collect Revit element ids out of a tool-result dict (C1).
+
+        Recognizes the common id-bearing shapes across the ~75 MCP tools:
+        {'id': n}, {'element_id': n}, {'element_ids'|'created_ids'|'ids': [...]},
+        and nested lists of {'id': n} dicts (get_current_view_elements, ...).
+        Order-preserving, deduped, capped so a huge element dump stays cheap.
+        """
+        out  = []
+        seen = set()
+
+        def _add(v):
+            try:
+                n = int(v)
+            except Exception:
+                return
+            if n > 0 and n not in seen:
+                seen.add(n)
+                out.append(n)
+
+        def _walk(node, depth):
+            if depth > 4 or len(out) >= _limit:
+                return
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    lk = u"{}".format(k).lower()
+                    if lk in ("id", "element_id", "new_element_id", "new_id",
+                              "tag_id", "wall_id", "grid_id", "level_id"):
+                        _add(v)
+                    elif lk in ("element_ids", "created_ids", "ids", "new_ids",
+                                "tag_ids", "wall_ids", "created_element_ids"):
+                        if isinstance(v, (list, tuple)):
+                            for item in v:
+                                _add(item)
+                    elif isinstance(v, (dict, list, tuple)):
+                        _walk(v, depth + 1)
+            elif isinstance(node, (list, tuple)):
+                for item in node:
+                    _walk(item, depth + 1)
+
+        _walk(result if isinstance(result, dict) else {}, 0)
+        return out
+
+    def _select_in_revit_async(self, element_ids):
+        """Select + zoom elements from an element-link click (C1).
+
+        Spawns a WORKER thread: _execute_tool blocks on the ExternalEvent,
+        and waiting for that on the UI thread would deadlock (the handler
+        itself needs the UI thread to run).
+        """
+        ids = [i for i in (element_ids or [])]
+        if not ids:
+            return
+
+        def _work():
+            try:
+                from core.server import get_t3labai_server
+                srv = get_t3labai_server()
+                srv._execute_tool('select_elements',
+                                  {'element_ids': ids, 'show': True,
+                                   'limit': len(ids)})
+            except Exception:
+                pass
+
+        t = Thread(ThreadStart(_work))
+        t.IsBackground = True
+        t.Start()
+
+    # ─── Destructive-tool confirmation (B5) ────────────────────────────────────
+
+    def _confirm_tool_blocking(self, name, args, viet, timeout_sec=120):
+        """WORKER thread: render a Confirm/Cancel card and block until the
+        user decides. Returns True only on an explicit Confirm click —
+        timeout, Stop, or any error all count as declined.
+        """
+        import threading
+        state = {"decision": None, "seal": None}
+        evt = threading.Event()
+
+        def _ui():
+            try:
+                self._hide_typing_indicator()
+                self._append_confirm_card(name, args, state, evt, viet)
+            except Exception:
+                state["decision"] = False
+                evt.set()
+
+        try:
+            self.Dispatcher.Invoke(Action(_ui))
+        except Exception:
+            return False
+
+        waited = 0.0
+        while waited < timeout_sec and not evt.is_set():
+            evt.wait(0.25)
+            waited += 0.25
+            loop = self._agent_loop
+            if loop is not None and loop.is_cancelled():
+                break
+
+        if state["decision"] is None:
+            # Timeout / Stop — seal the card so stale buttons can't approve
+            # a request that is already over.
+            def _expire():
+                try:
+                    if state.get("seal"):
+                        state["seal"](u"⏱ Hết hạn — đã bỏ qua" if viet
+                                      else u"⏱ Expired — skipped")
+                except Exception:
+                    pass
+            try:
+                self.Dispatcher.BeginInvoke(Action(_expire))
+            except Exception:
+                pass
+        return state["decision"] is True
+
+    def _append_confirm_card(self, name, args, state, evt, viet):
+        """Confirm/Cancel card for a destructive tool call. UI thread only."""
+        from System.Windows.Controls import Border, TextBlock, StackPanel, Orientation, Button
+        from System.Windows.Documents import Run
+        from System.Windows import Thickness, CornerRadius, TextWrapping
+        from System.Windows.Media import SolidColorBrush, Color
+        from System.Windows.Input import Cursors
+
+        card = Border()
+        card.Background      = SolidColorBrush(Color.FromRgb(254, 242, 242))  # #FEF2F2
+        card.BorderBrush     = SolidColorBrush(Color.FromRgb(252, 165, 165))  # #FCA5A5
+        card.BorderThickness = Thickness(1)
+        card.CornerRadius    = CornerRadius(8)
+        card.Padding         = Thickness(12, 10, 12, 10)
+        card.Margin          = Thickness(46, 0, 60, 8)
+
+        panel = StackPanel()
+
+        head = TextBlock()
+        head.FontSize   = 12
+        head.FontWeight = System.Windows.FontWeights.SemiBold
+        head.Foreground = SolidColorBrush(Color.FromRgb(185, 28, 28))          # #B91C1C
+        # Minimal MDL2 warning glyph — needs its own FontFamily run; the plain
+        # "⚠" character rendered in the body font would show as a colored
+        # emoji glyph (or tofu) instead of a flat monochrome icon.
+        self._add_icon_run(head, _ICON_WARNING, (185, 28, 28), size=12)
+        head.Inlines.Add(Run(u"Xác nhận hành động phá hủy" if viet
+                             else u"Confirm destructive action"))
+        panel.Children.Add(head)
+
+        try:
+            args_s = json.dumps(args, ensure_ascii=False)
+        except Exception:
+            args_s = u"{}".format(args)
+        if len(args_s) > 200:
+            args_s = args_s[:200] + u"…"
+        body = TextBlock()
+        body.Text         = u"`{}` — {}".format(name, args_s)
+        body.FontSize     = 11.5
+        body.TextWrapping = TextWrapping.Wrap
+        body.Foreground   = SolidColorBrush(Color.FromRgb(51, 65, 85))         # #334155
+        body.Margin       = Thickness(0, 4, 0, 8)
+        panel.Children.Add(body)
+
+        btn_row = StackPanel()
+        btn_row.Orientation = Orientation.Horizontal
+
+        status_tb = TextBlock()
+        status_tb.FontSize   = 11.5
+        status_tb.Foreground = SolidColorBrush(Color.FromRgb(100, 116, 139))   # #64748B
+        status_tb.Margin     = Thickness(10, 5, 0, 0)
+        status_tb.Visibility = Visibility.Collapsed
+
+        def _mk_btn(label, bg, fg):
+            b = Button()
+            b.Content         = label
+            b.FontSize        = 12
+            b.FontWeight      = System.Windows.FontWeights.SemiBold
+            b.Padding         = Thickness(14, 5, 14, 5)
+            b.Margin          = Thickness(0, 0, 8, 0)
+            b.Cursor          = Cursors.Hand
+            b.Background      = SolidColorBrush(bg)
+            b.Foreground      = SolidColorBrush(fg)
+            b.BorderThickness = Thickness(0)
+            return b
+
+        ok_btn = _mk_btn(u"Xác nhận" if viet else u"Confirm",
+                         Color.FromRgb(239, 68, 68), Color.FromRgb(255, 255, 255))
+        no_btn = _mk_btn(u"Hủy" if viet else u"Cancel",
+                         Color.FromRgb(241, 245, 249), Color.FromRgb(15, 23, 42))
+
+        def _seal(msg):
+            try:
+                ok_btn.IsEnabled     = False
+                no_btn.IsEnabled     = False
+                status_tb.Text       = msg
+                status_tb.Visibility = Visibility.Visible
+            except Exception:
+                pass
+        state["seal"] = _seal
+
+        def _on_ok(s, e):
+            state["decision"] = True
+            _seal(u"✓ Đã xác nhận" if viet else u"✓ Confirmed")
+            evt.set()
+
+        def _on_cancel(s, e):
+            state["decision"] = False
+            _seal(u"✗ Đã hủy" if viet else u"✗ Cancelled")
+            evt.set()
+
+        ok_btn.Click += _on_ok
+        no_btn.Click += _on_cancel
+
+        btn_row.Children.Add(ok_btn)
+        btn_row.Children.Add(no_btn)
+        btn_row.Children.Add(status_tb)
+        panel.Children.Add(btn_row)
+
+        card.Child = panel
+        self.chat_history_panel.Children.Add(card)
+        self._scroll_to_bottom()
+
+    # ─── Vision view capture (C2) ──────────────────────────────────────────────
+
+    def _wants_view_snapshot(self, text, provider):
+        """True when the user asks the assistant to LOOK at the current view
+        and the active provider can take Claude-format image blocks (the
+        agent path currently ships vision only for Claude)."""
+        if not text:
+            return False
+        if provider is None or getattr(provider, "NAME", "") != "claude":
+            return False
+        try:
+            if not provider.supports_vision():
+                return False
+        except Exception:
+            return False
+        import re as _re
+        pat = (u"(nhìn|xem|quan sát|soi|chụp|đánh giá|kiểm tra"
+               u"|look|inspect|review|check|analy)"
+               u"[^\n]{0,24}"
+               u"(view|màn hình|bố cục|layout|screen)")
+        return _re.search(pat, text, _re.IGNORECASE | _re.UNICODE) is not None
+
+    def _capture_active_view(self, srv):
+        """WORKER thread: export the active view as a PNG (~1280px) through
+        the ExternalEvent write path. Returns the PNG path or None."""
+        try:
+            import tempfile
+            folder = os.path.join(tempfile.gettempdir(), 'T3Lab_ViewShots')
+            res = srv._execute_tool('export_image',
+                                    {'width': 1280, 'output_folder': folder})
+            files = (res or {}).get('files') or []
+            for p in files:
+                if p.lower().endswith('.png') and os.path.isfile(p):
+                    return p
+            return files[0] if files else None
+        except Exception:
+            return None
+
     # ─── Chat UI helpers ──────────────────────────────────────────────────────
 
+    _avatar_bitmap = None   # lazy-loaded, cached BitmapImage of icon.png (per window)
+    _avatar_bitmap_failed = False
+
+    def _get_avatar_bitmap(self):
+        """Return the cached BitmapImage for the tool's own icon.png, or None.
+
+        icon.png is the SAME icon Revit shows on the T3Lab Assistant ribbon
+        button (T3LabAssistant.pushbutton/icon.png) — using it as the chat
+        avatar means the bubble literally shows the tool's real icon instead
+        of a generic colored "T3" initials badge.
+        """
+        if self._avatar_bitmap is not None:
+            return self._avatar_bitmap
+        if self._avatar_bitmap_failed:
+            return None
+        try:
+            from System import Uri, UriKind
+            from System.Windows.Media.Imaging import BitmapCacheOption
+            icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'icon.png')
+            bmp = BitmapImage()
+            bmp.BeginInit()
+            bmp.UriSource   = Uri(icon_path, UriKind.Absolute)
+            bmp.CacheOption = BitmapCacheOption.OnLoad
+            bmp.EndInit()
+            bmp.Freeze()
+            self._avatar_bitmap = bmp
+            return bmp
+        except Exception as ex:
+            logger.debug("_get_avatar_bitmap error: {}".format(ex))
+            self._avatar_bitmap_failed = True
+            return None
+
     def _make_avatar(self, letter, _unused_start=None, _unused_end=None):
-        """Create a circular avatar Border with initials (BatchOut blue #3498DB)."""
+        """Create a circular avatar showing the tool's real icon.png.
+
+        Falls back to a plain initials badge (BatchOut blue #3498DB) only if
+        the icon file can't be loaded — the app must never crash a chat
+        bubble over a missing/locked icon asset.
+        """
         from System.Windows.Controls import Border, TextBlock
         from System.Windows import Thickness, CornerRadius
-        from System.Windows.Media import SolidColorBrush, Color
+        from System.Windows.Media import SolidColorBrush, Color, ImageBrush, Stretch
         from System.Windows import HorizontalAlignment, VerticalAlignment
 
         av = Border()
         av.Width = 36
         av.Height = 36
         av.CornerRadius = CornerRadius(18)
-        av.Background = SolidColorBrush(Color.FromRgb(52, 152, 219))   # #3498DB
         av.Margin = Thickness(0, 2, 10, 0)
         av.VerticalAlignment = VerticalAlignment.Top
 
+        bmp = self._get_avatar_bitmap()
+        if bmp is not None:
+            brush = ImageBrush(bmp)
+            brush.Stretch = Stretch.UniformToFill
+            av.Background = brush
+            return av
+
+        av.Background = SolidColorBrush(Color.FromRgb(52, 152, 219))   # #3498DB fallback
         lbl = TextBlock()
         lbl.Text = letter
         lbl.FontSize = 12
@@ -3306,10 +4318,35 @@ class T3LabAssistantWindow(forms.WPFWindow):
         av.Child = lbl
         return av
 
-    def _append_user_message(self, text):
-        """Add a right-aligned user bubble (BatchOut #3498DB)."""
+    @staticmethod
+    def _add_icon_run(text_block, glyph, rgb=None, size=13.5):
+        """Prepend a Segoe MDL2 Assets icon Run to a TextBlock, followed by a
+        thin space — the ONLY way to render a real icon glyph inline: the rest
+        of the bubble uses Hanken Grotesk/Inter, which has no glyph at these
+        private-use codepoints, so the icon needs its own FontFamily run
+        rather than living in the same string as the body text.
+        """
+        from System.Windows.Documents import Run
+        from System.Windows.Media import FontFamily as _WpfFontFamily, SolidColorBrush, Color
+
+        icon_run = Run(glyph)
+        icon_run.FontFamily = _WpfFontFamily(u"Segoe MDL2 Assets")
+        icon_run.FontSize   = size
+        if rgb:
+            icon_run.Foreground = SolidColorBrush(Color.FromRgb(*rgb))
+        text_block.Inlines.Add(icon_run)
+        text_block.Inlines.Add(Run(u"  "))
+
+    def _append_user_message(self, text, attachment_note=None):
+        """Add a right-aligned user bubble (BatchOut #3498DB).
+
+        attachment_note, if given, renders as its own line with a minimal
+        Attach glyph — replaces the old baked-in "📎 filename" text so the
+        indicator is a real icon, not a colored emoji character.
+        """
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
+            from System.Windows.Documents import Run, LineBreak
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength, HorizontalAlignment
             from System.Windows.Media import SolidColorBrush, Color
 
@@ -3326,10 +4363,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
             bubble.HorizontalAlignment = HorizontalAlignment.Right
 
             msg_text = TextBlock()
-            msg_text.Text        = text
             msg_text.FontSize    = 13
             msg_text.Foreground  = SolidColorBrush(Color.FromRgb(255, 255, 255))
             msg_text.TextWrapping = TextWrapping.Wrap
+            if text:
+                msg_text.Inlines.Add(Run(text))
+            if attachment_note:
+                if text:
+                    msg_text.Inlines.Add(LineBreak())
+                self._add_icon_run(msg_text, _ICON_ATTACH, size=12)
+                msg_text.Inlines.Add(Run(attachment_note))
             bubble.Child = msg_text
 
             Grid.SetColumn(bubble, 0)
@@ -3364,42 +4407,257 @@ class T3LabAssistantWindow(forms.WPFWindow):
         text = _re.sub(r'\n{3,}', u'\n\n', u'\n'.join(lines_out))
         return text.strip()
 
+    # Legacy colored emoji markers (still produced by older message-builders
+    # like _try_fast_context_answer) mapped to a minimal MDL2 glyph + Lumina
+    # color — converted at render time so no caller needs to change its
+    # markdown text, only this one renderer.
+    _MD_ICON_MARKERS = [
+        (u"⚡ ",            "_ICON_ANALYZE", "_ICON_BLUE"),   # instant DB answer
+        (u"\U0001f4cb ",   "_ICON_LIST",    "_ICON_SLATE"),  # stats/info section
+        (u"\U0001f5bc️ ", "_ICON_SEARCH", "_ICON_SLATE"),  # view section
+        (u"\U0001f3af ",   "_ICON_LIST",    "_ICON_SLATE"),  # selection section
+        (u"\U0001f4ca ",   "_ICON_LIST",    "_ICON_BLUE"),   # LLM chart/stats emoji
+        (u"\U0001f4c8 ",   "_ICON_LIST",    "_ICON_BLUE"),   # LLM trend emoji
+    ]
+
+    @staticmethod
+    def _add_inline_md(text_block, line):
+        """Render ONE line's inline markdown into text_block:
+        **bold** and `code` spans (code = Consolas, ink color)."""
+        import re as _re
+        from System.Windows.Documents import Run
+        from System.Windows import FontWeights
+        from System.Windows.Media import FontFamily as _WpfFontFamily, SolidColorBrush, Color
+
+        for b_idx, b_seg in enumerate(_re.split(r'\*\*', line)):
+            if not b_seg:
+                continue
+            bold = (b_idx % 2 == 1)
+            for c_idx, c_seg in enumerate(b_seg.split(u'`')):
+                if not c_seg:
+                    continue
+                r = Run()
+                r.Text = c_seg
+                if bold:
+                    r.FontWeight = FontWeights.SemiBold
+                if c_idx % 2 == 1:              # inside `code`
+                    r.FontFamily = _WpfFontFamily(u"Consolas")
+                    r.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))
+                text_block.Inlines.Add(r)
+
     @staticmethod
     def _build_md_inlines(text_block, text):
         """
-        Populate text_block.Inlines with basic markdown rendering.
-        Handles: **bold**, bullet lines (* / -), plain text, line breaks.
+        Populate text_block.Inlines with paragraph-level markdown:
+        leading emoji→MDL2 icon markers, # headings, bullet lines (* / -),
+        **bold** / `code` inline spans, line breaks. Tables are handled one
+        level up by _render_md_blocks (a TextBlock cannot host a grid).
         """
-        import re as _re
         from System.Windows.Documents import Run, LineBreak
         from System.Windows import FontWeights
 
+        module_globals = globals()
         lines = text.splitlines()
         for i, line in enumerate(lines):
             if i > 0:
                 text_block.Inlines.Add(LineBreak())
 
-            # Bullet lines
+            # Legacy emoji section markers → minimal MDL2 icon run
             stripped = line.strip()
+            for marker, glyph_name, color_name in T3LabAssistantWindow._MD_ICON_MARKERS:
+                if stripped.startswith(marker):
+                    T3LabAssistantWindow._add_icon_run(
+                        text_block, module_globals[glyph_name], module_globals[color_name])
+                    line = stripped[len(marker):]
+                    break
+
+            # Headings: "# " / "## " / "### " → semibold, slightly larger
+            stripped = line.strip()
+            if stripped.startswith(u'#'):
+                h = len(stripped) - len(stripped.lstrip(u'#'))
+                if 1 <= h <= 4 and stripped[h:h + 1] == u' ':
+                    r = Run()
+                    r.Text       = stripped[h + 1:].strip()
+                    r.FontWeight = FontWeights.SemiBold
+                    r.FontSize   = 14.5 if h <= 2 else 13.5
+                    text_block.Inlines.Add(r)
+                    continue
+
+            # Bullet lines
             if stripped.startswith(u'* ') or stripped.startswith(u'- '):
                 prefix_run = Run()
                 prefix_run.Text = u'• '   # bullet •
                 text_block.Inlines.Add(prefix_run)
                 line = stripped[2:]             # remaining text after bullet marker
 
-            # Inline **bold** spans
-            parts = _re.split(r'\*\*', line)
-            for idx, part in enumerate(parts):
-                if not part:
-                    continue
-                r = Run()
-                r.Text = part
-                if idx % 2 == 1:               # inside ** pair = bold
-                    r.FontWeight = FontWeights.SemiBold
-                text_block.Inlines.Add(r)
+            T3LabAssistantWindow._add_inline_md(text_block, line)
 
-    def _append_bot_message(self, text):
-        """Add a left-aligned bot bubble with avatar and basic markdown rendering."""
+    def _make_md_table(self, raw_rows):
+        """Render markdown pipe-rows ("| a | b |") as a bordered WPF Grid.
+
+        Returns a Border-wrapped Grid, or None when the rows don't form a
+        usable table (caller then falls back to showing the raw text).
+        Header row (followed by |---|---|) gets the Lumina table header
+        treatment; star-sized columns so the table always fits the bubble.
+        """
+        try:
+            import re as _re
+            from System.Windows.Controls import Grid, ColumnDefinition, RowDefinition, Border, TextBlock
+            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength, GridUnitType
+            from System.Windows.Media import SolidColorBrush, Color
+
+            parsed = []
+            for r in raw_rows:
+                inner = r.strip()
+                if inner.startswith(u"|"):
+                    inner = inner[1:]
+                if inner.endswith(u"|"):
+                    inner = inner[:-1]
+                parsed.append([c.strip() for c in inner.split(u"|")])
+
+            def _is_sep(cells):
+                return bool(cells) and all(
+                    _re.match(r'^:?-{2,}:?$', c or u'') for c in cells)
+
+            header = None
+            if len(parsed) >= 2 and _is_sep(parsed[1]):
+                header = parsed[0]
+                body = [r for r in parsed[2:] if not _is_sep(r)]
+            else:
+                body = [r for r in parsed if not _is_sep(r)]
+            rows = ([header] if header is not None else []) + body
+            if not rows:
+                return None
+            ncols = max(len(r) for r in rows)
+            if ncols < 2:
+                return None
+
+            _line  = Color.FromRgb(226, 232, 240)   # #E2E8F0 divider
+            _inkhd = Color.FromRgb(15, 23, 42)      # #0F172A header ink
+            _ink   = Color.FromRgb(39, 39, 42)      # #27272A body ink
+
+            g = Grid()
+            for _c in range(ncols):
+                cd = ColumnDefinition()
+                cd.Width = GridLength(1, GridUnitType.Star)
+                g.ColumnDefinitions.Add(cd)
+
+            for ri, row in enumerate(rows):
+                g.RowDefinitions.Add(RowDefinition())
+                is_head = (header is not None and ri == 0)
+                for ci in range(ncols):
+                    cell = Border()
+                    cell.BorderBrush = SolidColorBrush(_line)
+                    cell.BorderThickness = Thickness(
+                        0, 0,
+                        1 if ci < ncols - 1 else 0,
+                        1 if ri < len(rows) - 1 else 0)
+                    cell.Padding = Thickness(8, 4, 8, 4)
+                    if is_head:
+                        cell.Background = SolidColorBrush(Color.FromRgb(248, 250, 252))  # #F8FAFC
+
+                    tb = TextBlock()
+                    tb.FontSize     = 12 if is_head else 12.5
+                    tb.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+                    tb.TextWrapping = TextWrapping.Wrap
+                    tb.Foreground   = SolidColorBrush(_inkhd if is_head else _ink)
+                    if is_head:
+                        tb.FontWeight = System.Windows.FontWeights.SemiBold
+                    self._add_inline_md(tb, row[ci] if ci < len(row) else u"")
+                    cell.Child = tb
+                    Grid.SetRow(cell, ri)
+                    Grid.SetColumn(cell, ci)
+                    g.Children.Add(cell)
+
+            outer = Border()
+            outer.BorderBrush     = SolidColorBrush(_line)
+            outer.BorderThickness = Thickness(1)
+            outer.CornerRadius    = CornerRadius(6)
+            outer.Margin          = Thickness(0, 6, 0, 6)
+            outer.Child = g
+            return outer
+        except Exception as ex:
+            logger.debug("_make_md_table error: {}".format(ex))
+            return None
+
+    def _render_md_blocks(self, text, icon=None, icon_color=None):
+        """Build the CONTENT of a bot bubble: a StackPanel of paragraph
+        TextBlocks and real table Grids.
+
+        The old single-TextBlock renderer showed markdown tables as raw
+        "| a | b |" pipe text; consecutive pipe-lines now become a bordered
+        grid with a header row, so LLM answers containing tables read
+        cleanly. icon/icon_color prefix the first paragraph.
+        """
+        from System.Windows.Controls import StackPanel, TextBlock
+        from System.Windows import TextWrapping, Thickness
+        from System.Windows.Media import SolidColorBrush, Color
+
+        panel = StackPanel()
+        state = {"icon": icon}
+
+        def _new_tb():
+            tb = TextBlock()
+            tb.FontSize     = 13
+            tb.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+            tb.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))   # #27272A
+            tb.TextWrapping = TextWrapping.Wrap
+            tb.LineHeight   = 20
+            return tb
+
+        para = []
+
+        def _flush_para():
+            if not para:
+                return
+            chunk = u"\n".join(para).strip(u"\n")
+            del para[:]
+            if not chunk.strip() and not state["icon"]:
+                return
+            tb = _new_tb()
+            if state["icon"]:
+                self._add_icon_run(tb, state["icon"], icon_color)
+                state["icon"] = None
+            self._build_md_inlines(tb, chunk)
+            tb.Margin = Thickness(0, 0, 0, 2)
+            panel.Children.Add(tb)
+
+        lines = (text or u"").splitlines() or [u""]
+        i = 0
+        n = len(lines)
+        while i < n:
+            s = lines[i].strip()
+            if s.startswith(u"|") and s.count(u"|") >= 2:
+                tbl = []
+                while i < n:
+                    s2 = lines[i].strip()
+                    if s2.startswith(u"|") and s2.count(u"|") >= 2:
+                        tbl.append(s2)
+                        i += 1
+                    else:
+                        break
+                _flush_para()
+                table = self._make_md_table(tbl)
+                if table is not None:
+                    panel.Children.Add(table)
+                else:
+                    para.extend(tbl)     # unparseable → show as raw text
+                continue
+            para.append(lines[i])
+            i += 1
+        _flush_para()
+
+        if panel.Children.Count == 0:
+            panel.Children.Add(_new_tb())
+        return panel
+
+    def _append_bot_message(self, text, icon=None, icon_color=None):
+        """Add a left-aligned bot bubble with avatar and basic markdown rendering.
+
+        icon/icon_color: optional Segoe MDL2 glyph + Lumina RGB tuple rendered
+        before the text, in its own FontFamily run — the minimal-icon
+        replacement for the old baked-in colored emoji prefixes.
+        """
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
@@ -3427,20 +4685,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
             bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))
             bubble.BorderThickness = Thickness(1)
 
-            msg_text = TextBlock()
-            msg_text.FontSize     = 13
-            msg_text.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-            msg_text.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))   # #27272A
-            msg_text.TextWrapping = TextWrapping.Wrap
-            msg_text.LineHeight   = 20
-
+            # Block renderer: paragraphs + real table grids. Falls back to a
+            # plain TextBlock if anything in the renderer throws.
             try:
-                self._build_md_inlines(msg_text, text)
+                content = self._render_md_blocks(text, icon=icon, icon_color=icon_color)
             except Exception:
-                # Fallback: plain text if inline building fails
-                msg_text.Text = text
+                content = TextBlock()
+                content.FontSize     = 13
+                content.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+                content.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))   # #27272A
+                content.TextWrapping = TextWrapping.Wrap
+                content.LineHeight   = 20
+                content.Text         = text
 
-            bubble.Child = msg_text
+            bubble.Child = content
             Grid.SetColumn(bubble, 1)
             row.Children.Add(bubble)
             self.chat_history_panel.Children.Add(row)
@@ -3500,16 +4758,25 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._stream_tb  = None
 
     def _finalize_stream_bubble(self, text):
-        """Re-render the live bubble with full markdown once streaming is done."""
+        """Re-render the live bubble with full markdown once streaming is done.
+
+        The streaming TextBlock showed plain text; swap the bubble's content
+        for the block renderer so tables/headings in the finished reply get
+        their real layout. Falls back to inline-only rendering on error.
+        """
         try:
             tb = self._stream_tb
             if tb is None:
                 return
-            tb.Inlines.Clear()
             try:
-                self._build_md_inlines(tb, text)
+                bubble = tb.Parent          # the bubble Border hosting the stream
+                bubble.Child = self._render_md_blocks(text)
             except Exception:
-                tb.Text = text
+                tb.Inlines.Clear()
+                try:
+                    self._build_md_inlines(tb, text)
+                except Exception:
+                    tb.Text = text
             self._scroll_to_bottom()
         except Exception:
             pass

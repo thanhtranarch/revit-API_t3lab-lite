@@ -51,7 +51,9 @@
       "Bash(curl -s -m 5 http://localhost:48884/health)",
       "Bash(curl -s -m 5 http://localhost:48884/)",
       "mcp__t3lab-revit__file_watcher_status",
-      "mcp__t3lab-revit__get_revit_context"
+      "mcp__t3lab-revit__get_revit_context",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('T3Lab.extension/T3Lab.tab/Modeling & Datum.panel/Create.stack/Create Elements.pulldown/DoorThreshold.pushbutton/script.py', encoding='utf-8'\\).read\\(\\)\\)\")",
+      "PowerShell(Get-ChildItem \"T3Lab.extension\\\\T3Lab.tab\\\\Modeling & Datum.panel\\\\FamiGen.pushbutton\\\\prompts\" | Select-Object Name, Length; Get-ChildItem \"T3Lab.extension\\\\T3Lab.tab\\\\Modeling & Datum.panel\\\\FamiGen.pushbutton\\\\prompts\" | ForEach-Object { \"{0}: {1} lines\" -f $_.Name, \\(Get-Content $_.FullName | Measure-Object -Line\\).Lines })"
     ]
   }
 }

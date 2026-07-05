@@ -274,6 +274,10 @@ class T3LabAIServer(object):
         self._event_handler = None
         self._token = self._get_or_create_token()
         self._pinned_doc_title = None
+        # Open TransactionGroup for the current assistant request (B4) — owned
+        # and closed on the Revit main thread via the __begin/__end_action_group
+        # pseudo-tools below. One request = one group = one Undo entry.
+        self._action_group = None
         self._initialized = True
 
         # Register default Revit tools
@@ -849,13 +853,17 @@ class T3LabAIServer(object):
             # ── Utility tools ─────────────────────────────────────────────────
             'send_code_to_revit': {
                 'name': 'send_code_to_revit',
-                'description': 'Execute IronPython code directly in the Revit context. Use with care — full Revit API access.',
+                'description': ('Execute IronPython code directly in the Revit context. Use with care — full Revit API access. '
+                                'Return data by assigning to `result` (or output.append(...)); print() is captured into the '
+                                'tool result, and code must NEVER open dialogs (TaskDialog/MessageBox/forms).'),
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
                         'code': {
                             'type': 'string',
-                            'description': 'IronPython 2.7 code to execute. Has access to doc, uidoc, app.'
+                            'description': ('IronPython 2.7 code to execute. Has access to doc, uidoc, app, and the variables '
+                                            '`result` / `output` (a list). Assign your answer to `result` or output.append(...) — '
+                                            'do NOT print for display and do NOT show any dialog/window.')
                         }
                     },
                     'required': ['code']
@@ -1196,7 +1204,8 @@ class T3LabAIServer(object):
                         'parameter_value': {'type': 'string', 'description': 'Optional value substring to match'},
                         'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Optional explicit IDs to select (overrides category)'},
                         'add_to_selection': {'type': 'boolean', 'description': 'Add to the current selection instead of replacing (default false)'},
-                        'limit': {'type': 'integer', 'description': 'Max elements to select (default 500)'}
+                        'limit': {'type': 'integer', 'description': 'Max elements to select (default 500)'},
+                        'show': {'type': 'boolean', 'description': 'Also zoom the view onto the selected elements (default false)'}
                     },
                     'required': []
                 }
@@ -1661,6 +1670,10 @@ class T3LabAIServer(object):
         'create_schedule', 'duplicate_view', 'apply_view_template',
         'create_view_filter', 'place_views_on_sheets', 'export_dwg', 'export_image',
         'create_project_parameter', 'room_to_floor', 'purge_unused', 'create_workset',
+        # Internal pseudo-tools (agent request TransactionGroup) — NOT in the
+        # public registry, but they open/close a TransactionGroup so they must
+        # run on the Revit main thread like any other write tool.
+        '__begin_action_group', '__end_action_group',
     ])
 
     def ensure_external_event(self):
@@ -1817,6 +1830,48 @@ class T3LabAIServer(object):
             doc, uidoc = self._resolve_target_document(doc, uidoc)
         except ImportError:
             return {'error': 'Revit API not available', 'tool': tool_name}
+
+        # ── Agent request TransactionGroup (B4) ──────────────────────────────
+        # Pseudo-tools, only reachable through _execute_tool (never listed in
+        # the public registry). We are on the Revit main thread here (routed
+        # via _WRITE_TOOLS + ExternalEvent), which TransactionGroup requires.
+        if tool_name == '__begin_action_group':
+            from Autodesk.Revit.DB import TransactionGroup
+            # Defensive: never stack groups — close a leftover one first.
+            if self._action_group is not None:
+                try:
+                    self._action_group.Assimilate()
+                except Exception:
+                    try:
+                        self._action_group.RollBack()
+                    except Exception:
+                        pass
+                self._action_group = None
+            try:
+                title = (arguments or {}).get('title') or 'T3Lab AI actions'
+                tg = TransactionGroup(doc, title)
+                tg.Start()
+                self._action_group = tg
+                return {'success': True, 'group': title}
+            except Exception as e:
+                self._action_group = None
+                return {'error': str(e), 'tool': tool_name}
+
+        elif tool_name == '__end_action_group':
+            tg = self._action_group
+            self._action_group = None
+            if tg is None:
+                return {'success': True, 'note': 'no open group'}
+            try:
+                # Assimilate merges every transaction inside into ONE undo item.
+                tg.Assimilate()
+                return {'success': True}
+            except Exception as e:
+                try:
+                    tg.RollBack()
+                except Exception:
+                    pass
+                return {'error': str(e), 'tool': tool_name}
 
         if tool_name == 'revit_get_active_view':
             view = doc.ActiveView
@@ -3323,16 +3378,37 @@ class T3LabAIServer(object):
                 'result': None,
                 'output': [],
             }
+            # Redirect stdout for the duration of the exec: under pyRevit the
+            # FIRST print() pops the output window as a dialog over Revit —
+            # LLM-generated code prints habitually, so without this every
+            # code-running chat turn threw a raw-text window in the user's
+            # face. Captured text is returned as part of the tool result.
+            import sys as _sys
             try:
-                exec(code, local_ctx)   # noqa: S102
+                from StringIO import StringIO as _StringIO      # IronPython 2.7
+            except ImportError:
+                from io import StringIO as _StringIO            # CPython (tests)
+            _old_stdout = _sys.stdout
+            _buf = _StringIO()
+            try:
+                _sys.stdout = _buf
+                try:
+                    exec(code, local_ctx)   # noqa: S102
+                finally:
+                    _sys.stdout = _old_stdout
+                printed      = _buf.getvalue().strip()
                 result_val   = local_ctx.get('result')
                 output_lines = local_ctx.get('output', [])
+                parts = []
+                if printed:
+                    parts.append(printed)
                 if result_val is not None:
-                    out_str = str(result_val)
+                    parts.append(str(result_val))
                 elif output_lines:
-                    out_str = '\n'.join(str(x) for x in output_lines)
-                else:
-                    out_str = 'OK'
+                    parts.append('\n'.join(str(x) for x in output_lines))
+                out_str = '\n'.join(parts) if parts else 'OK'
+                if len(out_str) > 8000:
+                    out_str = out_str[:8000] + '... [truncated]'
                 # Mirror to file-watcher result files for cross-channel clients
                 try:
                     from core.file_watcher import RESULT_FILE, RESULT_TXT
@@ -4404,6 +4480,12 @@ class T3LabAIServer(object):
                 for i in target:
                     net.Add(i)
                 uidoc.Selection.SetElementIds(net)
+                if bool(arguments.get('show', False)) and net.Count:
+                    # Zoom the view onto the selection (element-link clicks).
+                    try:
+                        uidoc.ShowElements(net)
+                    except Exception:
+                        pass
                 return {'success': True, 'selected_count': net.Count}
             except Exception as e:
                 return {'error': str(e), 'tool': tool_name}
@@ -4877,8 +4959,34 @@ class T3LabAIServer(object):
                     opts.PixelSize = int(arguments.get('width', 1600))
                 except Exception:
                     pass
+                # Revit appends " - <ViewType> - <ViewName>" to the base name,
+                # so the exact output path isn't known up-front. Snapshot the
+                # matching files before, export, and report what changed —
+                # callers (assistant vision capture) need the real file path.
+                prefix = 'T3Lab_' + safe
+                before = {}
+                try:
+                    for fn in _os.listdir(folder):
+                        if fn.startswith(prefix):
+                            p = _os.path.join(folder, fn)
+                            before[fn] = _os.path.getmtime(p)
+                except Exception:
+                    pass
                 doc.ExportImage(opts)
-                return {'success': True, 'view': view.Name, 'output_folder': folder}
+                files = []
+                try:
+                    for fn in _os.listdir(folder):
+                        if not fn.startswith(prefix):
+                            continue
+                        if not fn.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff')):
+                            continue
+                        p = _os.path.join(folder, fn)
+                        if fn not in before or _os.path.getmtime(p) != before[fn]:
+                            files.append(p)
+                except Exception:
+                    pass
+                return {'success': True, 'view': view.Name,
+                        'output_folder': folder, 'files': files}
             except Exception as e:
                 return {'error': str(e), 'tool': tool_name}
 

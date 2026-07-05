@@ -3,7 +3,8 @@
 OpenAI Provider
 
 OpenAI GPT API adapter for the T3Lab LLM router.
-Supports GPT-4o, GPT-4o-mini, GPT-4-turbo, and vision input.
+Models are discovered live from /v1/models after the key verifies; vision input
+is supported.
 
 Vision format conversion:
   Claude block  → {"type":"image","source":{"type":"base64","media_type":"...","data":"..."}}
@@ -32,16 +33,9 @@ from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_post_str
 OPENAI_CHAT_URL   = "https://api.openai.com/v1/chat/completions"
 OPENAI_MODELS_URL = "https://api.openai.com/v1/models"
 
-MODEL_DEFAULT = "gpt-4o-mini"
-MODEL_VISION  = "gpt-4o"   # upgrade target when image blocks are present
-
-# Shown when the API is unreachable or key not set
-FALLBACK_MODELS = [
-    "gpt-4o-mini",
-    "gpt-4o",
-    "gpt-4-turbo",
-    "gpt-3.5-turbo",
-]
+# NO hardcoded default model: what the account can use comes exclusively from
+# the live /v1/models endpoint after the key is verified. The names below are
+# only capability/preference HINTS matched against that live list.
 
 # Substrings that identify non-chat models to exclude from the list
 _EXCLUDE_SUBSTRINGS = (
@@ -50,8 +44,9 @@ _EXCLUDE_SUBSTRINGS = (
     "audio", "instruct", "search", "similarity", "edit",
 )
 
-# Models that support image input
-VISION_CAPABLE = {"gpt-4o", "gpt-4o-mini", "gpt-4-turbo"}
+# Substring hints (capable-first) used ONLY to auto-pick a vision default from
+# the live list — never an exact-name whitelist to validate against.
+_PREF_VISION = ("gpt-4o", "gpt-4.1", "gpt-4-turbo", "chatgpt")
 
 
 # ─── Provider ──────────────────────────────────────────────────────────────────
@@ -65,7 +60,7 @@ class OpenAIProvider(BaseLLMProvider):
     SUPPORTS_NATIVE_TOOLS = True
 
     def __init__(self):
-        self._model         = MODEL_DEFAULT
+        self._model         = None   # None → resolve from the live model list
         self._cached_models = None   # filled on first successful /v1/models fetch
 
     # ── Credentials ───────────────────────────────────────────────────────────
@@ -132,11 +127,42 @@ class OpenAIProvider(BaseLLMProvider):
         return []   # no genuine live result → report unset (gates the model list)
 
     def get_active_model(self):
-        return self._model
+        """User's saved choice, else the default from the CACHED live list.
+
+        Deliberately does no HTTP (badge/sidebar call this) — returns None
+        until a live model list has been fetched at least once.
+        """
+        if self._model:
+            return self._model
+        return self._pick_model(self._cached_models or [], prefer_vision=False)
 
     def set_model(self, model_name):
         self._model = model_name
         return True
+
+    @staticmethod
+    def _pick_model(models, prefer_vision):
+        """Pick a model from a LIVE list only — never invent a name."""
+        if not models:
+            return None
+        if prefer_vision:
+            for hint in _PREF_VISION:
+                for m in models:
+                    if hint in m:
+                        return m
+        for m in models:
+            if "mini" in m:          # cheap-first default for plain chat
+                return m
+        return models[0]
+
+    def _resolve_model(self, has_vision=False):
+        """Model to call: the user's explicit choice ALWAYS wins — it came from
+        the vendor's own live list, so it is never second-guessed against a
+        capability whitelist. Only when no model was picked do we auto-select
+        from the LIVE list (vision-preferred if images are present; may fetch)."""
+        if self._model:
+            return self._model
+        return self._pick_model(self.get_models(), prefer_vision=has_vision)
 
     # ── Chat ─────────────────────────────────────────────────────────────────
 
@@ -146,8 +172,8 @@ class OpenAIProvider(BaseLLMProvider):
 
         user_content may be a string or a list of Claude-format content blocks.
         Image blocks are automatically converted to the OpenAI image_url format.
-        If the selected model is not vision-capable but images are present,
-        the provider upgrades to MODEL_VISION automatically.
+        When no model is selected and images are present, a vision-preferred
+        default is auto-picked from the LIVE model list.
         """
         if not HAS_HTTP:
             return None
@@ -157,9 +183,9 @@ class OpenAIProvider(BaseLLMProvider):
 
         has_vision = self.has_image_blocks(user_content)
 
-        model = self._model
-        if has_vision and model not in VISION_CAPABLE:
-            model = MODEL_VISION
+        model = self._resolve_model(has_vision)
+        if not model:
+            return None   # key not verified / vendor reported no models
 
         openai_content = self._to_openai_content(user_content)
 
@@ -189,7 +215,7 @@ class OpenAIProvider(BaseLLMProvider):
             api_result = json.loads(resp_text)
             return api_result["choices"][0]["message"]["content"].strip()
         except Exception as ex:
-            self._debug_log("chat() failed: {}".format(ex))
+            self._record_error(u"chat() failed: {}".format(ex))
             return None
 
     def chat_stream(self, messages, system_prompt, user_content,
@@ -202,9 +228,9 @@ class OpenAIProvider(BaseLLMProvider):
             return None
 
         has_vision = self.has_image_blocks(user_content)
-        model = self._model
-        if has_vision and model not in VISION_CAPABLE:
-            model = MODEL_VISION
+        model = self._resolve_model(has_vision)
+        if not model:
+            return None   # key not verified / vendor reported no models
 
         openai_content = self._to_openai_content(user_content)
 
@@ -262,14 +288,18 @@ class OpenAIProvider(BaseLLMProvider):
         api_key = self._get_api_key()
         if not api_key:
             return None
+        model = self._resolve_model(False)
+        if not model:
+            return None
         try:
+            self._clear_error()
             return openai_chat_agent(
                 OPENAI_CHAT_URL,
                 {"Authorization": "Bearer {}".format(api_key)},
-                self._model or MODEL_DEFAULT,
+                model,
                 system_prompt, messages, tools, max_tokens)
         except Exception as ex:
-            self._debug_log("chat_agent() failed: {}".format(ex))
+            self._record_error(u"chat_agent() failed: {}".format(ex))
             return None
 
     agent_tool_results = staticmethod(openai_agent_tool_results)

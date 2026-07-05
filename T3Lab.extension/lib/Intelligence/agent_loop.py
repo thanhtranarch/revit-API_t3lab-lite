@@ -49,7 +49,7 @@ def _result_to_json(result):
     except Exception:
         s = u"{}".format(result)
     if len(s) > _MAX_RESULT_CHARS:
-        s = s[:_MAX_RESULT_CHARS] + u'... [truncated {} chars]"'.format(len(s) - _MAX_RESULT_CHARS)
+        s = s[:_MAX_RESULT_CHARS] + u"... [truncated {} chars]".format(len(s) - _MAX_RESULT_CHARS)
     return s
 
 
@@ -97,6 +97,18 @@ class AgentLoop(object):
     def is_cancelled(self):
         return self._cancelled
 
+    def _guard_tripped(self):
+        """True when the optional guard_check callback reports the request
+        context is no longer valid (e.g. the user switched Revit documents
+        mid-request — writing on would edit the wrong model)."""
+        guard = self._cb.get("guard_check")
+        if guard is None:
+            return False
+        try:
+            return bool(guard())
+        except Exception:
+            return False
+
     # ── Callback helpers (never raise into the loop) ──────────────────────────
 
     def _emit(self, name, *args):
@@ -113,7 +125,8 @@ class AgentLoop(object):
         """Execute the agentic loop. Blocking — call from a worker thread.
 
         Returns:
-            {"status": "done"|"cancelled"|"failed"|"max_iterations"|"timeout",
+            {"status": "done"|"cancelled"|"failed"|"max_iterations"|"timeout"
+                       |"doc_changed",
              "text": <last user-visible text>,
              "launch_intent": <str|None>,   # open_t3lab_tool target, terminal
              "iterations": int, "tool_runs": int}
@@ -131,6 +144,8 @@ class AgentLoop(object):
 
             if self._cancelled:
                 return self._finish("cancelled", last_text, None, iteration, tool_runs)
+            if self._guard_tripped():
+                return self._finish("doc_changed", last_text, None, iteration, tool_runs)
             if (time.time() - started) > self._time_budget:
                 return self._finish("timeout", last_text, None, iteration, tool_runs)
 
@@ -172,9 +187,16 @@ class AgentLoop(object):
             # ── Execute tool calls sequentially (Revit is single-threaded) ──
             results       = []
             launch_intent = None
+            doc_changed   = False
             for tc in calls:
                 name = tc.get("name", "")
                 args = tc.get("args") or {}
+
+                if self._guard_tripped():
+                    doc_changed = True
+                    results.append({"cancelled": True,
+                                    "note": "Active document changed — request aborted."})
+                    break
 
                 if name == LAUNCHER_TOOL_NAME:
                     # Terminal: the window opens on the UI thread AFTER the
@@ -205,6 +227,9 @@ class AgentLoop(object):
 
             if launch_intent:
                 return self._finish("done", last_text, launch_intent,
+                                    iteration, tool_runs)
+            if doc_changed:
+                return self._finish("doc_changed", last_text, None,
                                     iteration, tool_runs)
             if self._cancelled:
                 return self._finish("cancelled", last_text, None,
@@ -240,8 +265,9 @@ class AgentLoop(object):
 
 _AGENT_PROMPT = u"""You are T3Lab Assistant, an AI agent embedded in Autodesk Revit via the T3Lab pyRevit extension. You can read and modify the live Revit model through the tools provided.
 
-## Language
+## Language & formatting
 Always reply in the same language the user writes (Vietnamese or English). Keep replies short and practical — one or two sentences between tool calls, a compact summary at the end.
+Use markdown when it helps: **bold**, `code`, bullet lists, and pipe tables (| a | b |) for numeric summaries — the chat renders them natively. Do NOT use emoji.
 
 ## Units
 All tool coordinates and dimensions are in METERS. Convert user input: 5000mm = 5.0, 3m = 3.0. Element ids are integers.
@@ -253,6 +279,7 @@ All tool coordinates and dimensions are in METERS. Convert user input: 5000mm = 
 4. Destructive actions (delete_element, purge_unused, and anything removing model data): unless the user's current message already explicitly requested the deletion, ask for confirmation in text FIRST and stop — do not call the tool in the same turn.
 5. If a tool returns an error, explain it briefly and either retry with fixed arguments (max once) or tell the user what is missing.
 6. `open_t3lab_tool` opens a T3Lab window and ENDS your turn — only ever call it last, and never together with other tools.
+7. When the user refers to the current selection ("these elements", "the selected walls", "các element này", "đang chọn"), call `revit_get_selected_elements` FIRST and operate on those element ids — never guess ids.
 
 ## Current Revit context
 {context}

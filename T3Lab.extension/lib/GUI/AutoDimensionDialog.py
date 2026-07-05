@@ -13,7 +13,7 @@ Author: Tran Tien Thanh & Dang Quoc Truong
 
 __author__  = "Tran Tien Thanh & Dang Quoc Truong"
 __title__   = "Auto Dimension"
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 
 # IMPORT LIBRARIES
 # ==================================================
@@ -294,8 +294,11 @@ def _collect_wall_core_refs(wall):
         except Exception:
             pass
 
-        refs.extend(ext_refs)
-        refs.extend(int_refs)
+        # One ref per side: [0] = exterior, [1] = interior. Extending the raw
+        # lists could place a second exterior face at index 1, which the wall
+        # phase would then treat (and position) as the interior face.
+        refs.extend(ext_refs[:1])
+        refs.extend(int_refs[:1])
     except Exception as ex:
         logger.warning("Wall core face error: {}".format(ex))
     return refs
@@ -533,7 +536,10 @@ def _flanking_grids(sorted_grids, lo, hi, axis):
 
 
 def _col_ref_one(col, view, axis, *primary_rtypes):
-    """Return one face reference for col along axis. Tries primary_rtypes, then fallbacks."""
+    """Return one face reference for col along axis. Tries primary_rtypes,
+    then geometry faces (direction-verified), then blind type scans last —
+    a blind scan can return a plane perpendicular to the chain direction,
+    which Revit rejects with 'Invalid number of references'."""
     for rt in primary_rtypes:
         try:
             refs = list(col.GetReferences(rt))
@@ -541,6 +547,9 @@ def _col_ref_one(col, view, axis, *primary_rtypes):
                 return refs[0]
         except Exception:
             pass
+    r = _col_ref_from_geom(col, view, axis)
+    if r:
+        return r
     for rt in (FamilyInstanceReferenceType.WeakReference,
                FamilyInstanceReferenceType.StrongReference):
         try:
@@ -557,7 +566,33 @@ def _col_ref_one(col, view, axis, *primary_rtypes):
                 return refs[0]
         except Exception:
             pass
-    return _col_ref_from_geom(col, view, axis)
+    return None
+
+
+def _hand_matches_axis(elem, axis):
+    """True if the family's hand (local width) direction runs along the world
+    axis. Doors/windows in a wall running Y, or columns rotated 90°, have
+    their hand along Y — their Left/Right planes then face X and are invalid
+    for an X-measuring chain."""
+    try:
+        hand = elem.HandOrientation
+        return (abs(hand.X) >= abs(hand.Y)) == (axis == 'X')
+    except Exception:
+        return True
+
+
+def _axis_ref_types(elem, axis):
+    """Primary FamilyInstanceReferenceTypes that measure the given WORLD axis,
+    accounting for instance rotation: Left/Right planes are perpendicular to
+    the family's hand direction, Front/Back to its facing — for a rotated
+    instance the pairs swap."""
+    if _hand_matches_axis(elem, axis):
+        return (FamilyInstanceReferenceType.Left,
+                FamilyInstanceReferenceType.Right,
+                FamilyInstanceReferenceType.CenterLeftRight)
+    return (FamilyInstanceReferenceType.Front,
+            FamilyInstanceReferenceType.Back,
+            FamilyInstanceReferenceType.CenterFrontBack)
 
 
 def _create_chain_dim(doc_ref, view, ref_pos_list, axis, perp, margin, dim_type, dim_z,
@@ -1192,10 +1227,9 @@ class AutoDimensionWindow(forms.WPFWindow):
                         bb_c = col.get_BoundingBox(view)
                         if run_x:
                             ref_pos = []
+                            rts = _axis_ref_types(col, 'X')
                             r = _col_ref_one(col, view, 'X',
-                                             FamilyInstanceReferenceType.CenterLeftRight,
-                                             FamilyInstanceReferenceType.Left,
-                                             FamilyInstanceReferenceType.Right)
+                                             rts[2], rts[0], rts[1])
                             if r:
                                 ref_pos.append((cx, r))
                             ng, ng_pos = _nearest_grid_nonzero(cx, cy, v_grids, 'X')
@@ -1210,10 +1244,9 @@ class AutoDimensionWindow(forms.WPFWindow):
                             dims_created += len(made)
                         if run_y:
                             ref_pos = []
+                            rts = _axis_ref_types(col, 'Y')
                             r = _col_ref_one(col, view, 'Y',
-                                             FamilyInstanceReferenceType.CenterFrontBack,
-                                             FamilyInstanceReferenceType.Front,
-                                             FamilyInstanceReferenceType.Back)
+                                             rts[2], rts[0], rts[1])
                             if r:
                                 ref_pos.append((cy, r))
                             ng, ng_pos = _nearest_grid_nonzero(cx, cy, h_grids, 'Y')
@@ -1250,14 +1283,16 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     r = _get_grid_reference(g, view)
                                     if r:
                                         ref_pos.append((_grid_pos(g, 'X'), r))
+                            col_ref_count = 0
                             for col in row_cols:
                                 cx = col_ctr[element_id_int(col.Id)][0]
                                 bb_c = col.get_BoundingBox(view)
+                                rts = _axis_ref_types(col, 'X')
                                 added = 0
                                 for rt, pos_fn in (
-                                    (FamilyInstanceReferenceType.Left,
+                                    (rts[0],
                                      lambda b, c: b.Min.X if b else c - 0.01),
-                                    (FamilyInstanceReferenceType.Right,
+                                    (rts[1],
                                      lambda b, c: b.Max.X if b else c + 0.01),
                                 ):
                                     try:
@@ -1268,12 +1303,14 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     except Exception:
                                         pass
                                 if added == 0:
-                                    r = _col_ref_one(col, view, 'X',
-                                                     FamilyInstanceReferenceType.Left,
-                                                     FamilyInstanceReferenceType.Right,
-                                                     FamilyInstanceReferenceType.CenterLeftRight)
+                                    r = _col_ref_one(col, view, 'X', *rts)
                                     if r:
                                         ref_pos.append((cx, r))
+                                        added = 1
+                                col_ref_count += added
+                            if col_ref_count == 0:
+                                # Only grid refs left — grid chains are Phase 1's job.
+                                continue
                             made = _chain(ref_pos, 'X', row_y, l2_feet)
                             created_dims.extend(made)
                             dims_created += len(made)
@@ -1291,14 +1328,16 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     r = _get_grid_reference(g, view)
                                     if r:
                                         ref_pos.append((_grid_pos(g, 'Y'), r))
+                            col_ref_count = 0
                             for col in line_cols:
                                 cy = col_ctr[element_id_int(col.Id)][1]
                                 bb_c = col.get_BoundingBox(view)
+                                rts = _axis_ref_types(col, 'Y')
                                 added = 0
                                 for rt, pos_fn in (
-                                    (FamilyInstanceReferenceType.Front,
+                                    (rts[0],
                                      lambda b, c: b.Min.Y if b else c - 0.01),
-                                    (FamilyInstanceReferenceType.Back,
+                                    (rts[1],
                                      lambda b, c: b.Max.Y if b else c + 0.01),
                                 ):
                                     try:
@@ -1309,12 +1348,14 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     except Exception:
                                         pass
                                 if added == 0:
-                                    r = _col_ref_one(col, view, 'Y',
-                                                     FamilyInstanceReferenceType.Front,
-                                                     FamilyInstanceReferenceType.Back,
-                                                     FamilyInstanceReferenceType.CenterFrontBack)
+                                    r = _col_ref_one(col, view, 'Y', *rts)
                                     if r:
                                         ref_pos.append((cy, r))
+                                        added = 1
+                                col_ref_count += added
+                            if col_ref_count == 0:
+                                # Only grid refs left — grid chains are Phase 1's job.
+                                continue
                             made = _chain(ref_pos, 'Y', col_x, -l2_feet)
                             created_dims.extend(made)
                             dims_created += len(made)
@@ -1331,11 +1372,12 @@ class AutoDimensionWindow(forms.WPFWindow):
                         bb = elem.get_BoundingBox(view)
                         if run_x:
                             ref_pos = []
+                            rts = _axis_ref_types(elem, 'X')
                             added = 0
                             for rt, pos_fn in (
-                                (FamilyInstanceReferenceType.Left,
+                                (rts[0],
                                  lambda b, c: b.Min.X if b else c - 0.01),
-                                (FamilyInstanceReferenceType.Right,
+                                (rts[1],
                                  lambda b, c: b.Max.X if b else c + 0.01),
                             ):
                                 try:
@@ -1346,9 +1388,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                                 except Exception:
                                     pass
                             if added == 0:
-                                r = _col_ref_one(elem, view, 'X',
-                                                 FamilyInstanceReferenceType.Left,
-                                                 FamilyInstanceReferenceType.Right)
+                                r = _col_ref_one(elem, view, 'X', *rts)
                                 if r:
                                     ref_pos.append((cx_e, r))
                             ng, ng_pos = _nearest_grid(cx_e, cy_e, v_grids, 'X')
@@ -1363,11 +1403,12 @@ class AutoDimensionWindow(forms.WPFWindow):
                             dims_created += len(made)
                         if run_y:
                             ref_pos = []
+                            rts = _axis_ref_types(elem, 'Y')
                             added = 0
                             for rt, pos_fn in (
-                                (FamilyInstanceReferenceType.Front,
+                                (rts[0],
                                  lambda b, c: b.Min.Y if b else c - 0.01),
-                                (FamilyInstanceReferenceType.Back,
+                                (rts[1],
                                  lambda b, c: b.Max.Y if b else c + 0.01),
                             ):
                                 try:
@@ -1378,9 +1419,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                                 except Exception:
                                     pass
                             if added == 0:
-                                r = _col_ref_one(elem, view, 'Y',
-                                                 FamilyInstanceReferenceType.Front,
-                                                 FamilyInstanceReferenceType.Back)
+                                r = _col_ref_one(elem, view, 'Y', *rts)
                                 if r:
                                     ref_pos.append((cy_e, r))
                             ng, ng_pos = _nearest_grid(cx_e, cy_e, h_grids, 'Y')
@@ -1408,7 +1447,13 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     r = _get_grid_reference(g, view)
                                     if r:
                                         ref_pos.append((_grid_pos(g, 'X'), r))
+                            elem_ref_count = 0
                             for elem in row_elems:
+                                # An opening whose width runs along Y belongs
+                                # to the Y pass — its jamb planes face X and
+                                # would be rejected by NewDimension here.
+                                if not _hand_matches_axis(elem, 'X'):
+                                    continue
                                 bb   = elem.get_BoundingBox(view)
                                 cx_e = inner_ctr[element_id_int(elem.Id)][0]
                                 added = 0
@@ -1431,6 +1476,10 @@ class AutoDimensionWindow(forms.WPFWindow):
                                                      FamilyInstanceReferenceType.Right)
                                     if r:
                                         ref_pos.append((cx_e, r))
+                                        added = 1
+                                elem_ref_count += added
+                            if elem_ref_count == 0:
+                                continue
                             made = _chain(ref_pos, 'X', row_y, l1_feet,
                                           span_lo=v_span_lo, span_hi=v_span_hi,
                                           mirror_perp=y_min)
@@ -1451,14 +1500,21 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     r = _get_grid_reference(g, view)
                                     if r:
                                         ref_pos.append((_grid_pos(g, 'Y'), r))
+                            elem_ref_count = 0
                             for elem in col_elems:
+                                # An opening whose width runs along X belongs
+                                # to the X pass above.
+                                if not _hand_matches_axis(elem, 'Y'):
+                                    continue
                                 bb   = elem.get_BoundingBox(view)
                                 cy_e = inner_ctr[element_id_int(elem.Id)][1]
                                 added = 0
+                                # Width along Y → the jamb planes are the
+                                # family's Left/Right (hand runs along Y).
                                 for rt, pos_fn in (
-                                    (FamilyInstanceReferenceType.Front,
+                                    (FamilyInstanceReferenceType.Left,
                                      lambda b, c: b.Min.Y if b else c - 0.01),
-                                    (FamilyInstanceReferenceType.Back,
+                                    (FamilyInstanceReferenceType.Right,
                                      lambda b, c: b.Max.Y if b else c + 0.01),
                                 ):
                                     try:
@@ -1470,10 +1526,14 @@ class AutoDimensionWindow(forms.WPFWindow):
                                         pass
                                 if added == 0:
                                     r = _col_ref_one(elem, view, 'Y',
-                                                     FamilyInstanceReferenceType.Front,
-                                                     FamilyInstanceReferenceType.Back)
+                                                     FamilyInstanceReferenceType.Left,
+                                                     FamilyInstanceReferenceType.Right)
                                     if r:
                                         ref_pos.append((cy_e, r))
+                                        added = 1
+                                elem_ref_count += added
+                            if elem_ref_count == 0:
+                                continue
                             made = _chain(ref_pos, 'Y', col_x, -l1_feet,
                                           span_lo=h_span_lo, span_hi=h_span_hi,
                                           mirror_perp=x_max)
@@ -1580,8 +1640,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                         if run_x:
                             ref_pos = []
                             r = _col_ref_one(lift, view, 'X',
-                                             FamilyInstanceReferenceType.Left,
-                                             FamilyInstanceReferenceType.Right)
+                                             *_axis_ref_types(lift, 'X'))
                             if r:
                                 ref_pos.append((lx, r))
                             ng, ng_pos = _nearest_grid(lx, ly, v_grids, 'X')
@@ -1597,8 +1656,7 @@ class AutoDimensionWindow(forms.WPFWindow):
                         if run_y:
                             ref_pos = []
                             r = _col_ref_one(lift, view, 'Y',
-                                             FamilyInstanceReferenceType.Front,
-                                             FamilyInstanceReferenceType.Back)
+                                             *_axis_ref_types(lift, 'Y'))
                             if r:
                                 ref_pos.append((ly, r))
                             ng, ng_pos = _nearest_grid(lx, ly, h_grids, 'Y')
@@ -1626,12 +1684,15 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     r = _get_grid_reference(g, view)
                                     if r:
                                         ref_pos.append((_grid_pos(g, 'X'), r))
+                            lift_ref_count = 0
                             for lift in row_lifts:
                                 r = _col_ref_one(lift, view, 'X',
-                                                 FamilyInstanceReferenceType.Left,
-                                                 FamilyInstanceReferenceType.Right)
+                                                 *_axis_ref_types(lift, 'X'))
                                 if r:
                                     ref_pos.append((lift_ctr[element_id_int(lift.Id)][0], r))
+                                    lift_ref_count += 1
+                            if lift_ref_count == 0:
+                                continue
                             made = _chain(ref_pos, 'X', row_y, l1_feet,
                                           span_lo=v_span_lo, span_hi=v_span_hi,
                                           mirror_perp=y_min)
@@ -1652,12 +1713,15 @@ class AutoDimensionWindow(forms.WPFWindow):
                                     r = _get_grid_reference(g, view)
                                     if r:
                                         ref_pos.append((_grid_pos(g, 'Y'), r))
+                            lift_ref_count = 0
                             for lift in col_lifts:
                                 r = _col_ref_one(lift, view, 'Y',
-                                                 FamilyInstanceReferenceType.Front,
-                                                 FamilyInstanceReferenceType.Back)
+                                                 *_axis_ref_types(lift, 'Y'))
                                 if r:
                                     ref_pos.append((lift_ctr[element_id_int(lift.Id)][1], r))
+                                    lift_ref_count += 1
+                            if lift_ref_count == 0:
+                                continue
                             made = _chain(ref_pos, 'Y', col_x, -l1_feet,
                                           span_lo=h_span_lo, span_hi=h_span_hi,
                                           mirror_perp=x_max)
@@ -1741,6 +1805,11 @@ class AutoDimensionWindow(forms.WPFWindow):
                                 facade_y = y_max if facade_name == 'NORTH' else y_min
                                 if abs(cy_e - facade_y) > facade_tol:
                                     continue
+                                # Only openings whose width runs along the
+                                # facade — perpendicular jambs would be
+                                # rejected by NewDimension.
+                                if not _hand_matches_axis(elem, 'X'):
+                                    continue
                                 for rt, pos_fn in (
                                     (FamilyInstanceReferenceType.Left,
                                      lambda b, c: b.Min.X if b else c - 0.01),
@@ -1757,10 +1826,14 @@ class AutoDimensionWindow(forms.WPFWindow):
                                 facade_x = x_max if facade_name == 'EAST' else x_min
                                 if abs(cx_e - facade_x) > facade_tol:
                                     continue
+                                if not _hand_matches_axis(elem, 'Y'):
+                                    continue
+                                # Hand runs along Y → jamb planes are the
+                                # family's Left/Right.
                                 for rt, pos_fn in (
-                                    (FamilyInstanceReferenceType.Front,
+                                    (FamilyInstanceReferenceType.Left,
                                      lambda b, c: b.Min.Y if b else c - 0.01),
-                                    (FamilyInstanceReferenceType.Back,
+                                    (FamilyInstanceReferenceType.Right,
                                      lambda b, c: b.Max.Y if b else c + 0.01),
                                 ):
                                     try:

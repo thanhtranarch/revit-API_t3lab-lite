@@ -140,7 +140,7 @@ def load_registry():
     """Return the on-disk registry dict, or a blank one if absent/corrupt."""
     try:
         if os.path.exists(REGISTRY_FILE):
-            with open(REGISTRY_FILE, 'r') as f:
+            with io.open(REGISTRY_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except Exception:
         pass
@@ -148,13 +148,24 @@ def load_registry():
 
 
 def save_registry(reg):
-    """Persist the registry dict to disk."""
+    """Persist the registry dict to disk.
+
+    Serialize to an ASCII string FIRST, then write it in one shot.
+    The old `json.dump(reg, f, ensure_ascii=False)` on a bytes-mode file
+    blew up with UnicodeEncodeError mid-write under IronPython 2.7 the
+    moment a tool title/doc carried Vietnamese text — leaving a 0-byte
+    registry, silently (exception swallowed). Every session then saw an
+    empty registry: no auto-discovered tool could ever be opened by name.
+    """
     try:
         d = os.path.dirname(REGISTRY_FILE)
         if not os.path.exists(d):
             os.makedirs(d)
-        with open(REGISTRY_FILE, 'w') as f:
-            json.dump(reg, f, ensure_ascii=False, indent=2)
+        data = json.dumps(reg, ensure_ascii=True, indent=2, sort_keys=True)
+        if isinstance(data, bytes):                     # py2 str
+            data = data.decode('ascii')
+        with io.open(REGISTRY_FILE, 'w', encoding='utf-8') as f:
+            f.write(data)
     except Exception:
         pass
 

@@ -839,8 +839,12 @@ _BUILTIN_TOOLS = [
      u"Quản lý lưới trục (manage grids)"),
 ]
 
-# Verbs that signal "open this tool" (post-_expand, so "mở/bật/chạy" → open)
-_OPEN_VERBS = {"open", "launch", "start", "run", "show"}
+# Verbs that signal "open this tool" (post-_expand, so "mở/bật" → open).
+# Vietnamese verbs that CANNOT be globally rewritten to "open" by _ABBREVS
+# (e.g. "chạy" would corrupt the "không chạy được" complaint trigger) are
+# stripped here instead, so "chạy autojoin" still resolves to the tool.
+_OPEN_VERBS = {"open", "launch", "start", "run", "show",
+               "chay", "dung", "xai"}
 
 
 def _singularise(w):
@@ -1357,12 +1361,11 @@ def _build_message(intent, slots, viet, raw_input=""):
                       "ngu", "vo dung", "te qua", "qua te"]
         if any(k in normed_raw for k in insult_kws):
             if viet:
-                return (u"Xin lỗi vì trải nghiệm chưa tốt! Ở chế độ offline tôi chỉ nhận "
-                        u"diện được lệnh cụ thể — thử 'mở batchout', 'parasync'... "
-                        u"hoặc kết nối AI trong phần Cài đặt để trả lời tự nhiên hơn.")
-            return ("Sorry that reply wasn't good enough! In offline mode I can only "
-                    "recognise specific commands — try 'open batchout', 'parasync'... "
-                    "or connect an AI provider in Settings for smarter answers.")
+                return (u"Xin lỗi vì trải nghiệm chưa tốt! Ở chế độ offline khả năng "
+                        u"của tôi hạn chế — kết nối AI trong phần Cài đặt để trả "
+                        u"lời tự nhiên hơn.")
+            return ("Sorry that reply wasn't good enough! Offline mode is limited — "
+                    "connect an AI provider in Settings for smarter answers.")
         # Error/complaint
         error_kws = ["loi", "bi hong", "khong chay", "khong hoat dong", "error",
                      "broken", "not working"]

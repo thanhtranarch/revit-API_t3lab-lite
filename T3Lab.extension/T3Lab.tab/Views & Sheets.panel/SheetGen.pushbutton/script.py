@@ -936,64 +936,41 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                             doc.Regenerate()
                             directions = ["South", "West", "North", "East"]
 
-                            # Revit only reports the marker's other 3 heads
-                            # as available *after* the first elevation on
-                            # this marker actually exists and the document
-                            # has regenerated - checking IsAvailableIndex()
-                            # for all 4 slots before any of them exist
-                            # under-reports what the marker can really hold.
-                            # Place one elevation first, regenerate, then
-                            # open the remaining ones.
-                            first_idx = None
+                            # IsAvailableIndex() is not reliable as a
+                            # pre-filter across Revit versions: 2023 only
+                            # reports the other 3 heads after the first
+                            # elevation exists and the document regenerated,
+                            # while 2025 has been seen to keep returning
+                            # False even after that - skipping 3 of the 4
+                            # directions. On a freshly created marker every
+                            # index 0-3 is legitimately unused, so attempt
+                            # CreateElevation on each index directly and let
+                            # the API itself reject a slot; the real
+                            # exception message goes to the output window.
                             for idx in range(4):
-                                if marker.IsAvailableIndex(idx):
-                                    first_idx = idx
-                                    break
-
-                            if first_idx is None:
-                                error_count += 1
-                                logger.error(
-                                    "No elevation index available on marker "
-                                    "for room {}".format(room_item.Number))
-                            else:
                                 try:
                                     ev = self._create_interior_elevation_view(
-                                        marker, host_plan, first_idx, directions,
+                                        marker, host_plan, idx, directions,
                                         room_item, cropbox_visible, max_dim,
                                         offset, elev_template_id)
                                     result['elevations'].append(ev)
                                     created_count += 1
+                                    doc.Regenerate()
                                 except Exception as ex:
                                     error_count += 1
-                                    logger.error("Elevation {} error: {}".format(
-                                        directions[first_idx], ex))
-
-                                doc.Regenerate()
-
-                                for idx in range(4):
-                                    if idx == first_idx:
-                                        continue
-                                    if not marker.IsAvailableIndex(idx):
-                                        error_count += 1
-                                        logger.error(
-                                            "Elevation {} (index {}) skipped "
-                                            "for room {} - marker does not "
-                                            "support this index".format(
-                                                directions[idx], idx, room_item.Number))
-                                        continue
-                                    try:
-                                        ev = self._create_interior_elevation_view(
-                                            marker, host_plan, idx, directions,
-                                            room_item, cropbox_visible, max_dim,
-                                            offset, elev_template_id)
-                                        result['elevations'].append(ev)
-                                        created_count += 1
-                                        doc.Regenerate()
-                                    except Exception as ex:
-                                        error_count += 1
-                                        logger.error("Elevation {} error: {}".format(
-                                            directions[idx], ex))
-                            t.Commit()
+                                    logger.error(
+                                        "Elevation {} (index {}) failed for "
+                                        "room {} [host plan: '{}']: "
+                                        "{}: {}".format(
+                                            directions[idx], idx,
+                                            room_item.Number, host_plan.Name,
+                                            type(ex).__name__, ex))
+                            if result['elevations']:
+                                t.Commit()
+                            else:
+                                # Nothing hosted - don't leave an empty
+                                # elevation marker behind in the model.
+                                t.RollBack()
                 except Exception as ex:
                     error_count += 1
                     logger.error("Elevation error for room {}: {}".format(

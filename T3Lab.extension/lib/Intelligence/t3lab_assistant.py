@@ -105,7 +105,7 @@ RESPONSE FORMAT (JSON only, no markdown, no extra text):
 EXAMPLES:
   "chào bạn"  → {"intent":"greet","params":{},"message":"Xin chào! Tôi là T3Lab Assistant. Cần giúp gì không?"}
   "hello"     → {"intent":"greet","params":{},"message":"Hello! I'm T3Lab Assistant. How can I help?"}
-  "cảm ơn"    → {"intent":"chat","params":{},"message":"Không có gì! Nếu cần gì cứ hỏi nhé 😊"}
+  "cảm ơn"    → {"intent":"chat","params":{},"message":"Không có gì! Nếu cần gì cứ hỏi nhé."}
   "batchout làm gì?" → {"intent":"help","params":{"answer":"BatchOut giúp xuất hàng loạt sheets sang PDF, DWG, DWF... với nhiều tùy chọn nâng cao."},"message":"BatchOut là công cụ xuất sheets hàng loạt."}
   "xuất pdf toàn bộ G sheet" → {"intent":"export_direct","params":{"format":"pdf","filter":"G","combine":false},"message":"Đang xuất tất cả G sheet sang PDF..."}
   "mở batchout G sheet pdf"  → {"intent":"open_batchout_configured","params":{"format":"pdf","filter":"G"},"message":"Mở BatchOut với G sheet đã chọn..."}
@@ -446,15 +446,15 @@ def get_setup_guidance_message(viet=True):
     """Return a detailed, step-by-step setup guide covering every provider option."""
     if viet:
         return (
-            u"🤖 Hiện chưa có AI nào được kết nối, nên tôi chỉ hiểu được lệnh cụ thể "
+            u"Hiện chưa có AI nào được kết nối, nên tôi chỉ hiểu được lệnh cụ thể "
             u"(vd: 'mở batchout', 'xuất pdf G sheet'). Để trò chuyện tự nhiên hơn, "
-            u"nhấn ⚙ ở góc trên rồi chọn 1 trong 2 cách:\n\n"
-            u"1️⃣ Dùng AI trên mây (Claude / OpenAI / DeepSeek) — trả lời nhanh, "
+            u"nhấn nút Cài đặt ở góc trên rồi chọn 1 trong 2 cách:\n\n"
+            u"1) Dùng AI trên mây (Claude / OpenAI / DeepSeek) — trả lời nhanh, "
             u"không cần máy mạnh:\n"
             u"   • Mở phần Cài đặt → chọn Provider → dán API Key vào ô tương ứng.\n"
             u"   • Lấy API Key tại: Claude → console.anthropic.com | "
             u"OpenAI → platform.openai.com | DeepSeek → platform.deepseek.com\n\n"
-            u"2️⃣ Dùng AI cục bộ (Ollama) — miễn phí, chạy ngay trên máy, không cần internet:\n"
+            u"2) Dùng AI cục bộ (Ollama) — miễn phí, chạy ngay trên máy, không cần internet:\n"
             u"   • Cài đặt tại ollama.ai, sau đó mở terminal chạy:\n"
             u"     ollama pull qwen2.5:1.5b\n"
             u"   • Mở lại T3Lab Assistant — hệ thống tự nhận diện model đã cài.\n\n"
@@ -462,14 +462,14 @@ def get_setup_guidance_message(viet=True):
             u"theo lệnh cụ thể như bình thường."
         )
     return (
-        u"🤖 No AI provider is connected yet, so I can only understand specific "
+        u"No AI provider is connected yet, so I can only understand specific "
         u"commands (e.g. 'open batchout', 'export pdf G sheet'). For more natural "
-        u"conversation, click ⚙ at the top and pick one of two options:\n\n"
-        u"1️⃣ Cloud AI (Claude / OpenAI / DeepSeek) — fast, no local hardware needed:\n"
+        u"conversation, click the Settings button at the top and pick one of two options:\n\n"
+        u"1) Cloud AI (Claude / OpenAI / DeepSeek) — fast, no local hardware needed:\n"
         u"   • Open Settings → pick a Provider → paste your API key.\n"
         u"   • Get a key at: Claude → console.anthropic.com | "
         u"OpenAI → platform.openai.com | DeepSeek → platform.deepseek.com\n\n"
-        u"2️⃣ Local AI (Ollama) — free, runs on your machine, no internet needed:\n"
+        u"2) Local AI (Ollama) — free, runs on your machine, no internet needed:\n"
         u"   • Install from ollama.ai, then in a terminal run:\n"
         u"     ollama pull qwen2.5:1.5b\n"
         u"   • Reopen T3Lab Assistant — it will auto-detect the installed model.\n\n"

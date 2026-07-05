@@ -44,6 +44,50 @@ if not _USE_NET:
 HAS_HTTP = _USE_NET or _HAS_URLLIB
 
 
+def _http_error_detail(ex):
+    """Pull the response body out of a failed HTTP call.
+
+    Vendors put the ACTUAL reason in the error body ("Model Not Exist",
+    "Insufficient Balance", "does not support function calling", ...) —
+    without this, every API rejection surfaces as a bare WebException/
+    HTTPError and the UI can only say "the model didn't respond".
+    """
+    # .NET WebException carries the response object
+    try:
+        resp = getattr(ex, "Response", None)
+        if resp is not None:
+            from System.IO import StreamReader
+            reader = StreamReader(resp.GetResponseStream(), _NetEncoding.UTF8)
+            try:
+                body = reader.ReadToEnd()
+            finally:
+                reader.Close()
+            if body:
+                return body[:400]
+    except Exception:
+        pass
+    # urllib2.HTTPError is itself file-like
+    try:
+        read = getattr(ex, "read", None)
+        if callable(read):
+            body = read()
+            if isinstance(body, bytes):
+                body = body.decode("utf-8", "replace")
+            if body:
+                return body[:400]
+    except Exception:
+        pass
+    return None
+
+
+def _raise_with_detail(ex):
+    """Re-raise a transport error, upgrading it to carry the API error body."""
+    detail = _http_error_detail(ex)
+    if detail:
+        raise RuntimeError(u"API error: {}".format(detail))
+    raise ex
+
+
 def http_get_auth(url, headers=None, timeout_ms=8000):
     """
     Authenticated GET request with optional headers.
@@ -125,7 +169,10 @@ def http_post(url, payload, headers=None, timeout_ms=60000):
             rs.Write(body_bytes, 0, body_bytes.Length)
         finally:
             rs.Close()
-        resp = req.GetResponse()
+        try:
+            resp = req.GetResponse()
+        except Exception as ex:
+            _raise_with_detail(ex)
         try:
             reader = StreamReader(resp.GetResponseStream(), _NetEncoding.UTF8)
             try:
@@ -144,7 +191,10 @@ def http_post(url, payload, headers=None, timeout_ms=60000):
         if headers:
             req_headers.update(headers)
         req = Request(url, body_bytes, req_headers)
-        resp = urlopen(req, timeout=float(timeout_ms) / 1000.0)
+        try:
+            resp = urlopen(req, timeout=float(timeout_ms) / 1000.0)
+        except Exception as ex:
+            _raise_with_detail(ex)
         raw = resp.read()
         return raw.decode("utf-8") if isinstance(raw, bytes) else raw
 
@@ -223,7 +273,10 @@ def http_post_stream(url, payload, headers=None, on_line=None, timeout_ms=120000
         finally:
             rs.Close()
 
-        resp = req.GetResponse()
+        try:
+            resp = req.GetResponse()
+        except Exception as ex:
+            _raise_with_detail(ex)
         try:
             reader = StreamReader(resp.GetResponseStream(), _NetEncoding.UTF8)
             try:
@@ -244,8 +297,11 @@ def http_post_stream(url, payload, headers=None, on_line=None, timeout_ms=120000
         req_headers = {"Content-Type": "application/json; charset=utf-8"}
         if headers:
             req_headers.update(headers)
-        req  = Request(url, body_bytes, req_headers)
-        resp = urlopen(req, timeout=120)
+        req = Request(url, body_bytes, req_headers)
+        try:
+            resp = urlopen(req, timeout=120)
+        except Exception as ex:
+            _raise_with_detail(ex)
         for raw_line in resp:
             line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
             if on_line is not None:
@@ -459,6 +515,26 @@ class BaseLLMProvider(object):
 
     # True if this provider can handle image content blocks
     SUPPORTS_VISION = False
+
+    def _record_error(self, msg):
+        """Remember the most recent failure AND debug-log it.
+
+        chat()/chat_agent() return None on any failure, which the UI can only
+        render as a generic "the model didn't respond". The chat window reads
+        get_last_error() to show the user the API's real reason instead.
+        """
+        try:
+            self._last_error = u"{}".format(msg)[:300]
+        except Exception:
+            self._last_error = u"unknown error"
+        self._debug_log(msg)
+
+    def get_last_error(self):
+        """Most recent failure message, or None. Cleared on each new call."""
+        return getattr(self, "_last_error", None)
+
+    def _clear_error(self):
+        self._last_error = None
 
     def _debug_log(self, msg):
         """Best-effort debug log via pyRevit's logger; never raises.

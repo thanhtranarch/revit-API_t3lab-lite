@@ -26,12 +26,10 @@ from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_post_str
 # the bare and /v1 paths; keep /v1 for explicit OpenAI-compat routing.
 # See https://api-docs.deepseek.com/  (API docs / key management)
 _BASE_URL        = "https://api.deepseek.com/v1"
-# Live models from /v1/models.  Known IDs used only as offline fallback:
-#   deepseek-v4-flash  → fast, non-thinking  (replaces deepseek-chat 2026/07/24)
-#   deepseek-v4-pro    → thinking/reasoning  (replaces deepseek-reasoner 2026/07/24)
-_FALLBACK_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro",
-                    "deepseek-chat", "deepseek-reasoner"]
-_DEFAULT_MODEL   = "deepseek-v4-flash"
+# NO hardcoded default model: what the account can use comes exclusively from
+# the live /v1/models endpoint after the key is verified. When the user hasn't
+# picked one, prefer a fast non-thinking model from that live list.
+_PREF_SUBSTRINGS = ("flash", "chat")   # preference hints only, matched live
 
 
 def _lib_dir():
@@ -128,15 +126,38 @@ class DeepSeekProvider(BaseLLMProvider):
         return []   # no genuine live result → report unset (gates the model list)
 
     def get_active_model(self):
-        return self._model or _DEFAULT_MODEL
+        """User's saved choice, else the default from the CACHED live list.
+
+        Deliberately does no HTTP (badge/sidebar call this) — returns None
+        until a live model list has been fetched at least once.
+        """
+        if self._model:
+            return self._model
+        return self._pick_model(self._cached_models or [])
 
     def set_model(self, model_name):
         self._model = model_name
         return True
 
+    @staticmethod
+    def _pick_model(models):
+        """Pick a model from a LIVE list only — never invent a name."""
+        if not models:
+            return None
+        for p in _PREF_SUBSTRINGS:
+            for m in models:
+                if p in m:
+                    return m
+        return models[0]
+
+    def _resolve_model(self):
+        """Model to call: user's choice first, else from the LIVE list (may fetch)."""
+        return self._model or self._pick_model(self.get_models())
+
     # ── Chat ─────────────────────────────────────────────────────────────────
 
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
+        self._clear_error()
         api_key = self._get_api_key()
         if not api_key:
             return None
@@ -146,7 +167,9 @@ class DeepSeekProvider(BaseLLMProvider):
         else:
             text = user_content or ""
 
-        model = self.get_active_model()
+        model = self._resolve_model()
+        if not model:
+            return None   # key not verified / vendor reported no models
         msgs  = []
         if system_prompt:
             msgs.append({"role": "system", "content": system_prompt})
@@ -180,7 +203,8 @@ class DeepSeekProvider(BaseLLMProvider):
             content = msg.get("content") or msg.get("reasoning_content") or ""
             content = _re.sub(r"<think>[\s\S]*?</think>", "", content).strip()
             return content if content else None
-        except Exception:
+        except Exception as ex:
+            self._record_error(u"chat() failed: {}".format(ex))
             return None
 
     def chat_stream(self, messages, system_prompt, user_content,
@@ -195,7 +219,9 @@ class DeepSeekProvider(BaseLLMProvider):
         else:
             text = user_content or ""
 
-        model = self.get_active_model()
+        model = self._resolve_model()
+        if not model:
+            return None   # key not verified / vendor reported no models
         msgs  = []
         if system_prompt:
             msgs.append({"role": "system", "content": system_prompt})
@@ -239,7 +265,8 @@ class DeepSeekProvider(BaseLLMProvider):
             )
             full = _re.sub(r"<think>[\s\S]*?</think>", "", u"".join(chunks)).strip()
             return full if full else None
-        except Exception:
+        except Exception as ex:
+            self._record_error(u"chat_stream() failed: {}".format(ex))
             return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
 
     # ── Agentic chat (native tool calling, blocking) ──────────────────────────
@@ -247,17 +274,23 @@ class DeepSeekProvider(BaseLLMProvider):
     def chat_agent(self, system_prompt, messages, tools,
                    on_delta=None, max_tokens=1500, **kwargs):
         """One agentic turn via the OpenAI-compatible `tools` parameter."""
+        self._clear_error()
         api_key = self._get_api_key()
         if not api_key:
+            return None
+        model = self._resolve_model()
+        if not model:
+            self._record_error(u"no model available (key not verified or "
+                               u"vendor reported no models)")
             return None
         try:
             return openai_chat_agent(
                 _BASE_URL + "/chat/completions",
                 {"Authorization": "Bearer " + api_key},
-                self.get_active_model(),
+                model,
                 system_prompt, messages, tools, max_tokens)
         except Exception as ex:
-            self._debug_log("chat_agent() failed: {}".format(ex))
+            self._record_error(u"chat_agent() failed: {}".format(ex))
             return None
 
     agent_tool_results = staticmethod(openai_agent_tool_results)

@@ -139,10 +139,15 @@ class LMStudioProvider(BaseLLMProvider):
         return ids
 
     def get_active_model(self):
+        """User's choice, else the first model the server actually reports.
+
+        Returns None when the server is unreachable or has nothing loaded —
+        never a made-up placeholder name.
+        """
         if self._model:
             return self._model
         models = self.get_models()
-        return models[0] if models else "local-model"
+        return models[0] if models else None
 
     def set_model(self, model_name):
         self._model = model_name
@@ -178,7 +183,9 @@ class LMStudioProvider(BaseLLMProvider):
         else:
             text = user_content or ""
 
-        model = self._model or self.get_active_model() or "local-model"
+        model = self._model or self.get_active_model()
+        if not model:
+            return None   # server unreachable / no model loaded
 
         msgs = []
         if system_prompt:

@@ -38,9 +38,32 @@
 
 ---
 
+## Trạng thái triển khai (2026-07-04)
+
+**Toàn bộ GĐ A + B + C + D1/D2 đã code xong** (`py_compile` sạch, audit_tools/audit_ui/
+sync_wpf_styles --check đều OK) — **chưa smoke test trong Revit** (xem D3):
+- Mới: `lib/Intelligence/tool_schema.py`, `lib/Intelligence/agent_loop.py`
+- Sửa: `llm_provider.py` (helper OpenAI-format + `openai_chat_agent`),
+  `claude_provider.py` (chat_agent stream + prompt caching), `openai_provider.py`,
+  `deepseek_provider.py`, `ollama_provider.py`, `core/server.py`
+  (pseudo-tool `__begin/__end_action_group`, `select_elements` +`show`,
+  `export_image` trả `files`), `T3LabAssistant/script.py`
+  (nhánh native trong `do_nlp`, `_run_native_agent`, tool card + element link,
+  confirm card, vision view capture, doc guard, nút Stop, throttle,
+  catalog tiết kiệm + `describe_tool` cho nhánh JSON cũ).
+- Giới hạn v1 (chủ đích): (1) request có file đính kèm (RAG/vision) vẫn đi đường cũ;
+  (2) OpenAI/DeepSeek/Ollama gọi blocking (không SSE) trong agent mode — text hiện
+  nguyên khối, chỉ Claude stream thật; (3) nút Stop hiệu lực với nhánh native,
+  nhánh JSON cũ chạy nốt bước hiện tại; (4) model Ollama không hỗ
+  trợ tools sẽ fail lượt 1 → tự rơi về nhánh JSON cũ (đúng thiết kế);
+  (5) C2 vision view chỉ chạy trên nhánh agent với Claude (agent call của các
+  provider khác không convert Claude-format image block); (6) D1 doc-guard chỉ
+  áp dụng nhánh native (nhánh JSON cũ tối đa 5 iteration, rủi ro thấp);
+  (7) B4 group không mở cho tool không đổi model (select/export/view/UI).
+
 ## GĐ A — Native tool calling (nền tảng, làm trước)
 
-- [ ] **A1. `chat_agent()` trên provider** — thêm method mới (không đụng `chat`/`chat_stream` cũ):
+- [x] **A1. `chat_agent()` trên provider** — thêm method mới (không đụng `chat`/`chat_stream` cũ):
   - `claude_provider.py`: Messages API với `tools=[...]`, xử lý `stop_reason=tool_use`,
     trả `tool_result` block ở lượt sau. Bật **prompt caching** (`cache_control` trên block
     system + tools) → tool catalog chỉ tốn token 1 lần / 5 phút.
@@ -48,61 +71,61 @@
   - `ollama_provider.py`: `/api/chat` với `tools` (qwen2.5 ≥1.5b, llama3.1+ hỗ trợ).
   - `lmstudio_provider.py` + model không hỗ trợ tools: **fallback giữ nguyên** JSON protocol hiện tại.
   - Interface thống nhất trả về: `{"text": ..., "tool_calls": [{name, args, id}], "stop": ...}`.
-- [ ] **A2. Bộ chuyển schema** — `Intelligence/tool_schema.py`: đọc `srv._handle_tools_list()`
+- [x] **A2. Bộ chuyển schema** — `Intelligence/tool_schema.py`: đọc `srv._handle_tools_list()`
   → convert 1 lần sang format Anthropic / OpenAI / Ollama (cache theo session).
   KHÔNG nhồi schema vào system prompt nữa khi provider hỗ trợ native tools.
-- [ ] **A3. Tách agent loop ra module riêng** — `Intelligence/agent_loop.py`
+- [x] **A3. Tách agent loop ra module riêng** — `Intelligence/agent_loop.py`
   (script.py đã 3600 dòng): class `AgentLoop` chạy trên background thread,
   nhận callbacks `on_text_delta / on_tool_start / on_tool_done / on_finish / is_cancelled`.
   - Max iteration nâng lên 10, có budget thời gian tổng (vd 120s) + budget token.
   - Vẫn gọi tool qua `srv._execute_tool()` — giữ nguyên cơ chế ExternalEvent cho write tool
     (KHÔNG đổi; đây là phần đã đúng và đã ổn định).
   - Hỗ trợ nhiều tool_calls trong 1 lượt trả lời (chạy tuần tự — Revit single-thread).
-- [ ] **A4. Bỏ ép JSON cho câu trả lời hội thoại** khi dùng native tools: text ra là text,
+- [x] **A4. Bỏ ép JSON cho câu trả lời hội thoại** khi dùng native tools: text ra là text,
   stream thẳng vào bubble, không cần `StreamingJSONExtractor` trên nhánh này.
 
 ## GĐ B — Mượt mà (UI/UX) — làm song song ngay sau A3
 
-- [ ] **B1. Tool-call card** thay bubble text: card gọn trong chat gồm tên tool + tóm tắt args,
+- [x] **B1. Tool-call card** thay bubble text: card gọn trong chat gồm tên tool + tóm tắt args,
   trạng thái ⏳ đang chạy → ✓ xong (kèm thời gian) / ✗ lỗi (kèm message), click mở rộng xem
   JSON kết quả. Xây bằng code-behind WPF như `_make_cmd_card` hiện có; palette Lumina.
-- [ ] **B2. Nút Stop**: khi `_busy=True`, nút Gửi biến thành nút ⏹ Stop.
+- [x] **B2. Nút Stop**: khi `_busy=True`, nút Gửi biến thành nút ⏹ Stop.
   Stop = set cancel flag → agent loop kiểm tra giữa các iteration + abort stream reader.
   Tool đang chạy trong ExternalEvent thì để chạy nốt (không thể hủy an toàn giữa Transaction),
   nhưng không phát iteration mới.
-- [ ] **B3. Throttle stream UI**: gom token, `Dispatcher.BeginInvoke` tối đa ~25 lần/giây
+- [x] **B3. Throttle stream UI**: gom token, `Dispatcher.BeginInvoke` tối đa ~25 lần/giây
   (tick 40ms hoặc buffer + flush) thay vì Invoke mỗi delta. Dùng `BeginInvoke` (không chặn
   worker) cho delta; chỉ `Invoke` ở các mốc bắt buộc đồng bộ.
-- [ ] **B4. TransactionGroup / 1 yêu cầu**: agent loop mở `TransactionGroup` (qua một tool-context
+- [x] **B4. TransactionGroup / 1 yêu cầu**: agent loop mở `TransactionGroup` (qua một tool-context
   wrapper trong `server.py`) trước tool write đầu tiên của 1 request, `Assimilate()` khi kết thúc
   → toàn bộ chuỗi hành động = **1 lần Undo** đúng nghĩa. Nút ↺ Undo hiện có hưởng lợi trực tiếp.
   Lưu ý: group phải mở/đóng trên main thread — thực hiện bên trong ExternalEvent handler,
   điều phối bằng request-id từ agent loop.
-- [ ] **B5. Confirm hành động phá hủy**: danh sách `_DESTRUCTIVE_TOOLS = {delete_element,
+- [x] **B5. Confirm hành động phá hủy**: danh sách `_DESTRUCTIVE_TOOLS = {delete_element,
   purge_unused, ...}` — trước khi chạy, hiện card Confirm/Cancel trong chat (chờ user bấm,
   agent loop block trên event có timeout). Mặc định `purge_unused` luôn `dry_run=True` lượt đầu.
-- [ ] **B6. Trạng thái typing theo ngữ cảnh thật**: typing indicator hiển thị
+- [x] **B6. Trạng thái typing theo ngữ cảnh thật**: typing indicator hiển thị
   "Đang chạy `create_wall` (2/5)…" từ callback on_tool_start (thay text đoán theo giây hiện tại).
 
 ## GĐ C — Ngang khả năng assistant ngoài (context giàu hơn)
 
-- [ ] **C1. Element link bấm được**: kết quả tool có element id → render Hyperlink trong bubble,
+- [x] **C1. Element link bấm được**: kết quả tool có element id → render Hyperlink trong bubble,
   click = `uidoc.Selection.SetElementIds` + `uidoc.ShowElements` (marshal qua ExternalEvent read-safe).
-- [ ] **C2. Vision view hiện tại**: lệnh "nhìn view này/kiểm tra bố cục" → chụp active view
+- [x] **C2. Vision view hiện tại**: lệnh "nhìn view này/kiểm tra bố cục" → chụp active view
   (`ExportImage` thu nhỏ ~1280px, chạy qua ExternalEvent) rồi gửi như attachment ảnh
   (tái dùng `rag_processor.build_vision_content_blocks`). Chỉ với provider vision (Claude/GPT-4o).
-- [ ] **C3. Selection-aware mặc định**: khi user nói "các element này / đang chọn",
+- [x] **C3. Selection-aware mặc định**: khi user nói "các element này / đang chọn",
   agent tự đổ selected ids vào args (ContextScout đã có dữ liệu — chỉ cần khai báo
   quy ước trong system prompt + tool `revit_get_selected_elements` ưu tiên).
-- [ ] **C4. Catalog tool tiết kiệm cho model local**: nhánh fallback JSON (LM Studio / model nhỏ)
+- [x] **C4. Catalog tool tiết kiệm cho model local**: nhánh fallback JSON (LM Studio / model nhỏ)
   chỉ đưa danh sách `tên — mô tả 1 dòng`, thêm meta-tool `describe_tool(name)` để model
   xin schema chi tiết khi cần → giảm ~80% token prompt cho máy yếu, đỡ gãy JSON.
 
 ## GĐ D — An toàn & kiểm thử
 
-- [ ] **D1. Guard đổi document**: lưu `doc_key` lúc bắt đầu request; nếu user đổi document giữa
+- [x] **D1. Guard đổi document**: lưu `doc_key` lúc bắt đầu request; nếu user đổi document giữa
   chừng → hủy loop, báo trong chat (tránh write nhầm model).
-- [ ] **D2. `py_compile` + regression**: `python -m py_compile` các file sửa;
+- [x] **D2. `py_compile` + regression**: `python -m py_compile` các file sửa;
   `python3 dev/audit_tools.py --quiet` · `python3 dev/audit_ui.py --quiet` ·
   `python3 dev/sync_wpf_styles.py --check`.
 - [ ] **D3. Smoke test trong Revit** (checklist cho user — không tự bịa kết quả):
@@ -110,9 +133,15 @@
   2. "tạo 3 tường 5m tại Level 1 rồi tag" — thấy tool card chạy tuần tự, xong = 1 lần Undo.
   3. Bấm Stop giữa chừng chuỗi tool — dừng sau tool hiện tại, input mở khóa.
   4. "xóa element ID x" — hiện card Confirm, Cancel thì không xóa.
-  5. Model local (qwen2.5:1.5b) — nhánh fallback vẫn hoạt động, không crash.
+  5. Model local (qwen2.5:1.5b) — nhánh fallback vẫn hoạt động, không crash;
+     hỏi 1 lệnh tool lạ → model tự xin schema qua `describe_tool` rồi gọi đúng.
   6. Kéo/resize window trong lúc agent đang chạy — UI không đơ (không có blocking Invoke dài).
-  7. Đổi document giữa chừng — loop tự hủy, có thông báo.
+  7. Đổi document giữa chừng — loop tự hủy, có thông báo "đã chuyển document".
+  8. Tool card kết quả có element id → click `#id` chọn & zoom đúng element trong Revit.
+  9. (Claude + key vision) "nhìn view này và nhận xét bố cục" — assistant chụp active view
+     rồi mô tả đúng nội dung ảnh.
+  10. Sau chuỗi "tạo 3 tường + tag": bấm Undo 1 lần trong Revit → mất TOÀN BỘ chuỗi
+      (TransactionGroup assimilate đúng), không phải undo từng bước.
 
 ---
 

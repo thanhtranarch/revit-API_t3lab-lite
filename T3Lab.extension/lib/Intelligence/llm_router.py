@@ -395,6 +395,57 @@ class LLMRouter(object):
             self._status_ts    = now
         return status
 
+    def get_status_cached(self):
+        """
+        Return the cached status snapshot WITHOUT ever probing — instant, safe
+        to call on the UI thread. Returns None when nothing has been probed yet.
+
+        get_status(use_cache=True) still re-probes when the 30s TTL lapsed,
+        which is a multi-second, network-bound operation — UI render paths
+        (sidebar refresh, badge menu) must use this instead and leave probing
+        to background threads.
+        """
+        with self._status_lock:
+            if not self._status_cache:
+                return None
+            snap = {}
+            for name, info in self._status_cache.items():
+                snap[name] = dict(info)
+                snap[name]["active"] = (name == self._active_name)
+            return snap
+
+    def get_status_instant(self):
+        """
+        Zero-HTTP status snapshot for instant UI: cached data when present,
+        else availability approximated by key-presence (remote) / False
+        (local). Never blocks on the network.
+        """
+        snap = self.get_status_cached() or {}
+        for name, provider in self._providers.items():
+            if name in snap:
+                continue
+            try:
+                if name in ("ollama", "lmstudio"):
+                    available = False          # needs a port probe → unknown yet
+                elif hasattr(provider, "_get_api_key"):
+                    available = bool(provider._get_api_key())
+                else:
+                    available = False
+            except Exception:
+                available = False
+            try:
+                model = provider.get_active_model()
+            except Exception:
+                model = None
+            snap[name] = {
+                "available":       available,
+                "model":           model,
+                "display_name":    provider.DISPLAY_NAME,
+                "active":          (name == self._active_name),
+                "supports_vision": provider.SUPPORTS_VISION,
+            }
+        return snap
+
     def probe_provider(self, name):
         """
         Probe a SINGLE provider and merge its result into the status cache.

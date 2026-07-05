@@ -10,7 +10,7 @@
        FontFamily="Hanken Grotesk">
 
         <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="64"
+        <WindowChrome CaptionHeight="44"
                        ResizeBorderThickness="5"
                        GlassFrameThickness="0"
                        CornerRadius="22"
@@ -1315,7 +1315,7 @@
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
 <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="64"/>   <!-- Header         -->
+            <RowDefinition Height="44"/>   <!-- Header (compact — window title already names the tool) -->
             <RowDefinition Height="1"/>    <!-- Separator      -->
             <RowDefinition Height="*"/>    <!-- Chat area      -->
             <RowDefinition Height="Auto"/> <!-- Command palette -->
@@ -1327,7 +1327,9 @@
         </Grid.ColumnDefinitions>
 
         <!-- ═══════════════════════════════════════════════════════════
-             HEADER — T3Lab badge + title
+             HEADER — compact strip: provider pill + window controls only
+             (no in-window "T3Lab Assistant" wordmark — the window/pane
+             title already carries the name)
         ═══════════════════════════════════════════════════════════ -->
         <Grid Grid.Row="0" Grid.ColumnSpan="2" Background="#F4F4F6">
             <Grid.ColumnDefinitions>
@@ -1336,29 +1338,28 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Title -->
-            <StackPanel Grid.Column="0" Orientation="Vertical"
-                        Margin="22,0,0,0" VerticalAlignment="Center"
-                        WindowChrome.IsHitTestVisibleInChrome="True">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="T3Lab Assistant" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                </StackPanel>
-            </StackPanel>
+            <!-- Copyright — moved up from the old input-bar footer into the
+                 slot freed by removing the in-window wordmark -->
+            <TextBlock Grid.Column="0" Text="© Copyright by T3Lab"
+                       FontSize="11" Foreground="#F59E0B"
+                       VerticalAlignment="Center" Margin="16,0,0,0"
+                       WindowChrome.IsHitTestVisibleInChrome="True"/>
 
             <!-- Provider selector pill — always visible, shows active provider or "Set up AI" -->
             <Button x:Name="ai_status_badge"
                     Grid.Column="1"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                    Margin="12,0,0,0"
                     WindowChrome.IsHitTestVisibleInChrome="True"
                     Visibility="Visible"
-                    Height="32" Padding="12,0,10,0"
+                    Height="28" Padding="12,0,10,0"
                     Click="ai_badge_clicked"
                     Cursor="Hand"
                     ToolTip="Click to switch AI provider">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="pill"
-                                CornerRadius="16"
+                                CornerRadius="14"
                                 Background="White"
                                 BorderBrush="#E6E6EA"
                                 BorderThickness="1"
@@ -1462,8 +1463,6 @@
                     <!-- Dynamic Welcome Greeting -->
                     <Grid x:Name="welcome_greeting_panel" Margin="4,16,4,20" HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="✳" FontSize="20" Foreground="#EA580C" FontWeight="Bold"
-                                       FontFamily="Hanken Grotesk" Margin="0,0,10,0" VerticalAlignment="Center"/>
                             <TextBlock x:Name="welcome_greeting_text" Text="Good afternoon, Thạnh"
                                        FontSize="20" Foreground="#27272A" FontFamily="Georgia"
                                        VerticalAlignment="Center"/>
@@ -2106,7 +2105,6 @@
                         </Button>
                     </Grid>
                 </Border>
-                <TextBlock Text="© Copyright by T3Lab" HorizontalAlignment="Left" Margin="0,8,0,0" Foreground="#F59E0B" FontSize="11"/>
             </StackPanel>
         </Border>
 
@@ -2122,13 +2120,11 @@
                 <StackPanel>
                     <!-- Brand row -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                        <TextBlock Text="✳" FontSize="22" Foreground="#EA580C"
-                                   FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,9,0"/>
                         <TextBlock Text="T3Lab Assistant" FontSize="13" FontWeight="Bold"
                                    Foreground="#18181B" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <TextBlock x:Name="onboarding_greeting" Text="Welcome 👋"
+                    <TextBlock x:Name="onboarding_greeting" Text="Welcome"
                                FontSize="24" FontWeight="Bold" Foreground="#18181B"
                                FontFamily="Georgia" Margin="0,6,0,2"/>
                     <TextBlock Text="Let's set up your profile so I can tailor things to you."

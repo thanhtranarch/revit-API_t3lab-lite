@@ -27,15 +27,11 @@ CLAUDE_API_URL    = "https://api.anthropic.com/v1/messages"
 CLAUDE_MODELS_URL = "https://api.anthropic.com/v1/models"
 ANTHROPIC_API_VER = "2023-06-01"
 
-MODEL_VISION  = "claude-sonnet-4-6"
-MODEL_TEXT    = "claude-haiku-4-5-20251001"
-
-# Shown when the API is unreachable or key not set
-FALLBACK_MODELS = [
-    "claude-haiku-4-5-20251001",
-    "claude-sonnet-4-6",
-    "claude-opus-4-8",
-]
+# NO hardcoded model names: the models an account can use come exclusively
+# from the live /v1/models endpoint after the key is verified. Defaults are
+# picked from that live list by substring preference only.
+_PREF_TEXT   = ("haiku", "sonnet", "opus")   # cheap-first for plain chat
+_PREF_VISION = ("sonnet", "opus", "haiku")   # capable-first for images/agent
 
 
 # ─── Provider ──────────────────────────────────────────────────────────────────
@@ -113,11 +109,34 @@ class ClaudeProvider(BaseLLMProvider):
         return []   # no genuine live result → report unset (gates the model list)
 
     def get_active_model(self):
-        return self._model or MODEL_TEXT
+        """User's saved choice, else the default from the CACHED live list.
+
+        Deliberately does no HTTP (badge/sidebar call this) — returns None
+        until a live model list has been fetched at least once.
+        """
+        if self._model:
+            return self._model
+        return self._pick_model(self._cached_models or [], _PREF_TEXT)
 
     def set_model(self, model_name):
         self._model = model_name
         return True
+
+    @staticmethod
+    def _pick_model(models, prefs):
+        """Pick a model from a LIVE list by substring preference order."""
+        if not models:
+            return None
+        for p in prefs:
+            for m in models:
+                if p in m:
+                    return m
+        return models[0]
+
+    def _default_model(self, prefer_vision=False):
+        """Default model resolved against the live /v1/models list (may fetch)."""
+        return self._pick_model(
+            self.get_models(), _PREF_VISION if prefer_vision else _PREF_TEXT)
 
     # ── Chat ─────────────────────────────────────────────────────────────────
 
@@ -136,10 +155,9 @@ class ClaudeProvider(BaseLLMProvider):
 
         has_vision = self.has_image_blocks(user_content)
 
-        if self._model:
-            model = self._model
-        else:
-            model = MODEL_VISION if has_vision else MODEL_TEXT
+        model = self._model or self._default_model(prefer_vision=has_vision)
+        if not model:
+            return None   # key not verified / vendor reported no models
 
         msgs = list(messages or [])
         msgs.append({"role": "user", "content": user_content})
@@ -161,7 +179,7 @@ class ClaudeProvider(BaseLLMProvider):
             api_result = json.loads(resp_text)
             return api_result["content"][0]["text"].strip()
         except Exception as ex:
-            self._debug_log("chat() failed: {}".format(ex))
+            self._record_error(u"chat() failed: {}".format(ex))
             return None
 
     def chat_stream(self, messages, system_prompt, user_content,
@@ -174,7 +192,9 @@ class ClaudeProvider(BaseLLMProvider):
             return None
 
         has_vision = self.has_image_blocks(user_content)
-        model = self._model if self._model else (MODEL_VISION if has_vision else MODEL_TEXT)
+        model = self._model or self._default_model(prefer_vision=has_vision)
+        if not model:
+            return None   # key not verified / vendor reported no models
 
         msgs = list(messages or [])
         msgs.append({"role": "user", "content": user_content})
@@ -213,7 +233,7 @@ class ClaudeProvider(BaseLLMProvider):
 
     # ── Agentic chat (native tool calling) ────────────────────────────────────
 
-    def _agent_payload(self, system_prompt, messages, tools, max_tokens, stream):
+    def _agent_payload(self, model, system_prompt, messages, tools, max_tokens, stream):
         """Build a Messages API payload with prompt caching on system + tools.
 
         cache_control markers go on the system block and the LAST tool — the
@@ -221,8 +241,6 @@ class ClaudeProvider(BaseLLMProvider):
         tool schemas cost input tokens once per 5-minute window instead of on
         every iteration of the agent loop.
         """
-        model = self._model or MODEL_TEXT
-
         cached_tools = list(tools or [])
         if cached_tools:
             last = dict(cached_tools[-1])          # copy — tool list is shared/cached
@@ -253,6 +271,12 @@ class ClaudeProvider(BaseLLMProvider):
             return None
         api_key = self._get_api_key()
         if not api_key:
+            return None
+
+        # Agent turns favour a more capable model when the user hasn't picked
+        # one — resolved from the LIVE model list, never a hardcoded name.
+        model = self._model or self._default_model(prefer_vision=True)
+        if not model:
             return None
 
         headers = {
@@ -319,13 +343,14 @@ class ClaudeProvider(BaseLLMProvider):
 
         streamed_ok = False
         try:
-            payload = self._agent_payload(system_prompt, messages, tools,
+            self._clear_error()
+            payload = self._agent_payload(model, system_prompt, messages, tools,
                                           max_tokens, stream=True)
             http_post_stream(CLAUDE_API_URL, payload, headers, _on_line,
                              timeout_ms=180000)
             streamed_ok = bool(state["blocks"]) or state["stop_reason"] is not None
         except Exception as ex:
-            self._debug_log("chat_agent stream failed: {}".format(ex))
+            self._record_error(u"chat_agent stream failed: {}".format(ex))
 
         if streamed_ok:
             return self._agent_result_from_blocks(state["blocks"],
@@ -333,7 +358,7 @@ class ClaudeProvider(BaseLLMProvider):
 
         # ── Blocking fallback ────────────────────────────────────────────────
         try:
-            payload   = self._agent_payload(system_prompt, messages, tools,
+            payload   = self._agent_payload(model, system_prompt, messages, tools,
                                             max_tokens, stream=False)
             resp_text = http_post(CLAUDE_API_URL, payload, headers,
                                   timeout_ms=180000)
@@ -349,7 +374,7 @@ class ClaudeProvider(BaseLLMProvider):
             return self._agent_result_from_blocks(
                 blocks, api_result.get("stop_reason"))
         except Exception as ex:
-            self._debug_log("chat_agent() failed: {}".format(ex))
+            self._record_error(u"chat_agent() failed: {}".format(ex))
             return None
 
     @staticmethod
