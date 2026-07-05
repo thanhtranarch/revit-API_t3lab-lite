@@ -48,20 +48,32 @@ Chain: `script.py` (36 loc) → `lib/GUI/ManaAnnoDialog.py` (1416 loc) → `Mana
 - [ ] Ghi chú:
 
 ## Chốt ngày 5
-- [ ] Cập nhật trạng thái 4 tool vào bảng dưới + `dev/plan/README.md`
+- [x] Cập nhật trạng thái 4 tool vào bảng dưới + `dev/plan/README.md`
 - [ ] Lỗi tìm thấy → mục Phát sinh + quyết định sửa ngay (nhỏ) hay tạo việc riêng (lớn)
 - [ ] Commit (nếu có sửa code): `fix(panel-annotation): <mô tả>`
 
 | Tool | Trạng thái | Ghi chú |
 |------|-----------|---------|
-| AutoDimension | ⬜ | |
-| ManaDWG | ⬜ | |
-| ManaSelect | ⬜ | Crash (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| ManaAnno | ⬜ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
+| AutoDimension | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaDWG | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaSelect | ✅ | Crash (xem Phát sinh) đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaAnno | ✅ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+
+> 2026-07-05 — user xác nhận tổng quát: **"các tool hiện tại đều đã hoạt động tốt"**. Các mục
+> checklist chi tiết (Ctrl+Z, edge case) chưa có báo cáo riêng từng mục — coi là pass theo xác
+> nhận chung; mở lại nếu phát hiện lỗi khi dùng thực tế.
 
 ## Phát sinh
 
 _(ghi lỗi mới tại đây)_
+
+- **2026-07-04 — AutoDimension v2.2.1: sửa "Chain dim failed: Invalid number of references"** (user báo 6 warning khi chạy thật). Nguyên nhân: `NewDimension` loại các reference có mặt phẳng không song song hướng đo rồi còn <2 ref. Code cũ dùng `FamilyInstanceReferenceType.Left/Right/Front/Back` **cứng theo trục world**, nhưng đây là hướng *cục bộ của family* — cột xoay 90°, cửa/cửa sổ trong tường chạy dọc, lift xoay → ref quay sang trục vuông góc và bị Revit từ chối. Đã sửa (`AutoDimensionDialog.py`):
+  1. Thêm `_hand_matches_axis()` + `_axis_ref_types()`: chọn cặp Left/Right vs Front/Back theo `HandOrientation` thật của instance — áp dụng cho cột (Phase 2 cả 2 chế độ), cửa/cửa sổ (Phase 3 cả 2 chế độ), lift (Phase 5), facade (Phase 6).
+  2. Phase 3/6: cửa có bề rộng chạy dọc bị **loại khỏi chuỗi X** (thuộc chuỗi Y) thay vì nhét ref sai hướng; chuỗi Y đo bề rộng cửa bằng Left/Right (jamb) thay vì Front/Back (mặt tường) như trước.
+  3. Chuỗi hàng cột/cửa/lift không lấy được ref element nào → **bỏ qua** thay vì tạo dim chỉ có 2 grid (trùng Phase 1) hoặc ném lỗi.
+  4. `_col_ref_one`: fallback geometry (có kiểm hướng mặt) được ưu tiên TRƯỚC vòng quét mù WeakReference/StrongReference/enum-scan — quét mù hay trả về plane vuông góc hướng đo, chính là nguồn lỗi.
+  5. `_collect_wall_core_refs`: cắt về 1 ref/mặt (`ext[:1]+int[:1]`) — trước đây index [1] có thể là mặt exterior thứ 2 chứ không phải interior.
+  - Verify tĩnh: `ast.parse` OK · `audit_tools` clean. **Chưa smoke test Revit** — chạy lại đúng model cũ, kỳ vọng hết warning hoặc giảm mạnh; cột xoay/cửa tường dọc phải có dim đúng hướng.
 
 - **2026-07-04 — AutoDimension: tái cấu trúc UI/UX 2 cột** (`AutoDimension.xaml`, không đổi Python — giữ nguyên toàn bộ `x:Name` + handler):
   - Cửa sổ 520×820 một cột dài phải cuộn → **780×700 hai cột**: trái = phạm vi & đối tượng (1·Views, 2·Elements + wall faces, Checking Mode), phải = cách tạo dim (3·Dimension Style, 4·Placement). Info box rút gọn, span 2 cột dưới cùng.

@@ -50,15 +50,19 @@ Test:
 - [ ] Ghi chú:
 
 ## Chốt ngày 8
-- [ ] Gỡ log tạm · cập nhật bảng + README
+- [x] Gỡ log tạm · cập nhật bảng + README
 - [ ] Commit: `fix(panel-views-sheets): <mô tả>`
 
 | Tool | Trạng thái | Ghi chú |
 |------|-----------|---------|
-| ManaSheets | 🔄 | UI đã user xác nhận OK trong Revit (2026-07-03) — mở được, không crash, layout đúng. Còn thiếu test functional (batch rename/renumber, Ctrl+Z, edge case, Excel Import/Export) |
-| SheetGen | ⬜ | |
-| ManaViews | 🔄 | UI đã user xác nhận OK trong Revit (2026-07-03) — mở được, không lỗi, layout đúng. Còn thiếu test functional (batch thao tác view, Ctrl+Z, AdvancedViewManager) |
-| BatchOut | ⬜ | |
+| ManaSheets | ✅ | UI user xác nhận OK trong Revit (2026-07-03) · user xác nhận chung 2026-07-05: hoạt động tốt |
+| SheetGen | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaViews | ✅ | UI user xác nhận OK trong Revit (2026-07-03) · user xác nhận chung 2026-07-05: hoạt động tốt |
+| BatchOut | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+
+> 2026-07-05 — user xác nhận tổng quát: **"các tool hiện tại đều đã hoạt động tốt"**. Các mục
+> checklist chi tiết (batch rename/renumber, Ctrl+Z, Excel Import/Export…) chưa có báo cáo
+> riêng từng mục — coi là pass theo xác nhận chung; mở lại nếu phát hiện lỗi khi dùng thực tế.
 
 ## Phát sinh
 

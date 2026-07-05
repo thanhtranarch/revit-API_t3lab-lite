@@ -57,16 +57,20 @@ Chain: self-contained (3041 loc, 4 transaction) → `BCFReader.xaml`
 - [ ] Ghi chú:
 
 ## Chốt ngày 9
-- [ ] Cập nhật bảng + README · Commit: `fix(panel-data-ifcsg): <mô tả>`
+- [x] Cập nhật bảng + README · Commit: `fix(panel-data-ifcsg): <mô tả>`
 
 | Tool | Trạng thái | Ghi chú |
 |------|-----------|---------|
-| IFC-SG | ⬜ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| Foundation Volume | ⬜ | |
-| ManaContains | ⬜ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| ManaSched | ⬜ | Gray-gutter + footer height fix + đồng bộ header/cột/chiều cao bảng Tab1↔Tab2 (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| ManaPara | ⬜ | Bug trang trắng khi mở (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| BCF Reader | ⬜ | |
+| IFC-SG | ✅ | Bug trang trắng đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| Foundation Volume | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaContains | ✅ | Bug trang trắng đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaSched | ✅ | Gray-gutter + footer + đồng bộ Tab1↔Tab2 đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaPara | ✅ | Bug trang trắng đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| BCF Reader | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+
+> 2026-07-05 — user xác nhận tổng quát: **"các tool hiện tại đều đã hoạt động tốt"**. Các mục
+> checklist chi tiết chưa có báo cáo riêng từng mục — coi là pass theo xác nhận chung; mở lại
+> nếu phát hiện lỗi khi dùng thực tế.
 
 ## Phát sinh
 

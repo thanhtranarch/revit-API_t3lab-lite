@@ -3,15 +3,18 @@
 > Standalone roadmap for the FamiGen **From JSON** feature (photo-feedback loop).
 > Not part of the `gd<N> revitapi` phase tables — do not wire into `README.md`'s
 > "Lịch thực hiện". Source files:
-> - Prompt (external AI → JSON): `T3Lab.extension/T3Lab.tab/Modeling & Datum.panel/FamiGen.pushbutton/SYSTEM_PROMPT.md`
+> - Prompts (external AI → JSON): `T3Lab.extension/T3Lab.tab/Modeling & Datum.panel/FamiGen.pushbutton/prompts/<slug>.md`
+>   — **7 self-contained per-category files** (`SYSTEM_PROMPT.md` retired 2026-07-05, see below)
 > - Parser (JSON → Revit API): `T3Lab.extension/lib/GUI/FamiGenDialog.py`
 >   (`_generate_json_family`, `_json_curve`, `_json_loop`, `_heal_loop`, …)
 
 ## Guiding principle
-**The prompt is used for ALL Revit family categories.** It must stay
-**category-general**: teach transferable *techniques*, not per-object templates.
-Do not accumulate lighting- (or any single category-) specific examples across
-iterations. Category shown in an example is incidental.
+**The shared core (the identical block at the top of all 7 prompt files) must stay
+category-general**: teach transferable *techniques*, not per-object templates.
+Category-specific knowledge (case libraries, playbooks, worked examples) lives ONLY in
+each file's `# <CAT>-SPECIFIC GUIDANCE` section. The 7 cores are **byte-identical** and
+there is no sync script — apply core edits with a replace-in-all-files script, then
+verify equality.
 
 ## Done
 - [x] **WS2 — Rebalance examples (de-bias).** Removed lighting-specific framing:
@@ -103,7 +106,62 @@ actually built before this.)
   `_loop_centroid_uv()` in `FamiGenDialog.py`; the core prompt's Blend section now also
   tells the AI a same-size top/base is an Extrusion, not a Blend.
 
+## Done — self-contained prompts + soft-form detail upgrade (2026-07-05)
+
+### Restructure: 13 core+overlay → 7 self-contained files
+`SYSTEM_PROMPT.md` deleted; each `prompts/<slug>.md` is now a **fully self-contained**
+system prompt (schema, forms, curves, failure modes, checklist + category guidance).
+Category set trimmed to the 7 in active use: generic_model, furniture, casework,
+plumbing_fixture, mechanical_equipment, specialty_equipment, lighting_fixture (door,
+window, columns, electrical_equipment, site, entourage dropped). `copy_prompt_clicked()`
+copies the single selected file; `_init_json_panel()` lists only categories whose file
+exists, so the dropdown self-syncs with the folder.
+
+### SOFT-FORM RECIPES in the shared core (user request: sofa-photo puffiness)
+- New core section, 7 numbered recipes: 1 capsule-profile Extrusion (puffy pads),
+  2 channel-tufting rows (8–12 mm neighbour overlap), 3 rounded-corner slab (`Arc3P`
+  fillets, mid at `0.293*r`), 4 dome/sphere Revolution, 5 soft-taper Blend, 6 rolled
+  edge (prefer a bolster tube over the fragile Sweep), 7 `Spline` organic silhouette.
+- **Bulge depth** dial (offset of `Arc3P` `mid` off its chord; upholstery 15–30 % of the
+  smaller cross dimension) + new `_plan.shapes` key (parser-ignored, forces per-part
+  bulge reasoning). METHOD / CHECKLIST / HARD FAILURE all cross-reference it ("soft part
+  emitted as a sharp box = fidelity bug").
+- furniture.md: **Upholstery playbook** (seat tubes = X-Z capsule extruded along Y; back
+  tubes = Y-Z side-silhouette capsule extruded along X so tops/fronts come out rounded)
+  + new 11-part **channel-tufted sofa worked example** (plinth + 2 rolled arms + 4 seat
+  tubes + 4 back tubes). Statically verified: loops closed, points on-plane, exactly one
+  anchor, 3-axis bbox overlap ≥ 1 mm on every `attaches_to` pair.
+- Every other category got a "Soft-form applications" section.
+
+### Object case libraries (per category)
+Each file's short "Part inventory" was replaced by an **Object case library** — ~9–11
+common object types with per-part form/recipe, typical mm and anchor/attach chain:
+furniture (tables, office chair, bed, wardrobe, bar stool…), casework (base/wall/tall,
+island, vanity, reception desk…), plumbing (toilets, tubs, urinal, sinks, faucet…),
+lighting (pendant, chandelier, track, floor lamp…), mechanical (AHU, VRF, cassette,
+pump, tank, fan…), specialty (fridge, washer, hood, treadmill, lockers…), generic
+(planter, bollard, curtain…). Teaching point added: **in-plane rotation is free** (star
+bases / radial outlines = plan-profile Extrusions) — only sketch PLANES are limited to
+X/Y/Z.
+
+### Stale-warning fix (lighting) — diagonal `Cylinder`
+lighting_fixture.md claimed a diagonal `Cylinder` relies on the sweep engine and fails;
+the parser actually builds a diagonal `Cylinder` as a **`NewRevolution` about its own
+axis** (`FamiGenDialog.py` ≈2900 — the old Sweep fallback was replaced). Warning
+softened: diagonal Cylinder acceptable where a slanted straight run is unavoidable
+(verify once in Revit); `Sweep` stays banned for arms. The chandelier radial-arm case
+depends on this — see pending tests.
+
 ## Testing note
 Validate generality on a **diverse basket** (chair, cabinet, faucet, door, lamp) —
 not just the current lamp case — and record `built/total` + floating-part count per
 category. The prompt is only "general" if it holds across categories.
+
+Pending Revit smoke tests (2026-07-05 batch — user runs them, no self-invented results):
+- [ ] Paste the `T3Lab_ChannelSofa` worked example (furniture.md) → expect 11/11 parts,
+      visible per-tube puffiness and creases between channels.
+- [ ] Diagonal `Cylinder` probe: one Cylinder `start [0,0,0]` → `end [200,200,300]`,
+      radius 10 → expect a correctly-oriented slanted rod (this decides whether the
+      chandelier radial-arm recipe stays or gets pulled).
+- [ ] End-to-end on 2–3 categories (photo → Copy Prompt → external AI → paste JSON):
+      check the AI follows the case library and fills `_plan.shapes`.

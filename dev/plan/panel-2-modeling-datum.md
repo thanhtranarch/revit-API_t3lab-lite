@@ -112,7 +112,8 @@ Chain: launcher → `FamiGenDialog.py` (2360 loc) → `FamiGen.xaml` · tạo fa
   - Roadmap + backlog (WS4 cảnh báo part rời, WS5 mặt phẳng bất kỳ) + **kế hoạch tách prompt theo category**: `dev/plan/famigen-from-json-roadmap.md`.
   - **WS1 + WS6 (2026-07-04, cùng ngày)**: user test lại → kết quả **tệ hơn** (mọi part dựng được nhưng rời hoàn toàn — riser lơ lửng, arm không chạm chao). Sửa prompt: bắt buộc 1 anchor part + key `"attaches_to"` từng part + key root `"_plan"` (bảng inventory/height/connection — parser bỏ qua key lạ, chỉ để ép AI suy luận); kiểm tra overlap 3 trục bằng số; cấm part mồ côi; cấm copy tọa độ literal từ ví dụ (nghi bleed-through tọa độ Example 7). Bài học: **build được ≠ ráp được**.
   - **Chia prompt theo category (2026-07-04)**: thêm combo "Family type" ở action bar tab From JSON (`json_category_combo`) — chọn loại **trước**, bấm Copy Prompt sẽ copy `core chung + overlay của loại đó`. Core = `SYSTEM_PROMPT.md`; 13 overlay ở `FamiGen.pushbutton/prompts/<slug>.md` (mỗi category 1 file: inventory/convention/dimensions/pitfalls riêng). Code: `_PROMPTS_DIR`, `_init_json_panel()`, `_category_slug()`/`_overlay_path()`, `copy_prompt_clicked()` ghép core+overlay (thiếu overlay → fallback core-only). Đã pass audit_tools/audit_ui/sync + XAML well-formed + 13/13 overlay map đúng.
-  - **Chưa test functional trong Revit** (gen family từ JSON mới, chọn loại → copy → gen, đóng doc khi huỷ, thiếu template) — cần user reload pyRevit rồi test lại.
+  - **Prompt v2 tự chứa + soft-form + case library (2026-07-05)**: `SYSTEM_PROMPT.md` đã xóa — còn **7 file prompt tự chứa** trong `prompts/` (bỏ door/window/columns/electrical/site/entourage); combo chỉ hiện category có file. Core chung (byte-identical cả 7 file, sửa bằng script + verify equality) thêm section **SOFT-FORM RECIPES** — 7 công thức tạo độ phồng (capsule extrusion, channel-tufting đè 8–12mm, bo góc Arc3P, vòm/cầu Revolution, Blend thuôn mềm, mép cuộn, Spline organic) + khái niệm **bulge depth** + key `_plan.shapes`. furniture.md thêm Upholstery playbook + ví dụ **sofa channel-tufted 11 part** (verify tĩnh pass: loop kín, đúng plane, overlap 3 trục ≥1mm). Mỗi category thêm "Soft-form applications" + **Object case library** ~9–11 case thực tế (bộ phận → form/recipe → mm → anchor). Sửa cảnh báo lỗi thời trong lighting (Cylinder chéo trục = parser dựng bằng NewRevolution quanh trục của nó, không phải sweep engine). Chi tiết + checklist test: `dev/plan/famigen-from-json-roadmap.md`.
+  - **Chưa test functional trong Revit** (sofa example 11 part, Cylinder chéo trục, 2–3 case end-to-end photo→AI→JSON; cộng checklist gốc: gen family, chọn loại → copy → gen, đóng doc khi huỷ, thiếu template) — cần user reload pyRevit rồi test lại.
 
 ### Tool 10/14 — ManaFami
 Chain: launcher → `ManaFamiDialog.py` (1428 loc) → `ManaFami.xaml`
@@ -164,20 +165,24 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 
 | # | Tool | Ngày | Trạng thái | Ghi chú |
 |---|------|------|-----------|---------|
-| 1 | CADToElements | 6 | 🔄 | Wall/Floor/Beam tạo đúng, user xác nhận OK (2026-07-03) — còn thiếu test Ctrl+Z revert + edge case DWG không có layer khớp |
-| 2 | DoorThreshold | 6 | 🔄 | Width=0 + thickness sai (compound/joined wall) → sửa xong, user xác nhận OK 2026-07-04 (đã bỏ Width/Depth Extension khỏi UI). Còn thiếu: curtain wall/wall nghiêng, model thiếu family threshold |
-| 3 | ImageToDrafting | 6 | 🔄 | UI sửa xong (dropdown style, drop zone, title bar) 2026-07-03 — chưa test functional (compile C# vectorizer, centerline/outline mode) |
-| 4 | Text to Element | 6 | 🔄 | UI sửa xong (vị trí nút chrome, hết cuộn) 2026-07-03 — chưa test functional (tạo element từ text note) |
-| 5 | PointCloud | 6 | ⬜ | |
-| 6 | RoomToFloor | 6 | ⬜ | |
-| 7 | Tile Layout | 6 | 🔄 | Sửa bug không mở được (path sai) + tính năng list toàn bộ sàn mặc định 2026-07-03 — chưa test functional (layout tile, Ctrl+Z) |
-| 8 | PropertyLine | 7 | ⬜ | |
-| 9 | FamiGen | 7 | 🔄 | Sub-mode "From JSON" cải tiến 2026-07-04 (SYSTEM_PROMPT: de-bias khỏi đèn, +7 ví dụ → 14, recipe ống gấp khúc; roadmap tách prompt theo category) — chưa test functional trong Revit |
-| 10 | ManaFami | 7 | ⬜ | |
-| 11 | Wall_Adjust Base | 7 | ⬜ | |
-| 12 | SplitElements | 7 | ⬜ | |
-| 13 | AutoJoin | 7 | ⬜ | |
-| 14 | Wall Cut Profile | 7 | ⬜ | |
+| 1 | CADToElements | 6 | ✅ | Wall/Floor/Beam user xác nhận OK (2026-07-03) · user xác nhận chung 2026-07-05: hoạt động tốt |
+| 2 | DoorThreshold | 6 | ✅ | Width=0 + thickness sai (compound/joined wall) sửa xong, user xác nhận OK 2026-07-04 · user xác nhận chung 2026-07-05: hoạt động tốt (curtain wall/wall nghiêng vẫn ngoài scope) |
+| 3 | ImageToDrafting | 6 | ✅ | UI sửa xong 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| 4 | Text to Element | 6 | ✅ | UI sửa xong 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| 5 | PointCloud | 6 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| 6 | RoomToFloor | 6 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| 7 | Tile Layout | 6 | ✅ | Bug path + list sàn mặc định sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| 8 | PropertyLine | 7 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| 9 | FamiGen | 7 | ✅ | Tool hoạt động tốt (user xác nhận chung 2026-07-05). Prompt v2 2026-07-05 (7 file tự chứa + SOFT-FORM RECIPES + case library + ví dụ sofa 11 part) — 3 probe chi tiết (sofa smoke test · Cylinder chéo · case end-to-end) vẫn theo dõi ở `famigen-from-json-roadmap.md` |
+| 10 | ManaFami | 7 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| 11 | Wall_Adjust Base | 7 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| 12 | SplitElements | 7 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| 13 | AutoJoin | 7 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| 14 | Wall Cut Profile | 7 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+
+> 2026-07-05 — user xác nhận tổng quát: **"các tool hiện tại đều đã hoạt động tốt"**. Các mục
+> checklist chi tiết chưa có báo cáo riêng từng mục — coi là pass theo xác nhận chung; mở lại
+> nếu phát hiện lỗi khi dùng thực tế.
 
 ## Phát sinh
 

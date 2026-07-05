@@ -43,14 +43,18 @@ Chain: launcher → `ModelAuditorDialog.py` (1828 loc) → `ModelAuditor.xaml`
 - [ ] Ghi chú:
 
 ## Chốt ngày 10
-- [ ] Cập nhật bảng + README · Commit: `fix(panel-standards): <mô tả>`
+- [x] Cập nhật bảng + README · Commit: `fix(panel-standards): <mô tả>`
 
 | Tool | Trạng thái | Ghi chú |
 |------|-----------|---------|
-| ManaLoca | ⬜ | |
-| ManaStyles | ⬜ | |
-| ManaWorkset | ⬜ | Gray-gutter fix (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| ModelAuditor | ⬜ | |
+| ManaLoca | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaStyles | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| ManaWorkset | ✅ | Gray-gutter fix đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| ModelAuditor | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+
+> 2026-07-05 — user xác nhận tổng quát: **"các tool hiện tại đều đã hoạt động tốt"** (đóng
+> luôn Ngày 10 theo xác nhận này — không có phiên review tĩnh riêng cho panel này). Mở lại
+> nếu phát hiện lỗi khi dùng thực tế.
 
 ## Phát sinh
 

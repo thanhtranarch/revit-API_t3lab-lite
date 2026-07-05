@@ -81,21 +81,25 @@ Chain: self-contained (353 loc) → `AutoWork.xaml` · không có Transaction tr
 - [ ] Autodesk Health / Autodesk Forma / Bluebeam Status → mở đúng URL trong browser
 
 ## Chốt ngày 11
-- [ ] Gỡ log tạm · cập nhật bảng + README
+- [x] Gỡ log tạm · cập nhật bảng + README
 - [ ] Commit: `fix(panel-support): <mô tả>`
 
 | Tool | Trạng thái | Ghi chú |
 |------|-----------|---------|
-| MCPControl | ⬜ | Bug path (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| Feedback | ⬜ | |
-| PDF import | ⬜ | Gray-gutter fix (xem Phát sinh) đã sửa 2026-07-03, chưa test functional |
-| T3LabAssistant | ⬜ | |
-| ManaTabs | ⬜ | |
-| Ribbon Names | ⬜ | |
-| BG Theme | ⬜ | |
-| UIShowcase | ⬜ | |
-| AutoWork | ⬜ | |
-| CloudLinks ×3 | ⬜ | |
+| MCPControl | ✅ | Bug path đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| Feedback | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| PDF import | ✅ | Gray-gutter fix đã sửa 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
+| T3LabAssistant | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt (smoke test sâu agentic-upgrade vẫn theo roadmap riêng) |
+| ManaTabs | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| Ribbon Names | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| BG Theme | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| UIShowcase | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| AutoWork | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+| CloudLinks ×3 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |
+
+> 2026-07-05 — user xác nhận tổng quát: **"các tool hiện tại đều đã hoạt động tốt"** (đóng
+> luôn Ngày 11 theo xác nhận này — không có phiên review tĩnh riêng cho panel này). Mở lại
+> nếu phát hiện lỗi khi dùng thực tế.
 
 ## Phát sinh
 
