@@ -49,34 +49,24 @@ class PDFImportDialog(forms.WPFWindow):
         self._loading   = False
         self._oc        = None   # ObservableCollection bound once, updated in-place
         self._mode      = _MODE_SEQUENTIAL
-        self._views_loaded = False
         forms.WPFWindow.__init__(self, _XAML)
-        self.Loaded += self._on_loaded
-        self.ContentRendered += self._on_content_rendered
 
-    def _on_loaded(self, sender, args):
-        # Bind the persistent OC once — never replace ItemsSource.
-        # Replacing it forces WPF to destroy/recreate all row containers (the
-        # root cause of the "empty grid" bug from the previous version).
-        # Only bind here; do NOT populate. Mutating the grid's bound collection
-        # during Loaded (before the first layout pass completes) can hard-crash
-        # WPF/Revit — the population is deferred to _on_content_rendered.
-        try:
-            if self._oc is None:
-                self._oc = ObservableCollection[object]()
-                self.grid_views.ItemsSource = self._oc
-        except Exception:
-            pass
-
-    def _on_content_rendered(self, sender, args):
-        # Populate the grid AFTER the window's first render pass — the safe
-        # point to mutate a bound ObservableCollection. ContentRendered fires
-        # reliably for a shown window (unlike a Background-priority dispatch,
-        # which could silently never run under a modal ShowDialog). Guard fully
-        # so a read failure can never propagate out and take down Revit.
-        if self._views_loaded:
-            return
-        self._views_loaded = True
+        # Bind the persistent ObservableCollection and populate the grid
+        # SYNCHRONOUSLY here — inside __init__, before ShowDialog(), while the
+        # window has not yet rendered. This mirrors the proven pattern used by
+        # every other working DataGrid dialog (ManaViews / ManaContains /
+        # ManaSheets): load data in __init__, mutate one bound OC in place.
+        #
+        # Why not defer to Loaded/ContentRendered (the previous approach):
+        #   * ContentRendered does NOT fire reliably under a modal ShowDialog()
+        #     inside Revit — when it doesn't, _load_views() never runs and the
+        #     grid stays stuck on the "Loading views…" overlay (the reported
+        #     "opens but shows no information" symptom).
+        #   * Mutating a DataGrid-bound OC during the Loaded event happens
+        #     mid-layout and can hard-crash the Revit host (the reported crash).
+        # Populating before the window renders sidesteps both problems.
+        self._oc = ObservableCollection[object]()
+        self.grid_views.ItemsSource = self._oc
         try:
             self._load_views()
         except Exception as ex:
@@ -219,8 +209,9 @@ class PDFImportDialog(forms.WPFWindow):
     # ── Events ────────────────────────────────────────────────────────────────
 
     def mode_changed(self, sender, args):
-        # Guard: XAML sets IsChecked="True" on rb_sequential before _on_loaded,
-        # which fires this handler before _oc is initialised.
+        # Guard: rb_sequential has IsChecked="True" in XAML, so this handler
+        # fires during forms.WPFWindow.__init__ (XAML parse) — before _oc is
+        # created a few lines later. Bail out until the grid is populated.
         if self._oc is None:
             return
 
