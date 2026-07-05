@@ -419,14 +419,21 @@ class SheetManagerWindow(forms.WPFWindow):
                     t = Transaction(self.doc, "Excel Sync Sheet Parameters")
                     t.Start()
                     
-                    sheets_dict = {eid_value(s.id): s for s in self.all_sheets}
+                    sheets_by_id = {eid_value(s.id): s for s in self.all_sheets}
+                    sheets_by_number = {}
+                    for s in self.all_sheets:
+                        sheets_by_number.setdefault(str(s.sheet_number), s)
                     success = 0
                     failed = 0
-                    
+
                     for row in imported_data:
-                        sh_id = row.get("id")
-                        if sh_id in sheets_dict:
-                            item = sheets_dict[sh_id]
+                        # Match by ElementId first (exported files carry it, so
+                        # number/name can be freely edited); fall back to the
+                        # original sheet number for hand-made files without an ID.
+                        item = sheets_by_id.get(row.get("id"))
+                        if item is None:
+                            item = sheets_by_number.get(str(row.get("sheet_number", "")))
+                        if item is not None:
                             try:
                                 if "sheet_number" in row:
                                     item.sheet_number = str(row["sheet_number"])
