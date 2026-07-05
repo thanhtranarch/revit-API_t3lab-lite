@@ -14,6 +14,7 @@ from __future__ import unicode_literals
 __author__  = "Tran Tien Thanh"
 __title__   = "T3Lab Assistant"
 
+import io
 import json
 import re
 import os
@@ -195,8 +196,16 @@ def save_learned_patterns(patterns):
     """Persist learned patterns to disk."""
     try:
         path = _patterns_file()
-        with open(path, 'w') as f:
-            json.dump({'patterns': patterns}, f, ensure_ascii=False, indent=2)
+        # Serialize to an ASCII string FIRST, then write in one shot —
+        # json.dump(..., ensure_ascii=False) on a bytes-mode file dies with
+        # UnicodeEncodeError mid-write under IronPython 2.7 as soon as a
+        # pattern carries Vietnamese, truncating the file to 0 bytes
+        # (same failure class as the chat-history/tool_registry bug).
+        data = json.dumps({'patterns': patterns}, ensure_ascii=True, indent=2)
+        if isinstance(data, bytes):
+            data = data.decode('ascii')
+        with io.open(path, 'w', encoding='utf-8') as f:
+            f.write(data)
     except Exception:
         pass
 

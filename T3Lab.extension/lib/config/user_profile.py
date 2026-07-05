@@ -21,6 +21,7 @@ from __future__ import unicode_literals
 __author__ = "Tran Tien Thanh"
 __title__  = "User Profile"
 
+import io
 import os
 import json
 import datetime
@@ -95,8 +96,15 @@ class UserProfile(object):
             self._data["updated_at"] = _now()
             if not self._data.get("created_at"):
                 self._data["created_at"] = self._data["updated_at"]
-            with open(self._path, 'w') as f:
-                json.dump(self._data, f, indent=2, ensure_ascii=False)
+            # Serialize to an ASCII string FIRST, then write in one shot —
+            # json.dump(..., ensure_ascii=False) on a bytes-mode file dies
+            # with UnicodeEncodeError under IronPython 2.7 (the default name
+            # "Thạnh" alone triggers it), truncating the profile to 0 bytes.
+            data = json.dumps(self._data, indent=2, ensure_ascii=True)
+            if isinstance(data, bytes):
+                data = data.decode('ascii')
+            with io.open(self._path, 'w', encoding='utf-8') as f:
+                f.write(data)
             return True
         except Exception:
             return False
