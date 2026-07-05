@@ -1411,7 +1411,9 @@
                                   RowBackground="White" AlternatingRowBackground="#FAFAFA"
                                   FontFamily="Hanken Grotesk" FontSize="13" Foreground="#27272A"
                                   HeadersVisibility="Column"
-                                  EnableRowVirtualization="False"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
                                   CellEditEnding="cell_edit_ending">
                             <DataGrid.Columns>
                                 <!-- Checkbox column -->
@@ -1419,9 +1421,7 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                      HorizontalAlignment="Center"
-                                                      Checked="view_selection_changed"
-                                                      Unchecked="view_selection_changed"/>
+                                                      HorizontalAlignment="Center"/>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>

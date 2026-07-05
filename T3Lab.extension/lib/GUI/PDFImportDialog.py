@@ -7,6 +7,7 @@ clr.AddReference('WindowsBase')
 clr.AddReference('System.Windows.Forms')
 
 from System.Collections.ObjectModel import ObservableCollection
+from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 from System.Windows import WindowState, Visibility
 from System.Windows.Controls import DataGridEditAction
 from System.Windows.Forms import OpenFileDialog, DialogResult
@@ -25,15 +26,67 @@ _GAP_FT = 0.15         # gap between images in all-in-one mode (feet, ~46 mm)
 _FALLBACK_W_FT = 1.5   # fallback image width when Width property unavailable
 
 
-class ViewItem(object):
-    def __init__(self, name, type_label, view_id):
+class ViewItem(INotifyPropertyChanged):
+    """One row in the view grid.
+
+    Implements INotifyPropertyChanged so the checkbox and PAGE pill update
+    reactively — no DataGrid.Items.Refresh() needed. Selection changes are
+    routed through the IsSelected *setter* (via on_toggle), which only fires
+    on a genuine user toggle (the binding's source-write direction), NOT when
+    a virtualized row is realized during scrolling. That is what lets the grid
+    stay virtualized (fast open, no crash on large models) while still keeping
+    live page-numbering and single-select behaviour.
+    """
+
+    def __init__(self, name, type_label, view_id, on_toggle=None):
         self.Name        = name
         self.Type        = type_label
         self.view_id     = view_id
-        self.IsSelected  = True
         self.PageNumber  = 0      # PDF page number assigned to this view (0 = none)
-        self.PageDisplay = u"–"   # string shown in the PAGE column (user-editable)
         self.is_manual   = False  # True when user has hand-set the page number
+        self._is_selected  = True
+        self._page_display = u"–"  # string shown in the PAGE column (user-editable)
+        self._on_toggle    = on_toggle
+        self._pc_handlers  = []
+
+    # ── INotifyPropertyChanged ──
+    def add_PropertyChanged(self, handler):
+        self._pc_handlers.append(handler)
+
+    def remove_PropertyChanged(self, handler):
+        if handler in self._pc_handlers:
+            self._pc_handlers.remove(handler)
+
+    def _raise(self, prop):
+        if self._pc_handlers:
+            args = PropertyChangedEventArgs(prop)
+            for h in list(self._pc_handlers):
+                h(self, args)
+
+    @property
+    def IsSelected(self):
+        return self._is_selected
+
+    @IsSelected.setter
+    def IsSelected(self, value):
+        value = bool(value)
+        if value == self._is_selected:
+            return
+        self._is_selected = value
+        self._raise("IsSelected")
+        if self._on_toggle is not None:
+            self._on_toggle(self)
+
+    @property
+    def PageDisplay(self):
+        return self._page_display
+
+    @PageDisplay.setter
+    def PageDisplay(self, value):
+        if value == self._page_display:
+            return
+        self._page_display = value
+        self._raise("PageDisplay")
 
     def set_page(self, n):
         self.PageNumber  = n if n else 0
@@ -87,15 +140,15 @@ class PDFImportDialog(forms.WPFWindow):
                 try:
                     if v.IsTemplate: continue
                     if v.ViewType == DB.ViewType.FloorPlan:
-                        items.append(ViewItem(v.Name or "Unnamed", "Floor Plan", v.Id))
+                        items.append(ViewItem(v.Name or "Unnamed", "Floor Plan", v.Id, self._on_item_toggle))
                     elif v.ViewType == DB.ViewType.CeilingPlan:
-                        items.append(ViewItem(v.Name or "Unnamed", "Ceiling Plan", v.Id))
+                        items.append(ViewItem(v.Name or "Unnamed", "Ceiling Plan", v.Id, self._on_item_toggle))
                 except Exception:
                     pass
             for v in DB.FilteredElementCollector(doc).OfClass(DB.ViewDrafting):
                 try:
                     if v.IsTemplate: continue
-                    items.append(ViewItem(v.Name or "Unnamed", "Drafting", v.Id))
+                    items.append(ViewItem(v.Name or "Unnamed", "Drafting", v.Id, self._on_item_toggle))
                 except Exception:
                     pass
         except Exception as ex:
@@ -123,9 +176,9 @@ class PDFImportDialog(forms.WPFWindow):
         self._items = result
         self._assign_pages()
 
-        # Guard: WPF fires CheckBox.Checked during _oc.Add() because IsSelected
-        # defaults to True; without this guard, view_selection_changed re-enters
-        # _refresh_list for every added row.
+        # _loading suppresses per-item toggle callbacks during the bulk rebuild
+        # (defensive — adding items doesn't call the IsSelected setter, but
+        # keep the guard for parity with the other bulk operations).
         self._loading = True
         self._oc.Clear()
         for item in self._items:
@@ -134,16 +187,31 @@ class PDFImportDialog(forms.WPFWindow):
 
         self._update_status()
 
-    def _refresh_pages(self):
-        self._assign_pages()
-        # CommitEdit first: clicking a CheckBox in a non-ReadOnly DataGrid opens
-        # an EditItem transaction; Items.Refresh() throws inside one.
-        try:
-            self.grid_views.CommitEdit()
-            self.grid_views.Items.Refresh()
-        except Exception:
-            pass
-        self._update_status()
+    def _on_item_toggle(self, item):
+        """Called from ViewItem.IsSelected setter on a genuine user toggle.
+
+        Virtualization-safe: the setter only runs on the binding's
+        source-write direction (user click), never when a recycled row is
+        realized during scroll — so recomputing here can't be triggered by
+        scrolling. Bulk operations set self._loading to route their single
+        recompute through _update_status/_assign_pages directly instead.
+        """
+        if self._loading:
+            return
+        if self._mode == _MODE_ALL_IN_ONE:
+            # Single-select: checking one clears the others.
+            if item.IsSelected:
+                self._loading = True
+                try:
+                    for other in self._items:
+                        if other is not item:
+                            other.IsSelected = False
+                finally:
+                    self._loading = False
+            self._update_status()
+        else:
+            self._assign_pages()
+            self._update_status()
 
     def _assign_pages(self):
         """Assign sequential page numbers to selected views.
@@ -229,16 +297,14 @@ class PDFImportDialog(forms.WPFWindow):
         self.btn_select_all.IsEnabled = (self._mode == _MODE_SEQUENTIAL)
 
         if self._mode == _MODE_ALL_IN_ONE:
-            # Enforce single-select: keep only the first currently-selected view
+            # Enforce single-select: keep only the first currently-selected view.
+            # Per-item PropertyChanged notifications update the checkboxes; no
+            # Items.Refresh() (which would fight the virtualized grid).
             first = next((i for i in self._items if i.IsSelected), None)
             self._loading = True
             for item in self._items:
                 item.IsSelected = (item is first)
             self._loading = False
-            try:
-                self.grid_views.Items.Refresh()
-            except Exception:
-                pass
 
         self._update_status()
 
@@ -268,27 +334,8 @@ class PDFImportDialog(forms.WPFWindow):
         if self._all_items:
             self._refresh_list()
 
-    def view_selection_changed(self, sender, args):
-        if self._loading:
-            return
-
-        if self._mode == _MODE_ALL_IN_ONE:
-            # Single-select: when a checkbox is checked, uncheck all others.
-            # sender is the CheckBox — its DataContext is the ViewItem just changed.
-            changed_item = getattr(sender, 'DataContext', None)
-            if changed_item and getattr(changed_item, 'IsSelected', False):
-                self._loading = True
-                for item in self._items:
-                    if item is not changed_item:
-                        item.IsSelected = False
-                self._loading = False
-                try:
-                    self.grid_views.Items.Refresh()
-                except Exception:
-                    pass
-            self._update_status()
-        else:
-            self._refresh_pages()
+    # Selection changes are handled by _on_item_toggle (routed from the
+    # ViewItem.IsSelected setter), not a XAML CheckBox event — see ViewItem.
 
     def select_all_clicked(self, sender, args):
         if self._mode == _MODE_ALL_IN_ONE:
@@ -297,14 +344,16 @@ class PDFImportDialog(forms.WPFWindow):
         for item in self._items:
             item.IsSelected = True
         self._loading = False
-        self._refresh_pages()
+        self._assign_pages()
+        self._update_status()
 
     def select_none_clicked(self, sender, args):
         self._loading = True
         for item in self._items:
             item.IsSelected = False
         self._loading = False
-        self._refresh_pages()
+        self._assign_pages()
+        self._update_status()
 
     def cell_edit_ending(self, sender, args):
         """Validate a manual page-number edit in the PAGE column (index 1)."""
