@@ -34,13 +34,12 @@ if _LIB_DIR not in sys.path:
     sys.path.insert(0, _LIB_DIR)
 
 _EXTENSION_DIR = os.path.dirname(_LIB_DIR)
-_SYSTEM_PROMPT_PATH = os.path.join(
+# Per-category prompts: prompts/<slug>.md is a fully self-contained system prompt
+# for that family category (schema, forms, curve segments, failure modes, checklist
+# and category-specific guidance) — picked by the user before "Copy Prompt".
+_PROMPTS_DIR = os.path.join(
     _EXTENSION_DIR, 'T3Lab.tab', 'Modeling & Datum.panel',
-    'FamiGen.pushbutton', 'SYSTEM_PROMPT.md')
-# Per-category prompt overlays: the shared SYSTEM_PROMPT.md is the general core,
-# and prompts/<slug>.md holds category-specific inventory/conventions appended on
-# top when the user picks a family type before "Copy Prompt".
-_PROMPTS_DIR = os.path.join(os.path.dirname(_SYSTEM_PROMPT_PATH), 'prompts')
+    'FamiGen.pushbutton', 'prompts')
 
 from Autodesk.Revit.DB import (
     ImportInstance, FilteredElementCollector,
@@ -649,7 +648,9 @@ class FamilyCreatorDialog(forms.WPFWindow):
 
     def _init_json_panel(self):
         """Populate the family-type selector on the From JSON tab so 'Copy Prompt'
-        can append the matching per-category overlay before copying."""
+        can append the matching per-category overlay before copying. Only
+        categories that actually have a prompts/<slug>.md overlay are listed,
+        so the dropdown stays in sync with whatever overlay files exist."""
         try:
             combo = (getattr(self, 'json_category_combo', None)
                      or self.FindName('json_category_combo'))
@@ -657,7 +658,8 @@ class FamilyCreatorDialog(forms.WPFWindow):
                 return
             combo.Items.Clear()
             for name, _ in CATEGORY_TEMPLATES:
-                combo.Items.Add(name)
+                if os.path.isfile(self._overlay_path(name)):
+                    combo.Items.Add(name)
             combo.SelectedIndex = 0
         except Exception:
             logger.warning("json panel init: {}".format(traceback.format_exc()))
@@ -2224,41 +2226,28 @@ class FamilyCreatorDialog(forms.WPFWindow):
         return os.path.join(_PROMPTS_DIR, slug + '.md')
 
     def copy_prompt_clicked(self, sender, e):
-        # Assemble the prompt = shared general core + the overlay for the family
-        # type the user picked, so the pasted prompt is tailored to that category.
-        try:
-            with codecs.open(_SYSTEM_PROMPT_PATH, 'r', 'utf-8') as f:
-                core = f.read()
-        except Exception as ex:
-            forms.alert("Could not read core prompt: {}".format(ex))
-            return
-
+        # Each prompts/<slug>.md is a fully self-contained system prompt for the
+        # family type the user picked - just read and copy it directly.
         cat = None
         try:
             cat = self.json_category_combo.SelectedItem
         except Exception:
             cat = None
 
-        overlay = ""
-        opath = self._overlay_path(cat)
-        if opath and os.path.isfile(opath):
-            try:
-                with codecs.open(opath, 'r', 'utf-8') as f:
-                    overlay = f.read()
-            except Exception:
-                overlay = ""
-
-        if overlay:
-            text = core.rstrip() + "\n\n" + overlay
-            status = "Prompt copied: general core + '{}' overlay.".format(cat)
-        else:
-            text = core
-            status = ("Prompt copied: general core ('{}' has no overlay yet)."
-                      .format(cat) if cat else "Prompt copied: general core.")
+        ppath = self._overlay_path(cat)
+        if not ppath or not os.path.isfile(ppath):
+            forms.alert("No prompt file found for '{}'.".format(cat))
+            return
+        try:
+            with codecs.open(ppath, 'r', 'utf-8') as f:
+                text = f.read()
+        except Exception as ex:
+            forms.alert("Could not read prompt: {}".format(ex))
+            return
 
         try:
             Clipboard.SetText(text)
-            self.lbl_status.Text = status
+            self.lbl_status.Text = "Prompt copied: '{}'.".format(cat)
         except Exception as ex:
             forms.alert("Could not copy prompt: {}".format(ex))
 
