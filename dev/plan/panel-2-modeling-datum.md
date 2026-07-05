@@ -166,7 +166,7 @@ Chain: self-contained (1624 loc, **37 bare except**, 8 transaction + 2 Transacti
 | # | Tool | Ngày | Trạng thái | Ghi chú |
 |---|------|------|-----------|---------|
 | 1 | CADToElements | 6 | ✅ | Wall/Floor/Beam user xác nhận OK (2026-07-03) · user xác nhận chung 2026-07-05: hoạt động tốt |
-| 2 | DoorThreshold | 6 | ✅ | Width=0 + thickness sai (compound/joined wall) sửa xong, user xác nhận OK 2026-07-04 · user xác nhận chung 2026-07-05: hoạt động tốt (curtain wall/wall nghiêng vẫn ngoài scope) |
+| 2 | DoorThreshold | 6 | ✅ | Width=0 + thickness sai (compound/joined wall) sửa xong, user xác nhận OK 2026-07-04 · user xác nhận chung 2026-07-05: hoạt động tốt. 2026-07-05 (commit `09cee9b`): thêm thông báo rõ khi model không có FloorType + tra map an toàn. Curtain wall/wall nghiêng vẫn ngoài scope (feature) |
 | 3 | ImageToDrafting | 6 | ✅ | UI sửa xong 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
 | 4 | Text to Element | 6 | ✅ | UI sửa xong 2026-07-03 · user xác nhận chung 2026-07-05: hoạt động tốt |
 | 5 | PointCloud | 6 | ✅ | User xác nhận chung 2026-07-05: hoạt động tốt |

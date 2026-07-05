@@ -263,10 +263,15 @@ Các launcher còn lại + UI.stack + PDF import + Feedback.
 - 4 roadmap độc lập: đóng toàn bộ 2026-07-05, file đã xóa — bảng kết cục ở `dev/plan/README.md`.
 
 ### Issue còn lại (xếp ưu tiên — nguồn: tổng hợp mục "Phát sinh" 6 file panel + review GĐ4)
-| # | Ưu tiên | Issue | Nguồn / ghi chú |
+
+> **Đợt fix 2026-07-05**: issue 0/1 + phần F6 & DoorThreshold-message đã sửa (5 commit riêng
+> lượt: PDF import F11 · ManaSheets Excel · BatchOut F6 · DoorThreshold message + doc này).
+> Tất cả static-clean (`ast.parse` + audit), chờ smoke test trong Revit.
+
+| # | Ưu tiên | Issue | Trạng thái / ghi chú |
 |---|---------|-------|-----------------|
-| 0 | 🟢 Đã sửa, chờ test | **PDF import — crash + không hiện thông tin (F11)**: sửa 2026-07-05 (nạp grid đồng bộ trong `__init__` thay vì `ContentRendered`); chờ user reload pyRevit + mở lại xác nhận. | F11 · `panel-6-support-standard.md` Phát sinh |
-| 1 | 🔴 Cao | **ManaSheets Excel Import/Export không hoạt động**: `ManaSheetsDialog.py` gọi `excel_service.export_sheets(path, data)` / `.import_sheets(path)` nhưng service chỉ có `export_sheets_to_excel(sheet_models, filepath)` / `import_sheets_from_excel(filepath)` — lệch tên method, lệch thứ tự tham số, lệch kiểu dữ liệu (dict vs `SheetModel`, import thiếu key `id`). Không crash (bọc try/except) nhưng tính năng chết. Phát hiện 2026-07-03, **chưa sửa**. | `panel-3-views-sheets.md` Phát sinh |
-| 2 | 🟡 Vừa | **F5/F6 — bare `except:` tech debt**: Wall Cut Profile (37), BatchOut (30 + Intelligence degrade im lặng), Wall_Adjust Base (4), DoorThreshold (3), ManaTabs (2). Không chặn hoạt động, nhưng sẽ nuốt lỗi khi debug về sau. | mục 2 (F5/F6) |
-| 3 | 🟡 Vừa | **DoorThreshold — ngoài scope đã ghi nhận**: chưa hỗ trợ curtain wall / wall nghiêng; model thiếu family threshold chưa có thông báo riêng. | `panel-2-modeling-datum.md` |
-| 4 | 🟢 Thấp | **Backlog đóng-không-triển-khai** (mở roadmap mới nếu cần): AutoDimension GĐ B/C/D ~16 mục (idempotent, dim mặt tường host, core-layer, stacking, EQ, trục xiên…); FamiGen WS4 (cảnh báo part rời rạc) / WS5 (sketch plane tùy ý); 3 probe FamiGen prompt v2 (sofa 11 part, Cylinder chéo, case end-to-end) chỉ mới pass theo xác nhận chung. | `dev/plan/README.md` |
+| 0 | ✅ Đã sửa, chờ test | **PDF import — crash + không hiện thông tin (F11)**: nạp grid đồng bộ trong `__init__` thay vì `ContentRendered`. | Commit `91159c7`; chờ user reload pyRevit + mở lại. `panel-6` Phát sinh |
+| 1 | ✅ Đã sửa, chờ test | **ManaSheets Excel Import/Export chết** (lệch API service ↔ dialog): thêm adapter `export_sheets`/`import_sheets` (dict-based, cột `ID` để round-trip khớp lại theo ElementId; giữ nguyên 2 method gốc cho `import_excel_dialog`), dialog khớp theo id trước rồi fallback sheet_number. | Commit `05a5628`; chờ round-trip test trong Revit. `panel-3` Phát sinh |
+| 2 | ✅ F6 sửa · 🟡 F5 giữ | **F6** (BatchOut degrade Intelligence im lặng): đã log khi import `api_learner`/`api_updater` fail — commit `e535764`. **F5** (bare `except:` — Wall Cut Profile 37, BatchOut 30, Wall_Adjust 4, DoorThreshold 3, ManaTabs 2): **giữ nguyên làm tech debt** — không chặn chức năng, sửa hàng loạt trên tool đang chạy tốt là churn rủi ro không tương xứng; chỉ chèn log tạm khi thực sự cần debug tool đó. | mục 2 (F5/F6) |
+| 3 | ✅ Message sửa · 🟡 geometry giữ | **DoorThreshold**: đã thêm thông báo rõ khi model không có FloorType nào (commit `09cee9b`). Phần **curtain wall / wall nghiêng** vẫn ngoài scope — là feature geometry cần phát triển + test trong Revit, không phải bug; mở việc riêng nếu cần. | `panel-2` |
+| 4 | 🟢 Thấp — đóng không triển khai | **Backlog** (mở roadmap mới nếu cần): AutoDimension GĐ B/C/D ~16 mục; FamiGen WS4/WS5; 3 probe FamiGen prompt v2 (chỉ mới pass theo xác nhận chung). | `dev/plan/README.md` |
