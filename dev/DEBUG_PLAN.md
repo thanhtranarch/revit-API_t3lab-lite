@@ -264,10 +264,9 @@ Các launcher còn lại + UI.stack + PDF import + Feedback.
   (lỗi IFCSG copyright trùng ×2 từng ghi ở GĐ2 Ngày 4 nay đã hết) · `sync_wpf_styles --check`
   53/53, 0 lệch.
 - **41 tool đóng theo xác nhận chung của user 2026-07-05**; bảng 6 panel (`dev/plan/panel-*.md`)
-  không còn ô ⬜; các mục checklist chi tiết chưa test riêng lẻ coi là pass theo xác nhận chung,
-  mở lại nếu phát sinh lỗi khi dùng thực tế. **Cập nhật 2026-07-05: PDF import mở lại (🔄)** — user
-  báo crash + không hiện thông tin khi thực sự dùng; đã sửa (F11), chờ re-test. Đây là bằng chứng
-  cho giới hạn của xác nhận theo lô: tool chỉ mới sửa UI có thể vẫn còn bug functional.
+  không còn ô ⬜. **PDF import từng mở lại (🔄) do user báo crash + không hiện thông tin + mở chậm khi
+  thực sự dùng — đã sửa 2 vòng (F11), user xác nhận đã debug hết 2026-07-05 → ✅.** Bài học vẫn giữ:
+  xác nhận theo lô không thay được smoke test functional; tool chỉ mới sửa UI có thể còn bug functional.
 - **Review code GĐ4** trên commit mới nhất `5c4c3b1` (Assistant native agent + providers, ~2.1k
   dòng): kiến trúc ExternalEvent đăng ký trên main thread + worker thread block chờ — đúng chuẩn
   modeless; UI thread chỉ dùng `get_status_instant()` (probe đầy đủ chạy nền) — đúng bài học cũ;
@@ -279,14 +278,19 @@ Các launcher còn lại + UI.stack + PDF import + Feedback.
 
 ### Issue còn lại (xếp ưu tiên — nguồn: tổng hợp mục "Phát sinh" 6 file panel + review GĐ4)
 
-> **Đợt fix 2026-07-05**: issue 0/1 + phần F6 & DoorThreshold-message đã sửa (5 commit riêng
-> lượt: PDF import F11 · ManaSheets Excel · BatchOut F6 · DoorThreshold message + doc này).
-> Tất cả static-clean (`ast.parse` + audit), chờ smoke test trong Revit.
+> **Đợt fix 2026-07-05 — ĐÃ ĐÓNG**: issue 0/1 + F6 & DoorThreshold-message đã sửa (6 commit riêng
+> lượt: PDF import F11 ×2 vòng · ManaSheets Excel · BatchOut F6 · DoorThreshold message + doc).
+> Tất cả static-clean và **user xác nhận đã debug hết 2026-07-05** ("các issue đã debug hết").
+> Không còn issue mở nào ở mức chặn chức năng; chỉ còn tech debt (F5) và backlog đóng-không-triển-khai.
 
-| # | Ưu tiên | Issue | Trạng thái / ghi chú |
-|---|---------|-------|-----------------|
-| 0 | ✅ Đã sửa, chờ test | **PDF import — crash + không hiện thông tin (F11)**: nạp grid đồng bộ trong `__init__` thay vì `ContentRendered`. | Commit `91159c7`; chờ user reload pyRevit + mở lại. `panel-6` Phát sinh |
-| 1 | ✅ Đã sửa, chờ test | **ManaSheets Excel Import/Export chết** (lệch API service ↔ dialog): thêm adapter `export_sheets`/`import_sheets` (dict-based, cột `ID` để round-trip khớp lại theo ElementId; giữ nguyên 2 method gốc cho `import_excel_dialog`), dialog khớp theo id trước rồi fallback sheet_number. | Commit `05a5628`; chờ round-trip test trong Revit. `panel-3` Phát sinh |
-| 2 | ✅ F6 sửa · 🟡 F5 giữ | **F6** (BatchOut degrade Intelligence im lặng): đã log khi import `api_learner`/`api_updater` fail — commit `e535764`. **F5** (bare `except:` — Wall Cut Profile 37, BatchOut 30, Wall_Adjust 4, DoorThreshold 3, ManaTabs 2): **giữ nguyên làm tech debt** — không chặn chức năng, sửa hàng loạt trên tool đang chạy tốt là churn rủi ro không tương xứng; chỉ chèn log tạm khi thực sự cần debug tool đó. | mục 2 (F5/F6) |
-| 3 | ✅ Message sửa · 🟡 geometry giữ | **DoorThreshold**: đã thêm thông báo rõ khi model không có FloorType nào (commit `09cee9b`). Phần **curtain wall / wall nghiêng** vẫn ngoài scope — là feature geometry cần phát triển + test trong Revit, không phải bug; mở việc riêng nếu cần. | `panel-2` |
+| # | Trạng thái | Issue | Ghi chú |
+|---|-----------|-------|---------|
+| 0 | ✅ Xong (user xác nhận) | **PDF import — crash + không hiện thông tin + mở chậm (F11)**: v1 nạp grid đồng bộ trong `__init__`; v2 bật lại virtualization + `INotifyPropertyChanged` + selection qua setter. | Commit `91159c7` + `3eb5a9c`; user xác nhận OK. `panel-6` Phát sinh |
+| 1 | ✅ Xong (user xác nhận) | **ManaSheets Excel Import/Export chết** (lệch API service ↔ dialog): thêm adapter `export_sheets`/`import_sheets` (dict-based, cột `ID` để round-trip khớp lại theo ElementId; giữ nguyên 2 method gốc cho `import_excel_dialog`), dialog khớp theo id trước rồi fallback sheet_number. | Commit `05a5628`; user xác nhận OK. `panel-3` Phát sinh |
+| 2 | ✅ F6 xong · 🟡 F5 giữ | **F6** (BatchOut degrade Intelligence im lặng): đã log khi import `api_learner`/`api_updater` fail — commit `e535764`. **F5** (bare `except:` — Wall Cut Profile 37, BatchOut 30, Wall_Adjust 4, DoorThreshold 3, ManaTabs 2): **giữ nguyên làm tech debt** — không chặn chức năng, sửa hàng loạt trên tool đang chạy tốt là churn rủi ro không tương xứng; chỉ chèn log tạm khi thực sự cần debug tool đó. | mục 2 (F5/F6) |
+| 3 | ✅ Message xong · 🟡 geometry giữ | **DoorThreshold**: đã thêm thông báo rõ khi model không có FloorType nào (commit `09cee9b`). Phần **curtain wall / wall nghiêng** vẫn ngoài scope — là feature geometry cần phát triển + test trong Revit, không phải bug; mở việc riêng nếu cần. | `panel-2` |
 | 4 | 🟢 Thấp — đóng không triển khai | **Backlog** (mở roadmap mới nếu cần): AutoDimension GĐ B/C/D ~16 mục; FamiGen WS4/WS5; 3 probe FamiGen prompt v2 (chỉ mới pass theo xác nhận chung). | `dev/plan/README.md` |
+
+**Kết luận GĐ4 (2026-07-05):** toàn bộ 12 ngày + 4 roadmap độc lập hoàn tất; mọi issue functional
+đã đóng (user xác nhận đã debug hết). Còn lại chỉ là tech debt F5 và backlog cố ý hoãn — không có
+việc bắt buộc nào đang mở.
