@@ -395,11 +395,24 @@ class DoorThresholdWindow(forms.WPFWindow):
 
         floor_type_name = self.cmb_floor_type.SelectedItem
         if not floor_type_name:
-            TaskDialog.Show("Door Threshold", "Please select a threshold type (floor).")
+            # Distinguish "model has no floor types" (nothing to pick) from
+            # "user just didn't pick one" — the combo is empty only in the
+            # former case, and the generic prompt was misleading there.
+            if not self._floor_type_map:
+                TaskDialog.Show(
+                    "Door Threshold",
+                    "This model has no floor types to use as a threshold.\n\n"
+                    "Load or create at least one floor type, then reopen this tool.")
+            else:
+                TaskDialog.Show("Door Threshold", "Please select a threshold type (floor).")
             return
-        
-        floor_type = self._floor_type_map[floor_type_name]
-        
+
+        floor_type = self._floor_type_map.get(floor_type_name)
+        if floor_type is None:
+            TaskDialog.Show("Door Threshold",
+                            "The selected threshold type is no longer available.")
+            return
+
         try: offset_mm = float(self.txt_offset.Text)
         except: offset_mm = 0
 
