@@ -90,6 +90,24 @@ Khi debug các tool này, lỗi thật sẽ bị nuốt im lặng → phải t�
 - 6 dialog trung gian **không pushbutton nào gọi tới**: `DatumManagerDialog.py` (+`DatumManager.xaml`), `FamilyBatchCreatorDialog.py`, `OpeningAssignValuesDialog.py`, `SheetHubDialog.py`, `ViewHubDialog.py`, `ViewTemplateDialog.py` (+2 XAML).
 - Danh sách archive đầy đủ: `dev/plan/phase-1-cleanup-fixes.md`.
 
+### ✅ F11 — PDF import: mở tool không hiện thông tin + crash file (PHÁT HIỆN & SỬA — 2026-07-05, user báo)
+- Bug functional thật (không phải UI): mở tool thì grid "Target Views" kẹt overlay "Loading
+  views…" (không view nào hiện) và crash/đóng file Revit. Phơi ra rằng xác nhận chung "các
+  tool hoạt động tốt" (2026-07-05) chưa thực sự test functional PDF import.
+- **Nguyên nhân kép** trong `PDFImportDialog.py`:
+  1. *Không hiện thông tin* — refactor `0a2a886` hoãn nạp grid sang event `ContentRendered`,
+     mà event này **không chạy đáng tin dưới modal `ShowDialog()`** trong Revit → `_load_views()`
+     không chạy → `pnl_loading` không collapse → kẹt "Loading views…".
+  2. *Crash* — bind `ItemsSource` + mutate `ObservableCollection` đặt trong `Loaded`/`ContentRendered`
+     (SAU khi cửa sổ render); mutate collection bound DataGrid non-virtualized giữa layout có thể
+     **hard-crash host** (lỗi tầng WPF/native, không phải exception Python bắt được).
+- **Fix**: dời tạo OC + bind + `_load_views()` về `__init__`, chạy **đồng bộ trước `ShowDialog()`**
+  (cửa sổ chưa render) — đúng pattern kiểm chứng ở `ManaViews`/`ManaContains`/`ManaSheets`. Xóa
+  `_on_loaded`/`_on_content_rendered`/`_views_loaded`; guard `mode_changed` giữ nguyên. Static
+  clean (`ast.parse` + 3 audit). **Chưa smoke test Revit** — cần user reload pyRevit + mở lại.
+- **Bài học**: xác nhận "tất cả tool OK" theo lô KHÔNG thay được smoke test functional từng tool;
+  các tool chỉ mới sửa UI (chưa test chức năng) vẫn có thể còn bug mở-cửa-sổ như thế này.
+
 ### ✅ F10 — 2 điểm ghi JSON `ensure_ascii=False` trên file bytes-mode (PHÁT HIỆN & SỬA — review GĐ4, 2026-07-05)
 - `lib/Intelligence/t3lab_assistant.py::save_learned_patterns` và `lib/config/user_profile.py::save`
   còn dùng `open(path, 'w')` + `json.dump(..., ensure_ascii=False)` — đúng failure class đã biết
@@ -230,9 +248,11 @@ Các launcher còn lại + UI.stack + PDF import + Feedback.
 - **Regression cuối**: `audit_tools --quiet` clean · `audit_ui --quiet` 0/54 file có vấn đề
   (lỗi IFCSG copyright trùng ×2 từng ghi ở GĐ2 Ngày 4 nay đã hết) · `sync_wpf_styles --check`
   53/53, 0 lệch.
-- **41/41 tool ✅ smoke test** — đóng theo xác nhận chung của user 2026-07-05; bảng 6 panel
-  (`dev/plan/panel-*.md`) không còn ô ⬜; các mục checklist chi tiết chưa test riêng lẻ được
-  coi là pass theo xác nhận chung, mở lại nếu phát sinh lỗi khi dùng thực tế.
+- **41 tool đóng theo xác nhận chung của user 2026-07-05**; bảng 6 panel (`dev/plan/panel-*.md`)
+  không còn ô ⬜; các mục checklist chi tiết chưa test riêng lẻ coi là pass theo xác nhận chung,
+  mở lại nếu phát sinh lỗi khi dùng thực tế. **Cập nhật 2026-07-05: PDF import mở lại (🔄)** — user
+  báo crash + không hiện thông tin khi thực sự dùng; đã sửa (F11), chờ re-test. Đây là bằng chứng
+  cho giới hạn của xác nhận theo lô: tool chỉ mới sửa UI có thể vẫn còn bug functional.
 - **Review code GĐ4** trên commit mới nhất `5c4c3b1` (Assistant native agent + providers, ~2.1k
   dòng): kiến trúc ExternalEvent đăng ký trên main thread + worker thread block chờ — đúng chuẩn
   modeless; UI thread chỉ dùng `get_status_instant()` (probe đầy đủ chạy nền) — đúng bài học cũ;
@@ -245,6 +265,7 @@ Các launcher còn lại + UI.stack + PDF import + Feedback.
 ### Issue còn lại (xếp ưu tiên — nguồn: tổng hợp mục "Phát sinh" 6 file panel + review GĐ4)
 | # | Ưu tiên | Issue | Nguồn / ghi chú |
 |---|---------|-------|-----------------|
+| 0 | 🟢 Đã sửa, chờ test | **PDF import — crash + không hiện thông tin (F11)**: sửa 2026-07-05 (nạp grid đồng bộ trong `__init__` thay vì `ContentRendered`); chờ user reload pyRevit + mở lại xác nhận. | F11 · `panel-6-support-standard.md` Phát sinh |
 | 1 | 🔴 Cao | **ManaSheets Excel Import/Export không hoạt động**: `ManaSheetsDialog.py` gọi `excel_service.export_sheets(path, data)` / `.import_sheets(path)` nhưng service chỉ có `export_sheets_to_excel(sheet_models, filepath)` / `import_sheets_from_excel(filepath)` — lệch tên method, lệch thứ tự tham số, lệch kiểu dữ liệu (dict vs `SheetModel`, import thiếu key `id`). Không crash (bọc try/except) nhưng tính năng chết. Phát hiện 2026-07-03, **chưa sửa**. | `panel-3-views-sheets.md` Phát sinh |
 | 2 | 🟡 Vừa | **F5/F6 — bare `except:` tech debt**: Wall Cut Profile (37), BatchOut (30 + Intelligence degrade im lặng), Wall_Adjust Base (4), DoorThreshold (3), ManaTabs (2). Không chặn hoạt động, nhưng sẽ nuốt lỗi khi debug về sau. | mục 2 (F5/F6) |
 | 3 | 🟡 Vừa | **DoorThreshold — ngoài scope đã ghi nhận**: chưa hỗ trợ curtain wall / wall nghiêng; model thiếu family threshold chưa có thông báo riêng. | `panel-2-modeling-datum.md` |

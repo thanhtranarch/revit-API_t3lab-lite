@@ -40,7 +40,7 @@
 | 8 | GĐ3 | Debug Panel: Views & Sheets (4 tool, trọng tâm BatchOut) | `panel-3-views-sheets.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung (UI ManaSheets/ManaViews đã xác nhận riêng 2026-07-03) |
 | 9 | GĐ3 | Debug Panel: Data & IFC-SG (6 tool) | `panel-4-data-ifcsg.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung (pre-flight tĩnh sạch 2026-07-04: 3 fix trang trắng còn nguyên, print flood đã xoá) |
 | 10 | GĐ3 | Debug Panel: Standards & Settings (4 tool) | `panel-5-standards-settings.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung (đóng theo xác nhận, không có phiên review tĩnh riêng) |
-| 11 | GĐ3 | Debug Panel: Support + Standard (9 tool) | `panel-6-support-standard.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung (đóng theo xác nhận, không có phiên review tĩnh riêng) |
+| 11 | GĐ3 | Debug Panel: Support + Standard (9 tool) | `panel-6-support-standard.md` | ✅ **Hoàn thành 2026-07-05** — user xác nhận chung. *Cập nhật 2026-07-05: PDF import mở lại (🔄) — user báo crash + không hiện thông tin khi dùng thật; đã sửa (F11: nạp grid trong `__init__` thay `ContentRendered`), chờ re-test sau reload pyRevit* |
 | 12 | GĐ4 | Regression toàn bộ + tổng kết | mục dưới | ✅ **Hoàn thành 2026-07-05** — 3 audit sạch, 41/41 tool ✅, review code GĐ4 phát hiện + sửa F10 (2 điểm ghi JSON unicode không an toàn), tổng kết + danh sách issue còn lại: `dev/DEBUG_PLAN.md` mục 7 |
 
 > Nguyên tắc: **không nhảy giai đoạn**. GĐ1 dọn dead code trước để GĐ2 không tốn công sửa UI cho file sắp xoá; GĐ2 chốt UI trước để GĐ3 smoke test không bị nhiễu bởi thay đổi XAML.
