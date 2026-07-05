@@ -63,8 +63,10 @@ try:
     from api_learner import SmartAPIAdapter, RevitAPILearner
     from api_updater import auto_check_and_update
     HAS_API_LEARNER = True
-except:
+    _api_learner_err = None
+except Exception as _api_learner_ex:
     HAS_API_LEARNER = False
+    _api_learner_err = _api_learner_ex
 
 
 # Try to import IFC export
@@ -85,6 +87,15 @@ except:
 # ==================================================
 logger = script.get_logger()
 output = script.get_output()
+
+# F6: BatchOut runs fine without the optional Intelligence helpers, but the
+# import above swallowed any failure silently (and it happens before `logger`
+# exists). Surface it once here so a broken/missing api_learner is visible when
+# debugging instead of just a mysteriously absent smart-adaptation feature.
+if not HAS_API_LEARNER:
+    logger.warning(
+        "BatchOut Intelligence helpers unavailable (api_learner/api_updater); "
+        "smart API adaptation & auto-update disabled: {}".format(_api_learner_err))
 
 # Get Revit version information
 REVIT_VERSION = int(revit.doc.Application.VersionNumber)  # e.g., 2023, 2024, 2025, 2026
