@@ -101,12 +101,27 @@ Khi debug các tool này, lỗi thật sẽ bị nuốt im lặng → phải t�
   2. *Crash* — bind `ItemsSource` + mutate `ObservableCollection` đặt trong `Loaded`/`ContentRendered`
      (SAU khi cửa sổ render); mutate collection bound DataGrid non-virtualized giữa layout có thể
      **hard-crash host** (lỗi tầng WPF/native, không phải exception Python bắt được).
-- **Fix**: dời tạo OC + bind + `_load_views()` về `__init__`, chạy **đồng bộ trước `ShowDialog()`**
+- **Fix (vòng 1)**: dời tạo OC + bind + `_load_views()` về `__init__`, chạy **đồng bộ trước `ShowDialog()`**
   (cửa sổ chưa render) — đúng pattern kiểm chứng ở `ManaViews`/`ManaContains`/`ManaSheets`. Xóa
-  `_on_loaded`/`_on_content_rendered`/`_views_loaded`; guard `mode_changed` giữ nguyên. Static
-  clean (`ast.parse` + 3 audit). **Chưa smoke test Revit** — cần user reload pyRevit + mở lại.
-- **Bài học**: xác nhận "tất cả tool OK" theo lô KHÔNG thay được smoke test functional từng tool;
-  các tool chỉ mới sửa UI (chưa test chức năng) vẫn có thể còn bug mở-cửa-sổ như thế này.
+  `_on_loaded`/`_on_content_rendered`/`_views_loaded`; guard `mode_changed` giữ nguyên.
+- **Fix (vòng 2, 2026-07-05) — nguyên nhân chậm-mở + crash thật**: user báo lại tool vẫn **mở chậm +
+  crash file**. Root cause còn lại: DataGrid `grid_views` đặt `EnableRowVirtualization="False"` →
+  với model nhiều view, WPF dựng TOÀN BỘ row cùng lúc (mỗi row có template checkbox + nhiều Path/Border)
+  → chậm + hard-crash host Revit. ManaViews (chạy tốt với nhiều view) **không** tắt virtualization và
+  checkbox **không** có event — chỉ bind `IsSelected`. PDFImport tắt virtualization vì checkbox có
+  handler `view_selection_changed` gọi `Items.Refresh()` mỗi lần tick (không tương thích virtualization).
+  Sửa theo đúng pattern chuẩn: (a) bật lại virtualization (`VirtualizingPanel.IsVirtualizing=True` +
+  `VirtualizationMode=Recycling`, bỏ `EnableRowVirtualization="False"`); (b) `ViewItem` implement
+  `INotifyPropertyChanged` (giống `RenumberItem` của ManaSheets) — PAGE pill + checkbox cập nhật phản
+  ứng, KHÔNG cần `Items.Refresh()`; (c) bỏ event `Checked/Unchecked` XAML, chuyển tính-lại-page +
+  single-select sang **setter của `IsSelected`** (chỉ chạy khi user thực sự tick, KHÔNG chạy khi cuộn
+  realize row → virtualization-safe). Static clean (`ast.parse` + XML well-formed + 3 audit).
+  **Chưa smoke test Revit** — cần user reload pyRevit + mở lại (kỳ vọng mở nhanh, không crash kể cả
+  model nhiều view; tick/single-select/page-number vẫn đúng).
+- **Bài học**: (1) xác nhận "tất cả tool OK" theo lô KHÔNG thay được smoke test functional từng tool.
+  (2) `EnableRowVirtualization="False"` trên DataGrid là bẫy chậm-mở + crash với danh sách lớn — không
+  bao giờ tắt virtualization để né vấn đề checkbox; thay vào đó dùng `INotifyPropertyChanged` + setter-
+  callback (không dùng `Items.Refresh()` + không dùng XAML `Checked` event vốn bắn cả khi cuộn).
 
 ### ✅ F10 — 2 điểm ghi JSON `ensure_ascii=False` trên file bytes-mode (PHÁT HIỆN & SỬA — review GĐ4, 2026-07-05)
 - `lib/Intelligence/t3lab_assistant.py::save_learned_patterns` và `lib/config/user_profile.py::save`
