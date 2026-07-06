@@ -21,3 +21,19 @@ def eid_value(element_id):
             return int(element_id.IntegerValue)   # Revit 2023 and earlier
         except Exception:
             return -1
+
+
+def elem_name(element):
+    """Return element.Name, IronPython-safe.
+
+    Some Element subclasses (FamilySymbol, ElementType, GroupType, ...) hide
+    the Name property getter from IronPython, so `element.Name` raises
+    `AttributeError: Name` even though the element has a perfectly good name.
+    Reading through the base Element property descriptor always works.
+    (Only the getter is affected; `element.Name = x` assignment works fine.)
+    """
+    try:
+        return element.Name
+    except AttributeError:
+        from Autodesk.Revit.DB import Element
+        return Element.Name.GetValue(element)

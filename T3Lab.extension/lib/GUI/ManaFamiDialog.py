@@ -38,7 +38,7 @@ from System.Windows.Threading import Dispatcher
 
 # pyRevit Imports
 from pyrevit import revit, DB, forms, script
-from Snippets._compat import eid_value
+from Snippets._compat import eid_value, elem_name
 
 from Autodesk.Revit.DB import (
     FilteredElementCollector, FilteredWorksetCollector, WorksetKind,
@@ -990,7 +990,7 @@ class ManaFamiWindow(forms.WPFWindow):
                             rows.append(FamilyRow(
                                 element=symbol,
                                 family_name=family.Name,
-                                type_name=symbol.Name,
+                                type_name=elem_name(symbol),
                                 category_name=symbol.Category.Name if symbol.Category else "Generic Models",
                                 workset_id=ws_id,
                                 is_loadable=True
@@ -1014,7 +1014,7 @@ class ManaFamiWindow(forms.WPFWindow):
                                 rows.append(FamilyRow(
                                     element=symbol,
                                     family_name=fam.Name,
-                                    type_name=symbol.Name,
+                                    type_name=elem_name(symbol),
                                     category_name=symbol.Category.Name if symbol.Category else "Generic Models",
                                     workset_id=ws_id,
                                     is_loadable=True
@@ -1041,7 +1041,7 @@ class ManaFamiWindow(forms.WPFWindow):
                             rows.append(FamilyRow(
                                 element=t,
                                 family_name=t.FamilyName,
-                                type_name=t.Name,
+                                type_name=elem_name(t),
                                 category_name=t.Category.Name,
                                 workset_id=ws_id,
                                 is_loadable=False
@@ -1058,7 +1058,7 @@ class ManaFamiWindow(forms.WPFWindow):
                     rows.append(FamilyRow(
                         element=gt,
                         family_name="Model Group",
-                        type_name=gt.Name,
+                        type_name=elem_name(gt),
                         category_name="Groups",
                         workset_id=ws_id,
                         is_loadable=False
@@ -1075,7 +1075,7 @@ class ManaFamiWindow(forms.WPFWindow):
                     rows.append(FamilyRow(
                         element=at,
                         family_name="Assembly",
-                        type_name=at.Name,
+                        type_name=elem_name(at),
                         category_name="Assemblies",
                         workset_id=ws_id,
                         is_loadable=False
