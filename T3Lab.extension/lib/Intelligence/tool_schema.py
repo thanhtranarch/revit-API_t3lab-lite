@@ -58,9 +58,38 @@ def make_launcher_tool(intents):
     }
 
 
+# ─── Essential subset for small local models ──────────────────────────────────
+# The full registry (~110 tools) is fine for cloud providers, but local chat
+# templates render every schema INTO the prompt (≈15–25k tokens) and small
+# models also pick tools far less accurately from a huge catalog. Local
+# providers therefore get this curated subset covering the common asks;
+# cloud providers keep the full list.
+
+ESSENTIAL_TOOL_NAMES = frozenset([
+    # Read / context
+    "get_revit_context", "revit_get_project_info", "revit_get_active_view",
+    "get_current_view_info", "get_current_view_elements",
+    "revit_get_selected_elements", "revit_get_element_info",
+    "get_elements_by_level", "list_levels", "list_worksets",
+    "revit_list_views", "revit_list_sheets", "ai_element_filter",
+    "get_parameter", "get_all_parameters", "get_model_warnings",
+    "get_model_health", "analyze_model_statistics", "get_schedule_data",
+    "get_available_family_types",
+    "list_open_documents", "switch_active_document",
+    # Modify
+    "set_parameter", "bulk_set_parameter", "rename_element",
+    "select_elements", "color_elements", "revit_override_color",
+    "set_active_view", "create_text_note", "tag_elements",
+    "tag_all_rooms", "tag_all_walls", "move_elements", "delete_element",
+    "create_sheet", "add_view_to_sheet", "duplicate_view",
+    # Export
+    "export_sheets_pdf", "export_dwg", "export_image",
+])
+
+
 # ─── Registry access ───────────────────────────────────────────────────────────
 
-_cache = {}   # {"raw": [...], "anthropic": [...], "openai": [...]}
+_cache = {}   # keys: "raw", "anthropic[_ess]", "openai[_ess]"
 
 
 def invalidate_cache():
@@ -90,13 +119,26 @@ def get_server_tools():
 
 # ─── Converters ────────────────────────────────────────────────────────────────
 
-def to_anthropic_tools(extra_tools=None):
+def _registry_tools(essential_only):
+    """Raw registry, optionally filtered to ESSENTIAL_TOOL_NAMES.
+
+    An empty filter result (name drift after a registry rebuild) falls back
+    to the full list — a big prompt beats a mute agent.
+    """
+    tools = get_server_tools()
+    if not essential_only:
+        return tools
+    subset = [t for t in tools if t["name"] in ESSENTIAL_TOOL_NAMES]
+    return subset or tools
+
+
+def to_anthropic_tools(extra_tools=None, essential_only=False):
     """Convert registry (+ optional extra tools in registry shape) to Anthropic format."""
-    key = "anthropic" if not extra_tools else None
+    key = ("anthropic_ess" if essential_only else "anthropic") if not extra_tools else None
     if key and key in _cache:
         return _cache[key]
     out = []
-    for t in get_server_tools() + list(extra_tools or []):
+    for t in _registry_tools(essential_only) + list(extra_tools or []):
         out.append({
             "name":         t["name"],
             "description":  t.get("description", "") or t["name"],
@@ -107,13 +149,13 @@ def to_anthropic_tools(extra_tools=None):
     return out
 
 
-def to_openai_tools(extra_tools=None):
+def to_openai_tools(extra_tools=None, essential_only=False):
     """Convert registry (+ optional extras) to OpenAI/Ollama function format."""
-    key = "openai" if not extra_tools else None
+    key = ("openai_ess" if essential_only else "openai") if not extra_tools else None
     if key and key in _cache:
         return _cache[key]
     out = []
-    for t in get_server_tools() + list(extra_tools or []):
+    for t in _registry_tools(essential_only) + list(extra_tools or []):
         out.append({
             "type": "function",
             "function": {
@@ -127,12 +169,12 @@ def to_openai_tools(extra_tools=None):
     return out
 
 
-def get_tools_for_provider(provider_name, extra_tools=None):
+def get_tools_for_provider(provider_name, extra_tools=None, essential_only=False):
     """Return the tool list in the right wire format for a provider name."""
     if provider_name == "claude":
-        return to_anthropic_tools(extra_tools)
+        return to_anthropic_tools(extra_tools, essential_only=essential_only)
     # openai / deepseek / ollama / lmstudio all use the OpenAI function shape
-    return to_openai_tools(extra_tools)
+    return to_openai_tools(extra_tools, essential_only=essential_only)
 
 
 def is_registered_tool(name):

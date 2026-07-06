@@ -270,6 +270,9 @@ def parse_command(user_input, history=None, model=None):
                 "options": {
                     "temperature": 0.0,     # deterministic
                     "num_predict": 300,
+                    # Ollama's default context (2048–4096) silently truncates
+                    # the tool-catalog system prompt — see ollama_provider.py
+                    "num_ctx":     8192,
                 },
             },
             timeout=TIMEOUT_GEN,

@@ -32,10 +32,31 @@ class OllamaProvider(BaseLLMProvider):
                                     # unsupported models fail turn 1 → caller
                                     # falls back to the legacy JSON-intent path
 
+    # Context-window bounds for options.num_ctx. Without an explicit num_ctx
+    # Ollama runs the model at its DEFAULT context (2048–4096 tokens) and
+    # SILENTLY truncates everything above it — our system prompt + tool
+    # catalog alone exceeds that, so the model literally never saw most of
+    # its instructions (cloud providers with 128k+ windows were unaffected).
+    NUM_CTX_MIN = int(os.environ.get("T3LAB_OLLAMA_NUM_CTX_MIN", 8192))
+    NUM_CTX_MAX = int(os.environ.get("T3LAB_OLLAMA_NUM_CTX_MAX", 32768))
+
     def __init__(self):
         self._model = None        # None → auto-select best installed model
         self._host  = None        # None → read from local_llm.OLLAMA_HOST
         self._active_host = None  # last host that actually responded
+
+    def _num_ctx_for(self, payload, max_tokens):
+        """Pick a num_ctx that fits this request: estimated prompt tokens
+        (chars/3 deliberately over-counts) + response budget, doubled up
+        from NUM_CTX_MIN and clamped at NUM_CTX_MAX (VRAM guard)."""
+        try:
+            need = len(json.dumps(payload)) // 3 + int(max_tokens) + 512
+        except Exception:
+            return self.NUM_CTX_MIN
+        num = self.NUM_CTX_MIN
+        while num < need and num < self.NUM_CTX_MAX:
+            num *= 2
+        return min(num, self.NUM_CTX_MAX)
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
@@ -172,6 +193,7 @@ class OllamaProvider(BaseLLMProvider):
                 "num_predict": max_tokens,
             },
         }
+        payload["options"]["num_ctx"] = self._num_ctx_for(payload, max_tokens)
 
         try:
             # Local CPU/GPU inference on a multi-billion-parameter model can
@@ -214,6 +236,9 @@ class OllamaProvider(BaseLLMProvider):
         }
         if tools:
             payload["tools"] = tools
+        # Tool schemas get rendered INTO the prompt by Ollama's chat template,
+        # so they count against num_ctx — size the window after adding them.
+        payload["options"]["num_ctx"] = self._num_ctx_for(payload, max_tokens)
 
         try:
             resp_text = http_post(

@@ -165,7 +165,7 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         server._register_client(client_id)
 
         # Send endpoint event for MCP protocol
-        endpoint_url = "http://localhost:{}/message".format(server.port)
+        endpoint_url = "http://127.0.0.1:{}/message".format(server.port)
         self._send_sse_event('endpoint', endpoint_url)
 
         try:
@@ -1416,6 +1416,39 @@ class T3LabAIServer(object):
                 'description': 'Get current Revit context: active view, selected elements, open document info',
                 'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
             },
+            'list_open_documents': {
+                'name': 'list_open_documents',
+                'description': ('List all documents open in this Revit instance (title, file path, '
+                                'which one is active, which one is pinned as the tool target). '
+                                'Use switch_active_document to retarget tool calls to another document.'),
+                'inputSchema': {'type': 'object', 'properties': {}, 'required': []}
+            },
+            'switch_active_document': {
+                'name': 'switch_active_document',
+                'description': ('Switch the target document for ALL subsequent tool calls '
+                                '(get_revit_context, revit_list_views, element edits, exports, ...). '
+                                'Matches an open document by title or file path, pins it as the tool '
+                                'target, and brings its window to the front when possible. '
+                                'If nothing matches but path_or_title is an existing .rvt file path, '
+                                'the file is OPENED from disk in this Revit window (large models may '
+                                'exceed the 120s tool timeout — the file keeps opening in Revit; '
+                                'verify with list_open_documents). Documents open in another Revit '
+                                'window (separate instance) are reachable too — the T3Lab bridge '
+                                're-routes the connection automatically. '
+                                'Use list_open_documents first to see what is open.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'path_or_title': {
+                            'type': 'string',
+                            'description': ('Document title (e.g. "Project1"), file name '
+                                            '(e.g. "Tower_A.rvt") or full .rvt file path. '
+                                            'A full path to a not-yet-open file opens it from disk.')
+                        }
+                    },
+                    'required': ['path_or_title']
+                }
+            },
             'show_assistant_pane': {
                 'name': 'show_assistant_pane',
                 'description': 'Show or hide the T3Lab Assistant dockable pane',
@@ -1515,6 +1548,7 @@ class T3LabAIServer(object):
                     continue
                 docs.append({
                     'title': d.Title,
+                    'path': d.PathName or '(unsaved)',
                     'is_active': d.Title == active_title,
                     'is_pinned': d.Title == self._pinned_doc_title,
                 })
@@ -1670,6 +1704,9 @@ class T3LabAIServer(object):
         'create_schedule', 'duplicate_view', 'apply_view_template',
         'create_view_filter', 'place_views_on_sheets', 'export_dwg', 'export_image',
         'create_project_parameter', 'room_to_floor', 'purge_unused', 'create_workset',
+        # switch_active_document calls UIApplication.OpenAndActivateDocument,
+        # which throws "outside of API context" from the HTTP worker thread.
+        'switch_active_document',
         # Internal pseudo-tools (agent request TransactionGroup) — NOT in the
         # public registry, but they open/close a TransactionGroup so they must
         # run on the Revit main thread like any other write tool.
@@ -4085,6 +4122,120 @@ class T3LabAIServer(object):
             except Exception as e:
                 return {'error': str(e)}
 
+        # ── list_open_documents ──────────────────────────────────────────────
+        elif tool_name == 'list_open_documents':
+            try:
+                docs = self.get_open_documents()
+                return {
+                    'documents': docs,
+                    'count': len(docs),
+                    'pinned_document': self._pinned_doc_title,
+                    'note': ('Tool calls target the pinned document when one is set, '
+                             'otherwise the Revit-active document. Use '
+                             'switch_active_document to change the target.'),
+                }
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
+        # ── switch_active_document ───────────────────────────────────────────
+        elif tool_name == 'switch_active_document':
+            try:
+                from pyrevit import HOST_APP
+                query = (arguments.get('path_or_title') or '').strip()
+                if not query:
+                    return {'error': 'path_or_title is required.'}
+
+                uiapp = HOST_APP.uiapp
+                open_docs = [d for d in uiapp.Application.Documents if not d.IsLinked]
+
+                def _norm(p):
+                    return os.path.normcase(os.path.normpath(p)) if p else ''
+
+                q_lower = query.lower()
+                q_path  = _norm(query)
+
+                # Match precedence: exact title → exact file path → file name
+                # (with or without .rvt) → unique title substring.
+                target = None
+                for d in open_docs:
+                    if d.Title.lower() == q_lower:
+                        target = d
+                        break
+                if target is None:
+                    for d in open_docs:
+                        if d.PathName and _norm(d.PathName) == q_path:
+                            target = d
+                            break
+                if target is None:
+                    for d in open_docs:
+                        base = os.path.basename(d.PathName) if d.PathName else ''
+                        if base and (base.lower() == q_lower or
+                                     os.path.splitext(base)[0].lower() == q_lower):
+                            target = d
+                            break
+                if target is None:
+                    partial = [d for d in open_docs if q_lower in d.Title.lower()]
+                    if len(partial) == 1:
+                        target = partial[0]
+                    elif len(partial) > 1:
+                        return {'error': 'Ambiguous document "{}" — several open documents match.'.format(query),
+                                'candidates': [d.Title for d in partial]}
+
+                if target is None:
+                    # Not open in this Revit instance — if the query is a real
+                    # file on disk, open it here instead of failing.
+                    if os.path.isfile(query):
+                        try:
+                            new_uidoc = uiapp.OpenAndActivateDocument(query)
+                            new_doc = new_uidoc.Document
+                            self.pin_document(new_doc.Title)
+                            return {
+                                'success': True,
+                                'document': new_doc.Title,
+                                'path': new_doc.PathName or query,
+                                'opened_from_disk': True,
+                                'window_activated': True,
+                                'pinned': True,
+                                'note': ('Opened "{}" from disk; all subsequent tool calls '
+                                         'now target it.').format(new_doc.Title),
+                            }
+                        except Exception as e:
+                            return {'error': 'Failed to open "{}" from disk: {}'.format(query, str(e)),
+                                    'tool': tool_name}
+                    return {'error': ('No open document matches "{}" and it is not an existing '
+                                      'file path. Pass the title of an open document, or a full '
+                                      '.rvt path to open the file from disk.').format(query),
+                            'open_documents': [d.Title for d in open_docs]}
+
+                # Pin FIRST — this is what actually retargets every subsequent
+                # tool call (via _resolve_target_document), independent of
+                # whether the window activation below succeeds.
+                self.pin_document(target.Title)
+
+                # Best-effort: bring the document's window to the front so the
+                # visible Revit view matches. Only saved documents can be
+                # activated (OpenAndActivateDocument takes a file path).
+                activated = False
+                try:
+                    path = target.PathName
+                    if path:
+                        uiapp.OpenAndActivateDocument(path)
+                        activated = True
+                except Exception:
+                    activated = False
+
+                return {
+                    'success': True,
+                    'document': target.Title,
+                    'path': target.PathName or '(unsaved)',
+                    'window_activated': activated,
+                    'pinned': True,
+                    'note': ('All subsequent tool calls now target "{}". Call '
+                             'switch_active_document again to retarget.').format(target.Title),
+                }
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
+
         # ── show_assistant_pane ──────────────────────────────────────────────
         elif tool_name == 'show_assistant_pane':
             try:
@@ -5325,7 +5476,10 @@ class T3LabAIServer(object):
 
         def run_server():
             try:
-                self._http_server = HTTPServer(('localhost', self._port), MCPRequestHandler)
+                # Bind 127.0.0.1 explicitly — binding 'localhost' leaves the
+                # address family to the resolver (IPv4 vs ::1), and clients
+                # that resolve the other family pay a ~2s fallback per request.
+                self._http_server = HTTPServer(('127.0.0.1', self._port), MCPRequestHandler)
                 self._http_server.mcp_server = self
                 self._is_running = True
                 self._http_server.serve_forever()

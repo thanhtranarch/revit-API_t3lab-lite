@@ -2632,6 +2632,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.chat_input.CaretIndex = len(self.chat_input.Text)
                 e.Handled = True
 
+    # DB-only fast path (no LLM round-trip). DISABLED 2026-07-06: keyword
+    # matching hijacks unrelated queries (e.g. "check lỗi tiếng Anh trong dự
+    # án" → project info) — every query now goes through the NLP/LLM pipeline.
+    _FAST_CONTEXT_ENABLED = False
+
     # Keyword groups for the DB-only fast path (no LLM round-trip)
     _FAST_CTX_PROJECT = (
         u"thông tin dự án", u"thong tin du an", u"thông tin project", u"thông tin model",
@@ -2721,6 +2726,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         question, else None (so the normal NLP/LLM pipeline runs).
         """
         try:
+            if not self._FAST_CONTEXT_ENABLED:
+                return None
             if not raw:
                 return None
             low = raw.lower().strip()
@@ -2962,8 +2969,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             use_claude       = HAS_NLP and has_api_key()   # True for any configured provider
             _active_provider = get_active_provider_name()  # "claude" | "openai" | "ollama"
 
-            # ── 0. Fast context answer (DB-only, no LLM) ──────────────
-            if HAS_SCOUT and not has_attach:
+            # ── 0. Fast context answer (DB-only, no LLM) — disabled via
+            #      _FAST_CONTEXT_ENABLED, see class attribute above ────────
+            if self._FAST_CONTEXT_ENABLED and HAS_SCOUT and not has_attach:
                 fast = self._try_fast_context_answer(raw)
                 if fast:
                     def _show_fast(_fast=fast):
@@ -3065,6 +3073,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             from core.server import get_t3labai_server
                             srv = get_t3labai_server()
                             tools_list = srv._handle_tools_list().get('tools', [])
+                            # Local models: shrink the catalog to the curated
+                            # essential subset (same rationale as the native
+                            # agent path — accuracy + context budget).
+                            if tools_list and getattr(_provider, 'NAME', '') in ("ollama", "lmstudio"):
+                                from Intelligence.tool_schema import ESSENTIAL_TOOL_NAMES
+                                _ess = [t for t in tools_list
+                                        if t.get('name') in ESSENTIAL_TOOL_NAMES]
+                                tools_list = _ess or tools_list
                             if tools_list:
                                 server_tools_str = u"\n\nLocal MCP Server Tools (name: purpose):\n"
                                 for tool in tools_list:
@@ -3446,6 +3462,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._set_busy(False)
             return
 
+        # ── Spell-check all Text Notes (deterministic DB scan + LLM proofread) ─
+        # The scan is done HERE, not at the LLM's discretion — small local
+        # models used to just chat back "please send me the text notes".
+        if intent == "check_spelling":
+            confirm = message or (
+                u"Đang quét Text Note trong model để kiểm tra chính tả tiếng Anh..."
+                if _is_viet_text(raw) else
+                u"Scanning model Text Notes for English spelling errors...")
+            _bot(confirm)
+            _learn(confirm)
+            self._run_spellcheck(raw)
+            return
+
         # ── Simple tool launchers ─────────────────────────────────────────────
         if intent in TOOL_LAUNCHERS:
             confirm = message or u"Đang mở công cụ..."
@@ -3520,6 +3549,86 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _bot(u"Công cụ `{}` không tồn tại — kiểm tra lại tên hoặc mô tả việc cần làm.".format(intent))
         self._set_busy(False)
 
+    def _run_spellcheck(self, raw):
+        """Collect every TextNote, proofread them in batches via the LLM,
+        then post one consolidated report (element IDs included).
+
+        Runs on a background thread; scope switches to the active view when
+        the request mentions it ("trong view này", "active view", ...).
+        """
+        viet = _is_viet_text(raw)
+        low = (raw or u"").lower()
+        view_only = any(k in low for k in (
+            u"view này", u"view nay", u"view hiện tại", u"view hien tai",
+            u"trong view", u"active view", u"current view", u"in view",
+            u"in this view"))
+
+        def work():
+            report = None
+            try:
+                from Services import spell_checker as SC
+                notes = SC.collect_text_notes(self.doc, view_only=view_only)
+                if not notes:
+                    if viet:
+                        report = u"Không tìm thấy Text Note nào{}.".format(
+                            u" trong view hiện tại" if view_only else u" trong dự án")
+                    else:
+                        report = u"No Text Notes found{}.".format(
+                            u" in the active view" if view_only else u" in the project")
+                elif not (has_api_key() or has_local_llm()):
+                    if viet:
+                        report = (u"Tìm thấy **{}** Text Note nhưng chưa có AI nào được "
+                                  u"kết nối để đọc soát chính tả — kết nối AI trong phần "
+                                  u"Cài đặt (⚙) rồi thử lại nhé.").format(len(notes))
+                    else:
+                        report = (u"Found **{}** Text Notes but no AI provider is "
+                                  u"connected to proofread them — connect one in "
+                                  u"Settings (⚙) and try again.").format(len(notes))
+                else:
+                    uniq    = SC.dedupe_notes(notes)
+                    batches = SC.build_batches(uniq)
+                    if len(batches) > 1:
+                        self._safe_append_bot(
+                            u"Tìm thấy {} Text Note ({} nội dung khác nhau) — kiểm tra "
+                            u"trong {} nhóm, vui lòng chờ...".format(len(notes), len(uniq), len(batches))
+                            if viet else
+                            u"Found {} Text Notes ({} unique texts) — checking in {} "
+                            u"batches, please wait...".format(len(notes), len(uniq), len(batches)))
+                    from Intelligence.llm_router import LLMRouter
+                    router = LLMRouter()
+                    sys_p  = SC.build_system_prompt(viet)
+                    findings, failed = [], 0
+                    for batch in batches:
+                        if self._cancel_requested:
+                            break
+                        resp = None
+                        try:
+                            resp = router.chat([], sys_p, SC.build_batch_query(batch),
+                                               max_tokens=1400)
+                        except Exception as ex:
+                            logger.debug("spellcheck batch error: {}".format(ex))
+                        if not resp or not resp.strip():
+                            failed += 1
+                            continue
+                        findings.extend(SC.parse_findings(resp, batch))
+                    report = SC.format_report(findings, len(notes), len(uniq),
+                                              failed, viet, view_only)
+            except Exception as ex:
+                logger.debug("spellcheck error: {}".format(ex))
+                report = (u"Có lỗi khi kiểm tra chính tả — xem console để biết chi tiết."
+                          if viet else u"Spell-check failed — see console for details.")
+            if report:
+                def _show(_r=report):
+                    self._append_bot_message(_r)
+                    self._add_to_history("assistant", _r)
+                self.Dispatcher.Invoke(Action(_show))
+            self.Dispatcher.Invoke(Action(lambda: self._set_busy(False)))
+
+        t = Thread(ThreadStart(work))
+        t.IsBackground = True
+        t.SetApartmentState(ApartmentState.STA)
+        t.Start()
+
     def _run_tool(self, intent, default_msg):
         """Helper for quick-button clicks: guard, show message, run launcher."""
         if self._busy:
@@ -3559,7 +3668,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return False
 
         launcher = tool_schema.make_launcher_tool(list(TOOL_LAUNCHERS.keys()))
-        tools = tool_schema.get_tools_for_provider(provider.NAME, [launcher])
+        # Local providers get the curated essential subset: the full ~110
+        # schemas overflow local context windows and small models pick tools
+        # far less accurately from a huge catalog (cloud providers are fine).
+        _is_local = provider.NAME in ("ollama", "lmstudio")
+        tools = tool_schema.get_tools_for_provider(provider.NAME, [launcher],
+                                                   essential_only=_is_local)
         if len(tools) <= 1:          # only the launcher → MCP registry unavailable
             return False
 

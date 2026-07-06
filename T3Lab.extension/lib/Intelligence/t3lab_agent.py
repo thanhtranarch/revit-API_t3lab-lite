@@ -46,6 +46,7 @@ AVAILABLE_INTENTS = {
     "open_upperdimtext":    ("Tools", "Edit upper dimension text",                  u"upper dim text"),
     "open_resetoverrides":  ("Tools", "Reset all graphic overrides",                u"reset overrides"),
     "open_grids":           ("Tools", "Open Grid tool",                             u"mở grids"),
+    "check_spelling":       ("Tools", "Scan ALL Text Notes in the model and proofread their English spelling (use for any spelling/grammar check request)", u"kiểm tra lỗi tiếng anh trong dự án"),
 
     # ── Conversation ─────────────────────────────────────────────────────────
     "help":    ("Chat", "Answer a T3Lab help question",         u"batchout là gì?"),
@@ -71,7 +72,8 @@ AGENTS = [
         "description": "Opens T3Lab tools: ParaSync, Load Family, Workset, etc.",
         "intents":     ["open_parasync", "open_loadfamily", "open_loadfamily_cloud",
                         "open_projectname", "open_workset", "open_dimtext",
-                        "open_upperdimtext", "open_resetoverrides", "open_grids"],
+                        "open_upperdimtext", "open_resetoverrides", "open_grids",
+                        "check_spelling"],
     },
     {
         "id":          "revit_tools",

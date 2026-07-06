@@ -226,8 +226,11 @@ _ABBREVS = [
     ("good evening",    "chao"),
     ("good night",      "chao"),
     ("xin chao",        "chao"),
-    ("alo",             "chao"),
-    ("a lo",            "chao"),
+    # Word-boundary padded: unpadded "alo"/"a lo" mangled every text that
+    # merely CONTAINS the substring — "kiem tra loi" → "kiem trchaoi",
+    # "tra loi", "dialog", "catalog"... (same class of bug as " batcho ")
+    (" alo ",           " chao "),
+    (" a lo ",          " chao "),
     ("hi ban",          "chao"),
     ("hey ban",         "chao"),
     ("chao ban",        "chao"),
@@ -430,6 +433,28 @@ _TRIGGERS = {
         ("luoi",               12),
     ],
 
+    "check_spelling": [
+        # Proofread all Text Notes in the model (diacritics stripped by _norm:
+        # "chính tả" → "chinh ta", "lỗi tiếng anh" → "loi tieng anh")
+        ("spelling",           30),
+        ("spellcheck",         35),
+        ("spell check",        35),
+        ("chinh ta",           35),
+        ("loi chinh ta",       40),
+        ("loi tieng anh",      40),
+        ("tieng anh",          15),
+        ("kiem tra loi",       22),
+        ("check loi",          22),
+        ("check english",      30),
+        ("grammar",            28),
+        ("ngu phap",           28),
+        ("typo",               30),
+        ("typos",              30),
+        ("text note",          12),
+        ("textnote",           12),
+        ("review text",        15),
+    ],
+
     "greet": [
         # Core greeting words (survive after diacritic strip)
         ("chao",               25),
@@ -623,6 +648,10 @@ _PENALTIES = {
     "open_dimtext":              [("upper", -20)],
     # Avoid loadfamily if cloud is there
     "open_loadfamily":           [("cloud", -20), ("loadfamilycloud", -30)],
+    # Create/delete verbs mean the user wants to WRITE notes, not proofread
+    "check_spelling":            [("tao", -25), ("create", -25), ("them", -20),
+                                  ("add", -20), ("xoa", -25), ("delete", -25),
+                                  ("draw", -20), ("ve", -20)],
 }
 
 # Minimum score required to accept an intent
@@ -639,6 +668,9 @@ _THRESHOLDS = {
     "open_dimtext":              18,
     "open_resetoverrides":       18,
     "open_grids":                18,
+    # ≥ 28 so "text note"(12) + "tieng anh"(15) alone can't fire it —
+    # needs a real proofread cue (spelling / chinh ta / loi tieng anh ...)
+    "check_spelling":            28,
     "greet":                     18,
     "chat":                      18,
     "help":                      18,
@@ -659,6 +691,7 @@ _COMMAND_WORDS = {
     "export", "open", "print", "sheet", "sheets", "family", "luoi", "truc",
     "pdf", "dwg", "dwf", "dgn", "ifc", "nwd", "img", "in",
     "capabilities", "query",   # normalised capability-question marker
+    "spelling", "spellcheck", "grammar", "typo", "typos", "textnote",
 }
 
 
@@ -1284,6 +1317,7 @@ _MESSAGES_VI = {
     "open_upperdimtext":      u"Đang mở Upper Dim Text...",
     "open_resetoverrides":    u"Đang mở Reset Overrides...",
     "open_grids":             u"Đang mở Grids...",
+    "check_spelling":         u"Đang quét Text Note trong model để kiểm tra chính tả tiếng Anh...",
     "greet":  u"Xin chào! Tôi là T3Lab Assistant 👋\nBạn muốn làm gì hôm nay?",
     "farewell": u"Tạm biệt! Gặp lại bạn sau nhé 👋",
     "chat":   u"Không có gì! Cần gì cứ hỏi tôi nhé.",
@@ -1306,6 +1340,7 @@ _MESSAGES_EN = {
     "open_upperdimtext":      "Opening Upper Dim Text...",
     "open_resetoverrides":    "Opening Reset Overrides...",
     "open_grids":             "Opening Grids...",
+    "check_spelling":         "Scanning model Text Notes for English spelling errors...",
     "greet":   "Hello! I'm T3Lab Assistant 👋\nWhat would you like to do today?",
     "farewell": "Goodbye! See you later 👋",
     "chat":    "You're welcome! Let me know if you need anything.",
