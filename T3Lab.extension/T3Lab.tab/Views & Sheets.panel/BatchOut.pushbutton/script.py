@@ -435,15 +435,13 @@ class ExportManagerWindow(forms.WPFWindow):
                 # Log the check
                 logger.info("API update check performed")
 
-                # Show notifications if any
+                # Log notifications instead of print_md — any print here pops
+                # the pyRevit output window on every tool open, which defeats
+                # this method being a silent background check.
                 notifications = update_result.get('notifications', [])
                 for notif in notifications:
-                    if notif.get('severity') == 'critical':
-                        output.print_md("**⚠ CRITICAL**: {}".format(notif.get('message', '')))
-                    elif notif.get('severity') == 'warning':
-                        output.print_md("**⚡ INFO**: {}".format(notif.get('message', '')))
-                    else:
-                        output.print_md("**ℹ**: {}".format(notif.get('message', '')))
+                    logger.info("API update [{}]: {}".format(
+                        notif.get('severity', 'info'), notif.get('message', '')))
 
                 # Show learner info
                 if self.api_adapter:
