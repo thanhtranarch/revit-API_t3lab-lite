@@ -60,8 +60,8 @@ if lib_dir not in sys.path:
 from Snippets._compat import eid_value
 
 try:
-    from api_learner import SmartAPIAdapter, RevitAPILearner
-    from api_updater import auto_check_and_update
+    from Intelligence.api_learner import SmartAPIAdapter, RevitAPILearner
+    from Intelligence.api_updater import auto_check_and_update
     HAS_API_LEARNER = True
     _api_learner_err = None
 except Exception as _api_learner_ex:
