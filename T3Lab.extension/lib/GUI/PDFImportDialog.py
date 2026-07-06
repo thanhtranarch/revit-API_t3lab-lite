@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import clr
+clr.AddReference('System')
 clr.AddReference('PresentationCore')
 clr.AddReference('PresentationFramework')
 clr.AddReference('WindowsBase')
