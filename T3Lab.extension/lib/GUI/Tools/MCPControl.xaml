@@ -1127,18 +1127,17 @@
                     <RowDefinition Height="Auto"/>  <!-- 2: toggle + port -->
                     <RowDefinition Height="Auto"/>  <!-- 3: active document header -->
                     <RowDefinition Height="Auto"/>  <!-- 4: active document status -->
-                    <RowDefinition Height="Auto"/>  <!-- 5: active document picker + pin -->
-                    <RowDefinition Height="Auto"/>  <!-- 6: divider -->
-                    <RowDefinition Height="Auto"/>  <!-- 7: watcher header -->
-                    <RowDefinition Height="Auto"/>  <!-- 8: watcher status -->
-                    <RowDefinition Height="Auto"/>  <!-- 9: watcher toggle + open -->
-                    <RowDefinition Height="Auto"/>  <!-- 10: data dir label -->
-                    <RowDefinition Height="Auto"/>  <!-- 11: divider -->
-                    <RowDefinition Height="90"/>    <!-- 12: config codebox -->
-                    <RowDefinition Height="Auto"/>  <!-- 13: divider -->
-                    <RowDefinition Height="Auto"/>  <!-- 14: auto-configure header -->
-                    <RowDefinition Height="Auto"/>  <!-- 15: Claude card -->
-                    <RowDefinition Height="*"/>     <!-- 16: spacer -->
+                    <RowDefinition Height="Auto"/>  <!-- 5: divider -->
+                    <RowDefinition Height="Auto"/>  <!-- 6: watcher header -->
+                    <RowDefinition Height="Auto"/>  <!-- 7: watcher status -->
+                    <RowDefinition Height="Auto"/>  <!-- 8: watcher toggle + open -->
+                    <RowDefinition Height="Auto"/>  <!-- 9: data dir label -->
+                    <RowDefinition Height="Auto"/>  <!-- 10: divider -->
+                    <RowDefinition Height="90"/>    <!-- 11: config codebox -->
+                    <RowDefinition Height="Auto"/>  <!-- 12: divider -->
+                    <RowDefinition Height="Auto"/>  <!-- 13: auto-configure header -->
+                    <RowDefinition Height="Auto"/>  <!-- 14: Claude card -->
+                    <RowDefinition Height="*"/>     <!-- 15: spacer -->
                 </Grid.RowDefinitions>
 
                 <!-- ── MCP HTTP Server ───────────────────────────── -->
@@ -1175,42 +1174,29 @@
                 <TextBlock Grid.Row="3" Text="Active Document" FontSize="12" FontWeight="Bold"
                            Foreground="#18181B" Margin="0,4,0,8"/>
 
-                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,10">
-                    <Border x:Name="pin_indicator" Width="12" Height="12" CornerRadius="6"
+                <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,10"
+                            ToolTip="Tool calls always target the active document — switch projects from Claude with switch_active_document / open_document">
+                    <Border x:Name="active_doc_indicator" Width="12" Height="12" CornerRadius="6"
                             VerticalAlignment="Center" Margin="0,0,8,0" Background="#94A3B8"/>
-                    <TextBlock x:Name="pin_label" Text="Following active window"
+                    <TextBlock x:Name="active_doc_label" Text="Checking active document..."
                                VerticalAlignment="Center" FontSize="12" Foreground="#18181B" FontWeight="SemiBold"/>
                 </StackPanel>
 
-                <Grid Grid.Row="5" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <ComboBox Grid.Column="0" x:Name="doc_combo"
-                              Style="{StaticResource T3ComboBox}" Height="34"
-                              ToolTip="Open Revit documents in this instance"/>
-                    <Button Grid.Column="2" x:Name="pin_btn" Content="Pin"
-                            Height="28" Width="90" Style="{StaticResource AccentButton}"
-                            ToolTip="Pin this document so Claude always targets it, even if another document becomes active"/>
-                </Grid>
-
                 <!-- Separator -->
-                <Border Grid.Row="6" Height="1" Background="#E2E8F0" Margin="0,4,0,10"/>
+                <Border Grid.Row="5" Height="1" Background="#E2E8F0" Margin="0,4,0,10"/>
 
                 <!-- ── File-Based Task Watcher ───────────────────── -->
-                <TextBlock Grid.Row="7" Text="File-Based Task Watcher" FontSize="12" FontWeight="Bold"
+                <TextBlock Grid.Row="6" Text="File-Based Task Watcher" FontSize="12" FontWeight="Bold"
                            Foreground="#18181B" Margin="0,0,0,8"/>
 
-                <StackPanel Grid.Row="8" Orientation="Horizontal" Margin="0,0,0,10">
+                <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,0,0,10">
                     <Border x:Name="watcher_indicator" Width="12" Height="12" CornerRadius="6"
                             VerticalAlignment="Center" Margin="0,0,8,0" Background="#94A3B8"/>
                     <TextBlock x:Name="watcher_label" Text="Checking watcher status..."
                                VerticalAlignment="Center" FontSize="12" Foreground="#18181B" FontWeight="SemiBold"/>
                 </StackPanel>
 
-                <Grid Grid.Row="9" Margin="0,0,0,10">
+                <Grid Grid.Row="8" Margin="0,0,0,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="8"/>
@@ -1224,30 +1210,30 @@
                 </Grid>
 
                 <!-- Data dir path -->
-                <TextBlock Grid.Row="10" x:Name="data_dir_label"
+                <TextBlock Grid.Row="9" x:Name="data_dir_label"
                            FontFamily="Consolas" FontSize="10" Foreground="#71717A"
                            TextTrimming="CharacterEllipsis" Margin="0,0,0,8"
                            ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
 
                 <!-- Separator -->
-                <Border Grid.Row="11" Height="1" Background="#E2E8F0" Margin="0,0,0,10"/>
+                <Border Grid.Row="10" Height="1" Background="#E2E8F0" Margin="0,0,0,10"/>
 
                 <!-- Config Codebox -->
-                <TextBox Grid.Row="12" x:Name="config_box" IsReadOnly="True"
+                <TextBox Grid.Row="11" x:Name="config_box" IsReadOnly="True"
                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
                          FontFamily="Consolas" FontSize="11" Background="#F4F4F6"
                          BorderBrush="#E2E8F0" BorderThickness="1"
                          Padding="10" AcceptsReturn="True" TextWrapping="NoWrap"/>
 
                 <!-- Separator -->
-                <Border Grid.Row="13" Height="1" Background="#E2E8F0" Margin="0,10,0,10"/>
+                <Border Grid.Row="12" Height="1" Background="#E2E8F0" Margin="0,10,0,10"/>
 
                 <!-- ── Auto-Configure ───────────────────────────── -->
-                <TextBlock Grid.Row="14" Text="Auto-Configure AI Clients" FontSize="12" FontWeight="Bold"
+                <TextBlock Grid.Row="13" Text="Auto-Configure AI Clients" FontSize="12" FontWeight="Bold"
                            Foreground="#18181B" Margin="0,0,0,10"/>
 
                 <!-- Claude Desktop card -->
-                <Border Grid.Row="15" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                <Border Grid.Row="14" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
                         CornerRadius="8" Padding="12,10">
                     <Grid>
                         <Grid.RowDefinitions>

@@ -3,6 +3,25 @@
 Forwards JSON-RPC requests from an MCP client (Claude Desktop / Claude Code)
 to the T3Lab HTTP server running inside Revit.
 
+Deployment: this file is copied by the extension to a machine-stable
+location — %APPDATA%/T3LabAI/bridge.py — and the Claude config points at
+that copy (see Services/mcp_service.py, MCPService.deploy_bridge). Users can
+download, move or update the extension freely; the MCP config never breaks
+because it never references a path inside the extension folder.
+
+Attach-proof protocol handling: the MCP handshake no longer requires a live
+Revit instance —
+
+  - initialize / ping      -> answered locally by the bridge, so the client
+                              always attaches even when Revit is closed.
+  - tools/list             -> served live from Revit when reachable (and the
+                              manifest is cached to
+                              %APPDATA%/T3LabAI/tools_cache.json); when Revit
+                              is down the cached manifest is served instead.
+  - tools/call, Revit down -> structured error payload telling the model to
+                              start Revit / the T3Lab server, instead of a
+                              broken session.
+
 Multi-window (multi-instance) support: each running Revit instance hosts its
 own server on the first free port in 48884-48894. The bridge tracks a
 "current" port and re-routes automatically:
@@ -17,6 +36,18 @@ own server on the first free port in 48884-48894. The bridge tracks a
   - any other call        -> forwarded to the current port; if that instance
                              was closed (connection refused), the bridge
                              fails over to another alive instance.
+
+Bridge-level tools (served entirely by the bridge, injected into tools/list
+on top of the in-Revit server's manifest):
+
+  - list_revit_instances  -> probe the port range and report every running
+                             Revit instance, its open documents, and which
+                             instance the bridge currently targets.
+  - switch_revit_instance -> explicitly retarget ALL subsequent tool calls at
+                             another instance, by port or by a document open
+                             in it (the by-document form delegates to the
+                             cross-instance switch_active_document handling,
+                             so the target window is activated too).
 """
 
 import sys
@@ -26,9 +57,67 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
+BRIDGE_VERSION = '2.1.0'
+
 PORT_MIN, PORT_MAX = 48884, 48894
-PROBE_TIMEOUT = 0.5    # /health probe per port (run in parallel)
+PROBE_TIMEOUT = 1.0    # /health probe per port (run in parallel)
+TARGET_PROBE_TIMEOUT = 4.0  # explicit single-port checks get a fairer wait —
+                            # a busy instance (single-threaded server mid-tool)
+                            # can miss the fast range scan yet still be alive
 CALL_TIMEOUT = 130     # matches the server's 120s ExternalEvent wait + margin
+LIST_TIMEOUT = 15      # tools/list must answer fast or fall back to cache
+
+# Protocol versions this bridge can echo back to the client. The in-Revit
+# server is version-agnostic (tools/list + tools/call only), so accepting
+# the client's requested revision here is safe.
+SUPPORTED_PROTOCOLS = ('2025-06-18', '2025-03-26', '2024-11-05')
+DEFAULT_PROTOCOL = '2024-11-05'
+
+# Tools implemented by the bridge itself (multi-instance control lives here —
+# a server inside one Revit process cannot see the other processes). Injected
+# into every tools/list response on top of the server manifest; never cached.
+BRIDGE_TOOLS = [
+    {
+        'name': 'list_revit_instances',
+        'description': ('List running Revit instances. Each open Revit window is a separate '
+                        'process hosting its own T3Lab server on a port in {}-{}; this reports '
+                        'every alive instance, the documents open in it, and which instance '
+                        'tool calls currently target. Use switch_revit_instance (by port) or '
+                        'switch_active_document (by document) to retarget.'
+                        ).format(PORT_MIN, PORT_MAX),
+        'inputSchema': {'type': 'object', 'properties': {}, 'required': []},
+    },
+    {
+        'name': 'switch_revit_instance',
+        'description': ('Point ALL subsequent tool calls at another running Revit instance '
+                        '(separate Revit window/process). Pass port from list_revit_instances, '
+                        'or document (a title/file name open in the target instance) — the '
+                        'by-document form also activates that document\'s window, like '
+                        'switch_active_document.'),
+        'inputSchema': {
+            'type': 'object',
+            'properties': {
+                'port': {
+                    'type': 'integer',
+                    'description': 'Instance port from list_revit_instances ({}-{})'.format(
+                        PORT_MIN, PORT_MAX),
+                },
+                'document': {
+                    'type': 'string',
+                    'description': ('Document title, file name or .rvt path open in the '
+                                    'target instance (alternative to port)'),
+                },
+            },
+            'required': [],
+        },
+    },
+]
+
+
+def _data_dir():
+    """%APPDATA%/T3LabAI — same folder as mcp_token.txt / mcp_paths.json."""
+    base = os.environ.get('APPDATA') or os.path.expanduser('~')
+    return os.path.join(base, 'T3LabAI')
 
 
 def _read_token():
@@ -36,12 +125,36 @@ def _read_token():
     %APPDATA%\\T3LabAI\\mcp_token.txt. All Revit instances on the machine
     share this file, so one token authenticates against every instance."""
     try:
-        app_data = os.environ.get('APPDATA', '')
-        token_path = os.path.join(app_data, 'T3LabAI', 'mcp_token.txt')
-        with open(token_path, 'r') as f:
+        with open(os.path.join(_data_dir(), 'mcp_token.txt'), 'r') as f:
             return f.read().strip()
     except Exception:
         return ''
+
+
+# ─── Tools-manifest cache (lets tools/list answer with Revit closed) ─────────
+
+def _cache_file():
+    return os.path.join(_data_dir(), 'tools_cache.json')
+
+
+def _load_cached_tools():
+    try:
+        with open(_cache_file(), 'r', encoding='utf-8') as f:
+            tools = json.load(f).get('tools')
+        return tools if isinstance(tools, list) else []
+    except Exception:
+        return []
+
+
+def _save_cached_tools(tools):
+    try:
+        os.makedirs(_data_dir(), exist_ok=True)
+        tmp = _cache_file() + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump({'bridge_version': BRIDGE_VERSION, 'tools': tools}, f)
+        os.replace(tmp, _cache_file())
+    except Exception:
+        pass
 
 
 def _post_mcp(port, request, token, timeout=CALL_TIMEOUT):
@@ -65,19 +178,21 @@ def _is_conn_refused(exc):
     return isinstance(exc, ConnectionRefusedError)
 
 
+def _port_alive(port, timeout=PROBE_TIMEOUT):
+    """True if a T3Lab server answers /health on this port."""
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
 def _alive_ports():
     """Probe the whole port range in parallel; ~PROBE_TIMEOUT total."""
-    def probe(port):
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:{port}/health")
-            with urllib.request.urlopen(req, timeout=PROBE_TIMEOUT) as r:
-                return port if r.status == 200 else None
-        except Exception:
-            return None
-
     ports = range(PORT_MIN, PORT_MAX + 1)
     with ThreadPoolExecutor(max_workers=len(ports)) as pool:
-        return [p for p in pool.map(probe, ports) if p is not None]
+        return [p for p, ok in zip(ports, pool.map(_port_alive, ports)) if ok]
 
 
 def _tool_payload(response):
@@ -279,13 +394,173 @@ def _handle_switch(request, current, token):
     return resp
 
 
+def _handle_initialize_local(request):
+    """Answer initialize without touching Revit — attach always succeeds."""
+    params = request.get('params') or {}
+    protocol = params.get('protocolVersion')
+    if protocol not in SUPPORTED_PROTOCOLS:
+        protocol = DEFAULT_PROTOCOL
+    return {
+        'jsonrpc': '2.0',
+        'id': request.get('id'),
+        'result': {
+            'protocolVersion': protocol,
+            'capabilities': {'tools': {}},
+            'serverInfo': {'name': 'T3Lab Revit MCP Server',
+                           'version': BRIDGE_VERSION},
+        },
+    }
+
+
+def _handle_tools_list(request, current, token):
+    """Live manifest from Revit when reachable (refreshing the cache);
+    cached manifest when not — so a client that attached while Revit was
+    closed still gets the full tool list. The bridge's own multi-instance
+    tools are appended on top either way (only the server manifest is
+    cached, so they never duplicate)."""
+    try:
+        resp = _forward(request, current, token, timeout=LIST_TIMEOUT)
+        tools = (resp.get('result') or {}).get('tools')
+        if isinstance(tools, list) and tools:
+            _save_cached_tools(tools)
+        else:
+            tools = []
+    except Exception:
+        tools = _load_cached_tools()
+    return {'jsonrpc': '2.0', 'id': request.get('id'),
+            'result': {'tools': tools + BRIDGE_TOOLS}}
+
+
+def _handle_instances(request, current, token):
+    """list_revit_instances — probe the port range and report every running
+    Revit instance with its open documents. Served entirely by the bridge."""
+    rid = request.get('id')
+    ports = _alive_ports()
+    if not ports:
+        return _revit_down_response(rid)
+
+    docs_map = _documents_map(ports, token)
+    instances = []
+    for port in ports:
+        docs = docs_map.get(port, [])
+        instances.append({
+            'port': port,
+            'is_current': port == current['port'],
+            'active_document': next(
+                (d.get('title') for d in docs if d.get('is_active')), None),
+            'documents': [{'title': d.get('title'), 'path': d.get('path')}
+                          for d in docs],
+        })
+
+    payload = {
+        'instances': instances,
+        'count': len(instances),
+        'current_port': current['port'],
+        'note': ('Tool calls go to the instance marked is_current. Retarget with '
+                 'switch_revit_instance (by port) or switch_active_document (by '
+                 'document — re-routes across instances automatically).'),
+    }
+    if current['port'] not in ports:
+        payload['warning'] = ('The instance the bridge last targeted (port {}) is gone — '
+                              'the next tool call fails over to another alive instance '
+                              'automatically.').format(current['port'])
+    return _tool_response(rid, payload)
+
+
+def _handle_switch_instance(request, current, token):
+    """switch_revit_instance — explicit retarget by port, or by document
+    (delegated to the cross-instance switch_active_document handling so the
+    target document's window is activated as well)."""
+    rid = request.get('id')
+    args = (request.get('params') or {}).get('arguments') or {}
+    port = args.get('port')
+    document = (args.get('document') or '').strip()
+
+    if port is None and not document:
+        return _tool_response(rid, {
+            'error': 'Pass port (from list_revit_instances) or document.',
+        })
+
+    if port is not None:
+        try:
+            port = int(port)
+        except (TypeError, ValueError):
+            return _tool_response(rid, {'error': 'port must be an integer.'})
+        # Probe the requested port directly with a generous timeout — a busy
+        # instance can miss the fast parallel range scan yet still be alive,
+        # and refusing a switch to a live instance is worse than waiting.
+        if not _port_alive(port, timeout=TARGET_PROBE_TIMEOUT):
+            ports = _alive_ports()
+            if not ports:
+                return _revit_down_response(rid)
+            return _tool_response(rid, {
+                'error': 'No running Revit instance on port {}.'.format(port),
+                'alive_ports': ports,
+                'hint': 'Call list_revit_instances to see what is running.',
+            })
+        already = port == current['port']
+        current['port'] = port
+        docs = _documents_on(port, token)
+        return _tool_response(rid, {
+            'success': True,
+            'port': port,
+            'already_current': already,
+            'active_document': next(
+                (d.get('title') for d in docs if d.get('is_active')), None),
+            'documents': [d.get('title') for d in docs],
+            'note': ('All tool calls now go to the Revit instance on port {}. '
+                     'They target its ACTIVE document — use switch_active_document '
+                     'to activate a different one.').format(port),
+        })
+
+    # By document — same semantics as switch_active_document, which already
+    # finds the document across instances, switches the bridge's port and
+    # activates the window.
+    synthetic = {
+        'jsonrpc': '2.0',
+        'id': rid,
+        'method': 'tools/call',
+        'params': {'name': 'switch_active_document',
+                   'arguments': {'path_or_title': document}},
+    }
+    return _handle_switch(synthetic, current, token)
+
+
+def _revit_down_response(request_id):
+    return _tool_response(request_id, {
+        'error': 'Revit is not reachable — no T3Lab MCP server found on '
+                 'ports {}-{}.'.format(PORT_MIN, PORT_MAX),
+        'hint': ('Start Revit and make sure the T3Lab server is running '
+                 '(it auto-starts with the T3Lab extension; otherwise use '
+                 'the MCP Control button on the T3Lab ribbon). Then retry '
+                 'this tool — no reconnect/restart of the client is needed.'),
+    })
+
+
 def _handle(request, current, token):
-    if request.get('method') == 'tools/call':
+    method = request.get('method')
+    if method == 'initialize':
+        return _handle_initialize_local(request)
+    if method == 'ping':
+        return {'jsonrpc': '2.0', 'id': request.get('id'), 'result': {}}
+    if method == 'tools/list':
+        return _handle_tools_list(request, current, token)
+    if method == 'tools/call':
         name = (request.get('params') or {}).get('name')
-        if name == 'list_open_documents':
-            return _handle_list(request, current, token)
-        if name == 'switch_active_document':
-            return _handle_switch(request, current, token)
+        try:
+            if name == 'list_revit_instances':
+                return _handle_instances(request, current, token)
+            if name == 'switch_revit_instance':
+                return _handle_switch_instance(request, current, token)
+            if name == 'list_open_documents':
+                return _handle_list(request, current, token)
+            if name == 'switch_active_document':
+                return _handle_switch(request, current, token)
+            return _forward(request, current, token)
+        except Exception as e:
+            if _is_conn_refused(e):
+                return _revit_down_response(request.get('id'))
+            raise
     return _forward(request, current, token)
 
 
@@ -311,8 +586,11 @@ def main():
         except Exception:
             continue
 
-        # Notifications (no 'id') are forwarded fire-and-forget
-        is_notification = 'id' not in request
+        # Notifications (no 'id') are handled locally — the in-Revit server
+        # keeps no MCP session state, so forwarding them only adds a failed
+        # connect per notification whenever Revit is closed.
+        if 'id' not in request:
+            continue
 
         try:
             response = _handle(request, current, token)
@@ -321,9 +599,8 @@ def main():
                 request.get('id'),
                 f"T3Lab Revit server connection failed: {str(e)}")
 
-        if not is_notification:
-            sys.stdout.write(json.dumps(response) + '\n')
-            sys.stdout.flush()
+        sys.stdout.write(json.dumps(response) + '\n')
+        sys.stdout.flush()
 
 
 if __name__ == '__main__':

@@ -58,12 +58,25 @@ def _get_data_dir():
             return os.path.join(os.path.expanduser('~'), 'T3Lab_AI_Data')
 
 
+def _source_bridge_path():
+    """Absolute path to the bridge.py shipped inside this extension."""
+    here    = os.path.dirname(os.path.abspath(__file__))   # lib/Services
+    lib_dir = os.path.dirname(here)                        # lib
+    return os.path.join(lib_dir, 'core', 'bridge.py')
+
+
 def _get_bridge_path():
-    """Absolute path to core/bridge.py, used in the Claude Desktop snippet."""
-    here        = os.path.dirname(os.path.abspath(__file__))   # lib/Services
-    lib_dir     = os.path.dirname(here)                        # lib
-    bridge_path = os.path.join(lib_dir, 'core', 'bridge.py')
-    return bridge_path.replace('\\', '/')
+    """
+    Bridge path to embed in Claude Desktop / Cursor configs.
+
+    Always the machine-stable deployed copy (%APPDATA%/T3LabAI/bridge.py,
+    see MCPService.deploy_bridge) — never a path inside the extension
+    folder, so the config keeps working when the extension is moved,
+    re-downloaded or updated. Falls back to the in-extension copy only if
+    deployment fails (e.g. APPDATA not writable).
+    """
+    deployed, _err = MCPService.deploy_bridge()
+    return (deployed or _source_bridge_path()).replace('\\', '/')
 
 
 def _find_python_executable():
@@ -262,66 +275,25 @@ class MCPService(object):
             ok, err = MCPService.start_server(port=current_port)
             return ('running' if ok else 'stopped'), err
 
-    # ── Active document pinning ────────────────────────────────────────────────
+    # ── Open documents ─────────────────────────────────────────────────────────
 
     @staticmethod
     def list_open_documents():
         """
         List documents open in this Revit instance.
 
+        Tool calls always target the ACTIVE document (what the user sees) —
+        switching is done through the switch_active_document / open_document
+        MCP tools, which activate the target's window for real.
+
         Returns:
-            (documents: list[dict] with keys title/is_active/is_pinned, error: str|None)
+            (documents: list[dict] with keys title/path/is_active, error: str|None)
         """
         try:
             server = _get_server()
             return server.get_open_documents(), None
         except Exception as ex:
             return [], str(ex)
-
-    @staticmethod
-    def pin_document(title):
-        """
-        Pin a document by title so MCP tool calls always target it, even if
-        another document becomes the active window in Revit.
-
-        Returns:
-            (success: bool, error_message: str)
-        """
-        try:
-            server = _get_server()
-            server.pin_document(title)
-            return True, None
-        except Exception as ex:
-            return False, str(ex)
-
-    @staticmethod
-    def unpin_document():
-        """
-        Clear the pin — tool calls fall back to Revit's active document.
-
-        Returns:
-            (success: bool, error_message: str)
-        """
-        try:
-            server = _get_server()
-            server.unpin_document()
-            return True, None
-        except Exception as ex:
-            return False, str(ex)
-
-    @staticmethod
-    def pinned_document():
-        """
-        Return the currently pinned document title.
-
-        Returns:
-            (title: str|None, error: str|None)
-        """
-        try:
-            server = _get_server()
-            return server.get_pinned_document(), None
-        except Exception as ex:
-            return None, str(ex)
 
     # ── File watcher ───────────────────────────────────────────────────────────
 
@@ -392,6 +364,41 @@ class MCPService(object):
             return ('running' if ok else 'stopped'), err
 
     # ── Config & paths ─────────────────────────────────────────────────────────
+
+    @staticmethod
+    def deploy_bridge():
+        """
+        Copy the extension's core/bridge.py to the machine-stable location
+        %APPDATA%/T3LabAI/bridge.py (next to mcp_token.txt / mcp_paths.json).
+
+        The Claude Desktop config points at the deployed copy, never inside
+        the extension folder — anyone can download the extension anywhere on
+        their machine, and updating/moving/re-cloning it never breaks the MCP
+        connection. Content-compared before writing, so it is safe (and
+        cheap) to call on every Revit startup; extension updates propagate
+        to the deployed copy automatically.
+
+        Returns:
+            (deployed_path: str|None, error: str|None)
+        """
+        try:
+            src = _source_bridge_path()
+            with open(src, 'rb') as f:
+                data = f.read()
+
+            dst = os.path.join(_get_paths_module().settings_dir(), 'bridge.py')
+            try:
+                with open(dst, 'rb') as f:
+                    if f.read() == data:
+                        return dst, None          # already up to date
+            except Exception:
+                pass                              # missing/unreadable → write
+
+            with open(dst, 'wb') as f:
+                f.write(data)
+            return dst, None
+        except Exception as ex:
+            return None, str(ex)
 
     @staticmethod
     def config_snippet(port=None):

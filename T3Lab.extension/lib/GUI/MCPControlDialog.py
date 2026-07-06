@@ -109,13 +109,10 @@ class MCPControlWindow(forms.WPFWindow):
         self.copy_btn.Click      += self._on_copy
         self.port_tb.TextChanged += self._on_port_changed
 
-        # Active document pinning widgets
-        self._pin_indicator = self.FindName('pin_indicator')
-        self._pin_label     = self.FindName('pin_label')
-        self._doc_combo     = self.FindName('doc_combo')
-        self._pin_btn       = self.FindName('pin_btn')
-        if self._pin_btn:
-            self._pin_btn.Click += self._on_pin_toggle
+        # Active document widgets (read-only status — switching is done from
+        # the AI client via the switch_active_document / open_document tools)
+        self._doc_indicator = self.FindName('active_doc_indicator')
+        self._doc_label     = self.FindName('active_doc_label')
 
         # File watcher events (FindName so missing elements don't crash)
         self._watcher_indicator = self.FindName('watcher_indicator')
@@ -186,44 +183,29 @@ class MCPControlWindow(forms.WPFWindow):
         )
 
     def _refresh_documents(self):
-        if not self._doc_combo:
+        if not self._doc_label:
             return
         if not HAS_SERVICE:
-            if self._pin_indicator: self._pin_indicator.Background = _brush('#94A3B8')
-            if self._pin_label:     self._pin_label.Text = 'Service unavailable'
+            if self._doc_indicator: self._doc_indicator.Background = _brush('#94A3B8')
+            self._doc_label.Text = 'Service unavailable'
             return
 
         docs, err = MCPService.list_open_documents()
         if err:
-            if self._pin_indicator: self._pin_indicator.Background = _brush('#EF4444')
-            if self._pin_label:     self._pin_label.Text = 'Error: {}'.format(err)
+            if self._doc_indicator: self._doc_indicator.Background = _brush('#EF4444')
+            self._doc_label.Text = 'Error: {}'.format(err)
             return
 
-        titles = [d['title'] for d in docs]
-        pinned_title = next((d['title'] for d in docs if d['is_pinned']), None)
         active_title = next((d['title'] for d in docs if d['is_active']), None)
-
-        selected = self._doc_combo.SelectedItem
-        keep = selected if selected in titles else None
-
-        self._doc_combo.Items.Clear()
-        for title in titles:
-            self._doc_combo.Items.Add(title)
-
-        target = keep or pinned_title or active_title
-        if target is not None:
-            self._doc_combo.SelectedItem = target
-        elif titles:
-            self._doc_combo.SelectedIndex = 0
-
-        if pinned_title:
-            if self._pin_indicator: self._pin_indicator.Background = _brush('#3B82F6')
-            if self._pin_label:     self._pin_label.Text = 'Pinned: {}'.format(pinned_title)
-            if self._pin_btn:       self._pin_btn.Content = 'Unpin'
+        if active_title:
+            if self._doc_indicator: self._doc_indicator.Background = _brush('#10B981')
+            self._doc_label.Text = 'Active: {}'.format(active_title)
+        elif docs:
+            if self._doc_indicator: self._doc_indicator.Background = _brush('#F59E0B')
+            self._doc_label.Text = '{} open — none active (click a tab in Revit)'.format(len(docs))
         else:
-            if self._pin_indicator: self._pin_indicator.Background = _brush('#94A3B8')
-            if self._pin_label:     self._pin_label.Text = 'Following active window'
-            if self._pin_btn:       self._pin_btn.Content = 'Pin'
+            if self._doc_indicator: self._doc_indicator.Background = _brush('#94A3B8')
+            self._doc_label.Text = 'No document open'
 
     def _refresh_watcher(self):
         if not HAS_SERVICE:
@@ -263,21 +245,6 @@ class MCPControlWindow(forms.WPFWindow):
                 if not ok:
                     logger.error('MCP ExternalEvent init error: {}'.format(ee_err))
         self._refresh_server()
-
-    def _on_pin_toggle(self, sender, e):
-        if not HAS_SERVICE or not self._doc_combo:
-            return
-        pinned_title, _ = MCPService.pinned_document()
-        if pinned_title:
-            ok, err = MCPService.unpin_document()
-        else:
-            selected = self._doc_combo.SelectedItem
-            if selected is None:
-                return
-            ok, err = MCPService.pin_document(selected)
-        if err:
-            logger.error('Document pin error: {}'.format(err))
-        self._refresh_documents()
 
     def _on_watcher_toggle(self, sender, e):
         if not HAS_SERVICE:

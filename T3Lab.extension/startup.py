@@ -6,7 +6,10 @@ Runs during pyRevit's OnStartup phase.
 
 Responsibilities:
   1. Register the T3Lab Assistant as a native Revit DockablePane.
-  2. Optionally auto-start the MCP server if the user has enabled that preference.
+  2. Register the right-click context-menu entry (Revit 2025+).
+  3. Start the file-based task watcher.
+  4. Deploy the MCP bridge to %APPDATA%/T3LabAI/bridge.py and auto-start the
+     MCP server (default on; "auto_start_mcp": false in mcp_paths.json opts out).
 
 In the startup script context, `__revit__` is the UIControlledApplication
 (available during Revit's OnStartup), which is required for DockablePane registration.
@@ -119,4 +122,34 @@ try:
     from core.file_watcher import get_task_watcher
     get_task_watcher().start()
 except Exception:
+    pass
+
+# ─── Deploy MCP bridge + auto-start MCP server ─────────────────────────────────
+# deploy_bridge() copies core/bridge.py to %APPDATA%/T3LabAI/bridge.py — the
+# machine-stable path Claude Desktop's config points at. Runs on every start
+# so extension updates propagate to the deployed bridge automatically, no
+# matter where the user installed the extension.
+#
+# Auto-start is ON by default so a freshly downloaded extension is reachable
+# over MCP without any manual step. Set "auto_start_mcp": false in
+# %APPDATA%/T3LabAI/mcp_paths.json to opt out. (Read via load_settings, not
+# get_setting — get_setting treats a stored false as "absent" and would
+# overwrite it with the default.)
+try:
+    from Services.mcp_service import MCPService
+    MCPService.deploy_bridge()
+
+    from core import paths as _mcp_paths
+    _auto = _mcp_paths.load_settings().get('auto_start_mcp')
+    if _auto is None:
+        _auto = True
+        _mcp_paths.set_setting('auto_start_mcp', True)   # make it discoverable/editable
+
+    if _auto:
+        # OnStartup runs on Revit's UI thread — a valid API context, so the
+        # ExternalEvent that marshals model-editing tools can be created here.
+        MCPService.ensure_external_event()
+        MCPService.start_server()
+except Exception:
+    # Never crash Revit startup — MCP can still be started from the ribbon.
     pass
