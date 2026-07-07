@@ -40,9 +40,9 @@ except ImportError:
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
     from urlparse import urlparse, parse_qs
 try:
-    from socketserver import ThreadingMixIn
+    from socketserver import ThreadingMixIn, TCPServer
 except ImportError:
-    from SocketServer import ThreadingMixIn
+    from SocketServer import ThreadingMixIn, TCPServer
 
 # External Event Handler for thread-safe Revit API calls
 HAS_REVIT_UI = False
@@ -128,6 +128,20 @@ class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     Revit API is not thread-safe, and one-tool-at-a-time per instance is
     exactly what the ExternalEvent architecture assumes."""
     daemon_threads = True
+
+    # On Windows, SO_REUSEADDR lets a second process bind an already-listening
+    # port SILENTLY (two T3Lab/Routes listeners ended up sharing 48884). Fail
+    # loudly with WSAEADDRINUSE instead — start_server() walks to the next port.
+    allow_reuse_address = False
+
+    def server_bind(self):
+        TCPServer.server_bind(self)
+        # HTTPServer.server_bind would now call socket.getfqdn() — a reverse
+        # DNS lookup that can block for seconds on corporate DNS/VPN, making
+        # server startup look failed while it was merely slow.
+        host, port = self.socket.getsockname()[:2]
+        self.server_name = host
+        self.server_port = port
 
 
 # Module-level (not instance state): survives pyRevit reloads, where the
@@ -374,6 +388,7 @@ class T3LabAIServer(object):
         self._external_event = None
         self._event_handler = None
         self._write_in_progress = False
+        self._start_error = None
         self._token = self._get_or_create_token()
         # Open TransactionGroup for the current assistant request (B4) — owned
         # and closed on the Revit main thread via the __begin/__end_action_group
@@ -5765,34 +5780,73 @@ class T3LabAIServer(object):
         return {'error': 'Tool not implemented'}
 
     def start_server(self):
-        """Start the MCP server"""
+        """Start the MCP server. Returns True when the server is up —
+        including when it was already running (the desired post-condition
+        holds; callers like the startup auto-start and MCPControl treat the
+        return as "is the server on", not "did a new thread spawn")."""
         if self._is_running:
-            return False
+            return True
 
         # Check port and increment dynamically
         def is_port_in_use(port):
             import socket
+            # connect() first: a wildcard listener (e.g. the pyRevit Routes
+            # server on 0.0.0.0:48884) does not block binding 127.0.0.1 on
+            # Windows, so a bind test alone would share its port and every
+            # bridge request to it would hit the wrong server.
+            # except Exception, not socket.error: IronPython's socket
+            # exceptions don't reliably share CPython's hierarchy (timeout
+            # vs error), and any failure here just defers to the bind walk.
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.25)
+            try:
+                s.connect(('127.0.0.1', port))
+                return True
+            except Exception:
+                pass
+            finally:
+                s.close()
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 s.bind(('127.0.0.1', port))
-                s.close()
                 return False
-            except socket.error:
+            except Exception:
                 return True
+            finally:
+                s.close()
 
+        self._start_error = None
+
+        # Bind synchronously, walking the port range on ANY bind failure.
+        # Probe-then-bind-in-thread raced other processes and missed exotic
+        # Windows failures: a zombie socket left by a killed Revit or an
+        # exclusive-use listener fails bind with WSAEACCES 10013 even though
+        # the port probed free. The connect-probe stays as a cheap prefilter
+        # so a port with a live listener is never even attempted.
+        http_server = None
+        bind_error = None
         port = 48884
-        while is_port_in_use(port):
+        while port <= 48894:
+            if not is_port_in_use(port):
+                try:
+                    # 127.0.0.1 explicitly — binding 'localhost' leaves the
+                    # address family to the resolver (IPv4 vs ::1), and clients
+                    # resolving the other family pay a ~2s fallback per request.
+                    http_server = _ThreadedHTTPServer(('127.0.0.1', port), MCPRequestHandler)
+                    break
+                except Exception as e:
+                    bind_error = e
             port += 1
-            if port > 48894:
-                raise Exception("No free port available in range 48884-48894")
-        self._port = port
+        if http_server is None:
+            self._start_error = bind_error
+            msg = "No usable port in range 48884-48894"
+            if bind_error is not None:
+                msg += " (last bind error: {})".format(bind_error)
+            raise Exception(msg)
 
-        # Update pyRevit user config
-        try:
-            from pyrevit import userconfigs
-            userconfigs.set_config_value("routes", "port", str(self._port))
-        except Exception:
-            pass
+        self._port = port
+        http_server.mcp_server = self
+        self._http_server = http_server
 
         # Initialize External Event for thread safety. NOTE: this only
         # succeeds when start_server() is itself called on Revit's main
@@ -5803,34 +5857,34 @@ class T3LabAIServer(object):
         if HAS_REVIT_UI and not self._external_event:
             self.ensure_external_event()
 
-        # Activate pyRevit routes server
-        try:
-            from pyrevit.routes.server import activate_server
-            activate_server()
-        except Exception:
-            pass
+        # NOTE: this server does NOT use pyRevit Routes. Earlier builds
+        # activated the Routes server here and wrote its port into the
+        # pyRevit config — that made Routes squat 0.0.0.0 ports inside the
+        # T3Lab 48884-48894 range and fail activation in every additional
+        # Revit instance ("Routes servers failed activation" at startup).
 
         def run_server():
             try:
-                # Bind 127.0.0.1 explicitly — binding 'localhost' leaves the
-                # address family to the resolver (IPv4 vs ::1), and clients
-                # that resolve the other family pay a ~2s fallback per request.
-                self._http_server = _ThreadedHTTPServer(('127.0.0.1', self._port), MCPRequestHandler)
-                self._http_server.mcp_server = self
                 self._is_running = True
-                self._http_server.serve_forever()
+                http_server.serve_forever()
             except Exception as e:
                 self._is_running = False
+                self._start_error = e
                 raise e
 
         self._server_thread = threading.Thread(target=run_server)
         self._server_thread.daemon = True
         self._server_thread.start()
 
-        # Wait a moment for server to start
+        # The socket is already bound and listening — this poll only waits
+        # for the thread to flip the flag (a serve_forever failure surfaces
+        # through _start_error instead of a silent False).
         import time
-        time.sleep(0.5)
-
+        deadline = time.time() + 5.0
+        while time.time() < deadline and not self._is_running:
+            if self._start_error is not None or not self._server_thread.is_alive():
+                break
+            time.sleep(0.05)
         return self._is_running
 
     def stop_server(self):
@@ -5839,13 +5893,6 @@ class T3LabAIServer(object):
             return False
 
         self._is_running = False
-
-        # Deactivate pyRevit routes server
-        try:
-            from pyrevit.routes.server import deactivate_server
-            deactivate_server()
-        except Exception:
-            pass
 
         if self._http_server:
             self._http_server.shutdown()

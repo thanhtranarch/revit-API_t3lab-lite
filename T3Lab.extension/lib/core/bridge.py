@@ -34,8 +34,10 @@ own server on the first free port in 48884-48894. The bridge tracks a
                              port to that instance; every subsequent tool
                              call then targets that window.
   - any other call        -> forwarded to the current port; if that instance
-                             was closed (connection refused), the bridge
-                             fails over to another alive instance.
+                             is gone (connection refused, or it stopped
+                             answering /health — hung zombie socket, foreign
+                             server such as pyRevit Routes on the port), the
+                             bridge fails over to another alive instance.
 
 Bridge-level tools (served entirely by the bridge, injected into tools/list
 on top of the in-Revit server's manifest):
@@ -57,7 +59,7 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
-BRIDGE_VERSION = '2.1.0'
+BRIDGE_VERSION = '2.2.0'
 
 PORT_MIN, PORT_MAX = 48884, 48894
 PROBE_TIMEOUT = 1.0    # /health probe per port (run in parallel)
@@ -267,13 +269,38 @@ def _match_tier(doc, query):
     return None
 
 
+def _ensure_alive_target(current):
+    """One-time (per bridge process) validation of the startup target port.
+
+    Port 48884 (PORT_MIN) is not guaranteed to host a T3Lab server: a killed
+    Revit can leave a hung zombie socket on it, and the pyRevit Routes server
+    binds 0.0.0.0:48884 when enabled. Both accept connections without ever
+    answering MCP — a request then dies with a timeout or an HTTP error, NOT
+    connection-refused, so the conn-refused failover never fired and
+    tools/list silently fell back to the (possibly empty) cache. Probe
+    /health once up front and retarget to the first alive instance."""
+    if current.get('validated'):
+        return
+    current['validated'] = True
+    if _port_alive(current['port'], timeout=PROBE_TIMEOUT):
+        return
+    ports = _alive_ports()
+    if ports:
+        current['port'] = ports[0]
+
+
 def _forward(request, current, token, timeout=CALL_TIMEOUT):
-    """Forward to the current instance; on connection refused (that Revit
-    was closed) fail over to another alive instance and retry once."""
+    """Forward to the current instance; fail over to another alive instance
+    when the current one is gone — connection refused (that Revit was
+    closed) or no longer answering /health (hung socket, foreign server on
+    the port). Errors from a still-healthy instance (HTTP 500, a long tool
+    call timing out) are NOT retried elsewhere — re-running the call on a
+    different instance would target the wrong document."""
+    _ensure_alive_target(current)
     try:
         return _post_mcp(current['port'], request, token, timeout)
     except Exception as e:
-        if not _is_conn_refused(e):
+        if not _is_conn_refused(e) and _port_alive(current['port']):
             raise
         for port in _alive_ports():
             if port != current['port']:

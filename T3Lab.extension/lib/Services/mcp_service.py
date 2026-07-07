@@ -238,7 +238,9 @@ class MCPService(object):
             ok = server.start_server()
             if ok:
                 return True, None
-            return False, 'start_server() returned False'
+            reason = getattr(server, '_start_error', None)
+            return False, ('start_server() failed: {}'.format(reason)
+                           if reason else 'start_server() returned False')
         except Exception as ex:
             return False, str(ex)
 
