@@ -5787,56 +5787,61 @@ class T3LabAIServer(object):
         if self._is_running:
             return True
 
-        # Check port and increment dynamically
-        def is_port_in_use(port):
+        # Prefilter: is something already LISTENING on this port? connect()
+        # sees both normal and wildcard (0.0.0.0, e.g. pyRevit Routes)
+        # listeners. Deliberately NO bind-test here: IronPython releases a
+        # closed socket lazily (on .NET GC), so a probe bind poisons the very
+        # port it just declared free and the real bind right after fails —
+        # that was the "10048 on every port" (and, with SO_REUSEADDR, the
+        # WSAEACCES 10013) failure. The real bind below is the only bind.
+        def has_listener(port):
             import socket
-            # connect() first: a wildcard listener (e.g. the pyRevit Routes
-            # server on 0.0.0.0:48884) does not block binding 127.0.0.1 on
-            # Windows, so a bind test alone would share its port and every
-            # bridge request to it would hit the wrong server.
-            # except Exception, not socket.error: IronPython's socket
-            # exceptions don't reliably share CPython's hierarchy (timeout
-            # vs error), and any failure here just defers to the bind walk.
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(0.25)
             try:
                 s.connect(('127.0.0.1', port))
                 return True
             except Exception:
-                pass
-            finally:
-                s.close()
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                s.bind(('127.0.0.1', port))
                 return False
-            except Exception:
-                return True
             finally:
                 s.close()
 
         self._start_error = None
 
-        # Bind synchronously, walking the port range on ANY bind failure.
-        # Probe-then-bind-in-thread raced other processes and missed exotic
-        # Windows failures: a zombie socket left by a killed Revit or an
-        # exclusive-use listener fails bind with WSAEACCES 10013 even though
-        # the port probed free. The connect-probe stays as a cheap prefilter
-        # so a port with a live listener is never even attempted.
-        http_server = None
-        bind_error = None
-        port = 48884
-        while port <= 48894:
-            if not is_port_in_use(port):
-                try:
-                    # 127.0.0.1 explicitly — binding 'localhost' leaves the
-                    # address family to the resolver (IPv4 vs ::1), and clients
-                    # resolving the other family pay a ~2s fallback per request.
-                    http_server = _ThreadedHTTPServer(('127.0.0.1', port), MCPRequestHandler)
-                    break
-                except Exception as e:
-                    bind_error = e
-            port += 1
+        # Bind synchronously, walking the port range on ANY bind failure —
+        # a zombie socket left by a killed Revit fails the bind with 10048
+        # (or WSAEACCES 10013) even though nothing answers on the port; the
+        # walk just moves on. The real bind is the only free-vs-taken test.
+        def bind_first_free():
+            bind_error = None
+            port = 48884
+            while port <= 48894:
+                if not has_listener(port):
+                    try:
+                        # 127.0.0.1 explicitly — binding 'localhost' leaves
+                        # the address family to the resolver (IPv4 vs ::1);
+                        # clients resolving the other family pay a ~2s
+                        # fallback per request.
+                        return (_ThreadedHTTPServer(('127.0.0.1', port),
+                                                    MCPRequestHandler),
+                                port, None)
+                    except Exception as e:
+                        bind_error = e
+                port += 1
+            return None, None, bind_error
+
+        http_server, port, bind_error = bind_first_free()
+        if http_server is None:
+            # IronPython frees closed sockets lazily (.NET GC) — a port
+            # released a moment ago (e.g. by stop_server during a toggle)
+            # can still look bound. Collect and retry once before giving up.
+            try:
+                import System
+                System.GC.Collect()
+                System.GC.WaitForPendingFinalizers()
+            except Exception:
+                pass
+            http_server, port, bind_error = bind_first_free()
         if http_server is None:
             self._start_error = bind_error
             msg = "No usable port in range 48884-48894"
@@ -5898,6 +5903,15 @@ class T3LabAIServer(object):
             self._http_server.shutdown()
             self._http_server.server_close()
             self._http_server = None
+            # IronPython frees closed sockets on .NET GC, not on close() —
+            # collect now so an immediate restart can rebind this port
+            # instead of walking to the next one.
+            try:
+                import System
+                System.GC.Collect()
+                System.GC.WaitForPendingFinalizers()
+            except Exception:
+                pass
 
         if self._server_thread:
             self._server_thread.join(timeout=5)
