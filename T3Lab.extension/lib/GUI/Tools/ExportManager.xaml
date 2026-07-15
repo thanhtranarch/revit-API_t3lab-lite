@@ -1320,13 +1320,22 @@
                                 </Popup>
                             </Grid>
 
-                            <!-- Save V/S Set Button -->
-                            <Button Grid.Column="6" x:Name="save_vs_set_button"
-                                    Content="Save V/S Set"
-                                    Height="28"
-                                    Style="{StaticResource SecondaryButton}"
-                                    Click="save_vs_set_clicked"
-                                    ToolTip="Save current selection as View/Sheet Set"/>
+                            <!-- Refresh + Save V/S Set Buttons -->
+                            <StackPanel Grid.Column="6" Orientation="Horizontal">
+                                <Button x:Name="refresh_button"
+                                        Content="Refresh"
+                                        Height="28"
+                                        Margin="0,0,8,0"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="refresh_clicked"
+                                        ToolTip="Reload sheets/views from the model — picks up changes made while this window is open"/>
+                                <Button x:Name="save_vs_set_button"
+                                        Content="Save V/S Set"
+                                        Height="28"
+                                        Style="{StaticResource SecondaryButton}"
+                                        Click="save_vs_set_clicked"
+                                        ToolTip="Save current selection as View/Sheet Set"/>
+                            </StackPanel>
 
                             <!-- Search Box (showcase pill style) -->
                             <Border Grid.Column="8" Grid.ColumnSpan="2" Height="36"

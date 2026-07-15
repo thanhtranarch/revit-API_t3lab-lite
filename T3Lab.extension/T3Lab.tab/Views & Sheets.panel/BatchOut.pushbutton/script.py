@@ -15,6 +15,8 @@ Linkedin: linkedin.com/in/sunarch7899/
 __author__  = "Tran Tien Thanh"
 __title__   = "Batch Out"
 __version__ = "1.0.0"
+# Modeless window + ExternalEvent handlers need the engine kept alive
+__persistentengine__ = True
 
 # IMPORT LIBRARIES
 # ==================================================
@@ -38,7 +40,7 @@ from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventAr
 from System.Threading import Thread, ThreadStart
 from System.Windows.Threading import DispatcherPriority
 
-from pyrevit import revit, DB, UI, forms, script
+from pyrevit import revit, DB, UI, forms, script, EXEC_PARAMS
 from Autodesk.Revit.DB import (
     Transaction, FilteredElementCollector, BuiltInCategory,
     ViewSheet, ViewSet, ViewSheetSet, DWGExportOptions, DWFExportOptions,
@@ -47,6 +49,7 @@ from Autodesk.Revit.DB import (
     PropOverrideMode, View, ViewPlan, ViewSection, View3D,
     ViewSchedule, ViewDrafting, ViewType,
 )
+from Autodesk.Revit.UI import IExternalEventHandler, ExternalEvent
 
 from System.Collections.Generic import List
 
@@ -87,6 +90,36 @@ except:
 # ==================================================
 logger = script.get_logger()
 output = script.get_output()
+
+
+def detect_persistent_engine():
+    """True only when __persistentengine__ is actually baked into the loaded
+    command metadata (pyRevit bakes it at ribbon build — needs a Reload after
+    the flag is added to the script).
+
+    The accessor differs per pyRevit runtime build (pyrevitlib 5.1 WIP and
+    the compiled runtime DLL can be out of sync — seen 2026-07-15 where
+    EXEC_PARAMS.needs_persistent_engine raised AttributeError because this
+    machine's 2023 runtime has no ScriptRuntime.EngineConfigs):
+    - newer layout: script_runtime.EngineConfigs.PersistentEngine
+      (what EXEC_PARAMS.needs_persistent_engine reads)
+    - this runtime:  script_runtime.ScriptRuntimeConfigs.EngineConfigs,
+      a JSON string like {"clean": false, "full_frame": false,
+      "persistent": true}
+    Defaults to False — the safe direction (modal fallback) when
+    undetectable.
+    """
+    try:
+        return bool(EXEC_PARAMS.needs_persistent_engine)
+    except Exception:
+        pass
+    try:
+        cfg_json = EXEC_PARAMS.script_runtime.ScriptRuntimeConfigs.EngineConfigs
+        if cfg_json:
+            return bool(json.loads(cfg_json).get('persistent', False))
+    except Exception as ex:
+        logger.debug("Persistent engine detection failed: {}".format(ex))
+    return False
 
 # F6: BatchOut runs fine without the optional Intelligence helpers, but the
 # import above swallowed any failure silently (and it happens before `logger`
@@ -344,8 +377,63 @@ class ExportProfile(object):
         return profile
 
 
+class BatchOutEventHandler(IExternalEventHandler):
+    """Runs queued window actions inside a valid Revit API context.
+
+    Required because the window is modeless (Show, not ShowDialog): ALL Revit
+    API access — reads included, not just transactions — must happen in here.
+    Touching the API from WPF events or Dispatcher callbacks after the command
+    has returned runs outside API context and hard-crashes Revit on workshared
+    models (fatal 0xe0434352 / 0xc0000005 seen 2026-07-13/14). Same pattern as
+    ManaLoca: "All Revit API work happens here".
+
+    NOTHING may escape Execute, and Execute may only rely on `self` and
+    builtins: if the engine scope was torn down (command ran without a baked
+    __persistentengine__ flag), every module-global lookup here raises
+    NameError — including a `logger` call in an except block. Exactly that
+    escaped Execute and took the whole Revit process down on 2026-07-14
+    (journal session 1006: UnboundNameException -> fatal 0xe0434352).
+    """
+
+    def __init__(self, logger):
+        # Direct reference: module globals may be gone by the time Execute
+        # fires, but instance attributes survive scope teardown
+        self._logger = logger
+        # Queue (not a single slot) so rapid clicks — e.g. Refresh then
+        # Export before Revit goes idle — never drop an action
+        self._queue = []
+
+    def add(self, action):
+        self._queue.append(action)
+
+    def Execute(self, uiapp):
+        try:
+            # Snapshot-drain: actions queued DURING this Execute (e.g. the next
+            # lazy-load chunk) run in the NEXT Execute, so Revit gets breathing
+            # room between chunks instead of one long blocking drain.
+            actions = self._queue
+            self._queue = []
+            for action in actions:
+                try:
+                    action()
+                except Exception as ex:
+                    try:
+                        self._logger.error(
+                            "BatchOut external event failed: {}".format(ex))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    def GetName(self):
+        return "T3Lab BatchOut Handler"
+
+
 class ExportManagerWindow(forms.WPFWindow):
     """Export Manager Window."""
+
+    # Auto-saved "latest setup" — lives beside profiles but is not listed as one
+    LATEST_SETUP_FILENAME = '_latest_setup.json'
 
     def __init__(self):
         try:
@@ -355,6 +443,22 @@ class ExportManagerWindow(forms.WPFWindow):
             forms.WPFWindow.__init__(self, xaml_file_path)
 
             self.doc = revit.doc
+
+            # Modeless is only safe when pyRevit keeps this engine alive.
+            # __persistentengine__ is baked into the command metadata at
+            # ribbon build time — until the user runs pyRevit Reload after
+            # the flag was added, the engine scope is torn down when this
+            # command returns and every later callback dies on empty module
+            # globals (NameError) → fatal Revit crash (seen 2026-07-14,
+            # journal session 1006). Detect the actual engine config and
+            # fall back to modal when the flag is not active yet.
+            self.modeless = detect_persistent_engine()
+
+            # Modeless support: window no longer blocks Revit, so export and
+            # transaction work must be marshalled back into API context
+            self._api_handler = BatchOutEventHandler(logger)
+            self._api_event = ExternalEvent.Create(self._api_handler)
+
             self.all_sheets = []
             self.filtered_sheets = []
             self.all_views = []
@@ -363,6 +467,7 @@ class ExportManagerWindow(forms.WPFWindow):
             self.selection_mode = "sheets"  # "sheets" or "views"
             self.profiles = []  # List of ExportProfile objects
             self.profiles_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'T3Lab_BatchOut_Profiles')
+            self.latest_setup_file = os.path.join(self.profiles_folder, self.LATEST_SETUP_FILENAME)
 
             # Performance optimization: caches for batch loading
             self._titleblock_size_cache = {}  # Sheet ID -> (width_mm, height_mm)
@@ -411,12 +516,18 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.export_ifc.IsEnabled = False
                 self.export_ifc.ToolTip = "IFC export not available — IFCExportOptions missing in this Revit version"
 
+            # Restore auto-saved latest setup from the previous session
+            self._restore_latest_setup()
+
             # Attach event handler for click-to-select functionality
             # This is done programmatically because EventSetters in Styles don't work with pyRevit
             self.sheets_listview.PreviewMouseLeftButtonDown += self.listview_clicked
 
             # Attach event handler for tab changes to update preview
             self.main_tabs.SelectionChanged += self.tab_changed
+
+            # Auto-save latest setup on any close path (X, Close button, Alt+F4)
+            self.Closing += self._window_closing_save_setup
 
             # Update button text based on current tab
             self.update_navigation_buttons()
@@ -466,6 +577,8 @@ class ExportManagerWindow(forms.WPFWindow):
             self.profiles = []
             if os.path.exists(self.profiles_folder):
                 for filename in os.listdir(self.profiles_folder):
+                    if filename == self.LATEST_SETUP_FILENAME:
+                        continue
                     if filename.endswith('.json'):
                         filepath = os.path.join(self.profiles_folder, filename)
                         try:
@@ -508,6 +621,55 @@ class ExportManagerWindow(forms.WPFWindow):
 
         except Exception as ex:
             logger.error("Error saving profiles: {}".format(ex))
+
+    def save_latest_setup(self):
+        """Auto-save current settings as the latest setup (restored on next open)."""
+        try:
+            if not os.path.exists(self.profiles_folder):
+                os.makedirs(self.profiles_folder)
+            profile = self.get_current_settings_as_profile()
+            profile.Name = "Latest Setup"
+            profile.Description = "Auto-saved on {}".format(datetime.now().strftime("%Y-%m-%d %H:%M"))
+            with open(self.latest_setup_file, 'w') as f:
+                json.dump(profile.to_dict(), f, indent=2)
+            logger.debug("Latest setup auto-saved to {}".format(self.latest_setup_file))
+        except Exception as ex:
+            logger.warning("Could not auto-save latest setup: {}".format(ex))
+
+    def _restore_latest_setup(self):
+        """Restore the auto-saved latest setup from the previous session, if any."""
+        try:
+            if not os.path.exists(self.latest_setup_file):
+                return
+            with open(self.latest_setup_file, 'r') as f:
+                data = json.load(f)
+            self.apply_profile_to_ui(ExportProfile.from_dict(data))
+            self.status_text.Text = "Latest setup restored"
+            logger.info("Latest setup restored")
+        except Exception as ex:
+            logger.warning("Could not restore latest setup: {}".format(ex))
+
+    def _window_closing_save_setup(self, sender, e):
+        """Closing hook — persist settings so the next session starts where the user left off."""
+        self.save_latest_setup()
+
+    def _run_in_api_context(self, action):
+        """Run a callable inside valid Revit API context.
+
+        Modeless: queue through the ExternalEvent (fires when Revit idles).
+        Modal fallback: the command is still executing (blocked in
+        ShowDialog), so Dispatcher callbacks pump INSIDE the command's API
+        context — the pre-modeless behavior, safe here. The ExternalEvent
+        path would deadlock instead: Revit never goes idle while a modal
+        window blocks the command, so queued actions (lazy loading, preview,
+        even Export) would only fire after the window closes.
+        """
+        if self.modeless:
+            self._api_handler.add(action)
+            self._api_event.Raise()
+        else:
+            self.Dispatcher.BeginInvoke(DispatcherPriority.Background,
+                                        Action(action))
 
     def get_current_settings_as_profile(self):
         """Capture current UI settings as a profile."""
@@ -563,6 +725,12 @@ class ExportManagerWindow(forms.WPFWindow):
             self.export_nwd.IsChecked = profile.ExportNWD
             self.export_ifc.IsChecked = profile.ExportIFC
             self.export_img.IsChecked = profile.ExportIMG
+
+            # Formats unavailable in this Revit version must never come back checked
+            if not HAS_NAVISWORKS:
+                self.export_nwd.IsChecked = False
+            if not HAS_IFC:
+                self.export_ifc.IsChecked = False
 
             # PDF settings
             # Set paper size
@@ -1205,6 +1373,10 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.debug("Error updating sheet set label: {}".format(ex))
 
     def _apply_sheet_set_filter(self):
+        """Queue the sheet-set filter — reads ViewSheetSets, needs API context."""
+        self._run_in_api_context(self._apply_sheet_set_filter_api)
+
+    def _apply_sheet_set_filter_api(self):
         """Union sheet IDs from all checked sets and apply filter + auto-select."""
         try:
             checked_sets = [
@@ -1265,13 +1437,11 @@ class ExportManagerWindow(forms.WPFWindow):
             self.status_text.Text = "Loaded {} sheets | Revit {}".format(
                 len(self.all_sheets), REVIT_VERSION)
 
-            # Phase 2: pre-load titleblocks first (one query), then schedule chunked loading
-            # Runs after window renders so user sees sheet names without delay
+            # Phase 2: schedule chunked loading through the ExternalEvent queue.
+            # NOT Dispatcher.BeginInvoke — with a modeless window those callbacks
+            # would read the Revit API outside API context and crash Revit.
             self._lazy_load_index = 0
-            self.Dispatcher.BeginInvoke(
-                DispatcherPriority.Background,
-                Action(self._lazy_load_init)
-            )
+            self._run_in_api_context(self._lazy_load_chunk)
 
         except Exception as ex:
             logger.error("Error loading sheets: {}".format(ex))
@@ -1281,10 +1451,7 @@ class ExportManagerWindow(forms.WPFWindow):
         """Kick off chunked Revision loading — no titleblock queries at startup."""
         try:
             self._lazy_load_index = 0
-            self.Dispatcher.BeginInvoke(
-                DispatcherPriority.Background,
-                Action(self._lazy_load_chunk)
-            )
+            self._run_in_api_context(self._lazy_load_chunk)
         except Exception as ex:
             logger.debug("Error in lazy load init: {}".format(ex))
 
@@ -1316,10 +1483,8 @@ class ExportManagerWindow(forms.WPFWindow):
             if hasattr(self, 'sheets_listview') and self.sheets_listview:
                 self.sheets_listview.Items.Refresh()
 
-            self.Dispatcher.BeginInvoke(
-                DispatcherPriority.Background,
-                Action(self._lazy_load_chunk)
-            )
+            # Next batch via ExternalEvent — keeps every API read in context
+            self._run_in_api_context(self._lazy_load_chunk)
 
         except Exception as ex:
             logger.debug("Error loading sheet chunk: {}".format(ex))
@@ -1360,12 +1525,9 @@ class ExportManagerWindow(forms.WPFWindow):
             self.status_text.Text = "Loaded {} views | Revit {}".format(
                 len(self.all_views), REVIT_VERSION)
 
-            # Phase 2: schedule chunked loading of Phase/ViewTemplate in background
+            # Phase 2: chunked Phase/ViewTemplate loading via ExternalEvent queue
             self._lazy_view_load_index = 0
-            self.Dispatcher.BeginInvoke(
-                DispatcherPriority.Background,
-                Action(self._lazy_view_load_chunk)
-            )
+            self._run_in_api_context(self._lazy_view_load_chunk)
 
         except Exception as ex:
             logger.error("Error loading views: {}".format(ex))
@@ -1393,10 +1555,8 @@ class ExportManagerWindow(forms.WPFWindow):
             if hasattr(self, 'sheets_listview') and self.sheets_listview:
                 self.sheets_listview.Items.Refresh()
 
-            self.Dispatcher.BeginInvoke(
-                DispatcherPriority.Background,
-                Action(self._lazy_view_load_chunk)
-            )
+            # Next batch via ExternalEvent — keeps every API read in context
+            self._run_in_api_context(self._lazy_view_load_chunk)
 
         except Exception as ex:
             logger.debug("Error loading view chunk: {}".format(ex))
@@ -1467,7 +1627,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 self.selection_mode = "views"
                 # Show views
                 if not self.all_views:
-                    self.load_views()
+                    # First load queries the document → run in API context
+                    self._run_in_api_context(self.load_views)
                 else:
                     self.update_items_list()
                 # Update UI visibility - Show view type filter
@@ -1640,6 +1801,10 @@ class ExportManagerWindow(forms.WPFWindow):
             self.load_views()
 
     def load_sheet_set_clicked(self, sender, e):
+        """Queue loading from a saved ViewSheetSet — reads collectors, needs API context."""
+        self._run_in_api_context(self._load_sheet_set_api)
+
+    def _load_sheet_set_api(self):
         """Load sheets from a saved ViewSheetSet."""
         try:
             if self.selection_mode == "sheets":
@@ -1825,11 +1990,58 @@ class ExportManagerWindow(forms.WPFWindow):
     def save_vs_set_clicked(self, sender, e):
         """Handle Save V/S Set button click."""
         try:
-            # User wants to save current selection as a new View/Sheet Set
-            self.save_current_selection_as_vs_set()
+            # Creates a ViewSheetSet inside a Transaction — needs API context
+            self._run_in_api_context(self.save_current_selection_as_vs_set)
 
         except Exception as ex:
             logger.error("Error handling Save V/S Set: {}".format(ex))
+
+    def refresh_clicked(self, sender, e):
+        """Reload document data — picks up sheets/views created or renamed
+        while this modeless window has been open."""
+        self.status_text.Text = "Refreshing..."
+        self._run_in_api_context(self._do_refresh)
+
+    def _do_refresh(self):
+        """Re-collect sheets/views/sets from the model, preserving current selection."""
+        try:
+            # Remember what is ticked so the reload doesn't lose the selection
+            selected_sheet_ids = set(eid_value(s.Sheet.Id) for s in self.all_sheets if s.IsSelected)
+            selected_view_ids = set(eid_value(v.View.Id) for v in self.all_views if v.IsSelected)
+            had_views = bool(self.all_views)
+
+            # Drop stale caches so sheet sizes re-detect against the live model
+            self._titleblock_size_cache = {}
+            self._paper_size_cache = {}
+
+            # Reload document-driven dropdowns
+            self.load_cad_export_setups()
+            self.load_sheet_sets_for_filter()
+
+            # Reload sheet list (always loaded) and restore ticks
+            self.load_sheets()
+            for item in self.all_sheets:
+                if eid_value(item.Sheet.Id) in selected_sheet_ids:
+                    item.IsSelected = True
+
+            # Views load lazily on first mode switch — only reload if present
+            if had_views or self.selection_mode == "views":
+                self.load_views()
+                for item in self.all_views:
+                    if eid_value(item.View.Id) in selected_view_ids:
+                        item.IsSelected = True
+
+            # Rebuild the visible list for the active mode
+            self.apply_filters()
+            self.update_selection_count()
+
+            count = len(self.all_sheets) if self.selection_mode == "sheets" else len(self.all_views)
+            self.status_text.Text = "Refreshed — {} {} loaded | Revit {}".format(
+                count, self.selection_mode, REVIT_VERSION)
+
+        except Exception as ex:
+            logger.error("Error refreshing document data: {}".format(ex))
+            self.status_text.Text = "Refresh failed — see pyRevit log"
 
     def apply_filters(self, sheet_set_ids=None):
         """Apply search and filters.
@@ -2004,6 +2216,10 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.error("Error handling auto-detect change: {}".format(ex))
 
     def button_custom_parameters(self, sender, e):
+        """Queue the custom parameters dialog — it reads doc parameters, needs API context."""
+        self._run_in_api_context(self._button_custom_parameters_api)
+
+    def _button_custom_parameters_api(self):
         """Open custom parameters dialog to select parameters for filename.
 
         When a pattern is selected, it automatically applies to ALL items (sheets or views).
@@ -2043,6 +2259,10 @@ class ExportManagerWindow(forms.WPFWindow):
             forms.alert("Error opening custom parameters dialog:\n{}".format(str(ex)))
 
     def edit_filename_clicked(self, sender, e):
+        """Queue the filename pattern dialog — it reads doc parameters, needs API context."""
+        self._run_in_api_context(self._edit_filename_api)
+
+    def _edit_filename_api(self):
         """Open the parameter selector dialog to edit filename pattern.
 
         This is triggered by the 'Edit filename' button in DWG Options section.
@@ -2089,16 +2309,18 @@ class ExportManagerWindow(forms.WPFWindow):
             forms.alert("Error editing filename pattern:\n{}".format(str(ex)))
 
     def button_row_naming_pattern(self, sender, e):
+        """Queue the row naming dialog — it reads doc parameters, needs API context."""
+        item = sender.Tag
+        if not item:
+            return
+        self._run_in_api_context(lambda: self._row_naming_pattern_api(item))
+
+    def _row_naming_pattern_api(self, item):
         """Open parameter selector dialog for a specific row.
 
         This applies the naming pattern to only the selected row's item.
         """
         try:
-            # Get the item from the button's Tag
-            item = sender.Tag
-            if not item:
-                return
-
             # Import the parameter selector dialog
             sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'lib', 'GUI'))
             if 'ParameterSelectorDialog' in sys.modules:
@@ -2232,7 +2454,8 @@ class ExportManagerWindow(forms.WPFWindow):
                     selected_items = [v for v in self.all_views if v.IsSelected]
 
                 if selected_items:
-                    self.build_export_preview()
+                    # Reads live sheet numbers + titleblock sizes → API context
+                    self._run_in_api_context(self.build_export_preview)
                 else:
                     self.export_items = []
                     self.export_preview_list.ItemsSource = self.export_items
@@ -2254,7 +2477,10 @@ class ExportManagerWindow(forms.WPFWindow):
         elif idx == 1:
             self.switch_to_view(2)
         else:
-            self.start_export()
+            # Modeless window: export must run inside API context. If Revit is
+            # busy (user mid-command), the event fires once Revit is idle.
+            self.status_text.Text = "Export queued — waiting for Revit..."
+            self._run_in_api_context(self.start_export)
 
     def build_export_preview(self):
         """Build the export preview list."""
@@ -2576,6 +2802,9 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Check if split by format
             split_by_format = self.save_split_by_format.IsChecked
+
+            # Remember this setup for the next session
+            self.save_latest_setup()
 
             # Disable buttons during export
             self.next_button.IsEnabled = False
@@ -3780,8 +4009,20 @@ if __name__ == '__main__':
     if not revit.doc:
         forms.alert("Please open a Revit document first.", exitscript=True)
 
-    # Show Export Manager window
+    # Show Export Manager window — modeless (when the engine is persistent)
+    # so the user can keep working in Revit while the tool stays open
     window = ExportManagerWindow()
-    window.ShowDialog()
+    if window.modeless:
+        window.show(modal=False)
+    else:
+        # __persistentengine__ not active in the loaded ribbon yet (pyRevit
+        # bakes it at ribbon build — run pyRevit Reload once to pick it up).
+        # Modeless on a non-persistent engine = dead engine scope after this
+        # command returns = fatal crash on the first click. Modal is safe.
+        logger.info("Persistent engine not active — running modal. "
+                    "Reload pyRevit to enable modeless mode.")
+        window.status_text.Text = ("Modal mode — run pyRevit Reload once to "
+                                   "unlock working in Revit alongside this window")
+        window.show(modal=True)
 
 

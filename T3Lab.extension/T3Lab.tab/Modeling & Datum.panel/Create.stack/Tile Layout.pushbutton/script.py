@@ -55,10 +55,29 @@ from pyrevit import revit, forms, script
 SCRIPT_DIR = os.path.dirname(__file__)
 EXT_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(SCRIPT_DIR))))
 lib_dir    = os.path.join(EXT_DIR, 'lib')
-if lib_dir not in sys.path:
-    sys.path.append(lib_dir)
+gui_dir    = os.path.join(lib_dir, 'GUI')   # TileLayoutCore.py lives here
+for _p in (lib_dir, gui_dir):
+    if _p not in sys.path:
+        sys.path.append(_p)
 
-from Snippets._compat import eid_value
+from Snippets._compat import eid_value, elem_name
+
+# pyRevit caches lib modules between runs while pushbutton scripts are always
+# re-read — after an extension update this script can end up calling engine
+# methods that the cached (stale) module doesn't have yet (symptom: options
+# silently stop generating with AttributeError). Force-refresh the engine.
+# Engine lives in lib/GUI/TileLayoutCore.py (beside TileLayout.xaml's folder).
+import TileLayoutCore
+try:
+    reload(TileLayoutCore)
+except Exception:
+    pass
+from TileLayoutCore import (
+    MM_TO_FT, FT_TO_MM, FT2_TO_M2, MIN_CUT_WIDTH_MM,
+    PATTERNS, PATTERN_LABELS,
+    V2, poly_area, poly_bbox, ensure_ccw,
+    OptionGenerator,
+)
 
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'TileLayout.xaml')
 
@@ -70,19 +89,12 @@ doc           = revit.doc
 uidoc         = revit.uidoc
 REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-MM_TO_FT  = 1.0 / 304.8
-FT_TO_MM  = 304.8
-FT2_TO_M2 = 0.092903
-
+# ── Constants (units & engine limits are imported from TileLayoutCore) ───────
 EXTRUDE_H = 10.0 * MM_TO_FT   # DirectShape thickness
-MIN_AREA  = 1e-9              # ft² — anything smaller discarded
 MIN_EDGE  = 0.003             # ft — ~0.9 mm; below Revit short-curve tolerance
 
-# Thin-cut constraint: cut pieces narrower than this are hard to install
-# cleanly, so options that produce them are heavily penalised in scoring.
-MIN_CUT_WIDTH_MM = 50.0
-MIN_CUT_WIDTH_FT = MIN_CUT_WIDTH_MM * MM_TO_FT
+# Name tag stamped on preview DirectShapes so a re-apply can find & clear them.
+PREVIEW_DS_NAME = "T3Lab TileLayout Preview"
 
 # Colours for DirectShape overrides
 COL_FULL  = Color(189, 195, 199)
@@ -94,642 +106,9 @@ COL_WASTE = Color(231,  76,  60)
 # CLASS/FUNCTIONS
 # ==============================================================================
 
-# ═════════════════════════════════════════════════════════════════════════════
-# SECTION 1 — 2-D GEOMETRY (pure Python)
-# ═════════════════════════════════════════════════════════════════════════════
-
-class V2(object):
-    __slots__ = ('x', 'y')
-    def __init__(self, x, y):
-        self.x = float(x); self.y = float(y)
-    def __repr__(self):
-        return "V2({:.4f},{:.4f})".format(self.x, self.y)
-
-
-def _poly_area_signed(pts):
-    n, a = len(pts), 0.0
-    for i in range(n):
-        j = (i + 1) % n
-        a += pts[i].x * pts[j].y - pts[j].x * pts[i].y
-    return a * 0.5
-
-
-def poly_area(pts): return abs(_poly_area_signed(pts))
-
-
-def poly_centroid(pts):
-    n = len(pts)
-    if n == 0:
-        return V2(0.0, 0.0)
-    cx = cy = a = 0.0
-    for i in range(n):
-        j = (i + 1) % n
-        f = pts[i].x * pts[j].y - pts[j].x * pts[i].y
-        cx += (pts[i].x + pts[j].x) * f
-        cy += (pts[i].y + pts[j].y) * f
-        a  += f
-    a *= 0.5
-    if abs(a) < 1e-14:
-        return V2(sum(p.x for p in pts)/n, sum(p.y for p in pts)/n)
-    return V2(cx / (6.0 * a), cy / (6.0 * a))
-
-
-def poly_bbox(pts):
-    xs = [p.x for p in pts]; ys = [p.y for p in pts]
-    return min(xs), min(ys), max(xs), max(ys)
-
-
-def ensure_ccw(pts):
-    return list(reversed(pts)) if _poly_area_signed(pts) < 0 else list(pts)
-
-
-def clean_poly(pts):
-    if not pts: return None
-    out = [pts[0]]
-    for p in pts[1:]:
-        dx, dy = p.x - out[-1].x, p.y - out[-1].y
-        if dx*dx + dy*dy > 1e-16: out.append(p)
-    if len(out) > 1:
-        dx, dy = out[-1].x - out[0].x, out[-1].y - out[0].y
-        if dx*dx + dy*dy < 1e-16: out = out[:-1]
-    return out if len(out) >= 3 else None
-
-
-def sutherland_hodgman(subject, clip):
-    def _inside(p, a, b):
-        return (b.x - a.x)*(p.y - a.y) - (b.y - a.y)*(p.x - a.x) >= 0.0
-    def _isect(p1, p2, p3, p4):
-        x1,y1 = p1.x,p1.y; x2,y2 = p2.x,p2.y
-        x3,y3 = p3.x,p3.y; x4,y4 = p4.x,p4.y
-        d = (x1-x2)*(y3-y4) - (y1-y2)*(x3-x4)
-        if abs(d) < 1e-15: return p2
-        t = ((x1-x3)*(y3-y4) - (y1-y3)*(x3-x4)) / d
-        return V2(x1 + t*(x2-x1), y1 + t*(y2-y1))
-
-    out = list(subject); nc = len(clip)
-    for i in range(nc):
-        if not out: return []
-        inp = out; out = []
-        a, b = clip[i], clip[(i+1) % nc]
-        for j in range(len(inp)):
-            cur, prv = inp[j], inp[j-1]
-            if _inside(cur, a, b):
-                if not _inside(prv, a, b):
-                    out.append(_isect(prv, cur, a, b))
-                out.append(cur)
-            elif _inside(prv, a, b):
-                out.append(_isect(prv, cur, a, b))
-    return out
-
-
-def rotate_poly(pts, angle_deg, cx=0.0, cy=0.0):
-    a = math.radians(angle_deg); c, s = math.cos(a), math.sin(a)
-    return [V2(cx + (p.x-cx)*c - (p.y-cy)*s,
-               cy + (p.x-cx)*s + (p.y-cy)*c) for p in pts]
-
-
-def tile_rect(ox, oy, tw, th):
-    return [V2(ox, oy), V2(ox+tw, oy), V2(ox+tw, oy+th), V2(ox, oy+th)]
-
-
-def _point_in_triangle(p, a, b, c):
-    """Barycentric point-in-triangle test (inclusive of edges)."""
-    v0x, v0y = c.x - a.x, c.y - a.y
-    v1x, v1y = b.x - a.x, b.y - a.y
-    v2x, v2y = p.x - a.x, p.y - a.y
-    dot00 = v0x * v0x + v0y * v0y
-    dot01 = v0x * v1x + v0y * v1y
-    dot02 = v0x * v2x + v0y * v2y
-    dot11 = v1x * v1x + v1y * v1y
-    dot12 = v1x * v2x + v1y * v2y
-    denom = dot00 * dot11 - dot01 * dot01
-    if abs(denom) < 1e-18:
-        return False
-    inv = 1.0 / denom
-    u = (dot11 * dot02 - dot01 * dot12) * inv
-    v = (dot00 * dot12 - dot01 * dot02) * inv
-    eps = -1e-12
-    return u >= eps and v >= eps and (u + v) <= 1.0 - eps
-
-
-def ear_clip_triangulate(pts):
-    """Ear-clipping triangulation of a simple polygon (may be concave).
-    Returns a list of triangles; each triangle is a list of 3 V2s (CCW)."""
-    src = ensure_ccw(list(pts))
-    n = len(src)
-    if n < 3:
-        return []
-    if n == 3:
-        return [src]
-
-    # Work on an index list so we can pop ears in O(n)
-    idx = list(range(n))
-    triangles = []
-
-    def _cross(a, b, c):
-        return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
-
-    def _is_ear_at(pos, live):
-        m = len(live)
-        a = src[live[(pos - 1) % m]]
-        b = src[live[pos]]
-        c = src[live[(pos + 1) % m]]
-        if _cross(a, b, c) <= 0:   # reflex vertex
-            return False
-        # No other vertex may lie inside triangle (a,b,c)
-        for k, vi in enumerate(live):
-            if k in ((pos - 1) % m, pos, (pos + 1) % m):
-                continue
-            if _point_in_triangle(src[vi], a, b, c):
-                return False
-        return True
-
-    guard = 3 * n
-    while len(idx) > 3 and guard > 0:
-        guard -= 1
-        m = len(idx)
-        clipped_one = False
-        for j in range(m):
-            if _is_ear_at(j, idx):
-                a = src[idx[(j - 1) % m]]
-                b = src[idx[j]]
-                c = src[idx[(j + 1) % m]]
-                triangles.append([a, b, c])
-                idx.pop(j)
-                clipped_one = True
-                break
-        if not clipped_one:
-            # Degenerate polygon — fan-triangulate the remainder to avoid loop.
-            break
-
-    if len(idx) == 3:
-        triangles.append([src[idx[0]], src[idx[1]], src[idx[2]]])
-    elif len(idx) > 3:
-        # Fallback fan from the first remaining vertex
-        anchor = src[idx[0]]
-        for k in range(1, len(idx) - 1):
-            triangles.append([anchor, src[idx[k]], src[idx[k + 1]]])
-    return triangles
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# SECTION 2 — TILE GRID GENERATOR
-# ═════════════════════════════════════════════════════════════════════════════
-
-class TileGrid(object):
-    """Virtual grid generator; supports origin offset for layout variants."""
-
-    def __init__(self, tile_w, tile_h, joint, pattern, angle_deg,
-                 origin_dx=0.0, origin_dy=0.0):
-        self.tw, self.th, self.jw = tile_w, tile_h, joint
-        self.pat, self.angle = pattern, angle_deg
-        self.dx, self.dy = origin_dx, origin_dy
-
-    def generate(self, floor_pts):
-        # Pivot: floor bbox centre. The whole grid is built in a tile-aligned
-        # frame that is rotated by `self.angle` around this pivot, so every
-        # tile shares one consistent rotation (no gaps, no per-tile spin).
-        bx0, by0, bx1, by1 = poly_bbox(floor_pts)
-        cx = (bx0 + bx1) * 0.5
-        cy = (by0 + by1) * 0.5
-
-        # Project floor points into the tile frame (rotate by -angle around
-        # pivot) so the grid can be built axis-aligned, then every tile is
-        # rotated back by +angle around the same pivot.
-        local_pts = rotate_poly(floor_pts, -self.angle, cx, cy)
-        lx0, ly0, lx1, ly1 = poly_bbox(local_pts)
-        margin = max(self.tw, self.th) * 2.0
-        lx0 -= margin; ly0 -= margin
-        lx1 += margin; ly1 += margin
-
-        sx = self.tw + self.jw
-        sy = self.th + self.jw
-
-        # A shift moves the grid's PHASE, not its overall position. A shift
-        # of one full period is visually identical to no shift, so the only
-        # thing that matters is dx/dy modulo the period. This guarantees the
-        # tile field covers the floor regardless of how far the user has
-        # shifted.
-        phase_x = (self.dx - math.floor(self.dx / sx) * sx) if sx > 1e-14 else 0.0
-        phase_y = (self.dy - math.floor(self.dy / sy) * sy) if sy > 1e-14 else 0.0
-
-        tiles, tid, row = [], 1, 0
-        # Start one extra period before the bbox so the first column/row is
-        # safely outside the floor regardless of phase.
-        y = ly0 + phase_y - sy
-        while y <= ly1 + sy:
-            x_off = (self.tw * 0.5) if (self.pat == 'staggered' and row % 2 == 1) else 0.0
-            x = lx0 + phase_x + x_off - sx
-            while x <= lx1 + sx:
-                pts = tile_rect(x, y, self.tw, self.th)
-                if self.angle != 0.0:
-                    pts = rotate_poly(pts, self.angle, cx, cy)
-                tiles.append((tid, pts))
-                tid += 1
-                x += sx
-            y += sy
-            row += 1
-        return tiles
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# SECTION 3 — DATA MODELS
-# ═════════════════════════════════════════════════════════════════════════════
-
-class TilePiece(object):
-    """A cut/full/reuse/waste piece — may consist of multiple convex fragments
-    when the source tile straddles a concave floor boundary."""
-
-    def __init__(self, parent_id, sub_id, fragments, piece_type):
-        self.parent_id  = parent_id
-        self.sub_id     = sub_id
-        self.piece_type = piece_type
-
-        # Normalize: accept either a single polygon (list of V2) or a list of
-        # polygons. Internally always store a list of polygons.
-        if fragments and isinstance(fragments[0], V2):
-            self.fragments = [list(fragments)]
-        else:
-            self.fragments = [list(f) for f in fragments if f and len(f) >= 3]
-
-        self.area = sum(poly_area(f) for f in self.fragments)
-
-        tot_a = 0.0; cx = cy = 0.0
-        for f in self.fragments:
-            a = poly_area(f); c = poly_centroid(f)
-            cx += c.x * a; cy += c.y * a; tot_a += a
-        self.centroid = V2(cx / tot_a, cy / tot_a) if tot_a > 1e-14 else V2(0, 0)
-
-    @property
-    def pts(self):
-        """Largest fragment — preserved for callers that still expect a single
-        polygon (e.g., simple geometry checks)."""
-        if not self.fragments:
-            return []
-        return max(self.fragments, key=poly_area)
-
-    @property
-    def label(self):
-        if self.sub_id and self.sub_id != 'waste':
-            return "{}{}".format(self.parent_id, self.sub_id)
-        return str(self.parent_id)
-
-
-class OffCut(object):
-    def __init__(self, parent_id, tile_pts, inside_area, tile_area):
-        self.parent_id  = parent_id
-        self.tile_pts   = tile_pts
-        self.waste_area = tile_area - inside_area
-        self.used       = False
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# SECTION 4 — NESTING ENGINE
-# ═════════════════════════════════════════════════════════════════════════════
-
-class NestingEngine(object):
-
-    def __init__(self, tile_w, tile_h, use_nesting, floor_pts):
-        self.tile_w      = tile_w
-        self.tile_h      = tile_h
-        self.use_nesting = use_nesting
-        self.floor_pts   = ensure_ccw(floor_pts)
-
-        self.pieces      = []
-        self.offcuts     = []
-        self.nesting_log = []
-        self._sub_cnt    = {}
-
-    def process(self, tiles):
-        raw = self._intersect_all(tiles)
-        self._assign_pieces(raw)
-        if self.use_nesting:
-            self._nest()
-        self._collect_waste()
-        return self.pieces
-
-    def _intersect_all(self, tiles):
-        """Produce ONE polygon per tile representing the portion that lies
-        inside the floor. Sutherland-Hodgman is correct whenever the CLIP
-        polygon is convex — a tile is always convex, so we use the tile as
-        the clipper and the (possibly concave) floor as the subject. Result
-        is a single polygon per tile, no triangle-fragment puzzles."""
-        fpts = self.floor_pts
-        out = []
-        for tid, tp in tiles:
-            # Early reject: tile bbox disjoint from floor bbox
-            tx0 = min(v.x for v in tp); tx1 = max(v.x for v in tp)
-            ty0 = min(v.y for v in tp); ty1 = max(v.y for v in tp)
-            fx0 = min(v.x for v in fpts); fx1 = max(v.x for v in fpts)
-            fy0 = min(v.y for v in fpts); fy1 = max(v.y for v in fpts)
-            if tx1 < fx0 or tx0 > fx1 or ty1 < fy0 or ty0 > fy1:
-                continue
-
-            clipped = clean_poly(sutherland_hodgman(fpts, tp))
-            if clipped is None: continue
-            ia = poly_area(clipped)
-            if ia < MIN_AREA: continue
-            ta = poly_area(tp)
-            out.append({'tid': tid, 'fragments': [clipped],
-                        'inside_area': ia, 'tile_pts': tp,
-                        'tile_area': ta,
-                        'ratio': ia / ta if ta > 1e-14 else 0.0})
-        return out
-
-    def _assign_pieces(self, raw):
-        for r in raw:
-            if r['ratio'] > 0.9999:
-                # Full tile — store the clean tile rect, not the clipped fragments.
-                self.pieces.append(TilePiece(r['tid'], '', r['tile_pts'], 'full'))
-            else:
-                sub = self._next_sub(r['tid'])
-                self.pieces.append(TilePiece(r['tid'], sub, r['fragments'], 'cut'))
-                c = self.pieces[-1].centroid
-                self.nesting_log.append(
-                    "Tile {:>4}: {:>4}{} at ({:.2f},{:.2f}) area={:.4f} ft²".format(
-                        r['tid'], r['tid'], sub, c.x, c.y, r['inside_area']))
-                self.offcuts.append(OffCut(r['tid'], r['tile_pts'],
-                                           r['inside_area'], r['tile_area']))
-
-    def _nest(self):
-        pool = sorted(self.offcuts, key=lambda o: o.waste_area, reverse=True)
-        # Map each piece (by identity) to its original offcut so we can drop it
-        # from waste emission when the piece is relocated to another tile.
-        piece_to_offcut = {}
-        for piece, oc in zip(
-                [p for p in self.pieces if p.piece_type == 'cut'], self.offcuts):
-            piece_to_offcut[id(piece)] = oc
-
-        for piece in list(self.pieces):
-            if piece.piece_type != 'cut': continue
-            needed = piece.area
-            for oc in pool:
-                if oc.used or oc.parent_id == piece.parent_id: continue
-                if oc.waste_area >= needed * 0.90:
-                    original_label = piece.label
-                    oc.used = True
-                    new_sub = self._next_sub(oc.parent_id)
-                    piece.parent_id  = oc.parent_id
-                    piece.sub_id     = new_sub
-                    piece.piece_type = 'reuse'
-                    # Retire the source tile's offcut — we no longer buy it.
-                    retired = piece_to_offcut.get(id(piece))
-                    if retired is not None:
-                        retired.used = True
-                    self.nesting_log.append(
-                        "  → {} reused as {}{}".format(
-                            original_label, oc.parent_id, new_sub))
-                    break
-
-    def _collect_waste(self):
-        for oc in self.offcuts:
-            if not oc.used:
-                wp = clean_poly(oc.tile_pts)
-                if wp:
-                    self.pieces.append(
-                        TilePiece(oc.parent_id, 'waste', wp, 'waste'))
-
-    def _next_sub(self, parent_id):
-        idx = self._sub_cnt.get(parent_id, 0)
-        self._sub_cnt[parent_id] = idx + 1
-        return 'ABCDEFGHIJ'[idx] if idx < 10 else str(idx)
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# SECTION 5 — LAYOUT OPTION + SCORING + OPTION GENERATOR
-# ═════════════════════════════════════════════════════════════════════════════
-
-class LayoutOption(object):
-    """One candidate tiling arrangement for a single floor."""
-
-    def __init__(self, option_id, pieces, variant_desc, tile_area_ft2,
-                 gen_params=None):
-        self.option_id   = option_id          # 'A' 'B' 'C' 'D'
-        self.pieces      = pieces
-        self.variant     = variant_desc       # human-readable variation tag
-        self.tile_area   = tile_area_ft2
-        # Parameters needed to regenerate this option with a tweaked angle.
-        # Keys: pattern, angle, dx, dy, tile_w, tile_h, joint, use_nesting,
-        #       floor_pts.
-        self.gen_params  = gen_params or {}
-
-        self._renumber_pieces()
-        self._recompute_stats()
-
-    def _renumber_pieces(self):
-        """Relabel parent_ids starting at 1 in reading order (top-to-bottom,
-        left-to-right). For rotated grids the ordering is computed in the
-        grid's own (unrotated) frame so rows fall out naturally."""
-        if not self.pieces: return
-
-        gp = self.gen_params
-        angle = gp.get('angle', 0.0) if gp else 0.0
-        tile_h = gp.get('tile_h', 0.0) if gp else 0.0
-        pivot_pts = gp.get('floor_pts') if gp else None
-        if pivot_pts:
-            bx0, by0, bx1, by1 = poly_bbox(pivot_pts)
-            cx, cy = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
-        else:
-            cx = cy = 0.0
-
-        # Group pieces by original parent_id; compute an area-weighted
-        # centroid per group.
-        groups = {}
-        for p in self.pieces:
-            groups.setdefault(p.parent_id, []).append(p)
-
-        a_rad = math.radians(-angle)
-        ca, sa = math.cos(a_rad), math.sin(a_rad)
-        anchors = {}
-        for pid, plist in groups.items():
-            tot_a = 0.0; ax = ay = 0.0
-            for p in plist:
-                a = p.area
-                if a <= 0: continue
-                ax += p.centroid.x * a
-                ay += p.centroid.y * a
-                tot_a += a
-            if tot_a > 0:
-                wx, wy = ax / tot_a, ay / tot_a
-            else:
-                wx, wy = 0.0, 0.0
-            # Rotate into the grid's local (axis-aligned) frame.
-            dx, dy = wx - cx, wy - cy
-            lx = cx + dx * ca - dy * sa
-            ly = cy + dx * sa + dy * ca
-            anchors[pid] = (lx, ly)
-
-        row_step = tile_h if tile_h > 1e-6 else 1.0
-        def _sort_key(pid):
-            lx, ly = anchors[pid]
-            # Bucket Y by row so slightly varying centroids still group;
-            # higher Y first (reading top-to-bottom on screen → -Y row index).
-            row = int(round(-ly / row_step))
-            return (row, lx)
-
-        ordered = sorted(groups.keys(), key=_sort_key)
-        mapping = {}
-        for new_idx, old_pid in enumerate(ordered, start=1):
-            mapping[old_pid] = new_idx
-
-        for p in self.pieces:
-            p.parent_id = mapping.get(p.parent_id, p.parent_id)
-
-    def _recompute_stats(self):
-        pieces = self.pieces
-        self.n_full  = sum(1 for p in pieces if p.piece_type == 'full')
-        self.n_cut   = sum(1 for p in pieces if p.piece_type == 'cut')
-        self.n_reuse = sum(1 for p in pieces if p.piece_type == 'reuse')
-
-        parents_full = set(p.parent_id for p in pieces if p.piece_type == 'full')
-        parents_cut  = set(p.parent_id for p in pieces if p.piece_type == 'cut')
-        self.tiles_to_buy = len(parents_full) + len(parents_cut)
-
-        waste_area = sum(p.area for p in pieces if p.piece_type == 'waste')
-        purch_area = self.tiles_to_buy * self.tile_area
-        self.waste_pct = (waste_area / purch_area * 100.0) if purch_area > 0 else 0.0
-
-        # Thin-cut tally: cut/reuse pieces whose narrowest dimension (in the
-        # grid's own frame) falls below MIN_CUT_WIDTH_FT are considered
-        # "slivers" — hard to cut, hard to install.
-        self.n_thin_cuts = self._count_thin_cuts()
-
-        self.score = self._compute_score()
-
-    def _count_thin_cuts(self):
-        gp = self.gen_params
-        if not gp: return 0
-        angle = gp.get('angle', 0.0)
-        floor_pts = gp.get('floor_pts')
-        if floor_pts:
-            bx0, by0, bx1, by1 = poly_bbox(floor_pts)
-            px, py = (bx0 + bx1) * 0.5, (by0 + by1) * 0.5
-        else:
-            px = py = 0.0
-        a = math.radians(-angle)
-        ca, sa = math.cos(a), math.sin(a)
-
-        count = 0
-        for p in self.pieces:
-            if p.piece_type not in ('cut', 'reuse'): continue
-            mn_x = mn_y = float('inf')
-            mx_x = mx_y = float('-inf')
-            for frag in p.fragments:
-                for v in frag:
-                    dx, dy = v.x - px, v.y - py
-                    lx = px + dx * ca - dy * sa
-                    ly = py + dx * sa + dy * ca
-                    if lx < mn_x: mn_x = lx
-                    if lx > mx_x: mx_x = lx
-                    if ly < mn_y: mn_y = ly
-                    if ly > mx_y: mx_y = ly
-            if mn_x == float('inf'): continue
-            narrow = min(mx_x - mn_x, mx_y - mn_y)
-            if narrow < MIN_CUT_WIDTH_FT:
-                count += 1
-        return count
-
-    def _compute_score(self):
-        """Lower is better. Penalise waste %, sliver cuts, and reward
-        reused pieces. Sliver penalty is heavy so any option WITHOUT thin
-        cuts is strongly preferred over an option WITH them."""
-        thin_penalty = self.n_thin_cuts * 50.0
-        return (self.waste_pct * 10.0
-                - self.n_reuse * 0.5
-                + self.n_cut * 0.1
-                + thin_penalty)
-
-    def regenerate(self, angle=None, dx=None, dy=None):
-        """Rebuild pieces using new grid parameters. Any None arg is kept
-        at its current value. Returns True on success."""
-        gp = self.gen_params
-        if not gp: return False
-        if angle is None: angle = gp.get('angle', 0.0)
-        if dx    is None: dx    = gp.get('dx', 0.0)
-        if dy    is None: dy    = gp.get('dy', 0.0)
-
-        grid = TileGrid(gp['tile_w'], gp['tile_h'], gp['joint'],
-                        gp['pattern'], angle, dx, dy)
-        tiles = grid.generate(gp['floor_pts'])
-        engine = NestingEngine(gp['tile_w'], gp['tile_h'],
-                               gp['use_nesting'], gp['floor_pts'])
-        self.pieces = engine.process(tiles)
-        self._nesting_log = engine.nesting_log
-        gp['angle'] = angle
-        gp['dx']    = dx
-        gp['dy']    = dy
-        self.variant = "shift {:+.0f}/{:+.0f} mm, angle {:+.1f}°".format(
-            dx * FT_TO_MM, dy * FT_TO_MM, angle)
-        self._renumber_pieces()
-        self._recompute_stats()
-        return True
-
-    def regenerate_with_angle(self, new_angle):
-        return self.regenerate(angle=new_angle)
-
-
-class OptionGenerator(object):
-    """Produce N candidate layouts per floor by varying origin + angle."""
-
-    # Shift fractions (of tile size) × angle deltas (°) = variants to try.
-    _SHIFT_FRACS = [0.0, 0.25, 0.5, 0.75]
-    _ANGLE_DELTAS = [0.0, 45.0]
-
-    def __init__(self, tile_w, tile_h, joint, use_nesting, top_n=4):
-        self.tile_w = tile_w
-        self.tile_h = tile_h
-        self.joint  = joint
-        self.use_nesting = use_nesting
-        self.top_n  = top_n
-
-    def generate(self, floor_info, pattern, base_angle):
-        """Return list of top-N LayoutOption, sorted by score ASC."""
-        candidates = []
-        tile_area = self.tile_w * self.tile_h
-
-        variants = []
-        for fx in self._SHIFT_FRACS:
-            for fy in self._SHIFT_FRACS:
-                for da in self._ANGLE_DELTAS:
-                    variants.append((fx, fy, da))
-
-        for fx, fy, da in variants:
-            dx = fx * self.tile_w
-            dy = fy * self.tile_h
-            angle = base_angle + da
-            grid = TileGrid(self.tile_w, self.tile_h, self.joint,
-                            pattern, angle, dx, dy)
-            tiles = grid.generate(floor_info.pts)
-            engine = NestingEngine(self.tile_w, self.tile_h,
-                                   self.use_nesting, floor_info.pts)
-            pieces = engine.process(tiles)
-
-            desc = "shift {:+.0f}/{:+.0f} mm, angle {:+.1f}°".format(
-                dx * FT_TO_MM, dy * FT_TO_MM, angle)
-            gen_params = {
-                'pattern'     : pattern,
-                'angle'       : angle,
-                'dx'          : dx,
-                'dy'          : dy,
-                'tile_w'      : self.tile_w,
-                'tile_h'      : self.tile_h,
-                'joint'       : self.joint,
-                'use_nesting' : self.use_nesting,
-                'floor_pts'   : floor_info.pts,
-            }
-            # Option id assigned after sorting
-            candidates.append(
-                LayoutOption('?', pieces, desc, tile_area, gen_params))
-            # cache for later
-            candidates[-1]._nesting_log = engine.nesting_log
-
-        # Keep the N best
-        candidates.sort(key=lambda o: o.score)
-        best = candidates[:self.top_n]
-        for i, opt in enumerate(best):
-            opt.option_id = "ABCDEF"[i] if i < 6 else str(i+1)
-        return best
-
+# SECTIONS 1–5 (2-D geometry, TileGrid, TilePiece/OffCut, NestingEngine,
+# LayoutOption/OptionGenerator) live in lib/TileLayoutCore.py — pure Python,
+# unit-tested by dev/debug/tile_layout_harness.py (no Revit required).
 
 # ═════════════════════════════════════════════════════════════════════════════
 # SECTION 6 — FLOOR INFO (wizard-level data model)
@@ -855,6 +234,10 @@ class RevitVisualizer(object):
             ds = DirectShape.CreateElement(
                 doc, ElementId(BuiltInCategory.OST_GenericModel))
             ds.SetShape([solid])
+            try:
+                ds.SetName(PREVIEW_DS_NAME)
+            except Exception:
+                pass
 
             ogs = OverrideGraphicSettings()
             ogs.SetSurfaceForegroundPatternColor(col)
@@ -932,6 +315,28 @@ def get_or_create_3d_view(view_name="Tile Layout Preview"):
             v3d.Name = view_name
             return v3d
     raise RuntimeError("No 3D ViewFamilyType found in project.")
+
+
+def clear_previous_preview(view):
+    """Delete DirectShapes + TextNotes left by an earlier Apply so re-applying
+    never stacks duplicate geometry. DirectShapes are matched by their name
+    tag; TextNotes by ownership of the dedicated preview view. Must run inside
+    an open transaction."""
+    from System.Collections.Generic import List as NetList
+    dead = NetList[ElementId]()
+    for ds in FilteredElementCollector(doc).OfClass(DirectShape):
+        try:
+            if elem_name(ds) == PREVIEW_DS_NAME:
+                dead.Add(ds.Id)
+        except Exception:
+            continue
+    try:
+        for tn in FilteredElementCollector(doc, view.Id).OfClass(TextNote):
+            dead.Add(tn.Id)
+    except Exception as ex:
+        logger.debug("TextNote sweep failed: {}".format(ex))
+    if dead.Count > 0:
+        doc.Delete(dead)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -1172,7 +577,8 @@ class ReportGenerator(object):
 
         for fi, opt, pat in self.chosen:
             lines.append("")
-            lines.append("  FLOOR  {}  ({})".format(fi.floor.Id, pat))
+            lines.append(u"  FLOOR  {}  ({})".format(
+                fi.floor.Id, PATTERN_LABELS.get(pat, pat)))
             lines.append("  Option {} — {}".format(opt.option_id, opt.variant))
             lines.append("  " + "-" * 62)
             lines.append("    Full tiles     : {:5d}".format(opt.n_full))
@@ -1279,7 +685,7 @@ class ReportGenerator(object):
                 eid_value(fi.floor.Id),
                 fi.area_ft2 * FT2_TO_M2,
                 fi.width_ft * FT_TO_MM, fi.height_ft * FT_TO_MM,
-                chosen_pat)))
+                PATTERN_LABELS.get(chosen_pat, chosen_pat))))
             hdr.FontSize = 15; hdr.FontWeight = FontWeights.SemiBold
             hdr.Foreground = dark
             hdr.Margin = Thickness(0, 12, 0, 8)
@@ -1627,10 +1033,11 @@ class TileLayoutWindow(forms.WPFWindow):
             lbl.Children.Add(name_tb); lbl.Children.Add(sub_tb)
             WC.Grid.SetColumn(lbl, 0); grid.Children.Add(lbl)
 
-            # Pattern combo
+            # Pattern combo — items come from the shared PATTERNS list so
+            # the engine keys and the UI can never drift apart.
             cmb = WC.ComboBox()
-            cmb.Items.Add("Grid (Stacked Bond)")
-            cmb.Items.Add("Staggered (Running Bond)")
+            for _key, label in PATTERNS:
+                cmb.Items.Add(label)
             cmb.SelectedIndex = 0
             cmb.FontSize = 12
             cmb.Padding = SW.Thickness(8, 5, 8, 5)
@@ -1669,25 +1076,104 @@ class TileLayoutWindow(forms.WPFWindow):
         self.status_text.Text = "Generating candidate layouts…"
         self.UpdateLayout()
 
+        def _pump_ui():
+            """Flush pending render ops so the status bar repaints while the
+            sweep blocks the UI thread."""
+            try:
+                from System.Windows.Threading import DispatcherPriority
+                from System import Action
+                self.Dispatcher.Invoke(Action(lambda: None),
+                                       DispatcherPriority.Background)
+            except Exception:
+                pass
+
         gen = OptionGenerator(params['tile_w_ft'], params['tile_h_ft'],
                               params['joint_ft'], params['optimize_nesting'],
                               top_n=4)
 
-        for fi, (cmb, txt) in zip(self._floors, self._pattern_ctrls):
-            pattern = 'staggered' if cmb.SelectedIndex == 1 else 'grid'
+        n_kept = 0
+        bw_gap = False
+        n_floors = len(self._floors)
+        for i_floor, (fi, (cmb, txt)) in enumerate(
+                zip(self._floors, self._pattern_ctrls)):
+            idx = cmb.SelectedIndex
+            if idx < 0 or idx >= len(PATTERNS):
+                idx = 0
+            pattern = PATTERNS[idx][0]
             try:
                 base_angle = float((txt.Text or "0").strip())
             except ValueError:
                 base_angle = 0.0
-            fi.options = gen.generate(fi, pattern, base_angle)
-            fi.chosen_option_id = fi.options[0].option_id if fi.options else None
+
+            if pattern == 'basketweave':
+                we = params['tile_w_ft'] + params['joint_ft']
+                he = params['tile_h_ft'] + params['joint_ft']
+                k = int(math.floor((we + 1e-9) / he)) if he > 1e-12 else 1
+                if k < 1 or abs(we - k * he) > 0.5 * MM_TO_FT:
+                    bw_gap = True
+
+            _lbl = PATTERN_LABELS.get(pattern, pattern)
+            def _prog(i, total, _f=i_floor, _p=_lbl):
+                if i % 4 and i != total:
+                    return   # update every 4th variant — enough feedback
+                self.status_text.Text = (
+                    u"Generating floor {}/{} — {} — variant {}/{}…".format(
+                        _f + 1, n_floors, _p, i, total))
+                _pump_ui()
+
+            # Snapshot the option the user currently has selected (with any
+            # angle/shift tweaks made on its card) BEFORE regenerating, so a
+            # re-run of Generate updates it instead of discarding it.
+            prev = None
+            if fi.options and fi.chosen_option_id:
+                match = [o for o in fi.options
+                         if o.option_id == fi.chosen_option_id]
+                if match and match[0].gen_params:
+                    prev = dict(match[0].gen_params)
+
+            fi.options = gen.generate(fi, pattern, base_angle,
+                                      progress=_prog)
+            chosen_id = fi.options[0].option_id if fi.options else None
+
+            if prev is not None and fi.options:
+                p_angle = prev.get('angle', 0.0) or 0.0
+                p_dx    = prev.get('dx', 0.0) or 0.0
+                p_dy    = prev.get('dy', 0.0) or 0.0
+                twin = None
+                for o in fi.options:
+                    if o.matches_params(p_angle, p_dx, p_dy):
+                        twin = o
+                        break
+                if twin is not None:
+                    # The new sweep already contains the same grid — just
+                    # keep it selected.
+                    chosen_id = twin.option_id
+                else:
+                    # Rebuild the user's exact grid with the NEW tile
+                    # parameters and append it as an extra card.
+                    restored = gen.build_variant(
+                        fi, pattern, p_angle, p_dx, p_dy)
+                    n = len(fi.options)
+                    restored.option_id = "ABCDEF"[n] if n < 6 else str(n + 1)
+                    restored.variant += u"  ·  previous choice"
+                    fi.options.append(restored)
+                    chosen_id = restored.option_id
+                n_kept += 1
+
+            fi.chosen_option_id = chosen_id
             fi._pattern = pattern
 
         self._build_concepts_ui()
-        self.status_text.Text = (
+        msg = (
             "Generated {} options × {} floor(s). Click a card to change the choice."
             .format(sum(len(f.options) for f in self._floors),
                     len(self._floors)))
+        if n_kept:
+            msg += "  Previous choice kept on {} floor(s).".format(n_kept)
+        if bw_gap:
+            msg += (u"  ⚠ Basket Weave needs tile length = k × width "
+                    u"(e.g. 600×300) — current size leaves gaps.")
+        self.status_text.Text = msg
         return True
 
     def _build_concepts_ui(self):
@@ -1964,11 +1450,11 @@ class TileLayoutWindow(forms.WPFWindow):
         btn_plus.Click  += _on_plus
         btn_apply.Click += _on_apply
 
-        # Shift handlers
+        # Shift handlers — deltas are SCREEN-space; shift_screen converts
+        # them into the grid's rotated frame so the arrows track the screen
+        # even on angled layouts.
         def _shift(ddx, ddy):
-            cur_dx = opt.gen_params.get('dx', 0.0) or 0.0
-            cur_dy = opt.gen_params.get('dy', 0.0) or 0.0
-            if not opt.regenerate(dx=cur_dx + ddx, dy=cur_dy + ddy):
+            if not opt.shift_screen(ddx, ddy):
                 return
             self._replace_option_card(fi_idx, fi, opt)
 
@@ -2192,9 +1678,8 @@ class TileLayoutWindow(forms.WPFWindow):
             _apply_angle(a)
 
         def _shift(ddx, ddy):
-            cur_dx = opt.gen_params.get('dx', 0.0) or 0.0
-            cur_dy = opt.gen_params.get('dy', 0.0) or 0.0
-            if opt.regenerate(dx=cur_dx + ddx, dy=cur_dy + ddy):
+            # Screen-space deltas — converted to the grid frame inside.
+            if opt.shift_screen(ddx, ddy):
                 _redraw()
 
         def _on_s_left (s, e): _shift(-step_x, 0)
@@ -2277,9 +1762,23 @@ class TileLayoutWindow(forms.WPFWindow):
         try:
             with revit.Transaction("Tile Layout — apply selected concepts"):
                 view = get_or_create_3d_view()
+                # TextNote needs a locked 3D view — on an unlocked one
+                # TextNote.Create throws and the piece labels silently vanish.
+                try:
+                    if not view.IsLocked:
+                        view.SaveOrientationAndLock()
+                except Exception as ex:
+                    logger.debug("Could not lock 3D view: {}".format(ex))
+                clear_previous_preview(view)
                 for fi, opt, _pat in chosen:
                     vis = RevitVisualizer(view)
                     for piece in opt.pieces:
+                        # Waste is bookkeeping only (spare left inside the
+                        # purchased tiles) — drawing it would stack a full
+                        # tile on top of the cut piece and spill past the
+                        # floor boundary.
+                        if piece.piece_type == 'waste':
+                            continue
                         vis.draw_piece(piece, fi.z)
             uidoc.ActiveView = view
         except Exception as exc:
