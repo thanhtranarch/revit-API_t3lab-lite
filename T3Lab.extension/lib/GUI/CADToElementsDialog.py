@@ -2,10 +2,11 @@
 """
 CAD to Elements — Unified launcher and creation logic.
 
-Combines Wall, Floor, and Beam creation from CAD into one integrated module.
-The CADToElementsWindow loads the hub XAML; each type button instantiates
-and shows the full per-type window (Wall / Floor / Beam) whose Revit API
-logic is embedded here rather than dispatched via execfile.
+Combines Wall, Floor, Beam and MEP routing (Duct / Pipe / Cable Tray /
+Conduit) creation from CAD into one integrated module. CADToElementsWindow
+loads the hub XAML that contains every panel inline; sidebar buttons switch
+the active panel and all Revit API logic runs in-place — no child windows
+are spawned.
 
 Copyright (c) 2026 T3Lab
 All rights reserved.
@@ -410,8 +411,12 @@ def _project_point_on_line_2d(px, py, ax, ay, dx, dy):
     return t, dist
 
 
-def find_parallel_pairs(lines):
-    """Detect parallel line pairs and compute centerlines using UNION extent."""
+def find_parallel_pairs(lines, max_sep=MAX_WALL_THICKNESS):
+    """Detect parallel line pairs and compute centerlines using UNION extent.
+
+    max_sep caps the pair separation (feet). The default preserves the wall
+    behavior; MEP double-line callers pass a wider cap for ducts/trays.
+    """
     n = len(lines)
     paired = [False] * n
     centerlines = []
@@ -445,7 +450,7 @@ def find_parallel_pairs(lines):
             _, dist_s = _project_point_on_line_2d(sj.X, sj.Y, si.X, si.Y, di["dx"], di["dy"])
             _, dist_e = _project_point_on_line_2d(ej.X, ej.Y, si.X, si.Y, di["dx"], di["dy"])
             avg_dist = (dist_s + dist_e) / 2.0
-            if avg_dist > MAX_WALL_THICKNESS or avg_dist < TOLERANCE:
+            if avg_dist > max_sep or avg_dist < TOLERANCE:
                 continue
             t_js, _ = _project_point_on_line_2d(sj.X, sj.Y, si.X, si.Y, di["dx"], di["dy"])
             t_je, _ = _project_point_on_line_2d(ej.X, ej.Y, si.X, si.Y, di["dx"], di["dy"])
@@ -1114,6 +1119,343 @@ def _get_height_for_width(w):
     if w <= 500:
         return 1000
     return w * 2
+
+
+# ===========================================================================
+# MEP — TYPE COLLECTION
+# ===========================================================================
+
+def _collect_types_by_class(doc, cls):
+    """Collect element types of a class as [{id, name, element}] sorted by name."""
+    results = []
+    try:
+        collector = FilteredElementCollector(doc).OfClass(cls)
+        for el in collector:
+            try:
+                name = DB.Element.Name.GetValue(el)
+                results.append({"id": el.Id, "name": name or "Unknown", "element": el})
+            except Exception:
+                pass
+    except Exception:
+        pass
+    results.sort(key=lambda x: x["name"])
+    return results
+
+
+def _collect_system_types(doc, cls):
+    """Collect MEP system types of a given subclass, sorted by name."""
+    results = []
+    try:
+        collector = FilteredElementCollector(doc).OfClass(DB.MEPSystemType)
+        for st in collector:
+            try:
+                if isinstance(st, cls):
+                    name = DB.Element.Name.GetValue(st)
+                    results.append({"id": st.Id, "name": name or "Unknown", "element": st})
+            except Exception:
+                pass
+    except Exception:
+        pass
+    results.sort(key=lambda x: x["name"])
+    return results
+
+
+def get_duct_types(doc):
+    """All duct types (rectangular / round / oval) sorted by name."""
+    return _collect_types_by_class(doc, DB.Mechanical.DuctType)
+
+
+def get_mech_system_types(doc):
+    """Mechanical system types (Supply / Return / Exhaust Air)."""
+    return _collect_system_types(doc, DB.Mechanical.MechanicalSystemType)
+
+
+def get_pipe_types(doc):
+    """All pipe types sorted by name."""
+    return _collect_types_by_class(doc, DB.Plumbing.PipeType)
+
+
+def get_piping_system_types(doc):
+    """Piping system types (Domestic / Sanitary / Hydronic ...)."""
+    return _collect_system_types(doc, DB.Plumbing.PipingSystemType)
+
+
+def get_cabletray_types(doc):
+    """All cable tray types sorted by name."""
+    return _collect_types_by_class(doc, DB.Electrical.CableTrayType)
+
+
+def get_conduit_types(doc):
+    """All conduit types sorted by name."""
+    return _collect_types_by_class(doc, DB.Electrical.ConduitType)
+
+
+# ===========================================================================
+# MEP — CREATION
+# ===========================================================================
+
+MEP_TX_NAMES = {
+    "duct": "T3Lab: CAD to Duct",
+    "pipe": "T3Lab: CAD to Pipe",
+    "tray": "T3Lab: CAD to Cable Tray",
+    "conduit": "T3Lab: CAD to Conduit",
+}
+
+
+def _set_param_ft(elem, bip, value_ft):
+    """Set a BuiltInParameter (feet) if present and writable. True on success."""
+    try:
+        p = elem.get_Parameter(bip)
+        if p and not p.IsReadOnly:
+            p.Set(value_ft)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _set_mep_size(elem, category_key, width_ft, height_ft):
+    """Best-effort sizing — sets whichever size parameters the instance exposes.
+
+    Ducts: rectangular/oval types expose width+height params, round types a
+    diameter param — the created instance tells us its shape, so no
+    MEPCurveType.Shape lookup is needed. Pipe and conduit diameters snap to
+    their segment/size catalogs and may reject off-catalog values.
+    Returns True if the requested size was applied; callers count a False
+    as 'size not applied' and the element keeps its type default size.
+    """
+    if not width_ft:
+        return True
+    if category_key == "duct":
+        if _set_param_ft(elem, DB.BuiltInParameter.RBS_CURVE_WIDTH_PARAM, width_ft):
+            if height_ft:
+                _set_param_ft(elem, DB.BuiltInParameter.RBS_CURVE_HEIGHT_PARAM, height_ft)
+            return True
+        # Round duct — the width input drives the diameter
+        return _set_param_ft(elem, DB.BuiltInParameter.RBS_CURVE_DIAMETER_PARAM, width_ft)
+    if category_key == "pipe":
+        return _set_param_ft(elem, DB.BuiltInParameter.RBS_PIPE_DIAMETER_PARAM, width_ft)
+    if category_key == "tray":
+        ok_w = _set_param_ft(elem, DB.BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM, width_ft)
+        ok_h = True
+        if height_ft:
+            ok_h = _set_param_ft(elem, DB.BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM, height_ft)
+        return ok_w and ok_h
+    if category_key == "conduit":
+        return _set_param_ft(elem, DB.BuiltInParameter.RBS_CONDUIT_DIAMETER_PARAM, width_ft)
+    return False
+
+
+def _nearest_end_connector(elem, point, tol_ft):
+    """Nearest unconnected end connector of an MEP curve within tol_ft of point."""
+    best = None
+    best_dist = None
+    try:
+        for c in elem.ConnectorManager.Connectors:
+            try:
+                if c.ConnectorType != DB.ConnectorType.End:
+                    continue
+                if c.IsConnected:
+                    continue
+                dist = c.Origin.DistanceTo(point)
+                if dist <= tol_ft and (best_dist is None or dist < best_dist):
+                    best = c
+                    best_dist = dist
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return best
+
+
+def connect_with_elbows(doc, created_items, tol_ft=0.03):
+    """Best-effort elbow placement at shared endpoints of created MEP curves.
+
+    created_items: [{"elem": MEPCurve, "p0": XYZ, "p1": XYZ}]. Skips T/X
+    junctions (3+ segment ends at one point) and near-collinear joints.
+    Every corner attempt is individually guarded so a failed fitting (no
+    elbow in the type's routing preferences, unsupported angle) never aborts
+    the enclosing transaction. Returns (placed, skipped).
+    """
+    placed = 0
+    skipped = 0
+    try:
+        ends = []
+        for idx, item in enumerate(created_items):
+            p0 = item["p0"]
+            p1 = item["p1"]
+            if p0.DistanceTo(p1) < TOLERANCE:
+                continue
+            d = (p1 - p0).Normalize()
+            ends.append({"idx": idx, "pt": p0, "away": d})
+            ends.append({"idx": idx, "pt": p1, "away": d.Negate()})
+
+        used = [False] * len(ends)
+        for i in range(len(ends)):
+            if used[i]:
+                continue
+            group = [i]
+            for j in range(i + 1, len(ends)):
+                if not used[j] and ends[i]["pt"].DistanceTo(ends[j]["pt"]) <= tol_ft:
+                    group.append(j)
+            if len(group) < 2:
+                continue
+            for g in group:
+                used[g] = True
+            if len(group) > 2:
+                skipped += 1  # T/X junction — connect manually in Revit
+                continue
+            a = ends[group[0]]
+            b = ends[group[1]]
+            if a["idx"] == b["idx"]:
+                continue
+            dot = a["away"].DotProduct(b["away"])
+            if abs(dot) > 0.985:
+                skipped += 1  # straight continuation or fold-back — no elbow possible
+                continue
+            c1 = _nearest_end_connector(created_items[a["idx"]]["elem"], a["pt"], tol_ft)
+            c2 = _nearest_end_connector(created_items[b["idx"]]["elem"], b["pt"], tol_ft)
+            if not c1 or not c2:
+                skipped += 1
+                continue
+            try:
+                doc.Create.NewElbowFitting(c1, c2)
+                placed += 1
+            except Exception:
+                skipped += 1
+    except Exception:
+        pass
+    return placed, skipped
+
+
+def create_mep_runs(doc, category_key, segments, level_id, offset_ft,
+                    type_id, system_type_id=None,
+                    width_ft=None, height_ft=None, auto_elbow=True):
+    """Create one MEP category's runs inside a single transaction.
+
+    segments: [{"start": XYZ, "end": XYZ, "width_ft": float or None}] —
+    a per-segment width (from double-line detection) overrides width_ft.
+    Only the CAD XY is used; Z = level elevation + offset_ft.
+    Returns (created, failed, skipped, size_failed, elbow_placed, elbow_skipped).
+    """
+    created = 0
+    failed = 0
+    skipped = 0
+    size_failed = 0
+    elbow_placed = 0
+    elbow_skipped = 0
+
+    level = doc.GetElement(level_id)
+    z_ft = level.Elevation + offset_ft
+
+    t = Transaction(doc, MEP_TX_NAMES.get(category_key, "T3Lab: CAD to MEP"))
+    t.Start()
+    try:
+        created_items = []
+        for seg in segments:
+            try:
+                s = seg["start"]
+                e = seg["end"]
+                p0 = XYZ(s.X, s.Y, z_ft)
+                p1 = XYZ(e.X, e.Y, z_ft)
+                if p0.DistanceTo(p1) < TOLERANCE:
+                    skipped += 1
+                    continue
+                if category_key == "duct":
+                    elem = DB.Mechanical.Duct.Create(
+                        doc, system_type_id, type_id, level_id, p0, p1)
+                elif category_key == "pipe":
+                    elem = DB.Plumbing.Pipe.Create(
+                        doc, system_type_id, type_id, level_id, p0, p1)
+                elif category_key == "tray":
+                    elem = DB.Electrical.CableTray.Create(
+                        doc, type_id, p0, p1, level_id)
+                elif category_key == "conduit":
+                    elem = DB.Electrical.Conduit.Create(
+                        doc, type_id, p0, p1, level_id)
+                else:
+                    skipped += 1
+                    continue
+                if not elem:
+                    failed += 1
+                    continue
+                w = seg.get("width_ft") or width_ft
+                try:
+                    if not _set_mep_size(elem, category_key, w, height_ft):
+                        size_failed += 1
+                except Exception:
+                    size_failed += 1
+                created_items.append({"elem": elem, "p0": p0, "p1": p1})
+                created += 1
+            except Exception:
+                failed += 1
+
+        if auto_elbow and len(created_items) >= 2:
+            try:
+                # Connector origins are only reliable after sizes are applied
+                doc.Regenerate()
+            except Exception:
+                pass
+            elbow_placed, elbow_skipped = connect_with_elbows(doc, created_items)
+
+        if created > 0:
+            status = t.Commit()
+            if status != DB.TransactionStatus.Committed:
+                print("MEP transaction did not commit, status: {}".format(status))
+                return 0, created + failed, skipped, 0, 0, 0
+        else:
+            t.RollBack()
+    except Exception as ex:
+        if t.HasStarted() and not t.HasEnded():
+            t.RollBack()
+        print("MEP transaction error: {}".format(str(ex)))
+        return 0, created + failed, skipped, size_failed, 0, 0
+
+    return created, failed, skipped, size_failed, elbow_placed, elbow_skipped
+
+
+# UI configuration per MEP category — drives the shared _run_mep flow.
+MEP_UI_CONFIG = {
+    "duct": {
+        "title": "CAD to Duct", "noun": "ducts", "type_label": "duct type",
+        "double": True, "system": True,
+        "type_combo": "cmb_duct_type",
+        "width_box": "txt_duct_width", "default_width": 300.0,
+        "height_box": "txt_duct_height", "default_height": 250.0,
+        "offset_box": "txt_duct_offset", "default_offset": 2800.0,
+        "elbow_chk": "chk_duct_elbows", "merge_chk": "chk_duct_merge",
+    },
+    "pipe": {
+        "title": "CAD to Pipe", "noun": "pipes", "type_label": "pipe type",
+        "double": False, "system": True,
+        "type_combo": "cmb_pipe_type",
+        "width_box": "txt_pipe_diameter", "default_width": 100.0,
+        "height_box": None, "default_height": None,
+        "offset_box": "txt_pipe_offset", "default_offset": 2600.0,
+        "elbow_chk": "chk_pipe_elbows", "merge_chk": "chk_pipe_merge",
+    },
+    "tray": {
+        "title": "CAD to Cable Tray", "noun": "cable trays", "type_label": "cable tray type",
+        "double": True, "system": False,
+        "type_combo": "cmb_tray_type",
+        "width_box": "txt_tray_width", "default_width": 300.0,
+        "height_box": "txt_tray_height", "default_height": 100.0,
+        "offset_box": "txt_tray_offset", "default_offset": 2700.0,
+        "elbow_chk": "chk_tray_elbows", "merge_chk": "chk_tray_merge",
+    },
+    "conduit": {
+        "title": "CAD to Conduit", "noun": "conduits", "type_label": "conduit type",
+        "double": False, "system": False,
+        "type_combo": "cmb_conduit_type",
+        "width_box": "txt_conduit_diameter", "default_width": 25.0,
+        "height_box": None, "default_height": None,
+        "offset_box": "txt_conduit_offset", "default_offset": 2700.0,
+        "elbow_chk": "chk_conduit_elbows", "merge_chk": "chk_conduit_merge",
+    },
+}
+
+# MEP double-line detection: cap the parallel-pair separation at 2500 mm
+MEP_MAX_PAIR_SEP_MM = 2500.0
 
 
 # ===========================================================================
@@ -2236,9 +2578,10 @@ class CADToElementsWindow(forms.WPFWindow):
     """
     Unified CAD to Elements window with sidebar navigation.
 
-    Loads CADToElements.xaml which contains all three panels (Wall, Floor,
-    Beam) inline. Sidebar buttons switch the active panel; all Revit logic
-    runs in-place — no child windows are spawned.
+    Loads CADToElements.xaml which contains all panels (Wall, Floor, Beam,
+    Duct, Pipe, Cable Tray, Conduit) inline. Sidebar buttons switch the
+    active panel; all Revit logic runs in-place — no child windows are
+    spawned.
     """
 
     # ------------------------------------------------------------------
@@ -2267,10 +2610,34 @@ class CADToElementsWindow(forms.WPFWindow):
         self._floor_layer_data = []          # list of LayerData
         self._floor_layer_checkboxes = []    # list of (CheckBox, LayerData)
 
+        # MEP state (duct / pipe / tray / conduit)
+        self._duct_types = []
+        self._mech_systems = []
+        self._pipe_types = []
+        self._piping_systems = []
+        self._tray_types = []
+        self._conduit_types = []
+        self._mep_layer_checkboxes = {"duct": {}, "pipe": {}, "tray": {}, "conduit": {}}
+
+        # Sidebar nav map: (key, button, panel) — drives _switch_type
+        self._nav_items = [
+            ("wall", self.btn_type_wall, self.pnl_wall),
+            ("floor", self.btn_type_floor, self.pnl_floor),
+            ("beam", self.btn_type_beam, self.pnl_beam),
+            ("duct", self.btn_type_duct, self.pnl_duct),
+            ("pipe", self.btn_type_pipe, self.pnl_pipe),
+            ("tray", self.btn_type_tray, self.pnl_tray),
+            ("conduit", self.btn_type_conduit, self.pnl_conduit),
+        ]
+
         # Wire sidebar
         self.btn_type_wall.Click += self._on_nav_wall
         self.btn_type_floor.Click += self._on_nav_floor
         self.btn_type_beam.Click += self._on_nav_beam
+        self.btn_type_duct.Click += self._on_nav_duct
+        self.btn_type_pipe.Click += self._on_nav_pipe
+        self.btn_type_tray.Click += self._on_nav_tray
+        self.btn_type_conduit.Click += self._on_nav_conduit
 
         # Wire status-bar buttons
         self.btn_refresh.Click += self._on_refresh
@@ -2298,6 +2665,19 @@ class CADToElementsWindow(forms.WPFWindow):
         self.rb_beam_mode.Checked += self._on_beam_mode_changed
         self.rb_beam_part_mode.Checked += self._on_beam_mode_changed
 
+        # Wire MEP helpers (duct / pipe / tray / conduit share generic handlers)
+        for key in ("duct", "pipe", "tray", "conduit"):
+            getattr(self, "btn_{}_select_all".format(key)).Click += \
+                self._make_mep_setall_handler(key, True)
+            getattr(self, "btn_{}_clear".format(key)).Click += \
+                self._make_mep_setall_handler(key, False)
+            getattr(self, "txt_{}_layer_search".format(key)).TextChanged += \
+                self._make_mep_search_handler(key)
+        self.rb_duct_single.Checked += self._on_duct_mode_changed
+        self.rb_duct_double.Checked += self._on_duct_mode_changed
+        self.rb_tray_single.Checked += self._on_tray_mode_changed
+        self.rb_tray_double.Checked += self._on_tray_mode_changed
+
         # Wire window chrome
         self.btn_minimize.Click += self._on_minimize
         self.btn_maximize.Click += self._on_maximize
@@ -2310,6 +2690,12 @@ class CADToElementsWindow(forms.WPFWindow):
         self._populate_floor_types()
         self._populate_ds_categories()
         self._populate_beam_families()
+        self._populate_duct_types()
+        self._populate_duct_systems()
+        self._populate_pipe_types()
+        self._populate_pipe_systems()
+        self._populate_tray_types()
+        self._populate_conduit_types()
 
         # Show the default panel
         self._switch_type("wall")
@@ -2408,6 +2794,51 @@ class CADToElementsWindow(forms.WPFWindow):
         if self._family_names:
             self.cb_beam_types.SelectedIndex = 0
 
+    def _populate_mep_combo(self, combo, items, empty_msg):
+        """Fill an MEP type/system combo; disabled hint row when empty."""
+        combo.Items.Clear()
+        if not items:
+            item = ComboBoxItem()
+            item.Content = empty_msg
+            item.IsEnabled = False
+            combo.Items.Add(item)
+            return
+        for entry in items:
+            item = ComboBoxItem()
+            item.Content = entry["name"]
+            combo.Items.Add(item)
+        combo.SelectedIndex = 0
+
+    def _populate_duct_types(self):
+        self._duct_types = get_duct_types(self._doc)
+        self._populate_mep_combo(self.cmb_duct_type, self._duct_types,
+                                 "No duct types loaded")
+
+    def _populate_duct_systems(self):
+        self._mech_systems = get_mech_system_types(self._doc)
+        self._populate_mep_combo(self.cmb_duct_system, self._mech_systems,
+                                 "No mechanical system types")
+
+    def _populate_pipe_types(self):
+        self._pipe_types = get_pipe_types(self._doc)
+        self._populate_mep_combo(self.cmb_pipe_type, self._pipe_types,
+                                 "No pipe types loaded")
+
+    def _populate_pipe_systems(self):
+        self._piping_systems = get_piping_system_types(self._doc)
+        self._populate_mep_combo(self.cmb_pipe_system, self._piping_systems,
+                                 "No piping system types")
+
+    def _populate_tray_types(self):
+        self._tray_types = get_cabletray_types(self._doc)
+        self._populate_mep_combo(self.cmb_tray_type, self._tray_types,
+                                 "No cable tray types loaded")
+
+    def _populate_conduit_types(self):
+        self._conduit_types = get_conduit_types(self._doc)
+        self._populate_mep_combo(self.cmb_conduit_type, self._conduit_types,
+                                 "No conduit types loaded")
+
     # ------------------------------------------------------------------
     # Sidebar navigation
     # ------------------------------------------------------------------
@@ -2420,12 +2851,8 @@ class CADToElementsWindow(forms.WPFWindow):
         inactive_bg = bc.ConvertFromString("Transparent")
         inactive_fg = bc.ConvertFromString("#71717A")
 
-        # Reset all three buttons then activate the chosen one
-        for btn, key in [
-            (self.btn_type_wall, "wall"),
-            (self.btn_type_floor, "floor"),
-            (self.btn_type_beam, "beam"),
-        ]:
+        # Recolor buttons and toggle panel visibility from the nav map
+        for key, btn, panel in self._nav_items:
             try:
                 if key == type_name:
                     btn.Background = active_bg
@@ -2435,14 +2862,11 @@ class CADToElementsWindow(forms.WPFWindow):
                     btn.Foreground = inactive_fg
             except Exception:
                 pass
-
-        # Show / hide panels
-        vis_wall = Visibility.Visible if type_name == "wall" else Visibility.Collapsed
-        vis_floor = Visibility.Visible if type_name == "floor" else Visibility.Collapsed
-        vis_beam = Visibility.Visible if type_name == "beam" else Visibility.Collapsed
-        self.pnl_wall.Visibility = vis_wall
-        self.pnl_floor.Visibility = vis_floor
-        self.pnl_beam.Visibility = vis_beam
+            try:
+                panel.Visibility = (Visibility.Visible if key == type_name
+                                    else Visibility.Collapsed)
+            except Exception:
+                pass
 
     def _on_nav_wall(self, sender, e):
         self._switch_type("wall")
@@ -2452,6 +2876,18 @@ class CADToElementsWindow(forms.WPFWindow):
 
     def _on_nav_beam(self, sender, e):
         self._switch_type("beam")
+
+    def _on_nav_duct(self, sender, e):
+        self._switch_type("duct")
+
+    def _on_nav_pipe(self, sender, e):
+        self._switch_type("pipe")
+
+    def _on_nav_tray(self, sender, e):
+        self._switch_type("tray")
+
+    def _on_nav_conduit(self, sender, e):
+        self._switch_type("conduit")
 
     # ------------------------------------------------------------------
     # Floor mode toggle (Floor / Part)
@@ -2498,6 +2934,23 @@ class CADToElementsWindow(forms.WPFWindow):
             pass
 
     # ------------------------------------------------------------------
+    # MEP line mode toggles (single / double line)
+    # ------------------------------------------------------------------
+
+    def _on_duct_mode_changed(self, sender, e):
+        # Width is auto-detected from the pair spacing in double-line mode
+        try:
+            self.txt_duct_width.IsEnabled = safe_bool(self.rb_duct_single.IsChecked)
+        except Exception:
+            pass
+
+    def _on_tray_mode_changed(self, sender, e):
+        try:
+            self.txt_tray_width.IsEnabled = safe_bool(self.rb_tray_single.IsChecked)
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
     # Refresh — scan layers for the active type
     # ------------------------------------------------------------------
 
@@ -2517,6 +2970,8 @@ class CADToElementsWindow(forms.WPFWindow):
             self._refresh_floor_layers(cad)
         elif self._active_type == "beam":
             self._refresh_beam_layers(cad)
+        elif self._active_type in ("duct", "pipe", "tray", "conduit"):
+            self._refresh_mep_layers(cad, self._active_type)
 
     # ---- Wall layer refresh ----
 
@@ -2804,6 +3259,95 @@ class CADToElementsWindow(forms.WPFWindow):
                 pass
         return selected
 
+    # ---- MEP layer refresh (shared by duct / pipe / tray / conduit) ----
+
+    def _refresh_mep_layers(self, cad, key):
+        self._set_status("Scanning layers...")
+        try:
+            layers = get_cad_layers_wall(self._doc, cad["element"])
+        except Exception as ex:
+            self._set_status("Error scanning layers: {}".format(str(ex)))
+            return
+        panel = getattr(self, "pnl_{}_layers".format(key))
+        self._mep_layer_checkboxes[key] = self._build_mep_layer_panel(panel, layers)
+        self._set_status("{} layers found.".format(len(layers)))
+
+    def _build_mep_layer_panel(self, panel, layers):
+        """Fill a layer StackPanel with checkbox rows; returns {name: CheckBox}."""
+        panel.Children.Clear()
+        checkboxes = {}
+        if not layers:
+            tb = TextBlock()
+            tb.Text = "No layers found"
+            tb.FontSize = 11
+            tb.Margin = Thickness(8, 8, 8, 8)
+            panel.Children.Add(tb)
+            return checkboxes
+        for layer_name in layers:
+            border = Border()
+            border.Padding = Thickness(8, 4, 8, 4)
+            border.Margin = Thickness(0, 0, 0, 1)
+            border.Tag = layer_name
+            sp = StackPanel()
+            sp.Orientation = Orientation.Horizontal
+            cb = CheckBox()
+            cb.VerticalContentAlignment = VerticalAlignment.Center
+            cb.Margin = Thickness(0, 0, 8, 0)
+            cb.IsChecked = System.Nullable[System.Boolean](False)
+            cb.Tag = layer_name
+            tb = TextBlock()
+            tb.Text = layer_name
+            tb.FontSize = 11
+            tb.VerticalAlignment = VerticalAlignment.Center
+            sp.Children.Add(cb)
+            sp.Children.Add(tb)
+            border.Child = sp
+            panel.Children.Add(border)
+            checkboxes[layer_name] = cb
+        return checkboxes
+
+    def _make_mep_setall_handler(self, key, value):
+        def handler(sender, e):
+            for cb in self._mep_layer_checkboxes.get(key, {}).values():
+                cb.IsChecked = System.Nullable[System.Boolean](value)
+        return handler
+
+    def _make_mep_search_handler(self, key):
+        def handler(sender, e):
+            try:
+                search_box = getattr(self, "txt_{}_layer_search".format(key))
+                placeholder = getattr(self, "lbl_{}_search_placeholder".format(key))
+                panel = getattr(self, "pnl_{}_layers".format(key))
+            except Exception:
+                return
+            try:
+                placeholder.Visibility = (Visibility.Collapsed if search_box.Text
+                                          else Visibility.Visible)
+            except Exception:
+                pass
+            try:
+                txt = search_box.Text.strip().lower()
+            except Exception:
+                return
+            for i in range(panel.Children.Count):
+                child = panel.Children[i]
+                if isinstance(child, Border) and child.Tag is not None:
+                    name = str(child.Tag).lower()
+                    child.Visibility = (Visibility.Visible
+                                        if not txt or txt in name
+                                        else Visibility.Collapsed)
+        return handler
+
+    def _get_mep_selected_layers(self, key):
+        selected = []
+        for name, cb in self._mep_layer_checkboxes.get(key, {}).items():
+            try:
+                if cb.IsChecked == True:
+                    selected.append(name)
+            except Exception:
+                pass
+        return selected
+
     # ------------------------------------------------------------------
     # Run button dispatcher
     # ------------------------------------------------------------------
@@ -2818,6 +3362,8 @@ class CADToElementsWindow(forms.WPFWindow):
             self._run_floor()
         elif self._active_type == "beam":
             self._run_beam()
+        elif self._active_type in ("duct", "pipe", "tray", "conduit"):
+            self._run_mep(self._active_type)
 
     # ------------------------------------------------------------------
     # Wall creation
@@ -3384,6 +3930,159 @@ class CADToElementsWindow(forms.WPFWindow):
         msg = "Created {} beams.".format(created)
         self._set_status(msg)
         forms.alert(msg, title="CAD to Beam")
+
+    # ------------------------------------------------------------------
+    # MEP creation (duct / pipe / tray / conduit)
+    # ------------------------------------------------------------------
+
+    def _run_mep(self, key):
+        cfg = MEP_UI_CONFIG[key]
+        title = cfg["title"]
+
+        idx = self.cmb_cad_files.SelectedIndex
+        if idx < 0 or idx >= len(self._cad_list):
+            forms.alert("Select a CAD file first.", title=title)
+            return
+        cad = self._cad_list[idx]
+
+        selected_layers = self._get_mep_selected_layers(key)
+        if not selected_layers:
+            forms.alert("Select at least one layer (click Refresh to scan).",
+                        title=title)
+            return
+
+        lv_idx = self.cmb_levels.SelectedIndex
+        if lv_idx < 0 or lv_idx >= len(self._levels):
+            forms.alert("Select a Level.", title=title)
+            return
+        lv = self._levels[lv_idx]
+
+        # Type selection — combos hold a disabled hint row when nothing is
+        # loaded, so validate against the stored lists, not the combo
+        type_list = {"duct": self._duct_types, "pipe": self._pipe_types,
+                     "tray": self._tray_types, "conduit": self._conduit_types}[key]
+        if not type_list:
+            forms.alert(
+                "No {}s found in this project.\n"
+                "Load an MEP template or family first.".format(cfg["type_label"]),
+                title=title)
+            return
+        t_idx = getattr(self, cfg["type_combo"]).SelectedIndex
+        if t_idx < 0 or t_idx >= len(type_list):
+            forms.alert("Select a {}.".format(cfg["type_label"]), title=title)
+            return
+        type_id = type_list[t_idx]["id"]
+
+        # System type (duct / pipe only)
+        system_type_id = None
+        if cfg["system"]:
+            if key == "duct":
+                sys_list = self._mech_systems
+                sys_combo = self.cmb_duct_system
+                sys_label = "mechanical"
+            else:
+                sys_list = self._piping_systems
+                sys_combo = self.cmb_pipe_system
+                sys_label = "piping"
+            if not sys_list:
+                forms.alert(
+                    "No {} system types found in this project.\n"
+                    "Load an MEP template first.".format(sys_label),
+                    title=title)
+                return
+            s_idx = sys_combo.SelectedIndex
+            if s_idx < 0 or s_idx >= len(sys_list):
+                forms.alert("Select a system type.", title=title)
+                return
+            system_type_id = sys_list[s_idx]["id"]
+
+        # Inputs (mm -> ft, with defaults)
+        try:
+            width_ft = mm_to_ft(float(getattr(self, cfg["width_box"]).Text.strip()))
+        except Exception:
+            width_ft = mm_to_ft(cfg["default_width"])
+
+        height_ft = None
+        if cfg["height_box"]:
+            try:
+                height_ft = mm_to_ft(float(getattr(self, cfg["height_box"]).Text.strip()))
+            except Exception:
+                height_ft = mm_to_ft(cfg["default_height"])
+
+        try:
+            offset_ft = mm_to_ft(float(getattr(self, cfg["offset_box"]).Text.strip()))
+        except Exception:
+            offset_ft = mm_to_ft(cfg["default_offset"])
+
+        merge_col = safe_bool(getattr(self, cfg["merge_chk"]).IsChecked)
+        auto_elbow = safe_bool(getattr(self, cfg["elbow_chk"]).IsChecked)
+        double_mode = False
+        if cfg["double"]:
+            radio = self.rb_duct_double if key == "duct" else self.rb_tray_double
+            double_mode = safe_bool(radio.IsChecked)
+
+        # Extract geometry
+        self._set_status("Extracting lines from CAD...")
+        try:
+            lines = extract_lines_from_cad(self._doc, cad["element"], selected_layers)
+            if merge_col:
+                lines = merge_collinear_lines(lines)
+        except Exception as ex:
+            self._set_status("Error extracting lines: {}".format(str(ex)))
+            forms.alert("Error extracting lines:\n{}".format(str(ex)), title=title)
+            return
+
+        unpaired_count = 0
+        if double_mode:
+            centerlines, unpaired = find_parallel_pairs(
+                lines, max_sep=mm_to_ft(MEP_MAX_PAIR_SEP_MM))
+            unpaired_count = len(unpaired)
+            if not centerlines:
+                forms.alert(
+                    "No parallel line pairs found in the selected layers.\n"
+                    "Switch to single-line mode or check the CAD layers.",
+                    title=title)
+                self._set_status("No parallel pairs found.")
+                return
+            segments = [{"start": cl["start"], "end": cl["end"],
+                         "width_ft": cl["thickness"]} for cl in centerlines]
+        else:
+            segments = [{"start": ln["start"], "end": ln["end"], "width_ft": None}
+                        for ln in lines]
+
+        if not segments:
+            forms.alert("No lines found in the selected layers.", title=title)
+            self._set_status("No lines found.")
+            return
+
+        self._set_status("Creating {} {}...".format(len(segments), cfg["noun"]))
+        try:
+            created, failed, skipped, size_failed, elb_ok, elb_skip = create_mep_runs(
+                self._doc, key, segments, lv["id"], offset_ft,
+                type_id, system_type_id, width_ft, height_ft, auto_elbow)
+        except Exception as ex:
+            self._set_status("Error creating {}: {}".format(cfg["noun"], str(ex)))
+            forms.alert("Error creating {}:\n{}".format(cfg["noun"], str(ex)),
+                        title=title)
+            return
+
+        msg = "Created: {} {}".format(created, cfg["noun"])
+        if failed:
+            msg += u" | Failed: {}".format(failed)
+        if skipped:
+            msg += u" | Skipped: {}".format(skipped)
+        if auto_elbow:
+            msg += u" | Elbows: {}".format(elb_ok)
+        self._set_status(msg)
+
+        detail = u"Created: {}\nFailed: {}\nSkipped: {}".format(created, failed, skipped)
+        if size_failed:
+            detail += u"\nSize not applied (catalog mismatch): {}".format(size_failed)
+        if auto_elbow:
+            detail += u"\nElbows placed: {} / skipped: {}".format(elb_ok, elb_skip)
+        if double_mode and unpaired_count:
+            detail += u"\nUnpaired lines ignored: {}".format(unpaired_count)
+        forms.alert(detail, title=title)
 
     # ------------------------------------------------------------------
     # Window chrome

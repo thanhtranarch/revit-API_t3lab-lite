@@ -1196,6 +1196,49 @@
                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
 
+                <!-- MEP group divider -->
+                <Border Height="1" Width="28" Background="#DCDCE0" Margin="0,4,0,12" HorizontalAlignment="Center"/>
+
+                <!-- Duct button -->
+                <Button x:Name="btn_type_duct" Style="{StaticResource SidebarNavButton}"
+                        Margin="0,0,0,8" ToolTip="Duct">
+                    <Path Data="M4 7 h16 v10 h-16 z M8 10 l3 2 -3 2 M14 10 l3 2 -3 2"
+                          Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                          Width="19" Height="19" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+
+                <!-- Pipe button -->
+                <Button x:Name="btn_type_pipe" Style="{StaticResource SidebarNavButton}"
+                        Margin="0,0,0,8" ToolTip="Pipe">
+                    <Path Data="M4 8 h9 a7 7 0 0 1 7 7 v5 M4 12 h8 a3 3 0 0 1 3 3 v5"
+                          Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                          Width="19" Height="19" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+
+                <!-- Cable Tray button -->
+                <Button x:Name="btn_type_tray" Style="{StaticResource SidebarNavButton}"
+                        Margin="0,0,0,8" ToolTip="Cable Tray">
+                    <Path Data="M5 5 v14 M19 5 v14 M5 9 h14 M5 15 h14"
+                          Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                          Width="19" Height="19" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+
+                <!-- Conduit button -->
+                <Button x:Name="btn_type_conduit" Style="{StaticResource SidebarNavButton}"
+                        Margin="0,0,0,8" ToolTip="Conduit">
+                    <Path Data="M4 12 h6 M14 12 h6 M12 12 m-2.5 0 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0"
+                          Stroke="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.8" StrokeLineJoin="Round"
+                          Width="19" Height="19" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+
             </StackPanel>
         </Border>
 
@@ -1211,7 +1254,7 @@
             <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center"
                         Margin="22,0,0,0" WindowChrome.IsHitTestVisibleInChrome="True">
                 <TextBlock Text="CAD to Elements" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                <TextBlock Text="Convert CAD linework into Walls, Floors or Beams" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
+                <TextBlock Text="Convert CAD linework into Walls, Floors, Beams or MEP runs" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <!-- Window controls -->
@@ -1737,6 +1780,573 @@
                                         CornerRadius="4" MinHeight="180" MaxHeight="320">
                                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                                         <StackPanel x:Name="pnl_beam_layers" Margin="6,4"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- ─── DUCT SETTINGS PANEL ─── -->
+                    <StackPanel x:Name="pnl_duct" Visibility="Collapsed">
+
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="3" Height="16" Background="#3B82F6" CornerRadius="2" Margin="0,0,8,0"/>
+                                <TextBlock Style="{StaticResource DividerLabel}" Text="Duct Settings"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Duct line mode selection -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Line Mode:"
+                                           VerticalAlignment="Center" FontSize="12"
+                                           FontWeight="SemiBold" Foreground="#0F172A"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <RadioButton x:Name="rb_duct_single" Content="Single line (centerline)"
+                                                 GroupName="duct_line_mode" IsChecked="True"
+                                                 FontSize="12" FontWeight="SemiBold"
+                                                 VerticalAlignment="Center" Margin="0,0,20,0" Cursor="Hand"/>
+                                    <RadioButton x:Name="rb_duct_double" Content="Double line (detect width)"
+                                                 GroupName="duct_line_mode"
+                                                 FontSize="12" FontWeight="SemiBold"
+                                                 VerticalAlignment="Center" Cursor="Hand"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Duct params card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,10" MinHeight="120">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="DUCT TYPE"/>
+                                    <ComboBox x:Name="cmb_duct_type" Height="30" VerticalContentAlignment="Center"
+                                              ToolTip="Rectangular or round duct type"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="3">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="SYSTEM TYPE"/>
+                                    <ComboBox x:Name="cmb_duct_system" Height="30" VerticalContentAlignment="Center"
+                                              ToolTip="Mechanical system type (Supply / Return / Exhaust)"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="WIDTH / Ø (mm)"/>
+                                    <TextBox x:Name="txt_duct_width" Style="{StaticResource T3InputFieldSmall}" Text="300"
+                                             ToolTip="Width for rectangular ducts; diameter for round duct types. Auto-detected in double-line mode."/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="HEIGHT (mm)"/>
+                                    <TextBox x:Name="txt_duct_height" Style="{StaticResource T3InputFieldSmall}" Text="250"
+                                             ToolTip="Height for rectangular ducts (ignored for round types)"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="OFFSET FROM LEVEL (mm)"/>
+                                    <TextBox x:Name="txt_duct_offset" Style="{StaticResource T3InputFieldSmall}" Text="2800"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5"
+                                            Orientation="Horizontal" Margin="0,10,0,0">
+                                    <CheckBox x:Name="chk_duct_elbows" Content="Auto elbow fittings"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Margin="0,0,20,0" Cursor="Hand"/>
+                                    <CheckBox x:Name="chk_duct_merge" Content="Merge Collinear Lines"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Cursor="Hand"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5" Margin="0,8,0,0"
+                                           Text="Arcs and curved segments are skipped — straight lines only."
+                                           FontSize="11" Foreground="#94A3B8"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Duct layer card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,4"
+                                MinHeight="260">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Header row -->
+                                <Grid Grid.Row="0" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource SectionLabel}"
+                                               Text="CAD LAYERS — select layers containing duct lines"
+                                               VerticalAlignment="Center" Margin="0"/>
+                                    <Button x:Name="btn_duct_select_all" Grid.Column="2"
+                                            Content="Select All" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                    <Button x:Name="btn_duct_clear" Grid.Column="4"
+                                            Content="Clear" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                </Grid>
+
+                                <!-- Search -->
+                                <Border Grid.Row="1" Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="16" Padding="10,0,10,0" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                              Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <Grid Grid.Column="1">
+                                            <TextBlock x:Name="lbl_duct_search_placeholder" Text="Search layers..."
+                                                       Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk" VerticalAlignment="Center"
+                                                       IsHitTestVisible="False"/>
+                                            <TextBox x:Name="txt_duct_layer_search" Background="Transparent" BorderThickness="0"
+                                                     Padding="0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Layer list -->
+                                <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1"
+                                        CornerRadius="4" MinHeight="180" MaxHeight="320">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="pnl_duct_layers" Margin="6,4"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- ─── PIPE SETTINGS PANEL ─── -->
+                    <StackPanel x:Name="pnl_pipe" Visibility="Collapsed">
+
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="3" Height="16" Background="#3B82F6" CornerRadius="2" Margin="0,0,8,0"/>
+                                <TextBlock Style="{StaticResource DividerLabel}" Text="Pipe Settings"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Pipe params card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,10" MinHeight="120">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="PIPE TYPE"/>
+                                    <ComboBox x:Name="cmb_pipe_type" Height="30" VerticalContentAlignment="Center"
+                                              ToolTip="Pipe type (routing preferences drive fittings)"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="SYSTEM TYPE"/>
+                                    <ComboBox x:Name="cmb_pipe_system" Height="30" VerticalContentAlignment="Center"
+                                              ToolTip="Piping system type (Domestic / Sanitary / Hydronic)"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="DIAMETER (mm)"/>
+                                    <TextBox x:Name="txt_pipe_diameter" Style="{StaticResource T3InputFieldSmall}" Text="100"
+                                             ToolTip="Nominal diameter — snaps to the pipe segment size catalog"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="OFFSET FROM LEVEL (mm)"/>
+                                    <TextBox x:Name="txt_pipe_offset" Style="{StaticResource T3InputFieldSmall}" Text="2600"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
+                                            Orientation="Horizontal" Margin="0,10,0,0">
+                                    <CheckBox x:Name="chk_pipe_elbows" Content="Auto elbow fittings"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Margin="0,0,20,0" Cursor="Hand"/>
+                                    <CheckBox x:Name="chk_pipe_merge" Content="Merge Collinear Lines"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Cursor="Hand"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0"
+                                           Text="Arcs and curved segments are skipped — straight lines only."
+                                           FontSize="11" Foreground="#94A3B8"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Pipe layer card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,4"
+                                MinHeight="260">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Header row -->
+                                <Grid Grid.Row="0" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource SectionLabel}"
+                                               Text="CAD LAYERS — select layers containing pipe lines"
+                                               VerticalAlignment="Center" Margin="0"/>
+                                    <Button x:Name="btn_pipe_select_all" Grid.Column="2"
+                                            Content="Select All" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                    <Button x:Name="btn_pipe_clear" Grid.Column="4"
+                                            Content="Clear" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                </Grid>
+
+                                <!-- Search -->
+                                <Border Grid.Row="1" Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="16" Padding="10,0,10,0" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                              Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <Grid Grid.Column="1">
+                                            <TextBlock x:Name="lbl_pipe_search_placeholder" Text="Search layers..."
+                                                       Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk" VerticalAlignment="Center"
+                                                       IsHitTestVisible="False"/>
+                                            <TextBox x:Name="txt_pipe_layer_search" Background="Transparent" BorderThickness="0"
+                                                     Padding="0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Layer list -->
+                                <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1"
+                                        CornerRadius="4" MinHeight="180" MaxHeight="320">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="pnl_pipe_layers" Margin="6,4"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- ─── CABLE TRAY SETTINGS PANEL ─── -->
+                    <StackPanel x:Name="pnl_tray" Visibility="Collapsed">
+
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="3" Height="16" Background="#3B82F6" CornerRadius="2" Margin="0,0,8,0"/>
+                                <TextBlock Style="{StaticResource DividerLabel}" Text="Cable Tray Settings"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Tray line mode selection -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Line Mode:"
+                                           VerticalAlignment="Center" FontSize="12"
+                                           FontWeight="SemiBold" Foreground="#0F172A"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                    <RadioButton x:Name="rb_tray_single" Content="Single line (centerline)"
+                                                 GroupName="tray_line_mode" IsChecked="True"
+                                                 FontSize="12" FontWeight="SemiBold"
+                                                 VerticalAlignment="Center" Margin="0,0,20,0" Cursor="Hand"/>
+                                    <RadioButton x:Name="rb_tray_double" Content="Double line (detect width)"
+                                                 GroupName="tray_line_mode"
+                                                 FontSize="12" FontWeight="SemiBold"
+                                                 VerticalAlignment="Center" Cursor="Hand"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Tray params card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,10" MinHeight="120">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="5">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="CABLE TRAY TYPE"/>
+                                    <ComboBox x:Name="cmb_tray_type" Height="30" VerticalContentAlignment="Center"
+                                              ToolTip="Cable tray type (ladder / channel)"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="WIDTH (mm)"/>
+                                    <TextBox x:Name="txt_tray_width" Style="{StaticResource T3InputFieldSmall}" Text="300"
+                                             ToolTip="Tray width. Auto-detected in double-line mode."/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="HEIGHT (mm)"/>
+                                    <TextBox x:Name="txt_tray_height" Style="{StaticResource T3InputFieldSmall}" Text="100"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="OFFSET FROM LEVEL (mm)"/>
+                                    <TextBox x:Name="txt_tray_offset" Style="{StaticResource T3InputFieldSmall}" Text="2700"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5"
+                                            Orientation="Horizontal" Margin="0,10,0,0">
+                                    <CheckBox x:Name="chk_tray_elbows" Content="Auto elbow fittings"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Margin="0,0,20,0" Cursor="Hand"/>
+                                    <CheckBox x:Name="chk_tray_merge" Content="Merge Collinear Lines"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Cursor="Hand"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5" Margin="0,8,0,0"
+                                           Text="Arcs and curved segments are skipped — straight lines only."
+                                           FontSize="11" Foreground="#94A3B8"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Tray layer card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,4"
+                                MinHeight="260">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Header row -->
+                                <Grid Grid.Row="0" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource SectionLabel}"
+                                               Text="CAD LAYERS — select layers containing cable tray lines"
+                                               VerticalAlignment="Center" Margin="0"/>
+                                    <Button x:Name="btn_tray_select_all" Grid.Column="2"
+                                            Content="Select All" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                    <Button x:Name="btn_tray_clear" Grid.Column="4"
+                                            Content="Clear" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                </Grid>
+
+                                <!-- Search -->
+                                <Border Grid.Row="1" Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="16" Padding="10,0,10,0" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                              Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <Grid Grid.Column="1">
+                                            <TextBlock x:Name="lbl_tray_search_placeholder" Text="Search layers..."
+                                                       Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk" VerticalAlignment="Center"
+                                                       IsHitTestVisible="False"/>
+                                            <TextBox x:Name="txt_tray_layer_search" Background="Transparent" BorderThickness="0"
+                                                     Padding="0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Layer list -->
+                                <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1"
+                                        CornerRadius="4" MinHeight="180" MaxHeight="320">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="pnl_tray_layers" Margin="6,4"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- ─── CONDUIT SETTINGS PANEL ─── -->
+                    <StackPanel x:Name="pnl_conduit" Visibility="Collapsed">
+
+                        <!-- Header -->
+                        <Grid Margin="0,0,0,8">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Width="3" Height="16" Background="#3B82F6" CornerRadius="2" Margin="0,0,8,0"/>
+                                <TextBlock Style="{StaticResource DividerLabel}" Text="Conduit Settings"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Conduit params card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,10" MinHeight="120">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="CONDUIT TYPE"/>
+                                    <ComboBox x:Name="cmb_conduit_type" Height="30" VerticalContentAlignment="Center"
+                                              ToolTip="Conduit type (with or without fittings)"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="DIAMETER (mm)"/>
+                                    <TextBox x:Name="txt_conduit_diameter" Style="{StaticResource T3InputFieldSmall}" Text="25"
+                                             ToolTip="Trade size — snaps to the conduit size table"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,10,0,0">
+                                    <TextBlock Style="{StaticResource SectionLabel}" Text="OFFSET FROM LEVEL (mm)"/>
+                                    <TextBox x:Name="txt_conduit_offset" Style="{StaticResource T3InputFieldSmall}" Text="2700"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3"
+                                            Orientation="Horizontal" Margin="0,10,0,0">
+                                    <CheckBox x:Name="chk_conduit_elbows" Content="Auto elbow fittings"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Margin="0,0,20,0" Cursor="Hand"/>
+                                    <CheckBox x:Name="chk_conduit_merge" Content="Merge Collinear Lines"
+                                              FontSize="12" VerticalContentAlignment="Center"
+                                              IsChecked="True" Cursor="Hand"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,8,0,0"
+                                           Text="Arcs and curved segments are skipped — straight lines only."
+                                           FontSize="11" Foreground="#94A3B8"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Conduit layer card -->
+                        <Border Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
+                                CornerRadius="6" Padding="12,10" Margin="0,0,0,4"
+                                MinHeight="260">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Header row -->
+                                <Grid Grid.Row="0" Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Style="{StaticResource SectionLabel}"
+                                               Text="CAD LAYERS — select layers containing conduit lines"
+                                               VerticalAlignment="Center" Margin="0"/>
+                                    <Button x:Name="btn_conduit_select_all" Grid.Column="2"
+                                            Content="Select All" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                    <Button x:Name="btn_conduit_clear" Grid.Column="4"
+                                            Content="Clear" Style="{StaticResource SecondaryButton}"
+                                            Height="28" Padding="10,4" FontSize="11"/>
+                                </Grid>
+
+                                <!-- Search -->
+                                <Border Grid.Row="1" Height="32" Background="#F4F4F6" BorderBrush="#E6E6EA"
+                                        BorderThickness="1" CornerRadius="16" Padding="10,0,10,0" Margin="0,0,0,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Path Grid.Column="0" Data="M11 4 A7 7 0 1 0 11 18 A7 7 0 1 0 11 4 M21 21 L16.7 16.7"
+                                              Stroke="#71717A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <Grid Grid.Column="1">
+                                            <TextBlock x:Name="lbl_conduit_search_placeholder" Text="Search layers..."
+                                                       Foreground="#71717A" FontSize="12" FontFamily="Hanken Grotesk" VerticalAlignment="Center"
+                                                       IsHitTestVisible="False"/>
+                                            <TextBox x:Name="txt_conduit_layer_search" Background="Transparent" BorderThickness="0"
+                                                     Padding="0" VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                     Height="24" FontSize="12" FontFamily="Hanken Grotesk" Foreground="#18181B"/>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Layer list -->
+                                <Border Grid.Row="2" BorderBrush="#E2E8F0" BorderThickness="1"
+                                        CornerRadius="4" MinHeight="180" MaxHeight="320">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <StackPanel x:Name="pnl_conduit_layers" Margin="6,4"/>
                                     </ScrollViewer>
                                 </Border>
                             </Grid>

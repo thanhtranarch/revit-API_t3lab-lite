@@ -1257,14 +1257,14 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Left: Preview text, then Copyright beside it -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- Left: Copyright first, then Preview text beside it -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                <Border Width="1" Height="14" Background="#E2E8F0" Margin="12,0,12,0" VerticalAlignment="Center"/>
                 <TextBlock x:Name="txt_preview"
                            Text="Preview: (select parameters)"
                            VerticalAlignment="Center"
                            Foreground="#64748B" FontStyle="Italic"/>
-                <Border Width="1" Height="14" Background="#E2E8F0" Margin="12,0,12,0" VerticalAlignment="Center"/>
-                <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- Ok Button -->

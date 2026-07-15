@@ -1261,6 +1261,40 @@ class ExportManagerWindow(forms.WPFWindow):
             self.cad_export_setup.Items.Add(default_item)
             self.cad_export_setup.SelectedIndex = 0
 
+    def _apply_pdf_quality(self, pdf_options):
+        """Force high-fidelity color + raster quality on PDF export.
+
+        Revit's vector PDF exporter rasterizes the patches under transparent
+        / overlapping filled regions (e.g. semi-transparent 'CLEAR' zones over
+        a tile hatch). At the default (low) raster quality the fine linework
+        inside those rasterized patches is dropped -> 'missing lines'. Using
+        the highest raster quality keeps that linework intact. Guarded because
+        the enum / property names vary between Revit versions.
+        """
+        # Raster quality — the key lever for dropped lines under transparency
+        try:
+            rq_enum = getattr(DB, 'RasterQualityType', None)
+            if rq_enum is not None and hasattr(pdf_options, 'RasterQuality'):
+                quality = getattr(rq_enum, 'Presentation', None)
+                if quality is None:
+                    quality = getattr(rq_enum, 'High', None)
+                if quality is not None:
+                    pdf_options.RasterQuality = quality
+        except Exception as ex:
+            logger.debug("Could not set PDF RasterQuality in Revit {}: {}".format(REVIT_VERSION, ex))
+
+        # Color depth — export in full color so nothing collapses to line/grey
+        try:
+            color_enum = getattr(DB, 'ColorDepthType', None)
+            if color_enum is not None and hasattr(pdf_options, 'ColorDepth'):
+                color_val = getattr(color_enum, 'Color', None)
+                if color_val is not None:
+                    pdf_options.ColorDepth = color_val
+        except Exception as ex:
+            logger.debug("Could not set PDF ColorDepth in Revit {}: {}".format(REVIT_VERSION, ex))
+
+        return pdf_options
+
     def load_sheet_sets_for_filter(self):
         """Populate the multi-select sheet set dropdown with CheckBoxes."""
         try:
@@ -2908,10 +2942,33 @@ class ExportManagerWindow(forms.WPFWindow):
                     selected_setup = selected_item.Tag
                     selected_setup_name = selected_item.Content
 
-            # Create DWG export options
-            dwg_options = DWGExportOptions()
+            # Create DWG export options.
+            # DWGExportOptions has no instance method to load a named setup's
+            # settings after construction - GetPredefinedOptions is the only
+            # API that returns an options object pre-populated with a named
+            # ExportDWGSettings' layers/colors/line weights/etc.
+            if selected_setup:
+                try:
+                    dwg_options = DWGExportOptions.GetPredefinedOptions(
+                        self.doc, selected_setup.Name)
+                except Exception as setup_ex:
+                    logger.warning("Could not apply export setup '{}': {}".format(
+                        selected_setup_name, setup_ex))
+                    dwg_options = DWGExportOptions()
+                    # Fallback: Set PropOverrides to ByEntity to match Revit colors
+                    try:
+                        dwg_options.PropOverrides = PropOverrideMode.ByEntity
+                    except:
+                        pass
+            else:
+                dwg_options = DWGExportOptions()
+                # No setup selected - ensure colors match Revit by using ByEntity mode
+                try:
+                    dwg_options.PropOverrides = PropOverrideMode.ByEntity
+                except Exception as prop_ex:
+                    logger.debug("Could not set PropOverrides: {}".format(prop_ex))
 
-            # Set AutoCAD version
+            # Set AutoCAD version (overrides whatever the setup/default specifies)
             dwg_version_index = self.dwg_version.SelectedIndex
             if dwg_version_index == 0:
                 dwg_options.FileVersion = ACADVersion.R2013
@@ -2939,28 +2996,6 @@ class ExportManagerWindow(forms.WPFWindow):
                     dwg_options.MergedViews = not export_links_as_external
             except Exception as ex:
                 logger.debug("MergedViews not supported in Revit {}: {}".format(REVIT_VERSION, ex))
-
-            # VERSION-AWARE: Handle export setup application
-            # Load settings from selected ExportDWGSettings
-            if selected_setup:
-                try:
-                    # Load all settings from the ExportDWGSettings object
-                    # LoadSettingsFrom copies all settings including layers, colors, line weights, etc.
-                    dwg_options.LoadSettingsFrom(selected_setup, True)
-                except Exception as setup_ex:
-                    logger.warning("Could not apply export setup '{}': {}".format(
-                        selected_setup_name, setup_ex))
-                    # Fallback: Set PropOverrides to ByEntity to match Revit colors
-                    try:
-                        dwg_options.PropOverrides = PropOverrideMode.ByEntity
-                    except:
-                        pass
-            else:
-                # No setup selected - ensure colors match Revit by using ByEntity mode
-                try:
-                    dwg_options.PropOverrides = PropOverrideMode.ByEntity
-                except Exception as prop_ex:
-                    logger.debug("Could not set PropOverrides: {}".format(prop_ex))
 
             exported_count = 0
 
@@ -3158,6 +3193,9 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Set filename (learned from pyRevit)
                     pdf_options.FileName = filename
 
+                    # Keep linework under transparent filled regions from dropping
+                    self._apply_pdf_quality(pdf_options)
+
                     # VERSION-AWARE: Apply PDF settings
                     # Use Smart API Adapter if available for intelligent configuration
                     if self.api_adapter:
@@ -3295,6 +3333,9 @@ class ExportManagerWindow(forms.WPFWindow):
                         pdf_options.Combine = True
                         # Set filename to match DWG naming pattern
                         pdf_options.FileName = filename
+
+                        # Keep linework under transparent filled regions from dropping
+                        self._apply_pdf_quality(pdf_options)
 
                         # VERSION-AWARE: Apply PDF settings
                         # Use Smart API Adapter if available for intelligent configuration

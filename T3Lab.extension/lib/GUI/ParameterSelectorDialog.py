@@ -16,6 +16,7 @@ import os
 import sys
 import clr
 import json
+import codecs
 from collections import OrderedDict
 
 clr.AddReference('PresentationFramework')
@@ -106,7 +107,7 @@ class ParameterSelectorDialog(Window):
         # Load XAML
         xaml_file = os.path.join(os.path.dirname(__file__), 'Tools', 'ParameterSelector.xaml')
         try:
-            with open(xaml_file, 'r') as f:
+            with codecs.open(xaml_file, 'r', 'utf-8') as f:
                 xaml_content = f.read()
             self.ui = XamlReader.Parse(xaml_content)
             # Set the parsed content directly
@@ -343,22 +344,28 @@ class ParameterSelectorDialog(Window):
             self.list_selected.SelectedIndex = len(self.selected_params) - 1
         self.update_preview(sender, e)
 
-    def button_refresh(self, sender, e):
-        """Refresh the parameter list."""
-        # Save currently selected parameters
-        selected = list(self.selected_params)
+    def _default_param_names(self):
+        """Parameter names making up the default filename pattern."""
+        if self.element_type == 'sheet':
+            return ['SheetNumber', 'SheetName']
+        return ['ViewName']
 
-        # Reload available parameters
-        self.load_parameters()
-
-        # Restore selected parameters
-        for param in selected:
-            # Try to find the parameter in available list
+    def _select_default_params(self):
+        """Move the default pattern's parameters from available to selected, in order."""
+        for name in self._default_param_names():
             for available_param in list(self.available_params):
-                if available_param.Name == param.Name:
+                if available_param.Name == name:
                     self.available_params.Remove(available_param)
                     self.selected_params.Add(available_param)
                     break
+
+    def button_refresh(self, sender, e):
+        """Refresh: reload parameters from the model and reset the selection
+        back to the default filename pattern."""
+        self.selected_params.Clear()
+        self.load_parameters()
+        self._select_default_params()
+        self.update_preview(sender, e)
 
     def button_add_custom_field(self, sender, e):
         """Add a custom field to the selected parameters."""
