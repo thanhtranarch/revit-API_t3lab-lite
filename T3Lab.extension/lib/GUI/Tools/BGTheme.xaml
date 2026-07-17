@@ -1,7 +1,8 @@
 <Window
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="Background Theme" Height="480" Width="440"
+    Title="Background Theme" Height="768" Width="620"
+    MinHeight="620" MinWidth="560"
     WindowStartupLocation="CenterScreen" ResizeMode="CanResizeWithGrip"
     Background="#E4E4E7"
     FontFamily="Hanken Grotesk"
@@ -1076,12 +1077,18 @@
         </Style>
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
+
+        <!-- Window-specific styles (outside shared markers) -->
+        <Style x:Key="HiddenTabItem" TargetType="TabItem">
+            <Setter Property="Visibility" Value="Collapsed"/>
+        </Style>
   </Window.Resources>
 
   
   <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
 <Grid Background="White">
     <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
@@ -1098,7 +1105,7 @@
             <StackPanel Grid.Column="0" Orientation="Vertical" Margin="22,0,0,0" VerticalAlignment="Center"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                 <TextBlock Text="Background Theme" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                <TextBlock Text="Background Theme" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
+                <TextBlock Text="Canvas colour · 3D gradient · Revit UI theme" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0"
@@ -1123,99 +1130,358 @@
             <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="3"/>
         </Grid>
 
-    <!-- Body -->
-    <Border Grid.Row="1" Padding="16">
-      <StackPanel>
-
-        <TextBlock Text="Presets" Foreground="#0F172A"
-                   FontWeight="SemiBold" Margin="0,0,0,4"/>
-        <UniformGrid x:Name="PresetGrid" Columns="3" Margin="0,0,0,12"/>
-
-        <Border BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Margin="0,0,0,10"/>
-
-        <TextBlock Text="Fine-tune (RGB)" Foreground="#0F172A"
-                   FontWeight="SemiBold" Margin="0,0,0,4"/>
-
-        <Grid Margin="0,0,0,4">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="20"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="40"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="R" Foreground="#0F172A"
-                     VerticalAlignment="Center" FontWeight="Bold"/>
-          <Slider x:Name="SliderR" Grid.Column="1" Minimum="0" Maximum="255"
-                  Style="{StaticResource T3Slider}" VerticalAlignment="Center"/>
-          <TextBlock x:Name="LblR" Grid.Column="2" Text="0" Foreground="#0F172A"
-                     HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        </Grid>
-
-        <Grid Margin="0,0,0,4">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="20"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="40"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="G" Foreground="#0F172A"
-                     VerticalAlignment="Center" FontWeight="Bold"/>
-          <Slider x:Name="SliderG" Grid.Column="1" Minimum="0" Maximum="255"
-                  Style="{StaticResource T3Slider}" VerticalAlignment="Center"/>
-          <TextBlock x:Name="LblG" Grid.Column="2" Text="0" Foreground="#0F172A"
-                     HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        </Grid>
-
-        <Grid Margin="0,0,0,10">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="20"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="40"/>
-          </Grid.ColumnDefinitions>
-          <TextBlock Grid.Column="0" Text="B" Foreground="#0F172A"
-                     VerticalAlignment="Center" FontWeight="Bold"/>
-          <Slider x:Name="SliderB" Grid.Column="1" Minimum="0" Maximum="255"
-                  Style="{StaticResource T3Slider}" VerticalAlignment="Center"/>
-          <TextBlock x:Name="LblB" Grid.Column="2" Text="0" Foreground="#0F172A"
-                     HorizontalAlignment="Right" VerticalAlignment="Center"/>
-        </Grid>
-
-        <Grid Margin="0,0,0,10">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="120"/>
-          </Grid.ColumnDefinitions>
-
-          <StackPanel Grid.Column="0" Orientation="Horizontal"
-                      VerticalAlignment="Center">
-            <TextBlock Text="HEX" Foreground="#0F172A"
-                       FontWeight="SemiBold" VerticalAlignment="Center"
-                       Margin="0,0,8,0"/>
-            <TextBox x:Name="HexBox" Width="90" Height="30" Style="{StaticResource T3InputField}"
-                      VerticalContentAlignment="Center" Text="#000000"/>
-            <Button x:Name="HexApply" Content="Set" Style="{StaticResource SecondaryButton}"
-                     Padding="8,2" Margin="6,0,0,0" Height="28"/>
-          </StackPanel>
-
-          <Border Grid.Column="1" x:Name="PreviewBox" Height="46" Background="White"
-                  BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6">
-            <TextBlock x:Name="PreviewLbl" Text="Preview" Foreground="#0F172A"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       FontSize="10" FontWeight="SemiBold"/>
-          </Border>
-        </Grid>
-
-      </StackPanel>
+    <!-- Tab pills -->
+    <Border Grid.Row="1" Background="White" Padding="16,12,16,0">
+      <Border Background="#F4F4F6" CornerRadius="14" Padding="4" HorizontalAlignment="Left">
+        <StackPanel Orientation="Horizontal">
+          <RadioButton x:Name="TabModel" Content="Model Background"
+                       Style="{StaticResource TabPillRadioButton}" IsChecked="True"/>
+          <RadioButton x:Name="Tab3D" Content="3D Gradient"
+                       Style="{StaticResource TabPillRadioButton}" Margin="4,0,0,0"/>
+          <RadioButton x:Name="TabTheme" Content="Revit UI Theme"
+                       Style="{StaticResource TabPillRadioButton}" Margin="4,0,0,0"/>
+        </StackPanel>
+      </Border>
     </Border>
 
+    <!-- Body -->
+    <TabControl Grid.Row="2" x:Name="MainTabs" BorderThickness="0" Background="White" Padding="0"
+                ItemContainerStyle="{StaticResource HiddenTabItem}">
+
+      <!-- ═══ TAB 1 — MODEL BACKGROUND ═══ -->
+      <TabItem>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="16,12,16,16">
+
+            <!-- HSV picker -->
+            <Grid Height="172" Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="140"/>
+              </Grid.ColumnDefinitions>
+
+              <!-- Saturation / Value square -->
+              <Border x:Name="SvBase" Grid.Column="0" Background="#FF0000" CornerRadius="10">
+                <Grid>
+                  <Border CornerRadius="10">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#FFFFFFFF" Offset="0"/>
+                        <GradientStop Color="#00FFFFFF" Offset="1"/>
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border CornerRadius="10">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00000000" Offset="0"/>
+                        <GradientStop Color="#FF000000" Offset="1"/>
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Canvas x:Name="SvCanvas" Background="Transparent" Cursor="Cross">
+                    <Ellipse x:Name="SvThumb" Width="16" Height="16" Stroke="White" StrokeThickness="2.5"
+                             Fill="Transparent" IsHitTestVisible="False">
+                      <Ellipse.Effect>
+                        <DropShadowEffect ShadowDepth="0" BlurRadius="4" Color="Black" Opacity="0.6"/>
+                      </Ellipse.Effect>
+                    </Ellipse>
+                  </Canvas>
+                </Grid>
+              </Border>
+
+              <!-- Hue bar -->
+              <Border Grid.Column="1" Width="22" CornerRadius="8" Margin="12,0,12,0" Cursor="Hand">
+                <Border.Background>
+                  <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FF0000" Offset="0"/>
+                    <GradientStop Color="#FFFF00" Offset="0.17"/>
+                    <GradientStop Color="#00FF00" Offset="0.33"/>
+                    <GradientStop Color="#00FFFF" Offset="0.50"/>
+                    <GradientStop Color="#0000FF" Offset="0.67"/>
+                    <GradientStop Color="#FF00FF" Offset="0.83"/>
+                    <GradientStop Color="#FF0000" Offset="1"/>
+                  </LinearGradientBrush>
+                </Border.Background>
+                <Canvas x:Name="HueCanvas" Background="Transparent">
+                  <Border x:Name="HueThumb" Width="22" Height="7" CornerRadius="3.5"
+                          Background="Transparent" BorderBrush="White" BorderThickness="2"
+                          IsHitTestVisible="False">
+                    <Border.Effect>
+                      <DropShadowEffect ShadowDepth="0" BlurRadius="3" Color="Black" Opacity="0.6"/>
+                    </Border.Effect>
+                  </Border>
+                </Canvas>
+              </Border>
+
+              <!-- Preview + utilities -->
+              <StackPanel Grid.Column="2">
+                <Border x:Name="PreviewBox" Height="86" CornerRadius="10" Background="White"
+                        BorderBrush="#E6E6EA" BorderThickness="1">
+                  <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock x:Name="PreviewLbl" Text="#000000" FontSize="12.5" FontWeight="Bold"
+                               Foreground="#0F172A" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="PreviewLum" Text="" FontSize="10" Foreground="#71717A"
+                               HorizontalAlignment="Center" Margin="0,3,0,0"/>
+                  </StackPanel>
+                </Border>
+                <Button x:Name="BtnEyedrop" Style="{StaticResource SecondaryButton}" Margin="0,10,0,0"
+                        ToolTip="Pick a colour from anywhere on screen (Esc cancels)">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                               Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Pick Screen"/>
+                  </StackPanel>
+                </Button>
+                <Button x:Name="BtnCopyHex" Style="{StaticResource GhostButton}" Margin="0,6,0,0"
+                        ToolTip="Copy HEX value to clipboard">
+                  <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                               Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock Text="Copy HEX"/>
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Grid>
+
+            <!-- RGB sliders -->
+            <Grid Margin="0,0,0,4">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="40"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="R" Foreground="#0F172A"
+                         VerticalAlignment="Center" FontWeight="Bold"/>
+              <Slider x:Name="SliderR" Grid.Column="1" Minimum="0" Maximum="255"
+                      Style="{StaticResource T3Slider}" VerticalAlignment="Center"/>
+              <TextBlock x:Name="LblR" Grid.Column="2" Text="0" Foreground="#0F172A"
+                         HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,4">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="40"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="G" Foreground="#0F172A"
+                         VerticalAlignment="Center" FontWeight="Bold"/>
+              <Slider x:Name="SliderG" Grid.Column="1" Minimum="0" Maximum="255"
+                      Style="{StaticResource T3Slider}" VerticalAlignment="Center"/>
+              <TextBlock x:Name="LblG" Grid.Column="2" Text="0" Foreground="#0F172A"
+                         HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+
+            <Grid Margin="0,0,0,8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="40"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="B" Foreground="#0F172A"
+                         VerticalAlignment="Center" FontWeight="Bold"/>
+              <Slider x:Name="SliderB" Grid.Column="1" Minimum="0" Maximum="255"
+                      Style="{StaticResource T3Slider}" VerticalAlignment="Center"/>
+              <TextBlock x:Name="LblB" Grid.Column="2" Text="0" Foreground="#0F172A"
+                         HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- HEX + live apply -->
+            <Grid Margin="0,0,0,12">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="HEX" Foreground="#0F172A" FontWeight="SemiBold"
+                         VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBox x:Name="HexBox" Grid.Column="1" Width="96"
+                       Style="{StaticResource T3InputFieldSmall}" Text="#000000"/>
+              <Button x:Name="HexApply" Grid.Column="2" Content="Set" Width="52"
+                      Style="{StaticResource SecondaryButton}" Margin="6,0,0,0"/>
+              <CheckBox x:Name="LiveApply" Grid.Column="4" Style="{StaticResource T3ToggleSwitch}"
+                        Content="Live apply" FontSize="12.5" Padding="0,0,10,0"
+                        VerticalAlignment="Center"
+                        ToolTip="Apply to the Revit canvas while you adjust the colour"/>
+            </Grid>
+
+            <Border BorderBrush="#E6E6EA" BorderThickness="0,1,0,0" Margin="0,0,0,10"/>
+
+            <!-- Presets -->
+            <TextBlock Text="Presets" Foreground="#0F172A" FontWeight="SemiBold" Margin="0,0,0,4"/>
+            <UniformGrid x:Name="PresetGrid" Columns="3" Margin="0,0,0,10"/>
+
+            <Grid Margin="0,0,0,6">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="Save current as" Foreground="#3F3F46" FontSize="12"
+                         VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBox x:Name="PresetNameBox" Grid.Column="1"
+                       Style="{StaticResource T3InputFieldSmall}"/>
+              <Button x:Name="BtnSavePreset" Grid.Column="2" Content="Save Preset"
+                      Style="{StaticResource SecondaryButton}" Margin="6,0,0,0"/>
+            </Grid>
+            <WrapPanel x:Name="CustomPresetPanel" Margin="0,2,0,10"/>
+
+            <TextBlock Text="Recent" Foreground="#0F172A" FontWeight="SemiBold" Margin="0,0,0,6"/>
+            <WrapPanel x:Name="RecentPanel"/>
+
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ═══ TAB 2 — 3D GRADIENT BACKGROUND ═══ -->
+      <TabItem>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="16,12,16,16">
+
+            <Border Background="#F4F4F6" CornerRadius="10" Padding="12,9">
+              <TextBlock x:Name="View3DInfo" Text="—" FontSize="12" Foreground="#3F3F46"
+                         TextWrapping="Wrap"/>
+            </Border>
+
+            <Grid Margin="0,14,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <!-- Gradient preview -->
+              <Border x:Name="GradPreview" Grid.Column="0" Width="118" Height="150"
+                      CornerRadius="10" BorderBrush="#E6E6EA" BorderThickness="1"/>
+
+              <!-- Sky / Horizon / Ground rows -->
+              <StackPanel Grid.Column="1" Margin="16,4,0,0">
+                <Grid Margin="0,0,0,12">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="76"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="SkySwatch" Grid.Column="0" Width="40" Height="26" CornerRadius="7"
+                          BorderBrush="#D4D4DA" BorderThickness="1" Cursor="Hand"
+                          ToolTip="Click to load this colour into the picker"/>
+                  <TextBlock Grid.Column="1" Text="Sky" Foreground="#0F172A" FontWeight="SemiBold"
+                             VerticalAlignment="Center" Margin="10,0,0,0"/>
+                  <TextBlock x:Name="SkyHex" Grid.Column="2" Text="#000000" Foreground="#71717A"
+                             FontSize="11" VerticalAlignment="Center"/>
+                  <Button x:Name="SkyFromPicker" Grid.Column="3" Content="From picker"
+                          Style="{StaticResource GhostButton}"
+                          ToolTip="Use the colour currently selected in the Model Background picker"/>
+                </Grid>
+
+                <Grid Margin="0,0,0,12">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="76"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="HorizonSwatch" Grid.Column="0" Width="40" Height="26" CornerRadius="7"
+                          BorderBrush="#D4D4DA" BorderThickness="1" Cursor="Hand"
+                          ToolTip="Click to load this colour into the picker"/>
+                  <TextBlock Grid.Column="1" Text="Horizon" Foreground="#0F172A" FontWeight="SemiBold"
+                             VerticalAlignment="Center" Margin="10,0,0,0"/>
+                  <TextBlock x:Name="HorizonHex" Grid.Column="2" Text="#000000" Foreground="#71717A"
+                             FontSize="11" VerticalAlignment="Center"/>
+                  <Button x:Name="HorizonFromPicker" Grid.Column="3" Content="From picker"
+                          Style="{StaticResource GhostButton}"
+                          ToolTip="Use the colour currently selected in the Model Background picker"/>
+                </Grid>
+
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="76"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="GroundSwatch" Grid.Column="0" Width="40" Height="26" CornerRadius="7"
+                          BorderBrush="#D4D4DA" BorderThickness="1" Cursor="Hand"
+                          ToolTip="Click to load this colour into the picker"/>
+                  <TextBlock Grid.Column="1" Text="Ground" Foreground="#0F172A" FontWeight="SemiBold"
+                             VerticalAlignment="Center" Margin="10,0,0,0"/>
+                  <TextBlock x:Name="GroundHex" Grid.Column="2" Text="#000000" Foreground="#71717A"
+                             FontSize="11" VerticalAlignment="Center"/>
+                  <Button x:Name="GroundFromPicker" Grid.Column="3" Content="From picker"
+                          Style="{StaticResource GhostButton}"
+                          ToolTip="Use the colour currently selected in the Model Background picker"/>
+                </Grid>
+              </StackPanel>
+            </Grid>
+
+            <TextBlock Text="Gradient presets" Foreground="#0F172A" FontWeight="SemiBold"
+                       Margin="0,14,0,4"/>
+            <WrapPanel x:Name="GradPresetPanel"/>
+
+            <CheckBox x:Name="AllViews3D" Style="{StaticResource T3CheckBox}" FontSize="12.5"
+                      Content="Apply to all 3D views in the project" Margin="0,12,0,0"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+              <Button x:Name="BtnApplyGradient" Content="Apply Gradient" Width="130"
+                      Style="{StaticResource PrimaryButton}"/>
+              <Button x:Name="BtnClearBackground" Content="Clear Background" Width="130"
+                      Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"/>
+            </StackPanel>
+
+            <TextBlock FontSize="11" Foreground="#71717A" Margin="0,12,0,0" TextWrapping="Wrap"
+                       Text="The gradient is stored per 3D view (Graphic Display Options ▸ Background) and is independent of the app-wide model background colour."/>
+
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+      <!-- ═══ TAB 3 — REVIT UI THEME ═══ -->
+      <TabItem>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="16,12,16,16">
+
+            <Border Background="#F4F4F6" CornerRadius="10" Padding="12,9">
+              <TextBlock x:Name="ThemeInfo" Text="—" FontSize="12" Foreground="#3F3F46"
+                         TextWrapping="Wrap"/>
+            </Border>
+
+            <TextBlock x:Name="ThemeLbl" Text="Ribbon / UI theme" Foreground="#0F172A"
+                       FontWeight="SemiBold" Margin="0,16,0,6"/>
+            <StackPanel x:Name="ThemeBtnPanel" Orientation="Horizontal"/>
+
+            <TextBlock x:Name="CanvasLbl" Text="Canvas theme" Foreground="#0F172A"
+                       FontWeight="SemiBold" Margin="0,16,0,6"/>
+            <StackPanel x:Name="CanvasBtnPanel" Orientation="Horizontal"/>
+
+            <TextBlock x:Name="ThemeNote" FontSize="11" Foreground="#71717A" Margin="0,16,0,0"
+                       TextWrapping="Wrap"
+                       Text="UI theme switching uses the UIThemeManager API (Revit 2024+). Changes affect the whole Revit application immediately and are remembered by Revit itself."/>
+
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+
+    </TabControl>
+
     <!-- Action bar + footer -->
-    <Border Grid.Row="2" Background="#F4F4F6"
+    <Border Grid.Row="3" Background="#F4F4F6"
             BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
       <Grid>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-          <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B"/>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B"
+                     VerticalAlignment="Center"/>
+          <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0"
+                  VerticalAlignment="Center"/>
+          <TextBlock x:Name="status_text" Text="Ready" FontSize="11" Foreground="#64748B"
+                     VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal">
           <Button x:Name="BtnApply" Content="Apply" Style="{StaticResource PrimaryButton}" Margin="0,0,8,0" Width="80"/>

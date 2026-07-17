@@ -20,6 +20,7 @@ import os
 import sys
 import clr
 import re
+import math
 
 clr.AddReference('PresentationFramework')
 clr.AddReference('PresentationCore')
@@ -70,6 +71,10 @@ if lib_dir not in sys.path:
 
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'SheetGen.xaml')
 
+# Printable margin inside the title block (~20 mm), shared by the layout
+# preview and the real viewport placement so they can never drift apart.
+SHEET_MARGIN_FT = 0.066
+
 
 # ╔═╗╦  ╔═╗╔═╗╔═╗╔═╗╔═╗
 # ║  ║  ╠═╣╚═╗╚═╗║╣ ╚═╗
@@ -114,10 +119,12 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         self._all_rooms = []
         self._first_sheet = None
         self._generated_sheets = []
+        self._tb_size_cache = {}  # titleblock type id -> (w, h) feet
         self._load_rooms()
         self._load_view_templates()
         self._load_plan_type_options()
         self._load_title_blocks()
+        self.cmb_strip_side.SelectedIndex = 0  # default: right (vertical) strip
         self._update_status()
         self._update_mockup()
 
@@ -358,18 +365,16 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             pass
         return wall_ids
 
-    def _create_interior_elevation_view(self, marker, host_plan, idx, directions,
-                                         room_item, cropbox_visible, max_dim,
+    def _create_interior_elevation_view(self, marker, host_plan, idx,
+                                         cropbox_visible, max_dim,
                                          offset, elev_template_id):
-        """Create and configure one elevation view at the given marker index."""
+        """Create and configure one elevation view at the given marker index.
+
+        Naming is deferred to _finalize_elevation_name so the multi-marker
+        fallback can rotate its marker into position first - direction labels
+        are read from the real ViewDirection, not the marker index.
+        """
         ev = marker.CreateElevation(doc, host_plan.Id, idx)
-        try:
-            base_name = "INTERIOR ELEV - {} - {} ({})".format(
-                room_item.Name, directions[idx], room_item.Number
-            )
-            ev.Name = self._unique_view_name(base_name, ev.ViewType)
-        except Exception:
-            pass
         ev.CropBoxActive  = True
         ev.CropBoxVisible = cropbox_visible
         p_far = ev.get_Parameter(DB.BuiltInParameter.VIEWER_BOUND_FAR_CLIPPING)
@@ -381,6 +386,139 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         if elev_template_id:
             ev.ViewTemplateId = elev_template_id
         return ev
+
+    @staticmethod
+    def _direction_label(view):
+        """Direction label from the elevation's actual ViewDirection.
+
+        Marker index order (0..3 = S/W/N/E) is not guaranteed by the API, and
+        the multi-marker fallback always hosts at index 0 - so derive the
+        label from where the view really looks. ViewDirection points from the
+        model toward the viewer: a view of the north wall looks +Y and
+        reports -Y.
+        """
+        try:
+            d = view.ViewDirection
+            if abs(d.Y) >= abs(d.X):
+                return "North" if d.Y < 0 else "South"
+            return "East" if d.X < 0 else "West"
+        except Exception:
+            return "View"
+
+    def _finalize_elevation_name(self, ev, room_item):
+        """Name an elevation from its ViewDirection.
+
+        Call only after the hosting marker has its final orientation (i.e.
+        after the fallback rotation) and after a Regenerate.
+        """
+        label = self._direction_label(ev)
+        try:
+            d = ev.ViewDirection
+            logger.debug(
+                "Room {}: elevation ViewDirection=({:.2f}, {:.2f}, {:.2f})"
+                " -> '{}'".format(room_item.Number, d.X, d.Y, d.Z, label))
+        except Exception:
+            pass
+        try:
+            base_name = "INTERIOR ELEV - {} - {} ({})".format(
+                room_item.Name, label, room_item.Number)
+            ev.Name = self._unique_view_name(base_name, ev.ViewType)
+        except Exception:
+            pass
+        return label
+
+    @staticmethod
+    def _view_type_name(vt):
+        """Type name of a ViewFamilyType, defensively."""
+        try:
+            p = vt.get_Parameter(DB.BuiltInParameter.SYMBOL_NAME_PARAM)
+            name = p.AsString() if p else None
+            if name:
+                return name
+        except Exception:
+            pass
+        try:
+            return vt.Name
+        except Exception:
+            return str(vt.Id)
+
+    def _resolve_elevation_type(self):
+        """Pick the elevation ViewFamilyType whose marker hosts the most views.
+
+        The first-found Elevation type may map to a single-slot marker body
+        (Snowdon: 'Building Elevation' hosts only 1) - CreateElevation on
+        index 1..3 then throws "index is occupied or out of range". Capacity
+        is an instance property (ElevationMarker.MaximumViewCount), so probe
+        each type with a temp marker inside a rolled-back transaction.
+        Prefers capacity >= 4 with 'interior' in the name, then any capacity
+        >= 4, then the largest capacity. Cached per Create run.
+
+        Returns (type_id, type_name, capacity).
+        """
+        if getattr(self, '_resolved_elev_type', None):
+            return self._resolved_elev_type
+
+        candidates = []
+        view_types = FilteredElementCollector(doc) \
+            .OfClass(ViewFamilyType) \
+            .WhereElementIsElementType() \
+            .ToElements()
+        elev_types = [vt for vt in view_types
+                      if vt.ViewFamily == ViewFamily.Elevation]
+
+        probe = Transaction(doc, "Probe Elevation Marker Capacity")
+        try:
+            probe.Start()
+            for vt in elev_types:
+                name = self._view_type_name(vt)
+                try:
+                    m = ElevationMarker.CreateElevationMarker(
+                        doc, vt.Id, XYZ(0, 0, 0), 50)
+                    candidates.append((vt.Id, name, m.MaximumViewCount))
+                    logger.debug("Elevation type '{}' -> marker capacity {}"
+                                 .format(name, m.MaximumViewCount))
+                except Exception as ex:
+                    logger.debug("Elevation type '{}' probe failed: {}"
+                                 .format(name, ex))
+        except Exception as ex:
+            logger.debug("Elevation capacity probe failed: {}".format(ex))
+        finally:
+            try:
+                if probe.HasStarted():
+                    probe.RollBack()
+            except Exception:
+                pass
+
+        if candidates:
+            best = max(candidates, key=lambda c: (
+                c[2] >= 4,
+                "INTERIOR" in c[1].upper() if c[2] >= 4 else False,
+                c[2]))
+            self._resolved_elev_type = best
+        else:
+            # Probe found nothing usable - keep the first-found type and
+            # assume a single-slot marker (the safe fallback path).
+            self._resolved_elev_type = (
+                self._elevation_type_id, "<first found>", 1)
+        logger.debug("Resolved elevation type: '{}' (capacity {})".format(
+            self._resolved_elev_type[1], self._resolved_elev_type[2]))
+        return self._resolved_elev_type
+
+    def _log_marker_debug(self, marker, type_name):
+        """Debug-log marker capacity and slot availability."""
+        try:
+            cap = marker.MaximumViewCount
+        except Exception:
+            cap = "?"
+        states = []
+        for idx in range(4):
+            try:
+                states.append("{}={}".format(idx, marker.IsAvailableIndex(idx)))
+            except Exception as ex:
+                states.append("{}=err({})".format(idx, ex))
+        logger.debug(
+            "Elevation marker (type '{}'): MaximumViewCount={}, "
+            "IsAvailableIndex[{}]".format(type_name, cap, ", ".join(states)))
 
     # ── Window chrome handlers ────────────────────────
     def minimize_button_clicked(self, sender, e):
@@ -527,21 +665,159 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         except Exception:
             return 50
 
+    def _get_titleblock_size(self, tb_id):
+        """Real paper size (w, h) in feet for a title block type.
+
+        SHEET_WIDTH/SHEET_HEIGHT only exist on placed instances (verified:
+        the FJX/WH custom families expose nothing on the type), so probe by
+        creating a temp sheet inside a rolled-back transaction. Cached per
+        type so each title block is probed at most once per window.
+        """
+        if tb_id in self._tb_size_cache:
+            return self._tb_size_cache[tb_id]
+        size = None
+        t = Transaction(doc, "Probe Title Block Size")
+        try:
+            t.Start()
+            sheet = ViewSheet.Create(doc, tb_id)
+            doc.Regenerate()
+            inst = FilteredElementCollector(doc, sheet.Id) \
+                .OfCategory(BuiltInCategory.OST_TitleBlocks) \
+                .FirstElement()
+            if inst:
+                pw = inst.get_Parameter(DB.BuiltInParameter.SHEET_WIDTH)
+                ph = inst.get_Parameter(DB.BuiltInParameter.SHEET_HEIGHT)
+                if pw and ph and pw.AsDouble() > 0 and ph.AsDouble() > 0:
+                    size = (pw.AsDouble(), ph.AsDouble())
+                else:
+                    bb = inst.get_BoundingBox(sheet)
+                    if bb:
+                        w = bb.Max.X - bb.Min.X
+                        h = bb.Max.Y - bb.Min.Y
+                        if w > 0 and h > 0:
+                            size = (w, h)
+        except Exception as ex:
+            logger.debug("Title block size probe failed: {}".format(ex))
+        finally:
+            try:
+                if t.HasStarted():
+                    t.RollBack()
+            except Exception:
+                pass
+        if not size:
+            size = (2.759, 1.949)  # A1 fallback
+            logger.debug("Title block size probe empty - falling back to A1")
+        self._tb_size_cache[tb_id] = size
+        return size
+
     def _get_preview_sheet_size(self):
-        """Estimate sheet dimensions (width, height) in feet from the selected title block."""
-        if not hasattr(self, 'cmb_titleblock') or self.cmb_titleblock.SelectedItem is None:
-            return 2.759, 1.949
-        tb_name = str(self.cmb_titleblock.SelectedItem).upper()
-        if "A0" in tb_name:
-            return 3.901, 2.759
-        elif "A2" in tb_name:
-            return 1.949, 1.378
-        elif "A3" in tb_name:
-            return 1.378, 0.974
-        elif "A4" in tb_name:
-            return 0.974, 0.689
-        else: # Default A1: 841x594 mm = 2.759 x 1.949 ft
-            return 2.759, 1.949
+        """Sheet dimensions (w, h) in feet of the selected title block."""
+        try:
+            tb_name = self.cmb_titleblock.SelectedItem
+            tb_id = self._titleblock_map.get(tb_name) if tb_name else None
+        except Exception:
+            tb_id = None
+        if tb_id:
+            return self._get_titleblock_size(tb_id)
+        return 2.759, 1.949  # A1 default before title blocks are loaded
+
+    def _get_strip_config(self):
+        """Title-block header strip: ('right'|'bottom'|'none', size in feet)."""
+        side = 'right'
+        try:
+            idx = self.cmb_strip_side.SelectedIndex
+            if 0 <= idx <= 2:
+                side = ('right', 'bottom', 'none')[idx]
+        except Exception:
+            pass
+        try:
+            mm = float(self.txt_strip_mm.Text)
+        except (ValueError, TypeError):
+            mm = 70.0
+        if mm < 0:
+            mm = 0.0
+        return side, mm / 304.8
+
+    @staticmethod
+    def _usable_rect(x0, y0, w, h, margin, strip_side, strip):
+        """Printable rect (x0, y0, w, h) inside a sheet after the margin and
+        the title-block header strip (vertical right / horizontal bottom)."""
+        ux0 = x0 + margin
+        uy0 = y0 + margin
+        uw = w - 2.0 * margin
+        uh = h - 2.0 * margin
+        if strip_side == 'right':
+            uw -= strip
+        elif strip_side == 'bottom':
+            uy0 += strip
+            uh -= strip
+        if uw < 0.1:
+            uw = 0.1
+        if uh < 0.1:
+            uh = 0.1
+        return ux0, uy0, uw, uh
+
+    @staticmethod
+    def _clamp_center(cx, cy, w_paper, h_paper, usable):
+        """Clamp a box center so the whole box stays inside the usable rect.
+        Returns (cx, cy, fits) - fits is False when the box is larger than
+        the rect (it then gets centered so the spill is symmetric)."""
+        ux0, uy0, uw, uh = usable
+        fits = True
+        if w_paper >= uw:
+            cx = ux0 + uw / 2.0
+            fits = False
+        else:
+            cx = min(max(cx, ux0 + w_paper / 2.0), ux0 + uw - w_paper / 2.0)
+        if h_paper >= uh:
+            cy = uy0 + uh / 2.0
+            fits = False
+        else:
+            cy = min(max(cy, uy0 + h_paper / 2.0), uy0 + uh - h_paper / 2.0)
+        return cx, cy, fits
+
+    @staticmethod
+    def _slot_centers(usable, plan_count, combined):
+        """Viewport slot centers inside a usable rect.
+
+        Single source of geometry for BOTH the preview mockup and the real
+        placement, so what the user sees is what gets created.
+        Returns (plan_centers, elev_centers) as (x, y) sheet-feet tuples.
+        """
+        ux0, uy0, uw, uh = usable
+        plans, elevs = [], []
+        if combined:
+            px = ux0 + uw * 0.225  # middle of the left 45% plan zone
+            if plan_count == 1:
+                plans.append((px, uy0 + uh * 0.5))
+            elif plan_count >= 2:
+                plans.append((px, uy0 + uh * 0.72))
+                plans.append((px, uy0 + uh * 0.28))
+            for fx, fy in ((0.625, 0.75), (0.875, 0.75),
+                           (0.625, 0.25), (0.875, 0.25)):
+                elevs.append((ux0 + uw * fx, uy0 + uh * fy))
+        else:
+            if plan_count == 1:
+                plans.append((ux0 + uw * 0.5, uy0 + uh * 0.5))
+            elif plan_count >= 2:
+                plans.append((ux0 + uw * 0.5, uy0 + uh * 0.70))
+                plans.append((ux0 + uw * 0.5, uy0 + uh * 0.28))
+            for fx, fy in ((0.25, 0.75), (0.75, 0.75),
+                           (0.25, 0.25), (0.75, 0.25)):
+                elevs.append((ux0 + uw * fx, uy0 + uh * fy))
+        return plans, elevs
+
+    @staticmethod
+    def _paper_label(w_ft, h_ft):
+        """Human label for a paper size, e.g. 'A1 (841 x 594 mm)'."""
+        w_mm = int(round(w_ft * 304.8))
+        h_mm = int(round(h_ft * 304.8))
+        iso = ((1189, 841, "A0"), (841, 594, "A1"), (594, 420, "A2"),
+               (420, 297, "A3"), (297, 210, "A4"))
+        for iw, ih, name in iso:
+            if abs(w_mm - iw) <= 6 and abs(h_mm - ih) <= 6:
+                return "{}  ({} x {} mm)".format(name, w_mm, h_mm)
+        return "{} x {} mm".format(w_mm, h_mm)
 
     def _draw_viewport(self, canvas, title, detail_num, w_px, h_px, x_px, y_px, bg_color, border_color):
         """Draw a viewport rectangle and Revit-style title mark on the WPF canvas."""
@@ -600,21 +876,62 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         Canvas.SetTop(title_text, line_y + 2)
         canvas.Children.Add(title_text)
 
-    def _draw_viewport_to_canvas(self, canvas, title, detail_num, w_paper, h_paper, cx_sheet, cy_sheet, w_sheet, h_sheet, mockup_w, mockup_h, left_margin, top_margin, bg_color, border_color):
-        """Map sheet coordinates to canvas coordinates and draw the viewport."""
-        x_sheet_left = cx_sheet - w_paper / 2.0
-        y_sheet_top = cy_sheet + h_paper / 2.0
-        
-        x_px = x_sheet_left * (float(mockup_w) / w_sheet) - left_margin
-        y_px = float(mockup_h) - y_sheet_top * (float(mockup_h) / h_sheet) - top_margin
-        
-        w_px = w_paper * (float(mockup_w) / w_sheet)
-        h_px = h_paper * (float(mockup_h) / h_sheet)
-        
+    def _setup_sheet_canvas(self, border, canvas, w_sheet, h_sheet,
+                            max_w, max_h, strip_side, strip_ft):
+        """Size the mockup sheet to the true paper aspect ratio, draw the
+        header strip band and the paper-size label. Returns px-per-foot."""
+        scale_px = min(max_w / w_sheet, max_h / h_sheet)
+        border.Width = w_sheet * scale_px
+        border.Height = h_sheet * scale_px
+
+        if strip_side != 'none' and strip_ft > 0:
+            band = Border()
+            band.Background = SolidColorBrush(Color.FromRgb(0xF8, 0xFA, 0xFC))
+            band.BorderBrush = SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1))
+            if strip_side == 'right':
+                band.Width = strip_ft * scale_px
+                band.Height = h_sheet * scale_px
+                band.BorderThickness = Thickness(1, 0, 0, 0)
+                Canvas.SetLeft(band, (w_sheet - strip_ft) * scale_px)
+                Canvas.SetTop(band, 0)
+            else:  # bottom
+                band.Width = w_sheet * scale_px
+                band.Height = strip_ft * scale_px
+                band.BorderThickness = Thickness(0, 1, 0, 0)
+                Canvas.SetLeft(band, 0)
+                Canvas.SetTop(band, (h_sheet - strip_ft) * scale_px)
+            canvas.Children.Add(band)
+
+        lbl = TextBlock()
+        lbl.Text = self._paper_label(w_sheet, h_sheet)
+        lbl.FontSize = 9
+        lbl.FontWeight = FontWeights.Bold
+        lbl.Foreground = SolidColorBrush(Color.FromRgb(0x94, 0xA3, 0xB8))
+        Canvas.SetLeft(lbl, 6)
+        Canvas.SetTop(lbl, 4)
+        canvas.Children.Add(lbl)
+        return scale_px
+
+    def _draw_viewport_to_canvas(self, canvas, title, detail_num, w_paper, h_paper,
+                                 cx, cy, h_sheet, scale_px, fits,
+                                 bg_color, border_color):
+        """Map sheet feet (origin bottom-left) to canvas px (origin top-left)
+        and draw the viewport. Boxes that overflow the usable area are
+        outlined in red."""
+        if not fits:
+            border_color = Color.FromRgb(0xEF, 0x44, 0x44)
+        x_px = (cx - w_paper / 2.0) * scale_px
+        y_px = (h_sheet - (cy + h_paper / 2.0)) * scale_px
+        w_px = w_paper * scale_px
+        h_px = h_paper * scale_px
         self._draw_viewport(canvas, title, detail_num, w_px, h_px, x_px, y_px, bg_color, border_color)
 
     def _update_mockup(self):
         """Update the real-time layout mockup based on current settings and selected room."""
+        # _all_rooms is only set after LoadComponent returns - events fired
+        # while the XAML is still parsing must not reach the drawing code.
+        if not hasattr(self, "_all_rooms"):
+            return
         if not hasattr(self, "combined_canvas") or self.combined_canvas is None:
             return
         
@@ -655,14 +972,12 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         w_elev_s_n_paper = (w_room + 2.0 * offset) / elev_scale
         w_elev_w_e_paper = (h_room + 2.0 * offset) / elev_scale
 
-        # 5. Sheet printable dimension (in feet)
+        # 5. Real sheet size from the selected title block + usable area
+        #    (same helpers the actual placement uses, so preview == result)
         w_sheet, h_sheet = self._get_preview_sheet_size()
-
-        # Usable boundaries inside sheet space
-        margin = 0.066
-        tb_strip = 0.164
-        usable_h = h_sheet - margin - tb_strip
-        baseline = tb_strip + margin / 2.0
+        strip_side, strip_ft = self._get_strip_config()
+        usable = self._usable_rect(0.0, 0.0, w_sheet, h_sheet,
+                                   SHEET_MARGIN_FT, strip_side, strip_ft)
 
         # Colors
         color_plan_bg = Color.FromRgb(0xEF, 0xF6, 0xFF)
@@ -674,77 +989,73 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         color_elev_bg = Color.FromRgb(0xFF, 0xFB, 0xEB)
         color_elev_border = Color.FromRgb(0xD9, 0x77, 0x06)
 
-        # 6. Draw Combined Canvas
+        plan_views = []
+        if do_floor:
+            plan_views.append(("Floor Plan", w_floor_paper, h_floor_paper,
+                               color_plan_bg, color_plan_border))
+        if do_ceiling:
+            plan_views.append(("Ceiling Plan", w_rcp_paper, h_rcp_paper,
+                               color_rcp_bg, color_rcp_border))
+        elev_specs = [
+            ("Elevation 1", w_elev_s_n_paper, h_elev_paper),
+            ("Elevation 2", w_elev_w_e_paper, h_elev_paper),
+            ("Elevation 3", w_elev_s_n_paper, h_elev_paper),
+            ("Elevation 4", w_elev_w_e_paper, h_elev_paper),
+        ]
+
+        # 6. Draw Combined Canvas (one sheet per room)
         if bool(self.rdo_layout_combined.IsChecked):
-            plan_zone_w = w_sheet * 0.45
-            plan_views = []
-            if do_floor:
-                plan_views.append(("Floor Plan", w_floor_paper, h_floor_paper, color_plan_bg, color_plan_border))
-            if do_ceiling:
-                plan_views.append(("Ceiling Plan", w_rcp_paper, h_rcp_paper, color_rcp_bg, color_rcp_border))
-
-            # Draw plans
-            if len(plan_views) == 1:
-                title, wp, hp, bg, border = plan_views[0]
-                cx, cy = plan_zone_w / 2.0 + margin, baseline + usable_h / 2.0
-                self._draw_viewport_to_canvas(self.combined_canvas, title, "1", wp, hp, cx, cy, w_sheet, h_sheet, 580, 380, 16, 16, bg, border)
-            elif len(plan_views) >= 2:
-                # Floor Plan
-                title, wp, hp, bg, border = plan_views[0]
-                cx, cy = plan_zone_w / 2.0 + margin, baseline + usable_h * 0.72
-                self._draw_viewport_to_canvas(self.combined_canvas, title, "1", wp, hp, cx, cy, w_sheet, h_sheet, 580, 380, 16, 16, bg, border)
-                # Ceiling Plan
-                title, wp, hp, bg, border = plan_views[1]
-                cx, cy = plan_zone_w / 2.0 + margin, baseline + usable_h * 0.28
-                self._draw_viewport_to_canvas(self.combined_canvas, title, "2", wp, hp, cx, cy, w_sheet, h_sheet, 580, 380, 16, 16, bg, border)
-
-            # Draw elevations on right half (2x2 grid)
+            scale_px = self._setup_sheet_canvas(
+                self.CombinedSheetMockup, self.combined_canvas,
+                w_sheet, h_sheet, 580.0, 380.0, strip_side, strip_ft)
+            plan_centers, elev_centers = self._slot_centers(
+                usable, len(plan_views), True)
+            num = 1
+            for spec, center in zip(plan_views, plan_centers):
+                title, wp, hp, bg, bcol = spec
+                cx, cy, fits = self._clamp_center(center[0], center[1], wp, hp, usable)
+                self._draw_viewport_to_canvas(
+                    self.combined_canvas, title, str(num), wp, hp, cx, cy,
+                    h_sheet, scale_px, fits, bg, bcol)
+                num += 1
             if do_elevations:
-                right_x = w_sheet * 0.5
-                elev_zone_w = w_sheet - right_x - margin
-                elev_zone_h = usable_h
-                positions = [
-                    ("Elevation South", w_elev_s_n_paper, h_elev_paper, right_x + elev_zone_w * 0.25, baseline + elev_zone_h * 0.75, "3"),
-                    ("Elevation West", w_elev_w_e_paper, h_elev_paper, right_x + elev_zone_w * 0.75, baseline + elev_zone_h * 0.75, "4"),
-                    ("Elevation North", w_elev_s_n_paper, h_elev_paper, right_x + elev_zone_w * 0.25, baseline + elev_zone_h * 0.25, "5"),
-                    ("Elevation East", w_elev_w_e_paper, h_elev_paper, right_x + elev_zone_w * 0.75, baseline + elev_zone_h * 0.25, "6"),
-                ]
-                for title, wp, hp, cx, cy, num in positions:
-                    self._draw_viewport_to_canvas(self.combined_canvas, title, num, wp, hp, cx, cy, w_sheet, h_sheet, 580, 380, 16, 16, color_elev_bg, color_elev_border)
+                for spec, center in zip(elev_specs, elev_centers):
+                    title, wp, hp = spec
+                    cx, cy, fits = self._clamp_center(center[0], center[1], wp, hp, usable)
+                    self._draw_viewport_to_canvas(
+                        self.combined_canvas, title, str(num), wp, hp, cx, cy,
+                        h_sheet, scale_px, fits, color_elev_bg, color_elev_border)
+                    num += 1
 
-        # 7. Draw Separate Canvas (Plans and Elevations on separate sheets)
+        # 7. Draw Separate Canvases (plans sheet + elevations sheet)
         else:
-            # Sheet 1: Plans
-            plan_views = []
-            if do_floor:
-                plan_views.append(("Floor Plan", w_floor_paper, h_floor_paper, color_plan_bg, color_plan_border))
-            if do_ceiling:
-                plan_views.append(("Ceiling Plan", w_rcp_paper, h_rcp_paper, color_rcp_bg, color_rcp_border))
-
-            if len(plan_views) == 1:
-                title, wp, hp, bg, border = plan_views[0]
-                cx, cy = w_sheet / 2.0, baseline + usable_h / 2.0
-                self._draw_viewport_to_canvas(self.plans_canvas, title, "1", wp, hp, cx, cy, w_sheet, h_sheet, 300, 200, 8, 8, bg, border)
-            elif len(plan_views) >= 2:
-                # Floor Plan
-                title, wp, hp, bg, border = plan_views[0]
-                cx, cy = w_sheet / 2.0, baseline + usable_h * 0.70
-                self._draw_viewport_to_canvas(self.plans_canvas, title, "1", wp, hp, cx, cy, w_sheet, h_sheet, 300, 200, 8, 8, bg, border)
-                # Ceiling Plan
-                title, wp, hp, bg, border = plan_views[1]
-                cx, cy = w_sheet / 2.0, baseline + usable_h * 0.28
-                self._draw_viewport_to_canvas(self.plans_canvas, title, "2", wp, hp, cx, cy, w_sheet, h_sheet, 300, 200, 8, 8, bg, border)
-
-            # Sheet 2: Elevations (2x2 grid)
+            if plan_views:
+                scale_px = self._setup_sheet_canvas(
+                    self.PlansSheetMockup, self.plans_canvas,
+                    w_sheet, h_sheet, 300.0, 200.0, strip_side, strip_ft)
+                plan_centers, _unused = self._slot_centers(
+                    usable, len(plan_views), False)
+                num = 1
+                for spec, center in zip(plan_views, plan_centers):
+                    title, wp, hp, bg, bcol = spec
+                    cx, cy, fits = self._clamp_center(center[0], center[1], wp, hp, usable)
+                    self._draw_viewport_to_canvas(
+                        self.plans_canvas, title, str(num), wp, hp, cx, cy,
+                        h_sheet, scale_px, fits, bg, bcol)
+                    num += 1
             if do_elevations:
-                positions = [
-                    ("Elevation South", w_elev_s_n_paper, h_elev_paper, w_sheet * 0.25, baseline + usable_h * 0.75, "1"),
-                    ("Elevation West", w_elev_w_e_paper, h_elev_paper, w_sheet * 0.75, baseline + usable_h * 0.75, "2"),
-                    ("Elevation North", w_elev_s_n_paper, h_elev_paper, w_sheet * 0.25, baseline + usable_h * 0.25, "3"),
-                    ("Elevation East", w_elev_w_e_paper, h_elev_paper, w_sheet * 0.75, baseline + usable_h * 0.25, "4"),
-                ]
-                for title, wp, hp, cx, cy, num in positions:
-                    self._draw_viewport_to_canvas(self.elevations_canvas, title, num, wp, hp, cx, cy, w_sheet, h_sheet, 300, 200, 8, 8, color_elev_bg, color_elev_border)
+                scale_px = self._setup_sheet_canvas(
+                    self.ElevationsSheetMockup, self.elevations_canvas,
+                    w_sheet, h_sheet, 300.0, 200.0, strip_side, strip_ft)
+                _unused, elev_centers = self._slot_centers(usable, 0, False)
+                num = 1
+                for spec, center in zip(elev_specs, elev_centers):
+                    title, wp, hp = spec
+                    cx, cy, fits = self._clamp_center(center[0], center[1], wp, hp, usable)
+                    self._draw_viewport_to_canvas(
+                        self.elevations_canvas, title, str(num), wp, hp, cx, cy,
+                        h_sheet, scale_px, fits, color_elev_bg, color_elev_border)
+                    num += 1
 
     def open_sheet_clicked(self, sender, e):
         """Activate the selected generated sheet in Revit."""
@@ -833,6 +1144,8 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             p = sh.get_Parameter(DB.BuiltInParameter.SHEET_NUMBER)
             if p:
                 self._used_sheet_numbers.add(p.AsString())
+        # Re-probe elevation marker capacity each run (model may change)
+        self._resolved_elev_type = None
 
         # Collect per-room results for sheet layout
         room_results = []  # list of dicts
@@ -927,44 +1240,100 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                         room_depth = room_bbox.Max.Y - room_bbox.Min.Y
                         max_dim    = max(room_width, room_depth) + offset * 2
 
+                        # A marker only hosts MaximumViewCount views - the
+                        # first-found type may host just 1 ('Building
+                        # Elevation' in Snowdon), making CreateElevation on
+                        # index 1..3 throw "index is occupied or out of
+                        # range". Resolve the most capable type once per run;
+                        # if nothing hosts 4, fall back to 4 single markers
+                        # rotated 90 degrees apart.
+                        elev_type_id, elev_type_name, elev_capacity = \
+                            self._resolve_elevation_type()
+                        use_fallback = elev_capacity < 4
+                        if use_fallback:
+                            logger.warning(
+                                "No elevation type with a 4-view marker in "
+                                "this model (best: '{}' hosts {}). Using 4 "
+                                "single markers rotated 90 degrees apart."
+                                .format(elev_type_name, elev_capacity))
+
                         with Transaction(doc, "Create Interior Elevations") as t:
                             t.Start()
-                            scale  = host_plan.Scale
-                            marker = ElevationMarker.CreateElevationMarker(
-                                doc, self._elevation_type_id, center, scale
-                            )
-                            doc.Regenerate()
-                            directions = ["South", "West", "North", "East"]
-
-                            # IsAvailableIndex() is not reliable as a
-                            # pre-filter across Revit versions: 2023 only
-                            # reports the other 3 heads after the first
-                            # elevation exists and the document regenerated,
-                            # while 2025 has been seen to keep returning
-                            # False even after that - skipping 3 of the 4
-                            # directions. On a freshly created marker every
-                            # index 0-3 is legitimately unused, so attempt
-                            # CreateElevation on each index directly and let
-                            # the API itself reject a slot; the real
-                            # exception message goes to the output window.
-                            for idx in range(4):
-                                try:
-                                    ev = self._create_interior_elevation_view(
-                                        marker, host_plan, idx, directions,
-                                        room_item, cropbox_visible, max_dim,
-                                        offset, elev_template_id)
-                                    result['elevations'].append(ev)
-                                    created_count += 1
-                                    doc.Regenerate()
-                                except Exception as ex:
-                                    error_count += 1
-                                    logger.error(
-                                        "Elevation {} (index {}) failed for "
-                                        "room {} [host plan: '{}']: "
-                                        "{}: {}".format(
-                                            directions[idx], idx,
-                                            room_item.Number, host_plan.Name,
-                                            type(ex).__name__, ex))
+                            scale = host_plan.Scale
+                            if not use_fallback:
+                                marker = ElevationMarker.CreateElevationMarker(
+                                    doc, elev_type_id, center, scale)
+                                doc.Regenerate()
+                                self._log_marker_debug(marker, elev_type_name)
+                                # IsAvailableIndex() is not reliable as a
+                                # pre-filter across Revit versions (2023/2025
+                                # report differently) - attempt CreateElevation
+                                # on each index and let the API reject a slot.
+                                for idx in range(4):
+                                    try:
+                                        ev = self._create_interior_elevation_view(
+                                            marker, host_plan, idx,
+                                            cropbox_visible, max_dim,
+                                            offset, elev_template_id)
+                                        doc.Regenerate()
+                                        self._finalize_elevation_name(ev, room_item)
+                                        result['elevations'].append(ev)
+                                        created_count += 1
+                                    except Exception as ex:
+                                        error_count += 1
+                                        logger.error(
+                                            "Elevation index {} failed for "
+                                            "room {} [host plan: '{}', type: "
+                                            "'{}', marker capacity: {}]: "
+                                            "{}: {}".format(
+                                                idx, room_item.Number,
+                                                host_plan.Name,
+                                                elev_type_name, elev_capacity,
+                                                type(ex).__name__, ex))
+                            else:
+                                # One marker per direction, hosted at index 0,
+                                # rotated into place about Z at the room center.
+                                z_axis_top = XYZ(center.X, center.Y, center.Z + 1.0)
+                                for i in range(4):
+                                    marker_i = None
+                                    try:
+                                        marker_i = ElevationMarker.CreateElevationMarker(
+                                            doc, elev_type_id, center, scale)
+                                        ev = self._create_interior_elevation_view(
+                                            marker_i, host_plan, 0,
+                                            cropbox_visible, max_dim,
+                                            offset, elev_template_id)
+                                        if i > 0:
+                                            axis = DB.Line.CreateBound(center, z_axis_top)
+                                            ElementTransformUtils.RotateElement(
+                                                doc, marker_i.Id, axis,
+                                                i * math.pi / 2.0)
+                                        doc.Regenerate()
+                                        self._finalize_elevation_name(ev, room_item)
+                                        result['elevations'].append(ev)
+                                        created_count += 1
+                                    except Exception as ex:
+                                        error_count += 1
+                                        logger.error(
+                                            "Fallback elevation {} of 4 failed "
+                                            "for room {} [host plan: '{}', "
+                                            "type: '{}']: {}: {}".format(
+                                                i + 1, room_item.Number,
+                                                host_plan.Name, elev_type_name,
+                                                type(ex).__name__, ex))
+                                        # Don't leave an empty marker behind
+                                        if marker_i is not None:
+                                            try:
+                                                doc.Delete(marker_i.Id)
+                                            except Exception:
+                                                pass
+                            logger.info(
+                                "Room {}: {}/4 interior elevations created "
+                                "(type='{}', capacity={}, fallback={})".format(
+                                    room_item.Number,
+                                    len(result['elevations']),
+                                    elev_type_name, elev_capacity,
+                                    "yes" if use_fallback else "no"))
                             if result['elevations']:
                                 t.Commit()
                             else:
@@ -1030,8 +1399,11 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             TaskDialog.Show("Create Room Plan", msg)
 
     # ── Sheet helpers ─────────────────────────────────
-    def _get_sheet_size(self, sheet):
-        """Return (width, height) of the title block in feet. Falls back to A1."""
+    def _get_sheet_rect(self, sheet):
+        """Return (x0, y0, width, height) of the title block on a sheet, in
+        feet. Uses the real bbox origin - title blocks are NOT guaranteed to
+        start at (0,0) (verified: FJX cover page bbox min is (349,-56) mm).
+        Falls back to A1 at the origin."""
         try:
             tb_elems = FilteredElementCollector(doc, sheet.Id) \
                 .OfCategory(BuiltInCategory.OST_TitleBlocks) \
@@ -1042,11 +1414,11 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                     w = bb.Max.X - bb.Min.X
                     h = bb.Max.Y - bb.Min.Y
                     if w > 0 and h > 0:
-                        return (w, h)
+                        return (bb.Min.X, bb.Min.Y, w, h)
         except Exception:
             pass
         # Default A1: 841x594 mm = 2.759 x 1.949 ft
-        return (2.759, 1.949)
+        return (0.0, 0.0, 2.759, 1.949)
 
     def _build_sheet_number(self, room_item, suffix=""):
         """Build a sheet number like EPL-101-P or EPL-101-E."""
@@ -1097,15 +1469,45 @@ class CreateRoomPlanWindow(forms.WPFWindow):
             t.Commit()
         return sheet
 
-    def _place_viewport_centered(self, sheet, view_id, cx, cy):
+    def _place_viewport_centered(self, sheet, view_id, cx, cy, usable=None):
         """
-        Place a viewport at (cx, cy) in sheet coordinates.
+        Place a viewport at (cx, cy) in sheet coordinates, then nudge it back
+        inside the usable rect (margins + title header strip) using its real
+        paper footprint - so view content can never sit on the title block
+        header, whether the strip is vertical or horizontal.
         Returns the Viewport element, or None on failure.
         """
         try:
             with Transaction(doc, "Place Viewport") as t:
                 t.Start()
                 vp = Viewport.Create(doc, sheet.Id, view_id, XYZ(cx, cy, 0))
+                if vp is not None and usable is not None:
+                    doc.Regenerate()
+                    try:
+                        box = vp.GetBoxOutline()
+                        w_p = box.MaximumPoint.X - box.MinimumPoint.X
+                        h_p = box.MaximumPoint.Y - box.MinimumPoint.Y
+                        bcx = (box.MaximumPoint.X + box.MinimumPoint.X) / 2.0
+                        bcy = (box.MaximumPoint.Y + box.MinimumPoint.Y) / 2.0
+                        nx, ny, fits = self._clamp_center(bcx, bcy, w_p, h_p, usable)
+                        if abs(nx - bcx) > 1e-6 or abs(ny - bcy) > 1e-6:
+                            vp.SetBoxCenter(XYZ(nx, ny, 0))
+                        if not fits:
+                            # Debug-level only (a warning here spams the
+                            # output window on every oversized view) - the
+                            # preview already flags this case with a red
+                            # outline before Create is clicked.
+                            view = doc.GetElement(view_id)
+                            logger.debug(
+                                "Viewport '{}' ({:.0f} x {:.0f} mm on paper) "
+                                "is larger than the usable area of sheet '{}' "
+                                "- reduce the view scale or use a larger "
+                                "title block.".format(
+                                    view.Name if view else view_id,
+                                    w_p * 304.8, h_p * 304.8,
+                                    sheet.SheetNumber))
+                    except Exception as ex:
+                        logger.debug("Viewport clamp skipped: {}".format(ex))
                 t.Commit()
             return vp
         except Exception as ex:
@@ -1114,102 +1516,57 @@ class CreateRoomPlanWindow(forms.WPFWindow):
 
     def _layout_combined(self, result, sheet):
         """
-        Combined layout — plan left, 4 elevations right (2x2 grid).
+        Combined layout — plans left, 4 elevations right (2x2 grid), all kept
+        inside the usable rect (margins + title header strip). Slot geometry
+        comes from _slot_centers, the same helper the preview draws with.
         """
-        w, h = self._get_sheet_size(sheet)
-        margin    = 0.066   # ~20 mm in ft
-        tb_strip  = 0.164   # ~50 mm title block strip at bottom
-        usable_h  = h - margin - tb_strip
-        baseline  = tb_strip + margin / 2
+        x0, y0, w, h = self._get_sheet_rect(sheet)
+        strip_side, strip_ft = self._get_strip_config()
+        usable = self._usable_rect(x0, y0, w, h,
+                                   SHEET_MARGIN_FT, strip_side, strip_ft)
 
         plan_views = [v for v in [
             result.get('floor_plan'), result.get('ceiling_plan')
         ] if v is not None]
-
         elev_views = result.get('elevations', [])
 
-        if plan_views:
-            # Place plan(s) in left half
-            plan_zone_w = w * 0.45
-            if len(plan_views) == 1:
-                self._place_viewport_centered(
-                    sheet, plan_views[0].Id,
-                    plan_zone_w / 2 + margin,
-                    baseline + usable_h / 2
-                )
-            else:
-                # Stack floor + ceiling vertically
-                self._place_viewport_centered(
-                    sheet, plan_views[0].Id,
-                    plan_zone_w / 2 + margin,
-                    baseline + usable_h * 0.72
-                )
-                self._place_viewport_centered(
-                    sheet, plan_views[1].Id,
-                    plan_zone_w / 2 + margin,
-                    baseline + usable_h * 0.28
-                )
-
-        if elev_views:
-            # 2x2 grid in right half
-            right_x = w * 0.5
-            elev_zone_w = w - right_x - margin
-            elev_zone_h = usable_h
-            positions = [
-                (right_x + elev_zone_w * 0.25, baseline + elev_zone_h * 0.75),
-                (right_x + elev_zone_w * 0.75, baseline + elev_zone_h * 0.75),
-                (right_x + elev_zone_w * 0.25, baseline + elev_zone_h * 0.25),
-                (right_x + elev_zone_w * 0.75, baseline + elev_zone_h * 0.25),
-            ]
-            for i, ev in enumerate(elev_views[:4]):
-                cx, cy = positions[i]
-                self._place_viewport_centered(sheet, ev.Id, cx, cy)
+        plan_centers, elev_centers = self._slot_centers(
+            usable, len(plan_views), True)
+        for v, center in zip(plan_views, plan_centers):
+            self._place_viewport_centered(sheet, v.Id, center[0], center[1], usable)
+        for ev, center in zip(elev_views[:4], elev_centers):
+            self._place_viewport_centered(sheet, ev.Id, center[0], center[1], usable)
 
     def _layout_separate(self, result, plan_sheet, elev_sheet):
         """
-        Separate layout — plans on plan_sheet, elevations on elev_sheet.
+        Separate layout — plans on plan_sheet, elevations on elev_sheet, all
+        kept inside the usable rect (margins + title header strip).
         """
-        margin   = 0.066
-        tb_strip = 0.164
+        strip_side, strip_ft = self._get_strip_config()
 
         # ── Plans sheet ──────────────────────────────
         if plan_sheet:
-            w, h = self._get_sheet_size(plan_sheet)
-            usable_h = h - margin - tb_strip
-            baseline = tb_strip + margin / 2
+            x0, y0, w, h = self._get_sheet_rect(plan_sheet)
+            usable = self._usable_rect(x0, y0, w, h,
+                                       SHEET_MARGIN_FT, strip_side, strip_ft)
             plan_views = [v for v in [
                 result.get('floor_plan'), result.get('ceiling_plan')
             ] if v is not None]
-            if len(plan_views) == 1:
+            plan_centers, _unused = self._slot_centers(
+                usable, len(plan_views), False)
+            for v, center in zip(plan_views, plan_centers):
                 self._place_viewport_centered(
-                    plan_sheet, plan_views[0].Id,
-                    w / 2, baseline + usable_h / 2
-                )
-            elif len(plan_views) >= 2:
-                self._place_viewport_centered(
-                    plan_sheet, plan_views[0].Id,
-                    w / 2, baseline + usable_h * 0.70
-                )
-                self._place_viewport_centered(
-                    plan_sheet, plan_views[1].Id,
-                    w / 2, baseline + usable_h * 0.28
-                )
+                    plan_sheet, v.Id, center[0], center[1], usable)
 
         # ── Elevations sheet ──────────────────────────
         if elev_sheet:
-            w, h = self._get_sheet_size(elev_sheet)
-            usable_h = h - margin - tb_strip
-            baseline = tb_strip + margin / 2
-            elev_views = result.get('elevations', [])
-            positions = [
-                (w * 0.25, baseline + usable_h * 0.75),
-                (w * 0.75, baseline + usable_h * 0.75),
-                (w * 0.25, baseline + usable_h * 0.25),
-                (w * 0.75, baseline + usable_h * 0.25),
-            ]
-            for i, ev in enumerate(elev_views[:4]):
-                cx, cy = positions[i]
-                self._place_viewport_centered(elev_sheet, ev.Id, cx, cy)
+            x0, y0, w, h = self._get_sheet_rect(elev_sheet)
+            usable = self._usable_rect(x0, y0, w, h,
+                                       SHEET_MARGIN_FT, strip_side, strip_ft)
+            _unused, elev_centers = self._slot_centers(usable, 0, False)
+            for ev, center in zip(result.get('elevations', [])[:4], elev_centers):
+                self._place_viewport_centered(
+                    elev_sheet, ev.Id, center[0], center[1], usable)
 
     def _layout_views_on_sheets(self, result, titleblock_id, combined):
         """

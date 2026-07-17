@@ -1,10 +1,13 @@
 title: "BG\nTheme"
-tooltip: "Set the Revit model-view background colour from a themed picker. Presets (Black / Charcoal / Gray / White / Dark Blue / Studio), RGB sliders, HEX input, and live preview. SHIFT+Click cycles Black → Gray → White."
+tooltip: "Theme studio for the Revit canvas: HSV colour picker with screen eyedropper, live-apply, named custom presets and recent colours for the model background; Sky/Horizon/Ground gradient backgrounds for 3D views; Light/Dark UI theme switching (Revit 2024+). SHIFT+Click cycles Black → Gray → White."
 description: |
-  Set the Revit model-view background color from a themed picker with live preview,
-  ready-made presets (Black / Gray / White / Dark Blue / Studio), RGB sliders,
-  HEX input and quick-cycle. Replaces the blind 3-color cycle with full control
-  and a remembered last choice.
+  Full control over the Revit canvas appearance from one themed window.
+  Model Background: HSV picker (SV square + hue bar), RGB sliders, HEX input,
+  screen eyedropper, live-apply, named custom presets, recent colours.
+  3D Gradient: per-3D-view Sky/Horizon/Ground background with presets,
+  applied to the active 3D view or every 3D view in the project.
+  Revit UI Theme: Light/Dark UI and canvas theme via UIThemeManager (2024+).
+  SHIFT+Click quick-cycles Black → Gray → White like the classic tool.
   Dang Quoc Truong - DQT (c) 2026
 author: "Dang Quoc Truong"
-version: "1.0.0"
+version: "2.0.0"

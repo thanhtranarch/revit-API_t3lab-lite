@@ -1,26 +1,35 @@
 # -*- coding: utf-8 -*-
 """
-DQT - Background Theme
-Set the Revit model-view background color from a themed picker with live preview,
-ready-made presets (Black / Gray / White / Dark Blue / Studio), RGB sliders,
-HEX input and quick-cycle. Replaces the blind 3-color cycle with full control
-and a remembered last choice.
+DQT - Background Theme (Theme Studio)
+Full control over the Revit canvas appearance from one themed window:
+
+* Model Background  — HSV colour picker (SV square + hue bar), RGB sliders,
+  HEX input, screen eyedropper, live-apply, named custom presets, recent
+  colours. Sets Application.BackgroundColor.
+* 3D Gradient       — per-3D-view gradient background (Sky / Horizon /
+  Ground) with ready-made gradient presets, applied to the active 3D view
+  or every 3D view in the project.
+* Revit UI Theme    — switch Light / Dark UI theme and canvas theme via
+  UIThemeManager (Revit 2024+; hidden on older versions).
+
+SHIFT+Click quick-cycles Black -> Gray -> White like the classic tool.
 
 Dang Quoc Truong - DQT (c) 2026
 """
 
 __title__     = "Background\nTheme"
 __author__    = "Dang Quoc Truong (DQT)"
-__version__   = "1.0.0"
+__version__   = "2.0.0"
 __copyright__ = "Copyright (c) 2026 by Dang Quoc Truong (DQT)"
-__doc__       = """DQT - Background Theme
+__doc__       = """DQT - Background Theme (Theme Studio)
 
-Improved background colour tool. Open a themed picker to choose a preset
-(Black / Gray / White / Dark Blue / Studio), fine-tune with RGB sliders or a
-HEX value, see a live preview, and apply. SHIFT+Click quick-cycles
-Black -> Gray -> White -> Black like the classic tool.
+Open a 3-tab theme studio:
+Model Background (HSV picker + eyedropper + presets + recents),
+3D Gradient (Sky/Horizon/Ground background for 3D views),
+Revit UI Theme (Light/Dark, Revit 2024+).
 
-Works on Revit 2024 / 2025 / 2026 / 2027.
+SHIFT+Click quick-cycles Black -> Gray -> White like the classic tool.
+Works on Revit 2024 / 2025 / 2026 / 2027 (UI theme tab needs 2024+).
 """
 
 import os
@@ -39,51 +48,101 @@ CONFIG_PATH = os.path.join(PATH_SCRIPT, "dqt_bg_config.json")
 PRESETS = [
     ("Black",      (0,   0,   0)),
     ("Charcoal",   (45,  45,  45)),
+    ("Graphite",   (70,  74,  82)),
     ("Gray",       (190, 190, 190)),
+    ("Silver",     (226, 228, 231)),
     ("White",      (255, 255, 255)),
     ("Dark Blue",  (28,  40,  64)),
     ("Studio",     (54,  61,  74)),
+    ("Warm Paper", (243, 238, 227)),
 ]
 
+DEFAULT_GRADIENT = {"sky": [68, 118, 189], "horizon": [205, 224, 240],
+                    "ground": [142, 134, 114], "all_views": False}
+
+
 def clamp(v):
-    v = int(round(v))
+    try:
+        v = int(round(float(v)))
+    except Exception:
+        v = 0
     return max(0, min(v, 255))
 
-def _hex2(v):
-    v = clamp(v)
-    digits = "0123456789ABCDEF"
-    return digits[v // 16] + digits[v % 16]
 
-def to_hex(r, g, b):
-    return "#" + _hex2(r) + _hex2(g) + _hex2(b)
+def _clamp_rgb(seq, fallback):
+    try:
+        return [clamp(seq[0]), clamp(seq[1]), clamp(seq[2])]
+    except Exception:
+        return list(fallback)
+
+
+# ------------------------------------------------------------------ config
 
 def load_config():
+    """Return the full config dict with defaults / legacy keys filled in."""
+    data = {}
     if os.path.exists(CONFIG_PATH):
         try:
             with open(CONFIG_PATH, "r") as f:
-                data = json.load(f)
-                return (
-                    clamp(data.get("r", 0)),
-                    clamp(data.get("g", 0)),
-                    clamp(data.get("b", 0)),
-                )
+                data = json.load(f) or {}
+        except Exception:
+            data = {}
+
+    if "r" not in data:
+        # first run: seed from the current Revit background colour
+        try:
+            c = __revit__.Application.BackgroundColor
+            data["r"], data["g"], data["b"] = c.Red, c.Green, c.Blue
+        except Exception:
+            data["r"] = data["g"] = data["b"] = 0
+
+    data["r"] = clamp(data.get("r", 0))
+    data["g"] = clamp(data.get("g", 0))
+    data["b"] = clamp(data.get("b", 0))
+    data["live_apply"] = bool(data.get("live_apply", False))
+
+    presets = []
+    for p in data.get("custom_presets", []) or []:
+        try:
+            presets.append({"name": str(p.get("name", "?")),
+                            "rgb": _clamp_rgb(p.get("rgb", []), (0, 0, 0))})
         except Exception:
             pass
-    try:
-        c = __revit__.Application.BackgroundColor
-        return (c.Red, c.Green, c.Blue)
-    except Exception:
-        return (0, 0, 0)
+    data["custom_presets"] = presets
 
-def save_config(r, g, b):
+    recents = []
+    for c in data.get("recents", []) or []:
+        try:
+            recents.append(_clamp_rgb(c, (0, 0, 0)))
+        except Exception:
+            pass
+    data["recents"] = recents
+
+    grad = data.get("gradient", {}) or {}
+    data["gradient"] = {
+        "sky": _clamp_rgb(grad.get("sky", []), DEFAULT_GRADIENT["sky"]),
+        "horizon": _clamp_rgb(grad.get("horizon", []),
+                              DEFAULT_GRADIENT["horizon"]),
+        "ground": _clamp_rgb(grad.get("ground", []),
+                             DEFAULT_GRADIENT["ground"]),
+        "all_views": bool(grad.get("all_views", False)),
+    }
+    return data
+
+
+def save_config(cfg):
     try:
         with open(CONFIG_PATH, "w") as f:
-            json.dump({"r": clamp(r), "g": clamp(g), "b": clamp(b)}, f)
+            json.dump(cfg, f, indent=2)
     except Exception:
         pass
 
+
+# ------------------------------------------------------------------ model bg
+
 def apply_background(r, g, b):
     __revit__.Application.BackgroundColor = DB.Color(clamp(r), clamp(g), clamp(b))
+
 
 def quick_cycle():
     try:
@@ -100,23 +159,187 @@ def quick_cycle():
         nr, ng, nb = 255, 255, 255
 
     apply_background(nr, ng, nb)
-    save_config(nr, ng, nb)
+    cfg = load_config()
+    cfg["r"], cfg["g"], cfg["b"] = nr, ng, nb
+    save_config(cfg)
+
+
+# ------------------------------------------------------------------ 3D views
+
+def _doc():
+    uidoc = __revit__.ActiveUIDocument
+    return uidoc.Document if uidoc else None
+
+
+def _all_3d_views(doc):
+    views = []
+    try:
+        for v in DB.FilteredElementCollector(doc).OfClass(DB.View3D):
+            if not v.IsTemplate:
+                views.append(v)
+    except Exception:
+        pass
+    return views
+
+
+def get_3d_context():
+    ctx = {"view_name": None, "count_3d": 0}
+    doc = _doc()
+    if doc is None:
+        return ctx
+    ctx["count_3d"] = len(_all_3d_views(doc))
+    try:
+        av = __revit__.ActiveUIDocument.ActiveView
+        if isinstance(av, DB.View3D) and not av.IsTemplate:
+            ctx["view_name"] = av.Name
+    except Exception:
+        pass
+    return ctx
+
+
+def _target_3d_views(all_views):
+    doc = _doc()
+    if doc is None:
+        return None, []
+    if all_views:
+        return doc, _all_3d_views(doc)
+    try:
+        av = __revit__.ActiveUIDocument.ActiveView
+        if isinstance(av, DB.View3D) and not av.IsTemplate:
+            return doc, [av]
+    except Exception:
+        pass
+    return doc, []
+
+
+def _set_views_background(bg, all_views, action_label):
+    doc, views = _target_3d_views(all_views)
+    if doc is None:
+        return False, "No active document."
+    if doc.IsReadOnly:
+        return False, "The document is read-only."
+    if not views:
+        return False, ("No 3D view target — open a 3D view or tick "
+                       "'all 3D views'.")
+    t = DB.Transaction(doc, "BG Theme - 3D Background")
+    t.Start()
+    done, failed = 0, 0
+    try:
+        for v in views:
+            try:
+                v.SetBackground(bg)
+                done += 1
+            except Exception:
+                failed += 1
+        t.Commit()
+    except Exception as ex:
+        try:
+            t.RollBack()
+        except Exception:
+            pass
+        return False, "Failed: %s" % ex
+    if done == 0:
+        return False, "%s failed on every targeted view." % action_label
+    msg = "%s on %d 3D view(s)." % (action_label, done)
+    if failed:
+        msg += " (%d view(s) skipped)" % failed
+    return True, msg
+
+
+def apply_view_gradient(sky, horizon, ground, all_views):
+    try:
+        bg = DB.ViewDisplayBackground.CreateGradient(
+            DB.Color(clamp(sky[0]), clamp(sky[1]), clamp(sky[2])),
+            DB.Color(clamp(horizon[0]), clamp(horizon[1]), clamp(horizon[2])),
+            DB.Color(clamp(ground[0]), clamp(ground[1]), clamp(ground[2])))
+    except Exception as ex:
+        return False, "Gradient backgrounds are not supported here: %s" % ex
+    return _set_views_background(bg, all_views, "Gradient applied")
+
+
+def clear_view_background(all_views):
+    factory = getattr(DB.ViewDisplayBackground, "CreateNone", None)
+    if factory is None:
+        return False, ("Clearing the background is not supported by this "
+                       "Revit version — apply a plain gradient instead.")
+    try:
+        bg = factory()
+    except Exception as ex:
+        return False, "Failed to create empty background: %s" % ex
+    return _set_views_background(bg, all_views, "Background cleared")
+
+
+# ------------------------------------------------------------------ UI theme
+
+def get_theme_info():
+    info = {"supported": False, "current": None, "options": [],
+            "canvas_supported": False, "canvas_current": None,
+            "canvas_options": []}
+    try:
+        import Autodesk.Revit.UI as RUI
+        from System import Enum
+        mgr = getattr(RUI, "UIThemeManager", None)
+        theme_enum = getattr(RUI, "UITheme", None)
+        if mgr is not None and theme_enum is not None:
+            info["current"] = str(mgr.CurrentTheme)
+            info["options"] = list(Enum.GetNames(theme_enum))
+            info["supported"] = True
+        canvas_enum = getattr(RUI, "CanvasTheme", None)
+        if (mgr is not None and canvas_enum is not None
+                and hasattr(mgr, "CurrentCanvasTheme")):
+            info["canvas_current"] = str(mgr.CurrentCanvasTheme)
+            info["canvas_options"] = list(Enum.GetNames(canvas_enum))
+            info["canvas_supported"] = True
+    except Exception:
+        pass
+    return info
+
+
+def set_ui_theme(name):
+    try:
+        import Autodesk.Revit.UI as RUI
+        from System import Enum
+        RUI.UIThemeManager.CurrentTheme = Enum.Parse(RUI.UITheme, name)
+        return True, "UI theme set to %s." % name
+    except Exception as ex:
+        return False, "Could not set UI theme: %s" % ex
+
+
+def set_canvas_theme(name):
+    try:
+        import Autodesk.Revit.UI as RUI
+        from System import Enum
+        RUI.UIThemeManager.CurrentCanvasTheme = Enum.Parse(RUI.CanvasTheme, name)
+        return True, "Canvas theme set to %s." % name
+    except Exception as ex:
+        return False, "Could not set canvas theme: %s" % ex
+
+
+# ------------------------------------------------------------------ main
 
 def main():
     if SHIFT_CLICK:
         quick_cycle()
         return
 
-    r, g, b = load_config()
+    config = load_config()
 
     # Import the custom WPF Dialog from lib/GUI
     from GUI.BGThemeDialog import show_bg_theme_dialog
 
-    def on_apply(new_r, new_g, new_b):
-        apply_background(new_r, new_g, new_b)
-        save_config(new_r, new_g, new_b)
+    callbacks = {
+        "apply_background": apply_background,
+        "save_config": save_config,
+        "get_3d_context": get_3d_context,
+        "apply_view_gradient": apply_view_gradient,
+        "clear_view_background": clear_view_background,
+        "get_theme_info": get_theme_info,
+        "set_ui_theme": set_ui_theme,
+        "set_canvas_theme": set_canvas_theme,
+    }
 
-    show_bg_theme_dialog(r, g, b, PRESETS, on_apply)
+    show_bg_theme_dialog(config, PRESETS, callbacks)
+
 
 if __name__ == "__main__":
     main()

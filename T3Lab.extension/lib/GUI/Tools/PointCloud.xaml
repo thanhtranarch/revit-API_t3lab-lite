@@ -1175,13 +1175,24 @@
                                  Checked="rb_full_extent_checked"/>
                     <RadioButton x:Name="rb_custom_region"
                                  FontFamily="Hanken Grotesk" FontSize="12" Foreground="#0F172A"
-                                 Content="Custom Region — pick 2 corners"
+                                 Content="Custom Region — drag a rectangle"
                                  Margin="0,0,0,6"
                                  Checked="rb_custom_region_checked"/>
-                    <Button x:Name="btn_pick_region" Content="Pick Region Corners"
-                            Style="{StaticResource SecondaryButton}"
-                            IsEnabled="False" HorizontalAlignment="Left"
-                            Click="btn_pick_region_clicked"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button x:Name="btn_pick_region" Content="Drag Region Box"
+                                Style="{StaticResource SecondaryButton}"
+                                IsEnabled="False"
+                                Click="btn_pick_region_clicked"/>
+                        <Button x:Name="btn_use_crop" Content="Use View Crop"
+                                Style="{StaticResource SecondaryButton}"
+                                Margin="6,0,0,0"
+                                ToolTip="Take the region from the active view's crop box — no picking in the view (safest for large clouds)"
+                                Click="btn_use_crop_clicked"/>
+                    </StackPanel>
+                    <TextBlock x:Name="lbl_region_info" Text="No region defined"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="#94A3B8" Margin="0,4,0,0"
+                               TextWrapping="Wrap" MaxWidth="210"/>
                 </StackPanel>
 
                 <!-- Divider -->
