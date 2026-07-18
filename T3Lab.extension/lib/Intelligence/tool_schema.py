@@ -177,6 +177,43 @@ def get_tools_for_provider(provider_name, extra_tools=None, essential_only=False
     return to_openai_tools(extra_tools, essential_only=essential_only)
 
 
+def _convert(tools, provider_name):
+    """Convert a list of registry-shaped tools to a provider's wire format."""
+    out = []
+    for t in tools:
+        if provider_name == "claude":
+            out.append({
+                "name":         t["name"],
+                "description":  t.get("description", "") or t["name"],
+                "input_schema": copy.deepcopy(t["inputSchema"]),
+            })
+        else:
+            out.append({
+                "type": "function",
+                "function": {
+                    "name":        t["name"],
+                    "description": t.get("description", "") or t["name"],
+                    "parameters":  copy.deepcopy(t["inputSchema"]),
+                },
+            })
+    return out
+
+
+def get_tools_by_names(provider_name, names, extra_tools=None):
+    """Registry filtered to `names`, in the provider's wire format.
+
+    An empty filter result (name drift after a registry rebuild) falls back
+    to the full provider list — same defensive rule as _registry_tools.
+    """
+    wanted = frozenset(names or [])
+    if not wanted:
+        return get_tools_for_provider(provider_name, extra_tools)
+    subset = [t for t in get_server_tools() if t["name"] in wanted]
+    if not subset:
+        return get_tools_for_provider(provider_name, extra_tools)
+    return _convert(subset + list(extra_tools or []), provider_name)
+
+
 def is_registered_tool(name):
     """True if `name` is a real MCP tool in the server registry."""
     for t in get_server_tools():
