@@ -461,7 +461,20 @@ def _get_doc_key():
 
 
 def _history_file(doc_key):
-    """Return path to the JSON history file for doc_key."""
+    """Return path to the JSON history file for doc_key.
+
+    With an active project the history lives inside that project's
+    workspace (projects/<pid>/chats/); otherwise the legacy per-document
+    location is unchanged.
+    """
+    try:
+        from config.project_store import ProjectStore
+        _ps = ProjectStore()
+        _pid = _ps.get_active_project_id()
+        if _pid:
+            return _ps.history_path(_pid, doc_key)
+    except Exception:
+        pass
     config_dir = os.path.join(lib_dir, 'config', 'chat_history')
     if not os.path.exists(config_dir):
         try:
@@ -1840,6 +1853,173 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("sidebar_save_host_clicked error: {}".format(ex))
 
+    # ─── Project sidebar (workspaces) ─────────────────────────────────────────
+
+    def _update_project_combo(self):
+        """Repopulate the PROJECT combo without firing events. UI THREAD."""
+        try:
+            from System.Windows.Controls import ComboBoxItem
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            active = ps.get_active_project_id()
+
+            combo = self.sidebar_project_combo
+            combo.SelectionChanged -= self.sidebar_project_changed
+            combo.Items.Clear()
+
+            none_item = ComboBoxItem()
+            none_item.Content = u"— Không dùng project —"
+            none_item.Tag = None
+            combo.Items.Add(none_item)
+
+            sel_index = 0
+            for i, meta in enumerate(ps.list_projects()):
+                item = ComboBoxItem()
+                item.Content = meta['name']
+                item.Tag = meta['id']
+                combo.Items.Add(item)
+                if meta['id'] == active:
+                    sel_index = i + 1
+            combo.SelectedIndex = sel_index
+            combo.SelectionChanged += self.sidebar_project_changed
+
+            self._populate_project_edit_panel(active)
+        except Exception as ex:
+            logger.debug("_update_project_combo error: {}".format(ex))
+
+    def _populate_project_edit_panel(self, pid):
+        """Show/fill or hide the project edit panel. UI THREAD."""
+        try:
+            from config.project_store import ProjectStore
+            meta = ProjectStore().get_project(pid) if pid else None
+            if meta:
+                self.project_edit_panel.Visibility = Visibility.Visible
+                self.project_name_box.Text = meta.get('name', u'')
+                self.project_instructions_box.Text = meta.get('instructions', u'')
+            else:
+                self.project_edit_panel.Visibility = Visibility.Collapsed
+        except Exception as ex:
+            logger.debug("_populate_project_edit_panel error: {}".format(ex))
+
+    def sidebar_project_changed(self, sender, e):
+        """Switch the active project: history, knowledge scope, provider."""
+        try:
+            if self._busy:
+                # revert silently — switching scope mid-request is unsafe
+                self._update_project_combo()
+                self._append_bot_message(
+                    u"Đang xử lý yêu cầu — đổi project sau khi xong nhé.",
+                    icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                return
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            item = self.sidebar_project_combo.SelectedItem
+            pid = getattr(item, 'Tag', None) if item is not None else None
+            ps.set_active_project(pid)
+            self._populate_project_edit_panel(pid)
+
+            # Swap chat history to the new scope
+            try:
+                while self.chat_history_panel.Children.Count > 1:
+                    self.chat_history_panel.Children.RemoveAt(1)
+                self._conversation_history = []
+                self._persisted_msgs = []
+                self._restore_history()
+            except Exception:
+                pass
+
+            # Apply the project's provider/model preference (if any)
+            try:
+                meta = ps.get_project(pid) if pid else None
+                if meta and meta.get('provider'):
+                    from Intelligence.llm_router import LLMRouter
+                    LLMRouter().switch_provider(meta['provider'],
+                                                meta.get('model'))
+                    self._update_ai_badge()
+            except Exception:
+                pass
+
+            # Rescan knowledge scope for the new project in background
+            self._update_knowledge_status()
+            self._kick_knowledge_scan()
+            name = (ps.get_project(pid) or {}).get('name') if pid else None
+            self._append_bot_message(
+                u"Đã chuyển sang project **{}**.".format(name) if name
+                else u"Đã tắt chế độ project — dùng không gian chung.",
+                icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
+        except Exception as ex:
+            logger.debug("sidebar_project_changed error: {}".format(ex))
+
+    def sidebar_new_project_clicked(self, sender, e):
+        """Create a project and activate it."""
+        try:
+            if self._busy:
+                return
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            n = len(ps.list_projects()) + 1
+            meta = ps.create_project(u"Project {}".format(n))
+            ps.set_active_project(meta['id'])
+            self._update_project_combo()
+            # sync the rest of the scope like a manual switch
+            try:
+                while self.chat_history_panel.Children.Count > 1:
+                    self.chat_history_panel.Children.RemoveAt(1)
+                self._conversation_history = []
+                self._persisted_msgs = []
+            except Exception:
+                pass
+            self._update_knowledge_status()
+            self._append_bot_message(
+                u"Đã tạo project **{}**. Đặt tên + custom instructions "
+                u"trong sidebar, thả tài liệu vào thư mục knowledge của "
+                u"project để trợ lý trả lời theo đúng dự án.".format(
+                    meta['name']),
+                icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
+        except Exception as ex:
+            logger.debug("sidebar_new_project_clicked error: {}".format(ex))
+
+    def sidebar_project_save_clicked(self, sender, e):
+        """Persist name + instructions from the edit boxes."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            if not pid:
+                return
+            ps.update_project(pid, {
+                'name': self.project_name_box.Text.strip() or u"Project",
+                'instructions': self.project_instructions_box.Text.strip(),
+            })
+            self._update_project_combo()
+        except Exception as ex:
+            logger.debug("sidebar_project_save_clicked error: {}".format(ex))
+
+    def sidebar_project_delete_clicked(self, sender, e):
+        """Delete the active project after a confirm box."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            if not pid:
+                return
+            from System.Windows import MessageBox, MessageBoxButton, MessageBoxResult
+            meta = ps.get_project(pid) or {}
+            res = MessageBox.Show(
+                u"Xóa project '{}' (kèm index + lịch sử chat của nó)?".format(
+                    meta.get('name', pid)),
+                u"T3Lab Assistant", MessageBoxButton.YesNo)
+            if res != MessageBoxResult.Yes:
+                return
+            ps.delete_project(pid)
+            self._update_project_combo()
+            self._update_knowledge_status()
+            self._append_bot_message(
+                u"Đã xóa project **{}**.".format(meta.get('name', pid)),
+                icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
+        except Exception as ex:
+            logger.debug("sidebar_project_delete_clicked error: {}".format(ex))
+
     # ─── Knowledge sidebar (RAG v2 index) ─────────────────────────────────────
 
     def _update_knowledge_status(self):
@@ -2677,7 +2857,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 txt.Text   = u"Ready" if available else u"Not set up"
                 txt.Foreground = SolidColorBrush(_READY if available else _MUTED)
 
-            # Knowledge (RAG) + Skills sections — cheap, all in memory
+            # Project + Knowledge (RAG) + Skills sections — cheap, in memory
+            self._update_project_combo()
             self._update_knowledge_status()
             self._update_skills_panel()
 

@@ -1775,6 +1775,116 @@
                                    FontFamily="Hanken Grotesk"/>
                     </StackPanel>
 
+                    <!-- ── Project (workspace) ── -->
+                    <Border Height="1" Background="#E6E6EA" Margin="0,14,0,14"/>
+                    <Grid Margin="2,0,0,8">
+                        <TextBlock Text="PROJECT" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center"/>
+                        <Button x:Name="sidebar_new_project_btn"
+                                HorizontalAlignment="Right" Height="18" Cursor="Hand"
+                                Click="sidebar_new_project_clicked"
+                                ToolTip="Tạo project mới">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="newproj_bg" Background="Transparent"
+                                            CornerRadius="4" Padding="5,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="newproj_bg" Property="Background" Value="#F1F5F9"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="9" Foreground="#3B82F6"
+                                           VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                <TextBlock Text="Mới" FontSize="9.5" FontWeight="SemiBold"
+                                           Foreground="#3B82F6" FontFamily="Hanken Grotesk"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <ComboBox x:Name="sidebar_project_combo"
+                              Style="{StaticResource SidebarComboBox}"
+                              Margin="0,0,0,8"
+                              SelectionChanged="sidebar_project_changed"/>
+                    <StackPanel x:Name="project_edit_panel" Visibility="Collapsed"
+                                Margin="0,0,0,6">
+                        <TextBlock Text="Tên project" FontSize="10.5" Foreground="#71717A"
+                                   Margin="2,0,0,4" FontFamily="Hanken Grotesk"/>
+                        <TextBox x:Name="project_name_box"
+                                 Height="30" Margin="0,0,0,8"
+                                 FontFamily="Hanken Grotesk" FontSize="12"
+                                 Padding="10,0" BorderBrush="#E6E6EA"
+                                 BorderThickness="1" Background="White"
+                                 VerticalContentAlignment="Center"/>
+                        <TextBlock Text="Custom instructions (áp vào mọi câu trả lời)"
+                                   FontSize="10.5" Foreground="#71717A"
+                                   Margin="2,0,0,4" FontFamily="Hanken Grotesk"/>
+                        <TextBox x:Name="project_instructions_box"
+                                 Height="90" Margin="0,0,0,8"
+                                 FontFamily="Hanken Grotesk" FontSize="11.5"
+                                 Padding="8,6" BorderBrush="#E6E6EA"
+                                 BorderThickness="1" Background="White"
+                                 TextWrapping="Wrap" AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="sidebar_project_save_btn" Grid.Column="0"
+                                    Height="30" Margin="0,0,6,0" Cursor="Hand"
+                                    Click="sidebar_project_save_clicked"
+                                    ToolTip="Lưu tên + instructions">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="projsave_bg" Background="#18181B"
+                                                CornerRadius="8" Padding="10,0">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="projsave_bg" Property="Background" Value="#3F3F46"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="Save Project" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="White" FontFamily="Hanken Grotesk"/>
+                            </Button>
+                            <Button x:Name="sidebar_project_delete_btn" Grid.Column="1"
+                                    Height="30" MinWidth="34" Cursor="Hand"
+                                    Click="sidebar_project_delete_clicked"
+                                    ToolTip="Xóa project này">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="projdel_bg" Background="#F4F4F6"
+                                                CornerRadius="8" BorderBrush="#E6E6EA"
+                                                BorderThickness="1" Padding="8,0">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="projdel_bg" Property="Background" Value="#FEE2E2"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" Foreground="#EF4444"
+                                           VerticalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
                     <!-- ── Knowledge (RAG index) ── -->
                     <Border Height="1" Background="#E6E6EA" Margin="0,14,0,14"/>
                     <Grid Margin="2,0,0,8">

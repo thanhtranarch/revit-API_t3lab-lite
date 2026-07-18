@@ -22,6 +22,11 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LIB = os.path.join(REPO, 'T3Lab.extension', 'lib')
 sys.path.insert(0, LIB)
 
+# Sandbox %APPDATA% BEFORE any config/settings import, so settings.json,
+# projects/ and skills/ land in a throwaway dir instead of the real one.
+import tempfile
+os.environ['APPDATA'] = tempfile.mkdtemp(prefix='t3lab_test_')
+
 FAILURES = []
 
 
@@ -494,6 +499,49 @@ def test_knowledge_agent():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ─── project_store ────────────────────────────────────────────────────────────
+
+def test_project_store():
+    print('[project_store]')
+    from config.project_store import ProjectStore
+    from Intelligence.knowledge.knowledge_store import get_active_store
+
+    ps = ProjectStore()
+    meta = ps.create_project('Landmark Tower')
+    check('created', meta['id'].startswith('p_'), meta)
+    check('listed', any(p['id'] == meta['id'] for p in ps.list_projects()))
+
+    ps.set_active_project(meta['id'])
+    check('active id', ps.get_active_project_id() == meta['id'])
+
+    ps.update_project(meta['id'], {'instructions': 'Follow standard ABC.'})
+    check('prompt addendum', ps.get_active_prompt_addendum() ==
+          'Follow standard ABC.')
+
+    hp = ps.history_path(meta['id'], 'docA')
+    check('history path scoped', meta['id'] in hp and hp.endswith('docA.json'))
+
+    store = ps.knowledge_store_for(meta['id'])
+    check('store scoped', store is not None and meta['id'] in store.index_dir)
+
+    files_dir = os.path.join(ps.project_dir(meta['id']), 'files')
+    with open(os.path.join(files_dir, 'rule.md'), 'wb') as f:
+        f.write('Chiều cao lan can 1200 mm áp dụng riêng project này.'
+                .encode('utf-8'))
+    store.scan()
+
+    astore = get_active_store()
+    check('get_active_store → project store', astore is store)
+    hits = astore.search('chiều cao lan can')
+    check('project-scoped search', hits and hits[0]['file'] == 'rule.md',
+          hits and hits[0]['file'])
+
+    ps.delete_project(meta['id'])
+    check('delete clears active', ps.get_active_project_id() is None)
+    check('active store falls back to global',
+          get_active_store() is not store)
+
+
 # ─── main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -506,6 +554,7 @@ def main():
     test_specialists()
     test_skills()
     test_knowledge_agent()
+    test_project_store()
 
     print('')
     if FAILURES:
