@@ -3695,6 +3695,146 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("_run_knowledge_agent error: {}".format(ex))
             return False
 
+    def _run_comment_agent(self, pdf_path, history):
+        """PDF markup-comment workflow. WORKER THREAD.
+
+        Extract annotations → trace sheet/model qua MCP → propose per item
+        → render report card with Run/Note/Skip buttons. Returns True when
+        handled; False (e.g. no annotations) lets the normal attachment
+        path analyze the PDF as a document instead.
+        """
+        try:
+            from Intelligence.comments.comment_agent import CommentAgent
+            from Intelligence.llm_router import LLMRouter
+            try:
+                from core.server import get_t3labai_server
+                srv = get_t3labai_server()
+            except Exception:
+                return False
+
+            router = LLMRouter()
+            provider = router.get_active_provider()
+
+            skills_block = u''
+            try:
+                from Intelligence.skills_engine import build_skills_block
+                skills_block = build_skills_block(
+                    ['comment-resolution-playbook'])
+            except Exception:
+                pass
+
+            agent = CommentAgent()
+            report = agent.analyze(
+                pdf_path, srv._execute_tool, provider, router,
+                progress_cb=self._safe_update_typing_text,
+                skills_block=skills_block)
+
+            if report.get('error') == 'no_annotations':
+                return False   # analyze as a normal document instead
+
+            self._comment_agent = agent
+            self._comment_report = report
+
+            def _done():
+                try:
+                    self._hide_typing_indicator()
+                    rendered = False
+                    try:
+                        from GUI.AssistantCards import build_comment_report_card
+                        card = build_comment_report_card(
+                            report,
+                            on_run=lambda item, setter:
+                                self._execute_comment_item(item, setter, 'run'),
+                            on_note=lambda item, setter:
+                                self._execute_comment_item(item, setter, 'note'),
+                            on_skip=lambda item, setter:
+                                self._skip_comment_item(item, setter))
+                        self.chat_history_panel.Children.Add(card)
+                        self._scroll_to_bottom()
+                        rendered = True
+                    except Exception as cex:
+                        logger.debug("comment card render failed: {}".format(cex))
+                    md = agent.report_to_markdown(report)
+                    if not rendered:
+                        self._append_bot_message(md)
+                    self._add_to_history("assistant", md)
+                    if report.get('needs_switch'):
+                        self._append_bot_message(
+                            u"Sheet không nằm trong model đang active — "
+                            u"hãy yêu cầu \"chuyển sang model ...\" trước "
+                            u"khi bấm Thực hiện.",
+                            icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                    self._set_busy(False)
+                except Exception as dex:
+                    logger.debug("comment done error: {}".format(dex))
+                    self._set_busy(False)
+            self.Dispatcher.Invoke(Action(_done))
+            return True
+        except Exception as ex:
+            logger.debug("_run_comment_agent error: {}".format(ex))
+            return False
+
+    def _skip_comment_item(self, item, setter):
+        """'Bỏ qua' button — mark only. UI THREAD."""
+        try:
+            item['status'] = 'skipped'
+            setter(u"Đã bỏ qua", False)
+        except Exception:
+            pass
+
+    def _execute_comment_item(self, item, setter, mode):
+        """Run/Note button on a comment row. UI THREAD entry — spawns the
+        standard revit_action specialist on a worker thread."""
+        try:
+            if self._busy:
+                setter(u"Đang bận — chờ xong yêu cầu trước", False)
+                return
+            agent = getattr(self, '_comment_agent', None)
+            report = getattr(self, '_comment_report', None)
+            if agent is None or report is None:
+                setter(u"Report không còn hiệu lực", False)
+                return
+            instruction = (agent.build_run_instruction(item, report)
+                           if mode == 'run'
+                           else agent.build_note_instruction(item, report))
+            setter(u"Đang thực hiện...", False)
+            self._set_busy(True)
+
+            def _work():
+                handled = False
+                try:
+                    from Intelligence.llm_router import LLMRouter
+                    provider = LLMRouter().get_active_provider()
+                    spec = get_spec('revit_action') if HAS_SPECIALISTS else None
+                    handled = self._run_native_agent(
+                        provider, list(self._conversation_history),
+                        instruction, spec=spec)
+                except Exception as wex:
+                    logger.debug("comment exec error: {}".format(wex))
+
+                def _after():
+                    try:
+                        if handled:
+                            item['status'] = ('done' if mode == 'run'
+                                              else 'noted')
+                            setter(u"Đã xử lý" if mode == 'run'
+                                   else u"Đã ghi chú", True)
+                        else:
+                            setter(u"Không chạy được — thử lại", False)
+                            self._set_busy(False)
+                    except Exception:
+                        pass
+                try:
+                    self.Dispatcher.Invoke(Action(_after))
+                except Exception:
+                    pass
+            _ct = Thread(ThreadStart(_work))
+            _ct.IsBackground = True
+            _ct.SetApartmentState(ApartmentState.STA)
+            _ct.Start()
+        except Exception as ex:
+            logger.debug("_execute_comment_item error: {}".format(ex))
+
     def _route_input(self, raw, attached):
         """Classify + dispatch one user request. WORKER THREAD.
 
@@ -3707,6 +3847,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             # ── If attachments present and no tool-like text, go straight to RAG ─
             has_attach = bool(attached) and HAS_RAG
+
+            # ── PDF markup-comment workflow (R4) ───────────────────────────
+            # Route to the CommentAgent when the user asks about comments
+            # (cmt/markup/bluebeam keywords) with a PDF attached, or drops
+            # an annotated PDF without any text. No annotations found →
+            # falls through to the normal document analysis.
+            if HAS_AGENTS and has_attach:
+                try:
+                    _pdfs = [p for p in attached if is_pdf(p)]
+                    if _pdfs:
+                        from Intelligence.comments import pdf_annots as _pa
+                        _annotated = [p for p in _pdfs
+                                      if _pa.has_annotations(p)]
+                        _kw_dec = AgentDispatcher().classify(
+                            raw, allow_llm=False)
+                        _wants = (_kw_dec.get('specialist') == 'comment'
+                                  or (_annotated and not (raw or u'').strip()))
+                        if _annotated and _wants:
+                            if self._run_comment_agent(
+                                    _annotated[0],
+                                    list(self._conversation_history[:-1])):
+                                return
+                except Exception as _cm_ex:
+                    logger.debug("comment route error: {}".format(_cm_ex))
+
             if has_attach and not raw:
                 # No text — summarise the documents
                 raw = u"Phân tích và tóm tắt nội dung tài liệu đính kèm."
@@ -3817,6 +3982,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if self._run_knowledge_agent(raw, history):
                             return
                         # no hits / LLM mute → continue down the normal path
+                    if self._agent_decision and \
+                            self._agent_decision.get('specialist') == 'comment':
+                        # Comment workflow needs a PDF — guide the user.
+                        _guide = (u"Để xử lý comment bản vẽ: đính kèm file "
+                                  u"PDF có markup (nút attach) rồi gửi lại. "
+                                  u"Tôi sẽ đọc từng comment, truy vết sheet "
+                                  u"thuộc model nào, đề xuất phương án và "
+                                  u"thực hiện khi bạn xác nhận.")
+
+                        def _need_pdf(_g=_guide):
+                            self._hide_typing_indicator()
+                            self._append_bot_message(
+                                _g, icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                            self._add_to_history("assistant", _g)
+                            self._set_busy(False)
+                        self.Dispatcher.Invoke(Action(_need_pdf))
+                        return
 
             if use_local or use_claude or has_attach:
                 # ── 3/4. LLM path (typing indicator already showing) ──────────

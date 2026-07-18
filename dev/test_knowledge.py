@@ -499,6 +499,212 @@ def test_knowledge_agent():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ─── pdf_annots / sheet_matcher / comment_agent ───────────────────────────────
+
+def _make_pdf(objects):
+    parts = [b'%PDF-1.4\n']
+    for num, body in objects:
+        parts.append('{} 0 obj\n'.format(num).encode('ascii'))
+        parts.append(body if isinstance(body, bytes) else body.encode('latin-1'))
+        parts.append(b'\nendobj\n')
+    parts.append(b'trailer\n<< >>\n%%EOF\n')
+    return b''.join(parts)
+
+
+def _utf16be_hex(text):
+    return 'FEFF' + ''.join('%04X' % ord(c) for c in text)
+
+
+def test_pdf_annots():
+    print('[pdf_annots]')
+    import tempfile, shutil, zlib
+    from Intelligence.comments import pdf_annots
+
+    tmp = tempfile.mkdtemp()
+    try:
+        # fixture 1: literal + escaped parens + UTF-16BE hex + a Link (skip)
+        pdf1 = os.path.join(tmp, 'A-101_MatBang.pdf')
+        objs = [
+            (1, '<< /Type /Catalog /Pages 2 0 R >>'),
+            (2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+            (3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] '
+                '/Annots [4 0 R 5 0 R 6 0 R] >>'),
+            (4, '<< /Type /Annot /Subtype /Text /Rect [100 700 120 720] '
+                '/Contents (Move dimension \\(outside\\) gridline A) '
+                '/T (Nguyen B) /Subj (Dim) /M (D:20260718) >>'),
+            (5, '<< /Type /Annot /Subtype /FreeText /Rect [10 10 60 40] '
+                '/Contents <{}> /T <{}> >>'.format(
+                    _utf16be_hex('Sửa kích thước dầm'),
+                    _utf16be_hex('Linh'))),
+            (6, '<< /Type /Annot /Subtype /Link /Rect [0 0 1 1] >>'),
+        ]
+        with open(pdf1, 'wb') as f:
+            f.write(_make_pdf(objs))
+
+        check('has_annotations true', pdf_annots.has_annotations(pdf1))
+        recs, partial = pdf_annots.extract_annotations(pdf1)
+        check('two markup annots (Link skipped)', len(recs) == 2, len(recs))
+        check('not partial', partial is False)
+        r1 = [r for r in recs if r['subtype'] == 'Text'][0]
+        check('literal content + escapes',
+              r1['content'] == 'Move dimension (outside) gridline A',
+              r1['content'])
+        check('author + subject', r1['author'] == 'Nguyen B'
+              and r1['subject'] == 'Dim')
+        check('rect parsed', r1['rect'] == [100.0, 700.0, 120.0, 720.0])
+        check('page number', r1['page'] == 1)
+        r2 = [r for r in recs if r['subtype'] == 'FreeText'][0]
+        check('utf16be content', r2['content'] == 'Sửa kích thước dầm',
+              repr(r2['content']))
+        check('utf16be author', r2['author'] == 'Linh', repr(r2['author']))
+
+        # fixture 2: annotation packed inside a Flate ObjStm
+        inner = ('<< /Type /Annot /Subtype /FreeText /Rect [10 10 50 30] '
+                 '/Contents (Trong ObjStm) >>')
+        header = '7 0 '
+        stream = zlib.compress((header + inner).encode('latin-1'))
+        body8 = (b'<< /Type /ObjStm /N 1 /First '
+                 + str(len(header)).encode('ascii')
+                 + b' /Filter /FlateDecode /Length '
+                 + str(len(stream)).encode('ascii')
+                 + b' >>\nstream\n' + stream + b'\nendstream')
+        pdf2 = os.path.join(tmp, 'objstm.pdf')
+        objs2 = [
+            (1, '<< /Type /Catalog /Pages 2 0 R >>'),
+            (2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+            (3, '<< /Type /Page /Parent 2 0 R /Annots [7 0 R] >>'),
+            (8, body8),
+        ]
+        with open(pdf2, 'wb') as f:
+            f.write(_make_pdf(objs2))
+        recs2, partial2 = pdf_annots.extract_annotations(pdf2)
+        check('objstm annot found', len(recs2) == 1 and
+              recs2[0]['content'] == 'Trong ObjStm', recs2)
+        check('objstm not partial', partial2 is False)
+
+        # fixture 3: no annotations
+        pdf3 = os.path.join(tmp, 'plain.pdf')
+        with open(pdf3, 'wb') as f:
+            f.write(_make_pdf([
+                (1, '<< /Type /Catalog /Pages 2 0 R >>'),
+                (2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+                (3, '<< /Type /Page /Parent 2 0 R >>')]))
+        check('has_annotations false', not pdf_annots.has_annotations(pdf3))
+        recs3, _p3 = pdf_annots.extract_annotations(pdf3)
+        check('no annots empty', recs3 == [])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_sheet_matcher():
+    print('[sheet_matcher]')
+    from Intelligence.comments import sheet_matcher
+
+    sheets = [
+        {'name': 'MAT BANG TANG 1', 'number': 'A-101', 'id': 111},
+        {'name': 'MAT DUNG TRUC A', 'number': 'A-201', 'id': 222},
+    ]
+
+    cands = sheet_matcher.extract_sheet_candidates(
+        [(1, 'DU AN X ... SHEET NO: A-201 ... khung ten')],
+        'A-101_MatBang.pdf')
+    check('filename candidate first', cands and cands[0].startswith('A-101'),
+          cands)
+    check('keyword candidate found',
+          any(c.replace('-', '') == 'A201' for c in cands), cands)
+
+    m = sheet_matcher.match_sheets(['A-101'], sheets)
+    check('exact match', m and m['id'] == 111 and m['score'] == 1.0, m)
+    m2 = sheet_matcher.match_sheets(['A101'], sheets)
+    check('separator-insensitive', m2 and m2['id'] == 111, m2)
+    m3 = sheet_matcher.match_sheets(['Z-999'], sheets, 'khongkhop.pdf')
+    check('no match none', m3 is None, m3)
+    m4 = sheet_matcher.match_sheets([], sheets, 'Mat Bang Tang 1.pdf')
+    check('fuzzy name match', m4 and m4['id'] == 111 and m4['score'] >= 0.55,
+          m4)
+
+
+def test_comment_agent():
+    print('[comment_agent]')
+    import tempfile, shutil
+    from Intelligence.comments.comment_agent import CommentAgent
+
+    tmp = tempfile.mkdtemp()
+    try:
+        pdf1 = os.path.join(tmp, 'A-101_MatBang.pdf')
+        with open(pdf1, 'wb') as f:
+            f.write(_make_pdf([
+                (1, '<< /Type /Catalog /Pages 2 0 R >>'),
+                (2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+                (3, '<< /Type /Page /Parent 2 0 R /Annots [4 0 R] >>'),
+                (4, '<< /Type /Annot /Subtype /Text /Rect [1 2 3 4] '
+                    '/Contents (Doi dim ra ngoai grid) /T (QA) >>')]))
+
+        calls = []
+
+        def fake_execute(name, args):
+            calls.append(name)
+            if name == 'revit_list_sheets':
+                return {'count': 1, 'sheets': [
+                    {'name': 'MAT BANG TANG 1', 'number': 'A-101', 'id': 111}]}
+            if name == 'list_open_documents':
+                return {'documents': [{'title': 'ModelA'}]}
+            if name == 'revit_get_project_info':
+                return {'name': 'Landmark'}
+            return {}
+
+        class FakeProvider(object):
+            def chat(self, messages, system, user, max_tokens=0, **kw):
+                assert 'a1' in user
+                return ('{"items": [{"id": "a1", "action_type": '
+                        '"fix_dimension", "description": "Doi dim ra ngoai",'
+                        ' "instruction": "Move the dimension on sheet A-101 '
+                        'outside gridline"}]}')
+
+        agent = CommentAgent()
+        report = agent.analyze(pdf1, fake_execute, FakeProvider(), None)
+        check('sheet matched', report['sheet_match']
+              and report['sheet_match']['number'] == 'A-101', report['sheet_match'])
+        check('model open', report['model_open'] is True)
+        check('mcp tools called', 'revit_list_sheets' in calls
+              and 'list_open_documents' in calls)
+        item = report['items'][0]
+        check('proposal merged',
+              item['proposal']['action_type'] == 'fix_dimension',
+              item['proposal'])
+        check('item sheet ref', item['matched_sheet']['id'] == 111)
+
+        run_instr = agent.build_run_instruction(item, report)
+        check('run instruction', 'A-101' in run_instr
+              and 'Doi dim ra ngoai grid' in run_instr, run_instr[:80])
+        note_instr = agent.build_note_instruction(item, report)
+        check('note instruction', 'create_text_note' in note_instr
+              and 'CMT-1' in note_instr, note_instr[:80])
+
+        md = agent.report_to_markdown(report)
+        check('markdown table', '| a1 |' in md and 'A-101' in md)
+
+        # LLM mute → proposals stay manual, pipeline never crashes
+        class MuteProvider(object):
+            def chat(self, *a, **kw):
+                return None
+        report2 = agent.analyze(pdf1, fake_execute, MuteProvider(), None)
+        check('mute → manual default',
+              report2['items'][0]['proposal']['action_type'] == 'manual')
+
+        # PDF without annotations → clean error
+        pdf3 = os.path.join(tmp, 'plain.pdf')
+        with open(pdf3, 'wb') as f:
+            f.write(_make_pdf([
+                (1, '<< /Type /Catalog /Pages 2 0 R >>'),
+                (2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'),
+                (3, '<< /Type /Page /Parent 2 0 R >>')]))
+        report3 = agent.analyze(pdf3, fake_execute, FakeProvider(), None)
+        check('no annotations error', report3['error'] == 'no_annotations')
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ─── project_store ────────────────────────────────────────────────────────────
 
 def test_project_store():
@@ -555,6 +761,9 @@ def main():
     test_skills()
     test_knowledge_agent()
     test_project_store()
+    test_pdf_annots()
+    test_sheet_matcher()
+    test_comment_agent()
 
     print('')
     if FAILURES:
