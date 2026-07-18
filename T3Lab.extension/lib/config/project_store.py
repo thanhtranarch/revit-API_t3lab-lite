@@ -174,6 +174,80 @@ class ProjectStore(object):
         except Exception:
             return False
 
+    # ── attachments archive + daily activity log ──────────────────────────
+
+    def _scope_dir(self, pid):
+        """projects/<pid> when a project is given, else the T3LabAI root
+        (attachments/logs still work with no project selected)."""
+        if pid:
+            return self.project_dir(pid)
+        base = os.environ.get('APPDATA', '') or os.path.expanduser('~')
+        return os.path.join(base, 'T3LabAI')
+
+    def attachments_dir(self, pid=None, day=None):
+        """<scope>/attachments/<YYYY-MM-DD>/ — created on demand."""
+        day = day or time.strftime('%Y-%m-%d')
+        d = os.path.join(self._scope_dir(pid), 'attachments', day)
+        if not os.path.isdir(d):
+            try:
+                os.makedirs(d)
+            except Exception:
+                pass
+        return d
+
+    def archive_attachments(self, paths, pid=None):
+        """Copy attached files into today's dated folder of the scope.
+
+        Returns the archived paths (a file that fails to copy keeps its
+        original path). Existing names get a _N suffix, never overwritten.
+        """
+        out = []
+        dest_dir = self.attachments_dir(pid)
+        for src in (paths or []):
+            try:
+                name = os.path.basename(src)
+                dst = os.path.join(dest_dir, name)
+                if os.path.abspath(src) == os.path.abspath(dst):
+                    out.append(src)
+                    continue
+                stem, ext = os.path.splitext(name)
+                n = 1
+                while os.path.exists(dst):
+                    dst = os.path.join(dest_dir,
+                                       u'{}_{}{}'.format(stem, n, ext))
+                    n += 1
+                shutil.copy2(src, dst)
+                out.append(dst)
+            except Exception:
+                out.append(src)
+        return out
+
+    def activity_log_path(self, pid=None, day=None):
+        """<scope>/logs/<YYYY-MM-DD>.md — folder created on demand."""
+        day = day or time.strftime('%Y-%m-%d')
+        d = os.path.join(self._scope_dir(pid), 'logs')
+        if not os.path.isdir(d):
+            try:
+                os.makedirs(d)
+            except Exception:
+                pass
+        return os.path.join(d, day + '.md')
+
+    def append_activity(self, text, pid=None):
+        """Append one timestamped markdown bullet to today's log. Never raises."""
+        try:
+            path = self.activity_log_path(pid)
+            is_new = not os.path.exists(path)
+            with io.open(path, 'a', encoding='utf-8') as f:
+                if is_new:
+                    f.write(u'# Nhật ký T3Lab Assistant — {}\n\n'.format(
+                        time.strftime('%Y-%m-%d')))
+                f.write(u'- **{}** {}\n'.format(
+                    time.strftime('%H:%M'), text or u''))
+            return True
+        except Exception:
+            return False
+
     # ── scoped resources ──────────────────────────────────────────────────
 
     def history_path(self, pid, doc_key):

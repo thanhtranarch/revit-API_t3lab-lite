@@ -232,6 +232,16 @@ class T3LabAISettings(object):
         """Whether the dispatcher may use one small LLM call to classify."""
         return bool(self._settings.get('agents', {}).get('llm_classify', True))
 
+    def get_action_mode(self):
+        """Harness action mode for model-editing tools.
+
+        'auto'    = agent executes edits immediately (legacy behavior).
+        'confirm' = agent must reply with a plan and wait for the user's OK
+                    before any model-modifying tool call.
+        """
+        mode = self._settings.get('agents', {}).get('action_mode', 'auto')
+        return mode if mode in ('auto', 'confirm') else 'auto'
+
     def set_agent_option(self, key, value):
         """Persist a switch in the agents block."""
         self._settings = self._load_settings()

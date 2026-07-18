@@ -1144,6 +1144,68 @@
             </Setter>
         </Style>
 
+        <!-- ── Composer chip button (project / model pickers, Claude-style) ── -->
+        <Style x:Key="ComposerChipBtn" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="#52525B"/>
+            <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
+            <Setter Property="FontSize"        Value="11.5"/>
+            <Setter Property="FontWeight"      Value="SemiBold"/>
+            <Setter Property="Padding"         Value="9,5"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="chip_bg"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="9"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="chip_bg" Property="Background" Value="#F1F5F9"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="chip_bg" Property="Background" Value="#E2E8F0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Composer round send button (Claude-style arrow-up circle) ── -->
+        <Style x:Key="ComposerSendBtn" TargetType="Button">
+            <Setter Property="Background"      Value="#18181B"/>
+            <Setter Property="Foreground"      Value="White"/>
+            <Setter Property="Width"           Value="30"/>
+            <Setter Property="Height"          Value="30"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="send_bg"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="15">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="send_bg" Property="Background" Value="#27272A"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="send_bg" Property="Background" Value="#E6E6EA"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ── Sidebar ComboBox (T3ComboBox scaled for narrow panel) ── -->
         <Style x:Key="SidebarComboBox" TargetType="ComboBox">
             <Setter Property="Background"              Value="White"/>
@@ -1413,6 +1475,14 @@
                         Click="reset_chat_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="↺" FontSize="15" FontWeight="Bold" Foreground="#71717A"/>
+                </Button>
+                <!-- Activity log (daily work journal) -->
+                <Button x:Name="btn_activity_log"
+                        Style="{StaticResource WinCtrlButton}"
+                        ToolTip="Nhật ký công việc hôm nay (log theo ngày trong folder dự án)"
+                        Click="activity_log_clicked"
+                        WindowChrome.IsHitTestVisibleInChrome="True">
+                    <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
                 </Button>
                 <!-- Settings sidebar toggle -->
                 <Button x:Name="btn_settings"
@@ -2297,58 +2367,220 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ── Input row ── -->
-                <Border Height="42"
+                <!-- ── Composer card (Claude-style) ── -->
+                <Border x:Name="composer_card"
                         BorderBrush="#DCDCE0" BorderThickness="1"
-                        CornerRadius="21" Background="White">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>  <!-- Attach button (locked) -->
-                            <ColumnDefinition Width="*"/>     <!-- Text input -->
-                            <ColumnDefinition Width="Auto"/>  <!-- Send button -->
-                        </Grid.ColumnDefinitions>
+                        CornerRadius="14" Background="White">
+                    <Border.Effect>
+                        <DropShadowEffect ShadowDepth="1" Direction="270"
+                                          Color="#18181B" Opacity="0.05" BlurRadius="6"/>
+                    </Border.Effect>
+                    <StackPanel>
 
-                        <!-- Attach button (feature locked / disabled) -->
-                        <Button Grid.Column="0" x:Name="btn_attach"
-                                 Style="{StaticResource IconButton}"
-                                 Width="36" Height="36"
-                                 Margin="3,0,0,0"
-                                 IsEnabled="False"
-                                 Click="attach_clicked"
-                                 ToolTip="Import file tạm khóa">
-                            <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                                        Foreground="#C4C4C8" VerticalAlignment="Center"
-                                        HorizontalAlignment="Center"/>
-                        </Button>
+                        <!-- Text input + placeholder overlay -->
+                        <Grid Margin="14,10,14,2">
+                            <TextBox x:Name="chat_input"
+                                     MinHeight="24"
+                                     Padding="0"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     FontSize="13.5"
+                                     Foreground="#18181B"
+                                     CaretBrush="#18181B"
+                                     VerticalContentAlignment="Center"
+                                     KeyDown="input_keydown"
+                                     TextChanged="input_text_changed"/>
+                            <TextBlock x:Name="composer_placeholder"
+                                       Text="Nhập yêu cầu — gõ / để chọn skill"
+                                       FontSize="13.5" Foreground="#A1A1AA"
+                                       FontFamily="Hanken Grotesk"
+                                       VerticalAlignment="Center"
+                                       IsHitTestVisible="False"/>
+                        </Grid>
 
-                        <!-- Text input -->
-                        <TextBox Grid.Column="1" x:Name="chat_input"
-                                  VerticalContentAlignment="Center"
-                                  Padding="8,0"
-                                  BorderThickness="0"
-                                  Background="Transparent"
-                                  FontSize="13.5"
-                                  Foreground="#18181B"
-                                  CaretBrush="#18181B"
-                                  ToolTip="Nhập lệnh Tiếng Việt hoặc English (Enter để gửi)"
-                                  KeyDown="input_keydown"/>
+                        <!-- Bottom toolbar: + · (spacer) · model chip · send -->
+                        <Grid Margin="8,4,8,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>  <!-- Attach (+) -->
+                                <ColumnDefinition Width="*"/>     <!-- spacer -->
+                                <ColumnDefinition Width="Auto"/>  <!-- Model chip -->
+                                <ColumnDefinition Width="Auto"/>  <!-- Send -->
+                            </Grid.ColumnDefinitions>
 
-                        <!-- Send button -->
-                        <Button Grid.Column="2" x:Name="send_button"
-                                 Style="{StaticResource PrimaryButton}"
-                                 Height="28"
-                                 Margin="0,0,3,0"
-                                 Padding="16,0"
-                                 Click="send_clicked"
-                                 ToolTip="Gửi (Enter)">
+                            <!-- Attach button (+) -->
+                            <Button Grid.Column="0" x:Name="btn_attach"
+                                    Style="{StaticResource IconButton}"
+                                    Width="30" Height="30"
+                                    Click="attach_clicked"
+                                    ToolTip="Đính kèm PDF hoặc hình ảnh — tự lưu vào folder dự án theo ngày">
+                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                           Foreground="#52525B" VerticalAlignment="Center"
+                                           HorizontalAlignment="Center"/>
+                            </Button>
+
+                            <!-- Model / provider chip -->
+                            <Button Grid.Column="2" x:Name="model_chip_btn"
+                                    Style="{StaticResource ComposerChipBtn}"
+                                    Margin="0,0,8,0"
+                                    Click="model_chip_clicked"
+                                    ToolTip="Chọn AI provider / model">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse x:Name="model_chip_dot" Width="7" Height="7"
+                                             Fill="#A1A1AA" VerticalAlignment="Center"
+                                             Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="model_chip_text" Text="AI"
+                                               FontSize="11.5" FontWeight="SemiBold"
+                                               Foreground="#52525B" VerticalAlignment="Center"
+                                               FontFamily="Hanken Grotesk"/>
+                                    <Path Data="M5 8 L10 13 L15 8"
+                                          Stroke="#A1A1AA" StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"
+                                          Width="9" Height="9" Stretch="Uniform"
+                                          Margin="5,1,0,0" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Send button (round, arrow-up) -->
+                            <Button Grid.Column="3" x:Name="send_button"
+                                    Style="{StaticResource ComposerSendBtn}"
+                                    Click="send_clicked"
+                                    ToolTip="Gửi (Enter)">
+                                <TextBlock x:Name="send_icon" Text="&#xE74A;"
+                                           FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           Foreground="White"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Row below the card: project picker (Claude-style) ── -->
+                <Grid Margin="2,7,2,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button x:Name="project_chip_btn"
+                                Style="{StaticResource ComposerChipBtn}"
+                                Click="project_chip_clicked"
+                                ToolTip="Chọn project (không gian làm việc)">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Gửi" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="White"/>
-                                <TextBlock Text="&#xE724;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                            VerticalAlignment="Center" Margin="4,0,0,0" Foreground="White"/>
+                                <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" Foreground="#71717A"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="project_chip_text" Text="Project"
+                                           FontSize="11.5" FontWeight="SemiBold"
+                                           Foreground="#52525B" VerticalAlignment="Center"
+                                           FontFamily="Hanken Grotesk"/>
+                                <Path Data="M5 8 L10 13 L15 8"
+                                      Stroke="#A1A1AA" StrokeThickness="1.5"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Width="9" Height="9" Stretch="Uniform"
+                                      Margin="5,1,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
-                    </Grid>
-                </Border>
+
+                        <!-- Harness action mode: Tự động / Hỏi trước khi sửa model -->
+                        <Button x:Name="action_mode_btn"
+                                Style="{StaticResource ComposerChipBtn}"
+                                Margin="4,0,0,0"
+                                Click="action_mode_clicked"
+                                ToolTip="Chế độ thực hiện lệnh sửa model — bấm để đổi">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="action_mode_icon" Text="&#xEA18;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" Foreground="#71717A"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="action_mode_text" Text="Tự động"
+                                           FontSize="11.5" FontWeight="SemiBold"
+                                           Foreground="#52525B" VerticalAlignment="Center"
+                                           FontFamily="Hanken Grotesk"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="2"
+                               Text="/ skill  ·  Shift+Enter xuống dòng"
+                               FontSize="10.5" Foreground="#A1A1AA"
+                               FontFamily="Hanken Grotesk"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ── Slash-skills popup (opens above the composer) ── -->
+                <Popup x:Name="skills_popup"
+                       PlacementTarget="{Binding ElementName=composer_card}"
+                       Placement="Top" VerticalOffset="-6"
+                       AllowsTransparency="True" StaysOpen="True"
+                       PopupAnimation="Fade">
+                    <Border Background="White" BorderBrush="#E6E6EA"
+                            BorderThickness="1" CornerRadius="12"
+                            MinWidth="340" MaxWidth="480" Margin="0,0,8,8">
+                        <Border.Effect>
+                            <DropShadowEffect ShadowDepth="2" Direction="270"
+                                              Color="#18181B" Opacity="0.10" BlurRadius="10"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <ScrollViewer x:Name="skills_popup_scroll" MaxHeight="250"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel x:Name="skills_popup_panel" Margin="5"/>
+                            </ScrollViewer>
+                            <Border BorderBrush="#F1F1F3" BorderThickness="0,1,0,0"
+                                    Padding="12,6">
+                                <TextBlock Text="↑↓ chọn  ·  Enter/Tab dùng skill  ·  Esc đóng"
+                                           FontSize="10" Foreground="#A1A1AA"
+                                           FontFamily="Hanken Grotesk"/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <!-- ── Project picker popup ── -->
+                <Popup x:Name="project_popup"
+                       PlacementTarget="{Binding ElementName=project_chip_btn}"
+                       Placement="Top" VerticalOffset="-6"
+                       AllowsTransparency="True" StaysOpen="False"
+                       PopupAnimation="Fade">
+                    <Border Background="White" BorderBrush="#E6E6EA"
+                            BorderThickness="1" CornerRadius="12"
+                            MinWidth="260" MaxWidth="360" Margin="0,0,8,8">
+                        <Border.Effect>
+                            <DropShadowEffect ShadowDepth="2" Direction="270"
+                                              Color="#18181B" Opacity="0.10" BlurRadius="10"/>
+                        </Border.Effect>
+                        <ScrollViewer MaxHeight="280"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="project_popup_panel" Margin="5"/>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
+
+                <!-- ── Model / provider picker popup ── -->
+                <Popup x:Name="model_popup"
+                       PlacementTarget="{Binding ElementName=model_chip_btn}"
+                       Placement="Top" VerticalOffset="-6"
+                       AllowsTransparency="True" StaysOpen="False"
+                       PopupAnimation="Fade">
+                    <Border Background="White" BorderBrush="#E6E6EA"
+                            BorderThickness="1" CornerRadius="12"
+                            MinWidth="260" MaxWidth="360" Margin="0,0,8,8">
+                        <Border.Effect>
+                            <DropShadowEffect ShadowDepth="2" Direction="270"
+                                              Color="#18181B" Opacity="0.10" BlurRadius="10"/>
+                        </Border.Effect>
+                        <ScrollViewer MaxHeight="280"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel x:Name="model_popup_panel" Margin="5"/>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
             </StackPanel>
         </Border>
 

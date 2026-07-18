@@ -607,7 +607,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Native agent loop state ───────────────────────────────────────────
         self._agent_loop        = None    # running AgentLoop (native tools path)
         self._cancel_requested  = False   # Stop pressed before the loop existed
-        self._send_orig_content = None    # cached "Gửi" content of send_button
 
         # ── Easy-to-use input: multi-line with Shift+Enter ────────────────────
         try:
@@ -619,6 +618,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.chat_input.VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             self.chat_input.ToolTip = (u"Nhập lệnh Tiếng Việt hoặc English  •  "
                                        u"Enter để gửi, Shift+Enter xuống dòng")
+        except Exception:
+            pass
+
+        # ── Claude-style composer state (slash-skills popup + chips) ──────────
+        self._slash_open      = False   # skills popup visible?
+        self._slash_items     = []      # filtered catalog metas shown in popup
+        self._slash_rows      = []      # Border rows (for highlight swap)
+        self._slash_sel       = 0       # highlighted index
+        self._forced_skill_id = None    # skill forced via /slash for THIS message
+        try:
+            self._update_composer_chips()
+            self._update_action_mode_chip()
+        except Exception:
+            pass
+        # Popups must never linger when focus leaves the input / the window
+        try:
+            def _input_lost_focus(s, ev):
+                self._close_skills_popup()
+            self.chat_input.LostKeyboardFocus += _input_lost_focus
+
+            def _win_deactivated(s, ev):
+                self._close_skills_popup()
+                try:
+                    self.project_popup.IsOpen = False
+                    self.model_popup.IsOpen = False
+                except Exception:
+                    pass
+            self.Deactivated += _win_deactivated
         except Exception:
             pass
 
@@ -1353,6 +1380,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.ai_provider_dot.Fill    = SolidColorBrush(Color.FromRgb(*rgb))
             self.ai_status_badge.ToolTip = u"{}\nClick to switch provider".format(label)
 
+            # Keep the composer model chip in sync with the badge
+            self._update_composer_chips()
+
             # Refine health (dot color + tooltip) on a background thread
             self._refresh_badge_health_async()
 
@@ -1884,6 +1914,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             combo.SelectionChanged += self.sidebar_project_changed
 
             self._populate_project_edit_panel(active)
+            self._update_composer_chips()
         except Exception as ex:
             logger.debug("_update_project_combo error: {}".format(ex))
 
@@ -1902,7 +1933,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("_populate_project_edit_panel error: {}".format(ex))
 
     def sidebar_project_changed(self, sender, e):
-        """Switch the active project: history, knowledge scope, provider."""
+        """Sidebar combo → switch the active project."""
         try:
             if self._busy:
                 # revert silently — switching scope mid-request is unsafe
@@ -1911,10 +1942,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     u"Đang xử lý yêu cầu — đổi project sau khi xong nhé.",
                     icon=_ICON_SYNC, icon_color=_ICON_SLATE)
                 return
-            from config.project_store import ProjectStore
-            ps = ProjectStore()
             item = self.sidebar_project_combo.SelectedItem
             pid = getattr(item, 'Tag', None) if item is not None else None
+            self._activate_project(pid)
+        except Exception as ex:
+            logger.debug("sidebar_project_changed error: {}".format(ex))
+
+    def _activate_project(self, pid):
+        """Switch the active project: history, knowledge scope, provider.
+        UI THREAD — callers handle the busy guard themselves."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
             ps.set_active_project(pid)
             self._populate_project_edit_panel(pid)
 
@@ -1947,8 +1986,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 u"Đã chuyển sang project **{}**.".format(name) if name
                 else u"Đã tắt chế độ project — dùng không gian chung.",
                 icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
+            self._update_composer_chips()
         except Exception as ex:
-            logger.debug("sidebar_project_changed error: {}".format(ex))
+            logger.debug("_activate_project error: {}".format(ex))
 
     def sidebar_new_project_clicked(self, sender, e):
         """Create a project and activate it."""
@@ -2879,7 +2919,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             self.chat_input.IsEnabled = not busy
             self._render_send_button(busy)
-            # btn_attach stays locked (import file feature disabled)
+            self.btn_attach.IsEnabled = not busy
         except Exception:
             pass
         for btn in self._DYNAMIC_BTNS:
@@ -2904,46 +2944,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._hide_typing_indicator()
 
     def _render_send_button(self, busy):
-        """Swap the send button between 'Gửi ➢' and 'Dừng ⏹'. UI thread only."""
+        """Swap the round send button between arrow-up ↑ and Stop ⏹. UI thread only."""
         try:
-            from System.Windows.Controls import StackPanel, TextBlock, Orientation
-            from System.Windows.Media import SolidColorBrush, Color, FontFamily
-            from System.Windows import Thickness, VerticalAlignment
-
             btn = self.send_button
-            if self._send_orig_content is None:
-                self._send_orig_content = btn.Content
-
             if not busy:
-                btn.Content   = self._send_orig_content
-                btn.IsEnabled = True
-                btn.ToolTip   = u"Gửi (Enter)"
-                return
-
-            _white = SolidColorBrush(Color.FromRgb(255, 255, 255))
-            sp = StackPanel()
-            sp.Orientation = Orientation.Horizontal
-
-            t1 = TextBlock()
-            t1.Text              = u"Dừng"
-            t1.FontSize          = 13
-            t1.FontWeight        = System.Windows.FontWeights.SemiBold
-            t1.Foreground        = _white
-            t1.VerticalAlignment = VerticalAlignment.Center
-
-            t2 = TextBlock()
-            t2.Text              = u""   # MDL2 Stop
-            t2.FontFamily        = FontFamily(u"Segoe MDL2 Assets")
-            t2.FontSize          = 11
-            t2.Foreground        = _white
-            t2.VerticalAlignment = VerticalAlignment.Center
-            t2.Margin            = Thickness(4, 0, 0, 0)
-
-            sp.Children.Add(t1)
-            sp.Children.Add(t2)
-            btn.Content   = sp
+                self.send_icon.Text = u""   # MDL2 Up arrow
+                btn.ToolTip = u"Gửi (Enter)"
+            else:
+                self.send_icon.Text = u""   # MDL2 Stop
+                btn.ToolTip = u"Dừng tác vụ đang chạy"
             btn.IsEnabled = True
-            btn.ToolTip   = u"Dừng tác vụ đang chạy"
         except Exception as ex:
             logger.debug("_render_send_button error: {}".format(ex))
 
@@ -3089,6 +3099,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._conversation_history = self._conversation_history[-16:]
         # Persist to disk so it survives window close/reopen
         self._persist_message(role, content)
+        # Daily activity journal — assistant side only (the user side is
+        # logged in _process_input's routing thread with attachment info).
+        if role == "assistant" and content:
+            one_line = u" ".join((content or u"").split())
+            if len(one_line) > 400:
+                one_line = one_line[:400] + u"…"
+            self._log_activity(u"🤖 {}".format(one_line))
 
     # ─── File attachment ──────────────────────────────────────────────────────
 
@@ -3205,6 +3222,26 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     def input_keydown(self, sender, e):
         from System.Windows.Input import Key, Keyboard, ModifierKeys
+
+        # ── Slash-skills popup navigation (Claude-style) ──────────────────
+        if self._slash_open:
+            if e.Key == Key.Up:
+                self._slash_move(-1)
+                e.Handled = True
+                return
+            if e.Key == Key.Down:
+                self._slash_move(1)
+                e.Handled = True
+                return
+            if e.Key in (Key.Return, Key.Enter, Key.Tab):
+                self._slash_accept()
+                e.Handled = True
+                return
+            if e.Key == Key.Escape:
+                self._close_skills_popup()
+                e.Handled = True
+                return
+
         if e.Key == Key.Return or e.Key == Key.Enter:
             # Shift+Enter inserts a newline (multi-line input)
             if (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift:
@@ -3241,6 +3278,457 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     self.chat_input.Text = self._input_history[self._history_index]
                 self.chat_input.CaretIndex = len(self.chat_input.Text)
                 e.Handled = True
+
+    # ─── Claude-style composer: slash-skills popup + project/model chips ──────
+
+    def input_text_changed(self, sender, e):
+        """Placeholder visibility + slash-skills popup filtering. UI THREAD."""
+        try:
+            text = self.chat_input.Text or u""
+            self.composer_placeholder.Visibility = (
+                Visibility.Collapsed if text else Visibility.Visible)
+            # Slash mode: "/" as first char, no whitespace typed yet
+            m = re.match(r'^/([\w\-]*)$', text)
+            if m is not None:
+                self._refresh_skills_popup(m.group(1))
+            elif self._slash_open:
+                self._close_skills_popup()
+        except Exception as ex:
+            logger.debug("input_text_changed error: {}".format(ex))
+
+    def _refresh_skills_popup(self, query):
+        """(Re)build the skills popup filtered by `query`. UI THREAD."""
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            skills = [s for s in get_skills_engine().all_skills()
+                      if s.get('enabled')]
+        except Exception:
+            skills = []
+        q = (query or u"").lower()
+        items = [s for s in skills
+                 if q in s['id'].lower() or q in (s['name'] or u"").lower()]
+        if not items:
+            self._close_skills_popup()
+            return
+        self._slash_items = items
+        self._slash_rows = []
+        self._slash_sel = 0
+        panel = self.skills_popup_panel
+        panel.Children.Clear()
+        for i, meta in enumerate(items):
+            row = self._make_skill_row(i, meta)
+            self._slash_rows.append(row)
+            panel.Children.Add(row)
+        self._slash_highlight()
+        self.skills_popup.IsOpen = True
+        self._slash_open = True
+
+    def _make_skill_row(self, idx, meta):
+        """One row of the slash-skills popup. UI THREAD."""
+        subtitle = meta.get('description') or u""
+        src = {'builtin': u"có sẵn", 'user': u"của bạn",
+               'project': u"project"}.get(meta.get('source'))
+        if src:
+            subtitle = (subtitle + u"  ·  " + src) if subtitle else src
+
+        def _click(s, ev, _i=idx):
+            self._slash_sel = _i
+            self._slash_accept()
+            ev.Handled = True
+
+        row = self._popup_row(u"/" + meta['id'], subtitle or None,
+                              hover=False, handler=_click)
+
+        def _enter(s, ev, _i=idx):
+            self._slash_sel = _i
+            self._slash_highlight()
+        row.MouseEnter += _enter
+        return row
+
+    def _slash_highlight(self):
+        """Paint the highlighted popup row. UI THREAD."""
+        from System.Windows.Media import Brushes, SolidColorBrush, Color
+        sel_bg = SolidColorBrush(Color.FromRgb(0xF1, 0xF5, 0xF9))
+        for i, row in enumerate(self._slash_rows):
+            row.Background = sel_bg if i == self._slash_sel \
+                else Brushes.Transparent
+
+    def _slash_move(self, delta):
+        """Move popup selection with Up/Down (wraps). UI THREAD."""
+        if not self._slash_items:
+            return
+        self._slash_sel = (self._slash_sel + delta) % len(self._slash_items)
+        self._slash_highlight()
+        try:
+            self._slash_rows[self._slash_sel].BringIntoView()
+        except Exception:
+            pass
+
+    def _slash_accept(self):
+        """Insert the highlighted skill as '/id ' into the input. UI THREAD."""
+        try:
+            meta = self._slash_items[self._slash_sel]
+        except Exception:
+            self._close_skills_popup()
+            return
+        self._close_skills_popup()
+        self.chat_input.Text = u"/" + meta['id'] + u" "
+        self.chat_input.CaretIndex = len(self.chat_input.Text)
+        self.chat_input.Focus()
+
+    def _close_skills_popup(self):
+        self._slash_open = False
+        self._slash_items = []
+        self._slash_rows = []
+        try:
+            self.skills_popup.IsOpen = False
+        except Exception:
+            pass
+
+    def _apply_forced_skill(self):
+        """Inject the /slash-forced skill into the dispatcher decision.
+
+        Idempotent — safe to call from several points along _route_input.
+        skill_forced=True later bypasses filter_for_specialist so an explicit
+        user invocation always wins over the agents: frontmatter filter.
+        """
+        sid = getattr(self, '_forced_skill_id', None)
+        if not sid:
+            return
+        if not self._agent_decision:
+            self._agent_decision = {'specialist': 'general',
+                                    'source': 'slash', 'confidence': 1.0}
+        self._agent_decision['skill'] = sid
+        self._agent_decision['skill_forced'] = True
+
+    def _popup_row(self, title, subtitle=None, icon=None, active=False,
+                   dot=None, hover=True, handler=None):
+        """Claude-style popup menu row (used by all composer popups). UI THREAD."""
+        from System.Windows.Controls import (Grid, ColumnDefinition,
+                                             StackPanel, TextBlock, Border)
+        from System.Windows.Shapes import Ellipse
+        from System.Windows import (Thickness, CornerRadius, GridLength,
+                                    GridUnitType, TextTrimming,
+                                    VerticalAlignment)
+        from System.Windows.Media import (Brushes, SolidColorBrush, Color,
+                                          FontFamily)
+        from System.Windows.Input import Cursors
+
+        row = Border()
+        row.CornerRadius = CornerRadius(8)
+        row.Padding = Thickness(10, 7, 10, 7)
+        row.Background = Brushes.Transparent
+        row.Cursor = Cursors.Hand
+
+        g = Grid()
+        c0 = ColumnDefinition(); c0.Width = GridLength.Auto
+        c1 = ColumnDefinition(); c1.Width = GridLength(1, GridUnitType.Star)
+        c2 = ColumnDefinition(); c2.Width = GridLength.Auto
+        g.ColumnDefinitions.Add(c0)
+        g.ColumnDefinitions.Add(c1)
+        g.ColumnDefinitions.Add(c2)
+
+        lead = None
+        if dot is not None:
+            lead = Ellipse()
+            lead.Width = 8
+            lead.Height = 8
+            lead.Fill = SolidColorBrush(Color.FromRgb(dot[0], dot[1], dot[2]))
+            lead.VerticalAlignment = VerticalAlignment.Center
+            lead.Margin = Thickness(0, 0, 8, 0)
+        elif icon:
+            lead = TextBlock()
+            lead.Text = icon
+            lead.FontFamily = FontFamily(u"Segoe MDL2 Assets")
+            lead.FontSize = 11
+            lead.Foreground = SolidColorBrush(Color.FromRgb(0x71, 0x71, 0x7A))
+            lead.VerticalAlignment = VerticalAlignment.Center
+            lead.Margin = Thickness(0, 1, 8, 0)
+        if lead is not None:
+            Grid.SetColumn(lead, 0)
+            g.Children.Add(lead)
+
+        body = StackPanel()
+        t = TextBlock()
+        t.Text = title
+        t.FontSize = 12
+        t.FontFamily = FontFamily(u"Hanken Grotesk")
+        t.FontWeight = System.Windows.FontWeights.SemiBold
+        t.Foreground = SolidColorBrush(Color.FromRgb(0x18, 0x18, 0x1B))
+        t.TextTrimming = TextTrimming.CharacterEllipsis
+        body.Children.Add(t)
+        if subtitle:
+            st = TextBlock()
+            st.Text = subtitle
+            st.FontSize = 10.5
+            st.FontFamily = FontFamily(u"Hanken Grotesk")
+            st.Foreground = SolidColorBrush(Color.FromRgb(0x71, 0x71, 0x7A))
+            st.TextTrimming = TextTrimming.CharacterEllipsis
+            st.Margin = Thickness(0, 1, 0, 0)
+            body.Children.Add(st)
+        Grid.SetColumn(body, 1)
+        g.Children.Add(body)
+
+        if active:
+            chk = TextBlock()
+            chk.Text = u""
+            chk.FontFamily = FontFamily(u"Segoe MDL2 Assets")
+            chk.FontSize = 11
+            chk.Foreground = SolidColorBrush(Color.FromRgb(0x3B, 0x82, 0xF6))
+            chk.VerticalAlignment = VerticalAlignment.Center
+            chk.Margin = Thickness(10, 0, 0, 0)
+            Grid.SetColumn(chk, 2)
+            g.Children.Add(chk)
+
+        row.Child = g
+
+        if hover:
+            hover_bg = SolidColorBrush(Color.FromRgb(0xF4, 0xF4, 0xF6))
+
+            def _enter(s, ev):
+                row.Background = hover_bg
+
+            def _leave(s, ev):
+                row.Background = Brushes.Transparent
+            row.MouseEnter += _enter
+            row.MouseLeave += _leave
+        if handler is not None:
+            row.PreviewMouseLeftButtonDown += handler
+        return row
+
+    def _popup_separator(self):
+        from System.Windows.Controls import Border
+        from System.Windows import Thickness
+        from System.Windows.Media import SolidColorBrush, Color
+        sep = Border()
+        sep.Height = 1
+        sep.Background = SolidColorBrush(Color.FromRgb(0xF1, 0xF1, 0xF3))
+        sep.Margin = Thickness(6, 5, 6, 5)
+        return sep
+
+    def _update_composer_chips(self):
+        """Refresh the project + model chips of the composer. UI THREAD."""
+        from System.Windows.Media import SolidColorBrush, Color
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            meta = ps.get_project(pid) if pid else None
+            if meta:
+                self.project_chip_text.Text = meta.get('name') or u"Project"
+                self.project_chip_text.Foreground = SolidColorBrush(
+                    Color.FromRgb(0x1D, 0x4E, 0xD8))
+            else:
+                self.project_chip_text.Text = u"Project"
+                self.project_chip_text.Foreground = SolidColorBrush(
+                    Color.FromRgb(0x52, 0x52, 0x5B))
+        except Exception as ex:
+            logger.debug("_update_composer_chips project error: {}".format(ex))
+        try:
+            from Intelligence.llm_router import LLMRouter
+            router = LLMRouter()
+            self.model_chip_text.Text = router.get_display_label()
+            rgb = self._BADGE_COLORS.get(router.get_active_name(),
+                                         self._BADGE_GRAY)
+            self.model_chip_dot.Fill = SolidColorBrush(
+                Color.FromRgb(rgb[0], rgb[1], rgb[2]))
+        except Exception as ex:
+            logger.debug("_update_composer_chips model error: {}".format(ex))
+
+    def project_chip_clicked(self, sender, e):
+        """Open the Claude-style project picker popup."""
+        try:
+            self._build_project_popup()
+            self.project_popup.IsOpen = True
+        except Exception as ex:
+            logger.debug("project_chip_clicked error: {}".format(ex))
+
+    def _build_project_popup(self):
+        """Fill the project popup: none + projects + new/customize. UI THREAD."""
+        from config.project_store import ProjectStore
+        ps = ProjectStore()
+        active = ps.get_active_project_id()
+        panel = self.project_popup_panel
+        panel.Children.Clear()
+
+        panel.Children.Add(self._popup_row(
+            u"Không dùng project", u"Không gian chung",
+            active=(not active),
+            handler=lambda s, ev: self._project_popup_select(None)))
+        for meta in ps.list_projects():
+            panel.Children.Add(self._popup_row(
+                meta['name'], None, active=(meta['id'] == active),
+                handler=(lambda s, ev, _p=meta['id']:
+                         self._project_popup_select(_p))))
+        panel.Children.Add(self._popup_separator())
+        panel.Children.Add(self._popup_row(
+            u"Tạo project mới", None, icon=u"",
+            handler=lambda s, ev: self._project_popup_new()))
+        panel.Children.Add(self._popup_row(
+            u"Tuỳ chỉnh project…", u"Tên, instructions, knowledge",
+            icon=u"",
+            handler=lambda s, ev: self._project_popup_settings()))
+
+    def _project_popup_select(self, pid):
+        try:
+            self.project_popup.IsOpen = False
+        except Exception:
+            pass
+        try:
+            if self._busy:
+                self._append_bot_message(
+                    u"Đang xử lý yêu cầu — đổi project sau khi xong nhé.",
+                    icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                return
+            from config.project_store import ProjectStore
+            if ProjectStore().get_active_project_id() == pid:
+                return
+            self._activate_project(pid)
+            self._update_project_combo()   # sync sidebar combo silently
+        except Exception as ex:
+            logger.debug("_project_popup_select error: {}".format(ex))
+
+    def _project_popup_new(self):
+        try:
+            self.project_popup.IsOpen = False
+        except Exception:
+            pass
+        self.sidebar_new_project_clicked(None, None)
+        self._open_settings_sidebar()
+
+    def _project_popup_settings(self):
+        try:
+            self.project_popup.IsOpen = False
+        except Exception:
+            pass
+        self._open_settings_sidebar()
+
+    def _open_settings_sidebar(self):
+        try:
+            if self.settings_sidebar.Visibility != Visibility.Visible:
+                self.settings_btn_clicked(None, None)
+        except Exception as ex:
+            logger.debug("_open_settings_sidebar error: {}".format(ex))
+
+    def model_chip_clicked(self, sender, e):
+        """Open the Claude-style provider/model picker popup."""
+        try:
+            self._build_model_popup()
+            self.model_popup.IsOpen = True
+        except Exception as ex:
+            logger.debug("model_chip_clicked error: {}".format(ex))
+
+    def _build_model_popup(self):
+        """Fill the model popup from the instant router snapshot. UI THREAD."""
+        from Intelligence.llm_router import LLMRouter
+        router = LLMRouter()
+        status = router.get_status_instant()
+        panel = self.model_popup_panel
+        panel.Children.Clear()
+        for name in router.get_provider_names():
+            info = status.get(name, {})
+            model = info.get('model') or u""
+            subtitle = model if model else (
+                None if info.get('available')
+                else u"Chưa cấu hình — vào Settings")
+            panel.Children.Add(self._popup_row(
+                info.get('display_name', name), subtitle,
+                active=info.get('active', False),
+                dot=self._BADGE_COLORS.get(name, self._BADGE_GRAY),
+                handler=(lambda s, ev, _n=name:
+                         self._model_popup_select(_n))))
+        panel.Children.Add(self._popup_separator())
+        panel.Children.Add(self._popup_row(
+            u"Cấu hình API key & model…", None, icon=u"",
+            handler=lambda s, ev: self._model_popup_settings()))
+
+    def _model_popup_select(self, name):
+        try:
+            self.model_popup.IsOpen = False
+        except Exception:
+            pass
+        try:
+            from Intelligence.llm_router import LLMRouter
+            if LLMRouter().get_active_name() == name:
+                return
+            # Same sequence as sidebar_provider_changed: model list first so
+            # it never lingers on the previous provider, then hot-swap.
+            self._populate_model_combo(name)
+            self._switch_provider(name)
+        except Exception as ex:
+            logger.debug("_model_popup_select error: {}".format(ex))
+
+    def _model_popup_settings(self):
+        try:
+            self.model_popup.IsOpen = False
+        except Exception:
+            pass
+        self._open_settings_sidebar()
+
+    # ─── Harness: action mode (auto / confirm-first) + activity log ──────────
+
+    def action_mode_clicked(self, sender, e):
+        """Toggle between 'auto' (act immediately) and 'confirm' (plan first)."""
+        try:
+            from config.settings import get_settings
+            settings = get_settings()
+            new_mode = ('confirm' if settings.get_action_mode() == 'auto'
+                        else 'auto')
+            settings.set_agent_option('action_mode', new_mode)
+            self._update_action_mode_chip()
+            self._append_bot_message(
+                u"Chế độ **Hỏi trước khi sửa** đã bật — tôi sẽ trình kế "
+                u"hoạch và chờ bạn xác nhận trước khi thay đổi model."
+                if new_mode == 'confirm' else
+                u"Chế độ **Tự động** đã bật — tôi thực hiện lệnh sửa model "
+                u"ngay (vẫn hỏi trước khi XÓA dữ liệu).",
+                icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+        except Exception as ex:
+            logger.debug("action_mode_clicked error: {}".format(ex))
+
+    def _update_action_mode_chip(self):
+        """Render the action-mode chip state. UI THREAD."""
+        try:
+            from System.Windows.Media import SolidColorBrush, Color
+            from config.settings import get_settings
+            confirm = (get_settings().get_action_mode() == 'confirm')
+            if confirm:
+                self.action_mode_text.Text = u"Hỏi trước khi sửa"
+                blue = SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
+                self.action_mode_text.Foreground = blue
+                self.action_mode_icon.Text = u""   # MDL2 Shield
+                self.action_mode_icon.Foreground = SolidColorBrush(
+                    Color.FromRgb(0x3B, 0x82, 0xF6))
+            else:
+                self.action_mode_text.Text = u"Tự động"
+                gray = SolidColorBrush(Color.FromRgb(0x52, 0x52, 0x5B))
+                self.action_mode_text.Foreground = gray
+                self.action_mode_icon.Text = u""   # MDL2 LightningBolt
+                self.action_mode_icon.Foreground = SolidColorBrush(
+                    Color.FromRgb(0x71, 0x71, 0x7A))
+        except Exception as ex:
+            logger.debug("_update_action_mode_chip error: {}".format(ex))
+
+    def activity_log_clicked(self, sender, e):
+        """Open today's activity log (or the logs folder) in Explorer."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            path = ps.activity_log_path(pid)
+            target = path if os.path.exists(path) else os.path.dirname(path)
+            System.Diagnostics.Process.Start(target)
+        except Exception as ex:
+            logger.debug("activity_log_clicked error: {}".format(ex))
+
+    def _log_activity(self, text):
+        """Append to today's project-scoped activity log. Never raises."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            ps.append_activity(text, ps.get_active_project_id())
+        except Exception:
+            pass
 
     # DB-only fast path (no LLM round-trip). DISABLED 2026-07-06: keyword
     # matching hijacks unrelated queries (e.g. "check lỗi tiếng Anh trong dự
@@ -3473,6 +3961,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not raw and not attached:
                 return
 
+            # ── Slash-skill invocation: "/skill-id [rest of message]" ─────────
+            # The skill id must exist in the registry; anything else is sent
+            # through unchanged (e.g. "/абв" or a plain path-like string).
+            self._close_skills_popup()
+            self._forced_skill_id = None
+            route_text = raw
+            m = re.match(r'^/([\w\-]+)(?:\s+(.*))?$', raw, re.S) if raw else None
+            if m:
+                try:
+                    from Intelligence.skills_engine import get_skills_engine
+                    _cat = get_skills_engine().get_catalog(enabled_only=False)
+                    if any(s['id'] == m.group(1) for s in _cat):
+                        self._forced_skill_id = m.group(1)
+                        route_text = (m.group(2) or u"").strip() or raw
+                except Exception:
+                    pass
+
             # Record in command history
             if raw:
                 if not self._input_history or self._input_history[-1] != raw:
@@ -3503,6 +4008,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             if attachment_note else display_text)
             self._add_to_history("user", history_text)
 
+            # Slash-forced skill → show the activation chip right away
+            if self._forced_skill_id:
+                try:
+                    self._append_skill_chips([self._forced_skill_id])
+                except Exception:
+                    pass
+
             # ── Clear attachments from UI after sending ────────────────────────
             if attached:
                 self._attached_files = []
@@ -3521,9 +4033,32 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # only the results marshal back onto the dispatcher.
             self._set_busy(True)
 
-            def _route():
+            def _route(_rt=route_text):
                 try:
-                    self._route_input(raw, attached)
+                    # Archive attachments into the project's dated folder and
+                    # journal the request — on the worker thread so a big PDF
+                    # copy never freezes the UI.
+                    _files = attached
+                    if _files:
+                        try:
+                            from config.project_store import ProjectStore
+                            _ps = ProjectStore()
+                            _pid = _ps.get_active_project_id()
+                            _files = _ps.archive_attachments(_files, _pid)
+                            _ps.append_activity(
+                                u"📎 Đính kèm ({}): {}".format(
+                                    len(_files),
+                                    u", ".join(os.path.basename(x)
+                                               for x in _files)), _pid)
+                        except Exception:
+                            _files = attached
+                    _req = _rt if _rt else u"[đính kèm tài liệu]"
+                    _skill_note = (u"  _(skill: /{})_".format(
+                        self._forced_skill_id)
+                        if self._forced_skill_id else u"")
+                    self._log_activity(u"🧑 Yêu cầu: {}{}".format(
+                        _req, _skill_note))
+                    self._route_input(_rt, _files)
                 except Exception as ex:
                     logger.error("_route_input error: {}".format(ex))
 
@@ -3652,8 +4187,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if _dec and _dec.get('skill'):
                     from Intelligence.skills_engine import (
                         build_skills_block, get_skills_engine)
-                    _ids = get_skills_engine().filter_for_specialist(
-                        [_dec['skill']], 'knowledge')
+                    _ids = [_dec['skill']]
+                    # explicit /slash invocation bypasses the agents: filter
+                    if not _dec.get('skill_forced'):
+                        _ids = get_skills_engine().filter_for_specialist(
+                            _ids, 'knowledge')
                     skills_block = build_skills_block(_ids)
             except Exception:
                 pass
@@ -3977,6 +4515,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self._agent_decision.get('specialist'),
                             self._agent_decision.get('source'),
                             self._agent_decision.get('confidence', 0.0)))
+                    # /slash skill beats whatever the dispatcher matched
+                    self._apply_forced_skill()
                     if HAS_KNOWLEDGE and self._agent_decision and \
                             self._agent_decision.get('specialist') == 'knowledge':
                         if self._run_knowledge_agent(raw, history):
@@ -3999,6 +4539,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self._set_busy(False)
                         self.Dispatcher.Invoke(Action(_need_pdf))
                         return
+
+            # Slash-forced skill also applies when the dispatcher is off or
+            # never ran (multi_agent kill-switch, attachments, no provider).
+            self._apply_forced_skill()
 
             if use_local or use_claude or has_attach:
                 # ── 3/4. LLM path (typing indicator already showing) ──────────
@@ -4045,16 +4589,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             if _dec.get('skill'):
                                 _skill_ids = [_dec['skill']]
                                 # keep only skills declared for this specialist
-                                try:
-                                    from Intelligence.skills_engine import (
-                                        get_skills_engine)
-                                    _spec_name = (_spec.name if _spec
-                                                  else 'general')
-                                    _skill_ids = get_skills_engine() \
-                                        .filter_for_specialist(_skill_ids,
-                                                               _spec_name)
-                                except Exception:
-                                    pass
+                                # (explicit /slash invocation skips the filter)
+                                if not _dec.get('skill_forced'):
+                                    try:
+                                        from Intelligence.skills_engine import (
+                                            get_skills_engine)
+                                        _spec_name = (_spec.name if _spec
+                                                      else 'general')
+                                        _skill_ids = get_skills_engine() \
+                                            .filter_for_specialist(_skill_ids,
+                                                                   _spec_name)
+                                    except Exception:
+                                        pass
                         try:
                             _handled = self._run_native_agent(
                                 _provider, list(history), captured,
@@ -4759,6 +5305,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
             if _skills_block:
                 system_prompt += u"\n\n" + _skills_block
+
+        # Harness action mode: 'confirm' = propose-then-wait before ANY
+        # model-modifying tool call (chip next to the project picker).
+        try:
+            from config.settings import get_settings as _gs_mode
+            if _gs_mode().get_action_mode() == 'confirm':
+                system_prompt += (
+                    u"\n\n## ACTION MODE: CONFIRM FIRST (chế độ an toàn)\n"
+                    u"Trước khi gọi BẤT KỲ tool nào làm thay đổi model "
+                    u"(create/set/bulk/move/rotate/rename/delete/join/split/"
+                    u"purge/load/place/tag/color...), hãy TRẢ LỜI bằng kế "
+                    u"hoạch ngắn gọn: tool sẽ dùng, đối tượng và số lượng "
+                    u"ảnh hưởng — rồi DỪNG, chờ người dùng xác nhận trong "
+                    u"tin nhắn kế tiếp mới thực hiện. Tool chỉ ĐỌC dữ liệu "
+                    u"(get/list/query/analyze/export) được phép gọi ngay "
+                    u"không cần hỏi.")
+        except Exception:
+            pass
 
         viet = _is_viet_text(captured)
 
