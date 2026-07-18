@@ -69,30 +69,50 @@ def is_pdf(file_path):
 
 # ─── PDF text extraction ──────────────────────────────────────────────────────
 
-def extract_pdf_text(pdf_path):
-    """Extract readable text from a PDF file.
+def extract_pdf_pages(pdf_path, max_pages=200):
+    """Extract text per page from a PDF file.
 
     Tries (in order):
-      1. iTextSharp (if available in Revit environment)
-      2. Byte-level ASCII scan (fallback — catches plain-text streams)
+      1. iTextSharp (if available in Revit environment) — real page numbers
+      2. Byte-level ASCII scan (fallback) — one pseudo-page numbered 0,
+         signalling "page unknown / partial extraction" to callers.
 
     Returns:
-        str: Extracted text (may be empty if PDF is scanned/image-only).
+        list of (page_no, unicode_text) tuples; [] if nothing extractable.
     """
-    # Guard: file exists and not too large
     if not os.path.isfile(pdf_path):
-        return u''
+        return []
     try:
         size = os.path.getsize(pdf_path)
     except Exception:
         size = 0
     if size == 0 or size > MAX_PDF_BYTES:
+        return []
+
+    pages = _itextsharp_pages(pdf_path, max_pages)
+    if pages:
+        return pages
+    text = _fallback_byte_scan(pdf_path)
+    if text:
+        return [(0, text)]
+    return []
+
+
+def extract_pdf_text(pdf_path):
+    """Extract readable text from a PDF file (joined over pages).
+
+    Returns:
+        str: Extracted text truncated to MAX_PDF_CHARS (may be empty if
+        the PDF is scanned/image-only).
+    """
+    try:
+        size = os.path.getsize(pdf_path) if os.path.isfile(pdf_path) else 0
+    except Exception:
+        size = 0
+    if size > MAX_PDF_BYTES:
         return u'[PDF quá lớn để xử lý — tối đa {} MB]'.format(MAX_PDF_BYTES // (1024 * 1024))
 
-    text = _try_itextsharp(pdf_path)
-    if not text:
-        text = _fallback_byte_scan(pdf_path)
-
+    text = u'\n\n'.join(t for _, t in extract_pdf_pages(pdf_path))
     if text:
         text = text.strip()
         if len(text) > MAX_PDF_CHARS:
@@ -100,8 +120,8 @@ def extract_pdf_text(pdf_path):
     return text or u''
 
 
-def _try_itextsharp(pdf_path):
-    """Attempt to use iTextSharp for PDF text extraction (Revit may have it)."""
+def _itextsharp_pages(pdf_path, max_pages=200):
+    """Per-page extraction via iTextSharp (Revit may provide the assembly)."""
     try:
         clr.AddReference('itextsharp')
         from iTextSharp.text.pdf import PdfReader
@@ -110,17 +130,17 @@ def _try_itextsharp(pdf_path):
         reader = PdfReader(pdf_path)
         pages  = []
         n = reader.NumberOfPages
-        for i in range(1, min(n + 1, 51)):   # max 50 pages
+        for i in range(1, min(n + 1, max_pages + 1)):
             try:
                 page_text = PdfTextExtractor.GetTextFromPage(reader, i)
-                if page_text:
-                    pages.append(page_text.strip())
+                if page_text and page_text.strip():
+                    pages.append((i, page_text.strip()))
             except Exception:
                 pass
         reader.Close()
-        return u'\n\n'.join(pages)
+        return pages
     except Exception:
-        return u''
+        return []
 
 
 def _fallback_byte_scan(pdf_path):

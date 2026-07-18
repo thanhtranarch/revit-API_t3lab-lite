@@ -139,6 +139,41 @@ except Exception as e:
     def summarize_attachments(files): return ''
     SUPPORTED_EXTS = set()
 
+# ─── Knowledge stack (RAG v2: index + retrieval) ──────────────────────────────
+try:
+    from Intelligence.knowledge.knowledge_store import (get_global_store,
+                                                        get_active_store)
+    HAS_KNOWLEDGE = True
+except Exception as e:
+    logger.warning("Could not import knowledge_store: {}".format(e))
+    HAS_KNOWLEDGE = False
+    def get_global_store(): return None
+    def get_active_store(): return None
+
+# ─── Multi-agent dispatcher (specialist routing) ──────────────────────────────
+try:
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    HAS_AGENTS = True
+except Exception as e:
+    logger.warning("Could not import AgentDispatcher: {}".format(e))
+    HAS_AGENTS = False
+    class AgentDispatcher(object):
+        def classify(self, *a, **kw):
+            return {'specialist': 'general', 'skill': None,
+                    'source': 'default', 'confidence': 0.0}
+
+# ─── Specialist specs (per-agent prompt/tools/budget) ─────────────────────────
+try:
+    from Intelligence.agents.specialists import get_spec, build_specialist_prompt
+    HAS_SPECIALISTS = True
+except Exception as e:
+    logger.warning("Could not import specialists: {}".format(e))
+    HAS_SPECIALISTS = False
+    def get_spec(name): return None
+    def build_specialist_prompt(spec, ctx, **kw):
+        from Intelligence.agent_loop import build_agent_system_prompt
+        return build_agent_system_prompt(ctx)
+
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
     from Intelligence.llm_provider import StreamingJSONExtractor
@@ -426,7 +461,20 @@ def _get_doc_key():
 
 
 def _history_file(doc_key):
-    """Return path to the JSON history file for doc_key."""
+    """Return path to the JSON history file for doc_key.
+
+    With an active project the history lives inside that project's
+    workspace (projects/<pid>/chats/); otherwise the legacy per-document
+    location is unchanged.
+    """
+    try:
+        from config.project_store import ProjectStore
+        _ps = ProjectStore()
+        _pid = _ps.get_active_project_id()
+        if _pid:
+            return _ps.history_path(_pid, doc_key)
+    except Exception:
+        pass
     config_dir = os.path.join(lib_dir, 'config', 'chat_history')
     if not os.path.exists(config_dir):
         try:
@@ -681,6 +729,40 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             )))
                 except Exception as ex:
                     logger.debug("Auto-pull model failed: {}".format(ex))
+
+                # ─── 3.4 Skills registry scan ───
+                try:
+                    from Intelligence.skills_engine import SkillsEngine
+                    _n_skills = SkillsEngine().scan()
+                    logger.debug("Skills scanned: {}".format(_n_skills))
+                    self.Dispatcher.Invoke(Action(self._update_skills_panel))
+                except Exception as ex:
+                    logger.debug("Skills scan failed: {}".format(ex))
+
+                # ─── 3.5 Knowledge index: incremental scan + vectors ───
+                # Scans %APPDATA%/T3LabAI/knowledge/ plus user dirs; only
+                # changed files are re-extracted. Embeddings only when the
+                # model is ALREADY installed — the ~270 MB pull is never
+                # triggered silently from startup.
+                try:
+                    if HAS_KNOWLEDGE:
+                        _store = get_active_store()
+                        if _store is not None:
+                            _scan_res = _store.scan()
+                            if _scan_res.get('added') or _scan_res.get('updated'):
+                                logger.debug("Knowledge scan: {}".format(_scan_res))
+                            try:
+                                from Intelligence.knowledge.embeddings import (
+                                    get_default_embedder)
+                                _emb = get_default_embedder()
+                                if _emb is not None and _emb.is_available():
+                                    _store.embed_pending(_emb, budget_sec=90)
+                            except Exception:
+                                pass
+                            self.Dispatcher.Invoke(
+                                Action(self._update_knowledge_status))
+                except Exception as ex:
+                    logger.debug("Knowledge scan failed: {}".format(ex))
 
                 from Intelligence.llm_router import LLMRouter
                 router = LLMRouter()
@@ -1771,6 +1853,529 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("sidebar_save_host_clicked error: {}".format(ex))
 
+    # ─── Project sidebar (workspaces) ─────────────────────────────────────────
+
+    def _update_project_combo(self):
+        """Repopulate the PROJECT combo without firing events. UI THREAD."""
+        try:
+            from System.Windows.Controls import ComboBoxItem
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            active = ps.get_active_project_id()
+
+            combo = self.sidebar_project_combo
+            combo.SelectionChanged -= self.sidebar_project_changed
+            combo.Items.Clear()
+
+            none_item = ComboBoxItem()
+            none_item.Content = u"— Không dùng project —"
+            none_item.Tag = None
+            combo.Items.Add(none_item)
+
+            sel_index = 0
+            for i, meta in enumerate(ps.list_projects()):
+                item = ComboBoxItem()
+                item.Content = meta['name']
+                item.Tag = meta['id']
+                combo.Items.Add(item)
+                if meta['id'] == active:
+                    sel_index = i + 1
+            combo.SelectedIndex = sel_index
+            combo.SelectionChanged += self.sidebar_project_changed
+
+            self._populate_project_edit_panel(active)
+        except Exception as ex:
+            logger.debug("_update_project_combo error: {}".format(ex))
+
+    def _populate_project_edit_panel(self, pid):
+        """Show/fill or hide the project edit panel. UI THREAD."""
+        try:
+            from config.project_store import ProjectStore
+            meta = ProjectStore().get_project(pid) if pid else None
+            if meta:
+                self.project_edit_panel.Visibility = Visibility.Visible
+                self.project_name_box.Text = meta.get('name', u'')
+                self.project_instructions_box.Text = meta.get('instructions', u'')
+            else:
+                self.project_edit_panel.Visibility = Visibility.Collapsed
+        except Exception as ex:
+            logger.debug("_populate_project_edit_panel error: {}".format(ex))
+
+    def sidebar_project_changed(self, sender, e):
+        """Switch the active project: history, knowledge scope, provider."""
+        try:
+            if self._busy:
+                # revert silently — switching scope mid-request is unsafe
+                self._update_project_combo()
+                self._append_bot_message(
+                    u"Đang xử lý yêu cầu — đổi project sau khi xong nhé.",
+                    icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                return
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            item = self.sidebar_project_combo.SelectedItem
+            pid = getattr(item, 'Tag', None) if item is not None else None
+            ps.set_active_project(pid)
+            self._populate_project_edit_panel(pid)
+
+            # Swap chat history to the new scope
+            try:
+                while self.chat_history_panel.Children.Count > 1:
+                    self.chat_history_panel.Children.RemoveAt(1)
+                self._conversation_history = []
+                self._persisted_msgs = []
+                self._restore_history()
+            except Exception:
+                pass
+
+            # Apply the project's provider/model preference (if any)
+            try:
+                meta = ps.get_project(pid) if pid else None
+                if meta and meta.get('provider'):
+                    from Intelligence.llm_router import LLMRouter
+                    LLMRouter().switch_provider(meta['provider'],
+                                                meta.get('model'))
+                    self._update_ai_badge()
+            except Exception:
+                pass
+
+            # Rescan knowledge scope for the new project in background
+            self._update_knowledge_status()
+            self._kick_knowledge_scan()
+            name = (ps.get_project(pid) or {}).get('name') if pid else None
+            self._append_bot_message(
+                u"Đã chuyển sang project **{}**.".format(name) if name
+                else u"Đã tắt chế độ project — dùng không gian chung.",
+                icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
+        except Exception as ex:
+            logger.debug("sidebar_project_changed error: {}".format(ex))
+
+    def sidebar_new_project_clicked(self, sender, e):
+        """Create a project and activate it."""
+        try:
+            if self._busy:
+                return
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            n = len(ps.list_projects()) + 1
+            meta = ps.create_project(u"Project {}".format(n))
+            ps.set_active_project(meta['id'])
+            self._update_project_combo()
+            # sync the rest of the scope like a manual switch
+            try:
+                while self.chat_history_panel.Children.Count > 1:
+                    self.chat_history_panel.Children.RemoveAt(1)
+                self._conversation_history = []
+                self._persisted_msgs = []
+            except Exception:
+                pass
+            self._update_knowledge_status()
+            self._append_bot_message(
+                u"Đã tạo project **{}**. Đặt tên + custom instructions "
+                u"trong sidebar, thả tài liệu vào thư mục knowledge của "
+                u"project để trợ lý trả lời theo đúng dự án.".format(
+                    meta['name']),
+                icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
+        except Exception as ex:
+            logger.debug("sidebar_new_project_clicked error: {}".format(ex))
+
+    def sidebar_project_save_clicked(self, sender, e):
+        """Persist name + instructions from the edit boxes."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            if not pid:
+                return
+            ps.update_project(pid, {
+                'name': self.project_name_box.Text.strip() or u"Project",
+                'instructions': self.project_instructions_box.Text.strip(),
+            })
+            self._update_project_combo()
+        except Exception as ex:
+            logger.debug("sidebar_project_save_clicked error: {}".format(ex))
+
+    def sidebar_project_delete_clicked(self, sender, e):
+        """Delete the active project after a confirm box."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            if not pid:
+                return
+            from System.Windows import MessageBox, MessageBoxButton, MessageBoxResult
+            meta = ps.get_project(pid) or {}
+            res = MessageBox.Show(
+                u"Xóa project '{}' (kèm index + lịch sử chat của nó)?".format(
+                    meta.get('name', pid)),
+                u"T3Lab Assistant", MessageBoxButton.YesNo)
+            if res != MessageBoxResult.Yes:
+                return
+            ps.delete_project(pid)
+            self._update_project_combo()
+            self._update_knowledge_status()
+            self._append_bot_message(
+                u"Đã xóa project **{}**.".format(meta.get('name', pid)),
+                icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
+        except Exception as ex:
+            logger.debug("sidebar_project_delete_clicked error: {}".format(ex))
+
+    # ─── Knowledge sidebar (RAG v2 index) ─────────────────────────────────────
+
+    def _update_knowledge_status(self):
+        """Refresh KNOWLEDGE status label, dir rows and embed toggle. UI THREAD."""
+        if not HAS_KNOWLEDGE:
+            return
+        try:
+            store = get_active_store()
+            if store is None:
+                return
+            st = store.stats()
+            self.knowledge_index_status.Text = u"{} file · {} đoạn".format(
+                st['files'], st['chunks'])
+            self._refresh_knowledge_dirs_panel()
+            try:
+                from config.settings import get_settings
+                want = bool(get_settings().get_knowledge_option(
+                    'embeddings_enabled', True))
+                if bool(self.knowledge_embed_toggle.IsChecked) != want:
+                    self._embed_toggle_guard = True
+                    self.knowledge_embed_toggle.IsChecked = want
+                    self._embed_toggle_guard = False
+            except Exception:
+                self._embed_toggle_guard = False
+        except Exception as ex:
+            logger.debug("_update_knowledge_status error: {}".format(ex))
+
+    def _refresh_knowledge_dirs_panel(self):
+        """Rebuild the knowledge directory rows. UI THREAD."""
+        try:
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition, Button
+            from System.Windows import Thickness, CornerRadius, GridLength
+            from System.Windows.Media import SolidColorBrush, Color
+
+            panel = self.knowledge_dirs_panel
+            panel.Children.Clear()
+
+            from Intelligence.knowledge.knowledge_store import default_knowledge_dir
+            rows = [(default_knowledge_dir(), False)]
+            try:
+                from config.settings import get_settings
+                for d in get_settings().get_knowledge_dirs():
+                    rows.append((d, True))
+            except Exception:
+                pass
+
+            for path, removable in rows:
+                row = Border()
+                row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
+                row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                row.BorderThickness = Thickness(1)
+                row.CornerRadius = CornerRadius(8)
+                row.Padding = Thickness(8, 5, 6, 5)
+                row.Margin = Thickness(0, 0, 0, 4)
+
+                grid = Grid()
+                col_txt = ColumnDefinition()
+                col_txt.Width = GridLength(1, System.Windows.GridUnitType.Star)
+                col_btn = ColumnDefinition()
+                col_btn.Width = GridLength.Auto
+                grid.ColumnDefinitions.Add(col_txt)
+                grid.ColumnDefinitions.Add(col_btn)
+
+                tb = TextBlock()
+                tb.Text = os.path.basename(path.rstrip(u'\\/')) or path
+                tb.ToolTip = path
+                tb.FontSize = 10.5
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
+                tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+                Grid.SetColumn(tb, 0)
+                grid.Children.Add(tb)
+
+                if removable:
+                    btn = Button()
+                    btn.Content = u"✕"
+                    btn.FontSize = 10
+                    btn.Width = 20
+                    btn.Height = 20
+                    btn.Cursor = System.Windows.Input.Cursors.Hand
+                    btn.Background = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
+                    btn.BorderThickness = Thickness(0)
+                    btn.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
+                    btn.ToolTip = u"Bỏ thư mục khỏi index"
+
+                    def _make_remove(p):
+                        def _remove(sender, e):
+                            try:
+                                from config.settings import get_settings
+                                get_settings().remove_knowledge_dir(p)
+                                self._refresh_knowledge_dirs_panel()
+                                self._kick_knowledge_scan()
+                            except Exception as rex:
+                                logger.debug("remove dir error: {}".format(rex))
+                        return _remove
+                    btn.Click += _make_remove(path)
+                    Grid.SetColumn(btn, 1)
+                    grid.Children.Add(btn)
+
+                row.Child = grid
+                panel.Children.Add(row)
+        except Exception as ex:
+            logger.debug("_refresh_knowledge_dirs_panel error: {}".format(ex))
+
+    def _kick_knowledge_scan(self):
+        """(Re)scan the active knowledge store on a background thread."""
+        if not HAS_KNOWLEDGE or getattr(self, '_kn_scan_busy', False):
+            return
+        self._kn_scan_busy = True
+        try:
+            self.knowledge_index_status.Text = u"Đang quét..."
+        except Exception:
+            pass
+
+        def _scan():
+            try:
+                store = get_active_store()
+                if store is not None:
+                    def _prog(name):
+                        def _ui(_n=name):
+                            try:
+                                self.knowledge_index_status.Text = \
+                                    u"Index: " + _n[:24]
+                            except Exception:
+                                pass
+                        try:
+                            self.Dispatcher.BeginInvoke(Action(_ui))
+                        except Exception:
+                            pass
+                    store.scan(progress_cb=_prog)
+                    try:
+                        from Intelligence.knowledge.embeddings import (
+                            get_default_embedder)
+                        emb = get_default_embedder()
+                        if emb is not None and emb.is_available():
+                            store.embed_pending(emb, budget_sec=120)
+                    except Exception:
+                        pass
+            except Exception as ex:
+                logger.debug("knowledge scan error: {}".format(ex))
+            finally:
+                self._kn_scan_busy = False
+                try:
+                    self.Dispatcher.Invoke(Action(self._update_knowledge_status))
+                except Exception:
+                    pass
+        _kt = Thread(ThreadStart(_scan))
+        _kt.IsBackground = True
+        _kt.SetApartmentState(ApartmentState.STA)
+        _kt.Start()
+
+    def sidebar_add_knowledge_dir_clicked(self, sender, e):
+        """Pick a folder to add to the knowledge index. UI THREAD."""
+        try:
+            clr.AddReference('System.Windows.Forms')
+            from System.Windows.Forms import FolderBrowserDialog, DialogResult
+            dlg = FolderBrowserDialog()
+            dlg.Description = "Chon thu muc tai lieu (PDF/TXT/MD) de index"
+            if dlg.ShowDialog() == DialogResult.OK and dlg.SelectedPath:
+                from config.settings import get_settings
+                get_settings().add_knowledge_dir(dlg.SelectedPath)
+                self._refresh_knowledge_dirs_panel()
+                self._kick_knowledge_scan()
+        except Exception as ex:
+            logger.debug("sidebar_add_knowledge_dir_clicked error: {}".format(ex))
+
+    def sidebar_reindex_clicked(self, sender, e):
+        self._kick_knowledge_scan()
+
+    def knowledge_embed_toggled(self, sender, e):
+        """Persist the semantic-search switch; pull the embed model when
+        first enabled (background, with chat notice — ~270 MB)."""
+        if getattr(self, '_embed_toggle_guard', False):
+            return
+        try:
+            on = bool(self.knowledge_embed_toggle.IsChecked)
+            from config.settings import get_settings
+            get_settings().set_knowledge_option('embeddings_enabled', on)
+            if not on:
+                return
+
+            def _ensure():
+                try:
+                    from Intelligence.knowledge.embeddings import (
+                        get_default_embedder)
+                    emb = get_default_embedder()
+                    if emb is None:
+                        return
+                    if not emb.is_available():
+                        self.Dispatcher.Invoke(Action(
+                            lambda: self._append_bot_message(
+                                u"Đang tải mô hình embedding "
+                                u"(nomic-embed-text, ~270MB) cho semantic "
+                                u"search. Quá trình chạy ngầm...",
+                                icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
+                        if not emb.ensure_model():
+                            self.Dispatcher.Invoke(Action(
+                                lambda: self._append_bot_message(
+                                    u"Không tải được mô hình embedding — "
+                                    u"kiểm tra Ollama đang chạy. Tìm kiếm "
+                                    u"vẫn hoạt động ở chế độ từ khóa (BM25).",
+                                    icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
+                            return
+                    store = get_active_store()
+                    if store is not None:
+                        store.embed_pending(emb, budget_sec=300)
+                    self.Dispatcher.Invoke(Action(self._update_knowledge_status))
+                except Exception as ex2:
+                    logger.debug("embed enable error: {}".format(ex2))
+            _et = Thread(ThreadStart(_ensure))
+            _et.IsBackground = True
+            _et.SetApartmentState(ApartmentState.STA)
+            _et.Start()
+        except Exception as ex:
+            logger.debug("knowledge_embed_toggled error: {}".format(ex))
+
+    # ─── Skills sidebar + chat chips ──────────────────────────────────────────
+
+    def _append_skill_chips(self, skill_ids):
+        """Small 'skill activated' chip row in the chat. UI THREAD."""
+        try:
+            from System.Windows.Controls import Border, TextBlock, StackPanel, Orientation
+            from System.Windows import Thickness, CornerRadius
+            from System.Windows.Media import SolidColorBrush, Color
+            from Intelligence.skills_engine import get_skills_engine
+
+            engine = get_skills_engine()
+            row = StackPanel()
+            row.Orientation = Orientation.Horizontal
+            row.Margin = Thickness(34, 0, 0, 6)
+            added = False
+            for sid in skill_ids:
+                meta = None
+                try:
+                    meta = engine._skills.get(sid)
+                except Exception:
+                    pass
+                name = (meta or {}).get('name', sid)
+                chip = Border()
+                chip.Background = SolidColorBrush(Color.FromRgb(244, 244, 246))
+                chip.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                chip.BorderThickness = Thickness(1)
+                chip.CornerRadius = CornerRadius(9)
+                chip.Padding = Thickness(8, 2, 8, 3)
+                chip.Margin = Thickness(0, 0, 4, 0)
+                tb = TextBlock()
+                tb.Text = u"⚡ " + name
+                tb.FontSize = 10
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
+                chip.Child = tb
+                chip.ToolTip = u"Skill đang được áp dụng cho câu trả lời này"
+                row.Children.Add(chip)
+                added = True
+            if added:
+                self.chat_history_panel.Children.Add(row)
+                self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug("_append_skill_chips error: {}".format(ex))
+
+    def _update_skills_panel(self):
+        """Rebuild the SKILLS rows in the sidebar. UI THREAD."""
+        try:
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition, CheckBox
+            from System.Windows import Thickness, CornerRadius, GridLength
+            from System.Windows.Media import SolidColorBrush, Color
+            from Intelligence.skills_engine import get_skills_engine
+
+            panel = self.skills_list_panel
+            panel.Children.Clear()
+            skills = get_skills_engine().all_skills()
+            if not skills:
+                tb = TextBlock()
+                tb.Text = u"Chưa có skill nào."
+                tb.FontSize = 10.5
+                tb.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                panel.Children.Add(tb)
+                return
+
+            for meta in skills:
+                row = Border()
+                row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
+                row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                row.BorderThickness = Thickness(1)
+                row.CornerRadius = CornerRadius(8)
+                row.Padding = Thickness(8, 5, 8, 5)
+                row.Margin = Thickness(0, 0, 0, 4)
+                row.ToolTip = meta.get('description', '')
+
+                grid = Grid()
+                col_txt = ColumnDefinition()
+                col_txt.Width = GridLength(1, System.Windows.GridUnitType.Star)
+                col_tgl = ColumnDefinition()
+                col_tgl.Width = GridLength.Auto
+                grid.ColumnDefinitions.Add(col_txt)
+                grid.ColumnDefinitions.Add(col_tgl)
+
+                tb = TextBlock()
+                tb.Text = meta.get('name', meta['id'])
+                tb.FontSize = 10.5
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
+                tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+                Grid.SetColumn(tb, 0)
+                grid.Children.Add(tb)
+
+                cb = CheckBox()
+                cb.IsChecked = bool(meta.get('enabled', True))
+                cb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                try:
+                    cb.Style = self.FindResource("T3ToggleSwitch")
+                    cb.LayoutTransform = System.Windows.Media.ScaleTransform(0.7, 0.7)
+                except Exception:
+                    pass
+
+                def _make_toggle(sid, box):
+                    def _toggled(sender, e):
+                        try:
+                            from Intelligence.skills_engine import get_skills_engine
+                            get_skills_engine().set_enabled(
+                                sid, bool(box.IsChecked))
+                        except Exception as tex:
+                            logger.debug("skill toggle error: {}".format(tex))
+                    return _toggled
+                handler = _make_toggle(meta['id'], cb)
+                cb.Checked += handler
+                cb.Unchecked += handler
+                Grid.SetColumn(cb, 1)
+                grid.Children.Add(cb)
+
+                row.Child = grid
+                panel.Children.Add(row)
+        except Exception as ex:
+            logger.debug("_update_skills_panel error: {}".format(ex))
+
+    def sidebar_refresh_skills_clicked(self, sender, e):
+        """Rescan skill folders and rebuild the list."""
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            get_skills_engine().scan()
+            self._update_skills_panel()
+        except Exception as ex:
+            logger.debug("sidebar_refresh_skills_clicked error: {}".format(ex))
+
+    def sidebar_open_skills_dir_clicked(self, sender, e):
+        """Open the user skills folder in Explorer."""
+        try:
+            from Intelligence.skills_engine import _user_skills_dir
+            import System.Diagnostics
+            System.Diagnostics.Process.Start(_user_skills_dir())
+        except Exception as ex:
+            logger.debug("sidebar_open_skills_dir_clicked error: {}".format(ex))
+
     # ─── Command palette ──────────────────────────────────────────────────────
 
     # All commands exposed to the AI, grouped by category.
@@ -2251,6 +2856,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 dot.Fill   = SolidColorBrush(_READY if available else _GRAY)
                 txt.Text   = u"Ready" if available else u"Not set up"
                 txt.Foreground = SolidColorBrush(_READY if available else _MUTED)
+
+            # Project + Knowledge (RAG) + Skills sections — cheap, in memory
+            self._update_project_combo()
+            self._update_knowledge_status()
+            self._update_skills_panel()
 
         except Exception as ex:
             logger.debug("_update_sidebar error: {}".format(ex))
@@ -2934,6 +3544,297 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.error("Error in _process_input: {}".format(ex))
             self._set_busy(False)
 
+    def _build_attachment_context(self, raw, attached):
+        """Build the attachment context string. WORKER THREAD.
+
+        Large PDFs (more than a few chunks of text) are indexed into the
+        active knowledge store and answered via retrieval — top-5 excerpts
+        with file + page citations — instead of the legacy 12k-char
+        truncate-and-stuff. Small PDFs and images keep the legacy path
+        (full text / vision placeholder). Any failure degrades to the
+        legacy behavior, never to an error.
+        """
+        pdfs = [p for p in attached if is_pdf(p)]
+        if not pdfs or not HAS_KNOWLEDGE:
+            return build_text_context(attached)
+        try:
+            store = get_active_store()
+            if store is None:
+                return build_text_context(attached)
+            doc_ids, total_chunks, failed_pdfs = [], 0, []
+            for path in pdfs:
+                entry = store.index_file(path)
+                if entry and entry.get('chunks'):
+                    doc_ids.append(entry['doc_id'])
+                    total_chunks += entry['chunks']
+                else:
+                    failed_pdfs.append(path)
+            # Small docs fit whole — the model seeing everything beats
+            # retrieval. ~3 chunks ≈ 2000 words ≈ the old 12k-char cap.
+            if not doc_ids or total_chunks <= 3:
+                return build_text_context(attached)
+
+            # Semantic channel (bounded): vectorize fresh chunks for ~20s
+            # max, then search hybrid. Degrades to BM25-only silently.
+            embedder = None
+            try:
+                from Intelligence.knowledge.embeddings import get_default_embedder
+                embedder = get_default_embedder()
+                if embedder is not None and embedder.is_available():
+                    store.embed_pending(embedder, budget_sec=20)
+                else:
+                    embedder = None
+            except Exception:
+                embedder = None
+
+            query = raw or u"nội dung chính của tài liệu"
+            hits = store.search(query, top_k=5, embedder=embedder,
+                                doc_ids=set(doc_ids))
+            if not hits:
+                return build_text_context(attached)
+
+            parts = [u'=== Trích đoạn liên quan từ tài liệu đính kèm ===']
+            for i, hit in enumerate(hits):
+                page_note = (u' — trang {}'.format(hit['page'])
+                             if hit.get('page') else u'')
+                parts.append(u'[{}] {}{}:\n{}'.format(
+                    i + 1, hit['file'], page_note, hit['text'][:900]))
+            parts.append(
+                u'=== Hết trích đoạn (tài liệu đầy đủ đã được index; '
+                u'trả lời dựa trên các trích đoạn, ghi nguồn [n]) ===')
+
+            # Images + unreadable PDFs still described the legacy way
+            rest = [p for p in attached if (not is_pdf(p)) or p in failed_pdfs]
+            if rest:
+                extra = build_text_context(rest)
+                if extra:
+                    parts.append(extra)
+            return u'\n\n'.join(parts)
+        except Exception as ex:
+            logger.debug("attachment RAG failed, legacy path: {}".format(ex))
+            return build_text_context(attached)
+
+    def _run_knowledge_agent(self, raw, history):
+        """Answer from the knowledge index with citations. WORKER THREAD.
+
+        Streams through _stream_llm_turn (live bubble). Returns True when
+        the request was fully handled; False lets _route_input fall through
+        to the normal LLM path (no retrieval hits, or every provider mute).
+        """
+        try:
+            from Intelligence.knowledge.knowledge_agent import (
+                KnowledgeAgent, format_citation_line)
+            from Intelligence.llm_router import LLMRouter
+
+            embedder = None
+            try:
+                from Intelligence.knowledge.embeddings import get_default_embedder
+                embedder = get_default_embedder()
+                if embedder is not None and not embedder.is_available():
+                    embedder = None
+            except Exception:
+                embedder = None
+
+            router = LLMRouter()
+            provider = router.get_active_provider()
+            agent = KnowledgeAgent(embedder=embedder)
+
+            proj_instructions = u''
+            try:
+                from config.project_store import ProjectStore
+                proj_instructions = ProjectStore().get_active_prompt_addendum()
+            except Exception:
+                pass
+
+            skills_block = u''
+            try:
+                _dec = getattr(self, '_agent_decision', None)
+                if _dec and _dec.get('skill'):
+                    from Intelligence.skills_engine import (
+                        build_skills_block, get_skills_engine)
+                    _ids = get_skills_engine().filter_for_specialist(
+                        [_dec['skill']], 'knowledge')
+                    skills_block = build_skills_block(_ids)
+            except Exception:
+                pass
+
+            def _chat(system_prompt, query):
+                return self._stream_llm_turn(
+                    provider, router, list(history), system_prompt, query,
+                    max_tokens=900)
+
+            result = agent.answer(raw, history, _chat,
+                                  project_instructions=proj_instructions,
+                                  skills_block=skills_block)
+            if result.get('status') != 'done':
+                # remove any half-made bubble before falling through
+                if result.get('status') == 'llm_failed':
+                    def _cleanup():
+                        self._remove_stream_bubble()
+                    try:
+                        self.Dispatcher.Invoke(Action(_cleanup))
+                    except Exception:
+                        pass
+                return False
+
+            text = result['text']
+            shown = text + format_citation_line(result.get('citations'))
+
+            def _done():
+                self._hide_typing_indicator()
+                if self._stream_tb is not None:
+                    self._finalize_stream_bubble(shown)
+                    self._clear_stream_refs()
+                else:
+                    self._append_bot_message(shown)
+                self._add_to_history("assistant", text)
+                self._set_busy(False)
+            self.Dispatcher.Invoke(Action(_done))
+            return True
+        except Exception as ex:
+            logger.debug("_run_knowledge_agent error: {}".format(ex))
+            return False
+
+    def _run_comment_agent(self, pdf_path, history):
+        """PDF markup-comment workflow. WORKER THREAD.
+
+        Extract annotations → trace sheet/model qua MCP → propose per item
+        → render report card with Run/Note/Skip buttons. Returns True when
+        handled; False (e.g. no annotations) lets the normal attachment
+        path analyze the PDF as a document instead.
+        """
+        try:
+            from Intelligence.comments.comment_agent import CommentAgent
+            from Intelligence.llm_router import LLMRouter
+            try:
+                from core.server import get_t3labai_server
+                srv = get_t3labai_server()
+            except Exception:
+                return False
+
+            router = LLMRouter()
+            provider = router.get_active_provider()
+
+            skills_block = u''
+            try:
+                from Intelligence.skills_engine import build_skills_block
+                skills_block = build_skills_block(
+                    ['comment-resolution-playbook'])
+            except Exception:
+                pass
+
+            agent = CommentAgent()
+            report = agent.analyze(
+                pdf_path, srv._execute_tool, provider, router,
+                progress_cb=self._safe_update_typing_text,
+                skills_block=skills_block)
+
+            if report.get('error') == 'no_annotations':
+                return False   # analyze as a normal document instead
+
+            self._comment_agent = agent
+            self._comment_report = report
+
+            def _done():
+                try:
+                    self._hide_typing_indicator()
+                    rendered = False
+                    try:
+                        from GUI.AssistantCards import build_comment_report_card
+                        card = build_comment_report_card(
+                            report,
+                            on_run=lambda item, setter:
+                                self._execute_comment_item(item, setter, 'run'),
+                            on_note=lambda item, setter:
+                                self._execute_comment_item(item, setter, 'note'),
+                            on_skip=lambda item, setter:
+                                self._skip_comment_item(item, setter))
+                        self.chat_history_panel.Children.Add(card)
+                        self._scroll_to_bottom()
+                        rendered = True
+                    except Exception as cex:
+                        logger.debug("comment card render failed: {}".format(cex))
+                    md = agent.report_to_markdown(report)
+                    if not rendered:
+                        self._append_bot_message(md)
+                    self._add_to_history("assistant", md)
+                    if report.get('needs_switch'):
+                        self._append_bot_message(
+                            u"Sheet không nằm trong model đang active — "
+                            u"hãy yêu cầu \"chuyển sang model ...\" trước "
+                            u"khi bấm Thực hiện.",
+                            icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                    self._set_busy(False)
+                except Exception as dex:
+                    logger.debug("comment done error: {}".format(dex))
+                    self._set_busy(False)
+            self.Dispatcher.Invoke(Action(_done))
+            return True
+        except Exception as ex:
+            logger.debug("_run_comment_agent error: {}".format(ex))
+            return False
+
+    def _skip_comment_item(self, item, setter):
+        """'Bỏ qua' button — mark only. UI THREAD."""
+        try:
+            item['status'] = 'skipped'
+            setter(u"Đã bỏ qua", False)
+        except Exception:
+            pass
+
+    def _execute_comment_item(self, item, setter, mode):
+        """Run/Note button on a comment row. UI THREAD entry — spawns the
+        standard revit_action specialist on a worker thread."""
+        try:
+            if self._busy:
+                setter(u"Đang bận — chờ xong yêu cầu trước", False)
+                return
+            agent = getattr(self, '_comment_agent', None)
+            report = getattr(self, '_comment_report', None)
+            if agent is None or report is None:
+                setter(u"Report không còn hiệu lực", False)
+                return
+            instruction = (agent.build_run_instruction(item, report)
+                           if mode == 'run'
+                           else agent.build_note_instruction(item, report))
+            setter(u"Đang thực hiện...", False)
+            self._set_busy(True)
+
+            def _work():
+                handled = False
+                try:
+                    from Intelligence.llm_router import LLMRouter
+                    provider = LLMRouter().get_active_provider()
+                    spec = get_spec('revit_action') if HAS_SPECIALISTS else None
+                    handled = self._run_native_agent(
+                        provider, list(self._conversation_history),
+                        instruction, spec=spec)
+                except Exception as wex:
+                    logger.debug("comment exec error: {}".format(wex))
+
+                def _after():
+                    try:
+                        if handled:
+                            item['status'] = ('done' if mode == 'run'
+                                              else 'noted')
+                            setter(u"Đã xử lý" if mode == 'run'
+                                   else u"Đã ghi chú", True)
+                        else:
+                            setter(u"Không chạy được — thử lại", False)
+                            self._set_busy(False)
+                    except Exception:
+                        pass
+                try:
+                    self.Dispatcher.Invoke(Action(_after))
+                except Exception:
+                    pass
+            _ct = Thread(ThreadStart(_work))
+            _ct.IsBackground = True
+            _ct.SetApartmentState(ApartmentState.STA)
+            _ct.Start()
+        except Exception as ex:
+            logger.debug("_execute_comment_item error: {}".format(ex))
+
     def _route_input(self, raw, attached):
         """Classify + dispatch one user request. WORKER THREAD.
 
@@ -2946,15 +3847,42 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             # ── If attachments present and no tool-like text, go straight to RAG ─
             has_attach = bool(attached) and HAS_RAG
+
+            # ── PDF markup-comment workflow (R4) ───────────────────────────
+            # Route to the CommentAgent when the user asks about comments
+            # (cmt/markup/bluebeam keywords) with a PDF attached, or drops
+            # an annotated PDF without any text. No annotations found →
+            # falls through to the normal document analysis.
+            if HAS_AGENTS and has_attach:
+                try:
+                    _pdfs = [p for p in attached if is_pdf(p)]
+                    if _pdfs:
+                        from Intelligence.comments import pdf_annots as _pa
+                        _annotated = [p for p in _pdfs
+                                      if _pa.has_annotations(p)]
+                        _kw_dec = AgentDispatcher().classify(
+                            raw, allow_llm=False)
+                        _wants = (_kw_dec.get('specialist') == 'comment'
+                                  or (_annotated and not (raw or u'').strip()))
+                        if _annotated and _wants:
+                            if self._run_comment_agent(
+                                    _annotated[0],
+                                    list(self._conversation_history[:-1])):
+                                return
+                except Exception as _cm_ex:
+                    logger.debug("comment route error: {}".format(_cm_ex))
+
             if has_attach and not raw:
                 # No text — summarise the documents
                 raw = u"Phân tích và tóm tắt nội dung tài liệu đính kèm."
 
-            # Build context-enriched prompt for NLP / Claude
-            # (PDF text is injected; images will be sent via vision API)
+            # Build context-enriched prompt for NLP / Claude.
+            # RAG v2: large attached PDFs are indexed and only the top-k
+            # relevant excerpts (with page citations) are injected — small
+            # files and images keep the legacy full-text/vision path.
             rag_context = ''
             if has_attach:
-                rag_context = build_text_context(attached)
+                rag_context = self._build_attachment_context(raw, attached)
 
             # For NLP routing we use ONLY the raw user text. Prepending the
             # ContextScout model summary here poisoned the offline NLU and
@@ -3007,6 +3935,71 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         self.Dispatcher.Invoke(Action(_run_nlu))
                         return
 
+            # ── 2.5 Specialist dispatch (multi-agent layer) ────────────────
+            # Keyword stage always; one tiny LLM classify call only for
+            # non-conversational messages the keywords couldn't place.
+            # Anything ambiguous falls through to the unchanged legacy
+            # path. Kill switch: agents.multi_agent.
+            self._agent_decision = None
+            if HAS_AGENTS and not has_attach and (use_local or use_claude):
+                try:
+                    from config.settings import get_settings as _get_settings
+                    _settings = _get_settings()
+                    _multi_on = _settings.is_multi_agent_enabled()
+                    _llm_clf_on = _settings.is_llm_classify_enabled()
+                except Exception:
+                    _multi_on, _llm_clf_on = True, True
+                if _multi_on:
+                    _clf_provider = None
+                    _is_chat_msg = bool(
+                        nlu_result and nlu_result.get("intent") == "chat")
+                    if _llm_clf_on and not _is_chat_msg:
+                        try:
+                            from Intelligence.llm_router import LLMRouter as _LLMR
+                            _clf_provider = _LLMR().get_active_provider()
+                        except Exception:
+                            _clf_provider = None
+                    _skills_eng = None
+                    try:
+                        from Intelligence.skills_engine import SkillsEngine
+                        _skills_eng = SkillsEngine()
+                    except Exception:
+                        pass
+                    try:
+                        self._agent_decision = AgentDispatcher().classify(
+                            raw, provider=_clf_provider,
+                            skills_engine=_skills_eng,
+                            allow_llm=bool(_clf_provider))
+                    except Exception as _disp_ex:
+                        logger.debug("dispatcher error: {}".format(_disp_ex))
+                    if self._agent_decision:
+                        logger.debug("dispatcher: {} ({}, {:.2f})".format(
+                            self._agent_decision.get('specialist'),
+                            self._agent_decision.get('source'),
+                            self._agent_decision.get('confidence', 0.0)))
+                    if HAS_KNOWLEDGE and self._agent_decision and \
+                            self._agent_decision.get('specialist') == 'knowledge':
+                        if self._run_knowledge_agent(raw, history):
+                            return
+                        # no hits / LLM mute → continue down the normal path
+                    if self._agent_decision and \
+                            self._agent_decision.get('specialist') == 'comment':
+                        # Comment workflow needs a PDF — guide the user.
+                        _guide = (u"Để xử lý comment bản vẽ: đính kèm file "
+                                  u"PDF có markup (nút attach) rồi gửi lại. "
+                                  u"Tôi sẽ đọc từng comment, truy vết sheet "
+                                  u"thuộc model nào, đề xuất phương án và "
+                                  u"thực hiện khi bạn xác nhận.")
+
+                        def _need_pdf(_g=_guide):
+                            self._hide_typing_indicator()
+                            self._append_bot_message(
+                                _g, icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                            self._add_to_history("assistant", _g)
+                            self._set_busy(False)
+                        self.Dispatcher.Invoke(Action(_need_pdf))
+                        return
+
             if use_local or use_claude or has_attach:
                 # ── 3/4. LLM path (typing indicator already showing) ──────────
                 nlu_hint = nlu_result if (HAS_NLP and not has_attach) else None
@@ -3032,11 +4025,42 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     # can't even start (registry unavailable, provider mute on
                     # turn 1 — e.g. an Ollama model without tool support), it
                     # returns False and the legacy JSON-intent loop below runs.
-                    if not has_attach and not rag_context:
+                    # Compact retrieval context (RAG v2 excerpts) no longer
+                    # blocks the native path — only vision attachments and
+                    # bulky legacy stuffing still go to the JSON-intent loop.
+                    _compact_rag = bool(
+                        rag_context and len(rag_context) < 4000
+                        and not has_images(attached))
+                    if (not has_attach and not rag_context) or _compact_rag:
                         _handled = False
+                        # Specialist spec + matched skills from the dispatcher
+                        # decision (multi-agent layer). None = legacy behavior.
+                        _spec = None
+                        _skill_ids = None
+                        _dec = getattr(self, '_agent_decision', None)
+                        if HAS_SPECIALISTS and _dec:
+                            if _dec.get('specialist') in ('revit_data',
+                                                          'revit_action'):
+                                _spec = get_spec(_dec['specialist'])
+                            if _dec.get('skill'):
+                                _skill_ids = [_dec['skill']]
+                                # keep only skills declared for this specialist
+                                try:
+                                    from Intelligence.skills_engine import (
+                                        get_skills_engine)
+                                    _spec_name = (_spec.name if _spec
+                                                  else 'general')
+                                    _skill_ids = get_skills_engine() \
+                                        .filter_for_specialist(_skill_ids,
+                                                               _spec_name)
+                                except Exception:
+                                    pass
                         try:
                             _handled = self._run_native_agent(
-                                _provider, list(history), captured)
+                                _provider, list(history), captured,
+                                spec=_spec, skill_ids=_skill_ids,
+                                rag_context=(rag_context if _compact_rag
+                                             else None))
                         except Exception as _na_ex:
                             logger.debug("native agent path error: {}".format(_na_ex))
                         if _handled:
@@ -3648,8 +4672,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
 
-    def _run_native_agent(self, provider, history, captured):
+    def _run_native_agent(self, provider, history, captured,
+                          spec=None, skill_ids=None, rag_context=None):
         """Run the native tool-calling agent loop. WORKER THREAD.
+
+        spec: optional SpecialistSpec — narrows the tool catalog, adds a
+        role block to the system prompt and tightens the loop budget
+        (multi-agent layer). None = today's exact behavior.
+        skill_ids: optional matched skill ids injected into the prompt.
+        rag_context: optional compact retrieval excerpts (attachment RAG)
+        prepended to the user content only.
 
         Returns True when the request was fully handled (UI updated, busy
         released). Returns False so the legacy JSON-intent path can run —
@@ -3668,13 +4700,32 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return False
 
         launcher = tool_schema.make_launcher_tool(list(TOOL_LAUNCHERS.keys()))
-        # Local providers get the curated essential subset: the full ~110
-        # schemas overflow local context windows and small models pick tools
-        # far less accurately from a huge catalog (cloud providers are fine).
+        # Local providers get a curated subset: the full ~110 schemas
+        # overflow local context windows and small models pick tools far
+        # less accurately from a huge catalog (cloud providers are fine).
         _is_local = provider.NAME in ("ollama", "lmstudio")
-        tools = tool_schema.get_tools_for_provider(provider.NAME, [launcher],
-                                                   essential_only=_is_local)
-        if len(tools) <= 1:          # only the launcher → MCP registry unavailable
+        _spec_tools = spec.tools_for(_is_local) if spec is not None else None
+        _use_launcher = spec.use_launcher if spec is not None else True
+        _extras = [launcher] if _use_launcher else []
+        # Matched skills may declare extra tools their playbook needs —
+        # union them into a restricted subset (validated by the registry).
+        if _spec_tools and skill_ids:
+            try:
+                from Intelligence.skills_engine import get_skills_engine
+                _sk_tools = set()
+                for _sid in skill_ids:
+                    _sk_tools.update(get_skills_engine().tools_for(_sid))
+                if _sk_tools:
+                    _spec_tools = frozenset(_spec_tools) | _sk_tools
+            except Exception:
+                pass
+        if _spec_tools:
+            tools = tool_schema.get_tools_by_names(
+                provider.NAME, _spec_tools, _extras)
+        else:
+            tools = tool_schema.get_tools_for_provider(
+                provider.NAME, _extras, essential_only=_is_local)
+        if len(tools) <= len(_extras):   # registry unavailable
             return False
 
         ctx = u""
@@ -3683,7 +4734,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 ctx = ContextScout.get_context_summary_for_ai()
             except Exception:
                 pass
-        system_prompt = build_agent_system_prompt(ctx)
+
+        _proj_instructions = u""
+        try:
+            from config.project_store import ProjectStore
+            _proj_instructions = ProjectStore().get_active_prompt_addendum()
+        except Exception:
+            pass
+        _skills_block = u""
+        try:
+            if skill_ids:
+                from Intelligence.skills_engine import build_skills_block
+                _skills_block = build_skills_block(skill_ids)
+        except Exception:
+            pass
+
+        if spec is not None and HAS_SPECIALISTS:
+            system_prompt = build_specialist_prompt(
+                spec, ctx, project_instructions=_proj_instructions,
+                skills_block=_skills_block, local=_is_local)
+        else:
+            system_prompt = build_agent_system_prompt(ctx)
+            if _proj_instructions:
+                system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
+            if _skills_block:
+                system_prompt += u"\n\n" + _skills_block
 
         viet = _is_viet_text(captured)
 
@@ -3691,6 +4766,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # view as an image block (Claude agent path only; other providers'
         # agent calls don't convert Claude-format blocks).
         user_content = captured
+        if rag_context:
+            user_content = rag_context + u"\n\n" + captured
         if self._wants_view_snapshot(captured, provider):
             self._safe_update_typing_text(
                 u"● ● ●  Đang chụp active view…" if viet
@@ -3842,6 +4919,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
+        # Skill chip — show which playbook is steering this turn
+        if skill_ids:
+            def _show_chips():
+                try:
+                    self._append_skill_chips(skill_ids)
+                except Exception:
+                    pass
+            try:
+                self.Dispatcher.Invoke(Action(_show_chips))
+            except Exception:
+                pass
+
         loop = AgentLoop(
             provider, _exec_tool, tools,
             callbacks={
@@ -3851,7 +4940,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 "on_tool_done":  on_tool_done,
                 "guard_check":   _guard_check,
             },
-            max_iterations=10, max_tokens=1500)
+            max_iterations=(spec.max_iterations if spec is not None else 10),
+            max_tokens=(spec.max_tokens if spec is not None else 1500))
 
         self._agent_loop = loop
         if self._cancel_requested:

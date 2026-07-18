@@ -1775,6 +1775,257 @@
                                    FontFamily="Hanken Grotesk"/>
                     </StackPanel>
 
+                    <!-- ── Project (workspace) ── -->
+                    <Border Height="1" Background="#E6E6EA" Margin="0,14,0,14"/>
+                    <Grid Margin="2,0,0,8">
+                        <TextBlock Text="PROJECT" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center"/>
+                        <Button x:Name="sidebar_new_project_btn"
+                                HorizontalAlignment="Right" Height="18" Cursor="Hand"
+                                Click="sidebar_new_project_clicked"
+                                ToolTip="Tạo project mới">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="newproj_bg" Background="Transparent"
+                                            CornerRadius="4" Padding="5,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="newproj_bg" Property="Background" Value="#F1F5F9"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="9" Foreground="#3B82F6"
+                                           VerticalAlignment="Center" Margin="0,0,3,0"/>
+                                <TextBlock Text="Mới" FontSize="9.5" FontWeight="SemiBold"
+                                           Foreground="#3B82F6" FontFamily="Hanken Grotesk"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <ComboBox x:Name="sidebar_project_combo"
+                              Style="{StaticResource SidebarComboBox}"
+                              Margin="0,0,0,8"
+                              SelectionChanged="sidebar_project_changed"/>
+                    <StackPanel x:Name="project_edit_panel" Visibility="Collapsed"
+                                Margin="0,0,0,6">
+                        <TextBlock Text="Tên project" FontSize="10.5" Foreground="#71717A"
+                                   Margin="2,0,0,4" FontFamily="Hanken Grotesk"/>
+                        <TextBox x:Name="project_name_box"
+                                 Height="30" Margin="0,0,0,8"
+                                 FontFamily="Hanken Grotesk" FontSize="12"
+                                 Padding="10,0" BorderBrush="#E6E6EA"
+                                 BorderThickness="1" Background="White"
+                                 VerticalContentAlignment="Center"/>
+                        <TextBlock Text="Custom instructions (áp vào mọi câu trả lời)"
+                                   FontSize="10.5" Foreground="#71717A"
+                                   Margin="2,0,0,4" FontFamily="Hanken Grotesk"/>
+                        <TextBox x:Name="project_instructions_box"
+                                 Height="90" Margin="0,0,0,8"
+                                 FontFamily="Hanken Grotesk" FontSize="11.5"
+                                 Padding="8,6" BorderBrush="#E6E6EA"
+                                 BorderThickness="1" Background="White"
+                                 TextWrapping="Wrap" AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="sidebar_project_save_btn" Grid.Column="0"
+                                    Height="30" Margin="0,0,6,0" Cursor="Hand"
+                                    Click="sidebar_project_save_clicked"
+                                    ToolTip="Lưu tên + instructions">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="projsave_bg" Background="#18181B"
+                                                CornerRadius="8" Padding="10,0">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="projsave_bg" Property="Background" Value="#3F3F46"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="Save Project" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="White" FontFamily="Hanken Grotesk"/>
+                            </Button>
+                            <Button x:Name="sidebar_project_delete_btn" Grid.Column="1"
+                                    Height="30" MinWidth="34" Cursor="Hand"
+                                    Click="sidebar_project_delete_clicked"
+                                    ToolTip="Xóa project này">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="projdel_bg" Background="#F4F4F6"
+                                                CornerRadius="8" BorderBrush="#E6E6EA"
+                                                BorderThickness="1" Padding="8,0">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="projdel_bg" Property="Background" Value="#FEE2E2"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" Foreground="#EF4444"
+                                           VerticalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- ── Knowledge (RAG index) ── -->
+                    <Border Height="1" Background="#E6E6EA" Margin="0,14,0,14"/>
+                    <Grid Margin="2,0,0,8">
+                        <TextBlock Text="KNOWLEDGE" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock x:Name="knowledge_index_status" Text="—"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   FontSize="9" Foreground="#A1A1AA"
+                                   FontFamily="Hanken Grotesk"/>
+                    </Grid>
+                    <TextBlock Text="Thư mục tài liệu được index để trợ lý trả lời có trích nguồn."
+                               FontSize="10" Foreground="#A1A1AA" TextWrapping="Wrap"
+                               Margin="2,0,0,8" FontFamily="Hanken Grotesk" LineHeight="14"/>
+                    <StackPanel x:Name="knowledge_dirs_panel" Margin="0,0,0,8"/>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="sidebar_add_knowledge_btn" Grid.Column="0"
+                                Height="30" Margin="0,0,6,0" Cursor="Hand"
+                                Click="sidebar_add_knowledge_dir_clicked"
+                                ToolTip="Thêm thư mục tài liệu vào index">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="addknow_bg" Background="#F4F4F6"
+                                            CornerRadius="8" BorderBrush="#E6E6EA"
+                                            BorderThickness="1" Padding="8,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="addknow_bg" Property="Background" Value="#EBEBEF"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE8F4;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="10" Foreground="#71717A"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="Thêm thư mục" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="#52525B" FontFamily="Hanken Grotesk"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="sidebar_reindex_btn" Grid.Column="1"
+                                Height="30" MinWidth="34" Cursor="Hand"
+                                Click="sidebar_reindex_clicked"
+                                ToolTip="Quét lại toàn bộ index">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="reidx_bg" Background="#F4F4F6"
+                                            CornerRadius="8" BorderBrush="#E6E6EA"
+                                            BorderThickness="1" Padding="8,0">
+                                        <ContentPresenter HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="reidx_bg" Property="Background" Value="#EBEBEF"/>
+                                        </Trigger>
+                                        <Trigger Property="IsEnabled" Value="False">
+                                            <Setter TargetName="reidx_bg" Property="Background" Value="#F4F4F6"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="11" Foreground="#71717A"
+                                       VerticalAlignment="Center"/>
+                        </Button>
+                    </Grid>
+                    <CheckBox x:Name="knowledge_embed_toggle"
+                              Style="{StaticResource T3ToggleSwitch}"
+                              Margin="2,0,0,0"
+                              Checked="knowledge_embed_toggled"
+                              Unchecked="knowledge_embed_toggled">
+                        <TextBlock Text="Semantic search (Ollama embeddings)"
+                                   FontSize="11" Foreground="#52525B"
+                                   FontFamily="Hanken Grotesk"/>
+                    </CheckBox>
+
+                    <!-- ── Skills ── -->
+                    <Border Height="1" Background="#E6E6EA" Margin="0,14,0,14"/>
+                    <Grid Margin="2,0,0,8">
+                        <TextBlock Text="SKILLS" FontSize="9" FontWeight="SemiBold"
+                                   Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="sidebar_refresh_skills_btn"
+                                    Height="18" Cursor="Hand" Margin="0,0,4,0"
+                                    Click="sidebar_refresh_skills_clicked"
+                                    ToolTip="Quét lại thư mục skills">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="rfsk_bg" Background="Transparent"
+                                                CornerRadius="4" Padding="4,0">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="rfsk_bg" Property="Background" Value="#F1F5F9"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="9" Foreground="#A1A1AA"/>
+                            </Button>
+                            <Button x:Name="sidebar_open_skills_dir_btn"
+                                    Height="18" Cursor="Hand"
+                                    Click="sidebar_open_skills_dir_clicked"
+                                    ToolTip="Mở thư mục skills của bạn">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="opsk_bg" Background="Transparent"
+                                                CornerRadius="4" Padding="4,0">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="opsk_bg" Property="Background" Value="#F1F5F9"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="9" Foreground="#A1A1AA"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="Gói hướng dẫn tự kích hoạt theo nội dung câu lệnh."
+                               FontSize="10" Foreground="#A1A1AA" TextWrapping="Wrap"
+                               Margin="2,0,0,8" FontFamily="Hanken Grotesk" LineHeight="14"/>
+                    <StackPanel x:Name="skills_list_panel" Margin="0,0,0,0"/>
+
                     <!-- Test connection -->
                     <Border Height="1" Background="#E6E6EA" Margin="0,14,0,14"/>
 
