@@ -392,6 +392,60 @@ def test_specialists():
     check('no few-shot on cloud', 'Examples' not in p2)
 
 
+# ─── skills engine ────────────────────────────────────────────────────────────
+
+def test_skills():
+    print('[skills]')
+    from Intelligence.skills_engine import (
+        parse_frontmatter, SkillsEngine, build_skills_block)
+
+    meta, body = parse_frontmatter(
+        '---\n'
+        'name: my-skill\n'
+        'description: Mot skill thu nghiem\n'
+        'triggers: ten sheet, doi ten sheet\n'
+        'agents: [revit_action, general]\n'
+        'tools: rename_element\n'
+        '---\n'
+        '# Body here\nRule 1.')
+    check('fm name', meta.get('name') == 'my-skill')
+    check('fm triggers list', meta.get('triggers') == ['ten sheet', 'doi ten sheet'])
+    check('fm bracket list', meta.get('agents') == ['revit_action', 'general'])
+    check('fm body', body.startswith('# Body here'))
+
+    m2, b2 = parse_frontmatter('no frontmatter at all')
+    check('no fence passthrough', m2 == {} and b2 == 'no frontmatter at all')
+
+    # engine over the real built-in skills dir
+    engine = SkillsEngine()
+    n = engine.scan()
+    check('builtin skills found', n >= 3, n)
+    ids = [s['id'] for s in engine.get_catalog()]
+    check('starter skills present',
+          'sheet-naming-standard' in ids and 'qa-checklist' in ids
+          and 'comment-resolution-playbook' in ids, ids)
+
+    hits = engine.match('đổi tên sheet A-101 giúp mình')
+    check('trigger match (folded)', 'sheet-naming-standard' in hits, hits)
+    hits2 = engine.match('xử lý markup bluebeam')
+    check('comment skill match', 'comment-resolution-playbook' in hits2, hits2)
+    check('no match', engine.match('chào bạn') == [])
+
+    body = engine.get_body('sheet-naming-standard')
+    check('body loaded', 'Sheet Number' in body or 'sheet' in body.lower())
+
+    check('filter by agent', engine.filter_for_specialist(
+        ['sheet-naming-standard'], 'revit_action') == ['sheet-naming-standard'])
+    check('filter blocks wrong agent', engine.filter_for_specialist(
+        ['qa-checklist'], 'comment') == [])
+    check('skill tools', 'rename_element' in
+          engine.tools_for('sheet-naming-standard'))
+
+    block = build_skills_block(['qa-checklist'])
+    check('skills block built', 'Active skill' in block and 'QA' in block, block[:60])
+    check('empty block', build_skills_block([]) == '')
+
+
 # ─── knowledge_agent ──────────────────────────────────────────────────────────
 
 def test_knowledge_agent():
@@ -450,6 +504,7 @@ def main():
     test_knowledge_store()
     test_dispatcher()
     test_specialists()
+    test_skills()
     test_knowledge_agent()
 
     print('')

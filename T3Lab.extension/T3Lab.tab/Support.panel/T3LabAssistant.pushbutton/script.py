@@ -717,6 +717,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception as ex:
                     logger.debug("Auto-pull model failed: {}".format(ex))
 
+                # ─── 3.4 Skills registry scan ───
+                try:
+                    from Intelligence.skills_engine import SkillsEngine
+                    _n_skills = SkillsEngine().scan()
+                    logger.debug("Skills scanned: {}".format(_n_skills))
+                    self.Dispatcher.Invoke(Action(self._update_skills_panel))
+                except Exception as ex:
+                    logger.debug("Skills scan failed: {}".format(ex))
+
                 # ─── 3.5 Knowledge index: incremental scan + vectors ───
                 # Scans %APPDATA%/T3LabAI/knowledge/ plus user dirs; only
                 # changed files are re-extracted. Embeddings only when the
@@ -2048,6 +2057,145 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("knowledge_embed_toggled error: {}".format(ex))
 
+    # ─── Skills sidebar + chat chips ──────────────────────────────────────────
+
+    def _append_skill_chips(self, skill_ids):
+        """Small 'skill activated' chip row in the chat. UI THREAD."""
+        try:
+            from System.Windows.Controls import Border, TextBlock, StackPanel, Orientation
+            from System.Windows import Thickness, CornerRadius
+            from System.Windows.Media import SolidColorBrush, Color
+            from Intelligence.skills_engine import get_skills_engine
+
+            engine = get_skills_engine()
+            row = StackPanel()
+            row.Orientation = Orientation.Horizontal
+            row.Margin = Thickness(34, 0, 0, 6)
+            added = False
+            for sid in skill_ids:
+                meta = None
+                try:
+                    meta = engine._skills.get(sid)
+                except Exception:
+                    pass
+                name = (meta or {}).get('name', sid)
+                chip = Border()
+                chip.Background = SolidColorBrush(Color.FromRgb(244, 244, 246))
+                chip.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                chip.BorderThickness = Thickness(1)
+                chip.CornerRadius = CornerRadius(9)
+                chip.Padding = Thickness(8, 2, 8, 3)
+                chip.Margin = Thickness(0, 0, 4, 0)
+                tb = TextBlock()
+                tb.Text = u"⚡ " + name
+                tb.FontSize = 10
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
+                chip.Child = tb
+                chip.ToolTip = u"Skill đang được áp dụng cho câu trả lời này"
+                row.Children.Add(chip)
+                added = True
+            if added:
+                self.chat_history_panel.Children.Add(row)
+                self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug("_append_skill_chips error: {}".format(ex))
+
+    def _update_skills_panel(self):
+        """Rebuild the SKILLS rows in the sidebar. UI THREAD."""
+        try:
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition, CheckBox
+            from System.Windows import Thickness, CornerRadius, GridLength
+            from System.Windows.Media import SolidColorBrush, Color
+            from Intelligence.skills_engine import get_skills_engine
+
+            panel = self.skills_list_panel
+            panel.Children.Clear()
+            skills = get_skills_engine().all_skills()
+            if not skills:
+                tb = TextBlock()
+                tb.Text = u"Chưa có skill nào."
+                tb.FontSize = 10.5
+                tb.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                panel.Children.Add(tb)
+                return
+
+            for meta in skills:
+                row = Border()
+                row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
+                row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                row.BorderThickness = Thickness(1)
+                row.CornerRadius = CornerRadius(8)
+                row.Padding = Thickness(8, 5, 8, 5)
+                row.Margin = Thickness(0, 0, 0, 4)
+                row.ToolTip = meta.get('description', '')
+
+                grid = Grid()
+                col_txt = ColumnDefinition()
+                col_txt.Width = GridLength(1, System.Windows.GridUnitType.Star)
+                col_tgl = ColumnDefinition()
+                col_tgl.Width = GridLength.Auto
+                grid.ColumnDefinitions.Add(col_txt)
+                grid.ColumnDefinitions.Add(col_tgl)
+
+                tb = TextBlock()
+                tb.Text = meta.get('name', meta['id'])
+                tb.FontSize = 10.5
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
+                tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+                Grid.SetColumn(tb, 0)
+                grid.Children.Add(tb)
+
+                cb = CheckBox()
+                cb.IsChecked = bool(meta.get('enabled', True))
+                cb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                try:
+                    cb.Style = self.FindResource("T3ToggleSwitch")
+                    cb.LayoutTransform = System.Windows.Media.ScaleTransform(0.7, 0.7)
+                except Exception:
+                    pass
+
+                def _make_toggle(sid, box):
+                    def _toggled(sender, e):
+                        try:
+                            from Intelligence.skills_engine import get_skills_engine
+                            get_skills_engine().set_enabled(
+                                sid, bool(box.IsChecked))
+                        except Exception as tex:
+                            logger.debug("skill toggle error: {}".format(tex))
+                    return _toggled
+                handler = _make_toggle(meta['id'], cb)
+                cb.Checked += handler
+                cb.Unchecked += handler
+                Grid.SetColumn(cb, 1)
+                grid.Children.Add(cb)
+
+                row.Child = grid
+                panel.Children.Add(row)
+        except Exception as ex:
+            logger.debug("_update_skills_panel error: {}".format(ex))
+
+    def sidebar_refresh_skills_clicked(self, sender, e):
+        """Rescan skill folders and rebuild the list."""
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            get_skills_engine().scan()
+            self._update_skills_panel()
+        except Exception as ex:
+            logger.debug("sidebar_refresh_skills_clicked error: {}".format(ex))
+
+    def sidebar_open_skills_dir_clicked(self, sender, e):
+        """Open the user skills folder in Explorer."""
+        try:
+            from Intelligence.skills_engine import _user_skills_dir
+            import System.Diagnostics
+            System.Diagnostics.Process.Start(_user_skills_dir())
+        except Exception as ex:
+            logger.debug("sidebar_open_skills_dir_clicked error: {}".format(ex))
+
     # ─── Command palette ──────────────────────────────────────────────────────
 
     # All commands exposed to the AI, grouped by category.
@@ -2529,8 +2677,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 txt.Text   = u"Ready" if available else u"Not set up"
                 txt.Foreground = SolidColorBrush(_READY if available else _MUTED)
 
-            # Knowledge (RAG) section — cheap, manifest is in memory
+            # Knowledge (RAG) + Skills sections — cheap, all in memory
             self._update_knowledge_status()
+            self._update_skills_panel()
 
         except Exception as ex:
             logger.debug("_update_sidebar error: {}".format(ex))
@@ -3316,13 +3465,26 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
+            skills_block = u''
+            try:
+                _dec = getattr(self, '_agent_decision', None)
+                if _dec and _dec.get('skill'):
+                    from Intelligence.skills_engine import (
+                        build_skills_block, get_skills_engine)
+                    _ids = get_skills_engine().filter_for_specialist(
+                        [_dec['skill']], 'knowledge')
+                    skills_block = build_skills_block(_ids)
+            except Exception:
+                pass
+
             def _chat(system_prompt, query):
                 return self._stream_llm_turn(
                     provider, router, list(history), system_prompt, query,
                     max_tokens=900)
 
             result = agent.answer(raw, history, _chat,
-                                  project_instructions=proj_instructions)
+                                  project_instructions=proj_instructions,
+                                  skills_block=skills_block)
             if result.get('status') != 'done':
                 # remove any half-made bubble before falling through
                 if result.get('status') == 'llm_failed':
@@ -3519,6 +3681,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 _spec = get_spec(_dec['specialist'])
                             if _dec.get('skill'):
                                 _skill_ids = [_dec['skill']]
+                                # keep only skills declared for this specialist
+                                try:
+                                    from Intelligence.skills_engine import (
+                                        get_skills_engine)
+                                    _spec_name = (_spec.name if _spec
+                                                  else 'general')
+                                    _skill_ids = get_skills_engine() \
+                                        .filter_for_specialist(_skill_ids,
+                                                               _spec_name)
+                                except Exception:
+                                    pass
                         try:
                             _handled = self._run_native_agent(
                                 _provider, list(history), captured,
@@ -4171,6 +4344,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
         _spec_tools = spec.tools_for(_is_local) if spec is not None else None
         _use_launcher = spec.use_launcher if spec is not None else True
         _extras = [launcher] if _use_launcher else []
+        # Matched skills may declare extra tools their playbook needs —
+        # union them into a restricted subset (validated by the registry).
+        if _spec_tools and skill_ids:
+            try:
+                from Intelligence.skills_engine import get_skills_engine
+                _sk_tools = set()
+                for _sid in skill_ids:
+                    _sk_tools.update(get_skills_engine().tools_for(_sid))
+                if _sk_tools:
+                    _spec_tools = frozenset(_spec_tools) | _sk_tools
+            except Exception:
+                pass
         if _spec_tools:
             tools = tool_schema.get_tools_by_names(
                 provider.NAME, _spec_tools, _extras)
@@ -4368,6 +4553,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             try:
                 self.Dispatcher.Invoke(Action(_ui))
+            except Exception:
+                pass
+
+        # Skill chip — show which playbook is steering this turn
+        if skill_ids:
+            def _show_chips():
+                try:
+                    self._append_skill_chips(skill_ids)
+                except Exception:
+                    pass
+            try:
+                self.Dispatcher.Invoke(Action(_show_chips))
             except Exception:
                 pass
 
