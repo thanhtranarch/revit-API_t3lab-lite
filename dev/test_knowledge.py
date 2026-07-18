@@ -14,6 +14,7 @@ Covers modules that must be importable OUTSIDE Revit (guarded clr imports):
 """
 from __future__ import unicode_literals
 
+import json
 import os
 import sys
 
@@ -55,10 +56,160 @@ def test_vi_text():
     check('word_match_score empty', vi_text.word_match_score([], ['a']) == 0.0)
 
 
+# ─── chunker ──────────────────────────────────────────────────────────────────
+
+def test_chunker():
+    print('[chunker]')
+    from Intelligence.knowledge import chunker
+
+    words_p1 = ' '.join('w{}'.format(i) for i in range(1000))
+    words_p2 = ' '.join('v{}'.format(i) for i in range(100))
+    chunks = chunker.chunk_pages([(1, words_p1), (2, words_p2)],
+                                 target_words=300, overlap_words=50)
+
+    check('chunks produced', len(chunks) >= 4, len(chunks))
+    check('no chunk spans pages',
+          all(c['page'] in (1, 2) for c in chunks))
+    check('seq unique', len(set(c['seq'] for c in chunks)) == len(chunks))
+    p1 = [c for c in chunks if c['page'] == 1]
+    first_words = p1[0]['text'].split()
+    second_words = p1[1]['text'].split()
+    check('overlap present', first_words[-50:] == second_words[:50])
+    all_p1_words = set()
+    for c in p1:
+        all_p1_words.update(c['text'].split())
+    check('no words lost page1', len(all_p1_words) == 1000, len(all_p1_words))
+
+    tiny = chunker.chunk_text('one two three')
+    check('tiny text single chunk', len(tiny) == 1 and tiny[0]['page'] == 0)
+    check('empty text no chunk', chunker.chunk_text('') == [])
+
+
+# ─── bm25 ─────────────────────────────────────────────────────────────────────
+
+CORPUS = [
+    ('d_aaa', [
+        {'page': 1, 'seq': 0,
+         'text': 'Chiều cao lan can ban công tối thiểu 1100 mm theo tiêu chuẩn an toàn.'},
+        {'page': 2, 'seq': 1,
+         'text': 'Cửa thoát hiểm phải mở theo chiều thoát nạn, chiều rộng tối thiểu 800 mm.'},
+    ]),
+    ('d_bbb', [
+        {'page': 1, 'seq': 0,
+         'text': 'Fire rated walls shall achieve a two hour rating at stair cores.'},
+        {'page': 1, 'seq': 1,
+         'text': 'Handrail height for stairs is 900 mm measured from nosing.'},
+    ]),
+]
+
+
+def test_bm25():
+    print('[bm25]')
+    from Intelligence.knowledge.bm25_index import BM25Index, make_chunk_key
+
+    idx = BM25Index()
+    for doc_id, chunks in CORPUS:
+        idx.add_document(doc_id, chunks)
+
+    check('size', idx.size == 4, idx.size)
+
+    hits = idx.search('chiều cao lan can bao nhiêu?', top_k=3)
+    check('vi query hits', len(hits) >= 1)
+    check('vi query top is lan can chunk',
+          hits[0][0] == make_chunk_key('d_aaa', 1, 0), hits and hits[0][0])
+
+    hits2 = idx.search('fire rating of walls', top_k=3)
+    check('en query top is fire chunk',
+          hits2 and hits2[0][0] == make_chunk_key('d_bbb', 1, 0),
+          hits2 and hits2[0][0])
+
+    # diacritic-free query must still match diacritic content
+    hits3 = idx.search('chieu cao lan can', top_k=3)
+    check('folded query matches',
+          hits3 and hits3[0][0] == make_chunk_key('d_aaa', 1, 0))
+
+    # persistence round-trip
+    idx2 = BM25Index.from_dict(json.loads(json.dumps(idx.to_dict())))
+    hits4 = idx2.search('chiều cao lan can', top_k=1)
+    check('round-trip search identical', hits4 and hits4[0][0] == hits[0][0])
+
+    # allowed_docs filter restricts scoring to given documents
+    hits5 = idx.search('height mm', top_k=5, allowed_docs=set(['d_bbb']))
+    check('allowed_docs filter', hits5 and all(
+        k.startswith('d_bbb#') for k, _ in hits5), hits5)
+
+    idx.remove_document('d_aaa')
+    check('remove_document size', idx.size == 2, idx.size)
+    check('removed doc unfindable', not any(
+        k.startswith('d_aaa#') for k, _ in idx.search('lan can', top_k=5)))
+
+
+# ─── knowledge_store ──────────────────────────────────────────────────────────
+
+def test_knowledge_store():
+    print('[knowledge_store]')
+    import tempfile, shutil, time as _time
+    from Intelligence.knowledge.knowledge_store import KnowledgeStore
+
+    tmp = tempfile.mkdtemp()
+    src = os.path.join(tmp, 'docs')
+    os.makedirs(src)
+    try:
+        with open(os.path.join(src, 'standard.md'), 'wb') as f:
+            f.write('Chiều cao lan can ban công tối thiểu 1100 mm.\n'
+                    'Cửa thoát hiểm rộng tối thiểu 800 mm.'.encode('utf-8'))
+        with open(os.path.join(src, 'notes.txt'), 'wb') as f:
+            f.write(b'Handrail height for stairs is 900 mm from nosing.')
+        with open(os.path.join(src, 'skip.docx'), 'wb') as f:
+            f.write(b'not indexable')
+
+        store = KnowledgeStore(os.path.join(tmp, 'idx'), [src], 'test')
+        r1 = store.scan()
+        check('scan added 2', r1['added'] == 2, r1)
+
+        r2 = store.scan()
+        check('rescan unchanged', r2['unchanged'] == 2 and r2['added'] == 0, r2)
+
+        hits = store.search('chiều cao lan can', top_k=3)
+        check('store search hit', len(hits) >= 1)
+        check('citation fields', hits and hits[0]['file'] == 'standard.md'
+              and hits[0]['page'] == 0 and 'lan can' in hits[0]['text'])
+
+        st = store.stats()
+        check('stats', st['files'] == 2 and st['chunks'] == 2, st)
+
+        # attachment indexing + reload from disk (fresh store instance)
+        att = os.path.join(tmp, 'attach.txt')
+        with open(att, 'wb') as f:
+            f.write(b'Concrete cover for beams shall be 25 mm minimum.')
+        entry = store.index_file(att)
+        check('attachment indexed', entry and entry['chunks'] == 1, entry)
+
+        store2 = KnowledgeStore(os.path.join(tmp, 'idx'), [src], 'test')
+        hits2 = store2.search('concrete cover beams', top_k=2)
+        check('persisted index reload', hits2 and hits2[0]['file'] == 'attach.txt')
+
+        # file change → rescan reindexes; file removal → entry dropped
+        _time.sleep(0.02)
+        with open(os.path.join(src, 'standard.md'), 'ab') as f:
+            f.write(b'\nExtra line about ramp slope 1:12 maximum.')
+        os.utime(os.path.join(src, 'standard.md'), None)
+        r3 = store2.scan()
+        check('changed file reindexed', r3['updated'] == 1, r3)
+        os.remove(os.path.join(src, 'notes.txt'))
+        r4 = store2.scan()
+        check('deleted file removed', r4['removed'] == 1, r4)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ─── main ─────────────────────────────────────────────────────────────────────
 
 def main():
     test_vi_text()
+    test_chunker()
+    test_bm25()
+    test_knowledge_store()
 
     print('')
     if FAILURES:

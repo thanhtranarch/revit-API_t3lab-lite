@@ -139,6 +139,17 @@ except Exception as e:
     def summarize_attachments(files): return ''
     SUPPORTED_EXTS = set()
 
+# ─── Knowledge stack (RAG v2: index + retrieval) ──────────────────────────────
+try:
+    from Intelligence.knowledge.knowledge_store import (get_global_store,
+                                                        get_active_store)
+    HAS_KNOWLEDGE = True
+except Exception as e:
+    logger.warning("Could not import knowledge_store: {}".format(e))
+    HAS_KNOWLEDGE = False
+    def get_global_store(): return None
+    def get_active_store(): return None
+
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
     from Intelligence.llm_provider import StreamingJSONExtractor
@@ -2934,6 +2945,62 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.error("Error in _process_input: {}".format(ex))
             self._set_busy(False)
 
+    def _build_attachment_context(self, raw, attached):
+        """Build the attachment context string. WORKER THREAD.
+
+        Large PDFs (more than a few chunks of text) are indexed into the
+        active knowledge store and answered via retrieval — top-5 excerpts
+        with file + page citations — instead of the legacy 12k-char
+        truncate-and-stuff. Small PDFs and images keep the legacy path
+        (full text / vision placeholder). Any failure degrades to the
+        legacy behavior, never to an error.
+        """
+        pdfs = [p for p in attached if is_pdf(p)]
+        if not pdfs or not HAS_KNOWLEDGE:
+            return build_text_context(attached)
+        try:
+            store = get_active_store()
+            if store is None:
+                return build_text_context(attached)
+            doc_ids, total_chunks, failed_pdfs = [], 0, []
+            for path in pdfs:
+                entry = store.index_file(path)
+                if entry and entry.get('chunks'):
+                    doc_ids.append(entry['doc_id'])
+                    total_chunks += entry['chunks']
+                else:
+                    failed_pdfs.append(path)
+            # Small docs fit whole — the model seeing everything beats
+            # retrieval. ~3 chunks ≈ 2000 words ≈ the old 12k-char cap.
+            if not doc_ids or total_chunks <= 3:
+                return build_text_context(attached)
+
+            query = raw or u"nội dung chính của tài liệu"
+            hits = store.search(query, top_k=5, doc_ids=set(doc_ids))
+            if not hits:
+                return build_text_context(attached)
+
+            parts = [u'=== Trích đoạn liên quan từ tài liệu đính kèm ===']
+            for i, hit in enumerate(hits):
+                page_note = (u' — trang {}'.format(hit['page'])
+                             if hit.get('page') else u'')
+                parts.append(u'[{}] {}{}:\n{}'.format(
+                    i + 1, hit['file'], page_note, hit['text'][:900]))
+            parts.append(
+                u'=== Hết trích đoạn (tài liệu đầy đủ đã được index; '
+                u'trả lời dựa trên các trích đoạn, ghi nguồn [n]) ===')
+
+            # Images + unreadable PDFs still described the legacy way
+            rest = [p for p in attached if (not is_pdf(p)) or p in failed_pdfs]
+            if rest:
+                extra = build_text_context(rest)
+                if extra:
+                    parts.append(extra)
+            return u'\n\n'.join(parts)
+        except Exception as ex:
+            logger.debug("attachment RAG failed, legacy path: {}".format(ex))
+            return build_text_context(attached)
+
     def _route_input(self, raw, attached):
         """Classify + dispatch one user request. WORKER THREAD.
 
@@ -2950,11 +3017,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 # No text — summarise the documents
                 raw = u"Phân tích và tóm tắt nội dung tài liệu đính kèm."
 
-            # Build context-enriched prompt for NLP / Claude
-            # (PDF text is injected; images will be sent via vision API)
+            # Build context-enriched prompt for NLP / Claude.
+            # RAG v2: large attached PDFs are indexed and only the top-k
+            # relevant excerpts (with page citations) are injected — small
+            # files and images keep the legacy full-text/vision path.
             rag_context = ''
             if has_attach:
-                rag_context = build_text_context(attached)
+                rag_context = self._build_attachment_context(raw, attached)
 
             # For NLP routing we use ONLY the raw user text. Prepending the
             # ContextScout model summary here poisoned the offline NLU and
