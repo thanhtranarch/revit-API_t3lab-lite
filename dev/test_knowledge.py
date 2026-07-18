@@ -277,12 +277,121 @@ def test_knowledge_store():
 
         n_emb = store2.embed_pending(FakeEmbedder())
         check('embed_pending vectorized', n_emb >= 2, n_emb)
-        st2 = store2.stats()
+        st2 = store2.stats(include_vectors=True)
         check('stats vectors', st2['vectors'] == n_emb, st2)
         hits3 = store2.search('chiều cao lan can', top_k=2,
                               embedder=FakeEmbedder())
         check('hybrid search works', hits3 and hits3[0]['file'] == 'standard.md',
               hits3 and hits3[0]['file'])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ─── dispatcher (keyword stage) ───────────────────────────────────────────────
+
+def test_dispatcher():
+    print('[dispatcher]')
+    from Intelligence.agents.dispatcher import AgentDispatcher
+
+    d = AgentDispatcher()
+
+    def label(text, **kw):
+        return d.classify(text, allow_llm=False, **kw)['specialist']
+
+    check('vi count → revit_data',
+          label('Có bao nhiêu bức tường trong dự án?') == 'revit_data')
+    check('en count → revit_data',
+          label('how many walls are there') == 'revit_data')
+    check('liet ke → revit_data',
+          label('liệt kê các sheet') == 'revit_data')
+    check('rename → revit_action',
+          label('đổi tên sheet A-101 thành A-102') == 'revit_action')
+    check('delete → revit_action',
+          label('xóa các text note trong view này') == 'revit_action')
+    check('export → revit_action',
+          label('xuất pdf toàn bộ sheet') == 'revit_action')
+    check('standard question → knowledge',
+          label('tiêu chuẩn chiều cao lan can là bao nhiêu?') == 'knowledge')
+    check('doc question → knowledge',
+          label('trong tài liệu có nói về cấp chống cháy không') == 'knowledge')
+    check('action beats knowledge',
+          label('sửa chiều cao lan can theo tiêu chuẩn') == 'revit_action')
+    check('cmt → comment',
+          label('hoàn thiện các cmt trong bản vẽ') == 'comment')
+    check('bluebeam → comment',
+          label('xử lý markup bluebeam') == 'comment')
+    check('annotated pdf attach → comment',
+          d.classify('xem giúp file này', attached_pdf_annotated=True,
+                     allow_llm=False)['specialist'] == 'comment')
+    check('greeting → general', label('chào bạn, khỏe không?') == 'general')
+    check('ban ve not draw-verb',
+          label('bản vẽ này thuộc model nào') == 'general')
+    check('empty → general', label('') == 'general')
+
+    # LLM stage with a fake provider
+    class FakeProvider(object):
+        def chat(self, messages, system, user, max_tokens=60, **kw):
+            return '{"label": "revit_data", "skill": null}'
+
+    r = d.classify('mấy cái đó nằm đâu', provider=FakeProvider(),
+                   allow_llm=True)
+    check('llm stage used for ambiguous',
+          r['specialist'] == 'revit_data' and r['source'] == 'llm', r)
+
+    class BadProvider(object):
+        def chat(self, *a, **kw):
+            return 'not json at all'
+
+    r2 = d.classify('mấy cái đó nằm đâu', provider=BadProvider(),
+                    allow_llm=True)
+    check('bad llm → general default',
+          r2['specialist'] == 'general' and r2['source'] == 'default', r2)
+
+
+# ─── knowledge_agent ──────────────────────────────────────────────────────────
+
+def test_knowledge_agent():
+    print('[knowledge_agent]')
+    import tempfile, shutil
+    from Intelligence.knowledge.knowledge_store import KnowledgeStore
+    from Intelligence.knowledge.knowledge_agent import (
+        KnowledgeAgent, format_citation_line)
+
+    tmp = tempfile.mkdtemp()
+    src = os.path.join(tmp, 'docs')
+    os.makedirs(src)
+    try:
+        with open(os.path.join(src, 'fire.md'), 'wb') as f:
+            f.write('Cửa thoát hiểm phải có chiều rộng tối thiểu 800 mm '
+                    'và mở theo chiều thoát nạn.'.encode('utf-8'))
+        store = KnowledgeStore(os.path.join(tmp, 'idx'), [src], 'test')
+        store.scan()
+
+        agent = KnowledgeAgent(store=store, fallback_store=None)
+        seen = {}
+
+        def chat_fn(system_prompt, query):
+            seen['system'] = system_prompt
+            seen['query'] = query
+            return 'Chiều rộng tối thiểu là 800 mm [1].'
+
+        res = agent.answer('cửa thoát hiểm rộng bao nhiêu?', [], chat_fn)
+        check('agent done', res['status'] == 'done', res)
+        check('citation built', res['citations'] and
+              res['citations'][0]['file'] == 'fire.md', res.get('citations'))
+        check('excerpt in query', '800 mm' in seen['query'])
+        check('grounding rule in system', 'trích đoạn' in seen['system'])
+
+        line = format_citation_line(res['citations'])
+        check('citation line', 'fire.md' in line and 'Nguồn' in line, line)
+
+        res2 = agent.answer('chủ đề hoàn toàn khác biệt xyz', [], chat_fn)
+        check('no hits status', res2['status'] == 'no_hits', res2)
+
+        def mute_fn(system_prompt, query):
+            return None
+        res3 = agent.answer('cửa thoát hiểm', [], mute_fn)
+        check('llm_failed status', res3['status'] == 'llm_failed', res3)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -295,6 +404,8 @@ def main():
     test_bm25()
     test_embeddings()
     test_knowledge_store()
+    test_dispatcher()
+    test_knowledge_agent()
 
     print('')
     if FAILURES:

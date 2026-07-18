@@ -358,19 +358,24 @@ class KnowledgeStore(object):
             'page': info.get('page', 0),
         }
 
-    def stats(self):
-        """{"files": n, "chunks": n, "vectors": n, "updated": ts}"""
+    def stats(self, include_vectors=False):
+        """{"files": n, "chunks": n, "vectors": n, "updated": ts}.
+
+        include_vectors=True reads every vectors/<doc>.json to count
+        entries — skip it for UI labels (called on the UI thread).
+        """
         with self._lock:
             self._ensure_loaded()
             files = self._manifest['files']
             n_vec = 0
-            vdir = os.path.join(self.index_dir, 'vectors')
-            try:
-                for fname in os.listdir(vdir):
-                    data = _read_json(os.path.join(vdir, fname), {})
-                    n_vec += len((data or {}).get('vectors', {}))
-            except Exception:
-                pass
+            if include_vectors:
+                vdir = os.path.join(self.index_dir, 'vectors')
+                try:
+                    for fname in os.listdir(vdir):
+                        data = _read_json(os.path.join(vdir, fname), {})
+                        n_vec += len((data or {}).get('vectors', {}))
+                except Exception:
+                    pass
             return {
                 'files':   len(files),
                 'chunks':  self._bm25.size,

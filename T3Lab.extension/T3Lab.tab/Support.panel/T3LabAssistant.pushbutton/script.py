@@ -150,6 +150,18 @@ except Exception as e:
     def get_global_store(): return None
     def get_active_store(): return None
 
+# ─── Multi-agent dispatcher (specialist routing) ──────────────────────────────
+try:
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    HAS_AGENTS = True
+except Exception as e:
+    logger.warning("Could not import AgentDispatcher: {}".format(e))
+    HAS_AGENTS = False
+    class AgentDispatcher(object):
+        def classify(self, *a, **kw):
+            return {'specialist': 'general', 'skill': None,
+                    'source': 'default', 'confidence': 0.0}
+
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
     from Intelligence.llm_provider import StreamingJSONExtractor
@@ -692,6 +704,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             )))
                 except Exception as ex:
                     logger.debug("Auto-pull model failed: {}".format(ex))
+
+                # ─── 3.5 Knowledge index: incremental scan + vectors ───
+                # Scans %APPDATA%/T3LabAI/knowledge/ plus user dirs; only
+                # changed files are re-extracted. Embeddings only when the
+                # model is ALREADY installed — the ~270 MB pull is never
+                # triggered silently from startup.
+                try:
+                    if HAS_KNOWLEDGE:
+                        _store = get_active_store()
+                        if _store is not None:
+                            _scan_res = _store.scan()
+                            if _scan_res.get('added') or _scan_res.get('updated'):
+                                logger.debug("Knowledge scan: {}".format(_scan_res))
+                            try:
+                                from Intelligence.knowledge.embeddings import (
+                                    get_default_embedder)
+                                _emb = get_default_embedder()
+                                if _emb is not None and _emb.is_available():
+                                    _store.embed_pending(_emb, budget_sec=90)
+                            except Exception:
+                                pass
+                            self.Dispatcher.Invoke(
+                                Action(self._update_knowledge_status))
+                except Exception as ex:
+                    logger.debug("Knowledge scan failed: {}".format(ex))
 
                 from Intelligence.llm_router import LLMRouter
                 router = LLMRouter()
@@ -1782,6 +1819,223 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("sidebar_save_host_clicked error: {}".format(ex))
 
+    # ─── Knowledge sidebar (RAG v2 index) ─────────────────────────────────────
+
+    def _update_knowledge_status(self):
+        """Refresh KNOWLEDGE status label, dir rows and embed toggle. UI THREAD."""
+        if not HAS_KNOWLEDGE:
+            return
+        try:
+            store = get_active_store()
+            if store is None:
+                return
+            st = store.stats()
+            self.knowledge_index_status.Text = u"{} file · {} đoạn".format(
+                st['files'], st['chunks'])
+            self._refresh_knowledge_dirs_panel()
+            try:
+                from config.settings import get_settings
+                want = bool(get_settings().get_knowledge_option(
+                    'embeddings_enabled', True))
+                if bool(self.knowledge_embed_toggle.IsChecked) != want:
+                    self._embed_toggle_guard = True
+                    self.knowledge_embed_toggle.IsChecked = want
+                    self._embed_toggle_guard = False
+            except Exception:
+                self._embed_toggle_guard = False
+        except Exception as ex:
+            logger.debug("_update_knowledge_status error: {}".format(ex))
+
+    def _refresh_knowledge_dirs_panel(self):
+        """Rebuild the knowledge directory rows. UI THREAD."""
+        try:
+            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition, Button
+            from System.Windows import Thickness, CornerRadius, GridLength
+            from System.Windows.Media import SolidColorBrush, Color
+
+            panel = self.knowledge_dirs_panel
+            panel.Children.Clear()
+
+            from Intelligence.knowledge.knowledge_store import default_knowledge_dir
+            rows = [(default_knowledge_dir(), False)]
+            try:
+                from config.settings import get_settings
+                for d in get_settings().get_knowledge_dirs():
+                    rows.append((d, True))
+            except Exception:
+                pass
+
+            for path, removable in rows:
+                row = Border()
+                row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
+                row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                row.BorderThickness = Thickness(1)
+                row.CornerRadius = CornerRadius(8)
+                row.Padding = Thickness(8, 5, 6, 5)
+                row.Margin = Thickness(0, 0, 0, 4)
+
+                grid = Grid()
+                col_txt = ColumnDefinition()
+                col_txt.Width = GridLength(1, System.Windows.GridUnitType.Star)
+                col_btn = ColumnDefinition()
+                col_btn.Width = GridLength.Auto
+                grid.ColumnDefinitions.Add(col_txt)
+                grid.ColumnDefinitions.Add(col_btn)
+
+                tb = TextBlock()
+                tb.Text = os.path.basename(path.rstrip(u'\\/')) or path
+                tb.ToolTip = path
+                tb.FontSize = 10.5
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
+                tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+                Grid.SetColumn(tb, 0)
+                grid.Children.Add(tb)
+
+                if removable:
+                    btn = Button()
+                    btn.Content = u"✕"
+                    btn.FontSize = 10
+                    btn.Width = 20
+                    btn.Height = 20
+                    btn.Cursor = System.Windows.Input.Cursors.Hand
+                    btn.Background = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
+                    btn.BorderThickness = Thickness(0)
+                    btn.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
+                    btn.ToolTip = u"Bỏ thư mục khỏi index"
+
+                    def _make_remove(p):
+                        def _remove(sender, e):
+                            try:
+                                from config.settings import get_settings
+                                get_settings().remove_knowledge_dir(p)
+                                self._refresh_knowledge_dirs_panel()
+                                self._kick_knowledge_scan()
+                            except Exception as rex:
+                                logger.debug("remove dir error: {}".format(rex))
+                        return _remove
+                    btn.Click += _make_remove(path)
+                    Grid.SetColumn(btn, 1)
+                    grid.Children.Add(btn)
+
+                row.Child = grid
+                panel.Children.Add(row)
+        except Exception as ex:
+            logger.debug("_refresh_knowledge_dirs_panel error: {}".format(ex))
+
+    def _kick_knowledge_scan(self):
+        """(Re)scan the active knowledge store on a background thread."""
+        if not HAS_KNOWLEDGE or getattr(self, '_kn_scan_busy', False):
+            return
+        self._kn_scan_busy = True
+        try:
+            self.knowledge_index_status.Text = u"Đang quét..."
+        except Exception:
+            pass
+
+        def _scan():
+            try:
+                store = get_active_store()
+                if store is not None:
+                    def _prog(name):
+                        def _ui(_n=name):
+                            try:
+                                self.knowledge_index_status.Text = \
+                                    u"Index: " + _n[:24]
+                            except Exception:
+                                pass
+                        try:
+                            self.Dispatcher.BeginInvoke(Action(_ui))
+                        except Exception:
+                            pass
+                    store.scan(progress_cb=_prog)
+                    try:
+                        from Intelligence.knowledge.embeddings import (
+                            get_default_embedder)
+                        emb = get_default_embedder()
+                        if emb is not None and emb.is_available():
+                            store.embed_pending(emb, budget_sec=120)
+                    except Exception:
+                        pass
+            except Exception as ex:
+                logger.debug("knowledge scan error: {}".format(ex))
+            finally:
+                self._kn_scan_busy = False
+                try:
+                    self.Dispatcher.Invoke(Action(self._update_knowledge_status))
+                except Exception:
+                    pass
+        _kt = Thread(ThreadStart(_scan))
+        _kt.IsBackground = True
+        _kt.SetApartmentState(ApartmentState.STA)
+        _kt.Start()
+
+    def sidebar_add_knowledge_dir_clicked(self, sender, e):
+        """Pick a folder to add to the knowledge index. UI THREAD."""
+        try:
+            clr.AddReference('System.Windows.Forms')
+            from System.Windows.Forms import FolderBrowserDialog, DialogResult
+            dlg = FolderBrowserDialog()
+            dlg.Description = "Chon thu muc tai lieu (PDF/TXT/MD) de index"
+            if dlg.ShowDialog() == DialogResult.OK and dlg.SelectedPath:
+                from config.settings import get_settings
+                get_settings().add_knowledge_dir(dlg.SelectedPath)
+                self._refresh_knowledge_dirs_panel()
+                self._kick_knowledge_scan()
+        except Exception as ex:
+            logger.debug("sidebar_add_knowledge_dir_clicked error: {}".format(ex))
+
+    def sidebar_reindex_clicked(self, sender, e):
+        self._kick_knowledge_scan()
+
+    def knowledge_embed_toggled(self, sender, e):
+        """Persist the semantic-search switch; pull the embed model when
+        first enabled (background, with chat notice — ~270 MB)."""
+        if getattr(self, '_embed_toggle_guard', False):
+            return
+        try:
+            on = bool(self.knowledge_embed_toggle.IsChecked)
+            from config.settings import get_settings
+            get_settings().set_knowledge_option('embeddings_enabled', on)
+            if not on:
+                return
+
+            def _ensure():
+                try:
+                    from Intelligence.knowledge.embeddings import (
+                        get_default_embedder)
+                    emb = get_default_embedder()
+                    if emb is None:
+                        return
+                    if not emb.is_available():
+                        self.Dispatcher.Invoke(Action(
+                            lambda: self._append_bot_message(
+                                u"Đang tải mô hình embedding "
+                                u"(nomic-embed-text, ~270MB) cho semantic "
+                                u"search. Quá trình chạy ngầm...",
+                                icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
+                        if not emb.ensure_model():
+                            self.Dispatcher.Invoke(Action(
+                                lambda: self._append_bot_message(
+                                    u"Không tải được mô hình embedding — "
+                                    u"kiểm tra Ollama đang chạy. Tìm kiếm "
+                                    u"vẫn hoạt động ở chế độ từ khóa (BM25).",
+                                    icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
+                            return
+                    store = get_active_store()
+                    if store is not None:
+                        store.embed_pending(emb, budget_sec=300)
+                    self.Dispatcher.Invoke(Action(self._update_knowledge_status))
+                except Exception as ex2:
+                    logger.debug("embed enable error: {}".format(ex2))
+            _et = Thread(ThreadStart(_ensure))
+            _et.IsBackground = True
+            _et.SetApartmentState(ApartmentState.STA)
+            _et.Start()
+        except Exception as ex:
+            logger.debug("knowledge_embed_toggled error: {}".format(ex))
+
     # ─── Command palette ──────────────────────────────────────────────────────
 
     # All commands exposed to the AI, grouped by category.
@@ -2262,6 +2516,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 dot.Fill   = SolidColorBrush(_READY if available else _GRAY)
                 txt.Text   = u"Ready" if available else u"Not set up"
                 txt.Foreground = SolidColorBrush(_READY if available else _MUTED)
+
+            # Knowledge (RAG) section — cheap, manifest is in memory
+            self._update_knowledge_status()
 
         except Exception as ex:
             logger.debug("_update_sidebar error: {}".format(ex))
@@ -3015,6 +3272,74 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("attachment RAG failed, legacy path: {}".format(ex))
             return build_text_context(attached)
 
+    def _run_knowledge_agent(self, raw, history):
+        """Answer from the knowledge index with citations. WORKER THREAD.
+
+        Streams through _stream_llm_turn (live bubble). Returns True when
+        the request was fully handled; False lets _route_input fall through
+        to the normal LLM path (no retrieval hits, or every provider mute).
+        """
+        try:
+            from Intelligence.knowledge.knowledge_agent import (
+                KnowledgeAgent, format_citation_line)
+            from Intelligence.llm_router import LLMRouter
+
+            embedder = None
+            try:
+                from Intelligence.knowledge.embeddings import get_default_embedder
+                embedder = get_default_embedder()
+                if embedder is not None and not embedder.is_available():
+                    embedder = None
+            except Exception:
+                embedder = None
+
+            router = LLMRouter()
+            provider = router.get_active_provider()
+            agent = KnowledgeAgent(embedder=embedder)
+
+            proj_instructions = u''
+            try:
+                from config.project_store import ProjectStore
+                proj_instructions = ProjectStore().get_active_prompt_addendum()
+            except Exception:
+                pass
+
+            def _chat(system_prompt, query):
+                return self._stream_llm_turn(
+                    provider, router, list(history), system_prompt, query,
+                    max_tokens=900)
+
+            result = agent.answer(raw, history, _chat,
+                                  project_instructions=proj_instructions)
+            if result.get('status') != 'done':
+                # remove any half-made bubble before falling through
+                if result.get('status') == 'llm_failed':
+                    def _cleanup():
+                        self._remove_stream_bubble()
+                    try:
+                        self.Dispatcher.Invoke(Action(_cleanup))
+                    except Exception:
+                        pass
+                return False
+
+            text = result['text']
+            shown = text + format_citation_line(result.get('citations'))
+
+            def _done():
+                self._hide_typing_indicator()
+                if self._stream_tb is not None:
+                    self._finalize_stream_bubble(shown)
+                    self._clear_stream_refs()
+                else:
+                    self._append_bot_message(shown)
+                self._add_to_history("assistant", text)
+                self._set_busy(False)
+            self.Dispatcher.Invoke(Action(_done))
+            return True
+        except Exception as ex:
+            logger.debug("_run_knowledge_agent error: {}".format(ex))
+            return False
+
     def _route_input(self, raw, attached):
         """Classify + dispatch one user request. WORKER THREAD.
 
@@ -3089,6 +3414,32 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self._execute_result(_r)
                         self.Dispatcher.Invoke(Action(_run_nlu))
                         return
+
+            # ── 2.5 Specialist dispatch (multi-agent layer) ────────────────
+            # Keyword-precise routing only — anything ambiguous falls through
+            # to the unchanged legacy path. Kill switch: agents.multi_agent.
+            self._agent_decision = None
+            if HAS_AGENTS and not has_attach and (use_local or use_claude):
+                try:
+                    from config.settings import get_settings as _get_settings
+                    _multi_on = _get_settings().is_multi_agent_enabled()
+                except Exception:
+                    _multi_on = True
+                if _multi_on:
+                    try:
+                        self._agent_decision = AgentDispatcher().classify(raw)
+                    except Exception as _disp_ex:
+                        logger.debug("dispatcher error: {}".format(_disp_ex))
+                    if self._agent_decision:
+                        logger.debug("dispatcher: {} ({}, {:.2f})".format(
+                            self._agent_decision.get('specialist'),
+                            self._agent_decision.get('source'),
+                            self._agent_decision.get('confidence', 0.0)))
+                    if HAS_KNOWLEDGE and self._agent_decision and \
+                            self._agent_decision.get('specialist') == 'knowledge':
+                        if self._run_knowledge_agent(raw, history):
+                            return
+                        # no hits / LLM mute → continue down the normal path
 
             if use_local or use_claude or has_attach:
                 # ── 3/4. LLM path (typing indicator already showing) ──────────
