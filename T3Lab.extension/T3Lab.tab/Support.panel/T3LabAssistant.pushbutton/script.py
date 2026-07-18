@@ -2975,8 +2975,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not doc_ids or total_chunks <= 3:
                 return build_text_context(attached)
 
+            # Semantic channel (bounded): vectorize fresh chunks for ~20s
+            # max, then search hybrid. Degrades to BM25-only silently.
+            embedder = None
+            try:
+                from Intelligence.knowledge.embeddings import get_default_embedder
+                embedder = get_default_embedder()
+                if embedder is not None and embedder.is_available():
+                    store.embed_pending(embedder, budget_sec=20)
+                else:
+                    embedder = None
+            except Exception:
+                embedder = None
+
             query = raw or u"nội dung chính của tài liệu"
-            hits = store.search(query, top_k=5, doc_ids=set(doc_ids))
+            hits = store.search(query, top_k=5, embedder=embedder,
+                                doc_ids=set(doc_ids))
             if not hits:
                 return build_text_context(attached)
 

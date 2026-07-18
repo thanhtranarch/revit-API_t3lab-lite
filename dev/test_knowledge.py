@@ -144,6 +144,65 @@ def test_bm25():
         k.startswith('d_aaa#') for k, _ in idx.search('lan can', top_k=5)))
 
 
+# ─── embeddings ───────────────────────────────────────────────────────────────
+
+def test_embeddings():
+    print('[embeddings]')
+    from Intelligence.knowledge.embeddings import (
+        OllamaEmbedder, cosine, rrf_fuse)
+
+    check('cosine identical', abs(cosine([1.0, 2.0], [1.0, 2.0]) - 1.0) < 1e-9)
+    check('cosine orthogonal', abs(cosine([1.0, 0.0], [0.0, 1.0])) < 1e-9)
+    check('cosine mismatched len', cosine([1.0], [1.0, 2.0]) == 0.0)
+    check('cosine zero vec', cosine([0.0, 0.0], [1.0, 1.0]) == 0.0)
+
+    fused = rrf_fuse([['a', 'b', 'c'], ['b', 'a', 'd']])
+    check('rrf both-listed first', fused[0] in ('a', 'b') and set(fused[:2]) == set(['a', 'b']), fused)
+    check('rrf keeps all keys', set(fused) == set(['a', 'b', 'c', 'd']))
+    fused_w = rrf_fuse([['a'], ['b']], weights=[2.0, 1.0])
+    check('rrf weights', fused_w[0] == 'a', fused_w)
+
+    # fake transport: /api/tags lists the model; /api/embed batches
+    calls = {}
+
+    def fake_get(url, timeout_ms=0):
+        calls['get'] = url
+        return json.dumps({'models': [{'name': 'nomic-embed-text:latest'}]})
+
+    def fake_post(url, payload, headers=None, timeout_ms=0):
+        calls['post'] = url
+        if url.endswith('/api/embed'):
+            return json.dumps({'embeddings': [[0.123456, 0.2]] * len(payload['input'])})
+        return None
+
+    emb = OllamaEmbedder(http_post_fn=fake_post, http_get_fn=fake_get,
+                         host='http://x:11434')
+    check('embedder available', emb.is_available() is True)
+    vecs = emb.embed(['one', 'two'])
+    check('batch embed', vecs is not None and len(vecs) == 2)
+    check('vector rounding', vecs and vecs[0][0] == 0.1235, vecs and vecs[0][0])
+
+    # fallback path: /api/embed missing → per-text /api/embeddings
+    def fake_post2(url, payload, headers=None, timeout_ms=0):
+        if url.endswith('/api/embed'):
+            return None
+        return json.dumps({'embedding': [0.5, 0.5]})
+
+    emb2 = OllamaEmbedder(http_post_fn=fake_post2, http_get_fn=fake_get,
+                          host='http://x:11434')
+    vecs2 = emb2.embed(['one'])
+    check('fallback per-text embed', vecs2 == [[0.5, 0.5]], vecs2)
+
+    # unreachable host → unavailable, embed returns None
+    def dead_get(url, timeout_ms=0):
+        return None
+
+    emb3 = OllamaEmbedder(http_post_fn=fake_post, http_get_fn=dead_get,
+                          host='http://x:11434')
+    check('unavailable when no host', emb3.is_available() is False)
+    check('embed None when unavailable', emb3.embed(['x']) is None)
+
+
 # ─── knowledge_store ──────────────────────────────────────────────────────────
 
 def test_knowledge_store():
@@ -199,6 +258,31 @@ def test_knowledge_store():
         os.remove(os.path.join(src, 'notes.txt'))
         r4 = store2.scan()
         check('deleted file removed', r4['removed'] == 1, r4)
+
+        # hybrid channel: fake embedder → embed_pending → fused search
+        class FakeEmbedder(object):
+            MODEL = 'fake'
+
+            def is_available(self, recheck=False):
+                return True
+
+            def embed(self, texts):
+                out = []
+                for t in texts:
+                    lowered = t.lower()
+                    out.append([1.0, 0.0] if ('lan can' in lowered
+                                              or 'chieu cao' in lowered)
+                               else [0.0, 1.0])
+                return out
+
+        n_emb = store2.embed_pending(FakeEmbedder())
+        check('embed_pending vectorized', n_emb >= 2, n_emb)
+        st2 = store2.stats()
+        check('stats vectors', st2['vectors'] == n_emb, st2)
+        hits3 = store2.search('chiều cao lan can', top_k=2,
+                              embedder=FakeEmbedder())
+        check('hybrid search works', hits3 and hits3[0]['file'] == 'standard.md',
+              hits3 and hits3[0]['file'])
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -209,6 +293,7 @@ def main():
     test_vi_text()
     test_chunker()
     test_bm25()
+    test_embeddings()
     test_knowledge_store()
 
     print('')
