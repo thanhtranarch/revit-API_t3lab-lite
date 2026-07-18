@@ -348,6 +348,50 @@ def test_dispatcher():
           r2['specialist'] == 'general' and r2['source'] == 'default', r2)
 
 
+# ─── specialists ──────────────────────────────────────────────────────────────
+
+def test_specialists():
+    print('[specialists]')
+    from Intelligence.agents.specialists import (
+        get_spec, SPECIALISTS, READ_TOOLS, ACTION_TOOLS)
+
+    check('registry names', set(SPECIALISTS.keys()) ==
+          set(['general', 'revit_data', 'revit_action', 'knowledge', 'comment']))
+    check('unknown → general', get_spec('nope').name == 'general')
+
+    data = get_spec('revit_data')
+    check('data read-only', not data.allows_writes and not data.use_launcher)
+    check('data budget', data.max_iterations == 6)
+    check('data subset all providers',
+          data.tools_for(local=False) == READ_TOOLS and
+          data.tools_for(local=True) == READ_TOOLS)
+    check('data has no write tools',
+          'delete_element' not in READ_TOOLS and 'set_parameter' not in READ_TOOLS)
+
+    act = get_spec('revit_action')
+    check('action local subset', act.tools_for(local=True) == ACTION_TOOLS)
+    check('action cloud full', act.tools_for(local=False) is None)
+    check('action has writes',
+          'set_parameter' in ACTION_TOOLS and 'export_dwg' in ACTION_TOOLS)
+
+    gen = get_spec('general')
+    check('general default tools', gen.tools_for(local=True) is None)
+
+    # prompt building must not need Revit — uses agent_loop's builder
+    from Intelligence.agents.specialists import build_specialist_prompt
+    p = build_specialist_prompt(data, 'CTX-HERE',
+                                project_instructions='PROJ-RULE',
+                                skills_block='## Active skill: X',
+                                local=True)
+    check('prompt has context', 'CTX-HERE' in p)
+    check('prompt has role', 'DATA specialist' in p)
+    check('prompt has few-shot (local)', 'Examples' in p)
+    check('prompt has project rules', 'PROJ-RULE' in p)
+    check('prompt has skills block', 'Active skill' in p)
+    p2 = build_specialist_prompt(data, 'CTX', local=False)
+    check('no few-shot on cloud', 'Examples' not in p2)
+
+
 # ─── knowledge_agent ──────────────────────────────────────────────────────────
 
 def test_knowledge_agent():
@@ -405,6 +449,7 @@ def main():
     test_embeddings()
     test_knowledge_store()
     test_dispatcher()
+    test_specialists()
     test_knowledge_agent()
 
     print('')

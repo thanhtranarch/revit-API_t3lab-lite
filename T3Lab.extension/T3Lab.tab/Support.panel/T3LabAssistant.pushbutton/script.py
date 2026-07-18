@@ -162,6 +162,18 @@ except Exception as e:
             return {'specialist': 'general', 'skill': None,
                     'source': 'default', 'confidence': 0.0}
 
+# ─── Specialist specs (per-agent prompt/tools/budget) ─────────────────────────
+try:
+    from Intelligence.agents.specialists import get_spec, build_specialist_prompt
+    HAS_SPECIALISTS = True
+except Exception as e:
+    logger.warning("Could not import specialists: {}".format(e))
+    HAS_SPECIALISTS = False
+    def get_spec(name): return None
+    def build_specialist_prompt(spec, ctx, **kw):
+        from Intelligence.agent_loop import build_agent_system_prompt
+        return build_agent_system_prompt(ctx)
+
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
     from Intelligence.llm_provider import StreamingJSONExtractor
@@ -3416,18 +3428,40 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         return
 
             # ── 2.5 Specialist dispatch (multi-agent layer) ────────────────
-            # Keyword-precise routing only — anything ambiguous falls through
-            # to the unchanged legacy path. Kill switch: agents.multi_agent.
+            # Keyword stage always; one tiny LLM classify call only for
+            # non-conversational messages the keywords couldn't place.
+            # Anything ambiguous falls through to the unchanged legacy
+            # path. Kill switch: agents.multi_agent.
             self._agent_decision = None
             if HAS_AGENTS and not has_attach and (use_local or use_claude):
                 try:
                     from config.settings import get_settings as _get_settings
-                    _multi_on = _get_settings().is_multi_agent_enabled()
+                    _settings = _get_settings()
+                    _multi_on = _settings.is_multi_agent_enabled()
+                    _llm_clf_on = _settings.is_llm_classify_enabled()
                 except Exception:
-                    _multi_on = True
+                    _multi_on, _llm_clf_on = True, True
                 if _multi_on:
+                    _clf_provider = None
+                    _is_chat_msg = bool(
+                        nlu_result and nlu_result.get("intent") == "chat")
+                    if _llm_clf_on and not _is_chat_msg:
+                        try:
+                            from Intelligence.llm_router import LLMRouter as _LLMR
+                            _clf_provider = _LLMR().get_active_provider()
+                        except Exception:
+                            _clf_provider = None
+                    _skills_eng = None
                     try:
-                        self._agent_decision = AgentDispatcher().classify(raw)
+                        from Intelligence.skills_engine import SkillsEngine
+                        _skills_eng = SkillsEngine()
+                    except Exception:
+                        pass
+                    try:
+                        self._agent_decision = AgentDispatcher().classify(
+                            raw, provider=_clf_provider,
+                            skills_engine=_skills_eng,
+                            allow_llm=bool(_clf_provider))
                     except Exception as _disp_ex:
                         logger.debug("dispatcher error: {}".format(_disp_ex))
                     if self._agent_decision:
@@ -3466,11 +3500,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     # can't even start (registry unavailable, provider mute on
                     # turn 1 — e.g. an Ollama model without tool support), it
                     # returns False and the legacy JSON-intent loop below runs.
-                    if not has_attach and not rag_context:
+                    # Compact retrieval context (RAG v2 excerpts) no longer
+                    # blocks the native path — only vision attachments and
+                    # bulky legacy stuffing still go to the JSON-intent loop.
+                    _compact_rag = bool(
+                        rag_context and len(rag_context) < 4000
+                        and not has_images(attached))
+                    if (not has_attach and not rag_context) or _compact_rag:
                         _handled = False
+                        # Specialist spec + matched skills from the dispatcher
+                        # decision (multi-agent layer). None = legacy behavior.
+                        _spec = None
+                        _skill_ids = None
+                        _dec = getattr(self, '_agent_decision', None)
+                        if HAS_SPECIALISTS and _dec:
+                            if _dec.get('specialist') in ('revit_data',
+                                                          'revit_action'):
+                                _spec = get_spec(_dec['specialist'])
+                            if _dec.get('skill'):
+                                _skill_ids = [_dec['skill']]
                         try:
                             _handled = self._run_native_agent(
-                                _provider, list(history), captured)
+                                _provider, list(history), captured,
+                                spec=_spec, skill_ids=_skill_ids,
+                                rag_context=(rag_context if _compact_rag
+                                             else None))
                         except Exception as _na_ex:
                             logger.debug("native agent path error: {}".format(_na_ex))
                         if _handled:
@@ -4082,8 +4136,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
 
-    def _run_native_agent(self, provider, history, captured):
+    def _run_native_agent(self, provider, history, captured,
+                          spec=None, skill_ids=None, rag_context=None):
         """Run the native tool-calling agent loop. WORKER THREAD.
+
+        spec: optional SpecialistSpec — narrows the tool catalog, adds a
+        role block to the system prompt and tightens the loop budget
+        (multi-agent layer). None = today's exact behavior.
+        skill_ids: optional matched skill ids injected into the prompt.
+        rag_context: optional compact retrieval excerpts (attachment RAG)
+        prepended to the user content only.
 
         Returns True when the request was fully handled (UI updated, busy
         released). Returns False so the legacy JSON-intent path can run —
@@ -4102,13 +4164,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return False
 
         launcher = tool_schema.make_launcher_tool(list(TOOL_LAUNCHERS.keys()))
-        # Local providers get the curated essential subset: the full ~110
-        # schemas overflow local context windows and small models pick tools
-        # far less accurately from a huge catalog (cloud providers are fine).
+        # Local providers get a curated subset: the full ~110 schemas
+        # overflow local context windows and small models pick tools far
+        # less accurately from a huge catalog (cloud providers are fine).
         _is_local = provider.NAME in ("ollama", "lmstudio")
-        tools = tool_schema.get_tools_for_provider(provider.NAME, [launcher],
-                                                   essential_only=_is_local)
-        if len(tools) <= 1:          # only the launcher → MCP registry unavailable
+        _spec_tools = spec.tools_for(_is_local) if spec is not None else None
+        _use_launcher = spec.use_launcher if spec is not None else True
+        _extras = [launcher] if _use_launcher else []
+        if _spec_tools:
+            tools = tool_schema.get_tools_by_names(
+                provider.NAME, _spec_tools, _extras)
+        else:
+            tools = tool_schema.get_tools_for_provider(
+                provider.NAME, _extras, essential_only=_is_local)
+        if len(tools) <= len(_extras):   # registry unavailable
             return False
 
         ctx = u""
@@ -4117,7 +4186,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 ctx = ContextScout.get_context_summary_for_ai()
             except Exception:
                 pass
-        system_prompt = build_agent_system_prompt(ctx)
+
+        _proj_instructions = u""
+        try:
+            from config.project_store import ProjectStore
+            _proj_instructions = ProjectStore().get_active_prompt_addendum()
+        except Exception:
+            pass
+        _skills_block = u""
+        try:
+            if skill_ids:
+                from Intelligence.skills_engine import build_skills_block
+                _skills_block = build_skills_block(skill_ids)
+        except Exception:
+            pass
+
+        if spec is not None and HAS_SPECIALISTS:
+            system_prompt = build_specialist_prompt(
+                spec, ctx, project_instructions=_proj_instructions,
+                skills_block=_skills_block, local=_is_local)
+        else:
+            system_prompt = build_agent_system_prompt(ctx)
+            if _proj_instructions:
+                system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
+            if _skills_block:
+                system_prompt += u"\n\n" + _skills_block
 
         viet = _is_viet_text(captured)
 
@@ -4125,6 +4218,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # view as an image block (Claude agent path only; other providers'
         # agent calls don't convert Claude-format blocks).
         user_content = captured
+        if rag_context:
+            user_content = rag_context + u"\n\n" + captured
         if self._wants_view_snapshot(captured, provider):
             self._safe_update_typing_text(
                 u"● ● ●  Đang chụp active view…" if viet
@@ -4285,7 +4380,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 "on_tool_done":  on_tool_done,
                 "guard_check":   _guard_check,
             },
-            max_iterations=10, max_tokens=1500)
+            max_iterations=(spec.max_iterations if spec is not None else 10),
+            max_tokens=(spec.max_tokens if spec is not None else 1500))
 
         self._agent_loop = loop
         if self._cancel_requested:
