@@ -1,6 +1,6 @@
 ---
 name: parameter-management
-description: Quan ly parameter - doc, gan hang loat, tao project parameter dung chuan
+description: Read, bulk-set and create parameters safely
 triggers: parameter, tham so, gan parameter, dien parameter, sua parameter, project parameter, shared parameter
 agents: revit_action, revit_data
 tools: get_all_parameters, get_parameter, set_parameter, bulk_set_parameter, create_project_parameter, ai_element_filter

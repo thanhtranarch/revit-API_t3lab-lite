@@ -1,6 +1,6 @@
 ---
 name: warning-triage
-description: Phan loai va xu ly warnings cua model theo muc do uu tien
+description: Classify and fix model warnings by priority
 triggers: sua warning, xu ly warning, fix warning, giam warning, loi model, warning nhieu
 agents: revit_action, revit_data
 tools: get_model_warnings, select_elements, color_elements, join_geometry, delete_element, revit_override_color

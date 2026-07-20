@@ -1,6 +1,6 @@
 ---
 name: comment-resolution-playbook
-description: Quy trinh xu ly comment/markup tren ban ve PDF (Bluebeam) va hoan thien vao model Revit
+description: Playbook for resolving PDF markup comments traced back to Revit models
 triggers: cmt, comment, markup, bluebeam, hoan thien cmt, xu ly comment, ghi chu ban ve
 agents: comment, revit_action
 tools: revit_list_sheets, list_open_documents, switch_active_document, create_text_note, set_parameter

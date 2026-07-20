@@ -1,6 +1,6 @@
 ---
 name: qa-checklist
-description: Checklist kiem tra chat luong model Revit truoc khi ban giao hoac audit dinh ky
+description: Revit model QA checklist before handover or periodic audits
 triggers: kiem tra model, qa model, audit model, model health, kiem tra chat luong, danh gia model
 agents: revit_data, general
 tools: get_model_warnings, get_model_health, analyze_model_statistics, list_worksets

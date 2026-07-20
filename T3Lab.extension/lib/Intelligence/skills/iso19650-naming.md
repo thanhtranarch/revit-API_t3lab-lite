@@ -1,6 +1,6 @@
 ---
 name: iso19650-naming
-description: Quy tac dat ten file va ma tai lieu theo ISO 19650 cho ho so BIM
+description: ISO 19650 file naming and document codes for BIM deliverables
 triggers: iso 19650, iso19650, dat ten file, ma tai lieu, naming convention, ten ban giao, ma ban ve
 agents: general, knowledge
 tools:

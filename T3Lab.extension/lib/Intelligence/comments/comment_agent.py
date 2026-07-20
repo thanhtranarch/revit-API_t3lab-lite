@@ -40,7 +40,7 @@ _ANALYST_PROMPT = (
     "fix_dimension, create_element, delete_element, place_note, info, manual.\n"
     "- info: comment chỉ là câu hỏi/xác nhận, không cần sửa model.\n"
     "- manual: cần người xử lý, AI không đủ thông tin.\n"
-    "description: 1 câu ngắn mô tả phương án, viết bằng ngôn ngữ của comment.\n"
+    "description: one short sentence describing the fix, written in English.\n"
     "instruction: câu lệnh chi tiết cho một AI agent thao tác trong Revit "
     "(nêu rõ sheet, đối tượng, hành động) — chỉ khi action_type là hành động; "
     "để chuỗi rỗng cho info/manual.\n"

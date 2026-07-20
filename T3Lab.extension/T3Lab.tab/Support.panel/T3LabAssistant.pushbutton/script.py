@@ -258,9 +258,9 @@ def launch_batchout_configured(config, progress_cb=None):
             configure_batchout_window(window, config)
             fmt    = (config.get('format') or 'pdf').upper()
             filt   = config.get('filter') or ''
-            filt_s = u" {} sheet".format(filt) if filt else u" tất cả sheet"
+            filt_s = u" {} sheet".format(filt) if filt else u" all sheets"
             if progress_cb:
-                progress_cb(u"BatchOut đã chọn{}, format {} — nhấn Export để xuất.".format(
+                progress_cb(u"BatchOut selected{}, format {} — press Export to run.".format(
                     filt_s, fmt))
 
         window.ShowDialog()
@@ -268,7 +268,7 @@ def launch_batchout_configured(config, progress_cb=None):
     except Exception as ex:
         logger.error("Error launching configured BatchOut: {}".format(ex))
         if progress_cb:
-            progress_cb(u"Lỗi: {}".format(ex))
+            progress_cb(u"Error: {}".format(ex))
         return False
 
 
@@ -290,7 +290,7 @@ def launch_export_direct(config, progress_cb=None):
     except Exception as ex:
         logger.error("Error in direct export: {}".format(ex))
         if progress_cb:
-            progress_cb(u"Lỗi xuất file: {}".format(ex))
+            progress_cb(u"Export error: {}".format(ex))
         return False
 
 
@@ -404,7 +404,31 @@ def launch_cadtobeam():
 
 
 # Map intent → launcher function
+_THINK_BLOCK_RE = re.compile(
+    r'<(think|thinking|reasoning|reflection)>[\s\S]*?</\1\s*>', re.IGNORECASE)
+_THINK_OPEN_RE = re.compile(
+    r'<(think|thinking|reasoning|reflection)>[\s\S]*\Z', re.IGNORECASE)
+
+
+def _hide_reasoning(text):
+    """Hide model chain-of-thought from anything user-visible.
+
+    Closed <think>...</think> blocks are removed; an unterminated opening
+    tag (mid-stream) hides everything after it so reasoning never flashes
+    in the live bubble. Providers strip the final text themselves — this
+    guards the LIVE stream and any path that bypasses a provider strip.
+    """
+    if not text:
+        return text
+    out = _THINK_BLOCK_RE.sub('', text)
+    out = _THINK_OPEN_RE.sub('', out)
+    return out.lstrip()
+
+
 def _is_viet_text(text):
+    # UI + replies locked to English (2026-07-18): every bilingual branch
+    # now renders its English variant. Detection kept below for re-enable.
+    return False
     viet_chars = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
                   u"ụủứừửữựỳỵỷỹ")
     return any(c in viet_chars for c in text.lower())
@@ -616,8 +640,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.chat_input.TextWrapping  = TextWrapping.Wrap
             self.chat_input.MaxHeight     = 120
             self.chat_input.VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            self.chat_input.ToolTip = (u"Nhập lệnh Tiếng Việt hoặc English  •  "
-                                       u"Enter để gửi, Shift+Enter xuống dòng")
+            self.chat_input.ToolTip = (u"Type your request (English or Vietnamese)  •  "
+                                       u"Enter to send, Shift+Enter for a new line")
         except Exception:
             pass
 
@@ -627,11 +651,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._slash_rows      = []      # Border rows (for highlight swap)
         self._slash_sel       = 0       # highlighted index
         self._forced_skill_id = None    # skill forced via /slash for THIS message
+
+        # Paint the project/model/action chips AFTER first render — their
+        # first update constructs LLMRouter + reads project JSON, which does
+        # not belong on the startup-critical path of the UI thread.
+        def _init_chips():
+            try:
+                self._update_composer_chips()
+                self._update_action_mode_chip()
+            except Exception:
+                pass
         try:
-            self._update_composer_chips()
-            self._update_action_mode_chip()
+            from System.Windows.Threading import DispatcherPriority
+            self.Dispatcher.BeginInvoke(DispatcherPriority.Background,
+                                        Action(_init_chips))
         except Exception:
-            pass
+            _init_chips()
         # Popups must never linger when focus leaves the input / the window
         try:
             def _input_lost_focus(s, ev):
@@ -646,6 +681,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     pass
             self.Deactivated += _win_deactivated
+        except Exception:
+            pass
+
+        # ── Paste (Ctrl+V) + drag-drop files straight into the chat ──────────
+        # Wired in code (not XAML) so pyRevit's XAML event wiring quirks for
+        # Window-level events never break window loading.
+        try:
+            self.AllowDrop = True
+            self.PreviewDragOver += self._file_drag_over
+            self.PreviewDrop += self._file_drop
+            self.chat_input.PreviewKeyDown += self._input_preview_keydown
         except Exception:
             pass
 
@@ -966,9 +1012,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             if revit.doc.CanUndo():
                 revit.doc.Undo()
-                self._append_bot_message(u"↺ Đã hoàn tác (Undo) hành động cuối cùng.")
+                self._append_bot_message(u"↺ Undid the last action.")
             else:
-                self._append_bot_message(u"Không có hành động nào để hoàn tác.")
+                self._append_bot_message(u"Nothing to undo.")
         except Exception as ex:
             logger.debug("Undo error: {}".format(ex))
 
@@ -1002,8 +1048,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if len(new_tools) > 5:
                     names += u'...'
                 self._append_bot_message(
-                    u"Phát hiện {} công cụ mới: {}.\n"
-                    u"Tôi đã tự học và có thể mở chúng bằng lệnh tự nhiên.".format(
+                    u"Discovered {} new tools: {}.\n"
+                    u"I learned them and can open them from natural-language commands.".format(
                         len(new_tools), names),
                     icon=_ICON_SEARCH, icon_color=_ICON_BLUE
                 )
@@ -1038,8 +1084,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             # Show a separator so user knows this is a restored session
             self._append_bot_message(
-                u"── Đã khôi phục cuộc trò chuyện trước ──\n"
-                u"Nhấn ↺ để bắt đầu cuộc hội thoại mới."
+                u"── Previous conversation restored ──\n"
+                u"Press ↺ to start a fresh conversation."
             )
         except Exception as ex:
             logger.debug("Could not restore history: {}".format(ex))
@@ -1069,8 +1115,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._update_welcome_greeting()
             # Show fresh welcome message
             self._append_bot_message(
-                u"Cuộc trò chuyện đã được làm mới!\n"
-                u"Tôi có thể giúp gì cho bạn?",
+                u"Conversation refreshed!\n"
+                u"How can I help you?",
                 icon=_ICON_REFRESH, icon_color=_ICON_SLATE
             )
         except Exception as ex:
@@ -1345,8 +1391,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 pass
 
             self._append_bot_message(
-                u"Rất vui được gặp bạn, {}!\n"
-                u"Hồ sơ của bạn đã được lưu. Hãy thử 'mở batchout' hoặc hỏi tôi bất cứ điều gì về Revit.".format(name),
+                u"Nice to meet you, {}!\n"
+                u"Your profile is saved. Try 'open batchout' or ask me anything about Revit.".format(name),
                 icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
         except Exception as ex:
             logger.debug("onboarding_save_clicked error: {}".format(ex))
@@ -1792,7 +1838,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.sidebar_save_model_btn.IsEnabled = False
             self.sidebar_save_key_btn.IsEnabled   = False
             self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(113, 113, 122))
-            self.model_saved_hint.Text       = u"Đang kiểm tra kết nối…"
+            self.model_saved_hint.Text       = u"Checking connection…"
             self._update_ai_badge()
 
             # 3) Verify connection + fetch models off the UI thread.
@@ -1817,12 +1863,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         self._models_cache[name] = models
                         self._populate_model_combo(name)
                         self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(16, 185, 129))
-                        self.model_saved_hint.Text = u"✓ Đã kết nối ({} model)".format(len(models))
+                        self.model_saved_hint.Text = u"✓ Connected ({} models)".format(len(models))
                     else:
                         self._models_cache.pop(name, None)
                         self._populate_model_combo(name)   # stays disabled + hint
                         self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(239, 68, 68))
-                        self.model_saved_hint.Text = u"✗ Key sai hoặc không kết nối được"
+                        self.model_saved_hint.Text = u"✗ Invalid key or connection failed"
                     self._set_status_dot(name, ok)
                     self._update_ai_badge()
 
@@ -1898,7 +1944,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             combo.Items.Clear()
 
             none_item = ComboBoxItem()
-            none_item.Content = u"— Không dùng project —"
+            none_item.Content = u"— No project —"
             none_item.Tag = None
             combo.Items.Add(none_item)
 
@@ -1939,7 +1985,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 # revert silently — switching scope mid-request is unsafe
                 self._update_project_combo()
                 self._append_bot_message(
-                    u"Đang xử lý yêu cầu — đổi project sau khi xong nhé.",
+                    u"A request is running — switch projects once it finishes.",
                     icon=_ICON_SYNC, icon_color=_ICON_SLATE)
                 return
             item = self.sidebar_project_combo.SelectedItem
@@ -1983,8 +2029,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._kick_knowledge_scan()
             name = (ps.get_project(pid) or {}).get('name') if pid else None
             self._append_bot_message(
-                u"Đã chuyển sang project **{}**.".format(name) if name
-                else u"Đã tắt chế độ project — dùng không gian chung.",
+                u"Switched to project **{}**.".format(name) if name
+                else u"Project mode off — using the shared workspace.",
                 icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
             self._update_composer_chips()
         except Exception as ex:
@@ -2011,9 +2057,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 pass
             self._update_knowledge_status()
             self._append_bot_message(
-                u"Đã tạo project **{}**. Đặt tên + custom instructions "
-                u"trong sidebar, thả tài liệu vào thư mục knowledge của "
-                u"project để trợ lý trả lời theo đúng dự án.".format(
+                u"Created project **{}**. Set its name + custom instructions "
+                u"in the sidebar, and drop documents into the project's "
+                u"knowledge folder so replies follow this project.".format(
                     meta['name']),
                 icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
         except Exception as ex:
@@ -2046,7 +2092,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from System.Windows import MessageBox, MessageBoxButton, MessageBoxResult
             meta = ps.get_project(pid) or {}
             res = MessageBox.Show(
-                u"Xóa project '{}' (kèm index + lịch sử chat của nó)?".format(
+                u"Delete project '{}' (including its index + chat history)?".format(
                     meta.get('name', pid)),
                 u"T3Lab Assistant", MessageBoxButton.YesNo)
             if res != MessageBoxResult.Yes:
@@ -2055,7 +2101,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._update_project_combo()
             self._update_knowledge_status()
             self._append_bot_message(
-                u"Đã xóa project **{}**.".format(meta.get('name', pid)),
+                u"Deleted project **{}**.".format(meta.get('name', pid)),
                 icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
         except Exception as ex:
             logger.debug("sidebar_project_delete_clicked error: {}".format(ex))
@@ -2071,7 +2117,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if store is None:
                 return
             st = store.stats()
-            self.knowledge_index_status.Text = u"{} file · {} đoạn".format(
+            self.knowledge_index_status.Text = u"{} files · {} chunks".format(
                 st['files'], st['chunks'])
             self._refresh_knowledge_dirs_panel()
             try:
@@ -2144,7 +2190,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     btn.Background = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
                     btn.BorderThickness = Thickness(0)
                     btn.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
-                    btn.ToolTip = u"Bỏ thư mục khỏi index"
+                    btn.ToolTip = u"Remove folder from index"
 
                     def _make_remove(p):
                         def _remove(sender, e):
@@ -2171,7 +2217,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return
         self._kn_scan_busy = True
         try:
-            self.knowledge_index_status.Text = u"Đang quét..."
+            self.knowledge_index_status.Text = u"Scanning..."
         except Exception:
             pass
 
@@ -2252,16 +2298,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     if not emb.is_available():
                         self.Dispatcher.Invoke(Action(
                             lambda: self._append_bot_message(
-                                u"Đang tải mô hình embedding "
+                                u"Downloading the embedding model "
                                 u"(nomic-embed-text, ~270MB) cho semantic "
-                                u"search. Quá trình chạy ngầm...",
+                                u"search. Running in the background...",
                                 icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
                         if not emb.ensure_model():
                             self.Dispatcher.Invoke(Action(
                                 lambda: self._append_bot_message(
-                                    u"Không tải được mô hình embedding — "
-                                    u"kiểm tra Ollama đang chạy. Tìm kiếm "
-                                    u"vẫn hoạt động ở chế độ từ khóa (BM25).",
+                                    u"Could not download the embedding model — "
+                                    u"check that Ollama is running. Search "
+                                    u"still works in keyword mode (BM25).",
                                     icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
                             return
                     store = get_active_store()
@@ -2312,7 +2358,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
                 tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
                 chip.Child = tb
-                chip.ToolTip = u"Skill đang được áp dụng cho câu trả lời này"
+                chip.ToolTip = u"Skill applied to this reply"
                 row.Children.Add(chip)
                 added = True
             if added:
@@ -2334,7 +2380,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             skills = get_skills_engine().all_skills()
             if not skills:
                 tb = TextBlock()
-                tb.Text = u"Chưa có skill nào."
+                tb.Text = u"No skills yet."
                 tb.FontSize = 10.5
                 tb.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
@@ -2422,34 +2468,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # Each entry: icon (Segoe MDL2 Assets codepoint), name, example phrase (inserted into chat).
     _COMMANDS = {
         "export": [
-            (u"", u"Export PDF — All Sheets",       u"xuất pdf toàn bộ sheet"),
-            (u"", u"Export DWG — All Sheets",       u"xuất dwg toàn bộ sheet"),
-            (u"", u"Export G Sheets → PDF",         u"xuất pdf G sheet"),
-            (u"", u"Export A Sheets → PDF",         u"xuất pdf A sheet"),
-            (u"", u"Export IFC",                    u"xuất ifc"),
-            (u"", u"Export Image (PNG/JPEG)",       u"xuất hình ảnh sheet"),
-            (u"", u"Open BatchOut",                 u"mở batchout"),
-            (u"", u"BatchOut — G Sheet PDF",        u"mở batchout G sheet pdf"),
-            (u"", u"BatchOut — Configured",         u"mở batchout đã cấu hình"),
+            (u"", u"Export PDF — All Sheets",       u"export pdf all sheets"),
+            (u"", u"Export DWG — All Sheets",       u"export dwg all sheets"),
+            (u"", u"Export G Sheets → PDF",         u"export pdf G sheets"),
+            (u"", u"Export A Sheets → PDF",         u"export pdf A sheets"),
+            (u"", u"Export IFC",                    u"export ifc"),
+            (u"", u"Export Image (PNG/JPEG)",       u"export sheet images"),
+            (u"", u"Open BatchOut",                 u"open batchout"),
+            (u"", u"BatchOut — G Sheet PDF",        u"open batchout G sheet pdf"),
+            (u"", u"BatchOut — Configured",         u"open batchout configured"),
         ],
         "tools": [
-            (u"", u"ParaSync",                      u"mở parasync"),
-            (u"", u"Load Family",                   u"mở load family"),
-            (u"", u"Load Family (Cloud)",           u"mở load family cloud"),
-            (u"", u"DimText",                       u"mở dimtext"),
-            (u"", u"Upper DimText",                 u"mở upper dimtext"),
+            (u"", u"ParaSync",                      u"open parasync"),
+            (u"", u"Load Family",                   u"open load family"),
+            (u"", u"Load Family (Cloud)",           u"open load family cloud"),
+            (u"", u"DimText",                       u"open dimtext"),
+            (u"", u"Upper DimText",                 u"open upper dimtext"),
             (u"", u"Reset Overrides",               u"reset graphic overrides"),
-            (u"", u"Workset",                       u"mở workset"),
-            (u"", u"Project Name",                  u"mở project name"),
-            (u"", u"Grids",                         u"mở grids"),
+            (u"", u"Workset",                       u"open workset"),
+            (u"", u"Project Name",                  u"open project name"),
+            (u"", u"Grids",                         u"open grids"),
         ],
         "ai": [
-            (u"", u"Project Info",                  u"thông tin project hiện tại"),
-            (u"", u"Active View Info",              u"view hiện tại là gì?"),
-            (u"", u"Selected Elements",             u"thông tin element đã chọn"),
-            (u"", u"Revit Question",                u"giải thích workset trong Revit"),
-            (u"", u"Analyze Attachment",            u"phân tích tài liệu đính kèm"),
-            (u"", u"Help",                          u"trợ giúp"),
+            (u"", u"Project Info",                  u"current project info"),
+            (u"", u"Active View Info",              u"what is the current view?"),
+            (u"", u"Selected Elements",             u"info on selected elements"),
+            (u"", u"Revit Question",                u"explain worksets in Revit"),
+            (u"", u"Analyze Attachment",            u"analyze the attached document"),
+            (u"", u"Help",                          u"help"),
         ],
         # ── Revit MCP commands (revit-mcp server) ──────────────────────────
         "query": [
@@ -2708,10 +2754,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     self.sidebar_model_combo.SelectedIndex = 0
             else:
                 if needs_key:
-                    hint = (u"Nhập API key trước" if not self._has_saved_key(active)
-                            else u"Chưa kết nối — nhấn Save để kiểm tra")
+                    hint = (u"Enter an API key first" if not self._has_saved_key(active)
+                            else u"Not connected — press Save to test")
                 else:
-                    hint = u"Khởi động server & load model"
+                    hint = u"Start the server & load a model"
 
             self.sidebar_model_combo.IsEnabled = enabled
             try:
@@ -2949,10 +2995,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             btn = self.send_button
             if not busy:
                 self.send_icon.Text = u""   # MDL2 Up arrow
-                btn.ToolTip = u"Gửi (Enter)"
+                btn.ToolTip = u"Send (Enter)"
             else:
                 self.send_icon.Text = u""   # MDL2 Stop
-                btn.ToolTip = u"Dừng tác vụ đang chạy"
+                btn.ToolTip = u"Stop the running task"
             btn.IsEnabled = True
         except Exception as ex:
             logger.debug("_render_send_button error: {}".format(ex))
@@ -2968,7 +3014,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.send_button.IsEnabled = False   # re-enabled by _set_busy(False)
             except Exception:
                 pass
-            self._safe_update_typing_text(u"● ● ●  Đang dừng sau bước hiện tại…")
+            self._safe_update_typing_text(u"● ● ●  Stopping after the current step…")
         except Exception as ex:
             logger.debug("_request_stop error: {}".format(ex))
 
@@ -3105,7 +3151,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             one_line = u" ".join((content or u"").split())
             if len(one_line) > 400:
                 one_line = one_line[:400] + u"…"
-            self._log_activity(u"🤖 {}".format(one_line))
+            self._log_activity(u"Assistant: {}".format(one_line))
 
     # ─── File attachment ──────────────────────────────────────────────────────
 
@@ -3116,21 +3162,142 @@ class T3LabAssistantWindow(forms.WPFWindow):
             clr.AddReference('System.Windows.Forms')
             from System.Windows.Forms import OpenFileDialog, DialogResult
 
-            exts = "PDF và Hình ảnh|*.pdf;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp"
+            exts = "PDF & Images|*.pdf;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp"
             dlg = OpenFileDialog()
-            dlg.Title  = u"Chọn PDF hoặc hình ảnh để đính kèm"
+            dlg.Title  = u"Choose PDF or image files to attach"
             dlg.Filter = exts
             dlg.Multiselect = True
 
             if dlg.ShowDialog() == DialogResult.OK:
-                for path in dlg.FileNames:
-                    if not HAS_RAG or is_supported(path):
-                        if path not in self._attached_files:
-                            self._attached_files.append(path)
-                            self._add_attachment_chip(path)
-                self._refresh_attachment_panel()
+                self._attach_paths(list(dlg.FileNames))
         except Exception as ex:
             logger.error("attach_clicked error: {}".format(ex))
+
+    def _attach_paths(self, paths):
+        """Shared intake for picker / Ctrl+V / drag-drop. Returns count added.
+
+        Filters to supported formats (PDF + images khi RAG module có mặt),
+        skips duplicates, updates the chip strip. UI THREAD.
+        """
+        if self._busy:
+            self._append_bot_message(
+                u"A request is running — attach more files once it finishes.",
+                icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+            return 0
+        added, skipped = 0, []
+        for path in (paths or []):
+            try:
+                if not path or not os.path.isfile(path):
+                    continue
+                if HAS_RAG and not is_supported(path):
+                    skipped.append(os.path.basename(path))
+                    continue
+                if path not in self._attached_files:
+                    self._attached_files.append(path)
+                    self._add_attachment_chip(path)
+                    added += 1
+            except Exception:
+                pass
+        if added:
+            self._refresh_attachment_panel()
+        if skipped:
+            self._append_bot_message(
+                u"Skipped {} unsupported file(s) ({}) — only PDF and "
+                u"images are accepted.".format(len(skipped), u", ".join(skipped[:5])),
+                icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+        return added
+
+    def _input_preview_keydown(self, sender, e):
+        """Ctrl+V with files/image on the clipboard → attach thay vì paste text."""
+        try:
+            from System.Windows.Input import Key, Keyboard, ModifierKeys
+            if e.Key != Key.V:
+                return
+            if (Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control:
+                return
+            if self._paste_from_clipboard():
+                e.Handled = True
+        except Exception as ex:
+            logger.debug("_input_preview_keydown error: {}".format(ex))
+
+    def _paste_from_clipboard(self):
+        """Attach clipboard files (copy từ Explorer) hoặc ảnh clipboard.
+
+        Returns True when something was attached (text paste = False so the
+        TextBox keeps its normal behavior). UI THREAD.
+        """
+        from System.Windows import Clipboard
+        # 1) Files copied in Explorer (Ctrl+C on files)
+        try:
+            if Clipboard.ContainsFileDropList():
+                files = [p for p in Clipboard.GetFileDropList()]
+                return self._attach_paths(files) > 0
+        except Exception:
+            pass
+        # 2) Raw bitmap (PrtScn / Snipping Tool / copy image)
+        try:
+            if Clipboard.ContainsImage():
+                img = Clipboard.GetImage()
+                if img is not None:
+                    path = self._save_clipboard_image(img)
+                    if path:
+                        return self._attach_paths([path]) > 0
+        except Exception as ex:
+            logger.debug("clipboard image paste error: {}".format(ex))
+        return False
+
+    def _save_clipboard_image(self, bmp_source):
+        """Write a clipboard BitmapSource as PNG vào folder attachments hôm nay.
+
+        Saving straight into the dated archive folder means send-time
+        archive_attachments sees src == dst and keeps the file in place.
+        """
+        try:
+            import time as _time
+            from System.Windows.Media.Imaging import PngBitmapEncoder, BitmapFrame
+            from System.IO import FileStream, FileMode
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            dest = ps.attachments_dir(ps.get_active_project_id())
+            path = os.path.join(
+                dest, u"pasted_{}.png".format(_time.strftime('%H%M%S')))
+            enc = PngBitmapEncoder()
+            enc.Frames.Add(BitmapFrame.Create(bmp_source))
+            fs = FileStream(path, FileMode.Create)
+            try:
+                enc.Save(fs)
+            finally:
+                fs.Close()
+            return path
+        except Exception as ex:
+            logger.debug("_save_clipboard_image error: {}".format(ex))
+            return None
+
+    def _file_drag_over(self, sender, e):
+        """Show the Copy cursor for file drags anywhere over the window."""
+        try:
+            from System.Windows import DragDropEffects, DataFormats
+            if e.Data.GetDataPresent(DataFormats.FileDrop):
+                e.Effects = DragDropEffects.Copy
+                e.Handled = True
+        except Exception:
+            pass
+
+    def _file_drop(self, sender, e):
+        """Drop files anywhere on the window → attach."""
+        try:
+            from System.Windows import DataFormats
+            if not e.Data.GetDataPresent(DataFormats.FileDrop):
+                return
+            files = e.Data.GetData(DataFormats.FileDrop)
+            if self._attach_paths(list(files)):
+                e.Handled = True
+                try:
+                    self.chat_input.Focus()
+                except Exception:
+                    pass
+        except Exception as ex:
+            logger.debug("_file_drop error: {}".format(ex))
 
     def clear_attachments_clicked(self, sender, e):
         """Remove all attachments."""
@@ -3326,7 +3493,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _make_skill_row(self, idx, meta):
         """One row of the slash-skills popup. UI THREAD."""
         subtitle = meta.get('description') or u""
-        src = {'builtin': u"có sẵn", 'user': u"của bạn",
+        src = {'builtin': u"built-in", 'user': u"yours",
                'project': u"project"}.get(meta.get('source'))
         if src:
             subtitle = (subtitle + u"  ·  " + src) if subtitle else src
@@ -3552,7 +3719,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         panel.Children.Clear()
 
         panel.Children.Add(self._popup_row(
-            u"Không dùng project", u"Không gian chung",
+            u"No project", u"Shared workspace",
             active=(not active),
             handler=lambda s, ev: self._project_popup_select(None)))
         for meta in ps.list_projects():
@@ -3562,10 +3729,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                          self._project_popup_select(_p))))
         panel.Children.Add(self._popup_separator())
         panel.Children.Add(self._popup_row(
-            u"Tạo project mới", None, icon=u"",
+            u"New project", None, icon=u"",
             handler=lambda s, ev: self._project_popup_new()))
         panel.Children.Add(self._popup_row(
-            u"Tuỳ chỉnh project…", u"Tên, instructions, knowledge",
+            u"Customize project…", u"Name, instructions, knowledge",
             icon=u"",
             handler=lambda s, ev: self._project_popup_settings()))
 
@@ -3577,7 +3744,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             if self._busy:
                 self._append_bot_message(
-                    u"Đang xử lý yêu cầu — đổi project sau khi xong nhé.",
+                    u"A request is running — switch projects once it finishes.",
                     icon=_ICON_SYNC, icon_color=_ICON_SLATE)
                 return
             from config.project_store import ProjectStore
@@ -3630,7 +3797,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             model = info.get('model') or u""
             subtitle = model if model else (
                 None if info.get('available')
-                else u"Chưa cấu hình — vào Settings")
+                else u"Not configured — open Settings")
             panel.Children.Add(self._popup_row(
                 info.get('display_name', name), subtitle,
                 active=info.get('active', False),
@@ -3639,7 +3806,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                          self._model_popup_select(_n))))
         panel.Children.Add(self._popup_separator())
         panel.Children.Add(self._popup_row(
-            u"Cấu hình API key & model…", None, icon=u"",
+            u"Configure API key & model…", None, icon=u"",
             handler=lambda s, ev: self._model_popup_settings()))
 
     def _model_popup_select(self, name):
@@ -3677,11 +3844,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             settings.set_agent_option('action_mode', new_mode)
             self._update_action_mode_chip()
             self._append_bot_message(
-                u"Chế độ **Hỏi trước khi sửa** đã bật — tôi sẽ trình kế "
-                u"hoạch và chờ bạn xác nhận trước khi thay đổi model."
+                u"**Ask before edits** is ON — I will present a plan "
+                u"and wait for your confirmation before changing the model."
                 if new_mode == 'confirm' else
-                u"Chế độ **Tự động** đã bật — tôi thực hiện lệnh sửa model "
-                u"ngay (vẫn hỏi trước khi XÓA dữ liệu).",
+                u"**Auto** mode is ON — I execute model edits immediately "
+                u"(still asking before DELETING data).",
                 icon=_ICON_SYNC, icon_color=_ICON_SLATE)
         except Exception as ex:
             logger.debug("action_mode_clicked error: {}".format(ex))
@@ -3693,14 +3860,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from config.settings import get_settings
             confirm = (get_settings().get_action_mode() == 'confirm')
             if confirm:
-                self.action_mode_text.Text = u"Hỏi trước khi sửa"
+                self.action_mode_text.Text = u"Ask before edits"
                 blue = SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
                 self.action_mode_text.Foreground = blue
                 self.action_mode_icon.Text = u""   # MDL2 Shield
                 self.action_mode_icon.Foreground = SolidColorBrush(
                     Color.FromRgb(0x3B, 0x82, 0xF6))
             else:
-                self.action_mode_text.Text = u"Tự động"
+                self.action_mode_text.Text = u"Auto"
                 gray = SolidColorBrush(Color.FromRgb(0x52, 0x52, 0x5B))
                 self.action_mode_text.Foreground = gray
                 self.action_mode_icon.Text = u""   # MDL2 LightningBolt
@@ -3722,11 +3889,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("activity_log_clicked error: {}".format(ex))
 
     def _log_activity(self, text):
-        """Append to today's project-scoped activity log. Never raises."""
+        """Append to today's activity log on a pool thread. Never raises.
+
+        File appends must never run on the UI thread — a slow disk or an
+        AV scan on the log file would freeze the window per message.
+        """
         try:
-            from config.project_store import ProjectStore
-            ps = ProjectStore()
-            ps.append_activity(text, ps.get_active_project_id())
+            from System.Threading import ThreadPool, WaitCallback
+
+            def _write(_state):
+                try:
+                    from config.project_store import ProjectStore
+                    ps = ProjectStore()
+                    ps.append_activity(text, ps.get_active_project_id())
+                except Exception:
+                    pass
+            ThreadPool.QueueUserWorkItem(WaitCallback(_write))
         except Exception:
             pass
 
@@ -3990,21 +4168,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # ── Concurrency guard ─────────────────────────────────────────────
             if self._busy:
                 self._append_bot_message(
-                    u"Đang xử lý lệnh trước, vui lòng chờ một chút...",
+                    u"Still working on the previous request — one moment...",
                     icon=_ICON_SYNC, icon_color=_ICON_SLATE
                 )
                 return
 
 
             self.chat_input.Text = ""
-            self._last_raw = raw or u"[đính kèm tài liệu]"
+            self._last_raw = raw or u"[attached documents]"
 
             # ── Show user message in chat ──────────────────────────────────────
             display_text     = raw
             attachment_note  = summarize_attachments(attached) if attached else None
             self._append_user_message(display_text, attachment_note=attachment_note)
             # History/LLM context still gets plain text — no raw icon glyph.
-            history_text = (u"{}\n[đính kèm: {}]".format(display_text, attachment_note)
+            history_text = (u"{}\n[attached: {}]".format(display_text, attachment_note)
                             if attachment_note else display_text)
             self._add_to_history("user", history_text)
 
@@ -4046,17 +4224,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             _pid = _ps.get_active_project_id()
                             _files = _ps.archive_attachments(_files, _pid)
                             _ps.append_activity(
-                                u"📎 Đính kèm ({}): {}".format(
+                                u"Attached ({}): {}".format(
                                     len(_files),
                                     u", ".join(os.path.basename(x)
                                                for x in _files)), _pid)
                         except Exception:
                             _files = attached
-                    _req = _rt if _rt else u"[đính kèm tài liệu]"
+                    _req = _rt if _rt else u"[attached documents]"
                     _skill_note = (u"  _(skill: /{})_".format(
                         self._forced_skill_id)
                         if self._forced_skill_id else u"")
-                    self._log_activity(u"🧑 Yêu cầu: {}{}".format(
+                    self._log_activity(u"User: {}{}".format(
                         _req, _skill_note))
                     self._route_input(_rt, _files)
                 except Exception as ex:
@@ -4122,21 +4300,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 embedder = None
 
-            query = raw or u"nội dung chính của tài liệu"
+            query = raw or u"main content of the document"
             hits = store.search(query, top_k=5, embedder=embedder,
                                 doc_ids=set(doc_ids))
             if not hits:
                 return build_text_context(attached)
 
-            parts = [u'=== Trích đoạn liên quan từ tài liệu đính kèm ===']
+            parts = [u'=== Relevant excerpts from the attached documents ===']
             for i, hit in enumerate(hits):
-                page_note = (u' — trang {}'.format(hit['page'])
+                page_note = (u' — page {}'.format(hit['page'])
                              if hit.get('page') else u'')
                 parts.append(u'[{}] {}{}:\n{}'.format(
                     i + 1, hit['file'], page_note, hit['text'][:900]))
             parts.append(
-                u'=== Hết trích đoạn (tài liệu đầy đủ đã được index; '
-                u'trả lời dựa trên các trích đoạn, ghi nguồn [n]) ===')
+                u'=== End of excerpts (the full document is indexed; '
+                u'answer from the excerpts, cite sources [n]) ===')
 
             # Images + unreadable PDFs still described the legacy way
             rest = [p for p in attached if (not is_pdf(p)) or p in failed_pdfs]
@@ -4298,9 +4476,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     self._add_to_history("assistant", md)
                     if report.get('needs_switch'):
                         self._append_bot_message(
-                            u"Sheet không nằm trong model đang active — "
-                            u"hãy yêu cầu \"chuyển sang model ...\" trước "
-                            u"khi bấm Thực hiện.",
+                            u"This sheet is not in the active model — "
+                            u"ask me to \"switch to model ...\" first, "
+                            u"then press Run.",
                             icon=_ICON_SYNC, icon_color=_ICON_SLATE)
                     self._set_busy(False)
                 except Exception as dex:
@@ -4316,7 +4494,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         """'Bỏ qua' button — mark only. UI THREAD."""
         try:
             item['status'] = 'skipped'
-            setter(u"Đã bỏ qua", False)
+            setter(u"Skipped", False)
         except Exception:
             pass
 
@@ -4325,17 +4503,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
         standard revit_action specialist on a worker thread."""
         try:
             if self._busy:
-                setter(u"Đang bận — chờ xong yêu cầu trước", False)
+                setter(u"Busy — wait for the current request", False)
                 return
             agent = getattr(self, '_comment_agent', None)
             report = getattr(self, '_comment_report', None)
             if agent is None or report is None:
-                setter(u"Report không còn hiệu lực", False)
+                setter(u"This report is no longer valid", False)
                 return
             instruction = (agent.build_run_instruction(item, report)
                            if mode == 'run'
                            else agent.build_note_instruction(item, report))
-            setter(u"Đang thực hiện...", False)
+            setter(u"Running...", False)
             self._set_busy(True)
 
             def _work():
@@ -4355,10 +4533,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if handled:
                             item['status'] = ('done' if mode == 'run'
                                               else 'noted')
-                            setter(u"Đã xử lý" if mode == 'run'
-                                   else u"Đã ghi chú", True)
+                            setter(u"Done" if mode == 'run'
+                                   else u"Noted", True)
                         else:
-                            setter(u"Không chạy được — thử lại", False)
+                            setter(u"Failed — try again", False)
                             self._set_busy(False)
                     except Exception:
                         pass
@@ -4412,7 +4590,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             if has_attach and not raw:
                 # No text — summarise the documents
-                raw = u"Phân tích và tóm tắt nội dung tài liệu đính kèm."
+                raw = u"Analyze and summarize the attached document."
 
             # Build context-enriched prompt for NLP / Claude.
             # RAG v2: large attached PDFs are indexed and only the top-k
@@ -4525,11 +4703,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     if self._agent_decision and \
                             self._agent_decision.get('specialist') == 'comment':
                         # Comment workflow needs a PDF — guide the user.
-                        _guide = (u"Để xử lý comment bản vẽ: đính kèm file "
-                                  u"PDF có markup (nút attach) rồi gửi lại. "
-                                  u"Tôi sẽ đọc từng comment, truy vết sheet "
-                                  u"thuộc model nào, đề xuất phương án và "
-                                  u"thực hiện khi bạn xác nhận.")
+                        _guide = (u"To process drawing comments: attach the "
+                                  u"marked-up PDF (attach button) and resend. "
+                                  u"I will read each comment, trace which "
+                                  u"model its sheet belongs to, propose a "
+                                  u"fix, and execute it once you confirm.")
 
                         def _need_pdf(_g=_guide):
                             self._hide_typing_indicator()
@@ -4717,7 +4895,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             # Fallback if model returns corrupted JSON/text
                             _parsed = {
                                 "intent": "unknown",
-                                "message": u"Không thể đọc dữ liệu từ Model. Vui lòng thử lại."
+                                "message": u"Could not read data from the model. Please try again."
                             }
 
                         if _parsed and _parsed.get("intent"):
@@ -4845,7 +5023,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     except Exception:
                                         msg = u""
                                 if not msg:
-                                    msg = u"Có thể giúp gì thêm không?"
+                                    msg = u"Anything else I can help with?"
                                 self._finalize_stream_bubble(msg)
                                 self._add_to_history("assistant", msg)
                                 self._clear_stream_refs()
@@ -4876,12 +5054,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 if has_attach and not use_claude and not use_local:
                                     if rag_context:
                                         self._append_bot_message(
-                                            u"Nội dung tài liệu:\n\n" + rag_context[:2000],
+                                            u"Document content:\n\n" + rag_context[:2000],
                                             icon=_ICON_ATTACH, icon_color=_ICON_SLATE
                                         )
                                     else:
                                         self._append_bot_message(
-                                            u"Không trích xuất được văn bản từ tài liệu. PDF có thể là dạng scan."
+                                            u"Could not extract text from the document. The PDF may be scanned."
                                         )
                                     self._set_busy(False)
                                     return
@@ -4899,14 +5077,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                         _le = (_provider.get_last_error()
                                                if _provider else None)
                                         if _le:
-                                            detail = (u"\nChi tiết: {}".format(_le)
+                                            detail = (u"\nDetails: {}".format(_le)
                                                       if _is_viet_text(captured)
                                                       else u"\nDetail: {}".format(_le))
                                     except Exception:
                                         pass
-                                    msg = (u"Model AI ({}) không phản hồi (model quá nặng, mất "
-                                           u"kết nối hoặc API báo lỗi). Thử lại hoặc chọn model "
-                                           u"khác trong Cài đặt.{}".format(label, detail)
+                                    msg = (u"The AI model ({}) did not respond (model too heavy, "
+                                           u"connection lost or API error). Retry or pick another "
+                                           u"model in Settings.{}".format(label, detail)
                                            if _is_viet_text(captured) else
                                            u"The AI model ({}) didn't respond (too heavy, "
                                            u"disconnected, or the API returned an error). Try again "
@@ -4914,7 +5092,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     self._append_bot_message(msg, icon=_ICON_WARNING, icon_color=_ICON_AMBER)
                                     self._set_busy(False)
                                 else:
-                                    msg = (u"Mình chưa hiểu yêu cầu này — bạn mô tả cụ thể hơn nhé."
+                                    msg = (u"I did not understand this request — could you describe it in more detail?"
                                            if _is_viet_text(captured) else
                                            "I didn't understand this request — could you describe it more specifically?")
                                     self._append_bot_message(msg)
@@ -4988,7 +5166,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if conv.get("intent") in ("greet", "chat", "help") and conv.get("message"):
                     reply = conv["message"]
                 elif _is_viet_text(raw):
-                    reply = u"Xin chào! Tôi là T3Lab Assistant.\nBạn muốn làm gì hôm nay?"
+                    reply = u"Hello! I'm T3Lab Assistant.\nWhat would you like to do today?"
                 else:
                     reply = u"Hello! I'm T3Lab Assistant.\nWhat would you like to do today?"
                 _bot(reply)
@@ -4999,20 +5177,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if intent in ("help", "chat", "greet"):
             reply = params.get("answer", message) if intent == "help" else message
             reply = self._clean_bot_response(reply) if reply else u""
-            _bot(reply or u"Có thể giúp gì thêm không?")
+            _bot(reply or u"Anything else I can help with?")
             self._set_busy(False)
             return
 
         # ── Export directly — runs on background thread ───────────────────────
         if intent == "export_direct":
-            confirm = message or u"Đang xuất file, vui lòng chờ..."
+            confirm = message or u"Exporting, please wait..."
             _bot(confirm)
             _learn(confirm)
 
             def do_export():
                 ok = launch_export_direct(params, self._safe_append_bot)
                 if not ok:
-                    self._safe_append_bot(u"Xuất thất bại. Xem console để biết lỗi.")
+                    self._safe_append_bot(u"Export failed. Check the console for details.")
                 self.Dispatcher.Invoke(Action(lambda: self._set_busy(False)))
 
             t = Thread(ThreadStart(do_export))
@@ -5023,12 +5201,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # ── Open BatchOut pre-configured ──────────────────────────────────────
         if intent == "open_batchout_configured":
-            confirm = message or u"Đang mở BatchOut đã cấu hình..."
+            confirm = message or u"Opening configured BatchOut..."
             _bot(confirm)
             _learn(confirm)
             ok = launch_batchout_configured(params, self._safe_append_bot)
             if not ok:
-                self._append_bot_message(u"Không thể mở BatchOut. Xem console.")
+                self._append_bot_message(u"Could not open BatchOut. Check the console.")
             self._set_busy(False)
             return
 
@@ -5047,12 +5225,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # ── Simple tool launchers ─────────────────────────────────────────────
         if intent in TOOL_LAUNCHERS:
-            confirm = message or u"Đang mở công cụ..."
+            confirm = message or u"Opening the tool..."
             _bot(confirm)
             _learn(confirm)
             ok = TOOL_LAUNCHERS[intent]()
             if not ok:
-                self._append_bot_message(u"Không thể mở công cụ. Xem console.")
+                self._append_bot_message(u"Could not open the tool. Check the console.")
             self._set_busy(False)
             return
 
@@ -5102,7 +5280,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 learn_pattern(raw, _match['intent'], {}, confirm)
                 ok = TOOL_LAUNCHERS[_match['intent']]()
                 if not ok:
-                    self._append_bot_message(u"Không thể mở công cụ. Xem console.")
+                    self._append_bot_message(u"Could not open the tool. Check the console.")
                 self._set_busy(False)
                 return
 
@@ -5112,11 +5290,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # or MCP tool) — say so plainly instead of the misleading "Đã thực
         # hiện." ("Done."), since nothing was actually executed.
         if intent == "unknown":
-            _bot(params.get("message", u"Yêu cầu chưa rõ — bạn mô tả cụ thể hơn nhé."))
+            _bot(params.get("message", u"The request is not clear — could you describe it in more detail?"))
         elif message:
             _bot(message)
         else:
-            _bot(u"Công cụ `{}` không tồn tại — kiểm tra lại tên hoặc mô tả việc cần làm.".format(intent))
+            _bot(u"Tool `{}` does not exist — check the name or describe what you need.".format(intent))
         self._set_busy(False)
 
     def _run_spellcheck(self, raw):
@@ -5140,16 +5318,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 notes = SC.collect_text_notes(self.doc, view_only=view_only)
                 if not notes:
                     if viet:
-                        report = u"Không tìm thấy Text Note nào{}.".format(
-                            u" trong view hiện tại" if view_only else u" trong dự án")
+                        report = u"No Text Notes found{}.".format(
+                            u" in the current view" if view_only else u" in the project")
                     else:
                         report = u"No Text Notes found{}.".format(
                             u" in the active view" if view_only else u" in the project")
                 elif not (has_api_key() or has_local_llm()):
                     if viet:
-                        report = (u"Tìm thấy **{}** Text Note nhưng chưa có AI nào được "
-                                  u"kết nối để đọc soát chính tả — kết nối AI trong phần "
-                                  u"Cài đặt (⚙) rồi thử lại nhé.").format(len(notes))
+                        report = (u"Found **{}** Text Notes but no AI provider is "
+                                  u"connected for spell-checking — connect one in "
+                                  u"Settings (⚙) and try again.").format(len(notes))
                     else:
                         report = (u"Found **{}** Text Notes but no AI provider is "
                                   u"connected to proofread them — connect one in "
@@ -5159,8 +5337,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     batches = SC.build_batches(uniq)
                     if len(batches) > 1:
                         self._safe_append_bot(
-                            u"Tìm thấy {} Text Note ({} nội dung khác nhau) — kiểm tra "
-                            u"trong {} nhóm, vui lòng chờ...".format(len(notes), len(uniq), len(batches))
+                            u"Found {} Text Notes ({} unique strings) — checking "
+                            u"in {} batches, please wait...".format(len(notes), len(uniq), len(batches))
                             if viet else
                             u"Found {} Text Notes ({} unique texts) — checking in {} "
                             u"batches, please wait...".format(len(notes), len(uniq), len(batches)))
@@ -5185,7 +5363,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                               failed, viet, view_only)
             except Exception as ex:
                 logger.debug("spellcheck error: {}".format(ex))
-                report = (u"Có lỗi khi kiểm tra chính tả — xem console để biết chi tiết."
+                report = (u"Spell-check failed — see the console for details."
                           if viet else u"Spell-check failed — see console for details.")
             if report:
                 def _show(_r=report):
@@ -5202,7 +5380,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _run_tool(self, intent, default_msg):
         """Helper for quick-button clicks: guard, show message, run launcher."""
         if self._busy:
-            self._append_bot_message(u"Đang xử lý lệnh trước, vui lòng chờ...",
+            self._append_bot_message(u"Still working on the previous request, please wait...",
                                      icon=_ICON_SYNC, icon_color=_ICON_SLATE)
             return
         self._set_busy(True)
@@ -5213,7 +5391,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if launcher:
             ok = launcher()
             if not ok:
-                self._append_bot_message(u"Không thể mở công cụ. Xem console.")
+                self._append_bot_message(u"Could not open the tool. Check the console.")
         self._set_busy(False)
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
@@ -5312,15 +5490,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from config.settings import get_settings as _gs_mode
             if _gs_mode().get_action_mode() == 'confirm':
                 system_prompt += (
-                    u"\n\n## ACTION MODE: CONFIRM FIRST (chế độ an toàn)\n"
-                    u"Trước khi gọi BẤT KỲ tool nào làm thay đổi model "
+                    u"\n\n## ACTION MODE: CONFIRM FIRST\n"
+                    u"Before calling ANY tool that modifies the model "
                     u"(create/set/bulk/move/rotate/rename/delete/join/split/"
-                    u"purge/load/place/tag/color...), hãy TRẢ LỜI bằng kế "
-                    u"hoạch ngắn gọn: tool sẽ dùng, đối tượng và số lượng "
-                    u"ảnh hưởng — rồi DỪNG, chờ người dùng xác nhận trong "
-                    u"tin nhắn kế tiếp mới thực hiện. Tool chỉ ĐỌC dữ liệu "
-                    u"(get/list/query/analyze/export) được phép gọi ngay "
-                    u"không cần hỏi.")
+                    u"purge/load/place/tag/color...), REPLY first with a "
+                    u"short plan: which tools, which elements and how many "
+                    u"are affected — then STOP and wait for the user's "
+                    u"confirmation in the next message. Read-only tools "
+                    u"(get/list/query/analyze/export) may be called "
+                    u"immediately without asking.")
         except Exception:
             pass
 
@@ -5410,11 +5588,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not force and (now - stream["last"]) < 0.04:
                 return
             stream["last"] = now
-            snap = stream["text"]
+            snap = _hide_reasoning(stream["text"])
 
             def _ui():
                 try:
                     if not stream["open"]:
+                        # Nothing visible yet (model still "thinking") —
+                        # keep the typing indicator, don't open a bubble.
+                        if not snap:
+                            return
                         stream["open"] = True
                         self._hide_typing_indicator()
                         self._begin_stream_bubble()
@@ -5434,7 +5616,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _push_stream(False)
 
         def on_turn_text(text, is_final):
+            text = _hide_reasoning(text)
             stream["text"] = u""
+            if not text:
+                # Reasoning-only turn (everything was <think>) — never render
+                # an empty bubble; discard any half-open one and move on.
+                def _drop():
+                    try:
+                        if stream["open"]:
+                            stream["open"] = False
+                            self._remove_stream_bubble()
+                    except Exception:
+                        pass
+                try:
+                    self.Dispatcher.Invoke(Action(_drop))
+                except Exception:
+                    pass
+                return
 
             def _ui():
                 try:
@@ -5462,7 +5660,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     self._show_typing_indicator()
                     if getattr(self, "_typing_text_block", None) is not None:
                         self._typing_text_block.Text = (
-                            u"● ● ●  Đang chạy `{}`…".format(name))
+                            u"● ● ●  Running `{}`…".format(name))
                 except Exception:
                     pass
 
@@ -5547,12 +5745,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 st = result.get("status")
                 if st == "cancelled":
                     self._append_bot_message(
-                        u"Đã dừng theo yêu cầu." if viet else u"Stopped.",
+                        u"Stopped as requested." if viet else u"Stopped.",
                         icon=_ICON_STOP, icon_color=_ICON_SLATE)
                 elif st == "doc_changed":
                     self._append_bot_message(
-                        (u"Bạn đã chuyển sang document khác — yêu cầu bị hủy "
-                         u"để tránh sửa nhầm model.") if viet else
+                        (u"You switched to another document — the request was "
+                         u"cancelled to avoid editing the wrong model.") if viet else
                         (u"The active document changed — request cancelled "
                          u"to avoid editing the wrong model."),
                         icon=_ICON_WARNING, icon_color=_ICON_AMBER)
@@ -5562,21 +5760,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     try:
                         _le = provider.get_last_error()
                         if _le:
-                            detail = (u"\nChi tiết: {}".format(_le) if viet
+                            detail = (u"\nDetails: {}".format(_le) if viet
                                       else u"\nDetail: {}".format(_le))
                     except Exception:
                         pass
                     self._append_bot_message(
-                        (u"Model AI ({}) bị gián đoạn giữa chừng — kết quả có "
-                         u"thể chưa trọn vẹn. Thử lại nhé.{}".format(label, detail))
+                        (u"The AI model ({}) was interrupted mid-run — the result "
+                         u"may be incomplete. Please retry.{}".format(label, detail))
                         if viet else
                         (u"The AI model ({}) dropped mid-request — the result "
                          u"may be incomplete. Please retry.{}".format(label, detail)),
                         icon=_ICON_WARNING, icon_color=_ICON_AMBER)
                 elif st in ("max_iterations", "timeout"):
                     self._append_bot_message(
-                        (u"Yêu cầu quá dài — đã dừng sau {} bước. Hãy chia nhỏ "
-                         u"yêu cầu để tiếp tục.").format(result.get("iterations"))
+                        (u"The request is too long — stopped after {} steps. Break "
+                         u"it into smaller requests to continue.").format(result.get("iterations"))
                         if viet else
                         (u"Request too long — stopped after {} steps. Split it "
                          u"up to continue.").format(result.get("iterations")),
@@ -5584,7 +5782,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 elif (st == "done" and not result.get("text")
                         and result.get("tool_runs")):
                     self._append_bot_message(
-                        u"Đã thực hiện xong {} bước công cụ.".format(
+                        u"Completed {} tool steps.".format(
                             result.get("tool_runs")) if viet else
                         u"Completed {} tool step(s).".format(
                             result.get("tool_runs")),
@@ -5646,7 +5844,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             title.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))          # #0F172A
 
             dur = TextBlock()
-            dur.Text       = u"đang chạy…"
+            dur.Text       = u"running…"
             dur.FontSize   = 11
             dur.Foreground = SolidColorBrush(Color.FromRgb(148, 163, 184))         # #94A3B8
             dur.Margin     = Thickness(8, 1, 0, 0)
@@ -5733,7 +5931,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         tb.TextDecorations = TextDecorations.Underline
                         tb.Cursor         = Cursors.Hand
                         tb.Margin         = Thickness(0, 0, 10, 0)
-                        tb.ToolTip        = u"Chọn & zoom trong Revit"
+                        tb.ToolTip        = u"Select & zoom in Revit"
 
                         def _click(s, e, _ids=list(id_list)):
                             self._select_in_revit_async(_ids)
@@ -5745,7 +5943,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         links.Children.Add(_mk_link(u"#{}".format(eid), [eid]))
                     if len(ids) > 1:
                         links.Children.Add(
-                            _mk_link(u"chọn cả {}".format(len(ids)), ids))
+                            _mk_link(u"select all {}".format(len(ids)), ids))
                     handle["card"].Child.Children.Add(links)
             except Exception:
                 pass
@@ -5861,7 +6059,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             def _expire():
                 try:
                     if state.get("seal"):
-                        state["seal"](u"⏱ Hết hạn — đã bỏ qua" if viet
+                        state["seal"](u"⏱ Expired — skipped" if viet
                                       else u"⏱ Expired — skipped")
                 except Exception:
                     pass
@@ -5897,7 +6095,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # "⚠" character rendered in the body font would show as a colored
         # emoji glyph (or tofu) instead of a flat monochrome icon.
         self._add_icon_run(head, _ICON_WARNING, (185, 28, 28), size=12)
-        head.Inlines.Add(Run(u"Xác nhận hành động phá hủy" if viet
+        head.Inlines.Add(Run(u"Confirm destructive action" if viet
                              else u"Confirm destructive action"))
         panel.Children.Add(head)
 
@@ -5937,9 +6135,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             b.BorderThickness = Thickness(0)
             return b
 
-        ok_btn = _mk_btn(u"Xác nhận" if viet else u"Confirm",
+        ok_btn = _mk_btn(u"Confirm" if viet else u"Confirm",
                          Color.FromRgb(239, 68, 68), Color.FromRgb(255, 255, 255))
-        no_btn = _mk_btn(u"Hủy" if viet else u"Cancel",
+        no_btn = _mk_btn(u"Cancel" if viet else u"Cancel",
                          Color.FromRgb(241, 245, 249), Color.FromRgb(15, 23, 42))
 
         def _seal(msg):
@@ -5954,12 +6152,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         def _on_ok(s, e):
             state["decision"] = True
-            _seal(u"✓ Đã xác nhận" if viet else u"✓ Confirmed")
+            _seal(u"✓ Confirmed" if viet else u"✓ Confirmed")
             evt.set()
 
         def _on_cancel(s, e):
             state["decision"] = False
-            _seal(u"✗ Đã hủy" if viet else u"✗ Cancelled")
+            _seal(u"✗ Cancelled" if viet else u"✗ Cancelled")
             evt.set()
 
         ok_btn.Click += _on_ok
@@ -6064,6 +6262,27 @@ class T3LabAssistantWindow(forms.WPFWindow):
         av.CornerRadius = CornerRadius(18)
         av.Margin = Thickness(0, 2, 10, 0)
         av.VerticalAlignment = VerticalAlignment.Top
+
+        # Spin every assistant avatar continuously in place (user request:
+        # permanent rotation, not only while busy). 30fps cap keeps dozens
+        # of live animations cheap; each clock dies with its bubble.
+        try:
+            from System.Windows.Media import RotateTransform
+            from System.Windows.Media.Animation import (DoubleAnimation,
+                                                        RepeatBehavior,
+                                                        Timeline)
+            from System.Windows import Point, Duration
+            from System import TimeSpan, Nullable, Int32
+            av.RenderTransformOrigin = Point(0.5, 0.5)
+            spin = RotateTransform()
+            av.RenderTransform = spin
+            anim = DoubleAnimation(
+                0.0, 360.0, Duration(TimeSpan.FromSeconds(1.6)))
+            anim.RepeatBehavior = RepeatBehavior.Forever
+            Timeline.SetDesiredFrameRate(anim, Nullable[Int32](30))
+            spin.BeginAnimation(RotateTransform.AngleProperty, anim)
+        except Exception:
+            pass
 
         bmp = self._get_avatar_bitmap()
         if bmp is not None:
@@ -6576,10 +6795,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not chunk:
                 return
             state["raw"].append(chunk)
-            disp = extractor.display(u"".join(state["raw"]))
+            disp = _hide_reasoning(extractor.display(u"".join(state["raw"])))
 
             def _ui():
                 if not state["started"]:
+                    if not disp:
+                        return
                     state["started"] = True
                     self._hide_typing_indicator()
                     self._begin_stream_bubble()

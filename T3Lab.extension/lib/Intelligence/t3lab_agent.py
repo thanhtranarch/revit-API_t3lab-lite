@@ -156,7 +156,7 @@ def build_system_prompt(revit_context=u""):
         u"\nAVAILABLE APIs (use these as 'intent' values):\n"
         + u"\n".join(lines) +
         u"\n\nOUTPUT FORMAT — JSON only, no other text:\n"
-        u'{"intent": "<intent>", "params": {<optional>}, "message": "<short reply same language>"}\n'
+        u'{"intent": "<intent>", "params": {<optional>}, "message": "<short reply in English>"}\n'
         u"\nPARAMS:\n"
         u"  export_direct / open_batchout_configured: format (pdf|dwg|dwf|dgn|ifc|nwd|img), filter (sheet prefix e.g. G/A/S or '' for all), combine (bool)\n"
         u"\nRULES:\n"

@@ -1,6 +1,6 @@
 ---
 name: model-cleanup
-description: Don dep model - purge, giam dung luong file, don view va family thua
+description: Clean up the model - purge, file size, junk views and families
 triggers: don dep model, don model, purge, lam sach model, giam dung luong, file nang, model nang
 agents: revit_action, revit_data
 tools: purge_unused, analyze_model_statistics, get_model_health, revit_list_views, audit_model

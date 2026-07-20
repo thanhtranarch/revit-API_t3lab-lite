@@ -1,6 +1,6 @@
 ---
 name: view-template-standard
-description: Quy uoc dat ten view va ap view template thong nhat toan du an
+description: View naming rules and consistent view template application
 triggers: view template, ap template, dat ten view, ten view, tao view moi, nhan ban view, duplicate view
 agents: revit_action, revit_data, general
 tools: revit_list_views, create_view, duplicate_view, apply_view_template, create_view_filter, set_active_view

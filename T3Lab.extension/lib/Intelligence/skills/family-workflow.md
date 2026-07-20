@@ -1,6 +1,6 @@
 ---
 name: family-workflow
-description: Quy trinh load family, chon type va dat family vao model
+description: Load families, pick types and place them correctly
 triggers: load family, tai family, dat family, chen family, family type, chon family, place family
 agents: revit_action, revit_data
 tools: load_family, get_available_family_types, create_point_based_element, create_line_based_element, list_levels

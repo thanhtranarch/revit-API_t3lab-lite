@@ -1,6 +1,6 @@
 ---
 name: level-grid-standard
-description: Quy uoc tao level va grid (luoi truc, cao do) chuan khi dung he khung du an
+description: Level and grid creation rules - naming, elevations, axes
 triggers: tao level, them level, tao grid, luoi truc, cao do, them tang, tang moi, truc moi
 agents: revit_action, revit_data
 tools: list_levels, create_level, create_grid, get_elements_by_level
