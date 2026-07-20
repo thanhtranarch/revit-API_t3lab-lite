@@ -603,7 +603,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Session state ─────────────────────────────────────────────────────
         self._busy             = False          # concurrency guard
         self._switching_provider = False        # guard: _switch_provider bg probe in flight
-        self._probing_sidebar    = False        # guard: settings sidebar bg probe in flight
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
         self._last_raw         = ''             # last user input (for learning)
@@ -808,7 +807,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     from Intelligence.skills_engine import SkillsEngine
                     _n_skills = SkillsEngine().scan()
                     logger.debug("Skills scanned: {}".format(_n_skills))
-                    self.Dispatcher.Invoke(Action(self._update_skills_panel))
                 except Exception as ex:
                     logger.debug("Skills scan failed: {}".format(ex))
 
@@ -853,14 +851,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     pass
 
-                # If sidebar is open, update UI with active provider's data
-                sidebar_state = [False]
-                def _check_sidebar():
-                    sidebar_state[0] = (self.settings_sidebar.Visibility == Visibility.Visible)
-                self.Dispatcher.Invoke(Action(_check_sidebar))
-                if sidebar_state[0]:
-                    self.Dispatcher.Invoke(Action(self._update_sidebar))
-
                 # Step 2: Pre-load/cache models for all other providers in the background
                 for name in router.get_provider_names():
                     if name == active:
@@ -878,12 +868,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     pass
 
-                # Step 4: Final update to sidebar if open
-                self.Dispatcher.Invoke(Action(_check_sidebar))
-                if sidebar_state[0]:
-                    self.Dispatcher.Invoke(Action(self._update_sidebar))
-
-                # Step 5: Proactive setup nudge — only on a fresh chat (no saved
+                # Step 4: Proactive setup nudge — only on a fresh chat (no saved
                 # history for this document yet), only after first-run onboarding
                 # has already been shown/dismissed (avoids duplicating that flow),
                 # and only if auto-start above didn't already find a provider.
@@ -916,11 +901,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("onboarding check error: {}".format(ex))
 
-        # Hide minimize/maximize buttons if hosted inside Dockable Pane
+        # Hide the floating window-chrome cluster when hosted inside a
+        # Dockable Pane (the pane provides its own title bar / close button)
         if self.is_docked:
             try:
-                self.btn_minimize.Visibility = Visibility.Collapsed
-                self.btn_maximize.Visibility = Visibility.Collapsed
+                self.float_ctrls_panel.Visibility = Visibility.Collapsed
             except Exception:
                 pass
 
@@ -937,7 +922,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ─── Window state persistence ─────────────────────────────────────────────
 
     def _restore_window_state(self):
-        """Restore window position, size and sidebar visibility from settings."""
+        """Restore window position and size from settings."""
         try:
             from config.settings import T3LabAISettings
             ws = T3LabAISettings().get_window_state()
@@ -965,23 +950,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     pass
 
-            # Restore sidebar
-            if ws.get('sidebar_open'):
-                self.settings_sidebar.Visibility = Visibility.Visible
-                self._update_sidebar_instant()
-
         except Exception as ex:
             logger.debug("_restore_window_state error: {}".format(ex))
 
     def _save_window_state(self):
-        """Persist current window geometry and sidebar state to settings."""
+        """Persist current window geometry to settings."""
         try:
             from config.settings import T3LabAISettings
-            sidebar_open = (self.settings_sidebar.Visibility == Visibility.Visible)
             T3LabAISettings().save_window_state(
                 self.Left, self.Top,
                 self.Width, self.Height,
-                sidebar_open,
+                False,   # settings sidebar removed — all settings live in LLMs Setting
             )
         except Exception as ex:
             logger.debug("_save_window_state error: {}".format(ex))
@@ -1085,7 +1064,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Show a separator so user knows this is a restored session
             self._append_bot_message(
                 u"── Previous conversation restored ──\n"
-                u"Press ↺ to start a fresh conversation."
+                u"Use the new-conversation button under the message box to start fresh."
             )
         except Exception as ex:
             logger.debug("Could not restore history: {}".format(ex))
@@ -1161,89 +1140,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.welcome_greeting_panel.Visibility = Visibility.Collapsed
             else:
                 self.welcome_greeting_panel.Visibility = Visibility.Visible
-        except Exception:
-            pass
-
-    def sidebar_username_changed(self, sender, e):
-        """Live-preview the greeting + profile card as the user types."""
-        try:
-            name = (self.sidebar_username_box.Text or u"").strip()
-            if name:
-                self._render_greeting(name)
-                self._update_profile_card(name)
-        except Exception:
-            pass
-
-    def _update_profile_card(self, name=None):
-        """Refresh the Claude-style profile card in the settings sidebar."""
-        try:
-            from config.user_profile import UserProfile
-            prof = UserProfile()
-            nm = (name or u"").strip() or prof.get_name() or u"Thạnh"
-            try:
-                self.sidebar_profile_name.Text    = nm
-                self.sidebar_profile_initial.Text = (nm[:1].upper() if nm else u"T")
-            except Exception:
-                pass
-            try:
-                from Intelligence.llm_router import LLMRouter
-                self.sidebar_profile_sub.Text = LLMRouter().get_display_label()
-            except Exception:
-                try:
-                    self.sidebar_profile_sub.Text = u"T3Lab Assistant"
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-    def sidebar_save_username_clicked(self, sender, e):
-        """Persist the user name and reflect it in the greeting immediately."""
-        username = (self.sidebar_username_box.Text or u"").strip()
-        if not username:
-            return
-
-        # 1) Update the greeting from the typed value FIRST — independent of disk
-        #    I/O — so the UI always syncs even if persistence happens to fail.
-        self._render_greeting(username)
-
-        # 2) Persist to the user profile (which also syncs settings.username).
-        saved = False
-        try:
-            from config.user_profile import UserProfile
-            UserProfile().set_name(username)
-            saved = True
-        except Exception as ex:
-            logger.debug("set_name error: {}".format(ex))
-
-        # 3) Confirm visually (covers the mid-chat case where the greeting banner
-        #    itself is collapsed and the text change isn't visible).
-        self._update_profile_card(username)
-        if saved:
-            self._flash_username_saved()
-
-    def _flash_username_saved(self):
-        """Briefly tint the username box green to confirm a successful save."""
-        try:
-            from System.Windows.Media import SolidColorBrush, Color
-            from System.Windows.Threading import DispatcherTimer
-            from System import TimeSpan
-
-            box = self.sidebar_username_box
-            box.BorderBrush = SolidColorBrush(Color.FromRgb(16, 185, 129))   # emerald
-            box.Background  = SolidColorBrush(Color.FromRgb(240, 253, 244))
-
-            timer = DispatcherTimer()
-            timer.Interval = TimeSpan.FromSeconds(1.3)
-
-            def _revert(s, ev):
-                try:
-                    box.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))  # #E6E6EA
-                    box.Background  = SolidColorBrush(Color.FromRgb(255, 255, 255))
-                finally:
-                    timer.Stop()
-
-            timer.Tick += _revert
-            timer.Start()
         except Exception:
             pass
 
@@ -1385,10 +1281,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._update_ai_badge()
             except Exception:
                 pass
-            try:
-                self._update_profile_card(name)
-            except Exception:
-                pass
 
             self._append_bot_message(
                 u"Nice to meet you, {}!\n"
@@ -1398,153 +1290,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("onboarding_save_clicked error: {}".format(ex))
 
     def _update_ai_badge(self):
-        """Render the provider pill INSTANTLY (no network). Health is refined async.
-
-        This keeps provider/model switching snappy — the old version blocked the
-        UI thread on provider.check_health() and a full router.get_status() probe.
-        """
+        """Refresh the composer model chip (the old header pill was removed —
+        the chip in the composer is now the single provider indicator)."""
         try:
-            from System.Windows.Media import SolidColorBrush, Color
-            from Intelligence.llm_router import LLMRouter
-
-            # Pill is always visible so the user can always open the switcher
-            self.ai_status_badge.Visibility = Visibility.Visible
-
-            if not HAS_NLP:
-                self.ai_status_text.Text = u"No AI"
-                self.ai_provider_dot.Fill = SolidColorBrush(Color.FromRgb(*self._BADGE_GRAY))
-                self.ai_status_badge.ToolTip = "NLP module not loaded"
-                return
-
-            router = LLMRouter()
-            name   = router.get_active_name()
-            # Pure string ops — no network
-            label  = router.get_display_label()
-            rgb    = self._BADGE_COLORS.get(name, (52, 152, 219))
-
-            self.ai_status_text.Text     = label
-            self.ai_provider_dot.Fill    = SolidColorBrush(Color.FromRgb(*rgb))
-            self.ai_status_badge.ToolTip = u"{}\nClick to switch provider".format(label)
-
-            # Keep the composer model chip in sync with the badge
             self._update_composer_chips()
-
-            # Refine health (dot color + tooltip) on a background thread
-            self._refresh_badge_health_async()
-
         except Exception:
             pass
-
-    def _refresh_badge_health_async(self):
-        """Probe the active provider's health off the UI thread, then update the dot."""
-        def _work():
-            try:
-                from Intelligence.llm_router import LLMRouter
-                from System.Windows.Media import SolidColorBrush, Color
-                router   = LLMRouter()
-                name     = router.get_active_name()
-                provider = router.get_active_provider()
-                healthy  = (provider is not None and provider.check_health())
-                label    = router.get_display_label()
-                try:
-                    model = provider.get_active_model() or u"" if provider else u""
-                except Exception:
-                    model = u""
-
-                def _apply():
-                    try:
-                        if healthy:
-                            rgb = self._BADGE_COLORS.get(name, (52, 152, 219))
-                            self.ai_provider_dot.Fill = SolidColorBrush(Color.FromRgb(*rgb))
-                            self.ai_status_text.Text  = label
-                            self.ai_status_badge.ToolTip = u"{} — {}\nClick to switch provider".format(
-                                label, model) if model else (
-                                u"{}\nClick to switch provider".format(label))
-                        else:
-                            self.ai_provider_dot.Fill = SolidColorBrush(Color.FromRgb(*self._BADGE_GRAY))
-                            self.ai_status_text.Text  = u"Set up AI"
-                            self.ai_status_badge.ToolTip = (
-                                u"No AI provider configured.\n"
-                                u"Click to select Claude, GPT, or Local LLM.")
-                    except Exception:
-                        pass
-
-                self.Dispatcher.Invoke(Action(_apply))
-            except Exception:
-                pass
-
-        try:
-            t = Thread(ThreadStart(_work))
-            t.IsBackground = True
-            t.SetApartmentState(ApartmentState.STA)
-            t.Start()
-        except Exception:
-            pass
-
-    def ai_badge_clicked(self, sender, args):
-        """Left-click on the badge → show provider switcher context menu."""
-        try:
-            from System.Windows.Controls import ContextMenu, MenuItem
-            import System.Windows.Controls.Primitives as Primitives
-            from Intelligence.llm_router import LLMRouter
-
-            router = LLMRouter()
-            # Instant, zero-HTTP snapshot — the old get_status() call here
-            # probed every provider synchronously on the UI thread whenever
-            # the cache was cold, freezing the window for seconds on click.
-            status = router.get_status_instant()
-
-            menu = ContextMenu()
-
-            for name in router.get_provider_names():
-                info      = status.get(name, {})
-                display   = info.get("display_name", name)
-                model     = info.get("model") or ""
-                available = info.get("available", False)
-                is_active = info.get("active", False)
-
-                if model:
-                    short = model.split(":")[0] if ":" in model else model
-                    header = u"{} ({})".format(display, short)
-                else:
-                    header = display
-
-                if is_active:
-                    header = u"✓  " + header
-                if not available:
-                    header = header + u"  [no key / offline]"
-
-                item          = MenuItem()
-                item.Header   = header
-                # Switching is always allowed — the sidebar guides setup if the
-                # provider isn't configured yet (disabling based on a possibly
-                # stale snapshot locked users out of providers that were fine).
-                item.IsEnabled = not is_active
-
-                def _make_handler(n):
-                    def _handler(s, e):
-                        self._switch_provider(n)
-                    return _handler
-
-                item.Click += _make_handler(name)
-                menu.Items.Add(item)
-
-            # Warm the real status cache in the background for the NEXT open.
-            def _warm():
-                try:
-                    LLMRouter().get_status(use_cache=True)
-                except Exception:
-                    pass
-            _wt = Thread(ThreadStart(_warm))
-            _wt.IsBackground = True
-            _wt.Start()
-
-            menu.PlacementTarget = sender
-            menu.Placement       = Primitives.PlacementMode.Bottom
-            menu.IsOpen          = True
-
-        except Exception as ex:
-            logger.debug("ai_badge_clicked error: {}".format(ex))
 
     def _switch_provider(self, name):
         """Hot-swap the active LLM provider — instant UI, network probes in background."""
@@ -1555,17 +1306,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not ok:
                 return
 
-            # Instant UI: badge + sidebar render from cached/saved data (no network)
+            # Instant UI: composer chip renders from cached/saved data (no network)
             self.Dispatcher.Invoke(Action(self._update_ai_badge))
-            sidebar_open = (self.settings_sidebar.Visibility == Visibility.Visible)
-            if sidebar_open:
-                self.Dispatcher.Invoke(Action(self._update_sidebar_instant))
 
             # Background: probe the newly-active provider + refresh its model list.
-            # Guarded so rapid repeated provider switches don't pile up threads
-            # all probing at once — a switch while one is already probing just
-            # skips spawning a second thread (the in-flight one already covers
-            # the freshest switch target read at its start).
+            # Guarded so rapid repeated provider switches don't pile up threads.
             if self._switching_provider:
                 return
             self._switching_provider = True
@@ -1579,8 +1324,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self._models_cache[name] = provider.get_models()
                         except Exception:
                             pass
-                    if sidebar_open:
-                        self.Dispatcher.Invoke(Action(self._update_sidebar))
                 except Exception:
                     pass
                 finally:
@@ -1593,406 +1336,42 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("_switch_provider error: {}".format(ex))
 
-    # ─── Settings sidebar ─────────────────────────────────────────────────────
+    # ─── Settings (LLMs Setting hub dialog) ──────────────────────────────────
 
     def settings_btn_clicked(self, sender, e):
-        """Toggle settings sidebar — renders instantly (zero HTTP), then probes in background."""
-        if self.settings_sidebar.Visibility == Visibility.Visible:
-            self.settings_sidebar.Visibility = Visibility.Collapsed
-            return
+        """Open the LLMs Setting hub — provider, model, API key, projects,
+        knowledge and skills all live there now (the in-window sidebar was
+        removed)."""
+        self._open_llm_settings()
 
-        self.settings_sidebar.Visibility = Visibility.Visible
-        # Phase 1: instant render — no network calls, uses cached/local data
-        self._update_sidebar_instant()
-
-        # Phase 2: background probe — ACTIVE provider first (fast feedback),
-        # then the remaining providers for the full status list. Guarded so
-        # rapidly toggling the sidebar open/closed doesn't spawn a new probe
-        # thread on top of one that's already running.
-        if self._probing_sidebar:
-            return
-        self._probing_sidebar = True
-
-        def _bg_probe():
-            try:
-                from Intelligence.llm_router import LLMRouter
-                router   = LLMRouter()
-                active   = router.get_active_name()
-                provider = router.get_active_provider()
-
-                # 2a. Probe only the active provider → update model list + dot ASAP
-                router.probe_provider(active)
-                if provider:
-                    try:
-                        self._models_cache[active] = provider.get_models()
-                    except Exception:
-                        pass
-                self.Dispatcher.Invoke(Action(self._update_sidebar))
-
-                # 2b. Probe everything else for the full status section
-                router.get_status(use_cache=False)
-                self.Dispatcher.Invoke(Action(self._update_sidebar))
-            except Exception:
-                pass
-            finally:
-                self._probing_sidebar = False
-
-        _pt = Thread(ThreadStart(_bg_probe))
-        _pt.IsBackground = True
-        _pt.SetApartmentState(ApartmentState.STA)
-        _pt.Start()
-
-    def sidebar_provider_changed(self, sender, e):
-        """Handle provider ComboBox selection change."""
+    def _open_llm_settings(self):
+        """Show the LLMs Setting dialog modally, then refresh anything it
+        may have changed (provider/model chip, action mode, display name,
+        projects)."""
         try:
-            item = self.sidebar_provider_combo.SelectedItem
-            if item is None:
-                return
-            tag = item.Tag
-            if tag:
-                # Repopulate the MODEL list for the chosen provider IMMEDIATELY so
-                # it never lingers on the previous provider's models, then hot-swap.
-                self._populate_model_combo(tag)
-                self._switch_provider(tag)
+            from GUI.LLMSettingDialog import LLMSettingWindow
+            dlg = LLMSettingWindow()
+            dlg.ShowDialog()
         except Exception as ex:
-            logger.debug("sidebar_provider_changed error: {}".format(ex))
+            logger.debug("_open_llm_settings error: {}".format(ex))
+        self._refresh_after_settings()
 
-    def sidebar_model_changed(self, sender, e):
-        """Persist the newly selected model for the active provider."""
+    def _refresh_after_settings(self):
+        """Sync the chat window with state edited in the settings dialog."""
         try:
-            from Intelligence.llm_router import LLMRouter
-            item = self.sidebar_model_combo.SelectedItem
-            if item is None:
-                return
-            model = item.ToString()
-            router = LLMRouter()
-            name = router.get_active_name()
-            router.set_model(name, model)
-            self._update_ai_badge()
-        except Exception as ex:
-            logger.debug("sidebar_model_changed error: {}".format(ex))
-
-    def sidebar_save_model_clicked(self, sender, e):
-        """Explicitly save the selected model as default + show confirmation."""
-        try:
-            from Intelligence.llm_router import LLMRouter
-            item = self.sidebar_model_combo.SelectedItem
-            if item is None:
-                self.model_saved_hint.Text = u"Select a model first"
-                self._flash_saved_hint(clear_after=True)
-                return
-            model  = item.ToString()
-            router = LLMRouter()
-            name   = router.get_active_name()
-            router.set_model(name, model)
-            self._update_ai_badge()
-            self.model_saved_hint.Text = u"✓ Saved"
-            self._flash_saved_hint(clear_after=True)
-        except Exception as ex:
-            logger.debug("sidebar_save_model_clicked error: {}".format(ex))
-
-    def _flash_saved_hint(self, clear_after=False):
-        """Briefly show the 'Saved' hint next to MODEL, then fade it out."""
-        if not clear_after:
-            return
-        try:
-            from System.Windows.Threading import DispatcherTimer
-            from System import TimeSpan
-            timer = DispatcherTimer()
-            timer.Interval = TimeSpan.FromSeconds(2.0)
-
-            def _clear(s, ev):
-                try:
-                    self.model_saved_hint.Text = u""
-                finally:
-                    timer.Stop()
-
-            timer.Tick += _clear
-            timer.Start()
-        except Exception:
-            # Fallback: just clear immediately if timer is unavailable
-            try:
-                self.model_saved_hint.Text = u""
-            except Exception:
-                pass
-
-    def sidebar_test_clicked(self, sender, e):
-        """Send a minimal test message to the active provider and show the raw reply."""
-        from System.Windows.Media import SolidColorBrush, Color
-
-        # Show "testing..." state immediately
-        self.sidebar_test_result_border.Visibility = Visibility.Visible
-        self.sidebar_test_result_border.Background = SolidColorBrush(Color.FromRgb(249, 250, 251))
-        self.sidebar_test_result_border.BorderBrush = SolidColorBrush(Color.FromRgb(229, 231, 235))
-        self.sidebar_test_label.Text       = u"Testing…"
-        self.sidebar_test_label.Foreground = SolidColorBrush(Color.FromRgb(107, 114, 128))
-        self.sidebar_test_result.Text      = u""
-        self.sidebar_test_btn.IsEnabled    = False
-
-        def _do_test():
-            ok    = False
-            label = u"Result"
-            msg   = u""
-            try:
-                from Intelligence.llm_router import LLMRouter
-                router   = LLMRouter()
-                name     = router.get_active_name()
-                provider = router.get_active_provider()
-
-                if provider is None:
-                    msg = u"Provider '{}' not loaded.".format(name)
-                elif not provider.check_health():
-                    if name == "ollama":
-                        msg = (u"Ollama not available or no models installed.\n"
-                               u"1. Make sure Ollama is running.\n"
-                               u"2. Run: ollama pull qwen2.5:0.5b")
-                    elif name == "lmstudio":
-                        msg = (u"LM Studio not available or no model loaded.\n"
-                               u"1. Open LM Studio.\n"
-                               u"2. Load a model in LM Studio first.")
-                    else:
-                        msg = u"Provider not reachable.\nCheck API key or service status."
-                else:
-                    # Check a model is actually available before calling chat()
-                    active_model = None
-                    try:
-                        active_model = provider.get_active_model()
-                    except Exception:
-                        pass
-                    if not active_model:
-                        msg = u"No model selected. Choose a model from the Model dropdown."
-                    else:
-                        # Direct call — bypass command-parsing layer
-                        resp = provider.chat(
-                            [],
-                            u"You are a concise assistant. Do not think. Reply in one short sentence only.",
-                            u"Reply with exactly this sentence: 'Connected OK'",
-                            max_tokens=120,
-                        )
-                        if resp and resp.strip():
-                            ok    = True
-                            label = u"Connected"
-                            msg   = resp.strip()[:120]
-                        else:
-                            msg = u"Provider responded but returned an empty reply."
-            except Exception as ex:
-                msg = u"Error: {}".format(str(ex)[:100])
-
-            _ok = ok; _label = label; _msg = msg
-
-            def _update():
-                from System.Windows.Media import SolidColorBrush, Color
-                if _ok:
-                    self.sidebar_test_result_border.Background   = SolidColorBrush(Color.FromRgb(240, 253, 244))
-                    self.sidebar_test_result_border.BorderBrush  = SolidColorBrush(Color.FromRgb(187, 247, 208))
-                    self.sidebar_test_label.Foreground           = SolidColorBrush(Color.FromRgb(21, 128, 61))
-                else:
-                    self.sidebar_test_result_border.Background   = SolidColorBrush(Color.FromRgb(254, 242, 242))
-                    self.sidebar_test_result_border.BorderBrush  = SolidColorBrush(Color.FromRgb(254, 202, 202))
-                    self.sidebar_test_label.Foreground           = SolidColorBrush(Color.FromRgb(185, 28, 28))
-                self.sidebar_test_label.Text  = _label
-                self.sidebar_test_result.Text = _msg
-                self.sidebar_test_btn.IsEnabled = True
-
-            self.Dispatcher.Invoke(Action(_update))
-
-        _tt = Thread(ThreadStart(_do_test))
-        _tt.IsBackground = True
-        _tt.SetApartmentState(ApartmentState.STA)
-        _tt.Start()
-
-    def sidebar_save_key_clicked(self, sender, e):
-        """Setup rule: save API key → verify connection → fetch models → enable.
-
-        The MODEL list stays disabled until the key is confirmed working, so a
-        provider can never be 'used' with an invalid/missing key (which would
-        otherwise stream wrong/fallback output).
-        """
-        try:
-            from System.Windows.Media import SolidColorBrush, Color
-            from config.settings import T3LabAISettings
-            from Intelligence.llm_router import LLMRouter
-
-            key = self.sidebar_api_key_box.Text.strip()
-            if not key or key.endswith("..."):
-                return
-
-            router = LLMRouter()
-            name   = router.get_active_name()
-            settings_key = self._KEY_NAME_MAP.get(name)
-            if not settings_key:
-                return   # not a key-based provider
-
-            # 1) Save the key.
-            T3LabAISettings().set_api_key(settings_key, key)
-
-            provider = router.get_active_provider()
-            if provider and hasattr(provider, "reload_credentials"):
-                provider.reload_credentials()
-            elif provider and hasattr(provider, "invalidate_models_cache"):
-                provider.invalidate_models_cache()
-            self._models_cache.pop(name, None)
-
-            # 2) Show "checking" state; keep MODEL disabled until verified.
-            self.sidebar_model_combo.IsEnabled    = False
-            self.sidebar_save_model_btn.IsEnabled = False
-            self.sidebar_save_key_btn.IsEnabled   = False
-            self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(113, 113, 122))
-            self.model_saved_hint.Text       = u"Checking connection…"
-            self._update_ai_badge()
-
-            # 3) Verify connection + fetch models off the UI thread.
-            def _validate():
-                ok = False
-                models = []
-                try:
-                    if provider and provider.check_health():
-                        models = provider.get_models() or []
-                        ok = len(models) > 0
-                except Exception:
-                    ok = False
-
-                def _apply():
-                    from System.Windows.Media import SolidColorBrush, Color
-                    try:
-                        self.sidebar_save_key_btn.IsEnabled = True
-                    except Exception:
-                        pass
-                    if ok:
-                        # 4) Fetched → enable model selection.
-                        self._models_cache[name] = models
-                        self._populate_model_combo(name)
-                        self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(16, 185, 129))
-                        self.model_saved_hint.Text = u"✓ Connected ({} models)".format(len(models))
-                    else:
-                        self._models_cache.pop(name, None)
-                        self._populate_model_combo(name)   # stays disabled + hint
-                        self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(239, 68, 68))
-                        self.model_saved_hint.Text = u"✗ Invalid key or connection failed"
-                    self._set_status_dot(name, ok)
-                    self._update_ai_badge()
-
-                self.Dispatcher.Invoke(Action(_apply))
-
-            _kt = Thread(ThreadStart(_validate))
-            _kt.IsBackground = True
-            _kt.SetApartmentState(ApartmentState.STA)
-            _kt.Start()
-        except Exception as ex:
-            logger.debug("sidebar_save_key_clicked error: {}".format(ex))
-
-    def sidebar_save_host_clicked(self, sender, e):
-        """Save the typed local server URL for LM Studio / Ollama."""
-        try:
-            from config.settings import T3LabAISettings
-            from Intelligence.llm_router import LLMRouter
-            host = self.sidebar_host_box.Text.strip()
-            if not host:
-                return
-
-            router = LLMRouter()
-            name   = router.get_active_name()
-
-            if name == "lmstudio":
-                # LM Studio reads host from settings key "LMStudio_Host"
-                T3LabAISettings().set_api_key("LMStudio_Host", host)
-                provider = router.get_active_provider()
-                if provider and hasattr(provider, "reload_credentials"):
-                    provider.reload_credentials()
-            elif name == "ollama":
-                # Ollama provider exposes a set_host() method
-                provider = router.get_active_provider()
-                if provider and hasattr(provider, "set_host"):
-                    provider.set_host(host)
-
-            # Clear model cache so next probe fetches live data from new host
-            self._models_cache.pop(name, None)
-
-            # Refresh badge and sidebar instantly, then kick background probe
-            self._update_ai_badge()
-            self._update_sidebar_instant()
-
-            def _probe():
-                try:
-                    router.get_status(use_cache=False)
-                    provider = router.get_active_provider()
-                    live_models = provider.get_models() if provider else []
-                    if live_models:
-                        self._models_cache[name] = live_models
-                    self.Dispatcher.Invoke(Action(self._update_sidebar))
-                except Exception:
-                    pass
-            _ht = Thread(ThreadStart(_probe))
-            _ht.IsBackground = True
-            _ht.SetApartmentState(ApartmentState.STA)
-            _ht.Start()
-        except Exception as ex:
-            logger.debug("sidebar_save_host_clicked error: {}".format(ex))
-
-    # ─── Project sidebar (workspaces) ─────────────────────────────────────────
-
-    def _update_project_combo(self):
-        """Repopulate the PROJECT combo without firing events. UI THREAD."""
-        try:
-            from System.Windows.Controls import ComboBoxItem
-            from config.project_store import ProjectStore
-            ps = ProjectStore()
-            active = ps.get_active_project_id()
-
-            combo = self.sidebar_project_combo
-            combo.SelectionChanged -= self.sidebar_project_changed
-            combo.Items.Clear()
-
-            none_item = ComboBoxItem()
-            none_item.Content = u"— No project —"
-            none_item.Tag = None
-            combo.Items.Add(none_item)
-
-            sel_index = 0
-            for i, meta in enumerate(ps.list_projects()):
-                item = ComboBoxItem()
-                item.Content = meta['name']
-                item.Tag = meta['id']
-                combo.Items.Add(item)
-                if meta['id'] == active:
-                    sel_index = i + 1
-            combo.SelectedIndex = sel_index
-            combo.SelectionChanged += self.sidebar_project_changed
-
-            self._populate_project_edit_panel(active)
             self._update_composer_chips()
-        except Exception as ex:
-            logger.debug("_update_project_combo error: {}".format(ex))
-
-    def _populate_project_edit_panel(self, pid):
-        """Show/fill or hide the project edit panel. UI THREAD."""
+        except Exception:
+            pass
         try:
-            from config.project_store import ProjectStore
-            meta = ProjectStore().get_project(pid) if pid else None
-            if meta:
-                self.project_edit_panel.Visibility = Visibility.Visible
-                self.project_name_box.Text = meta.get('name', u'')
-                self.project_instructions_box.Text = meta.get('instructions', u'')
-            else:
-                self.project_edit_panel.Visibility = Visibility.Collapsed
-        except Exception as ex:
-            logger.debug("_populate_project_edit_panel error: {}".format(ex))
-
-    def sidebar_project_changed(self, sender, e):
-        """Sidebar combo → switch the active project."""
+            self._update_action_mode_chip()
+        except Exception:
+            pass
         try:
-            if self._busy:
-                # revert silently — switching scope mid-request is unsafe
-                self._update_project_combo()
-                self._append_bot_message(
-                    u"A request is running — switch projects once it finishes.",
-                    icon=_ICON_SYNC, icon_color=_ICON_SLATE)
-                return
-            item = self.sidebar_project_combo.SelectedItem
-            pid = getattr(item, 'Tag', None) if item is not None else None
-            self._activate_project(pid)
-        except Exception as ex:
-            logger.debug("sidebar_project_changed error: {}".format(ex))
+            self._update_welcome_greeting()
+        except Exception:
+            pass
+
+    # ─── Projects (workspaces) ────────────────────────────────────────────────
 
     def _activate_project(self, pid):
         """Switch the active project: history, knowledge scope, provider.
@@ -2001,7 +1380,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from config.project_store import ProjectStore
             ps = ProjectStore()
             ps.set_active_project(pid)
-            self._populate_project_edit_panel(pid)
 
             # Swap chat history to the new scope
             try:
@@ -2036,8 +1414,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("_activate_project error: {}".format(ex))
 
-    def sidebar_new_project_clicked(self, sender, e):
-        """Create a project and activate it."""
+    def _create_new_project(self):
+        """Create a project and activate it (called from the project popup)."""
         try:
             if self._busy:
                 return
@@ -2046,7 +1424,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             n = len(ps.list_projects()) + 1
             meta = ps.create_project(u"Project {}".format(n))
             ps.set_active_project(meta['id'])
-            self._update_project_combo()
             # sync the rest of the scope like a manual switch
             try:
                 while self.chat_history_panel.Children.Count > 1:
@@ -2055,188 +1432,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._persisted_msgs = []
             except Exception:
                 pass
-            self._update_knowledge_status()
+            self._update_composer_chips()
             self._append_bot_message(
                 u"Created project **{}**. Set its name + custom instructions "
-                u"in the sidebar, and drop documents into the project's "
+                u"in Settings → Projects, and drop documents into the project's "
                 u"knowledge folder so replies follow this project.".format(
                     meta['name']),
                 icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
         except Exception as ex:
-            logger.debug("sidebar_new_project_clicked error: {}".format(ex))
+            logger.debug("_create_new_project error: {}".format(ex))
 
-    def sidebar_project_save_clicked(self, sender, e):
-        """Persist name + instructions from the edit boxes."""
-        try:
-            from config.project_store import ProjectStore
-            ps = ProjectStore()
-            pid = ps.get_active_project_id()
-            if not pid:
-                return
-            ps.update_project(pid, {
-                'name': self.project_name_box.Text.strip() or u"Project",
-                'instructions': self.project_instructions_box.Text.strip(),
-            })
-            self._update_project_combo()
-        except Exception as ex:
-            logger.debug("sidebar_project_save_clicked error: {}".format(ex))
-
-    def sidebar_project_delete_clicked(self, sender, e):
-        """Delete the active project after a confirm box."""
-        try:
-            from config.project_store import ProjectStore
-            ps = ProjectStore()
-            pid = ps.get_active_project_id()
-            if not pid:
-                return
-            from System.Windows import MessageBox, MessageBoxButton, MessageBoxResult
-            meta = ps.get_project(pid) or {}
-            res = MessageBox.Show(
-                u"Delete project '{}' (including its index + chat history)?".format(
-                    meta.get('name', pid)),
-                u"T3Lab Assistant", MessageBoxButton.YesNo)
-            if res != MessageBoxResult.Yes:
-                return
-            ps.delete_project(pid)
-            self._update_project_combo()
-            self._update_knowledge_status()
-            self._append_bot_message(
-                u"Deleted project **{}**.".format(meta.get('name', pid)),
-                icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
-        except Exception as ex:
-            logger.debug("sidebar_project_delete_clicked error: {}".format(ex))
-
-    # ─── Knowledge sidebar (RAG v2 index) ─────────────────────────────────────
+    # ─── Knowledge (RAG v2 index) ─────────────────────────────────────────────
 
     def _update_knowledge_status(self):
-        """Refresh KNOWLEDGE status label, dir rows and embed toggle. UI THREAD."""
-        if not HAS_KNOWLEDGE:
-            return
-        try:
-            store = get_active_store()
-            if store is None:
-                return
-            st = store.stats()
-            self.knowledge_index_status.Text = u"{} files · {} chunks".format(
-                st['files'], st['chunks'])
-            self._refresh_knowledge_dirs_panel()
-            try:
-                from config.settings import get_settings
-                want = bool(get_settings().get_knowledge_option(
-                    'embeddings_enabled', True))
-                if bool(self.knowledge_embed_toggle.IsChecked) != want:
-                    self._embed_toggle_guard = True
-                    self.knowledge_embed_toggle.IsChecked = want
-                    self._embed_toggle_guard = False
-            except Exception:
-                self._embed_toggle_guard = False
-        except Exception as ex:
-            logger.debug("_update_knowledge_status error: {}".format(ex))
-
-    def _refresh_knowledge_dirs_panel(self):
-        """Rebuild the knowledge directory rows. UI THREAD."""
-        try:
-            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition, Button
-            from System.Windows import Thickness, CornerRadius, GridLength
-            from System.Windows.Media import SolidColorBrush, Color
-
-            panel = self.knowledge_dirs_panel
-            panel.Children.Clear()
-
-            from Intelligence.knowledge.knowledge_store import default_knowledge_dir
-            rows = [(default_knowledge_dir(), False)]
-            try:
-                from config.settings import get_settings
-                for d in get_settings().get_knowledge_dirs():
-                    rows.append((d, True))
-            except Exception:
-                pass
-
-            for path, removable in rows:
-                row = Border()
-                row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
-                row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
-                row.BorderThickness = Thickness(1)
-                row.CornerRadius = CornerRadius(8)
-                row.Padding = Thickness(8, 5, 6, 5)
-                row.Margin = Thickness(0, 0, 0, 4)
-
-                grid = Grid()
-                col_txt = ColumnDefinition()
-                col_txt.Width = GridLength(1, System.Windows.GridUnitType.Star)
-                col_btn = ColumnDefinition()
-                col_btn.Width = GridLength.Auto
-                grid.ColumnDefinitions.Add(col_txt)
-                grid.ColumnDefinitions.Add(col_btn)
-
-                tb = TextBlock()
-                tb.Text = os.path.basename(path.rstrip(u'\\/')) or path
-                tb.ToolTip = path
-                tb.FontSize = 10.5
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
-                tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
-                tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
-                Grid.SetColumn(tb, 0)
-                grid.Children.Add(tb)
-
-                if removable:
-                    btn = Button()
-                    btn.Content = u"✕"
-                    btn.FontSize = 10
-                    btn.Width = 20
-                    btn.Height = 20
-                    btn.Cursor = System.Windows.Input.Cursors.Hand
-                    btn.Background = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
-                    btn.BorderThickness = Thickness(0)
-                    btn.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
-                    btn.ToolTip = u"Remove folder from index"
-
-                    def _make_remove(p):
-                        def _remove(sender, e):
-                            try:
-                                from config.settings import get_settings
-                                get_settings().remove_knowledge_dir(p)
-                                self._refresh_knowledge_dirs_panel()
-                                self._kick_knowledge_scan()
-                            except Exception as rex:
-                                logger.debug("remove dir error: {}".format(rex))
-                        return _remove
-                    btn.Click += _make_remove(path)
-                    Grid.SetColumn(btn, 1)
-                    grid.Children.Add(btn)
-
-                row.Child = grid
-                panel.Children.Add(row)
-        except Exception as ex:
-            logger.debug("_refresh_knowledge_dirs_panel error: {}".format(ex))
+        """Knowledge UI moved to the LLMs Setting dialog — kept as a no-op
+        hook so project switches / scans can still call it safely."""
+        pass
 
     def _kick_knowledge_scan(self):
         """(Re)scan the active knowledge store on a background thread."""
         if not HAS_KNOWLEDGE or getattr(self, '_kn_scan_busy', False):
             return
         self._kn_scan_busy = True
-        try:
-            self.knowledge_index_status.Text = u"Scanning..."
-        except Exception:
-            pass
 
         def _scan():
             try:
                 store = get_active_store()
                 if store is not None:
-                    def _prog(name):
-                        def _ui(_n=name):
-                            try:
-                                self.knowledge_index_status.Text = \
-                                    u"Index: " + _n[:24]
-                            except Exception:
-                                pass
-                        try:
-                            self.Dispatcher.BeginInvoke(Action(_ui))
-                        except Exception:
-                            pass
-                    store.scan(progress_cb=_prog)
+                    store.scan()
                     try:
                         from Intelligence.knowledge.embeddings import (
                             get_default_embedder)
@@ -2249,81 +1472,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 logger.debug("knowledge scan error: {}".format(ex))
             finally:
                 self._kn_scan_busy = False
-                try:
-                    self.Dispatcher.Invoke(Action(self._update_knowledge_status))
-                except Exception:
-                    pass
         _kt = Thread(ThreadStart(_scan))
         _kt.IsBackground = True
         _kt.SetApartmentState(ApartmentState.STA)
         _kt.Start()
 
-    def sidebar_add_knowledge_dir_clicked(self, sender, e):
-        """Pick a folder to add to the knowledge index. UI THREAD."""
-        try:
-            clr.AddReference('System.Windows.Forms')
-            from System.Windows.Forms import FolderBrowserDialog, DialogResult
-            dlg = FolderBrowserDialog()
-            dlg.Description = "Chon thu muc tai lieu (PDF/TXT/MD) de index"
-            if dlg.ShowDialog() == DialogResult.OK and dlg.SelectedPath:
-                from config.settings import get_settings
-                get_settings().add_knowledge_dir(dlg.SelectedPath)
-                self._refresh_knowledge_dirs_panel()
-                self._kick_knowledge_scan()
-        except Exception as ex:
-            logger.debug("sidebar_add_knowledge_dir_clicked error: {}".format(ex))
-
-    def sidebar_reindex_clicked(self, sender, e):
-        self._kick_knowledge_scan()
-
-    def knowledge_embed_toggled(self, sender, e):
-        """Persist the semantic-search switch; pull the embed model when
-        first enabled (background, with chat notice — ~270 MB)."""
-        if getattr(self, '_embed_toggle_guard', False):
-            return
-        try:
-            on = bool(self.knowledge_embed_toggle.IsChecked)
-            from config.settings import get_settings
-            get_settings().set_knowledge_option('embeddings_enabled', on)
-            if not on:
-                return
-
-            def _ensure():
-                try:
-                    from Intelligence.knowledge.embeddings import (
-                        get_default_embedder)
-                    emb = get_default_embedder()
-                    if emb is None:
-                        return
-                    if not emb.is_available():
-                        self.Dispatcher.Invoke(Action(
-                            lambda: self._append_bot_message(
-                                u"Downloading the embedding model "
-                                u"(nomic-embed-text, ~270MB) cho semantic "
-                                u"search. Running in the background...",
-                                icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
-                        if not emb.ensure_model():
-                            self.Dispatcher.Invoke(Action(
-                                lambda: self._append_bot_message(
-                                    u"Could not download the embedding model — "
-                                    u"check that Ollama is running. Search "
-                                    u"still works in keyword mode (BM25).",
-                                    icon=_ICON_SYNC, icon_color=_ICON_SLATE)))
-                            return
-                    store = get_active_store()
-                    if store is not None:
-                        store.embed_pending(emb, budget_sec=300)
-                    self.Dispatcher.Invoke(Action(self._update_knowledge_status))
-                except Exception as ex2:
-                    logger.debug("embed enable error: {}".format(ex2))
-            _et = Thread(ThreadStart(_ensure))
-            _et.IsBackground = True
-            _et.SetApartmentState(ApartmentState.STA)
-            _et.Start()
-        except Exception as ex:
-            logger.debug("knowledge_embed_toggled error: {}".format(ex))
-
-    # ─── Skills sidebar + chat chips ──────────────────────────────────────────
+    # ─── Skills chat chips ────────────────────────────────────────────────────
 
     def _append_skill_chips(self, skill_ids):
         """Small 'skill activated' chip row in the chat. UI THREAD."""
@@ -2366,101 +1520,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("_append_skill_chips error: {}".format(ex))
-
-    def _update_skills_panel(self):
-        """Rebuild the SKILLS rows in the sidebar. UI THREAD."""
-        try:
-            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition, CheckBox
-            from System.Windows import Thickness, CornerRadius, GridLength
-            from System.Windows.Media import SolidColorBrush, Color
-            from Intelligence.skills_engine import get_skills_engine
-
-            panel = self.skills_list_panel
-            panel.Children.Clear()
-            skills = get_skills_engine().all_skills()
-            if not skills:
-                tb = TextBlock()
-                tb.Text = u"No skills yet."
-                tb.FontSize = 10.5
-                tb.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-                panel.Children.Add(tb)
-                return
-
-            for meta in skills:
-                row = Border()
-                row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
-                row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
-                row.BorderThickness = Thickness(1)
-                row.CornerRadius = CornerRadius(8)
-                row.Padding = Thickness(8, 5, 8, 5)
-                row.Margin = Thickness(0, 0, 0, 4)
-                row.ToolTip = meta.get('description', '')
-
-                grid = Grid()
-                col_txt = ColumnDefinition()
-                col_txt.Width = GridLength(1, System.Windows.GridUnitType.Star)
-                col_tgl = ColumnDefinition()
-                col_tgl.Width = GridLength.Auto
-                grid.ColumnDefinitions.Add(col_txt)
-                grid.ColumnDefinitions.Add(col_tgl)
-
-                tb = TextBlock()
-                tb.Text = meta.get('name', meta['id'])
-                tb.FontSize = 10.5
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
-                tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
-                tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
-                Grid.SetColumn(tb, 0)
-                grid.Children.Add(tb)
-
-                cb = CheckBox()
-                cb.IsChecked = bool(meta.get('enabled', True))
-                cb.VerticalAlignment = System.Windows.VerticalAlignment.Center
-                try:
-                    cb.Style = self.FindResource("T3ToggleSwitch")
-                    cb.LayoutTransform = System.Windows.Media.ScaleTransform(0.7, 0.7)
-                except Exception:
-                    pass
-
-                def _make_toggle(sid, box):
-                    def _toggled(sender, e):
-                        try:
-                            from Intelligence.skills_engine import get_skills_engine
-                            get_skills_engine().set_enabled(
-                                sid, bool(box.IsChecked))
-                        except Exception as tex:
-                            logger.debug("skill toggle error: {}".format(tex))
-                    return _toggled
-                handler = _make_toggle(meta['id'], cb)
-                cb.Checked += handler
-                cb.Unchecked += handler
-                Grid.SetColumn(cb, 1)
-                grid.Children.Add(cb)
-
-                row.Child = grid
-                panel.Children.Add(row)
-        except Exception as ex:
-            logger.debug("_update_skills_panel error: {}".format(ex))
-
-    def sidebar_refresh_skills_clicked(self, sender, e):
-        """Rescan skill folders and rebuild the list."""
-        try:
-            from Intelligence.skills_engine import get_skills_engine
-            get_skills_engine().scan()
-            self._update_skills_panel()
-        except Exception as ex:
-            logger.debug("sidebar_refresh_skills_clicked error: {}".format(ex))
-
-    def sidebar_open_skills_dir_clicked(self, sender, e):
-        """Open the user skills folder in Explorer."""
-        try:
-            from Intelligence.skills_engine import _user_skills_dir
-            import System.Diagnostics
-            System.Diagnostics.Process.Start(_user_skills_dir())
-        except Exception as ex:
-            logger.debug("sidebar_open_skills_dir_clicked error: {}".format(ex))
 
     # ─── Command palette ──────────────────────────────────────────────────────
 
@@ -2674,283 +1733,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("_cmd_card_clicked error: {}".format(ex))
 
-    # ── Brand colors for provider dot (Ellipse on ComboBox) ──────────────────
-    _BRAND_COLORS = {
-        "claude":   (217, 119,  87),   # Anthropic orange
-        "openai":   ( 16, 163, 127),   # OpenAI green
-        "deepseek": ( 37,  99, 235),   # DeepSeek blue
-        "ollama":   ( 59, 130, 246),   # Ollama blue
-        "lmstudio": (124,  58, 237),   # LM Studio purple
-    }
-    _PROV_INDEX = {"claude": 0, "openai": 1, "deepseek": 2, "ollama": 3, "lmstudio": 4}
-
-    _KEY_PROVIDERS  = ("claude", "openai", "deepseek")
-    _KEY_NAME_MAP   = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
-
-    # Where to obtain an API key for each key-based provider.
-    _API_KEY_URLS = {
-        "claude":   "https://console.anthropic.com/settings/keys",
-        "openai":   "https://platform.openai.com/api-keys",
-        "deepseek": "https://platform.deepseek.com/api_keys",
-    }
-
-    def get_api_key_clicked(self, sender, e):
-        """Open the active provider's API-key page in the default browser."""
-        try:
-            from Intelligence.llm_router import LLMRouter
-            name = LLMRouter().get_active_name()
-            url  = self._API_KEY_URLS.get(name)
-            if not url:
-                return
-            import System.Diagnostics
-            System.Diagnostics.Process.Start(url)
-        except Exception as ex:
-            logger.debug("get_api_key_clicked error: {}".format(ex))
-
-    def _has_saved_key(self, provider):
-        """True if an API key is stored for a key-based provider."""
-        try:
-            from config.settings import T3LabAISettings
-            return bool(T3LabAISettings().get_api_key(self._KEY_NAME_MAP.get(provider, "")))
-        except Exception:
-            return False
-
-    def _populate_model_combo(self, active):
-        """Fill the MODEL combo for `active`, enforcing the setup rule.
-
-        A key-based provider exposes models ONLY after its key was saved and the
-        connection verified — i.e. live models are present in the cache (the probe
-        only caches them when check_health() succeeds). Until then the combo is
-        empty + disabled with a hint. Local providers expose models once the
-        server has been probed. No network here.
-        """
-        try:
-            try:
-                self.sidebar_model_combo.SelectionChanged -= self.sidebar_model_changed
-            except Exception:
-                pass
-
-            self.sidebar_model_combo.Items.Clear()
-            models    = list(self._models_cache.get(active, []))   # live, validated only
-            enabled   = bool(models)
-            needs_key = active in self._KEY_PROVIDERS
-            hint      = u""
-
-            if enabled:
-                # Pre-select the saved model (stored per-provider) ONLY if the
-                # vendor still reports it in the live list — never inject a
-                # name the vendor didn't confirm (it may be retired/renamed).
-                saved = None
-                try:
-                    from config.settings import T3LabAISettings
-                    saved = T3LabAISettings().get_provider_model(active)
-                except Exception:
-                    pass
-                for m in models:
-                    self.sidebar_model_combo.Items.Add(m)
-                if saved and saved in models:
-                    self.sidebar_model_combo.SelectedItem = saved
-                else:
-                    self.sidebar_model_combo.SelectedIndex = 0
-            else:
-                if needs_key:
-                    hint = (u"Enter an API key first" if not self._has_saved_key(active)
-                            else u"Not connected — press Save to test")
-                else:
-                    hint = u"Start the server & load a model"
-
-            self.sidebar_model_combo.IsEnabled = enabled
-            try:
-                self.sidebar_save_model_btn.IsEnabled = enabled
-            except Exception:
-                pass
-
-            try:
-                from System.Windows.Media import SolidColorBrush, Color
-                self.model_saved_hint.Text = hint
-                self.model_saved_hint.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
-            except Exception:
-                pass
-        except Exception as ex:
-            logger.debug("_populate_model_combo error: {}".format(ex))
-        finally:
-            try:
-                self.sidebar_model_combo.SelectionChanged += self.sidebar_model_changed
-            except Exception:
-                pass
-
-    def _set_status_dot(self, name, available):
-        """Update a single provider's STATUS dot + label (UI thread)."""
-        try:
-            from System.Windows.Media import SolidColorBrush, Color
-            mapping = {
-                "claude":   (self.status_dot_claude,   self.status_text_claude),
-                "openai":   (self.status_dot_openai,   self.status_text_openai),
-                "deepseek": (self.status_dot_deepseek, self.status_text_deepseek),
-                "ollama":   (self.status_dot_ollama,   self.status_text_ollama),
-                "lmstudio": (self.status_dot_lmstudio, self.status_text_lmstudio),
-            }
-            pair = mapping.get(name)
-            if not pair:
-                return
-            dot, txt = pair
-            if available:
-                dot.Fill = SolidColorBrush(Color.FromRgb(16, 185, 129))
-                txt.Text = u"Ready"
-                txt.Foreground = SolidColorBrush(Color.FromRgb(16, 185, 129))
-            else:
-                dot.Fill = SolidColorBrush(Color.FromRgb(230, 230, 234))
-                txt.Text = u"Not set up"
-                txt.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
-        except Exception:
-            pass
-
-    def _update_sidebar_instant(self):
-        """Phase-1 sidebar render — zero HTTP, instant.  Uses cached/local data only."""
-        try:
-            from System.Windows.Media import SolidColorBrush, Color
-
-            # Username Profile Section
-            try:
-                from config.user_profile import UserProfile
-                self.sidebar_username_box.Text = UserProfile().get_name() or u"Thạnh"
-            except Exception:
-                pass
-            self._update_profile_card()
-            from Intelligence.llm_router import LLMRouter
-
-            router = LLMRouter()
-            active = router.get_active_name()
-
-            # Provider ComboBox — select active provider
-            self.sidebar_provider_combo.SelectionChanged -= self.sidebar_provider_changed
-            self.sidebar_provider_combo.SelectedIndex = self._PROV_INDEX.get(active, 0)
-            self.sidebar_provider_combo.SelectionChanged += self.sidebar_provider_changed
-
-            # Brand-color dot on the provider ComboBox
-            rgb = self._BRAND_COLORS.get(active, (161, 161, 170))
-            self.provider_brand_dot.Fill = SolidColorBrush(
-                Color.FromRgb(rgb[0], rgb[1], rgb[2]))
-
-            # API key section (from settings.json — no HTTP)
-            _KEY_LABELS = {
-                "claude":   u"Anthropic API Key (sk-ant-...)",
-                "openai":   u"OpenAI API Key (sk-...)",
-                "deepseek": u"DeepSeek API Key (sk-...)",
-                "ollama":   u"No key needed (local)",
-                "lmstudio": u"No key needed — start LM Studio first",
-            }
-            self.sidebar_key_label.Text = _KEY_LABELS.get(active, u"API Key")
-
-            needs_key = active in self._KEY_PROVIDERS
-            self.sidebar_api_key_box.IsEnabled  = needs_key
-            self.sidebar_save_key_btn.IsEnabled = needs_key
-            try:
-                self.get_api_key_link.Visibility = (
-                    Visibility.Visible if needs_key else Visibility.Collapsed)
-            except Exception:
-                pass
-
-            if needs_key:
-                try:
-                    from config.settings import T3LabAISettings
-                    k_map = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
-                    saved = T3LabAISettings().get_api_key(k_map.get(active, "")) or ""
-                    self.sidebar_api_key_box.Text = (saved[:8] + u"...") if len(saved) > 8 else saved
-                except Exception:
-                    pass
-            else:
-                self.sidebar_api_key_box.Text = u""
-
-            # Model ComboBox — instant, no HTTP (cache → fallback → saved model).
-            self._populate_model_combo(active)
-
-        except Exception as ex:
-            logger.debug("_update_sidebar_instant error: {}".format(ex))
-
-    def _update_sidebar(self):
-        """Phase-2 sidebar refresh — called from background after HTTP probes complete."""
-        try:
-            from System.Windows.Media import SolidColorBrush, Color
-            from Intelligence.llm_router import LLMRouter
-
-            router = LLMRouter()
-            # NEVER get_status() here — this runs on the UI thread (Dispatcher),
-            # and when the 30s cache TTL has lapsed (probe_provider merges data
-            # but doesn't refresh the TTL) get_status(use_cache=True) silently
-            # re-probes EVERY provider synchronously: multi-second UI freeze on
-            # every sidebar open / provider switch. Cached-or-cheap only.
-            status = router.get_status_instant()
-            active = router.get_active_name()
-
-            _GRAY  = Color.FromRgb(230, 230, 234)
-            _MUTED = Color.FromRgb(161, 161, 170)
-            _READY = Color.FromRgb( 16, 185, 129)
-
-            # Provider ComboBox + brand dot
-            self.sidebar_provider_combo.SelectionChanged -= self.sidebar_provider_changed
-            self.sidebar_provider_combo.SelectedIndex = self._PROV_INDEX.get(active, 0)
-            self.sidebar_provider_combo.SelectionChanged += self.sidebar_provider_changed
-
-            rgb = self._BRAND_COLORS.get(active, (161, 161, 170))
-            self.provider_brand_dot.Fill = SolidColorBrush(
-                Color.FromRgb(rgb[0], rgb[1], rgb[2]))
-
-            # API key section
-            _KEY_LABELS = {
-                "claude":   u"Anthropic API Key (sk-ant-...)",
-                "openai":   u"OpenAI API Key (sk-...)",
-                "deepseek": u"DeepSeek API Key (sk-...)",
-                "ollama":   u"No key needed (local)",
-                "lmstudio": u"No key needed — start LM Studio first",
-            }
-            self.sidebar_key_label.Text = _KEY_LABELS.get(active, u"API Key")
-
-            needs_key = active in ("claude", "openai", "deepseek")
-            self.sidebar_api_key_box.IsEnabled  = needs_key
-            self.sidebar_save_key_btn.IsEnabled = needs_key
-            try:
-                self.get_api_key_link.Visibility = (
-                    Visibility.Visible if needs_key else Visibility.Collapsed)
-            except Exception:
-                pass
-
-            if needs_key:
-                try:
-                    from config.settings import T3LabAISettings
-                    k_map = {"claude": "Claude", "openai": "OpenAI", "deepseek": "DeepSeek"}
-                    saved = T3LabAISettings().get_api_key(k_map.get(active, "")) or ""
-                    self.sidebar_api_key_box.Text = (saved[:8] + u"...") if len(saved) > 8 else saved
-                except Exception:
-                    pass
-            else:
-                self.sidebar_api_key_box.Text = u""
-
-            # Model ComboBox — refresh from the freshly probed cache for `active`.
-            self._populate_model_combo(active)
-
-            # Status dots
-            dot_rows = [
-                ("claude",   self.status_dot_claude,   self.status_text_claude),
-                ("openai",   self.status_dot_openai,   self.status_text_openai),
-                ("deepseek", self.status_dot_deepseek, self.status_text_deepseek),
-                ("ollama",   self.status_dot_ollama,   self.status_text_ollama),
-                ("lmstudio", self.status_dot_lmstudio, self.status_text_lmstudio),
-            ]
-            for name, dot, txt in dot_rows:
-                available  = status.get(name, {}).get("available", False)
-                dot.Fill   = SolidColorBrush(_READY if available else _GRAY)
-                txt.Text   = u"Ready" if available else u"Not set up"
-                txt.Foreground = SolidColorBrush(_READY if available else _MUTED)
-
-            # Project + Knowledge (RAG) + Skills sections — cheap, in memory
-            self._update_project_combo()
-            self._update_knowledge_status()
-            self._update_skills_panel()
-
-        except Exception as ex:
-            logger.debug("_update_sidebar error: {}".format(ex))
-
     # ─── Session guard & UI state ─────────────────────────────────────────────
 
     def _set_busy(self, busy):
@@ -2990,14 +1772,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._hide_typing_indicator()
 
     def _render_send_button(self, busy):
-        """Swap the round send button between arrow-up ↑ and Stop ⏹. UI thread only."""
+        """Swap the round send button between arrow-up ↑ and Stop ⏹. UI thread only.
+
+        The icon is a Claude-style stroke Path — its Data is swapped here."""
         try:
+            from System.Windows.Media import Geometry
             btn = self.send_button
             if not busy:
-                self.send_icon.Text = u""   # MDL2 Up arrow
+                self.send_icon.Data = Geometry.Parse(u"M12 19V5 M5 12l7-7 7 7")
                 btn.ToolTip = u"Send (Enter)"
             else:
-                self.send_icon.Text = u""   # MDL2 Stop
+                self.send_icon.Data = Geometry.Parse(u"M8 8 h8 v8 h-8 Z")
                 btn.ToolTip = u"Stop the running task"
             btn.IsEnabled = True
         except Exception as ex:
@@ -3751,7 +2536,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if ProjectStore().get_active_project_id() == pid:
                 return
             self._activate_project(pid)
-            self._update_project_combo()   # sync sidebar combo silently
         except Exception as ex:
             logger.debug("_project_popup_select error: {}".format(ex))
 
@@ -3760,22 +2544,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.project_popup.IsOpen = False
         except Exception:
             pass
-        self.sidebar_new_project_clicked(None, None)
-        self._open_settings_sidebar()
+        self._create_new_project()
 
     def _project_popup_settings(self):
         try:
             self.project_popup.IsOpen = False
         except Exception:
             pass
-        self._open_settings_sidebar()
-
-    def _open_settings_sidebar(self):
-        try:
-            if self.settings_sidebar.Visibility != Visibility.Visible:
-                self.settings_btn_clicked(None, None)
-        except Exception as ex:
-            logger.debug("_open_settings_sidebar error: {}".format(ex))
+        self._open_llm_settings()
 
     def model_chip_clicked(self, sender, e):
         """Open the Claude-style provider/model picker popup."""
@@ -3818,9 +2594,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from Intelligence.llm_router import LLMRouter
             if LLMRouter().get_active_name() == name:
                 return
-            # Same sequence as sidebar_provider_changed: model list first so
-            # it never lingers on the previous provider, then hot-swap.
-            self._populate_model_combo(name)
             self._switch_provider(name)
         except Exception as ex:
             logger.debug("_model_popup_select error: {}".format(ex))
@@ -3830,7 +2603,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.model_popup.IsOpen = False
         except Exception:
             pass
-        self._open_settings_sidebar()
+        self._open_llm_settings()
 
     # ─── Harness: action mode (auto / confirm-first) + activity log ──────────
 
@@ -3854,24 +2627,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("action_mode_clicked error: {}".format(ex))
 
     def _update_action_mode_chip(self):
-        """Render the action-mode chip state. UI THREAD."""
+        """Render the action-mode chip state (Claude-style stroke icons:
+        shield = ask-before-edits, zap = auto). UI THREAD."""
         try:
-            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Media import SolidColorBrush, Color, Geometry
             from config.settings import get_settings
             confirm = (get_settings().get_action_mode() == 'confirm')
+            _SHIELD = (u"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01"
+                       u"C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 "
+                       u"6.24-2.72a1 1 0 0 1 1.52 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z")
+            _ZAP = (u"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46"
+                    u"l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63"
+                    u"l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z")
             if confirm:
                 self.action_mode_text.Text = u"Ask before edits"
-                blue = SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
-                self.action_mode_text.Foreground = blue
-                self.action_mode_icon.Text = u""   # MDL2 Shield
-                self.action_mode_icon.Foreground = SolidColorBrush(
+                self.action_mode_text.Foreground = SolidColorBrush(
+                    Color.FromRgb(0x1D, 0x4E, 0xD8))
+                self.action_mode_icon.Data = Geometry.Parse(_SHIELD)
+                self.action_mode_icon.Stroke = SolidColorBrush(
                     Color.FromRgb(0x3B, 0x82, 0xF6))
             else:
                 self.action_mode_text.Text = u"Auto"
-                gray = SolidColorBrush(Color.FromRgb(0x52, 0x52, 0x5B))
-                self.action_mode_text.Foreground = gray
-                self.action_mode_icon.Text = u""   # MDL2 LightningBolt
-                self.action_mode_icon.Foreground = SolidColorBrush(
+                self.action_mode_text.Foreground = SolidColorBrush(
+                    Color.FromRgb(0x52, 0x52, 0x5B))
+                self.action_mode_icon.Data = Geometry.Parse(_ZAP)
+                self.action_mode_icon.Stroke = SolidColorBrush(
                     Color.FromRgb(0x71, 0x71, 0x7A))
         except Exception as ex:
             logger.debug("_update_action_mode_chip error: {}".format(ex))
