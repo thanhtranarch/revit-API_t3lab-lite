@@ -184,11 +184,14 @@ class OllamaProvider(BaseLLMProvider):
         msgs.append({"role": "user", "content": text})
 
         payload = {
-            "model":    model,
-            "messages": msgs,
-            "stream":   False,
-            "format":   "json",
-            "options":  {
+            "model":      model,
+            "messages":   msgs,
+            "stream":     False,
+            "format":     "json",
+            # Keep the model resident between requests — reloading a local
+            # model costs multi-second latency on every cold call.
+            "keep_alive": "15m",
+            "options":    {
                 "temperature": 0.0,
                 "num_predict": max_tokens,
             },
@@ -229,10 +232,11 @@ class OllamaProvider(BaseLLMProvider):
         msgs.extend(list(messages or []))
 
         payload = {
-            "model":    model,
-            "messages": msgs,
-            "stream":   False,
-            "options":  {"temperature": 0.0, "num_predict": max_tokens},
+            "model":      model,
+            "messages":   msgs,
+            "stream":     False,
+            "keep_alive": "15m",
+            "options":    {"temperature": 0.0, "num_predict": max_tokens},
         }
         if tools:
             payload["tools"] = tools

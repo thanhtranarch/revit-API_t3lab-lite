@@ -32,6 +32,12 @@ ANTHROPIC_API_VER = "2023-06-01"
 # picked from that live list by substring preference only.
 _PREF_TEXT   = ("haiku", "sonnet", "opus")   # cheap-first for plain chat
 _PREF_VISION = ("sonnet", "opus", "haiku")   # capable-first for images/agent
+_PREF_FAST   = ("haiku", "sonnet")           # latency-first for classify calls
+
+# Extended-thinking budget for agent turns (agents.extended_thinking).
+# max_tokens is raised to budget + answer headroom when thinking is on.
+_THINK_BUDGET = 3000
+_THINK_BETA   = "interleaved-thinking-2025-05-14"
 
 
 # ─── Provider ──────────────────────────────────────────────────────────────────
@@ -133,6 +139,11 @@ class ClaudeProvider(BaseLLMProvider):
                     return m
         return models[0]
 
+    def pick_fast_model(self):
+        """Fastest model from the CACHED live list — used for tiny utility
+        calls (classification). No HTTP; None until models were fetched."""
+        return self._pick_model(self._cached_models or [], _PREF_FAST)
+
     def _default_model(self, prefer_vision=False):
         """Default model resolved against the live /v1/models list (may fetch)."""
         return self._pick_model(
@@ -155,7 +166,11 @@ class ClaudeProvider(BaseLLMProvider):
 
         has_vision = self.has_image_blocks(user_content)
 
-        model = self._model or self._default_model(prefer_vision=has_vision)
+        # model_override: callers doing tiny utility calls (dispatcher
+        # classification) can pin the fastest model without touching the
+        # user's saved choice.
+        model = (kwargs.get("model_override") or self._model
+                 or self._default_model(prefer_vision=has_vision))
         if not model:
             return None   # key not verified / vendor reported no models
 
@@ -233,13 +248,31 @@ class ClaudeProvider(BaseLLMProvider):
 
     # ── Agentic chat (native tool calling) ────────────────────────────────────
 
-    def _agent_payload(self, model, system_prompt, messages, tools, max_tokens, stream):
-        """Build a Messages API payload with prompt caching on system + tools.
+    @staticmethod
+    def _thinking_enabled():
+        """agents.extended_thinking switch (default off — costs latency)."""
+        try:
+            _ensure_lib_in_path()
+            from config.settings import get_settings
+            return bool(get_settings().get_agent_option("extended_thinking",
+                                                        False))
+        except Exception:
+            return False
 
-        cache_control markers go on the system block and the LAST tool — the
-        whole (tools + system) prefix is then cached server-side, so the ~75
-        tool schemas cost input tokens once per 5-minute window instead of on
-        every iteration of the agent loop.
+    def _agent_payload(self, model, system_prompt, messages, tools, max_tokens,
+                       stream, thinking=False):
+        """Build a Messages API payload with prompt caching on system + tools
+        AND on the conversation prefix.
+
+        Three ephemeral cache breakpoints (limit is 4):
+          1. system block, 2. LAST tool  — the (tools + system) prefix is
+             cached server-side, so the ~75 tool schemas cost input tokens
+             once per cache window instead of on every iteration;
+          3. the last content block of the LAST message — the growing agent
+             transcript (user turn + tool results) is re-read from cache on
+             every subsequent iteration of the loop instead of being
+             re-processed from scratch. On multi-tool requests this cuts
+             both latency and input cost substantially.
         """
         cached_tools = list(tools or [])
         if cached_tools:
@@ -252,13 +285,44 @@ class ClaudeProvider(BaseLLMProvider):
             "max_tokens": max_tokens,
             "system":     [{"type": "text", "text": system_prompt,
                             "cache_control": {"type": "ephemeral"}}],
-            "messages":   list(messages or []),
+            "messages":   self._cache_marked_messages(messages),
         }
         if cached_tools:
             payload["tools"] = cached_tools
+        if thinking:
+            # budget must stay below max_tokens — raise the cap so the final
+            # answer never gets squeezed out by the reasoning budget.
+            payload["thinking"]   = {"type": "enabled",
+                                     "budget_tokens": _THINK_BUDGET}
+            payload["max_tokens"] = max(max_tokens, _THINK_BUDGET + 2000)
         if stream:
             payload["stream"] = True
         return payload
+
+    @staticmethod
+    def _cache_marked_messages(messages):
+        """Copy `messages` with a cache_control marker on the final content
+        block of the final message. Shallow-copies only the path it touches —
+        the shared history/tool-result structures are never mutated."""
+        msgs = list(messages or [])
+        if not msgs:
+            return msgs
+        last = dict(msgs[-1])
+        content = last.get("content")
+        if isinstance(content, list) and content:
+            blk = content[-1]
+            if isinstance(blk, dict) and blk.get("type") in (
+                    "text", "tool_result", "tool_use", "image", "document"):
+                blk = dict(blk)
+                blk["cache_control"] = {"type": "ephemeral"}
+                last["content"] = content[:-1] + [blk]
+        elif isinstance(content, ("".__class__, u"".__class__)) and content:
+            # plain string content (sanitized history turn)
+            last["content"] = [{"type": "text", "text": content,
+                                "cache_control": {"type": "ephemeral"}}]
+        else:
+            return msgs
+        return msgs[:-1] + [last]
 
     def chat_agent(self, system_prompt, messages, tools,
                    on_delta=None, max_tokens=1500, **kwargs):
@@ -279,10 +343,15 @@ class ClaudeProvider(BaseLLMProvider):
         if not model:
             return None
 
+        # Deep reasoning (opt-in): extended thinking between tool calls.
+        thinking = self._thinking_enabled()
+
         headers = {
             "x-api-key":         api_key,
             "anthropic-version": ANTHROPIC_API_VER,
         }
+        if thinking:
+            headers["anthropic-beta"] = _THINK_BETA
 
         # ── Streaming attempt ────────────────────────────────────────────────
         state = {
@@ -311,6 +380,12 @@ class ClaudeProvider(BaseLLMProvider):
                 if cb.get("type") == "tool_use":
                     state["cur"] = {"type": "tool_use", "id": cb.get("id", ""),
                                     "name": cb.get("name", ""), "parts": []}
+                elif cb.get("type") in ("thinking", "redacted_thinking"):
+                    # Reasoning blocks are captured (they MUST be echoed back
+                    # in the transcript when thinking is on) but never shown.
+                    state["cur"] = {"type": cb.get("type"), "parts": [],
+                                    "sig": cb.get("signature"),
+                                    "data": cb.get("data")}
                 else:
                     state["cur"] = {"type": "text", "parts": []}
 
@@ -329,6 +404,10 @@ class ClaudeProvider(BaseLLMProvider):
                             pass
                 elif delta.get("type") == "input_json_delta":
                     cur["parts"].append(delta.get("partial_json") or u"")
+                elif delta.get("type") == "thinking_delta":
+                    cur["parts"].append(delta.get("thinking") or u"")
+                elif delta.get("type") == "signature_delta":
+                    cur["sig"] = delta.get("signature")
 
             elif etype == "content_block_stop":
                 cur = state["cur"]
@@ -345,7 +424,8 @@ class ClaudeProvider(BaseLLMProvider):
         try:
             self._clear_error()
             payload = self._agent_payload(model, system_prompt, messages, tools,
-                                          max_tokens, stream=True)
+                                          max_tokens, stream=True,
+                                          thinking=thinking)
             http_post_stream(CLAUDE_API_URL, payload, headers, _on_line,
                              timeout_ms=180000)
             streamed_ok = bool(state["blocks"]) or state["stop_reason"] is not None
@@ -359,7 +439,8 @@ class ClaudeProvider(BaseLLMProvider):
         # ── Blocking fallback ────────────────────────────────────────────────
         try:
             payload   = self._agent_payload(model, system_prompt, messages, tools,
-                                            max_tokens, stream=False)
+                                            max_tokens, stream=False,
+                                            thinking=thinking)
             resp_text = http_post(CLAUDE_API_URL, payload, headers,
                                   timeout_ms=180000)
             api_result = json.loads(resp_text)
@@ -371,6 +452,13 @@ class ClaudeProvider(BaseLLMProvider):
                     blocks.append({"type": "tool_use", "id": b.get("id", ""),
                                    "name": b.get("name", ""),
                                    "parts": [json.dumps(b.get("input") or {})]})
+                elif b.get("type") == "thinking":
+                    blocks.append({"type": "thinking",
+                                   "parts": [b.get("thinking", "")],
+                                   "sig": b.get("signature")})
+                elif b.get("type") == "redacted_thinking":
+                    blocks.append({"type": "redacted_thinking", "parts": [],
+                                   "data": b.get("data")})
             return self._agent_result_from_blocks(
                 blocks, api_result.get("stop_reason"))
         except Exception as ex:
@@ -379,7 +467,12 @@ class ClaudeProvider(BaseLLMProvider):
 
     @staticmethod
     def _agent_result_from_blocks(blocks, stop_reason):
-        """Assemble the uniform chat_agent result from streamed blocks."""
+        """Assemble the uniform chat_agent result from streamed blocks.
+
+        Thinking blocks are preserved in assistant_msg (the API requires the
+        exact blocks + signatures back in the transcript when extended
+        thinking is enabled) but never surface in the user-visible text.
+        """
         texts      = []
         tool_calls = []
         content    = []
@@ -389,6 +482,14 @@ class ClaudeProvider(BaseLLMProvider):
                 if joined:
                     texts.append(joined)
                     content.append({"type": "text", "text": joined})
+            elif b["type"] == "thinking":
+                blk = {"type": "thinking", "thinking": joined}
+                if b.get("sig"):
+                    blk["signature"] = b["sig"]
+                content.append(blk)
+            elif b["type"] == "redacted_thinking":
+                content.append({"type": "redacted_thinking",
+                                "data": b.get("data")})
             else:  # tool_use
                 try:
                     args = json.loads(joined) if joined.strip() else {}

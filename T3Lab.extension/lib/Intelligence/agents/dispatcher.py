@@ -148,9 +148,17 @@ class AgentDispatcher(object):
             '(PDF markup resolution), general (anything else).'
             '{}\nReply ONLY JSON: {{"label": "...", "skill": "id-or-null"}}'
             .format(catalog))
+        # Latency: classification is trivial — pin the provider's fastest
+        # model when one is known (e.g. Haiku / *-mini) instead of paying the
+        # active model's latency for a 60-token label.
+        fast = None
+        try:
+            fast = provider.pick_fast_model()
+        except Exception:
+            fast = None
         try:
             raw = provider.chat([], system, text or '', max_tokens=60,
-                                temperature=0.0)
+                                temperature=0.0, model_override=fast)
         except TypeError:
             try:
                 raw = provider.chat([], system, text or '', 60)

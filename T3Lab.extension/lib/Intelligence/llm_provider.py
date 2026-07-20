@@ -604,6 +604,14 @@ class BaseLLMProvider(object):
         """Return the model name currently in use, or None."""
         return None
 
+    def pick_fast_model(self):
+        """Fastest/cheapest model for tiny utility calls (classification).
+
+        Providers override this from their CACHED live model list; None means
+        "no faster option known — use the active model".
+        """
+        return None
+
     def set_model(self, model_name):
         """
         Set the model to use for future requests.

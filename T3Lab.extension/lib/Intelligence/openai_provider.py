@@ -164,6 +164,14 @@ class OpenAIProvider(BaseLLMProvider):
             return self._model
         return self._pick_model(self.get_models(), prefer_vision=has_vision)
 
+    def pick_fast_model(self):
+        """Fastest model from the CACHED live list (classification calls)."""
+        for hint in ("nano", "mini"):
+            for m in (self._cached_models or []):
+                if hint in m:
+                    return m
+        return None
+
     # ── Chat ─────────────────────────────────────────────────────────────────
 
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
@@ -183,7 +191,7 @@ class OpenAIProvider(BaseLLMProvider):
 
         has_vision = self.has_image_blocks(user_content)
 
-        model = self._resolve_model(has_vision)
+        model = kwargs.get("model_override") or self._resolve_model(has_vision)
         if not model:
             return None   # key not verified / vendor reported no models
 
