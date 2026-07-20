@@ -8,10 +8,12 @@ Author: Tran Tien Thanh
 Mail: trantienthanh909@gmail.com
 Linkedin: linkedin.com/in/sunarch7899/
 """
+from __future__ import unicode_literals
 
 __author__  = "Tran Tien Thanh"
 __title__   = "Settings"
 
+import io
 import os
 import json
 
@@ -47,7 +49,7 @@ class T3LabAISettings(object):
         """Load settings from file"""
         if os.path.exists(self._settings_file):
             try:
-                with open(self._settings_file, 'r') as f:
+                with io.open(self._settings_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception:
                 pass
@@ -73,6 +75,19 @@ class T3LabAISettings(object):
                 'height':       580,
                 'sidebar_open': False,
             },
+            'active_project': None,
+            'knowledge': {
+                'dirs':               [],
+                'embeddings_enabled': True,
+                'embed_model':        'nomic-embed-text',
+            },
+            'agents': {
+                'multi_agent':  True,
+                'llm_classify': True,
+            },
+            'skills': {
+                'disabled': [],
+            },
         }
 
     def get_window_state(self):
@@ -95,10 +110,18 @@ class T3LabAISettings(object):
         self.save_settings()
 
     def save_settings(self):
-        """Save settings to file"""
+        """Save settings to file.
+
+        Uses ensure_ascii=True + io.open(utf-8) so non-ASCII values
+        (Vietnamese usernames, unicode paths) never break the dump
+        under IronPython 2.7.
+        """
         try:
-            with open(self._settings_file, 'w') as f:
-                json.dump(self._settings, f, indent=2)
+            payload = json.dumps(self._settings, indent=2, ensure_ascii=True)
+            if isinstance(payload, bytes):
+                payload = payload.decode('ascii')
+            with io.open(self._settings_file, 'w', encoding='utf-8') as f:
+                f.write(payload)
             return True
         except Exception:
             return False
@@ -160,6 +183,103 @@ class T3LabAISettings(object):
         """Persist the user name."""
         self._settings['username'] = username
         self.save_settings()
+
+    # ------------------------------------------------------------------
+    # Knowledge directories (RAG sources)
+    # ------------------------------------------------------------------
+
+    def get_knowledge_dirs(self):
+        """Return the list of user-added knowledge directories."""
+        return list(self._settings.get('knowledge', {}).get('dirs', []))
+
+    def add_knowledge_dir(self, path):
+        """Add a knowledge directory (reload-merge-save, like set_api_key)."""
+        self._settings = self._load_settings()
+        know = self._settings.setdefault('knowledge', {})
+        dirs = know.setdefault('dirs', [])
+        if path not in dirs:
+            dirs.append(path)
+        return self.save_settings()
+
+    def remove_knowledge_dir(self, path):
+        """Remove a knowledge directory."""
+        self._settings = self._load_settings()
+        know = self._settings.setdefault('knowledge', {})
+        dirs = know.setdefault('dirs', [])
+        if path in dirs:
+            dirs.remove(path)
+        return self.save_settings()
+
+    def get_knowledge_option(self, key, default=None):
+        """Read a scalar option from the knowledge block."""
+        return self._settings.get('knowledge', {}).get(key, default)
+
+    def set_knowledge_option(self, key, value):
+        """Persist a scalar option in the knowledge block."""
+        self._settings = self._load_settings()
+        self._settings.setdefault('knowledge', {})[key] = value
+        return self.save_settings()
+
+    # ------------------------------------------------------------------
+    # Multi-agent switches
+    # ------------------------------------------------------------------
+
+    def is_multi_agent_enabled(self):
+        """Kill switch for the specialist dispatcher (default on)."""
+        return bool(self._settings.get('agents', {}).get('multi_agent', True))
+
+    def is_llm_classify_enabled(self):
+        """Whether the dispatcher may use one small LLM call to classify."""
+        return bool(self._settings.get('agents', {}).get('llm_classify', True))
+
+    def get_action_mode(self):
+        """Harness action mode for model-editing tools.
+
+        'auto'    = agent executes edits immediately (legacy behavior).
+        'confirm' = agent must reply with a plan and wait for the user's OK
+                    before any model-modifying tool call.
+        """
+        mode = self._settings.get('agents', {}).get('action_mode', 'auto')
+        return mode if mode in ('auto', 'confirm') else 'auto'
+
+    def set_agent_option(self, key, value):
+        """Persist a switch in the agents block."""
+        self._settings = self._load_settings()
+        self._settings.setdefault('agents', {})[key] = value
+        return self.save_settings()
+
+    # ------------------------------------------------------------------
+    # Skills
+    # ------------------------------------------------------------------
+
+    def get_disabled_skills(self):
+        """Return the list of skill ids the user switched off."""
+        return list(self._settings.get('skills', {}).get('disabled', []))
+
+    def set_skill_disabled(self, skill_id, disabled):
+        """Toggle a skill on/off (persisted globally)."""
+        self._settings = self._load_settings()
+        block = self._settings.setdefault('skills', {})
+        items = block.setdefault('disabled', [])
+        if disabled and skill_id not in items:
+            items.append(skill_id)
+        elif not disabled and skill_id in items:
+            items.remove(skill_id)
+        return self.save_settings()
+
+    # ------------------------------------------------------------------
+    # Active project
+    # ------------------------------------------------------------------
+
+    def get_active_project(self):
+        """Return the active project id, or None."""
+        return self._settings.get('active_project')
+
+    def set_active_project(self, project_id):
+        """Persist the active project id (None = no project)."""
+        self._settings = self._load_settings()
+        self._settings['active_project'] = project_id
+        return self.save_settings()
 
     def log_model_usage(self, action, provider, model):
         """Log model usage/setup to a log file for audit and fast setup verification."""
