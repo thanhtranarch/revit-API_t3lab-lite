@@ -44,6 +44,8 @@ The following XAML files are **UI-locked** — their visual design is finalized 
 
 **All agents** (`@ui-agent`, `@ui-police-agent`, `@tool-builder-agent`, `@script-frame-agent`) must skip these files entirely during any UI-related task. Do not run `sync_wpf_styles.py` against them. Do not include them in bulk XAML audits.
 
+> **Authorised exception (2026-07-20):** `ExportManager.xaml` has a Pause/Stop control panel (`export_controls_panel` + `btn_export_pause`/`btn_export_stop`) added inside the progress area with the user's explicit permission, to support BatchOut's chunked export cancel/pause. This block is intentional — do not remove it as a "frozen-file violation". The rest of the file remains UI-locked.
+
 ## Agents
 
 Spawn the appropriate agent based on the task:

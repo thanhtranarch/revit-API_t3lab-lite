@@ -1520,62 +1520,38 @@
 
                     <!-- Left: Status text & Progress -->
                     <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
-                        <!-- Progress panel (hidden when idle) -->
+                        <!-- Progress panel (hidden when idle) — synced to AutoJoin:
+                             shared SecondaryButton/DangerButton + Segoe MDL2 icons,
+                             mixin toggles btn_pause_icon/btn_pause_label (Pause↔Play) -->
                         <Grid x:Name="progress_panel" Visibility="Collapsed" Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="8"/>
-                                <ColumnDefinition Width="64"/>
-                                <ColumnDefinition Width="4"/>
-                                <ColumnDefinition Width="52"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="6"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <ProgressBar x:Name="pb_export" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
                                          Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
-                            <Button x:Name="btn_pause_export" Grid.Column="2"
-                                    Content="⏸  Pause" Height="22" FontSize="10" FontFamily="Hanken Grotesk"
-                                    Click="pause_resume_clicked" Cursor="Hand"
-                                    BorderThickness="1" BorderBrush="#CBD5E1" VerticalAlignment="Center">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Background" Value="#F8FAFC"/>
-                                        <Setter Property="Foreground" Value="#0F172A"/>
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="6,2">
-                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                    </Border>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                        <Style.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#F1F5F9"/></Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
+
+                            <!-- Pause / Resume -->
+                            <Button x:Name="btn_pause_export" Grid.Column="2" Style="{StaticResource SecondaryButton}"
+                                    Height="26" Padding="12,0" FontSize="11"
+                                    Click="pause_resume_clicked">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock x:Name="btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Button>
-                            <Button x:Name="btn_stop_export" Grid.Column="4"
-                                    Content="■  Stop" Height="22" FontSize="10" FontFamily="Hanken Grotesk"
-                                    Click="stop_export_clicked" Cursor="Hand"
-                                    BorderThickness="0" VerticalAlignment="Center">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Background" Value="#EF4444"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="6,2">
-                                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                    </Border>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                        <Style.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#DC2626"/></Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
+
+                            <!-- Stop -->
+                            <Button x:Name="btn_stop_export" Grid.Column="4" Style="{StaticResource DangerButton}"
+                                    Height="26" Padding="12,0" FontSize="11"
+                                    Click="stop_export_clicked">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Stop" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Button>
                         </Grid>
 

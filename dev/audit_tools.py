@@ -120,6 +120,13 @@ def main():
     if not QUIET:
         print("== 3. XAML handlers have Python methods ==")
     base_handlers = set(re.findall(r'def\s+(\w+)\s*\(', py_src.get(os.path.join(LIB, "GUI", "WPF_Base.py"), "")))
+    # Handlers cung cấp bởi mixin dùng chung (lib/GUI/*Mixin.py) chỉ được tính
+    # cho những script thực sự nhắc tới mixin đó (import/inherit).
+    mixin_defs = {}
+    for _p, _s in py_src.items():
+        _name = os.path.basename(_p)
+        if _name.endswith("Mixin.py"):
+            mixin_defs[_name[:-3]] = set(re.findall(r'def\s+(\w+)\s*\(', _s))
     EVENT = re.compile(
         r'\b(?:Click|Checked|Unchecked|SelectionChanged|TextChanged|MouseLeftButtonDown'
         r'|MouseDoubleClick|Loaded|Closing|KeyDown|KeyUp|PreviewKeyDown|PreviewTextInput'
@@ -139,6 +146,9 @@ def main():
             continue
         combined = "\n".join(py_src[p] for p in owners)
         defined = set(re.findall(r'def\s+(\w+)\s*\(', combined)) | base_handlers
+        for _mixin, _defs in mixin_defs.items():
+            if _mixin in combined:
+                defined |= _defs
         missing = sorted(handlers - defined)
         if missing:
             report("%s: handlers missing in %s: %s"

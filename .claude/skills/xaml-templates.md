@@ -502,10 +502,86 @@ Dark accent card (for highlight metrics):
 
 ---
 
-## 13. Progress Bar
+## 13. Progress Bar + Pause/Stop (batch tools)
+
+For any tool that loops over many items (export, create, rename…), use the shared
+progress panel + `ProgressPauseMixin` pattern. Canonical live example: `AutoJoin.xaml`
++ `AutoJoin.pushbutton/script.py`.
+
+**Python side** — inherit the mixin (`T3Lab.extension/lib/GUI/ProgressPauseMixin.py`):
+
+```python
+from GUI.ProgressPauseMixin import ProgressPauseMixin
+
+class MyToolWindow(forms.WPFWindow, ProgressPauseMixin):
+    # Override PP_BAR / PP_PAUSE / PP_STOP / PP_PANEL / PP_STATUS
+    # class attrs if the XAML uses different x:Name values.
+
+    def run_clicked(self, sender, e):
+        items = collect_items()
+        self.begin_progress(len(items), disable=[self.btn_run])
+        for i, item in enumerate(items):
+            if not self.step_progress(i, "Processing {}...".format(item)):
+                break                      # user pressed Stop
+            process(item)                  # one item per step
+        cancelled = self.is_cancelled      # read BEFORE end_progress()
+        self.end_progress()
+```
+
+Rules: modal windows (`ShowDialog`) only — never pump the dispatcher inside a
+modeless ExternalEvent `Execute()`. Prefer per-item/chunk transactions
+(`TransactionGroup`) so pause never holds a transaction open.
+
+**XAML side** — place inside the status-bar row, above the copyright line
+(`Collapsed` when idle):
 
 ```xml
-<ProgressBar Value="75" Height="8" Background="#ECECEF" Foreground="#C2410C" BorderThickness="0"/>
+<!-- Progress panel: bar + Pause + Stop (hidden when idle) -->
+<Grid x:Name="progress_panel" Visibility="Collapsed" Margin="0,0,0,6">
+    <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="6"/>
+        <ColumnDefinition Width="Auto"/>
+    </Grid.ColumnDefinitions>
+
+    <ProgressBar x:Name="pb_run" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
+                 Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
+
+    <!-- Pause / Resume — the mixin toggles btn_pause_icon/btn_pause_label
+         (Pause &#xE769; ↔ Play &#xE768;) when these x:Names are present -->
+    <Button x:Name="btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
+            Height="28" Padding="14,0" FontSize="12"
+            Click="pause_resume_clicked">
+        <StackPanel Orientation="Horizontal">
+            <TextBlock x:Name="btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <TextBlock x:Name="btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
+        </StackPanel>
+    </Button>
+
+    <!-- Stop -->
+    <Button x:Name="btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
+            Height="28" Padding="14,0" FontSize="12"
+            Click="stop_clicked">
+        <StackPanel Orientation="Horizontal">
+            <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <TextBlock Text="Stop" VerticalAlignment="Center"/>
+        </StackPanel>
+    </Button>
+</Grid>
+```
+
+Icon rule: button icons are **Segoe MDL2 Assets glyphs** in an embedded TextBlock
+(no `Foreground` — it inherits from the button style), never color emoji
+(💾/📂/▶). Common glyphs: Save `&#xE74E;`, Open `&#xE8E5;`, Play `&#xE768;`,
+Pause `&#xE769;`, Stop `&#xE71A;`, Add `&#xE710;`, Remove/X `&#xE711;`,
+Switch `&#xE8AB;`.
+
+Plain bar (no pause — quick loads only):
+
+```xml
+<ProgressBar Height="8" Style="{StaticResource T3ProgressBar}"/>
 ```
 
 ---

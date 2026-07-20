@@ -29,10 +29,9 @@ clr.AddReference('PresentationCore')
 clr.AddReference('WindowsBase')
 clr.AddReference('System')
 
-from System.Windows import WindowState, Visibility  # type: ignore
+from System.Windows import WindowState  # type: ignore
 from System.Windows.Media.Imaging import BitmapImage  # type: ignore
-from System.Windows.Threading import DispatcherPriority, DispatcherFrame  # type: ignore
-from System import Uri, UriKind, Action  # type: ignore
+from System import Uri, UriKind  # type: ignore
 
 from Autodesk.Revit.DB import (
     Transaction, FilteredElementCollector,
@@ -54,6 +53,7 @@ if lib_dir not in sys.path:
     sys.path.append(lib_dir)
 
 from Snippets._compat import eid_value
+from GUI.ProgressPauseMixin import ProgressPauseMixin
 
 # DEFINE VARIABLES
 # ==================================================
@@ -363,7 +363,11 @@ def load_rules_from_file(filepath=None):
 # WPF WINDOW
 # ==================================================
 
-class AutoJoinWindow(forms.WPFWindow):
+class AutoJoinWindow(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin — XAML element names match the mixin defaults
+    # (progress_panel / pb_run / btn_pause / btn_stop / status_text)
+    PP_STOP_MSG = u"Stopping… finishing current element"
 
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
@@ -395,66 +399,9 @@ class AutoJoinWindow(forms.WPFWindow):
         self.rule_count_text.Text = "{} rule(s) defined".format(len(self._rules))
 
     # --------------------------------------------------
-    # Progress helpers
+    # Progress / Pause / Stop — provided by ProgressPauseMixin
+    # (XAML wires Click="pause_resume_clicked" / Click="stop_clicked")
     # --------------------------------------------------
-
-    def _do_events(self):
-        try:
-            frame = DispatcherFrame()
-            def _stop(f=frame):
-                f.Continue = False
-            self.Dispatcher.BeginInvoke(
-                DispatcherPriority.Background,
-                Action(_stop))
-            self.Dispatcher.PushFrame(frame)
-        except Exception:
-            pass
-
-    def _update_progress(self, value, maximum):
-        try:
-            self.pb_run.Maximum = maximum
-            self.pb_run.Value   = value
-            self.progress_panel.Visibility = Visibility.Visible
-        except Exception:
-            pass
-        self._do_events()
-        while self._pause_requested and not self._cancel_requested:
-            self._do_events()
-
-    def _hide_progress(self):
-        try:
-            self.progress_panel.Visibility = Visibility.Collapsed
-            self.pb_run.Value = 0
-            self._cancel_requested = False
-            self._pause_requested  = False
-            self.btn_pause.Content   = u"⏸  Pause"
-            self.btn_pause.IsEnabled = True
-            self.btn_stop.IsEnabled  = True
-        except Exception:
-            pass
-
-    def stop_clicked(self, sender, e):
-        self._cancel_requested = True
-        self._pause_requested  = False
-        try:
-            self.btn_stop.IsEnabled = False
-            self.status_text.Text = u"Stopping… finishing current element"
-        except Exception:
-            pass
-
-    def pause_resume_clicked(self, sender, e):
-        if self._pause_requested:
-            self._pause_requested = False
-            try:
-                self.btn_pause.Content = u"⏸  Pause"
-            except Exception:
-                pass
-        else:
-            self._pause_requested = True
-            try:
-                self.btn_pause.Content = u"▶  Resume"
-            except Exception:
-                pass
 
     # --------------------------------------------------
     # Window chrome handlers
@@ -604,10 +551,7 @@ class AutoJoinWindow(forms.WPFWindow):
         if td.Show() != TaskDialogResult.Yes:
             return
 
-        self._cancel_requested = False
-        self._pause_requested  = False
-        self.btn_run.IsEnabled = False
-        self._update_progress(0, 100)
+        self.begin_progress(100, disable=[self.btn_run])
         self.status_text.Text = u"Running…"
 
         def progress_cb(current, total, message):
@@ -624,10 +568,12 @@ class AutoJoinWindow(forms.WPFWindow):
 
         save_rules_to_file(self._rules)
 
-        self._hide_progress()
-        self.btn_run.IsEnabled = True
+        # Read the cancel flag BEFORE end_progress() — it resets the flags.
+        # (Pre-mixin code read it after _hide_progress(), so the
+        #  "Cancelled" summary below could never trigger.)
+        cancelled = self.is_cancelled
+        self.end_progress()
 
-        cancelled = self._cancel_requested
         if cancelled:
             self.status_text.Text = u"Cancelled – {}ed {} pair(s)".format(
                 mode.lower(), joined

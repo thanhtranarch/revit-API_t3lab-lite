@@ -26,6 +26,12 @@ import re
 import sys
 import glob
 
+# Console Windows mặc định (cp1252) không in được tiếng Việt — ép UTF-8.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOOLS = os.path.join(REPO, "T3Lab.extension", "lib", "GUI", "Tools")
 

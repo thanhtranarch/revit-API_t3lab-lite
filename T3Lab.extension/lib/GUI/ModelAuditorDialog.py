@@ -26,6 +26,7 @@ from System.Collections.ObjectModel import ObservableCollection
 from System.ComponentModel import INotifyPropertyChanged, PropertyChangedEventArgs
 
 from pyrevit import forms, DB, script, revit
+from GUI.ProgressPauseMixin import ProgressPauseMixin
 from Autodesk.Revit.DB import (
     FilteredElementCollector, BuiltInCategory, BuiltInParameter, ElementId,
     Transaction, TransactionGroup, FamilyInstance, ImportInstance, RevitLinkInstance,
@@ -323,7 +324,7 @@ class ModelHealthAnalyzer(object):
         self.metrics = OrderedDict()
         self.element_ids = {}
 
-    def analyze(self, progress_callback=None):
+    def analyze(self, progress_callback=None, cancel_check=None):
         methods = [
             (self._file_size, "Calculating File Size"),
             (self._warnings, "Collecting Warnings"),
@@ -346,10 +347,12 @@ class ModelHealthAnalyzer(object):
         
         total = len(methods)
         for idx, (m, name) in enumerate(methods):
+            if cancel_check and cancel_check():
+                break
             if progress_callback:
                 progress_callback(int((idx / float(total)) * 100), name)
             m()
-            
+
         if progress_callback:
             progress_callback(100, "Done")
         return self.metrics
@@ -542,10 +545,15 @@ class RuleEngine(object):
         self.doc = doc
         self.app = doc.Application
 
-    def run_checkset(self, checkset_data):
+    def run_checkset(self, checkset_data, progress_callback=None, cancel_check=None):
         results = []
         rules = checkset_data.get("rules", [])
-        for rule in rules:
+        total = len(rules)
+        for idx, rule in enumerate(rules):
+            if cancel_check and cancel_check():
+                break
+            if progress_callback:
+                progress_callback(idx, total)
             if not rule.get("enabled", True):
                 results.append({
                     "id": rule.get("id", ""),
@@ -822,7 +830,18 @@ def parse_slog_time(time_str):
 # ============================================================================
 # MAIN AUDITOR WINDOW
 # ============================================================================
-class ModelAuditorWindow(forms.WPFWindow):
+class ModelAuditorWindow(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin — ModelAuditor.xaml footer progress panel
+    PP_PANEL      = "ma_progress_panel"
+    PP_BAR        = "progress_bar"
+    PP_PAUSE      = "ma_btn_pause"
+    PP_STOP       = "ma_btn_stop"
+    PP_PAUSE_ICON = "ma_btn_pause_icon"
+    PP_PAUSE_TEXT = "ma_btn_pause_label"
+    PP_STATUS     = "status_text"
+    PP_STOP_MSG   = u"Stopping… finishing current step"
+
     def __init__(self, script_dir, revit):
         forms.WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
@@ -859,6 +878,12 @@ class ModelAuditorWindow(forms.WPFWindow):
         self.btn_checker_run.Click += self.on_checker_run
         self.btn_checker_export.Click += self.on_checker_export
         self._init_checksets()
+
+        # Progress Pause/Stop (ProgressPauseMixin) — wire footer buttons
+        if getattr(self, "ma_btn_pause", None) is not None:
+            self.ma_btn_pause.Click += self.pause_resume_clicked
+        if getattr(self, "ma_btn_stop", None) is not None:
+            self.ma_btn_stop.Click += self.stop_clicked
 
         # 3. Warnings tab
         self.btn_warning_reload.Click += self.on_warning_reload
@@ -931,12 +956,20 @@ class ModelAuditorWindow(forms.WPFWindow):
             pass
 
     def _set_progress(self, percent, text=None):
-        """Update progress bar visibility, value, and status text."""
+        """Legacy simple progress (no Pause/Stop). Toggles the whole
+        ma_progress_panel so its bar stays visible; batch loops now use the
+        ProgressPauseMixin (begin_progress/step_progress/end_progress)."""
         try:
             import System
+            panel = getattr(self, "ma_progress_panel", None)
             if percent is None or percent < 0:
-                self.progress_bar.Visibility = System.Windows.Visibility.Collapsed
+                if panel is not None:
+                    panel.Visibility = System.Windows.Visibility.Collapsed
+                else:
+                    self.progress_bar.Visibility = System.Windows.Visibility.Collapsed
             else:
+                if panel is not None:
+                    panel.Visibility = System.Windows.Visibility.Visible
                 self.progress_bar.Visibility = System.Windows.Visibility.Visible
                 self.progress_bar.Value = percent
             if text:
@@ -1035,11 +1068,19 @@ class ModelAuditorWindow(forms.WPFWindow):
 
     def on_health_run(self, sender, e):
         self.status_text.Text = "Running model health analysis..."
+        # Progress bar + Pause/Stop while the 17-step analysis runs
+        self.begin_progress(100, disable=[sender])
         def progress_cb(pct, name):
-            self._set_progress(pct, "Running diagnostics: {}...".format(name))
-        self.health_results = self.health_analyzer.analyze(progress_callback=progress_cb)
-        self._set_progress(-1)
-        
+            self.step_progress(pct, "Running diagnostics: {}...".format(name))
+        self.health_results = self.health_analyzer.analyze(
+            progress_callback=progress_cb,
+            cancel_check=lambda: self.is_cancelled)
+        cancelled = self.is_cancelled
+        self.end_progress()
+        if cancelled:
+            self.status_text.Text = "Health analysis cancelled."
+            return
+
         # Calculate score and grade
         weighted_total = 0
         weight_sum = 0
@@ -1293,23 +1334,37 @@ class ModelAuditorWindow(forms.WPFWindow):
             return
         
         self.status_text.Text = "Running compliance audits on checkset '{}'...".format(checkset_name)
+        self.begin_progress(100, disable=[sender])
         try:
             checksets_dir = os.path.join(os.path.dirname(__file__), "..", "Services", "ModelAuditor", "checksets")
             checksets_dir = os.path.normpath(checksets_dir)
             checkset_path = os.path.join(checksets_dir, checkset_name + ".json")
-            
+
             with codecs.open(checkset_path, "r", "utf-8") as f:
                 checkset_data = json.load(f)
-            
+
+            def progress_cb(current, total):
+                pct = int(float(current) / float(total) * 100) if total > 0 else 0
+                self.step_progress(pct, "Running rule {}/{}...".format(current, total))
+
             engine = RuleEngine(self.doc)
-            results = engine.run_checkset(checkset_data)
+            results = engine.run_checkset(
+                checkset_data,
+                progress_callback=progress_cb,
+                cancel_check=lambda: self.is_cancelled)
             self.dg_checker_results.ItemsSource = [GridRow(**r) for r in results]
-            
+
+            cancelled = self.is_cancelled
             fails = sum(1 for r in results if r["status"] == "Fail")
-            self.status_text.Text = "Compliance check complete. Rules run: {}, Fails: {}".format(len(results), fails)
+            if cancelled:
+                self.status_text.Text = "Compliance check cancelled. Rules run: {}, Fails: {}".format(len(results), fails)
+            else:
+                self.status_text.Text = "Compliance check complete. Rules run: {}, Fails: {}".format(len(results), fails)
         except Exception as ex:
             forms.alert("Failed to run compliance check:\n{}".format(ex), title="Error")
             traceback.print_exc()
+        finally:
+            self.end_progress()
 
     def on_checker_export(self, sender, e):
         items = self.dg_checker_results.ItemsSource
@@ -1484,9 +1539,11 @@ class ModelAuditorWindow(forms.WPFWindow):
             self.purge_items = []
             categories = create_purge_categories()
             total_cats = len(categories)
+            self.begin_progress(100)
             for idx, cat in enumerate(categories):
                 pct = int((idx / float(total_cats)) * 100)
-                self._set_progress(pct, "Scanning unused components: {} ({} of {})".format(cat.name, idx + 1, total_cats))
+                if not self.step_progress(pct, "Scanning unused components: {} ({} of {})".format(cat.name, idx + 1, total_cats)):
+                    break
                 try:
                     scanner = create_scanner(cat.scanner_class, self.doc)
                     if scanner:
@@ -1500,12 +1557,16 @@ class ModelAuditorWindow(forms.WPFWindow):
                                 self.purge_items.append(item_row)
                 except Exception as ex:
                     pass
-            
-            self._set_progress(-1)
+
+            cancelled = self.is_cancelled
+            self.end_progress()
             self.dg_smart_purge.ItemsSource = ObservableCollection[object](self.purge_items)
-            self.status_text.Text = "Smart Purge scan complete. Unused items found: {}".format(len(self.purge_items))
+            if cancelled:
+                self.status_text.Text = "Smart Purge scan cancelled. Unused items found so far: {}".format(len(self.purge_items))
+            else:
+                self.status_text.Text = "Smart Purge scan complete. Unused items found: {}".format(len(self.purge_items))
         except Exception as ex:
-            self._set_progress(-1)
+            self.end_progress()
             forms.alert("Failed to load smart purge elements:\n{}".format(ex))
             traceback.print_exc()
 

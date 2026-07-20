@@ -1,7 +1,7 @@
 [
   {
-    "priority": "Walls", 
-    "join_with": "Walls"
+    "join_with": "Walls", 
+    "priority": "Walls"
   }, 
   {
     "join_with": "Structural Columns", 

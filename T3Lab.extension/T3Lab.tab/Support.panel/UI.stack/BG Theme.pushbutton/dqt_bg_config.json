@@ -1,5 +1,5 @@
 {
-  "b": 0, 
+  "b": 192, 
   "live_apply": false, 
   "custom_presets": [
     {
@@ -33,7 +33,7 @@
       114
     ]
   ], 
-  "r": 0, 
+  "r": 114, 
   "gradient": {
     "all_views": false, 
     "ground": [
@@ -52,5 +52,5 @@
       82
     ]
   }, 
-  "g": 0
+  "g": 17
 }

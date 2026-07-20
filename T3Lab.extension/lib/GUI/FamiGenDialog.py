@@ -55,6 +55,7 @@ from Autodesk.Revit.DB import (
 from System.Collections.Generic import List as _NetList
 
 from Utils.DWGFamilyHelpers import get_xy_bounds, _project_curve_to_z as _dwg_project_curve
+from GUI.ProgressPauseMixin import ProgressPauseMixin
 
 # ==============================================================================
 # CONSTANTS
@@ -497,7 +498,13 @@ CATEGORY_TEMPLATES = _CATEGORY_TEMPLATES
 # COMBINED DIALOG
 # ==============================================================================
 
-class FamilyCreatorDialog(forms.WPFWindow):
+class FamilyCreatorDialog(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin element names — FamiGen.xaml uses export-suffixed names
+    PP_BAR      = "pb_export"
+    PP_PAUSE    = "btn_pause_export"
+    PP_STOP     = "btn_stop_export"
+    PP_STOP_MSG = u"Stopping… finishing current block"
 
     def __init__(self, revit_doc, revit_app, initial_mode='cad'):
         forms.WPFWindow.__init__(self, _XAML)
@@ -724,66 +731,11 @@ class FamilyCreatorDialog(forms.WPFWindow):
         self._filter_cat = "" if (sel is None or sel == "All Categories") else sel
         self._apply_filter()
 
-    # ── Progress ─────────────────────────────────────────────────────────────
-
-    def _do_events(self):
-        try:
-            from System.Windows.Threading import DispatcherPriority, DispatcherFrame
-            import System
-            frame = DispatcherFrame()
-            def _stop(f=frame):
-                f.Continue = False
-            self.Dispatcher.BeginInvoke(DispatcherPriority.Background, System.Action(_stop))
-            self.Dispatcher.PushFrame(frame)
-        except Exception:
-            pass
-
-    def _update_progress(self, value, maximum):
-        try:
-            self.pb_export.Maximum = maximum
-            self.pb_export.Value   = value
-            self.progress_panel.Visibility = WinVis.Visible
-        except Exception:
-            pass
-        self._do_events()
-        while self._pause_requested and not self._cancel_requested:
-            self._do_events()
-
-    def _hide_progress(self):
-        try:
-            self.progress_panel.Visibility = WinVis.Collapsed
-            self.pb_export.Value = 0
-            self._cancel_requested = False
-            self._pause_requested  = False
-            self.btn_pause_export.Content  = u"⏸  Pause"
-            self.btn_pause_export.IsEnabled = True
-            self.btn_stop_export.IsEnabled  = True
-        except Exception:
-            pass
+    # ── Progress / Pause / Stop — provided by ProgressPauseMixin ────────────
+    # FamiGen.xaml wires Click="stop_export_clicked"; delegate to the mixin.
 
     def stop_export_clicked(self, sender, e):
-        self._cancel_requested = True
-        self._pause_requested  = False
-        try:
-            self.btn_stop_export.IsEnabled = False
-            self._update_status(u"Stopping… finishing current block")
-        except Exception:
-            pass
-
-    def pause_resume_clicked(self, sender, e):
-        if self._pause_requested:
-            self._pause_requested = False
-            try:
-                self.btn_pause_export.Content = u"⏸  Pause"
-            except Exception:
-                pass
-        else:
-            self._pause_requested = True
-            try:
-                self.btn_pause_export.Content = u"▶  Resume"
-                self._update_status(u"Paused — click Resume to continue")
-            except Exception:
-                pass
+        self.stop_clicked(sender, e)
 
     # ── Scanning ─────────────────────────────────────────────────────────────
 
