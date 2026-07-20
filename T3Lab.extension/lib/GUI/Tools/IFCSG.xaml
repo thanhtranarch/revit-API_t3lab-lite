@@ -1683,6 +1683,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Left: copyright + status -->
@@ -1693,7 +1694,34 @@
                                                FontSize="12.5" Foreground="#71717A" VerticalAlignment="Center" FontWeight="Medium"/>
                                 </StackPanel>
 
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                                <!-- Progress panel: bar + Pause + Stop (hidden when idle) -->
+                                <Grid x:Name="ifc_progress_panel" Grid.Column="1" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,12,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="160"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="6"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ProgressBar x:Name="ifc_pb" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
+                                                 Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
+                                    <Button x:Name="ifc_btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
+                                            Height="26" Padding="12,0" FontSize="11">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="ifc_btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock x:Name="ifc_btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="ifc_btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
+                                            Height="26" Padding="12,0" FontSize="11">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Stop" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
                                     <Button x:Name="btnRunCheck" Content="▶ Run Check"
                                             Style="{StaticResource SuccessButton}" Margin="0,0,8,0" IsEnabled="False" MinWidth="120" Height="28"/>
                                     <Button x:Name="btnExportExcel" Content="📊 Export Excel"

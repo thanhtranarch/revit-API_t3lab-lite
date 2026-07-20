@@ -1804,12 +1804,34 @@
                         <TextBlock x:Name="status_text" Text="Ready" FontSize="13.5" Foreground="#71717A" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- Right: progress bar (collapsed when idle) -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
-                        <ProgressBar x:Name="progress_bar" Width="200" Height="8" Minimum="0" Maximum="100" Value="0"
+                    <!-- Right: progress panel bar + Pause + Stop (collapsed when idle) -->
+                    <Grid x:Name="ma_progress_panel" Grid.Column="1" Visibility="Collapsed"
+                          HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ProgressBar x:Name="progress_bar" Grid.Column="0" Height="8" Minimum="0" Maximum="100" Value="0"
                                      Background="#ECECEF" Foreground="#C2410C" BorderThickness="0"
-                                     VerticalAlignment="Center" Visibility="Collapsed"/>
-                    </StackPanel>
+                                     VerticalAlignment="Center"/>
+                        <Button x:Name="ma_btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
+                                Height="26" Padding="12,0" FontSize="11">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="ma_btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="ma_btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="ma_btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
+                                Height="26" Padding="12,0" FontSize="11">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="Stop" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

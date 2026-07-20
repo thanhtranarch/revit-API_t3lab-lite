@@ -42,6 +42,7 @@ from Autodesk.Revit.DB import (
     Transaction, ElementId, StorageType
 )
 from pyrevit import script, forms
+from GUI.ProgressPauseMixin import ProgressPauseMixin
 
 # Dynamically find the XAML layout
 _XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'IFCSG.xaml')
@@ -783,10 +784,10 @@ class ParamChecker:
                 return True
         return False
 
-    def run_check(self, config, progress_callback=None):
+    def run_check(self, config, progress_callback=None, cancel_check=None):
         results = []
         self._element_cache = {}
-        
+
         total_checks = 0
         for d_data in config.disciplines.values():
             if not d_data.get("enabled", True):
@@ -795,17 +796,21 @@ class ParamChecker:
                 if not c_data.get("enabled", True):
                     continue
                 total_checks += len(c_data.get("params", []))
-        
+
         current = 0
-        
+
         for disc_name, disc_data in config.disciplines.items():
             if not disc_data.get("enabled", True):
                 continue
-            
+            if cancel_check and cancel_check():
+                break
+
             for cat_name, cat_data in disc_data.get("categories", {}).items():
                 if not cat_data.get("enabled", True):
                     continue
-                
+                if cancel_check and cancel_check():
+                    break
+
                 elements = self._get_elements(cat_name)
                 
                 if not elements:
@@ -993,7 +998,18 @@ class ExcelReporter:
 # Unified IFC-SG Suite Window
 # ==============================================================================
 
-class IFCSGSuiteWindow(forms.WPFWindow):
+class IFCSGSuiteWindow(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin — IFCSG.xaml progress panel element names
+    PP_PANEL      = "ifc_progress_panel"
+    PP_BAR        = "ifc_pb"
+    PP_PAUSE      = "ifc_btn_pause"
+    PP_STOP       = "ifc_btn_stop"
+    PP_PAUSE_ICON = "ifc_btn_pause_icon"
+    PP_PAUSE_TEXT = "ifc_btn_pause_label"
+    PP_STATUS     = "txtStatus"
+    PP_STOP_MSG   = u"Stopping… finishing current check"
+
     def __init__(self, script_dir, revit):
         forms.WPFWindow.__init__(self, _XAML)
         self._script_dir = script_dir
@@ -1104,6 +1120,18 @@ class IFCSGSuiteWindow(forms.WPFWindow):
         self.btnSelectAllFailed.Click += self._on_select_all_failed
         self.btnRunCheck.Click += self._on_run_check
         self.btnExportExcel.Click += self._on_export_excel
+
+        # Progress + Pause/Stop (ProgressPauseMixin) for the Run Check batch
+        self.ifc_progress_panel = self.FindName("ifc_progress_panel")
+        self.ifc_pb             = self.FindName("ifc_pb")
+        self.ifc_btn_pause      = self.FindName("ifc_btn_pause")
+        self.ifc_btn_pause_icon = self.FindName("ifc_btn_pause_icon")
+        self.ifc_btn_pause_label = self.FindName("ifc_btn_pause_label")
+        self.ifc_btn_stop       = self.FindName("ifc_btn_stop")
+        if self.ifc_btn_pause is not None:
+            self.ifc_btn_pause.Click += self.pause_resume_clicked
+        if self.ifc_btn_stop is not None:
+            self.ifc_btn_stop.Click += self.stop_clicked
 
         # State variables for Tab 2
         self.config = None
@@ -1814,39 +1842,56 @@ class IFCSGSuiteWindow(forms.WPFWindow):
     def _on_run_check(self, sender, args):
         if not self.config:
             return
-        
+
         self.txtStatus.Text = "Running IFC-SG parameter checks..."
         self.Cursor = System.Windows.Input.Cursors.Wait
         self.UpdateLayout()
-        
+
+        # Show progress bar + Pause/Stop; disable Run/Export while running
+        self.begin_progress(100, disable=[self.btnRunCheck, self.btnExportExcel])
+
+        def progress_cb(current, total):
+            pct = int(float(current) / float(total) * 100) if total > 0 else 0
+            self.step_progress(pct, "Checking parameters... {}/{}".format(current, total))
+
         try:
-            self.results = self.checker.run_check(self.config)
+            self.results = self.checker.run_check(
+                self.config,
+                progress_callback=progress_cb,
+                cancel_check=lambda: self.is_cancelled)
             self.all_results = list(self.results)
-            
+
             passed = len([r for r in self.results if r.status == "pass"])
             failed = len([r for r in self.results if r.status == "fail"])
             warning = len([r for r in self.results if r.status == "warning"])
             no_elem = len([r for r in self.results if r.status == "no_elements"])
-            
+
             self.txtPassed.Text = str(passed)
             self.txtFailed.Text = str(failed)
             self.txtWarning.Text = str(warning)
             self.txtNoElem.Text = str(no_elem)
-            
+
             self._current_filter = "all"
             self._render_results(self.results)
-            
+
             self.btnExportExcel.IsEnabled = True
             self.btnSelectAllFailed.IsEnabled = True
             self.txtResultHeader.Text = "Check Results ({} checks)".format(len(self.results))
-            self.txtStatus.Text = "Done: {} passed, {} failed, {} partial, {} no elements".format(
-                passed, failed, warning, no_elem)
-            
+
+            # Read cancel flag BEFORE end_progress() resets it
+            cancelled = self.is_cancelled
+            if cancelled:
+                self.txtStatus.Text = "Cancelled — partial results: {} checks".format(len(self.results))
+            else:
+                self.txtStatus.Text = "Done: {} passed, {} failed, {} partial, {} no elements".format(
+                    passed, failed, warning, no_elem)
+
         except Exception as e:
             self.txtStatus.Text = "Error: {}".format(str(e))
             WPFMessageBox.Show("Error:\n{}".format(traceback.format_exc()),
                                "Error", MessageBoxButton.OK, MessageBoxImage.Error)
         finally:
+            self.end_progress()
             self.Cursor = System.Windows.Input.Cursors.Arrow
 
     def _apply_filter(self, filter_type):

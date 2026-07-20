@@ -7,7 +7,7 @@
     MinWidth="560" MinHeight="600"
     WindowStartupLocation="CenterScreen"
     ResizeMode="CanResizeWithGrip"
-    Background="#E4E4E7"
+    Background="White"
     FontFamily="Hanken Grotesk"
     FontSize="14">
 
@@ -1097,7 +1097,7 @@
         </Style>
     </Window.Resources>
 
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="White">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="64"/>
@@ -1106,7 +1106,7 @@
         </Grid.RowDefinitions>
 
         <!-- ============ TITLE BAR ============ -->
-        <Grid Grid.Row="0" Background="#F4F4F6">
+        <Grid Grid.Row="0" Background="White">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
@@ -1140,17 +1140,17 @@
             <Border Height="1" VerticalAlignment="Bottom" Background="#DCDCE0" Grid.ColumnSpan="2"/>
         </Grid>
 
-        <!-- ============ CONTENT ============ -->
-        <Grid Grid.Row="1" Margin="18,16,18,10">
+        <!-- ============ CONTENT (full-bleed, sections split by dividers) ============ -->
+        <Grid Grid.Row="1" Margin="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- ===== SETTINGS CARD ===== -->
-            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                    CornerRadius="16" Padding="18,16">
+            <!-- ===== SETTINGS SECTION ===== -->
+            <Border Grid.Row="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1"
+                    Padding="18,16">
                 <StackPanel>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -1187,9 +1187,8 @@
                 </StackPanel>
             </Border>
 
-            <!-- ===== JOIN RULES CARD ===== -->
-            <Border Grid.Row="1" Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                    CornerRadius="16" Margin="0,14,0,0" Padding="0" ClipToBounds="True">
+            <!-- ===== JOIN RULES SECTION ===== -->
+            <Border Grid.Row="1" Background="White" BorderThickness="0" Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -1211,19 +1210,34 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Button x:Name="btn_add_rule" Style="{StaticResource SecondaryButton}"
                                     Height="28" Padding="12,0" FontSize="12.5" Margin="0,0,6,0"
-                                    Click="btn_add_rule_click" Content="＋  Add"/>
+                                    Click="btn_add_rule_click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Add" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                             <Button x:Name="btn_switch_order" Style="{StaticResource SecondaryButton}"
                                     Height="28" Padding="12,0" FontSize="12.5" Margin="0,0,6,0"
-                                    Click="btn_switch_order_click" ToolTip="Swap priority and join-with categories"
-                                    Content="⇄  Switch"/>
+                                    Click="btn_switch_order_click" ToolTip="Swap priority and join-with categories">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE8AB;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Switch" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                             <Button x:Name="btn_remove_rule" Style="{StaticResource DangerButton}"
                                     Height="28" Padding="12,0" FontSize="12.5"
-                                    Click="btn_remove_rule_click" Content="✕  Remove"/>
+                                    Click="btn_remove_rule_click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Remove" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </Grid>
 
                     <!-- Rules list -->
-                    <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC">
+                    <Border Grid.Row="1" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="8" Background="#F8FAFC"
+                            Margin="16,0,16,14">
                         <DataGrid x:Name="rules_grid"
                                   AutoGenerateColumns="False"
                                   CanUserAddRows="False"
@@ -1304,7 +1318,7 @@
                     </Border>
 
                     <!-- Tip line -->
-                    <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,9">
+                    <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="14,9">
                         <TextBlock FontSize="12" Foreground="#71717A" TextWrapping="Wrap">
                             <Run Text="Tip · " FontWeight="Bold" Foreground="#18181B"/>
                             <Run Text="Priority cuts the join-with category. Shift+Click the ribbon button to quick-join with defaults."/>
@@ -1314,7 +1328,7 @@
             </Border>
 
             <!-- ===== ACTION ROW ===== -->
-            <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid Grid.Row="2" Margin="16,12,16,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -1323,18 +1337,35 @@
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <Button x:Name="btn_save_rules" Style="{StaticResource SecondaryButton}"
-                            Click="btn_save_rules_click" Margin="0,0,8,0" Content="💾  Save Rules"/>
+                            Click="btn_save_rules_click" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="Save Rules" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                     <Button x:Name="btn_load_rules" Style="{StaticResource SecondaryButton}"
-                            Click="btn_load_rules_click" Content="📂  Load Rules"/>
+                            Click="btn_load_rules_click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="Load Rules" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
+                <!-- No Padding/FontSize override: PrimaryButton has fixed Height=28,
+                     Padding="22,10" + FontSize=14 overflowed it and clipped the text -->
                 <Button x:Name="btn_run" Grid.Column="2" Style="{StaticResource PrimaryButton}"
-                        Click="btn_run_click" Padding="22,10" FontSize="14" Content="▶  Run Auto Join"/>
+                        Click="btn_run_click" Padding="22,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Run Auto Join" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </Grid>
         </Grid>
 
         <!-- ============ STATUS BAR ============ -->
-        <Border Grid.Row="2" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
+        <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
                 Padding="16,10">
             <StackPanel>
 
@@ -1351,15 +1382,25 @@
                     <ProgressBar x:Name="pb_run" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
                                  Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
 
-                    <!-- Pause / Resume -->
+                    <!-- Pause / Resume (icon+label toggled by ProgressPauseMixin) -->
                     <Button x:Name="btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
                             Height="28" Padding="14,0" FontSize="12"
-                            Click="pause_resume_clicked" Content="⏸  Pause"/>
+                            Click="pause_resume_clicked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock x:Name="btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
 
                     <!-- Stop -->
                     <Button x:Name="btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
                             Height="28" Padding="14,0" FontSize="12"
-                            Click="stop_clicked" Content="■  Stop"/>
+                            Click="stop_clicked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="Stop" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </Grid>
 
                 <!-- Status text row: copyright left, status info right -->
