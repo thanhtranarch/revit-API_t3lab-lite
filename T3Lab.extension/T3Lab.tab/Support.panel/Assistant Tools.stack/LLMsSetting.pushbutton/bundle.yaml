@@ -1,0 +1,9 @@
+title: "LLMs\nSetting"
+tooltip: "Configure the LLM provider, model, API key and connection used by T3Lab AI tools."
+description: |
+  Choose the active LLM provider (Claude, GPT, DeepSeek, Ollama, LM Studio),
+  pick and save a model, save the API key (or local server URL), see live
+  connection status for every provider, and run a one-click test message.
+  Shared with every AI-powered T3Lab tool — not just the Assistant chat.
+author: "Tran Tien Thanh"
+version: "1.0.0"

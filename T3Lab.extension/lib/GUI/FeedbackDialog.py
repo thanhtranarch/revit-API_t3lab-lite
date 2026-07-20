@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Send Feedback
+Feedback Dialog
 
 Popup window that lets the user send feedback or suggestions about T3Lab
 tools. The message is delivered by email to the T3Lab team using a clear,
@@ -11,56 +11,29 @@ consistent subject line:
 The email opens in the user's default mail client (Outlook, etc.) with
 recipient, subject and body already filled in -- the user only needs to
 press Send.
-
-Author: Tran Tien Thanh
-Mail: trantienthanh909@gmail.com
-Linkedin: linkedin.com/in/sunarch7899/
 """
 
-__title__   = "Send Feedback"
-__author__  = "Tran Tien Thanh"
-__version__ = "1.0.0"
+from __future__ import unicode_literals
 
-# IMPORT LIBRARIES
-# ==============================================================================
-import os
-import sys
-import clr
 from datetime import datetime
+import os
 
-clr.AddReference('PresentationCore')
-clr.AddReference('PresentationFramework')
-clr.AddReference('WindowsBase')
-clr.AddReference('System')
-
-from System.Windows import WindowState, Clipboard
-from System.Windows.Media.Imaging import BitmapImage
-from System import Uri, UriKind
+from System import Uri
 from System.Diagnostics import Process, ProcessStartInfo
+from System.Windows import WindowState, Clipboard
 
 from pyrevit import revit, forms, script
 
-extension_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-lib_dir       = os.path.join(extension_dir, 'lib')
-if lib_dir not in sys.path:
-    sys.path.append(lib_dir)
+_XAML = os.path.join(os.path.dirname(__file__), 'Tools', 'Feedback.xaml')
 
-# DEFINE VARIABLES
-# ==============================================================================
 FEEDBACK_RECIPIENT = "trantienthanh909@gmail.com"
 SUBJECT_PREFIX     = "[T3Lab Feedback]"
 
-logger        = script.get_logger()
-output        = script.get_output()
-REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+logger = script.get_logger()
 
 
-# CLASS/FUNCTIONS
-# ==============================================================================
+# ─── Helpers ─────────────────────────────────────────────────────────────────
 
-# ============================================================
-# HELPERS
-# ============================================================
 def _safe_get(getter, default=""):
     try:
         value = getter()
@@ -131,17 +104,14 @@ def _open_mailto(to_addr, subject, body):
     Process.Start(psi)
 
 
-# ============================================================
-# WINDOW
-# ============================================================
+# ─── Window ──────────────────────────────────────────────────────────────────
+
 class FeedbackWindow(forms.WPFWindow):
     """Popup window to collect and send feedback by email."""
 
     def __init__(self):
-        xaml_file_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'Feedback.xaml')
-        forms.WPFWindow.__init__(self, xaml_file_path)
+        forms.WPFWindow.__init__(self, _XAML)
         self.doc = revit.doc
-
 
     # -------- chrome / title bar --------
     def minimize_button_clicked(self, sender, e):
@@ -224,9 +194,6 @@ class FeedbackWindow(forms.WPFWindow):
                 )
 
 
-# MAIN SCRIPT
-# ==============================================================================
-if __name__ == '__main__':
-    if not revit.doc:
-        forms.alert("No open Revit document found.", exitscript=True)
+def show_feedback_dialog():
+    """Show the Feedback dialog."""
     FeedbackWindow().ShowDialog()
