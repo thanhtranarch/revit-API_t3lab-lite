@@ -1365,9 +1365,35 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock x:Name="txt_status" Text="Select a CAD file and click 'Scan Layers' to begin." 
+                <TextBlock x:Name="txt_status" Text="Select a CAD file and click 'Scan Layers' to begin."
                        FontSize="11" Foreground="#64748B" VerticalAlignment="Center" Grid.Column="0"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Progress panel: bar + Pause + Stop (hidden when idle) -->
+                    <Grid x:Name="floor_progress_panel" Visibility="Collapsed" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="6"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ProgressBar x:Name="floor_pb" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
+                                     Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
+                        <Button x:Name="floor_btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
+                                Height="26" Padding="12,0" FontSize="11">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="floor_btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="floor_btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="floor_btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
+                                Height="26" Padding="12,0" FontSize="11">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock Text="Stop" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
                     <Border Width="1" Height="14" Background="#CBD5E1" VerticalAlignment="Center" Margin="0,0,12,0"/>
                     <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center" Margin="0,0,4,0"/>
                 </StackPanel>

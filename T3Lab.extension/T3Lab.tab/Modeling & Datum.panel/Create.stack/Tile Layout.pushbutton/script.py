@@ -81,6 +81,8 @@ from TileLayoutCore import (
 
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'TileLayout.xaml')
 
+from GUI.ProgressPauseMixin import ProgressPauseMixin
+
 # DEFINE VARIABLES
 # ==============================================================================
 logger        = script.get_logger()
@@ -92,6 +94,7 @@ REVIT_VERSION = int(revit.doc.Application.VersionNumber)
 # ── Constants (units & engine limits are imported from TileLayoutCore) ───────
 EXTRUDE_H = 10.0 * MM_TO_FT   # DirectShape thickness
 MIN_EDGE  = 0.003             # ft — ~0.9 mm; below Revit short-curve tolerance
+SLIVER_W  = 2.0 * MM_TO_FT    # ft — skip fragments with mean thickness < ~2 mm
 
 # Name tag stamped on preview DirectShapes so a re-apply can find & clear them.
 PREVIEW_DS_NAME = "T3Lab TileLayout Preview"
@@ -264,6 +267,24 @@ class RevitVisualizer(object):
         if len(kept) >= 2 and kept[-1].DistanceTo(kept[0]) < MIN_EDGE:
             kept.pop()
         if len(kept) < 3:
+            return None
+
+        # Sliver guard: mean thickness of a polygon ≈ 2·area/perimeter. Sub-2mm
+        # cut slivers extrude into solids with pathologically long, thin faces
+        # that crash Revit's faceter when the view regenerates during PDF
+        # export ("long, thin face" + "Problems during faceting" → assertion
+        # Arr.cpp:229 → fatal 0xc0000005; Revit 2023.1 journals 1053/1057,
+        # 2026-07-20, same face ids in both sessions).
+        area = 0.0
+        perim = 0.0
+        n = len(kept)
+        for i in range(n):
+            a = kept[i]
+            b = kept[(i + 1) % n]
+            area += a.X * b.Y - b.X * a.Y
+            perim += a.DistanceTo(b)
+        area = abs(area) * 0.5
+        if perim <= 0 or (2.0 * area / perim) < SLIVER_W:
             return None
 
         loop = CurveLoop()
@@ -878,7 +899,17 @@ STEP_PATTERN    = 1
 STEP_CONCEPTS   = 2
 
 
-class TileLayoutWindow(forms.WPFWindow):
+class TileLayoutWindow(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin — TileLayout.xaml status-bar progress panel
+    PP_PANEL      = "tl_progress_panel"
+    PP_BAR        = "tl_pb"
+    PP_PAUSE      = "tl_btn_pause"
+    PP_STOP       = "tl_btn_stop"
+    PP_PAUSE_ICON = "tl_btn_pause_icon"
+    PP_PAUSE_TEXT = "tl_btn_pause_label"
+    PP_STATUS     = "status_text"
+    PP_STOP_MSG   = u"Stopping… finishing current floor"
 
     def __init__(self, preselected_floors=None):
         forms.WPFWindow.__init__(self, XAML_FILE)
@@ -1759,6 +1790,7 @@ class TileLayoutWindow(forms.WPFWindow):
             TaskDialog.Show("Tile Layout", "No selections to apply.")
             return
 
+        self.begin_progress(len(chosen))
         try:
             with revit.Transaction("Tile Layout — apply selected concepts"):
                 view = get_or_create_3d_view()
@@ -1770,7 +1802,9 @@ class TileLayoutWindow(forms.WPFWindow):
                 except Exception as ex:
                     logger.debug("Could not lock 3D view: {}".format(ex))
                 clear_previous_preview(view)
-                for fi, opt, _pat in chosen:
+                for _tl_idx, (fi, opt, _pat) in enumerate(chosen):
+                    if not self.step_progress(_tl_idx, "Applying floor {}/{}...".format(_tl_idx + 1, len(chosen))):
+                        break
                     vis = RevitVisualizer(view)
                     for piece in opt.pieces:
                         # Waste is bookkeeping only (spare left inside the
@@ -1782,18 +1816,26 @@ class TileLayoutWindow(forms.WPFWindow):
                         vis.draw_piece(piece, fi.z)
             uidoc.ActiveView = view
         except Exception as exc:
+            self.end_progress()
             TaskDialog.Show("Apply Error",
                 "{}\n\n{}".format(exc, traceback.format_exc()))
             return
+
+        cancelled = self.is_cancelled
+        self.end_progress()
 
         # Defer report construction — it's only built lazily when the user
         # actually clicks Export CSV / Export PDF, so apply stays snappy.
         self._applied = True
         self.btn_export.IsEnabled = True
         self.btn_export_report.IsEnabled = True
-        self.status_text.Text = (
-            "Applied {} option(s). DirectShapes created in 'Tile Layout Preview'."
-            .format(len(chosen)))
+        if cancelled:
+            self.status_text.Text = (
+                "Cancelled. DirectShapes created in 'Tile Layout Preview' for the applied floors.")
+        else:
+            self.status_text.Text = (
+                "Applied {} option(s). DirectShapes created in 'Tile Layout Preview'."
+                .format(len(chosen)))
 
     # ═════════════════════════════════════════════════════════════════════════
     # Action-bar buttons

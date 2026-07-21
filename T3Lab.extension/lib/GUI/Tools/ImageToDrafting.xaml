@@ -1297,7 +1297,44 @@
         </Grid>
         <!-- Footer -->
         <Border Grid.Row="3" Background="#F4F4F6" BorderBrush="#DCDCE0" BorderThickness="0,1,0,0" Padding="20,14">
-            <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="© Copyright by T3Lab" FontSize="11" Foreground="#F59E0B" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="14" Background="#DCDCE0" Margin="12,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="status_text" Text="Ready" FontSize="12" Foreground="#71717A" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Progress panel: bar + Pause + Stop (hidden when idle) -->
+                <Grid x:Name="i2d_progress_panel" Grid.Column="1" Visibility="Collapsed" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="6"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <ProgressBar x:Name="i2d_pb" Grid.Column="0" Style="{StaticResource T3ProgressBar}"
+                                 Minimum="0" Maximum="100" Value="0" VerticalAlignment="Center"/>
+                    <Button x:Name="i2d_btn_pause" Grid.Column="2" Style="{StaticResource SecondaryButton}"
+                            Height="26" Padding="12,0" FontSize="11" Click="pause_resume_clicked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="i2d_btn_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock x:Name="i2d_btn_pause_label" Text="Pause" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="i2d_btn_stop" Grid.Column="4" Style="{StaticResource DangerButton}"
+                            Height="26" Padding="12,0" FontSize="11" Click="stop_clicked">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBlock Text="Stop" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Grid>
         </Border>
 </Grid>
 

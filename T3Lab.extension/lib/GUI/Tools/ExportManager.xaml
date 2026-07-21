@@ -2029,26 +2029,6 @@
                                     </Style>
                                 </ProgressBar.Style>
                             </ProgressBar>
-
-                            <!-- Pause / Stop (visible only while exporting) -->
-                            <Grid x:Name="export_controls_panel" Visibility="Collapsed" Margin="0,8,0,0" HorizontalAlignment="Right">
-                                <StackPanel Orientation="Horizontal">
-                                    <Button x:Name="btn_export_pause" Style="{StaticResource SecondaryButton}"
-                                            Height="26" Padding="12,0" FontSize="11" Margin="0,0,6,0" Click="export_pause_clicked">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock x:Name="btn_export_pause_icon" Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock x:Name="btn_export_pause_label" Text="Pause" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Button x:Name="btn_export_stop" Style="{StaticResource DangerButton}"
-                                            Height="26" Padding="12,0" FontSize="11" Click="export_stop_clicked">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text="Stop" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Button>
-                                </StackPanel>
-                            </Grid>
                         </StackPanel>
                     </Grid>
                 </Grid>

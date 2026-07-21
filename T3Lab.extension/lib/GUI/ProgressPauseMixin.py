@@ -148,16 +148,32 @@ class ProgressPauseMixin(object):
             except Exception:
                 pass
 
+    def _pp_dispatcher(self):
+        """The WPF Dispatcher to pump.
+
+        forms.WPFWindow subclasses ARE the window (self.Dispatcher). Object
+        wrappers that hold the Window in self.window (Variant B — e.g. the
+        CAD-to-Elements sub-windows) expose it via self.window.Dispatcher.
+        """
+        disp = getattr(self, "Dispatcher", None)
+        if disp is not None:
+            return disp
+        win = getattr(self, "window", None)
+        return getattr(win, "Dispatcher", None) if win is not None else None
+
     def _do_events(self):
         """Pump the WPF dispatcher so the window repaints and buttons click."""
         try:
+            disp = self._pp_dispatcher()
+            if disp is None:
+                return
             frame = DispatcherFrame()
             def _stop(f=frame):
                 f.Continue = False
-            self.Dispatcher.BeginInvoke(
+            disp.BeginInvoke(
                 DispatcherPriority.Background,
                 Action(_stop))
-            self.Dispatcher.PushFrame(frame)
+            disp.PushFrame(frame)
         except Exception:
             pass
 

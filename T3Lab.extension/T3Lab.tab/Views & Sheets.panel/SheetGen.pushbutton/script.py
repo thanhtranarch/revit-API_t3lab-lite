@@ -71,6 +71,8 @@ if lib_dir not in sys.path:
 
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'SheetGen.xaml')
 
+from GUI.ProgressPauseMixin import ProgressPauseMixin
+
 # Printable margin inside the title block (~20 mm), shared by the layout
 # preview and the real viewport placement so they can never drift apart.
 SHEET_MARGIN_FT = 0.066
@@ -111,8 +113,18 @@ class RoomItem(object):
         self.GenQty = 1
 
 
-class CreateRoomPlanWindow(forms.WPFWindow):
+class CreateRoomPlanWindow(forms.WPFWindow, ProgressPauseMixin):
     """WPF window for creating plan views from rooms."""
+
+    # ProgressPauseMixin — SheetGen.xaml footer progress panel
+    PP_PANEL      = "sg_progress_panel"
+    PP_BAR        = "sg_pb"
+    PP_PAUSE      = "sg_btn_pause"
+    PP_STOP       = "sg_btn_stop"
+    PP_PAUSE_ICON = "sg_btn_pause_icon"
+    PP_PAUSE_TEXT = "sg_btn_pause_label"
+    PP_STATUS     = "status_text"
+    PP_STOP_MSG   = u"Stopping… finishing current room"
 
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
@@ -1150,7 +1162,10 @@ class CreateRoomPlanWindow(forms.WPFWindow):
         # Collect per-room results for sheet layout
         room_results = []  # list of dicts
 
-        for room_item in selected_rooms:
+        self.begin_progress(len(selected_rooms), disable=[sender])
+        for _sg_idx, room_item in enumerate(selected_rooms):
+            if not self.step_progress(_sg_idx, "Processing room {}/{}...".format(_sg_idx + 1, len(selected_rooms))):
+                break
             room          = room_item.Element
             room_level_id = room.LevelId
             room_bbox     = room.get_BoundingBox(active_view)
@@ -1384,7 +1399,13 @@ class CreateRoomPlanWindow(forms.WPFWindow):
                 logger.warning("No title block selected — skipping sheet layout.")
 
         # ── Result ─────────────────────────────────────
-        msg = "{} view(s) created.".format(created_count)
+        cancelled = self.is_cancelled
+        self.end_progress()
+
+        if cancelled:
+            msg = "Cancelled — {} view(s) created.".format(created_count)
+        else:
+            msg = "{} view(s) created.".format(created_count)
         if sheets_created:
             msg += "\n{} sheet(s) created.".format(sheets_created)
         if error_count > 0:

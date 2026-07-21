@@ -51,6 +51,21 @@ import Microsoft.Win32
 
 from pyrevit import revit, DB, forms, script
 
+import sys
+# Put the extension's lib/ on sys.path so GUI.ProgressPauseMixin imports
+# (mirror main()'s "walk up to T3Lab.extension" logic).
+_ext_dir = os.path.dirname(__file__)
+while _ext_dir and not _ext_dir.endswith('T3Lab.extension'):
+    _parent = os.path.dirname(_ext_dir)
+    if _parent == _ext_dir:
+        break
+    _ext_dir = _parent
+_lib_dir = os.path.join(_ext_dir, 'lib')
+if _lib_dir not in sys.path:
+    sys.path.insert(0, _lib_dir)
+
+from GUI.ProgressPauseMixin import ProgressPauseMixin
+
 doc = revit.doc
 
 
@@ -1178,7 +1193,17 @@ def save_binary_bmp(bmp_path, binary_bytes, w, h, stride):
 # WPF WINDOW
 # ══════════════════════════════════════════════════════════════════════════════
 
-class ImageToDraftingWindow(forms.WPFWindow):
+class ImageToDraftingWindow(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin — ImageToDrafting.xaml footer progress panel
+    PP_PANEL      = "i2d_progress_panel"
+    PP_BAR        = "i2d_pb"
+    PP_PAUSE      = "i2d_btn_pause"
+    PP_STOP       = "i2d_btn_stop"
+    PP_PAUSE_ICON = "i2d_btn_pause_icon"
+    PP_PAUSE_TEXT = "i2d_btn_pause_label"
+    PP_STATUS     = "status_text"
+    PP_STOP_MSG   = u"Stopping… finishing current line"
 
     def __init__(self, xaml_file):
         forms.WPFWindow.__init__(self, xaml_file)
@@ -1534,20 +1559,35 @@ class ImageToDraftingWindow(forms.WPFWindow):
         # 4 ── Create detail lines in Revit
         created = 0
         failed  = 0
+        total_seg = len(segments)
+        self.begin_progress(total_seg, disable=[self.CreateBtn])
         with revit.Transaction("Image to Drafting View"):
             dview = DB.ViewDrafting.Create(doc, vft.Id)
             dview.Name = final_name
-            for p1, p2 in segments:
+            for _i2d_idx, (p1, p2) in enumerate(segments):
+                if self.is_cancelled:
+                    break
+                # step_progress pumps WPF events — throttle so thousands of
+                # segments stay fast while Pause/Stop stay responsive.
+                if _i2d_idx % 25 == 0:
+                    self.step_progress(_i2d_idx, "Creating detail lines {}/{}...".format(_i2d_idx, total_seg))
                 try:
                     doc.Create.NewDetailCurve(dview, DB.Line.CreateBound(p1, p2))
                     created += 1
                 except Exception:
                     failed += 1
 
+        cancelled = self.is_cancelled
+        self.end_progress()
+
         revit.uidoc.ActiveView = dview
-        msg = "Done — {} detail lines in '{}'.".format(created, final_name)
+        if cancelled:
+            msg = "Cancelled — {} detail line(s) created in '{}'.".format(created, final_name)
+        else:
+            msg = "Done — {} detail lines in '{}'.".format(created, final_name)
         if failed:
             msg += " ({} segment(s) could not be created and were skipped.)".format(failed)
+        self.status_text.Text = msg
         print(msg)
 
     # ── cleanup ────────────────────────────────────────────────────────────────

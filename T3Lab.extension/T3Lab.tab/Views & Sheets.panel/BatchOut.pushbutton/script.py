@@ -464,13 +464,7 @@ class ExportManagerWindow(forms.WPFWindow):
             self.all_views = []
             self.filtered_views = []
             self.export_items = []
-            # Chunked-export state (Pause/Stop) — see _export_step
-            self._export_queue = []
-            self._export_index = 0
-            self._total_exported = 0
-            self._pause_requested = False
-            self._cancel_requested = False
-            self._export_paused = False
+            self._export_running = False
             self.selection_mode = "sheets"  # "sheets" or "views"
             self.profiles = []  # List of ExportProfile objects
             self.profiles_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'T3Lab_BatchOut_Profiles')
@@ -535,6 +529,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
             # Auto-save latest setup on any close path (X, Close button, Alt+F4)
             self.Closing += self._window_closing_save_setup
+            self.Closed += self._window_closed_dispose
 
             # Update button text based on current tab
             self.update_navigation_buttons()
@@ -660,6 +655,21 @@ class ExportManagerWindow(forms.WPFWindow):
         """Closing hook — persist settings so the next session starts where the user left off."""
         self.save_latest_setup()
 
+    def _window_closed_dispose(self, sender, e):
+        """Dispose the ExternalEvent once the window is gone.
+
+        With __persistentengine__ this window object outlives its close; an
+        undisposed ExternalEvent then survives to Revit shutdown, where its
+        stale handler/WPF proxy is destroyed mid-teardown — the 0xc0000005
+        'Invalid WPFWndProxy' exit crash (journal.0090, 2026-07-15).
+        """
+        try:
+            if self._api_event is not None:
+                self._api_event.Dispose()
+        except Exception as ex:
+            logger.debug("ExternalEvent dispose failed: {}".format(ex))
+        self._api_event = None
+
     def _run_in_api_context(self, action):
         """Run a callable inside valid Revit API context.
 
@@ -672,6 +682,8 @@ class ExportManagerWindow(forms.WPFWindow):
         even Export) would only fire after the window closes.
         """
         if self.modeless:
+            if self._api_event is None:
+                return  # window already closed and event disposed
             self._api_handler.add(action)
             self._api_event.Raise()
         else:
@@ -2518,6 +2530,13 @@ class ExportManagerWindow(forms.WPFWindow):
         elif idx == 1:
             self.switch_to_view(2)
         else:
+            if self._export_running:
+                return
+            self._export_running = True
+            # Freeze the whole window before export: Revit's PDF exporter
+            # pumps messages mid-export, so a click landing on this modeless
+            # window would re-enter WPF handlers inside Execute (fatal crash).
+            self.IsEnabled = False
             # Modeless window: export must run inside API context. If Revit is
             # busy (user mid-command), the event fires once Revit is idle.
             self.status_text.Text = "Export queued — waiting for Revit..."
@@ -2785,7 +2804,18 @@ class ExportManagerWindow(forms.WPFWindow):
         self._flush_ui()
 
     def _flush_ui(self):
-        """Force WPF to process pending render operations so progress shows in realtime."""
+        """Force WPF to process pending render operations so progress shows in realtime.
+
+        Modeless: start_export runs INSIDE ExternalEvent.Execute, and a nested
+        dispatcher frame here pumps Win32 messages for every window on Revit's
+        UI thread mid-API-call. Revit's native PDF exporter additionally pumps
+        its own message loop per sheet — the combined re-entrancy is the fatal
+        0xc0000005 class (see BatchOutEventHandler docstring). No pump there;
+        progress repaints when Execute returns. Modal fallback keeps the pump —
+        the command is still executing, the pre-modeless behavior is safe.
+        """
+        if self.modeless:
+            return
         try:
             self.Dispatcher.Invoke(DispatcherPriority.Render, Action(lambda: None))
         except Exception:
@@ -2847,221 +2877,87 @@ class ExportManagerWindow(forms.WPFWindow):
             # Remember this setup for the next session
             self.save_latest_setup()
 
-            # Disable navigation during export; Pause/Stop take over
+            # Disable buttons during export
             self.next_button.IsEnabled = False
             self.back_button.IsEnabled = False
             self.status_text.Text = "Exporting..."
 
-            # Overall progress tracked per-sheet via _overall_counter (unchanged)
+            # Export to each format — overall progress tracked per-sheet via _overall_counter
+            total_exported = 0
             self._overall_total = len(self.export_items)
             self._overall_counter = 0
 
-            # Chunked export: build a work queue and process ONE unit per
-            # ExternalEvent Execute so Revit idles between units and the
-            # Pause/Stop buttons stay clickable. NEVER pump the dispatcher
-            # inside Execute on a modeless window (fatal crash) — we yield by
-            # re-queuing through _run_in_api_context, the same idiom the lazy
-            # sheet loader already uses.
-            self._pending_output_folder = output_folder
-            self._total_exported = 0
-            self._pause_requested = False
-            self._cancel_requested = False
-            self._export_paused = False
-            self._export_index = 0
-            self._export_queue = self._build_export_queue(
-                selected_items, output_folder, split_by_format)
+            if self.export_dwg.IsChecked:
+                folder = os.path.join(output_folder, "DWG") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_dwg(selected_items, folder)
+                total_exported += count
 
-            if not self._export_queue:
-                self.status_text.Text = "No export format selected."
-                self.next_button.IsEnabled = True
-                self.back_button.IsEnabled = True
-                return
+            if self.export_pdf.IsChecked:
+                folder = os.path.join(output_folder, "PDF") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_pdf(selected_items, folder)
+                total_exported += count
 
-            self._show_export_controls(True)
-            self._export_step()
+            if self.export_dwf.IsChecked:
+                folder = os.path.join(output_folder, "DWF") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_dwf(selected_items, folder)
+                total_exported += count
+
+            if self.export_dgn.IsChecked:
+                folder = os.path.join(output_folder, "DGN") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_dgn(selected_items, folder)
+                total_exported += count
+
+            if self.export_nwd.IsChecked:
+                folder = os.path.join(output_folder, "NWC") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_nwd(selected_items, folder)
+                total_exported += count
+
+            if self.export_ifc.IsChecked:
+                folder = os.path.join(output_folder, "IFC") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_ifc(selected_items, folder)
+                total_exported += count
+
+            if self.export_img.IsChecked:
+                folder = os.path.join(output_folder, "Images") if split_by_format else output_folder
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                count = self.export_to_images(selected_items, folder)
+                total_exported += count
+
+            self.status_text.Text = "Export complete! {} files exported".format(total_exported)
+            self._update_progress(100, "Export complete! {} files exported".format(total_exported))
+            self.next_button.IsEnabled = True
+            self.back_button.IsEnabled = True
+
+            # Ask if user wants to open output folder
+            if forms.alert("Export complete!\n\nDo you want to open the output folder?",
+                          title="Export Complete",
+                          yes=True, no=True):
+                os.startfile(output_folder)
 
         except Exception as ex:
             logger.error("Export failed: {}".format(ex))
             forms.alert("Export failed: {}".format(ex), title="Export Error")
             self.status_text.Text = "Export failed"
-            self._show_export_controls(False)
             self.next_button.IsEnabled = True
             self.back_button.IsEnabled = True
-
-    # ──────────────────────────────────────────────────────────────────────
-    # Chunked export driver (Pause / Stop)
-    # ──────────────────────────────────────────────────────────────────────
-
-    def _build_export_queue(self, selected_items, output_folder, split_by_format):
-        """Flatten the selected formats × items into a list of (label, fn) units.
-
-        Per-item formats (DWG/DGN/DWF/NWC/IMG) yield one unit per sheet so
-        Pause/Stop bite between every sheet. Batch-only formats (PDF combined,
-        IFC) are a single API call each, so they form one unit. Each fn calls
-        the existing, unchanged export_to_* methods; _overall_counter math is
-        therefore identical to the old sequential path.
-        """
-        queue = []
-
-        def folder_for(sub):
-            f = os.path.join(output_folder, sub) if split_by_format else output_folder
-            if not os.path.exists(f):
-                os.makedirs(f)
-            return f
-
-        if self.export_dwg.IsChecked:
-            f = folder_for("DWG")
-            for it in selected_items:
-                queue.append(("DWG", (lambda i=it, fo=f: self.export_to_dwg([i], fo))))
-        if self.export_dgn.IsChecked:
-            f = folder_for("DGN")
-            for it in selected_items:
-                queue.append(("DGN", (lambda i=it, fo=f: self.export_to_dgn([i], fo))))
-        if self.export_dwf.IsChecked:
-            f = folder_for("DWF")
-            for it in selected_items:
-                queue.append(("DWF", (lambda i=it, fo=f: self.export_to_dwf([i], fo))))
-        if self.export_nwd.IsChecked:
-            f = folder_for("NWC")
-            for it in selected_items:
-                queue.append(("NWC", (lambda i=it, fo=f: self.export_to_nwd([i], fo))))
-        if self.export_img.IsChecked:
-            f = folder_for("Images")
-            for it in selected_items:
-                queue.append(("IMG", (lambda i=it, fo=f: self.export_to_images([i], fo))))
-        # Batch-only formats — one combined API call, cannot split per item
-        if self.export_pdf.IsChecked:
-            f = folder_for("PDF")
-            queue.append(("PDF", (lambda fo=f: self.export_to_pdf(selected_items, fo))))
-        if self.export_ifc.IsChecked:
-            f = folder_for("IFC")
-            queue.append(("IFC", (lambda fo=f: self.export_to_ifc(selected_items, fo))))
-        return queue
-
-    def _export_step(self):
-        """Process one queued unit then re-queue the next. Runs in API context.
-
-        Cancel/pause are checked at unit boundaries: the current unit always
-        finishes, then the loop stops (Stop) or holds (Pause). Nothing may
-        escape into the ExternalEvent handler, so the whole body is guarded.
-        """
-        try:
-            if self._cancel_requested:
-                self._finalize_export(cancelled=True)
-                return
-            if self._pause_requested:
-                self._export_paused = True
-                self.status_text.Text = "Paused — click Resume to continue"
-                return
-            if self._export_index >= len(self._export_queue):
-                self._finalize_export(cancelled=False)
-                return
-
-            label, fn = self._export_queue[self._export_index]
-            self._export_index += 1
-            try:
-                count = fn()
-                if count:
-                    self._total_exported += count
-            except Exception as ex:
-                try:
-                    logger.error("BatchOut export unit '{}' failed: {}".format(label, ex))
-                except Exception:
-                    pass
-
-            # Yield: re-queue the next unit so Revit idles and Pause/Stop clicks
-            # are processed before the next Execute.
-            self._run_in_api_context(self._export_step)
-        except Exception:
-            try:
-                self._finalize_export(cancelled=True)
-            except Exception:
-                pass
-
-    def _finalize_export(self, cancelled):
-        """Hide Pause/Stop, restore navigation, report result."""
-        self._show_export_controls(False)
-        self.next_button.IsEnabled = True
-        self.back_button.IsEnabled = True
-        total = getattr(self, "_total_exported", 0)
-        if cancelled:
-            self.status_text.Text = "Export cancelled — {} file(s) exported".format(total)
-            self._update_progress(0, "Cancelled")
-            return
-        self.status_text.Text = "Export complete! {} files exported".format(total)
-        self._update_progress(100, "Export complete! {} files exported".format(total))
-        try:
-            folder = getattr(self, "_pending_output_folder", None)
-            if folder and forms.alert(
-                    "Export complete!\n\nDo you want to open the output folder?",
-                    title="Export Complete", yes=True, no=True):
-                os.startfile(folder)
-        except Exception:
-            pass
-
-    def _show_export_controls(self, show):
-        """Toggle the Pause/Stop panel and reset the buttons to their idle state."""
-        try:
-            from System.Windows import Visibility as _Vis
-            panel = getattr(self, "export_controls_panel", None)
-            if panel is not None:
-                panel.Visibility = _Vis.Visible if show else _Vis.Collapsed
-            icon = getattr(self, "btn_export_pause_icon", None)
-            if icon is not None:
-                icon.Text = u"\uE769"  # Pause glyph
-            label = getattr(self, "btn_export_pause_label", None)
-            if label is not None:
-                label.Text = "Pause"
-            btn_pause = getattr(self, "btn_export_pause", None)
-            if btn_pause is not None:
-                btn_pause.IsEnabled = True
-            btn_stop = getattr(self, "btn_export_stop", None)
-            if btn_stop is not None:
-                btn_stop.IsEnabled = True
-        except Exception:
-            pass
-
-    def export_pause_clicked(self, sender, e):
-        """Toggle pause/resume. WPF/UI thread only — no Revit API here."""
-        icon = getattr(self, "btn_export_pause_icon", None)
-        label = getattr(self, "btn_export_pause_label", None)
-        if self._pause_requested:
-            # Resume
-            self._pause_requested = False
-            if icon is not None:
-                icon.Text = u"\uE769"  # Pause glyph
-            if label is not None:
-                label.Text = "Pause"
-            self.status_text.Text = "Resuming export..."
-            if self._export_paused:
-                self._export_paused = False
-                self._run_in_api_context(self._export_step)
-        else:
-            # Request pause — takes effect at the next unit boundary
-            self._pause_requested = True
-            if icon is not None:
-                icon.Text = u"\uE768"  # Play/Resume glyph
-            if label is not None:
-                label.Text = "Resume"
-            self.status_text.Text = "Pausing after current item..."
-
-    def export_stop_clicked(self, sender, e):
-        """Request cancel. Finalizes at the next boundary, or now if paused."""
-        was_paused = self._pause_requested or self._export_paused
-        self._cancel_requested = True
-        self._pause_requested = False
-        try:
-            btn_stop = getattr(self, "btn_export_stop", None)
-            if btn_stop is not None:
-                btn_stop.IsEnabled = False
-        except Exception:
-            pass
-        self.status_text.Text = "Stopping — finishing current item..."
-        # If paused there is no step in flight; kick one so it sees the cancel
-        # flag and finalizes (inside API context).
-        if was_paused and self._export_paused:
-            self._export_paused = False
-            self._run_in_api_context(self._export_step)
+        finally:
+            # Unfreeze the window (frozen in go_next) on every exit path,
+            # including the early validation returns above
+            self._export_running = False
+            self.IsEnabled = True
 
     def export_to_dwg(self, items, output_folder):
         """Export items (sheets or views) to DWG format with version-aware API usage.

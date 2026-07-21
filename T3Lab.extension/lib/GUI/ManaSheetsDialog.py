@@ -53,6 +53,8 @@ except Exception as e:
 doc = revit.doc
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaSheets.xaml')
 
+from GUI.ProgressPauseMixin import ProgressPauseMixin
+
 
 # =====================================================
 # RENUMBER WRAPPER MODEL
@@ -102,7 +104,18 @@ class RenumberItem(INotifyPropertyChanged):
 # MAIN WINDOW CONTROLLER
 # =====================================================
 
-class SheetManagerWindow(forms.WPFWindow):
+class SheetManagerWindow(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin — ManaSheets.xaml status-bar progress panel
+    PP_PANEL      = "ms_progress_panel"
+    PP_BAR        = "ms_pb"
+    PP_PAUSE      = "ms_btn_pause"
+    PP_STOP       = "ms_btn_stop"
+    PP_PAUSE_ICON = "ms_btn_pause_icon"
+    PP_PAUSE_TEXT = "ms_btn_pause_label"
+    PP_STATUS     = "txt_status_bar"
+    PP_STOP_MSG   = u"Stopping… finishing current sheet"
+
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
         self.doc = revit.doc
@@ -150,7 +163,13 @@ class SheetManagerWindow(forms.WPFWindow):
         self.sheets_filter_combo.SelectionChanged += self._on_sheets_filter_changed
         self.sheets_select_all_btn.Click += self._on_sheets_select_all
         self.sheets_clear_btn.Click += self._on_sheets_clear_all
-        
+
+        # Progress Pause/Stop (ProgressPauseMixin)
+        if getattr(self, "ms_btn_pause", None) is not None:
+            self.ms_btn_pause.Click += self.pause_resume_clicked
+        if getattr(self, "ms_btn_stop", None) is not None:
+            self.ms_btn_stop.Click += self.stop_clicked
+
         self.sheets_sets_btn.Click += self._on_sheets_sets
         self.sheets_place_views_btn.Click += self._on_sheets_place_views
         self.sheets_custom_params_btn.Click += self._on_sheets_custom_params
@@ -426,7 +445,11 @@ class SheetManagerWindow(forms.WPFWindow):
                     success = 0
                     failed = 0
 
-                    for row in imported_data:
+                    self.begin_progress(len(imported_data))
+                    for _idx, row in enumerate(imported_data):
+                        if self.is_cancelled:
+                            break
+                        self.step_progress(_idx, "Syncing sheet {}/{}...".format(_idx + 1, len(imported_data)))
                         # Match by ElementId first (exported files carry it, so
                         # number/name can be freely edited); fall back to the
                         # original sheet number for hand-made files without an ID.
@@ -465,9 +488,13 @@ class SheetManagerWindow(forms.WPFWindow):
                                 failed += 1
                                 
                     t.Commit()
-                    MessageBox.Show("Excel Sync Completed.\nUpdated: {}\nFailed: {}".format(success, failed), "Excel Import")
+                    _cancelled = self.is_cancelled
+                    self.end_progress()
+                    _pfx = "Excel Sync Cancelled" if _cancelled else "Excel Sync Completed"
+                    MessageBox.Show("{}.\nUpdated: {}\nFailed: {}".format(_pfx, success, failed), "Excel Import")
                     self._on_sheets_refresh(None, None)
                 except Exception as ex:
+                    self.end_progress()
                     MessageBox.Show("Error importing Excel: {}".format(str(ex)), "Error")
 
     def _on_sheets_refresh(self, sender, args):
@@ -486,10 +513,15 @@ class SheetManagerWindow(forms.WPFWindow):
         if result == MessageBoxResult.Yes:
             t = Transaction(self.doc, "Apply Sheet Manager Changes")
             t.Start()
+            self.begin_progress(len(self.change_tracker.modified_items), disable=[sender])
             try:
                 success = 0
                 failed = 0
-                for item in self.change_tracker.modified_items:
+                for _idx, item in enumerate(self.change_tracker.modified_items):
+                    if self.is_cancelled:
+                        break
+                    self.step_progress(_idx, "Applying sheet {}/{}...".format(
+                        _idx + 1, len(self.change_tracker.modified_items)))
                     try:
                         # Update standard params in Revit
                         element = item.element
@@ -512,7 +544,8 @@ class SheetManagerWindow(forms.WPFWindow):
                         failed += 1
                         
                 t.Commit()
-                msg = "Successfully updated: {}".format(success)
+                _pfx = "Cancelled — updated" if self.is_cancelled else "Successfully updated"
+                msg = "{}: {}".format(_pfx, success)
                 if failed > 0:
                     msg += "\nFailed: {}".format(failed)
                 MessageBox.Show(msg, "Apply Complete", MessageBoxButton.OK, MessageBoxImage.Information)
@@ -521,6 +554,8 @@ class SheetManagerWindow(forms.WPFWindow):
             except Exception as e:
                 t.RollBack()
                 MessageBox.Show("Error applying changes: {}".format(str(e)), "Error")
+            finally:
+                self.end_progress()
 
     # ── RENUMBER Tab Logics ───────────────────────────────────────
     def _load_renumber_preview_data(self):
@@ -570,10 +605,14 @@ class SheetManagerWindow(forms.WPFWindow):
         if result == MessageBoxResult.Yes:
             t = Transaction(self.doc, "Batch Renumber Sheets")
             t.Start()
+            self.begin_progress(len(selected_preview), disable=[sender])
             try:
                 success = 0
                 failed = 0
-                for item in selected_preview:
+                for _idx, item in enumerate(selected_preview):
+                    if self.is_cancelled:
+                        break
+                    self.step_progress(_idx, "Renumbering sheet {}/{}...".format(_idx + 1, len(selected_preview)))
                     sheet = item.sheet_model.element
                     new_num = item.preview_number
                     try:
@@ -585,16 +624,19 @@ class SheetManagerWindow(forms.WPFWindow):
                         print("Renumber failed for sheet '{}': {}".format(item.name, ex))
                         failed += 1
                 t.Commit()
-                
-                msg = "Renumbered successfully: {}".format(success)
+
+                _pfx = "Cancelled — renumbered" if self.is_cancelled else "Renumbered successfully"
+                msg = "{}: {}".format(_pfx, success)
                 if failed > 0:
                     msg += "\nFailed: {}".format(failed)
                 MessageBox.Show(msg, "Renumber Complete", MessageBoxButton.OK, MessageBoxImage.Information)
-                
+
                 self._on_renum_refresh(None, None)
             except Exception as e:
                 t.RollBack()
                 MessageBox.Show("Error during renumbering: {}".format(str(e)), "Error")
+            finally:
+                self.end_progress()
 
 
 # =====================================================

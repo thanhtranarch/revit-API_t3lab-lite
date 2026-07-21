@@ -58,6 +58,9 @@ from pyrevit import revit, forms, script
 # Paths
 # ---------------------------------------------------------------------------
 _HERE = os.path.dirname(__file__)  # …/lib/GUI/
+if os.path.dirname(_HERE) not in sys.path:
+    sys.path.insert(0, os.path.dirname(_HERE))  # …/lib on path for GUI.* imports
+from GUI.ProgressPauseMixin import ProgressPauseMixin
 _TOOLS_DIR = os.path.join(_HERE, "Tools")
 _XAML_HUB = os.path.join(_TOOLS_DIR, "CADToElements.xaml")
 _XAML_WALL = os.path.join(_TOOLS_DIR, "CadtoWall.xaml")
@@ -604,12 +607,20 @@ def get_or_create_wall_type(doc, thickness_mm, base_type):
 # ===========================================================================
 
 def create_walls_auto(doc, centerlines, unpaired, level_id, height, use_unpaired,
-                      default_thickness_mm, structural=False):
+                      default_thickness_mm, structural=False,
+                      progress_callback=None, cancel_check=None):
     """Create walls with auto-generated wall types based on detected thickness."""
     created = 0
     failed = 0
     skipped = 0
     types_created = []
+    _done = [0]
+    _total = len(centerlines) + (len(unpaired) if use_unpaired else 0)
+
+    def _tick():
+        if progress_callback:
+            progress_callback(_done[0], _total)
+        _done[0] += 1
 
     level = doc.GetElement(level_id)
     level_elev = level.Elevation
@@ -627,6 +638,8 @@ def create_walls_auto(doc, centerlines, unpaired, level_id, height, use_unpaired
         wall_type_cache = {}
 
         for t_mm, cl_list in groups.items():
+            if cancel_check and cancel_check():
+                break
             if t_mm not in wall_type_cache:
                 wt = get_or_create_wall_type(doc, t_mm, base_type)
                 wall_type_cache[t_mm] = wt
@@ -634,6 +647,9 @@ def create_walls_auto(doc, centerlines, unpaired, level_id, height, use_unpaired
             wt = wall_type_cache[t_mm]
 
             for cl in cl_list:
+                if cancel_check and cancel_check():
+                    break
+                _tick()
                 try:
                     s = cl["start"]
                     e = cl["end"]
@@ -654,7 +670,7 @@ def create_walls_auto(doc, centerlines, unpaired, level_id, height, use_unpaired
                 except Exception:
                     failed += 1
 
-        if use_unpaired and unpaired:
+        if use_unpaired and unpaired and not (cancel_check and cancel_check()):
             default_wt_key = default_thickness_mm
             if default_wt_key not in wall_type_cache:
                 wt = get_or_create_wall_type(doc, default_wt_key, base_type)
@@ -663,6 +679,9 @@ def create_walls_auto(doc, centerlines, unpaired, level_id, height, use_unpaired
             wt = wall_type_cache[default_wt_key]
 
             for ln in unpaired:
+                if cancel_check and cancel_check():
+                    break
+                _tick()
                 try:
                     s = ln["start"]
                     e = ln["end"]
@@ -1475,8 +1494,19 @@ class LayerData(object):
 # WALL WINDOW
 # ===========================================================================
 
-class _CADtoWallWindow(object):
+class _CADtoWallWindow(ProgressPauseMixin):
     """Full Wall creation window — loads CadtoWall.xaml and embeds all logic."""
+
+    # ProgressPauseMixin — object-wrapper window; the mixin reaches the
+    # dispatcher through self.window.Dispatcher (see _pp_dispatcher).
+    PP_PANEL      = "wall_progress_panel"
+    PP_BAR        = "wall_pb"
+    PP_PAUSE      = "wall_btn_pause"
+    PP_STOP       = "wall_btn_stop"
+    PP_PAUSE_ICON = "wall_btn_pause_icon"
+    PP_PAUSE_TEXT = "wall_btn_pause_label"
+    PP_STATUS     = "txtStatus"
+    PP_STOP_MSG   = u"Stopping… finishing current wall"
 
     def __init__(self, doc, uidoc):
         self.doc = doc
@@ -1531,6 +1561,18 @@ class _CADtoWallWindow(object):
             self.btnCreate.Click += self._on_create
         if self.btnClose is not None:
             self.btnClose.Click += self._on_close
+
+        # Progress + Pause/Stop (ProgressPauseMixin)
+        self.wall_progress_panel  = xr.FindName("wall_progress_panel")
+        self.wall_pb              = xr.FindName("wall_pb")
+        self.wall_btn_pause       = xr.FindName("wall_btn_pause")
+        self.wall_btn_pause_icon  = xr.FindName("wall_btn_pause_icon")
+        self.wall_btn_pause_label = xr.FindName("wall_btn_pause_label")
+        self.wall_btn_stop        = xr.FindName("wall_btn_stop")
+        if self.wall_btn_pause is not None:
+            self.wall_btn_pause.Click += self.pause_resume_clicked
+        if self.wall_btn_stop is not None:
+            self.wall_btn_stop.Click += self.stop_clicked
 
         self._load_data()
 
@@ -1781,10 +1823,18 @@ class _CADtoWallWindow(object):
             return
 
         structural = self.chkStructural is not None and self._chk(self.chkStructural)
-        created, failed, skipped, types_created = create_walls_auto(
-            self.doc, cl, up, lv["id"], height, use_up, self._get_default_thk(), structural)
 
-        result_msg = "Created: {} walls\n".format(created)
+        self.begin_progress(total, disable=[self.btnCreate])
+        def progress_cb(current, total_):
+            self.step_progress(current, "Creating wall {}/{}...".format(current + 1, total_))
+        created, failed, skipped, types_created = create_walls_auto(
+            self.doc, cl, up, lv["id"], height, use_up, self._get_default_thk(), structural,
+            progress_callback=progress_cb, cancel_check=lambda: self.is_cancelled)
+        cancelled = self.is_cancelled
+        self.end_progress()
+
+        result_msg = ("Cancelled — created: {} walls\n".format(created)
+                      if cancelled else "Created: {} walls\n".format(created))
         if failed > 0:
             result_msg += "Failed: {}\n".format(failed)
         if skipped > 0:
@@ -1820,8 +1870,18 @@ class _CADtoWallWindow(object):
 # FLOOR WINDOW
 # ===========================================================================
 
-class _CADtoFloorWindow(object):
+class _CADtoFloorWindow(ProgressPauseMixin):
     """Full Floor/Part creation window — loads CadtoFloor.xaml and embeds all logic."""
+
+    # ProgressPauseMixin — object-wrapper window (dispatcher via self.window)
+    PP_PANEL      = "floor_progress_panel"
+    PP_BAR        = "floor_pb"
+    PP_PAUSE      = "floor_btn_pause"
+    PP_STOP       = "floor_btn_stop"
+    PP_PAUSE_ICON = "floor_btn_pause_icon"
+    PP_PAUSE_TEXT = "floor_btn_pause_label"
+    PP_STATUS     = "txt_status"
+    PP_STOP_MSG   = u"Stopping… finishing current loop"
 
     def __init__(self, doc, uidoc):
         self.doc = doc
@@ -1901,6 +1961,18 @@ class _CADtoFloorWindow(object):
             self.rb_floor.Checked += self._on_mode_changed
         if self.rb_part is not None:
             self.rb_part.Checked += self._on_mode_changed
+
+        # Progress + Pause/Stop (ProgressPauseMixin)
+        self.floor_progress_panel  = _n("floor_progress_panel")
+        self.floor_pb              = _n("floor_pb")
+        self.floor_btn_pause       = _n("floor_btn_pause")
+        self.floor_btn_pause_icon  = _n("floor_btn_pause_icon")
+        self.floor_btn_pause_label = _n("floor_btn_pause_label")
+        self.floor_btn_stop        = _n("floor_btn_stop")
+        if self.floor_btn_pause is not None:
+            self.floor_btn_pause.Click += self.pause_resume_clicked
+        if self.floor_btn_stop is not None:
+            self.floor_btn_stop.Click += self.stop_clicked
 
         self._load_cad_files()
         self._load_floor_types()
@@ -2253,11 +2325,19 @@ class _CADtoFloorWindow(object):
         created = 0
         failed = 0
 
+        self.begin_progress(total_loops, disable=[self.btn_create])
         t = Transaction(self.doc, "T3Lab: CAD to Floor")
         t.Start()
         try:
+            _done = 0
             for ld in selected_layers:
+                if self.is_cancelled:
+                    break
                 for loop in ld.closed_loops:
+                    if self.is_cancelled:
+                        break
+                    self.step_progress(_done, "Creating floor {}/{}...".format(_done + 1, total_loops))
+                    _done += 1
                     try:
                         floor = create_floor_from_loop(
                             self.doc, loop, floor_type_id, level_id, offset_mm, is_structural)
@@ -2268,12 +2348,14 @@ class _CADtoFloorWindow(object):
                     except Exception:
                         failed += 1
 
+            cancelled = self.is_cancelled
             if created > 0:
                 t.Commit()
                 self.elements_created_count += created
                 self._update_summary()
-                self._update_status("Created {} floor(s). {} failed.".format(created, failed))
-                MessageBox.Show("Created: {} floor(s)\nFailed: {}".format(created, failed),
+                _verb = "Cancelled — created" if cancelled else "Created"
+                self._update_status("{} {} floor(s). {} failed.".format(_verb, created, failed))
+                MessageBox.Show("{}: {} floor(s)\nFailed: {}".format(_verb, created, failed),
                                 "Result", MessageBoxButton.OK, MessageBoxImage.Information)
             else:
                 t.RollBack()
@@ -2287,6 +2369,8 @@ class _CADtoFloorWindow(object):
             except Exception:
                 pass
             self._update_status("Error: {}".format(str(ex)))
+        finally:
+            self.end_progress()
 
     def _create_parts(self, selected_layers, total_loops, level_id, offset_mm):
         if self.cmb_ds_category is None:
@@ -2323,11 +2407,19 @@ class _CADtoFloorWindow(object):
         created = 0
         failed = 0
 
+        self.begin_progress(total_loops, disable=[self.btn_create])
         t = Transaction(self.doc, "T3Lab: CAD to Part")
         t.Start()
         try:
+            _done = 0
             for ld in selected_layers:
+                if self.is_cancelled:
+                    break
                 for loop in ld.closed_loops:
+                    if self.is_cancelled:
+                        break
+                    self.step_progress(_done, "Creating part {}/{}...".format(_done + 1, total_loops))
+                    _done += 1
                     try:
                         ds = create_part_from_loop(
                             self.doc, loop, category_bic, level_id, thickness_mm, offset_mm)
@@ -2338,12 +2430,14 @@ class _CADtoFloorWindow(object):
                     except Exception:
                         failed += 1
 
+            cancelled = self.is_cancelled
             if created > 0:
                 t.Commit()
                 self.elements_created_count += created
                 self._update_summary()
-                self._update_status("Created {} part(s). {} failed.".format(created, failed))
-                MessageBox.Show("Created: {} part(s)\nFailed: {}".format(created, failed),
+                _verb = "Cancelled — created" if cancelled else "Created"
+                self._update_status("{} {} part(s). {} failed.".format(_verb, created, failed))
+                MessageBox.Show("{}: {} part(s)\nFailed: {}".format(_verb, created, failed),
                                 "Result", MessageBoxButton.OK, MessageBoxImage.Information)
             else:
                 t.RollBack()
@@ -2357,6 +2451,8 @@ class _CADtoFloorWindow(object):
             except Exception:
                 pass
             self._update_status("Error: {}".format(str(ex)))
+        finally:
+            self.end_progress()
 
     def _on_minimize(self, sender, args):
         self.window.WindowState = WindowState.Minimized
@@ -2379,8 +2475,18 @@ class _CADtoFloorWindow(object):
 # BEAM WINDOW
 # ===========================================================================
 
-class _CADtoBeamWindow(forms.WPFWindow):
+class _CADtoBeamWindow(forms.WPFWindow, ProgressPauseMixin):
     """Full Beam creation window — loads CADtoBeam.xaml via forms.WPFWindow."""
+
+    # ProgressPauseMixin — CADtoBeam.xaml status-bar progress panel
+    PP_PANEL      = "beam_progress_panel"
+    PP_BAR        = "beam_pb"
+    PP_PAUSE      = "beam_btn_pause"
+    PP_STOP       = "beam_btn_stop"
+    PP_PAUSE_ICON = "beam_btn_pause_icon"
+    PP_PAUSE_TEXT = "beam_btn_pause_label"
+    PP_STATUS     = "lbl_status"
+    PP_STOP_MSG   = u"Stopping… finishing current beam"
 
     def __init__(self, doc, uidoc):
         self.doc = doc
@@ -2507,11 +2613,15 @@ class _CADtoBeamWindow(forms.WPFWindow):
             return
 
         # Create beams in a transaction
+        self.begin_progress(len(all_pairs), disable=[self.btn_generate])
         t = Transaction(self.doc, "T3Lab: CAD to Beam")
         t.Start()
         try:
             created = 0
-            for p in all_pairs:
+            for _beam_idx, p in enumerate(all_pairs):
+                if self.is_cancelled:
+                    break
+                self.step_progress(_beam_idx, "Creating beam {}/{}...".format(_beam_idx + 1, len(all_pairs)))
                 width_rounded = round(p["width"] / 50) * 50
                 height = _get_height_for_width(width_rounded)
 
@@ -2545,6 +2655,7 @@ class _CADtoBeamWindow(forms.WPFWindow):
 
             t.Commit()
         except Exception as ex:
+            self.end_progress()
             try:
                 t.RollBack()
             except Exception:
@@ -2552,7 +2663,12 @@ class _CADtoBeamWindow(forms.WPFWindow):
             forms.alert("Error creating beams: {}".format(str(ex)))
             return
 
-        forms.alert("Created {} beams successfully!".format(created))
+        cancelled = self.is_cancelled
+        self.end_progress()
+        if cancelled:
+            forms.alert("Cancelled — created {} beam(s).".format(created))
+        else:
+            forms.alert("Created {} beams successfully!".format(created))
         self.Close()
 
     def minimize_button_clicked(self, sender, e):

@@ -44,7 +44,7 @@ The following XAML files are **UI-locked** — their visual design is finalized 
 
 **All agents** (`@ui-agent`, `@ui-police-agent`, `@tool-builder-agent`, `@script-frame-agent`) must skip these files entirely during any UI-related task. Do not run `sync_wpf_styles.py` against them. Do not include them in bulk XAML audits.
 
-> **Authorised exception (2026-07-20):** `ExportManager.xaml` has a Pause/Stop control panel (`export_controls_panel` + `btn_export_pause`/`btn_export_stop`) added inside the progress area with the user's explicit permission, to support BatchOut's chunked export cancel/pause. This block is intentional — do not remove it as a "frozen-file violation". The rest of the file remains UI-locked.
+> **Note (2026-07-20):** a Pause/Stop panel was briefly added to `ExportManager.xaml` for a chunked BatchOut export, then **reverted** — the chunked ExternalEvent re-queue crashed Revit mid-export. Both `ExportManager.xaml` and `BatchOut.pushbutton/script.py` are back at their pre-refactor state (commit `984eef0`) and remain UI-locked. Do not re-attempt BatchOut pause without a Revit-tested design — see the notes in the progress/pause rollout memory.
 
 ## Agents
 

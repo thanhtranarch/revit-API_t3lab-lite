@@ -65,6 +65,8 @@ doc = revit.doc
 GUI_DIR = os.path.dirname(__file__)
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'ManaViews.xaml')
 
+from GUI.ProgressPauseMixin import ProgressPauseMixin
+
 
 # =====================================================
 # VIEW TEMPLATE ITEM WRAPPER
@@ -168,7 +170,18 @@ class ViewTemplateItem(INotifyPropertyChanged):
 # VIEW MANAGER DIALOG CLASS
 # =====================================================
 
-class ViewManagerWindow(forms.WPFWindow):
+class ViewManagerWindow(forms.WPFWindow, ProgressPauseMixin):
+
+    # ProgressPauseMixin — ManaViews.xaml status-bar progress panel
+    PP_PANEL      = "mv_progress_panel"
+    PP_BAR        = "mv_pb"
+    PP_PAUSE      = "mv_btn_pause"
+    PP_STOP       = "mv_btn_stop"
+    PP_PAUSE_ICON = "mv_btn_pause_icon"
+    PP_PAUSE_TEXT = "mv_btn_pause_label"
+    PP_STATUS     = "txt_status_bar"
+    PP_STOP_MSG   = u"Stopping… finishing current view"
+
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
         self.doc = revit.doc
@@ -196,6 +209,12 @@ class ViewManagerWindow(forms.WPFWindow):
         self.views_sheets_combo.SelectionChanged += self._on_views_filter_changed
         self.views_select_all_btn.Click += self._on_views_select_all
         self.views_clear_btn.Click += self._on_views_clear_all
+
+        # Progress Pause/Stop (ProgressPauseMixin)
+        if getattr(self, "mv_btn_pause", None) is not None:
+            self.mv_btn_pause.Click += self.pause_resume_clicked
+        if getattr(self, "mv_btn_stop", None) is not None:
+            self.mv_btn_stop.Click += self.stop_clicked
         
         self.views_excel_btn.Click += self._on_views_excel
         self.views_refresh_btn.Click += self._on_views_refresh
@@ -433,8 +452,12 @@ class ViewManagerWindow(forms.WPFWindow):
                     
                     # Convert internal views to dict by ID for fast lookup
                     views_dict = {v.id: v for v in self.all_views}
-                    
-                    for view_id, data in updates.items():
+
+                    self.begin_progress(len(updates))
+                    for _idx, (view_id, data) in enumerate(updates.items()):
+                        if self.is_cancelled:
+                            break
+                        self.step_progress(_idx, "Syncing view {}/{}...".format(_idx + 1, len(updates)))
                         if view_id in views_dict:
                             item = views_dict[view_id]
                             try:
@@ -453,9 +476,13 @@ class ViewManagerWindow(forms.WPFWindow):
                                 failed += 1
                                 
                     t.Commit()
-                    MessageBox.Show("Excel Sync Completed.\nUpdated: {}\nFailed: {}".format(success, failed), "Excel Import")
+                    _cancelled = self.is_cancelled
+                    self.end_progress()
+                    _pfx = "Excel Sync Cancelled" if _cancelled else "Excel Sync Completed"
+                    MessageBox.Show("{}.\nUpdated: {}\nFailed: {}".format(_pfx, success, failed), "Excel Import")
                     self._on_views_refresh(None, None)
                 except Exception as ex:
+                    self.end_progress()
                     MessageBox.Show("Error importing Excel: {}".format(str(ex)), "Error")
 
     def _on_views_refresh(self, sender, args):

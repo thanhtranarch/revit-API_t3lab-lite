@@ -58,6 +58,8 @@ if lib_dir not in sys.path:
 
 XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'RoomToFloor.xaml')
 
+from GUI.ProgressPauseMixin import ProgressPauseMixin
+
 # DEFINE VARIABLES
 # ==============================================================================
 logger        = script.get_logger()
@@ -79,7 +81,8 @@ class FloorGenerator:
     def __init__(self, doc):
         self.doc = doc
 
-    def generate_floors(self, room_elements, floor_type, offset_mm=0.0, is_structural=False, use_finish=True):
+    def generate_floors(self, room_elements, floor_type, offset_mm=0.0, is_structural=False, use_finish=True,
+                        progress_callback=None, cancel_check=None):
         offset_ft = offset_mm / 304.8
         is_structural_bool = bool(is_structural) if is_structural is not None else False
         created_count = 0
@@ -88,13 +91,19 @@ class FloorGenerator:
 
         with TransactionGroup(self.doc, "T3Lab: Room to Floor") as tg:
             tg.Start()
-            for room in room_elements:
+            total = len(room_elements)
+            for idx, room in enumerate(room_elements):
+                if cancel_check and cancel_check():
+                    break
+                if progress_callback:
+                    progress_callback(idx, total)
                 floor = self._create_one_floor(room, floor_type, offset_ft, is_structural_bool, use_finish)
                 if floor:
                     new_floors.append(floor)
                     created_count += 1
                 else:
                     error_count += 1
+            # Assimilate keeps the per-room floors already committed (even on cancel)
             tg.Assimilate()
 
         return new_floors, created_count, error_count
@@ -220,8 +229,18 @@ class RoomItem(object):
             self.Level = ""
 
 
-class RoomToFloorWindow(forms.WPFWindow):
+class RoomToFloorWindow(forms.WPFWindow, ProgressPauseMixin):
     """WPF window for creating floors from rooms."""
+
+    # ProgressPauseMixin — RoomToFloor.xaml footer progress panel
+    PP_PANEL      = "r2f_progress_panel"
+    PP_BAR        = "r2f_pb"
+    PP_PAUSE      = "r2f_btn_pause"
+    PP_STOP       = "r2f_btn_stop"
+    PP_PAUSE_ICON = "r2f_btn_pause_icon"
+    PP_PAUSE_TEXT = "r2f_btn_pause_label"
+    PP_STATUS     = "status_text"
+    PP_STOP_MSG   = u"Stopping… finishing current room"
 
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
@@ -328,24 +347,36 @@ class RoomToFloorWindow(forms.WPFWindow):
         is_structural = self.chk_structural.IsChecked
         use_finish = self.chk_room_finish.IsChecked
 
+        self.begin_progress(len(selected_rooms), disable=[sender])
+        def progress_cb(current, total):
+            self.step_progress(current, "Creating floor {}/{}...".format(current + 1, total))
+
         new_floors, created, errors = self.generator.generate_floors(
             [r.Element for r in selected_rooms],
             floor_type,
             offset_mm,
             is_structural,
-            use_finish
+            use_finish,
+            progress_callback=progress_cb,
+            cancel_check=lambda: self.is_cancelled
         )
-        
+
+        cancelled = self.is_cancelled
+        self.end_progress()
+
         if new_floors:
             try:
                 uidoc.Selection.SetElementIds(List[ElementId]([f.Id for f in new_floors if f.IsValidObject]))
             except Exception as e:
                 logger.debug("Failed to select created floors: {}".format(e))
 
-        msg = "Successfully created {} floors.".format(created)
+        if cancelled:
+            msg = "Cancelled — created {} floor(s).".format(created)
+        else:
+            msg = "Successfully created {} floors.".format(created)
         if errors > 0:
             msg += "\n{} errors occurred.".format(errors)
-        
+
         TaskDialog.Show("Room to Floor", msg)
         self.Close()
 
