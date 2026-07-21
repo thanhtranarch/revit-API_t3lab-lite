@@ -240,7 +240,7 @@ class ProjectStore(object):
             is_new = not os.path.exists(path)
             with io.open(path, 'a', encoding='utf-8') as f:
                 if is_new:
-                    f.write(u'# Nhật ký T3Lab Assistant — {}\n\n'.format(
+                    f.write(u'# T3Lab Assistant Activity Log — {}\n\n'.format(
                         time.strftime('%Y-%m-%d')))
                 f.write(u'- **{}** {}\n'.format(
                     time.strftime('%H:%M'), text or u''))

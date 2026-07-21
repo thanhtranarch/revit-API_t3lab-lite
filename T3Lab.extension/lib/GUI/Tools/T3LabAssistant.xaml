@@ -1463,7 +1463,7 @@
                 <!-- Undo -->
                 <Button x:Name="btn_undo"
                         Style="{StaticResource WinCtrlButton}"
-                        ToolTip="Hoàn tác (Undo)"
+                        ToolTip="Undo last action"
                         Click="undo_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="↶" FontSize="18" FontWeight="Bold" Foreground="#F59E0B"/>
@@ -1471,7 +1471,7 @@
                 <!-- Reset -->
                 <Button x:Name="btn_reset_chat"
                         Style="{StaticResource WinCtrlButton}"
-                        ToolTip="Làm mới cuộc trò chuyện"
+                        ToolTip="New conversation"
                         Click="reset_chat_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="↺" FontSize="15" FontWeight="Bold" Foreground="#71717A"/>
@@ -1479,7 +1479,7 @@
                 <!-- Activity log (daily work journal) -->
                 <Button x:Name="btn_activity_log"
                         Style="{StaticResource WinCtrlButton}"
-                        ToolTip="Nhật ký công việc hôm nay (log theo ngày trong folder dự án)"
+                        ToolTip="Today&#39;s activity log (daily log in the project folder)"
                         Click="activity_log_clicked"
                         WindowChrome.IsHitTestVisibleInChrome="True">
                     <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="11"/>
@@ -1692,7 +1692,7 @@
                                    Margin="2,0,0,0" FontFamily="Hanken Grotesk"/>
                         <Button x:Name="get_api_key_link" HorizontalAlignment="Right"
                                 VerticalAlignment="Center" Height="18" Cursor="Hand"
-                                Click="get_api_key_clicked" ToolTip="Mở trang lấy API key">
+                                Click="get_api_key_clicked" ToolTip="Open the API key page">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="getkey_bg" Background="Transparent"
@@ -1708,7 +1708,7 @@
                                 </ControlTemplate>
                             </Button.Template>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Lấy API key" FontSize="9.5" FontWeight="SemiBold"
+                                <TextBlock Text="Get API key" FontSize="9.5" FontWeight="SemiBold"
                                            Foreground="#3B82F6" FontFamily="Hanken Grotesk"
                                            VerticalAlignment="Center"/>
                                 <TextBlock Text="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="9"
@@ -1854,7 +1854,7 @@
                         <Button x:Name="sidebar_new_project_btn"
                                 HorizontalAlignment="Right" Height="18" Cursor="Hand"
                                 Click="sidebar_new_project_clicked"
-                                ToolTip="Tạo project mới">
+                                ToolTip="Create a new project">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="newproj_bg" Background="Transparent"
@@ -1873,7 +1873,7 @@
                                 <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
                                            FontSize="9" Foreground="#3B82F6"
                                            VerticalAlignment="Center" Margin="0,0,3,0"/>
-                                <TextBlock Text="Mới" FontSize="9.5" FontWeight="SemiBold"
+                                <TextBlock Text="New" FontSize="9.5" FontWeight="SemiBold"
                                            Foreground="#3B82F6" FontFamily="Hanken Grotesk"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -1885,7 +1885,7 @@
                               SelectionChanged="sidebar_project_changed"/>
                     <StackPanel x:Name="project_edit_panel" Visibility="Collapsed"
                                 Margin="0,0,0,6">
-                        <TextBlock Text="Tên project" FontSize="10.5" Foreground="#71717A"
+                        <TextBlock Text="Project name" FontSize="10.5" Foreground="#71717A"
                                    Margin="2,0,0,4" FontFamily="Hanken Grotesk"/>
                         <TextBox x:Name="project_name_box"
                                  Height="30" Margin="0,0,0,8"
@@ -1893,7 +1893,7 @@
                                  Padding="10,0" BorderBrush="#E6E6EA"
                                  BorderThickness="1" Background="White"
                                  VerticalContentAlignment="Center"/>
-                        <TextBlock Text="Custom instructions (áp vào mọi câu trả lời)"
+                        <TextBlock Text="Custom instructions (applied to every reply)"
                                    FontSize="10.5" Foreground="#71717A"
                                    Margin="2,0,0,4" FontFamily="Hanken Grotesk"/>
                         <TextBox x:Name="project_instructions_box"
@@ -1911,7 +1911,7 @@
                             <Button x:Name="sidebar_project_save_btn" Grid.Column="0"
                                     Height="30" Margin="0,0,6,0" Cursor="Hand"
                                     Click="sidebar_project_save_clicked"
-                                    ToolTip="Lưu tên + instructions">
+                                    ToolTip="Save name + instructions">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="projsave_bg" Background="#18181B"
@@ -1932,7 +1932,7 @@
                             <Button x:Name="sidebar_project_delete_btn" Grid.Column="1"
                                     Height="30" MinWidth="34" Cursor="Hand"
                                     Click="sidebar_project_delete_clicked"
-                                    ToolTip="Xóa project này">
+                                    ToolTip="Delete this project">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="projdel_bg" Background="#F4F4F6"
@@ -1966,7 +1966,7 @@
                                    FontSize="9" Foreground="#A1A1AA"
                                    FontFamily="Hanken Grotesk"/>
                     </Grid>
-                    <TextBlock Text="Thư mục tài liệu được index để trợ lý trả lời có trích nguồn."
+                    <TextBlock Text="Document folders indexed so replies can cite their sources."
                                FontSize="10" Foreground="#A1A1AA" TextWrapping="Wrap"
                                Margin="2,0,0,8" FontFamily="Hanken Grotesk" LineHeight="14"/>
                     <StackPanel x:Name="knowledge_dirs_panel" Margin="0,0,0,8"/>
@@ -1978,7 +1978,7 @@
                         <Button x:Name="sidebar_add_knowledge_btn" Grid.Column="0"
                                 Height="30" Margin="0,0,6,0" Cursor="Hand"
                                 Click="sidebar_add_knowledge_dir_clicked"
-                                ToolTip="Thêm thư mục tài liệu vào index">
+                                ToolTip="Add a document folder to the index">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="addknow_bg" Background="#F4F4F6"
@@ -1998,7 +1998,7 @@
                                 <TextBlock Text="&#xE8F4;" FontFamily="Segoe MDL2 Assets"
                                            FontSize="10" Foreground="#71717A"
                                            VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <TextBlock Text="Thêm thư mục" FontSize="11" FontWeight="SemiBold"
+                                <TextBlock Text="Add folder" FontSize="11" FontWeight="SemiBold"
                                            Foreground="#52525B" FontFamily="Hanken Grotesk"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
@@ -2006,7 +2006,7 @@
                         <Button x:Name="sidebar_reindex_btn" Grid.Column="1"
                                 Height="30" MinWidth="34" Cursor="Hand"
                                 Click="sidebar_reindex_clicked"
-                                ToolTip="Quét lại toàn bộ index">
+                                ToolTip="Rescan the whole index">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="reidx_bg" Background="#F4F4F6"
@@ -2050,7 +2050,7 @@
                             <Button x:Name="sidebar_refresh_skills_btn"
                                     Height="18" Cursor="Hand" Margin="0,0,4,0"
                                     Click="sidebar_refresh_skills_clicked"
-                                    ToolTip="Quét lại thư mục skills">
+                                    ToolTip="Rescan skill folders">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="rfsk_bg" Background="Transparent"
@@ -2071,7 +2071,7 @@
                             <Button x:Name="sidebar_open_skills_dir_btn"
                                     Height="18" Cursor="Hand"
                                     Click="sidebar_open_skills_dir_clicked"
-                                    ToolTip="Mở thư mục skills của bạn">
+                                    ToolTip="Open your skills folder">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="opsk_bg" Background="Transparent"
@@ -2091,7 +2091,7 @@
                             </Button>
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="Gói hướng dẫn tự kích hoạt theo nội dung câu lệnh."
+                    <TextBlock Text="Instruction packs that auto-activate based on your request."
                                FontSize="10" Foreground="#A1A1AA" TextWrapping="Wrap"
                                Margin="2,0,0,8" FontFamily="Hanken Grotesk" LineHeight="14"/>
                     <StackPanel x:Name="skills_list_panel" Margin="0,0,0,0"/>
@@ -2352,15 +2352,15 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="10"
                                        Foreground="#27272A" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                            <TextBlock Text="Đính kèm:" FontSize="10" FontWeight="Bold"
+                            <TextBlock Text="Attached:" FontSize="10" FontWeight="Bold"
                                        Foreground="#27272A" VerticalAlignment="Center"/>
                             <Button x:Name="btn_clear_attachments"
                                     Style="{StaticResource IconButton}"
                                     Click="clear_attachments_clicked"
-                                    ToolTip="Xóa tất cả đính kèm"
+                                    ToolTip="Remove all attachments"
                                     Margin="6,0,0,0"
                                     Padding="3,1">
-                                <TextBlock Text="✕ Xóa tất cả" FontSize="9" Foreground="#D23B3B"/>
+                                <TextBlock Text="✕ Clear all" FontSize="9" Foreground="#D23B3B"/>
                             </Button>
                         </StackPanel>
                         <WrapPanel x:Name="attachment_chips_panel"/>
@@ -2391,7 +2391,7 @@
                                      KeyDown="input_keydown"
                                      TextChanged="input_text_changed"/>
                             <TextBlock x:Name="composer_placeholder"
-                                       Text="Nhập yêu cầu — gõ / để chọn skill"
+                                       Text="Type a request — press / for skills"
                                        FontSize="13.5" Foreground="#A1A1AA"
                                        FontFamily="Hanken Grotesk"
                                        VerticalAlignment="Center"
@@ -2412,7 +2412,7 @@
                                     Style="{StaticResource IconButton}"
                                     Width="30" Height="30"
                                     Click="attach_clicked"
-                                    ToolTip="Đính kèm PDF hoặc hình ảnh — tự lưu vào folder dự án theo ngày">
+                                    ToolTip="Attach PDF / images — or Ctrl+V / drag &amp; drop into the chat. Auto-saved to the project folder by date">
                                 <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13"
                                            Foreground="#52525B" VerticalAlignment="Center"
                                            HorizontalAlignment="Center"/>
@@ -2423,7 +2423,7 @@
                                     Style="{StaticResource ComposerChipBtn}"
                                     Margin="0,0,8,0"
                                     Click="model_chip_clicked"
-                                    ToolTip="Chọn AI provider / model">
+                                    ToolTip="Choose AI provider / model">
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse x:Name="model_chip_dot" Width="7" Height="7"
                                              Fill="#A1A1AA" VerticalAlignment="Center"
@@ -2445,7 +2445,7 @@
                             <Button Grid.Column="3" x:Name="send_button"
                                     Style="{StaticResource ComposerSendBtn}"
                                     Click="send_clicked"
-                                    ToolTip="Gửi (Enter)">
+                                    ToolTip="Send (Enter)">
                                 <TextBlock x:Name="send_icon" Text="&#xE74A;"
                                            FontFamily="Segoe MDL2 Assets" FontSize="12"
                                            Foreground="White"
@@ -2467,7 +2467,7 @@
                         <Button x:Name="project_chip_btn"
                                 Style="{StaticResource ComposerChipBtn}"
                                 Click="project_chip_clicked"
-                                ToolTip="Chọn project (không gian làm việc)">
+                                ToolTip="Choose a project (workspace)">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets"
                                            FontSize="11" Foreground="#71717A"
@@ -2485,18 +2485,18 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- Harness action mode: Tự động / Hỏi trước khi sửa model -->
+                        <!-- Harness action mode: Auto / Ask before model edits -->
                         <Button x:Name="action_mode_btn"
                                 Style="{StaticResource ComposerChipBtn}"
                                 Margin="4,0,0,0"
                                 Click="action_mode_clicked"
-                                ToolTip="Chế độ thực hiện lệnh sửa model — bấm để đổi">
+                                ToolTip="How model edits are executed — click to toggle">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="action_mode_icon" Text="&#xEA18;"
                                            FontFamily="Segoe MDL2 Assets"
                                            FontSize="11" Foreground="#71717A"
                                            VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                <TextBlock x:Name="action_mode_text" Text="Tự động"
+                                <TextBlock x:Name="action_mode_text" Text="Auto"
                                            FontSize="11.5" FontWeight="SemiBold"
                                            Foreground="#52525B" VerticalAlignment="Center"
                                            FontFamily="Hanken Grotesk"/>
@@ -2505,7 +2505,7 @@
                     </StackPanel>
 
                     <TextBlock Grid.Column="2"
-                               Text="/ skill  ·  Shift+Enter xuống dòng"
+                               Text="/ for skills  ·  Shift+Enter = new line"
                                FontSize="10.5" Foreground="#A1A1AA"
                                FontFamily="Hanken Grotesk"
                                VerticalAlignment="Center"/>
@@ -2532,7 +2532,7 @@
                             </ScrollViewer>
                             <Border BorderBrush="#F1F1F3" BorderThickness="0,1,0,0"
                                     Padding="12,6">
-                                <TextBlock Text="↑↓ chọn  ·  Enter/Tab dùng skill  ·  Esc đóng"
+                                <TextBlock Text="↑↓ navigate  ·  Enter/Tab use skill  ·  Esc close"
                                            FontSize="10" Foreground="#A1A1AA"
                                            FontFamily="Hanken Grotesk"/>
                             </Border>

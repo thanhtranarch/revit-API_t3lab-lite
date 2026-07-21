@@ -1,6 +1,6 @@
 ---
 name: schedule-qto
-description: Tao schedule va boc khoi luong (quantity takeoff) tu model Revit
+description: Schedules and quantity takeoff straight from the Revit model
 triggers: schedule, boc khoi luong, khoi luong, thong ke, bang thong ke, quantity, takeoff, boc tach
 agents: revit_data, revit_action, general
 tools: create_schedule, get_schedule_data, get_material_quantities, analyze_model_statistics, export_room_data

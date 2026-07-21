@@ -1,6 +1,6 @@
 ---
 name: export-standard
-description: Quy trinh xuat PDF va DWG chuan ho so, dat ten file thong nhat
+description: PDF/DWG export procedure and deliverable file naming
 triggers: xuat pdf, in pdf, export pdf, xuat dwg, export dwg, xuat ban ve, xuat ho so, in ho so
 agents: revit_action, revit_data
 tools: revit_list_sheets, export_sheets_pdf, export_dwg, export_image

@@ -24,7 +24,7 @@ _SYSTEM_PROMPT = (
     "- Luôn ghi nguồn bằng chỉ số [n] ngay sau thông tin lấy từ trích đoạn [n].\n"
     "- Nếu các trích đoạn không đủ để trả lời, nói rõ là tài liệu không đề cập"
     " — TUYỆT ĐỐI không bịa.\n"
-    "- Trả lời bằng đúng ngôn ngữ của câu hỏi (tiếng Việt hoặc tiếng Anh).\n"
+    "- Always answer in English, regardless of the question's language.\n"
     "- Trả lời ngắn gọn, đúng trọng tâm; dùng gạch đầu dòng khi liệt kê."
 )
 

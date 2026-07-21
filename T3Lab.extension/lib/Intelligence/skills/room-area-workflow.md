@@ -1,6 +1,6 @@
 ---
 name: room-area-workflow
-description: Quy trinh tao room, tag room, xuat dien tich va tao san tu room
+description: Room creation, tagging, area schedules and room-to-floor workflow
 triggers: tao room, tag room, dien tich phong, bang dien tich, room to floor, tao san tu room, xuat room
 agents: revit_action, revit_data
 tools: create_room, tag_all_rooms, export_room_data, store_room_data, room_to_floor, create_schedule, list_levels
