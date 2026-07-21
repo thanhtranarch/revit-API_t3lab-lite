@@ -1,7 +1,7 @@
 ---
 name: workset-standard
 description: BIM workset naming and allocation rules for worksharing
-triggers: workset, tao workset, phan workset, chia workset, chuyen workset, workset nao
+triggers: workset, tao workset, phan workset, chia workset, chuyen workset, workset nao, workset1, phan bo workset, worksharing, gan workset
 agents: revit_action, revit_data, general
 tools: list_worksets, create_workset, set_element_workset, ai_element_filter, select_elements
 ---

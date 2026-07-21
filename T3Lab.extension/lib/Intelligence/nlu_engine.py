@@ -876,8 +876,12 @@ _BUILTIN_TOOLS = [
 # Vietnamese verbs that CANNOT be globally rewritten to "open" by _ABBREVS
 # (e.g. "chạy" would corrupt the "không chạy được" complaint trigger) are
 # stripped here instead, so "chạy autojoin" still resolves to the tool.
+# NOTE: "dung" is intentionally ABSENT: after diacritics folding it is both
+# "dùng" (use → open verb) and "dựng" (build/model) — keeping it hijacked
+# every modeling request ("dựng model" → "which tool do you want to open?").
+# "dùng X" now falls through to the LLM path, which handles it fine.
 _OPEN_VERBS = {"open", "launch", "start", "run", "show",
-               "chay", "dung", "xai"}
+               "chay", "xai"}
 
 
 def _singularise(w):

@@ -1,7 +1,7 @@
 ---
 name: parameter-management
 description: Read, bulk-set and create parameters safely
-triggers: parameter, tham so, gan parameter, dien parameter, sua parameter, project parameter, shared parameter
+triggers: parameter, tham so, gan parameter, dien parameter, sua parameter, project parameter, shared parameter, set parameter, bulk parameter, gia tri parameter, tao parameter, doi tham so
 agents: revit_action, revit_data
 tools: get_all_parameters, get_parameter, set_parameter, bulk_set_parameter, create_project_parameter, ai_element_filter
 ---

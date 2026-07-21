@@ -1,7 +1,7 @@
 ---
 name: schedule-qto
 description: Schedules and quantity takeoff straight from the Revit model
-triggers: schedule, boc khoi luong, khoi luong, thong ke, bang thong ke, quantity, takeoff, boc tach
+triggers: schedule, boc khoi luong, khoi luong, thong ke, bang thong ke, quantity, takeoff, boc tach, material quantities, khoi luong vat lieu, khoi luong be tong, qto, bill of quantities, boq
 agents: revit_data, revit_action, general
 tools: create_schedule, get_schedule_data, get_material_quantities, analyze_model_statistics, export_room_data
 ---
@@ -9,6 +9,7 @@ tools: create_schedule, get_schedule_data, get_material_quantities, analyze_mode
 
 ## Nguyên tắc
 - Khối lượng lấy TRỰC TIẾP từ model (`get_schedule_data`, `get_material_quantities`) — không ước lượng tay. Model thiếu gì phải nói rõ "model chưa đủ dữ liệu mục X".
+- MỌI con số thống kê dùng field do tool tính sẵn: `row_count` + `column_totals` (get_schedule_data), `total_count` (ai_element_filter), `element_counts` (analyze_model_statistics). TUYỆT ĐỐI không tự đếm/cộng từ danh sách `rows`/`elements` — danh sách có thể đã bị cắt bớt trước khi tới model.
 - Đơn vị mặc định: dài m, diện tích m², thể tích m³, khối lượng kg; làm tròn 2 chữ số.
 
 ## Tạo schedule

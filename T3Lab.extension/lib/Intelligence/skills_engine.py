@@ -288,8 +288,32 @@ def get_skills_engine():
     return SkillsEngine()
 
 
+# Shared execution contract injected once above every active skill body.
+# Individual playbooks stay focused on their domain; the cross-cutting
+# lessons (learned from real sessions) live here so ALL skills inherit
+# them without 25 copies drifting apart.
+_SKILLS_CONTRACT = """\
+## Skill execution contract (applies to every active skill below)
+1. FOLLOW THE PLAYBOOK: the active skill is the standard for this request \
+— its naming rules, thresholds, orders of steps and report formats \
+override your defaults.
+2. ACT IN THIS TURN: checking/audit playbooks default to the ENTIRE \
+project and start scanning immediately — no scope questions. Playbooks \
+that MODIFY the model present the plan (targets + counts) and wait for \
+one confirmation, then execute without re-asking.
+3. NUMBERS COME FROM TOOL-COMPUTED FIELDS ONLY: `total_count` \
+(ai_element_filter), `row_count`/`column_totals` (get_schedule_data), \
+`element_counts` (analyze_model_statistics). Never count or sum raw \
+`rows`/`elements` lists — they may be truncated before you see them. \
+When `total_count` > returned count, raise `limit` and rescan, or report \
+"checked X of Y" explicitly.
+4. REPORT LIKE THE PLAYBOOK: use its table format, include element ids, \
+and state clearly what was NOT covered and why."""
+
+
 def build_skills_block(skill_ids, max_skills=2):
-    """'## Active skill' prompt block for the matched skills (capped)."""
+    """'## Active skill' prompt block for the matched skills (capped),
+    preceded by the shared execution contract."""
     if not skill_ids:
         return ''
     engine = get_skills_engine()
@@ -301,4 +325,6 @@ def build_skills_block(skill_ids, max_skills=2):
         meta = engine._skills.get(sid) or {}
         parts.append('## Active skill: {}\n{}'.format(
             meta.get('name', sid), body))
-    return '\n\n'.join(parts)
+    if not parts:
+        return ''
+    return '\n\n'.join([_SKILLS_CONTRACT] + parts)

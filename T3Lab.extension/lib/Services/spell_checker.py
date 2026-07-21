@@ -162,16 +162,20 @@ def format_report(findings, total, uniq, failed_batches, viet, view_only):
     """Assemble the final markdown report shown in the chat bubble."""
     lines = []
     if viet:
-        scope = u" trong view hiện tại" if view_only else u" trong toàn bộ dự án"
-        lines.append(u"🔍 **Kết quả kiểm tra chính tả Text Note**")
+        scope = (u" trong view hiện tại" if view_only
+                 else u" trong toàn bộ dự án (Text Note + tên sheet/view/"
+                      u"room/level + thông tin dự án)")
+        lines.append(u"🔍 **Kết quả kiểm tra chính tả tiếng Anh**")
         lines.append(u"")
-        lines.append(u"Đã quét **{}** Text Note ({} nội dung khác nhau){}.".format(
+        lines.append(u"Đã quét **{}** mục text ({} nội dung khác nhau){}.".format(
             total, uniq, scope))
     else:
-        scope = u" in the active view" if view_only else u" in the whole project"
-        lines.append(u"🔍 **Text Note spell-check results**")
+        scope = (u" in the active view" if view_only
+                 else u" in the whole project (Text Notes + sheet/view/"
+                      u"room/level names + project info)")
+        lines.append(u"🔍 **English spell-check results**")
         lines.append(u"")
-        lines.append(u"Scanned **{}** Text Notes ({} unique texts){}.".format(
+        lines.append(u"Scanned **{}** text items ({} unique texts){}.".format(
             total, uniq, scope))
     lines.append(u"")
 

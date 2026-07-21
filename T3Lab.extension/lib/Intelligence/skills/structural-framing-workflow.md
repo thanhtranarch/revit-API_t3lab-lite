@@ -1,8 +1,8 @@
 ---
 name: structural-framing-workflow
 description: Create structural framing systems the right way
-triggers: he dam, dam san, tao dam, khung ket cau, framing system, he ket cau, dam phu, dam chinh
-agents: revit_action, revit_data
+triggers: he dam, dam san, tao dam, khung ket cau, framing system, he ket cau, dam phu, dam chinh, beam system, tao cot, cot ket cau, dam thep, dam be tong
+agents: revit_action, revit_data, modeling
 tools: create_structural_framing_system, create_line_based_element, list_levels, get_available_family_types, create_grid
 ---
 # Quy trình hệ khung kết cấu (T3Lab)

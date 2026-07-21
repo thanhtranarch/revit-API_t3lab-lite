@@ -1,7 +1,7 @@
 ---
 name: bep-guideline
 description: BIM Execution Plan (BEP) guide per ISO 19650-2 with required sections
-triggers: bep, bim execution plan, ke hoach bim, trien khai bim, lap bep, eir, midp, tidp
+triggers: bim execution plan, ke hoach bim, trien khai bim, lap bep, bep guideline, bep la gi, eir, midp, tidp, cde, common data environment, soan bep, ra soat bep
 agents: general, knowledge
 tools:
 ---

@@ -1,9 +1,9 @@
 ---
 name: cobie-handover
 description: Prepare COBie handover data - map Revit parameters to COBie fields
-triggers: cobie, du lieu tai san, asset data, ban giao du lieu, facility management, fm data, du lieu van hanh
-agents: general, revit_data, revit_action
-tools: get_all_parameters, set_parameter, bulk_set_parameter, create_project_parameter, create_schedule, get_schedule_data, export_room_data
+triggers: cobie, du lieu tai san, asset data, ban giao du lieu, facility management, fm data, du lieu van hanh, van hanh bao tri, asset register, ma tai san
+agents: general, revit_data, revit_action, qa_check
+tools: get_all_parameters, set_parameter, bulk_set_parameter, create_project_parameter, create_schedule, get_schedule_data, export_room_data, ai_element_filter
 ---
 # Chuẩn bị dữ liệu COBie (T3Lab)
 

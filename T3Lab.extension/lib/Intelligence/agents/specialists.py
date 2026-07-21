@@ -49,6 +49,29 @@ EXPORT_TOOLS = frozenset([
 
 ACTION_TOOLS = READ_TOOLS | MODIFY_TOOLS | EXPORT_TOOLS
 
+# Multi-document sessions: several models open in ONE Revit process. All
+# tools operate on the ACTIVE document; these switch/inspect across them.
+MULTIDOC_TOOLS = READ_TOOLS | frozenset([
+    "open_document", "close_document", "list_recent_documents",
+    "export_room_data",
+])
+
+# Geometry creation (image-to-model / text-to-model workflows).
+MODELING_TOOLS = READ_TOOLS | frozenset([
+    "create_level", "create_grid", "place_wall",
+    "create_line_based_element", "create_point_based_element",
+    "create_surface_based_element", "create_room", "room_to_floor",
+    "create_dimension", "create_text_note", "load_family",
+    "join_geometry", "move_elements", "copy_elements", "rotate_element",
+    "delete_element", "select_elements",
+])
+
+# Model QA / audit: read everything, highlight problems visually.
+QA_TOOLS = READ_TOOLS | frozenset([
+    "select_elements", "color_elements", "revit_override_color",
+    "audit_model", "purge_unused", "create_view_filter",
+])
+
 
 class SpecialistSpec(object):
 
@@ -127,6 +150,93 @@ SPECIALISTS = {
             "User: \"đổi tên sheet A-101 thành A-102\" -> revit_list_sheets "
             "to find the id -> rename_element -> reply \"Đã đổi tên sheet "
             "A-101 → A-102 (id 12345).\""
+        ),
+    ),
+
+    "multi_doc": SpecialistSpec(
+        "multi_doc",
+        "Work across several open models: list, switch, compare documents.",
+        tool_names=MULTIDOC_TOOLS,
+        restrict_cloud=False,
+        use_launcher=False,
+        max_iterations=8,
+        max_tokens=1500,
+        prompt_intro=(
+            "## Role: MULTI-DOCUMENT specialist\n"
+            "This request spans MORE THAN ONE open model. Workflow: "
+            "(1) `list_open_documents` to see what is open, (2) "
+            "`switch_active_document` (exact title) to target a model, "
+            "(3) run the reads there, (4) switch to the next model and "
+            "repeat, (5) combine the results in ONE final answer (a pipe "
+            "table with one column per model works well for comparisons). "
+            "Element ids are only valid INSIDE their own document — never "
+            "mix ids across models. Say clearly which model each number "
+            "comes from. Documents open in a DIFFERENT Revit window "
+            "(separate process) are not reachable from this chat — tell "
+            "the user to open the assistant in that window instead."
+        ),
+        few_shot=(
+            "## Examples\n"
+            "User: \"so sanh so luong tuong giua 2 model dang mo\" -> "
+            "list_open_documents -> switch_active_document(A) -> "
+            "ai_element_filter(Walls) -> switch_active_document(B) -> "
+            "ai_element_filter(Walls) -> reply with a 2-column table."
+        ),
+    ),
+
+    "modeling": SpecialistSpec(
+        "modeling",
+        "Build geometry: levels, grids, walls, floors (image/text to model).",
+        tool_names=MODELING_TOOLS,
+        restrict_cloud=False,
+        max_iterations=14,
+        max_tokens=1600,
+        prompt_intro=(
+            "## Role: MODELING specialist\n"
+            "This request BUILDS geometry. Units are METERS. Build order: "
+            "levels -> grids -> walls -> floors/roof -> openings/furniture. "
+            "Confirm key dimensions BEFORE creating anything (one compact "
+            "table); after confirmation act immediately with tool calls — "
+            "batch per storey and report created element ids per step. "
+            "Never 'model' with text notes; missing families are listed "
+            "for the user, never guessed."
+        ),
+    ),
+
+    "qa_check": SpecialistSpec(
+        "qa_check",
+        "Model QA: warnings, health, audits, naming, standards compliance.",
+        tool_names=QA_TOOLS,
+        restrict_cloud=True,
+        use_launcher=False,
+        max_iterations=8,
+        max_tokens=1500,
+        prompt_intro=(
+            "## Role: QA specialist\n"
+            "This request AUDITS the model. Default scope is the ENTIRE "
+            "project. Gather the evidence with read tools (warnings, "
+            "health, statistics, naming), then report findings grouped by "
+            "severity with element ids. You may select or color elements "
+            "to highlight problems, but never fix anything without the "
+            "user's explicit go-ahead (purge_unused: dry_run first, "
+            "always)."
+        ),
+    ),
+
+    "export": SpecialistSpec(
+        "export",
+        "Sheet/model exports: PDF, DWG, images — direct or via BatchOut.",
+        tool_names=READ_TOOLS | EXPORT_TOOLS,
+        restrict_cloud=False,
+        max_iterations=6,
+        max_tokens=1200,
+        prompt_intro=(
+            "## Role: EXPORT specialist\n"
+            "This request EXPORTS sheets or views. Resolve the sheet set "
+            "first (`revit_list_sheets`, filter by the user's prefix), "
+            "state count + destination, then export. For complex batch "
+            "jobs (naming rules, many formats) `open_t3lab_tool` with "
+            "BatchOut is the better answer than many manual calls."
         ),
     ),
 

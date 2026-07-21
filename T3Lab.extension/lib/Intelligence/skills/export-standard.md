@@ -1,8 +1,8 @@
 ---
 name: export-standard
 description: PDF/DWG export procedure and deliverable file naming
-triggers: xuat pdf, in pdf, export pdf, xuat dwg, export dwg, xuat ban ve, xuat ho so, in ho so
-agents: revit_action, revit_data
+triggers: xuat pdf, in pdf, export pdf, xuat dwg, export dwg, xuat ban ve, xuat ho so, in ho so, xuat ifc, export image, xuat anh, xuat hinh, print pdf, dwg version
+agents: revit_action, revit_data, export
 tools: revit_list_sheets, export_sheets_pdf, export_dwg, export_image
 ---
 # Quy trình xuất hồ sơ PDF / DWG (T3Lab)

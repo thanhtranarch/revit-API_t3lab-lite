@@ -1,7 +1,7 @@
 ---
 name: lod-standard
 description: LOD 100-500 and LOIN - how detailed the model must be per stage
-triggers: lod, lod 200, lod 300, lod 350, lod 400, lod 500, muc do chi tiet, level of detail, loin, level of development
+triggers: lod, lod 100, lod 200, lod 300, lod 350, lod 400, lod 500, muc do chi tiet, level of detail, loin, level of development, do chi tiet model
 agents: general, knowledge, revit_data
 tools: analyze_model_statistics
 ---

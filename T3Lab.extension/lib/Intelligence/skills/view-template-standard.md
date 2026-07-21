@@ -1,7 +1,7 @@
 ---
 name: view-template-standard
 description: View naming rules and consistent view template application
-triggers: view template, ap template, dat ten view, ten view, tao view moi, nhan ban view, duplicate view
+triggers: view template, ap template, dat ten view, ten view, tao view moi, nhan ban view, duplicate view, apply template, rename view, view name, don view, view rac
 agents: revit_action, revit_data, general
 tools: revit_list_views, create_view, duplicate_view, apply_view_template, create_view_filter, set_active_view
 ---

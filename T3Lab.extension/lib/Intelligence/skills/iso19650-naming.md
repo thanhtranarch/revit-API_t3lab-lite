@@ -1,7 +1,7 @@
 ---
 name: iso19650-naming
 description: ISO 19650 file naming and document codes for BIM deliverables
-triggers: iso 19650, iso19650, dat ten file, ma tai lieu, naming convention, ten ban giao, ma ban ve
+triggers: iso 19650, iso19650, dat ten file, ma tai lieu, naming convention, ten ban giao, ma ban ve, suitability code, revision code, document code, quy tac dat ten
 agents: general, knowledge
 tools:
 ---

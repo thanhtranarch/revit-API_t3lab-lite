@@ -1,8 +1,8 @@
 ---
 name: family-workflow
 description: Load families, pick types and place them correctly
-triggers: load family, tai family, dat family, chen family, family type, chon family, place family
-agents: revit_action, revit_data
+triggers: load family, tai family, dat family, chen family, family type, chon family, place family, thay family, doi family, swap family, nap family, load rfa
+agents: revit_action, revit_data, modeling
 tools: load_family, get_available_family_types, create_point_based_element, create_line_based_element, list_levels
 ---
 # Quy trình Family (T3Lab)

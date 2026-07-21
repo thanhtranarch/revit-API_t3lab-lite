@@ -23,6 +23,36 @@ def eid_value(element_id):
             return -1
 
 
+# Cached constructor strategy: None = not probed yet, False = ElementId(int)
+# works (Revit 2024 and earlier), True = must wrap in System.Int64 (2025+).
+_EID_NEEDS_INT64 = None
+
+
+def make_eid(value):
+    """Construct an ElementId from an integer, version-safe.
+
+    Revit 2025+ removed the ElementId(Int32) constructor; IronPython then
+    cannot pick between the remaining overloads (Int64 / BuiltInCategory /
+    BuiltInParameter) for a plain Python int and raises TypeError
+    "Multiple targets could match". Wrapping the value in System.Int64
+    forces the Int64 overload. Counterpart of eid_value().
+    """
+    global _EID_NEEDS_INT64
+    from Autodesk.Revit.DB import ElementId
+    v = int(value)
+    if _EID_NEEDS_INT64:
+        import System
+        return ElementId(System.Int64(v))
+    try:
+        eid = ElementId(v)
+        _EID_NEEDS_INT64 = False
+        return eid
+    except (TypeError, OverflowError):
+        _EID_NEEDS_INT64 = True
+        import System
+        return ElementId(System.Int64(v))
+
+
 def elem_name(element):
     """Return element.Name, IronPython-safe.
 

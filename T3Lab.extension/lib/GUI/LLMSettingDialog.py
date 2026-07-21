@@ -15,6 +15,10 @@ from __future__ import unicode_literals
 import os
 
 import clr
+clr.AddReference('PresentationFramework')
+clr.AddReference('PresentationCore')
+clr.AddReference('WindowsBase')
+
 import System
 from System import Action
 from System.Threading import Thread, ThreadStart, ApartmentState
