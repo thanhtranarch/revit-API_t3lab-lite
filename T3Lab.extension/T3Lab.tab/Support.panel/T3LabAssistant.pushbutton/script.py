@@ -580,6 +580,20 @@ _ICON_GREEN = (16, 185, 129)     # #10B981 — success
 _ICON_SLATE = (100, 116, 139)    # #64748B — neutral/muted
 
 
+# ─── Persistent memory: explicit "remember ..." save trigger ───────────────────
+# Only unambiguous save phrasings ("remember that X", "nhớ là X", "ghi nhớ X",
+# "từ nay X") are handled deterministically — bare "nhớ"/"remember to" stay
+# with the LLM, which can still save via the remember_fact tool when the
+# statement really is durable. Both diacritic and folded Vietnamese forms are
+# in the pattern so match positions stay valid on the ORIGINAL text.
+_MEM_SAVE_RX = re.compile(
+    r'^\s*(?:please\s+|h[aã]y\s+)?'
+    r'(?:remember|ghi\s*nh[oớ]|nh[oớ]\s+r[aằ]ng|nh[oớ]\s+l[aà]'
+    r'|t[uừ]\s+nay(?:\s+tr[oở]\s+[dđ]i)?|from\s+now\s+on)'
+    r'\s*[:,]?\s+(.+)$',
+    re.IGNORECASE | re.DOTALL | re.UNICODE)
+
+
 # CLASS/FUNCTIONS
 # ==================================================
 
@@ -650,6 +664,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._slash_rows      = []      # Border rows (for highlight swap)
         self._slash_sel       = 0       # highlighted index
         self._forced_skill_id = None    # skill forced via /slash for THIS message
+
+        # ── Usage-flow state: message queue + quick-reply chips ───────────────
+        # The input stays ENABLED while a request runs (Claude-style): Enter
+        # queues the next message, which auto-sends when the current request
+        # releases the busy state. Quick-reply chips (confirm / retry /
+        # continue) are one row at a time — replaced on every new send.
+        self._queued_inputs  = []      # [{'text': unicode, 'row': element}]
+        self._quickreply_row = None    # active chip row (or None)
 
         # Paint the project/model/action chips AFTER first render — their
         # first update constructs LLMRouter + reads project JSON, which does
@@ -1089,6 +1111,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Clear in-memory state
             self._conversation_history = []
             self._persisted_msgs = []
+            self._prev_agent_decision = None   # no carryover across chats
+            self._queued_inputs = []           # rows were removed above
+            self._quickreply_row = None
             # Delete saved file
             clear_chat_history(self._doc_key)
             self._update_welcome_greeting()
@@ -1134,6 +1159,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from config.user_profile import UserProfile
             name = UserProfile().get_name() or u"Thạnh"
             self._render_greeting(name)
+            self._populate_welcome_suggestions()
 
             # The welcome banner only shows on a fresh chat (no history yet).
             if self._persisted_msgs:
@@ -1142,6 +1168,68 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.welcome_greeting_panel.Visibility = Visibility.Visible
         except Exception:
             pass
+
+    # Quick-start chips on the fresh-chat welcome screen: label + the phrase
+    # inserted into the composer on click (NOT auto-sent — the user can edit).
+    # The slash phrase carries a trailing space so the skills popup does not
+    # reopen over it and a single Enter sends it.
+    _WELCOME_SUGGESTIONS = [
+        (u"Thống kê model",    u"thống kê toàn bộ model"),
+        (u"Check chính tả",    u"/english-spellcheck "),
+        (u"Export PDF",        u"export pdf all sheets"),
+        (u"Bạn làm được gì?",  u"what can you do?"),
+    ]
+
+    def _populate_welcome_suggestions(self):
+        """Fill the welcome quick-start chip row (idempotent). UI THREAD."""
+        try:
+            panel = getattr(self, 'welcome_suggestions', None)
+            if panel is None:
+                return   # stale cached XAML without the WrapPanel
+            panel.Children.Clear()
+            from System.Windows.Controls import Border, TextBlock
+            from System.Windows import Thickness, CornerRadius
+            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Input import Cursors
+
+            _bg     = Color.FromRgb(0xFF, 0xFF, 0xFF)
+            _bg_hov = Color.FromRgb(0xF1, 0xF5, 0xF9)
+            for label, phrase in self._WELCOME_SUGGESTIONS:
+                chip = Border()
+                chip.Background = SolidColorBrush(_bg)
+                chip.BorderBrush = SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0))
+                chip.BorderThickness = Thickness(1)
+                chip.CornerRadius = CornerRadius(12)
+                chip.Padding = Thickness(11, 5, 11, 6)
+                chip.Margin = Thickness(0, 0, 6, 6)
+                chip.Cursor = Cursors.Hand
+                tb = TextBlock()
+                tb.Text = label
+                tb.FontSize = 12
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69))
+                chip.Child = tb
+
+                def _click(s, ev, _p=phrase):
+                    try:
+                        self.chat_input.Text = _p
+                        self.chat_input.CaretIndex = len(_p)
+                        self.chat_input.Focus()
+                    except Exception:
+                        pass
+                    ev.Handled = True
+                chip.MouseLeftButtonUp += _click
+
+                def _enter(s, ev, _c=chip):
+                    _c.Background = SolidColorBrush(_bg_hov)
+
+                def _leave(s, ev, _c=chip):
+                    _c.Background = SolidColorBrush(_bg)
+                chip.MouseEnter += _enter
+                chip.MouseLeave += _leave
+                panel.Children.Add(chip)
+        except Exception as ex:
+            logger.debug("_populate_welcome_suggestions error: {}".format(ex))
 
     # ─── First-run onboarding ─────────────────────────────────────────────────
 
@@ -1521,6 +1609,81 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("_append_skill_chips error: {}".format(ex))
 
+    # ─── Quick-reply chips (confirm / retry / continue) ───────────────────────
+
+    def _append_quick_replies(self, labels, send_texts=None):
+        """Clickable reply chips under the last bot message. UI THREAD.
+
+        labels: chip captions. send_texts: what each click actually sends
+        (defaults to the caption). Only ONE quick-reply row exists at a
+        time; it disappears once a chip is clicked or the user sends any
+        other message (_remove_quick_replies in _process_input).
+        """
+        try:
+            self._remove_quick_replies()
+            from System.Windows.Controls import Border, TextBlock, StackPanel, Orientation
+            from System.Windows import Thickness, CornerRadius
+            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Input import Cursors
+
+            texts = list(send_texts) if send_texts else list(labels)
+            row = StackPanel()
+            row.Orientation = Orientation.Horizontal
+            row.Margin = Thickness(34, 2, 0, 10)
+
+            _bg      = Color.FromRgb(0xEF, 0xF6, 0xFF)   # blue-50
+            _bg_hov  = Color.FromRgb(0xDB, 0xEA, 0xFE)   # blue-100
+            for i, label in enumerate(labels):
+                chip = Border()
+                chip.Background = SolidColorBrush(_bg)
+                chip.BorderBrush = SolidColorBrush(Color.FromRgb(0xBF, 0xDB, 0xFE))
+                chip.BorderThickness = Thickness(1)
+                chip.CornerRadius = CornerRadius(12)
+                chip.Padding = Thickness(11, 4, 11, 5)
+                chip.Margin = Thickness(0, 0, 6, 0)
+                chip.Cursor = Cursors.Hand
+                tb = TextBlock()
+                tb.Text = label
+                tb.FontSize = 11.5
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontWeight = System.Windows.FontWeights.SemiBold
+                tb.Foreground = SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
+                chip.Child = tb
+
+                def _click(s, ev, _t=texts[i] if i < len(texts) else label):
+                    try:
+                        self._remove_quick_replies()
+                        self.chat_input.Text = _t
+                        self._process_input()
+                    except Exception:
+                        pass
+                    ev.Handled = True
+                chip.MouseLeftButtonUp += _click
+
+                def _enter(s, ev, _c=chip):
+                    _c.Background = SolidColorBrush(_bg_hov)
+
+                def _leave(s, ev, _c=chip):
+                    _c.Background = SolidColorBrush(_bg)
+                chip.MouseEnter += _enter
+                chip.MouseLeave += _leave
+                row.Children.Add(chip)
+
+            self._quickreply_row = row
+            self.chat_history_panel.Children.Add(row)
+            self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug("_append_quick_replies error: {}".format(ex))
+
+    def _remove_quick_replies(self):
+        """Drop the active quick-reply row (if any). UI THREAD."""
+        try:
+            if self._quickreply_row is not None:
+                self.chat_history_panel.Children.Remove(self._quickreply_row)
+        except Exception:
+            pass
+        self._quickreply_row = None
+
     # ─── Command palette ──────────────────────────────────────────────────────
 
     # All commands exposed to the AI, grouped by category.
@@ -1739,13 +1902,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
         """Lock/unlock the input area. Call from UI thread only.
 
         While busy the send button STAYS ENABLED and becomes a Stop button so
-        the user can cancel a running agent request mid-flight.
+        the user can cancel a running agent request mid-flight. The text
+        input also stays enabled (Claude-style): the user composes the next
+        message while the agent works — Enter queues it, and the queue
+        drains automatically when the busy state releases.
         """
         self._busy = busy
         if busy:
             self._cancel_requested = False
         try:
-            self.chat_input.IsEnabled = not busy
+            self.chat_input.IsEnabled = True
             self._render_send_button(busy)
             self.btn_attach.IsEnabled = not busy
         except Exception:
@@ -1770,6 +1936,94 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._show_typing_indicator()
         else:
             self._hide_typing_indicator()
+
+        # Auto-send the next queued message once this request is fully done.
+        # BeginInvoke lets the current finish-handler stack unwind first.
+        if not busy and self._queued_inputs:
+            try:
+                self.Dispatcher.BeginInvoke(Action(self._drain_queued_input))
+            except Exception:
+                pass
+
+    def _drain_queued_input(self):
+        """Send the oldest queued message. UI THREAD (via BeginInvoke)."""
+        try:
+            if self._busy or not self._queued_inputs:
+                return
+            item = self._queued_inputs.pop(0)
+            try:
+                if item.get('row') is not None:
+                    self.chat_history_panel.Children.Remove(item['row'])
+            except Exception:
+                pass
+            # Preserve anything the user is still typing — swap it out,
+            # send the queued text, swap the draft back in.
+            draft = self.chat_input.Text
+            self.chat_input.Text = item['text']
+            self._process_input()
+            try:
+                self.chat_input.Text = draft
+                self.chat_input.CaretIndex = len(draft or u"")
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug("_drain_queued_input error: {}".format(ex))
+
+    def _queue_input(self, raw):
+        """Queue a message typed while a request is running. UI THREAD.
+
+        Shows a muted 'Queued' chip in the transcript; clicking the chip
+        cancels that queued message.
+        """
+        try:
+            if len(self._queued_inputs) >= 3:
+                self._append_bot_message(
+                    u"Queue is full (3 messages) — please wait for the "
+                    u"current request to finish.",
+                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                return
+            from System.Windows.Controls import Border, TextBlock
+            from System.Windows import Thickness, CornerRadius, TextTrimming
+            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Input import Cursors
+
+            row = Border()
+            row.Background = SolidColorBrush(Color.FromRgb(0xF1, 0xF5, 0xF9))
+            row.BorderBrush = SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0))
+            row.BorderThickness = Thickness(1)
+            row.CornerRadius = CornerRadius(10)
+            row.Padding = Thickness(10, 4, 10, 5)
+            row.Margin = Thickness(34, 0, 60, 6)
+            row.HorizontalAlignment = System.Windows.HorizontalAlignment.Right
+            row.Cursor = Cursors.Hand
+            row.ToolTip = (u"Will send automatically when the current "
+                           u"request finishes — click to cancel")
+            tb = TextBlock()
+            _short = raw if len(raw) <= 70 else raw[:70] + u"…"
+            tb.Text = u"Queued: {}".format(_short)
+            tb.FontSize = 11
+            tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+            tb.Foreground = SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B))
+            tb.TextTrimming = TextTrimming.CharacterEllipsis
+            row.Child = tb
+            item = {'text': raw, 'row': row}
+
+            def _cancel_queued(s, ev, _item=item):
+                try:
+                    if _item in self._queued_inputs:
+                        self._queued_inputs.remove(_item)
+                    self.chat_history_panel.Children.Remove(_item['row'])
+                except Exception:
+                    pass
+                ev.Handled = True
+            row.MouseLeftButtonUp += _cancel_queued
+
+            self._queued_inputs.append(item)
+            self.chat_history_panel.Children.Add(row)
+            self.chat_input.Text = u""
+            self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug("_queue_input error: {}".format(ex))
 
     def _render_send_button(self, busy):
         """Swap the round send button between arrow-up ↑ and Stop ⏹. UI thread only.
@@ -2259,6 +2513,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
         q = (query or u"").lower()
         items = [s for s in skills
                  if q in s['id'].lower() or q in (s['name'] or u"").lower()]
+        # Built-in /memory command (not a skill) — listed in the same popup
+        # so it is discoverable the same way. _process_input won't find it
+        # in the skills catalog, so the text routes to _try_memory_command.
+        if q in u'memory':
+            items.append({'id': u'memory', 'name': u'Memory',
+                          'description': (u'View or manage what the '
+                                          u'assistant remembers'),
+                          'source': None, 'enabled': True})
         if not items:
             self._close_skills_popup()
             return
@@ -2657,16 +2919,38 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("_update_action_mode_chip error: {}".format(ex))
 
     def activity_log_clicked(self, sender, e):
-        """Open today's activity log (or the logs folder) in Explorer."""
+        """Open today's activity log (notepad) or the logs folder (Explorer).
+
+        Never Process.Start the .md file directly: on machines without a
+        markdown association that throws Win32Exception ("No application is
+        associated...") which used to be swallowed silently — the button
+        looked dead. notepad.exe always exists and reads UTF-8 fine.
+        """
         try:
             from config.project_store import ProjectStore
             ps = ProjectStore()
             pid = ps.get_active_project_id()
             path = ps.activity_log_path(pid)
-            target = path if os.path.exists(path) else os.path.dirname(path)
-            System.Diagnostics.Process.Start(target)
+            folder = os.path.dirname(path)
+            if not os.path.isdir(folder):
+                try:
+                    os.makedirs(folder)
+                except Exception:
+                    pass
+            if os.path.isfile(path):
+                System.Diagnostics.Process.Start(
+                    u"notepad.exe", u'"{}"'.format(path))
+            else:
+                System.Diagnostics.Process.Start(
+                    u"explorer.exe", u'"{}"'.format(folder))
         except Exception as ex:
-            logger.debug("activity_log_clicked error: {}".format(ex))
+            logger.error("activity_log_clicked error: {}".format(ex))
+            try:
+                self._append_bot_message(
+                    u"Could not open the activity log: {}".format(ex),
+                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+            except Exception:
+                pass
 
     def _log_activity(self, text):
         """Append to today's activity log on a pool thread. Never raises.
@@ -2909,6 +3193,119 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("_try_fast_context_answer error: {}".format(ex))
             return None
 
+    # ─── Persistent memory: /memory command + "remember ..." triggers ─────────
+
+    def _try_memory_command(self, raw):
+        """Deterministic persistent-memory handling. WORKER THREAD.
+
+        Handles the /memory command family (show / forget N / clear) and
+        explicit "remember that ..." / "nhớ là ..." saves without an LLM
+        round-trip, so memory works even fully offline. Returns True when
+        the request was completely handled here (UI updated, busy released).
+        """
+        try:
+            text = (raw or u'').strip()
+            if not text:
+                return False
+            from Intelligence import assistant_memory
+            pid = None
+            try:
+                from config.project_store import ProjectStore
+                pid = ProjectStore().get_active_project_id()
+            except Exception:
+                pass
+            viet = _is_viet_text(text)
+            low = text.lower()
+
+            msg = None
+            icon, color = _ICON_SUCCESS, _ICON_GREEN
+
+            # ── /memory [show | forget N | clear] ─────────────────────────
+            m = re.match(r'^/memory(?:\s+(.*))?$', low, re.S)
+            if m:
+                sub = (m.group(1) or u'').strip()
+                if sub in (u'', u'show', u'list'):
+                    msg = assistant_memory.format_memory_report(pid, viet)
+                    icon, color = _ICON_LIST, _ICON_SLATE
+                elif sub.startswith((u'forget', u'xoa', u'xóa')):
+                    mn = re.search(r'(\d+)', sub)
+                    ok, removed = (assistant_memory.remove_fact(
+                        int(mn.group(1)), pid) if mn else (False, None))
+                    if ok:
+                        msg = (u'Đã xóa ghi nhớ: "{}"'.format(removed) if viet
+                               else u'Forgot: "{}"'.format(removed))
+                    else:
+                        msg = (u'Không tìm thấy mục đó — gõ `/memory` để xem '
+                               u'danh sách đánh số.' if viet else
+                               u'No such item — type `/memory` to see the '
+                               u'numbered list.')
+                        icon, color = _ICON_WARNING, _ICON_AMBER
+                elif sub.startswith(u'clear'):
+                    n = assistant_memory.clear_facts(pid, everything=True)
+                    msg = (u'Đã xóa toàn bộ {} ghi nhớ.'.format(n) if viet
+                           else u'Cleared all {} remembered facts.'.format(n))
+                    icon, color = _ICON_REFRESH, _ICON_SLATE
+                else:
+                    msg = (u'Lệnh memory: `/memory` · `/memory forget <số>` · '
+                           u'`/memory clear`' if viet else
+                           u'Memory commands: `/memory` · `/memory forget '
+                           u'<number>` · `/memory clear`')
+                    icon, color = _ICON_INFO, _ICON_SLATE
+
+            # ── "what do you remember?" ───────────────────────────────────
+            if msg is None:
+                _shows = (u'what do you remember', u'what have you remembered',
+                          u'what do you know about me', u'ban nho gi',
+                          u'bạn nhớ gì', u'ban nho nhung gi',
+                          u'bạn nhớ những gì', u'ban dang nho gi',
+                          u'bạn đang nhớ gì')
+                if low.rstrip(u'? .').strip() in _shows:
+                    msg = assistant_memory.format_memory_report(pid, viet)
+                    icon, color = _ICON_LIST, _ICON_SLATE
+
+            # ── "remember that X" / "nhớ là X" / "từ nay X" ───────────────
+            if msg is None:
+                m2 = _MEM_SAVE_RX.match(text)
+                if m2:
+                    fact = (m2.group(1) or u'').strip()
+                    fact = re.sub(r'^(?:that\s+|r[aằ]ng\s+|l[aà]\s+)', u'',
+                                  fact, flags=re.IGNORECASE).strip(u' .!')
+                    if fact:
+                        _gl = (u'always', u'luôn', u'luon', u'every project',
+                               u'all projects', u'mọi dự án', u'moi du an',
+                               u'from now on', u'từ nay', u'tu nay',
+                               u'prefer', u'mọi project', u'moi project',
+                               u'mọi model', u'moi model')
+                        scope = ('global' if any(k in low for k in _gl)
+                                 else 'project')
+                        ok, note = assistant_memory.add_fact(
+                            fact, scope=scope, project_id=pid)
+                        if ok and viet:
+                            msg = u'Đã ghi nhớ ({}): {}'.format(
+                                u'mọi dự án' if scope == 'global'
+                                else u'dự án này', fact)
+                        elif ok:
+                            msg = note
+                        else:
+                            msg = note
+                            icon, color = _ICON_WARNING, _ICON_AMBER
+
+            if msg is None:
+                return False
+
+            self._log_activity(u'Memory: {}'.format(text))
+
+            def _show(_m=msg, _i=icon, _c=color):
+                self._hide_typing_indicator()
+                self._append_bot_message(_m, icon=_i, icon_color=_c)
+                self._add_to_history('assistant', _m)
+                self._set_busy(False)
+            self.Dispatcher.Invoke(Action(_show))
+            return True
+        except Exception as ex:
+            logger.debug('_try_memory_command error: {}'.format(ex))
+            return False
+
     def _process_input(self):
         """Read input (+ any attachments), dispatch to NLP or keyword fallback."""
         try:
@@ -2918,6 +3315,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Must have text OR attachments
             if not raw and not attached:
                 return
+
+            # ── Concurrency: queue instead of reject ──────────────────────────
+            # Runs BEFORE the slash parse below — a queued "/skill" message
+            # must not overwrite _forced_skill_id while the current request
+            # is still routing on the worker thread.
+            if self._busy:
+                if attached:
+                    self._append_bot_message(
+                        u"Still working on the previous request — attachments "
+                        u"can be sent again once it finishes.",
+                        icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+                elif raw:
+                    self._queue_input(raw)
+                return
+
+            # A new send supersedes any quick-reply chips still on screen.
+            self._remove_quick_replies()
 
             # ── Slash-skill invocation: "/skill-id [rest of message]" ─────────
             # The skill id must exist in the registry; anything else is sent
@@ -2932,7 +3346,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     _cat = get_skills_engine().get_catalog(enabled_only=False)
                     if any(s['id'] == m.group(1) for s in _cat):
                         self._forced_skill_id = m.group(1)
-                        route_text = (m.group(2) or u"").strip() or raw
+                        route_text = (m.group(2) or u"").strip()
+                        if not route_text:
+                            # Slash-only invocation: the literal "/skill-id"
+                            # reads as gibberish to the model and it guesses a
+                            # target (e.g. renaming walls). Send an explicit
+                            # context-first instruction instead.
+                            route_text = (
+                                u"Apply the '{}' playbook now using its "
+                                u"DEFAULT scope. Checking/audit/statistics "
+                                u"playbooks default to the ENTIRE project — "
+                                u"start scanning immediately, do NOT ask "
+                                u"about scope. Playbooks that MODIFY the "
+                                u"model: use my selection or active view "
+                                u"and confirm before any model-wide edit."
+                            ).format(m.group(1))
                 except Exception:
                     pass
 
@@ -2944,15 +3372,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         self._input_history.pop(0)
                 self._history_index = -1
                 self._current_input_temp = ""
-
-            # ── Concurrency guard ─────────────────────────────────────────────
-            if self._busy:
-                self._append_bot_message(
-                    u"Still working on the previous request — one moment...",
-                    icon=_ICON_SYNC, icon_color=_ICON_SLATE
-                )
-                return
-
 
             self.chat_input.Text = ""
             self._last_raw = raw or u"[attached documents]"
@@ -3344,6 +3763,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # ── If attachments present and no tool-like text, go straight to RAG ─
             has_attach = bool(attached) and HAS_RAG
 
+            # ── Persistent memory (deterministic, no LLM) ──────────────────
+            # /memory commands and explicit "remember that ..." saves are
+            # answered instantly here — before learned patterns or NLU can
+            # hijack the wording.
+            if not attached and raw and self._try_memory_command(raw):
+                return
+
             # ── PDF markup-comment workflow (R4) ───────────────────────────
             # Route to the CommentAgent when the user asks about comments
             # (cmt/markup/bluebeam keywords) with a PDF attached, or drops
@@ -3406,8 +3832,38 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     self.Dispatcher.Invoke(Action(_show_fast))
                     return
 
+            # An explicit /slash skill invocation must reach the agent with
+            # its playbook — the learned-pattern and NLU stages would hijack
+            # it (e.g. "/english-spellcheck" text matches the deterministic
+            # check_spelling triggers and the skill never runs).
+            _skill_forced = bool(getattr(self, '_forced_skill_id', None))
+
+            # ── Context carryover (Claude-style continuation) ─────────────────
+            # When the assistant just asked a clarifying question, a short
+            # reply ("1", "entire project", "ok"...) is the ANSWER to that
+            # question — it must continue the same task with the same skill/
+            # specialist and full history, not be re-routed from scratch
+            # (where it matches nothing and the model loses the thread).
+            _prev_dec = getattr(self, '_prev_agent_decision', None)
+            _continuation = False
+            if not _skill_forced and not has_attach and _prev_dec:
+                try:
+                    _last_bot = u''
+                    for _h in reversed(history):
+                        if _h.get('role') == 'assistant':
+                            _last_bot = u'{}'.format(_h.get('content') or u'')
+                            break
+                    _continuation = (u'?' in _last_bot[-250:]
+                                     and len((raw or u'').strip()) <= 80)
+                except Exception:
+                    _continuation = False
+            if _continuation:
+                logger.debug("carryover: continuing {} / {}".format(
+                    _prev_dec.get('specialist'), _prev_dec.get('skill')))
+
             # ── 1. Learned patterns (skip if attachments present) ─────────────
-            if HAS_NLP and not has_attach:
+            if HAS_NLP and not has_attach and not _skill_forced \
+                    and not _continuation:
                 learned = find_learned_match(raw)
                 if learned:
                     def _run_learned(_r=learned):
@@ -3417,7 +3873,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             # ── 2. Built-in NLU (skip for RAG / attachment queries) ───────────
             nlu_result = None
-            if HAS_NLP and not has_attach:
+            if HAS_NLP and not has_attach and not _skill_forced \
+                    and not _continuation:
                 nlu_result = parse_command_nlu(captured, history)
                 if nlu_result and nlu_result.get("intent") not in (None, "unknown"):
                     # _authoritative = answered from the real tool catalog
@@ -3502,6 +3959,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # never ran (multi_agent kill-switch, attachments, no provider).
             self._apply_forced_skill()
 
+            # Carryover: the fresh dispatcher run saw only the short reply
+            # ("1") and matched nothing — reuse the previous turn's decision
+            # so the same specialist + skill playbook steer this turn too.
+            if _continuation and not (self._agent_decision
+                                      and self._agent_decision.get('skill')):
+                self._agent_decision = dict(_prev_dec)
+                self._agent_decision['source'] = 'carryover'
+
+            # Remember the decision that actually steered this turn — the
+            # next turn's carryover check needs it.
+            if self._agent_decision and (
+                    self._agent_decision.get('skill')
+                    or self._agent_decision.get('specialist')
+                    not in (None, 'general')):
+                self._prev_agent_decision = dict(self._agent_decision)
+
             if use_local or use_claude or has_attach:
                 # ── 3/4. LLM path (typing indicator already showing) ──────────
                 nlu_hint = nlu_result if (HAS_NLP and not has_attach) else None
@@ -3541,8 +4014,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         _skill_ids = None
                         _dec = getattr(self, '_agent_decision', None)
                         if HAS_SPECIALISTS and _dec:
-                            if _dec.get('specialist') in ('revit_data',
-                                                          'revit_action'):
+                            # Every AgentLoop-backed specialist rides the
+                            # native path with its own prompt/tools/budget
+                            # ('knowledge'/'comment' have dedicated
+                            # pipelines handled earlier, 'general' means
+                            # provider default = _spec None).
+                            if _dec.get('specialist') in (
+                                    'revit_data', 'revit_action',
+                                    'multi_doc', 'modeling',
+                                    'qa_check', 'export'):
                                 _spec = get_spec(_dec['specialist'])
                             if _dec.get('skill'):
                                 _skill_ids = [_dec['skill']]
@@ -4095,7 +4575,68 @@ class T3LabAssistantWindow(forms.WPFWindow):
             report = None
             try:
                 from Services import spell_checker as SC
-                notes = SC.collect_text_notes(self.doc, view_only=view_only)
+                # Collect on the Revit MAIN thread via the MCP server's
+                # ExternalEvent. The old direct SC.collect_text_notes(self.doc)
+                # call ran the collector on THIS worker thread — Revit rejected
+                # it, the exception was swallowed and "No Text Notes found"
+                # came back on models full of notes. Whole-project scope now
+                # also proofreads sheet/view/room/level names + project info,
+                # not just TextNotes.
+                notes = None
+                try:
+                    from core.server import get_t3labai_server
+                    srv = get_t3labai_server()
+
+                    def _tool(name, args):
+                        r = srv._execute_tool(name, args)
+                        return r if isinstance(r, dict) else {}
+
+                    res = _tool('ai_element_filter',
+                                {'category': 'TextNotes', 'limit': 1000})
+                    if 'elements' in res:
+                        notes = []
+
+                        def _add(_id, _txt, _src):
+                            _txt = (_txt or u'').strip()
+                            if _txt and any(c.isalpha() for c in _txt):
+                                notes.append({'id': _id, 'text': _txt,
+                                              'view': _src})
+                        for el in res['elements']:
+                            _add(el.get('id'), el.get('text'),
+                                 el.get('view', u''))
+                        if view_only:
+                            av = _tool('revit_get_active_view', {})
+                            if av.get('name'):
+                                notes = [n for n in notes
+                                         if n['view'] == av['name']]
+                        else:
+                            for sh in _tool('revit_list_sheets',
+                                            {}).get('sheets', [])[:400]:
+                                _add(sh.get('id'), sh.get('name'),
+                                     u'Sheet name')
+                            for vw in _tool('revit_list_views',
+                                            {}).get('views', [])[:400]:
+                                _add(vw.get('id'), vw.get('name'),
+                                     u'View name')
+                            for _cat, _lbl in (('Rooms', u'Room name'),
+                                               ('Levels', u'Level name')):
+                                r2 = _tool('ai_element_filter',
+                                           {'category': _cat, 'limit': 300})
+                                for el in r2.get('elements', []):
+                                    _add(el.get('id'), el.get('name'), _lbl)
+                            pi = _tool('revit_get_project_info', {})
+                            for _k in ('name', 'client', 'address', 'status'):
+                                _v = pi.get(_k)
+                                if _v:
+                                    _add(None, u'{}'.format(_v),
+                                         u'Project info: {}'.format(_k))
+                except Exception as _col_ex:
+                    logger.debug("spellcheck server collect error: {}".format(_col_ex))
+                    notes = None
+                if notes is None:
+                    # Last resort — only works when Revit tolerates an
+                    # off-thread read (idle).
+                    notes = SC.collect_text_notes(self.doc, view_only=view_only)
                 if not notes:
                     if viet:
                         report = u"No Text Notes found{}.".format(
@@ -4117,10 +4658,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     batches = SC.build_batches(uniq)
                     if len(batches) > 1:
                         self._safe_append_bot(
-                            u"Found {} Text Notes ({} unique strings) — checking "
+                            u"Found {} text items ({} unique strings) — checking "
                             u"in {} batches, please wait...".format(len(notes), len(uniq), len(batches))
                             if viet else
-                            u"Found {} Text Notes ({} unique texts) — checking in {} "
+                            u"Found {} text items ({} unique texts) — checking in {} "
                             u"batches, please wait...".format(len(notes), len(uniq), len(batches)))
                     from Intelligence.llm_router import LLMRouter
                     router = LLMRouter()
@@ -4211,6 +4752,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
         _spec_tools = spec.tools_for(_is_local) if spec is not None else None
         _use_launcher = spec.use_launcher if spec is not None else True
         _extras = [launcher] if _use_launcher else []
+        # Persistent-memory tool: always available so the model can save a
+        # durable preference the moment the user states one. Executed
+        # locally in _exec_tool — never reaches the Revit server.
+        _extras.append(tool_schema.make_memory_tool())
         # Matched skills may declare extra tools their playbook needs —
         # union them into a restricted subset (validated by the registry).
         if _spec_tools and skill_ids:
@@ -4263,6 +4808,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
             if _skills_block:
                 system_prompt += u"\n\n" + _skills_block
+
+        # Persistent memory — facts saved in previous chats steer BOTH the
+        # specialist and the default prompt path.
+        try:
+            from Intelligence import assistant_memory
+            from config.project_store import ProjectStore as _PS_mem
+            _mem_block = assistant_memory.build_memory_block(
+                _PS_mem().get_active_project_id())
+            if _mem_block:
+                system_prompt += u"\n\n" + _mem_block
+        except Exception:
+            pass
 
         # Harness action mode: 'confirm' = propose-then-wait before ANY
         # model-modifying tool call (chip next to the project picker).
@@ -4322,6 +4879,25 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         def _exec_tool(name, args):
             args = dict(args or {})
+            if name == tool_schema.MEMORY_TOOL_NAME:
+                # Local pseudo-tool — persists a fact, never touches Revit.
+                try:
+                    from Intelligence import assistant_memory
+                    _pid = None
+                    try:
+                        from config.project_store import ProjectStore
+                        _pid = ProjectStore().get_active_project_id()
+                    except Exception:
+                        pass
+                    _ok, _note = assistant_memory.add_fact(
+                        args.get('fact'),
+                        scope=args.get('scope') or 'project',
+                        project_id=_pid)
+                    if _ok:
+                        return {"success": True, "note": _note}
+                    return {"error": _note}
+                except Exception as _mem_ex:
+                    return {"error": u"{}".format(_mem_ex)}
             if name == 'purge_unused' and not purge["first_done"]:
                 purge["first_done"] = True
                 if not bool(args.get('dry_run', True)):
@@ -4341,17 +4917,36 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     group["open"] = isinstance(res, dict) and bool(res.get("success"))
                 except Exception:
                     group["open"] = False
-            return srv._execute_tool(name, args)
+            res = srv._execute_tool(name, args)
+            # Multi-doc workflow: the model changed the active document ON
+            # PURPOSE — the doc-changed guard must not abort the request.
+            # Activation can complete asynchronously, so retargeting the key
+            # here could race; disarming for the rest of the request is the
+            # safe, predictable behavior.
+            if name in ('switch_active_document', 'open_document',
+                        'close_document'):
+                try:
+                    if isinstance(res, dict) and 'error' not in res:
+                        doc_guard["armed"] = False
+                except Exception:
+                    doc_guard["armed"] = False
+            return res
 
-        # ── D1: cancel the loop when the user switches documents mid-request ──
-        doc_key0 = _get_doc_key()
+        # ── D1: cancel the loop when the USER switches documents mid-request ──
+        # Agent-initiated document changes (switch_active_document /
+        # open_document / close_document called by the model for a multi-doc
+        # workflow) DISARM the guard for the rest of the request instead of
+        # tripping it — the agent is deliberately working across models.
+        doc_guard = {"key": _get_doc_key(), "armed": True}
 
         def _guard_check():
             try:
+                if not doc_guard["armed"]:
+                    return False
                 cur = _get_doc_key()
                 # "default" = the read failed (API busy / no context) — that is
                 # UNKNOWN, not "changed"; only trip on a positive mismatch.
-                return cur != "default" and cur != doc_key0
+                return cur != "default" and cur != doc_guard["key"]
             except Exception:
                 return False
 
@@ -4461,8 +5056,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-        # Skill chip — show which playbook is steering this turn
-        if skill_ids:
+        # Skill chip — show which playbook is steering this turn. A /slash-
+        # forced skill already drew its chip at send time (_process_input),
+        # so drawing it here again would duplicate the row.
+        _dec_chip = getattr(self, '_agent_decision', None)
+        if skill_ids and not (_dec_chip and _dec_chip.get('skill_forced')):
             def _show_chips():
                 try:
                     self._append_skill_chips(skill_ids)
@@ -4516,10 +5114,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if stream["open"]:
                     stream["open"] = False
                     txt = stream["text"]
-                    self._finalize_stream_bubble(txt)
-                    self._clear_stream_refs()
-                    if txt:
+                    if txt.strip():
+                        self._finalize_stream_bubble(txt)
                         self._add_to_history("assistant", txt)
+                    else:
+                        # Nothing visible ever landed — drop the shell
+                        # instead of leaving an empty bubble in the chat.
+                        self._remove_stream_bubble()
+                    self._clear_stream_refs()
                 self._hide_typing_indicator()
 
                 st = result.get("status")
@@ -4551,6 +5153,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         (u"The AI model ({}) dropped mid-request — the result "
                          u"may be incomplete. Please retry.{}".format(label, detail)),
                         icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                    # One-click resend of the exact same request.
+                    if self._last_raw and not self._last_raw.startswith(u"["):
+                        self._append_quick_replies(
+                            [u"Thử lại" if viet else u"Retry"],
+                            [self._last_raw])
                 elif st in ("max_iterations", "timeout"):
                     self._append_bot_message(
                         (u"The request is too long — stopped after {} steps. Break "
@@ -4559,6 +5166,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         (u"Request too long — stopped after {} steps. Split it "
                          u"up to continue.").format(result.get("iterations")),
                         icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                    self._append_quick_replies(
+                        [u"Tiếp tục" if viet else u"Continue"],
+                        [u"tiếp tục phần còn lại" if viet
+                         else u"continue where you stopped"])
                 elif (st == "done" and not result.get("text")
                         and result.get("tool_runs")):
                     self._append_bot_message(
@@ -4567,6 +5178,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         u"Completed {} tool step(s).".format(
                             result.get("tool_runs")),
                         icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
+
+                # Confirm-question flow: when the reply ends by asking the
+                # user to approve an action (action-mode plans, destructive
+                # confirmations, rule-5 clarifications phrased as yes/no),
+                # offer one-click answers instead of making the user type
+                # "ok". The short chip reply then rides the carryover
+                # continuation, so the same specialist/skill resumes.
+                if st == "done":
+                    _tail = (result.get("text") or u"")[-220:].lower()
+                    if u"?" in _tail and any(k in _tail for k in (
+                            u"confirm", u"proceed", u"shall i", u"should i",
+                            u"go ahead", u"do you want", u"want me to",
+                            u"xác nhận", u"đồng ý", u"tiến hành",
+                            u"thực hiện", u"ok?", u"okay?")):
+                        self._append_quick_replies(
+                            [u"Đồng ý, làm đi", u"Không, hủy"] if viet else
+                            [u"Yes, go ahead", u"No, cancel"])
 
                 li = result.get("launch_intent")
                 if li:
@@ -5422,6 +6050,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         before the text, in its own FontFamily run — the minimal-icon
         replacement for the old baked-in colored emoji prefixes.
         """
+        # Never render an empty bubble — a blank assistant row looks like a
+        # broken reply (observed with agent turns whose text was consumed
+        # elsewhere).
+        if not (text or u"").strip() and icon is None:
+            return
         try:
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength

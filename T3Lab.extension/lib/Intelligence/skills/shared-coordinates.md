@@ -1,9 +1,9 @@
 ---
 name: shared-coordinates
 description: Model positioning - shared coordinates, base and survey points
-triggers: shared coordinates, toa do chung, dinh vi model, survey point, base point, origin model, lech toa do, model bi lech
-agents: knowledge, revit_data, general
-tools: get_revit_context, revit_get_project_info, list_open_documents
+triggers: shared coordinates, toa do chung, dinh vi model, survey point, base point, origin model, lech toa do, model bi lech, acquire coordinates, project base point, true north, toa do khao sat, dich chuyen model
+agents: knowledge, revit_data, multi_doc, general
+tools: get_revit_context, revit_get_project_info, list_open_documents, switch_active_document
 ---
 # Định vị model & Shared Coordinates (T3Lab)
 
@@ -19,6 +19,6 @@ tools: get_revit_context, revit_get_project_info, list_open_documents
 4. Góc **True North** vs **Project North**: hồ sơ vẽ theo Project North; xoay True North chỉ ở thiết lập tọa độ, không xoay model.
 
 ## Chẩn đoán "model bị lệch"
-1. `get_revit_context` / `revit_get_project_info` xem thông tin định vị dự án hiện tại; `list_open_documents` xem các model liên quan.
+1. `get_revit_context` / `revit_get_project_info` xem thông tin định vị dự án hiện tại; `list_open_documents` xem các model liên quan. So định vị giữa các model đang mở cùng cửa sổ: `switch_active_document` sang từng model, đọc `revit_get_project_info`, lập bảng đối chiếu.
 2. Hỏi người dùng: lệch giữa link nào với link nào, lệch phương ngang hay cao độ.
 3. Nguyên nhân phổ biến: link kiểu Center-to-Center, model chủ đổi shared coordinates mà không báo, hoặc 2 file dùng 2 mốc survey khác nhau → chỉ ra cách xác minh từng trường hợp, KHÔNG đề xuất kéo model bằng tay.

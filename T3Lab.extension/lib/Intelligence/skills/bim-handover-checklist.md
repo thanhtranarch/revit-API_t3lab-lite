@@ -1,9 +1,9 @@
 ---
 name: bim-handover-checklist
 description: End-of-stage / as-built model handover checklist
-triggers: ban giao model, as built, as-built, hoan cong, handover model, ban giao bim, dong ho so
-agents: revit_data, revit_action, general
-tools: audit_model, get_model_health, get_model_warnings, purge_unused, revit_list_sheets, revit_list_views, export_sheets_pdf
+triggers: ban giao model, as built, as-built, hoan cong, handover model, ban giao bim, dong ho so, giao nop model, chuan bi ban giao, final handover, nghiem thu model
+agents: revit_data, revit_action, qa_check, general
+tools: audit_model, get_model_health, get_model_warnings, purge_unused, revit_list_sheets, revit_list_views, export_sheets_pdf, delete_element
 ---
 # Checklist bàn giao model (T3Lab)
 

@@ -32,7 +32,7 @@ except ImportError:
 # for two Revit windows. One Revit process must expose exactly one port.
 _PROCESS_SINGLETON_KEY = '_t3lab_mcp_server_singleton'
 
-from Snippets._compat import eid_value
+from Snippets._compat import eid_value, make_eid
 try:
     from http.server import HTTPServer, BaseHTTPRequestHandler
     from urllib.parse import urlparse, parse_qs
@@ -674,13 +674,13 @@ class T3LabAIServer(object):
             },
             'ai_element_filter': {
                 'name': 'ai_element_filter',
-                'description': 'Intelligent element querying tool for AI assistants — filter by category, parameter name, and value',
+                'description': 'Intelligent element querying tool for AI assistants — filter by category, parameter name, and value. Returns total_count (true uncapped total) and, for TextNotes, each note\'s text content.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
                         'category': {
                             'type': 'string',
-                            'description': 'Element category to search (e.g. Walls, Doors, Rooms)'
+                            'description': 'Element category to search: Walls, Floors, Doors, Windows, Rooms, Columns, Beams, Ceilings, Roofs, Grids, Levels, Sheets, TextNotes, Dimensions, Stairs, Railings, Pipes, Ducts, Furniture, CurtainPanels... (unknown names return the full supported list)'
                         },
                         'parameter_name': {
                             'type': 'string',
@@ -1355,7 +1355,7 @@ class T3LabAIServer(object):
             # ── Schedules ─────────────────────────────────────────────────────
             'get_schedule_data': {
                 'name': 'get_schedule_data',
-                'description': 'Read a schedule (ViewSchedule) as a JSON table with a header row and data rows.',
+                'description': 'Read a schedule (ViewSchedule) as a JSON table. Returns EXACT row_count and column_totals computed over the full schedule — always use those for counts/sums instead of adding up rows.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -1966,6 +1966,8 @@ class T3LabAIServer(object):
             'Parking': B.OST_Parking, 'PlantingArea': B.OST_Planting,
             'CurtainPanels': B.OST_CurtainWallPanels,
             'GenericAnnotations': B.OST_GenericAnnotation,
+            'TextNotes': B.OST_TextNotes,
+            'Dimensions': B.OST_Dimensions,
         }
 
     def _parse_color(self, color_str):
@@ -2019,7 +2021,7 @@ class T3LabAIServer(object):
             elif st == StorageType.Integer:
                 param.Set(int(float(value)))
             elif st == StorageType.ElementId:
-                param.Set(ElementId(int(value)))
+                param.Set(make_eid(int(value)))
             else:
                 return False, 'unsupported storage type'
             return True, None
@@ -2153,7 +2155,7 @@ class T3LabAIServer(object):
 
         elif tool_name == 'revit_get_element_info':
             from Autodesk.Revit.DB import ElementId
-            eid = ElementId(arguments.get('element_id', 0))
+            eid = make_eid(int(arguments.get('element_id', 0)))
             elem = doc.GetElement(eid)
             if elem:
                 params = {}
@@ -2181,7 +2183,25 @@ class T3LabAIServer(object):
                 
             if not element_ids:
                 return {'error': 'No elements specified and no elements are selected in Revit.'}
-                
+
+            # Reject non-numeric entries up front. LLMs sometimes try to nest
+            # a filter call as a string ("ai_element_filter(...)") — silently
+            # skipping those in the loop below would return a fake success
+            # (overridden_count=0) that teaches the model nothing.
+            _clean_ids, _bad_ids = [], []
+            for _v in element_ids:
+                try:
+                    _clean_ids.append(int(_v))
+                except (TypeError, ValueError):
+                    _bad_ids.append(u'{}'.format(_v))
+            if _bad_ids:
+                return {'error': 'element_ids must be plain numeric Revit element IDs, '
+                                 'got: {}. Nested calls are not supported — call '
+                                 'ai_element_filter first to get the IDs, then pass '
+                                 'them here.'.format(u', '.join(_bad_ids[:3])),
+                        'tool': tool_name}
+            element_ids = _clean_ids
+
             # Parse color
             r, g, b = 255, 0, 0 # default red
             if color_str:
@@ -2237,12 +2257,15 @@ class T3LabAIServer(object):
             except Exception:
                 pass
                 
+            # ElementId(-1) is NOT version-safe: Revit 2025+ dropped the
+            # Int32 ctor and IronPython dies with "Multiple targets could
+            # match" — use the API-provided sentinel instead.
             if solid_pattern_id is None:
-                solid_pattern_id = ElementId(-1)
-                
+                solid_pattern_id = ElementId.InvalidElementId
+
             override_settings = OverrideGraphicSettings()
             override_settings.SetProjectionLineColor(revit_color)
-            if solid_pattern_id != ElementId(-1):
+            if solid_pattern_id != ElementId.InvalidElementId:
                 try:
                     override_settings.SetSurfaceForegroundPatternId(solid_pattern_id)
                     override_settings.SetSurfaceForegroundPatternColor(revit_color)
@@ -2257,7 +2280,7 @@ class T3LabAIServer(object):
             overridden_count = 0
             for eid_val in element_ids:
                 try:
-                    eid = ElementId(int(eid_val))
+                    eid = make_eid(eid_val)
                     view.SetElementOverrides(eid, override_settings)
                     overridden_count += 1
                 except Exception:
@@ -2395,7 +2418,7 @@ class T3LabAIServer(object):
             from Autodesk.Revit.DB import ElementId
             element_id_int = int(arguments.get('element_id', 0))
             parameter_name = arguments.get('parameter_name', '')
-            eid = ElementId(element_id_int)
+            eid = make_eid(element_id_int)
             elem = doc.GetElement(eid)
             if elem is None:
                 return {'error': 'Element not found: {}'.format(element_id_int)}
@@ -2656,28 +2679,43 @@ class T3LabAIServer(object):
             param_arg = arguments.get('parameter_name')
             val_arg   = (arguments.get('parameter_value') or '').lower()
             limit_arg = int(arguments.get('limit', 50))
-            CATEGORY_MAP = {
-                'Walls': BuiltInCategory.OST_Walls,
-                'Floors': BuiltInCategory.OST_Floors,
-                'Doors': BuiltInCategory.OST_Doors,
-                'Windows': BuiltInCategory.OST_Windows,
-                'Rooms': BuiltInCategory.OST_Rooms,
-                'Columns': BuiltInCategory.OST_Columns,
-                'Beams': BuiltInCategory.OST_StructuralFraming,
-                'Ceilings': BuiltInCategory.OST_Ceilings,
-                'Roofs': BuiltInCategory.OST_Roofs,
-                'Grids': BuiltInCategory.OST_Grids,
-            }
+            # Shared category vocabulary (_bic_map) instead of a private
+            # 10-entry subset — TextNotes/Dimensions/Levels/Sheets etc. were
+            # unreachable here, which made e.g. spell-check scans return
+            # nothing. Unknown names now error with the supported list
+            # instead of silently scanning EVERY element in the project.
+            CATEGORY_MAP = self._bic_map()
             bic = CATEGORY_MAP.get(cat_arg)
-            if bic:
-                collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
-            else:
-                collector = FilteredElementCollector(doc).WhereElementIsNotElementType()
+            if bic is None and cat_arg:
+                for _k in CATEGORY_MAP:
+                    if _k.lower() == u'{}'.format(cat_arg).lower():
+                        bic = CATEGORY_MAP[_k]
+                        cat_arg = _k
+                        break
+            if bic is None:
+                return {'error': "Unknown category '{}'.".format(cat_arg),
+                        'supported_categories': sorted(CATEGORY_MAP.keys()),
+                        'hint': 'Retry with one of supported_categories.'}
+            collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
+            # total_count is the REAL number of matches (uncapped) so
+            # statistics questions ("how many windows?") get the true total
+            # even though the element list itself is capped at limit_arg.
+            # Without a parameter filter the collector can count directly;
+            # with one we keep scanning past the cap just to count.
             results = []
+            total_matches = 0
+            if not param_arg:
+                try:
+                    total_matches = collector.GetElementCount()
+                except Exception:
+                    total_matches = 0
+            scanned = 0
+            param_missing = 0
             for elem in collector:
-                if len(results) >= limit_arg:
+                if not param_arg and len(results) >= limit_arg:
                     break
                 try:
+                    scanned += 1
                     match = True
                     param_val = ''
                     if param_arg:
@@ -2687,17 +2725,49 @@ class T3LabAIServer(object):
                             if val_arg and val_arg not in param_val.lower():
                                 match = False
                         else:
+                            param_missing += 1
                             match = False
                     if match:
-                        results.append({
-                            'id': eid_value(elem.Id),
-                            'name': elem.Name if hasattr(elem, 'Name') else '',
-                            'category': elem.Category.Name if elem.Category else '',
-                            'param_value': param_val,
-                        })
+                        if param_arg:
+                            total_matches += 1
+                        if len(results) < limit_arg:
+                            entry = {
+                                'id': eid_value(elem.Id),
+                                'name': elem.Name if hasattr(elem, 'Name') else '',
+                                'category': elem.Category.Name if elem.Category else '',
+                                'param_value': param_val,
+                            }
+                            # Text-bearing elements (TextNote, ModelText):
+                            # surface the actual content + owner view — that
+                            # is what spell-check / annotation queries need.
+                            try:
+                                if hasattr(elem, 'Text'):
+                                    entry['text'] = elem.Text
+                                    try:
+                                        _ov = doc.GetElement(elem.OwnerViewId)
+                                        if _ov is not None:
+                                            entry['view'] = _ov.Name
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+                            results.append(entry)
                 except Exception:
                     pass
-            return {'category': cat_arg, 'filter_param': param_arg, 'count': len(results), 'elements': results}
+            out = {'category': cat_arg, 'filter_param': param_arg,
+                   'count': len(results), 'total_count': total_matches,
+                   'truncated': total_matches > len(results),
+                   'elements': results}
+            # "0 results" caused by a parameter that simply doesn't exist on
+            # this category reads like "no elements" to the model — tell it
+            # what actually happened so it can rephrase the query.
+            if param_arg and not results and scanned and param_missing == scanned:
+                out['note'] = ("Parameter '{}' does not exist on any of the {} "
+                               "'{}' elements scanned. Element names are already "
+                               "returned in the 'name' field — query again "
+                               "without parameter_name.").format(
+                                   param_arg, scanned, cat_arg)
+            return out
 
         # ── analyze_model_statistics ─────────────────────────────────────────
         elif tool_name == 'analyze_model_statistics':
@@ -2787,7 +2857,7 @@ class T3LabAIServer(object):
 
             host_elem = None
             if host_id_arg:
-                host_elem = doc.GetElement(ElementId(int(host_id_arg)))
+                host_elem = doc.GetElement(make_eid(int(host_id_arg)))
                 if host_elem is None:
                     return {'error': 'Host element not found: {}'.format(host_id_arg)}
             elif needs_host:
@@ -3257,14 +3327,14 @@ class T3LabAIServer(object):
             # roll back. After rollback the elements are restored, so we can
             # resolve their names/categories for a readable preview.
             if dry_run:
-                requested = [_describe(ElementId(int(v))) for v in ids]
+                requested = [_describe(make_eid(int(v))) for v in ids]
                 affected_raw = set()
                 t = Transaction(doc, 'T3Lab AI Delete Preview')
                 t.Start()
                 try:
                     for eid_val in ids:
                         try:
-                            removed = doc.Delete(ElementId(int(eid_val)))
+                            removed = doc.Delete(make_eid(int(eid_val)))
                             if removed:
                                 for rid in removed:
                                     affected_raw.add(eid_value(rid))
@@ -3275,7 +3345,7 @@ class T3LabAIServer(object):
 
                 requested_ids = set(int(v) for v in ids)
                 cascade_ids = sorted(i for i in affected_raw if i not in requested_ids)
-                cascade = [_describe(ElementId(i)) for i in cascade_ids]
+                cascade = [_describe(make_eid(i)) for i in cascade_ids]
                 return {
                     'dry_run': True,
                     'requested': requested,
@@ -3293,7 +3363,7 @@ class T3LabAIServer(object):
             try:
                 for eid_val in ids:
                     try:
-                        doc.Delete(ElementId(int(eid_val)))
+                        doc.Delete(make_eid(int(eid_val)))
                         deleted.append(int(eid_val))
                     except Exception as ex:
                         failed.append({'id': int(eid_val), 'error': str(ex)})
@@ -3309,7 +3379,7 @@ class T3LabAIServer(object):
             op      = (arguments.get('operation') or '').lower()
             ids     = arguments.get('element_ids', [])
             view    = doc.ActiveView
-            elem_ids = [ElementId(int(i)) for i in ids]
+            elem_ids = [make_eid(int(i)) for i in ids]
 
             if op == 'select':
                 from System.Collections.Generic import List
@@ -3369,8 +3439,9 @@ class T3LabAIServer(object):
             bic = CATEGORY_MAP.get(cat_arg, BuiltInCategory.OST_Rooms)
             collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
 
-            # Find solid fill pattern
-            solid_id = ElementId(-1)
+            # Find solid fill pattern (InvalidElementId sentinel — ElementId(-1)
+            # crashes on Revit 2025+, see revit_override_color above)
+            solid_id = ElementId.InvalidElementId
             for fp in FilteredElementCollector(doc).OfClass(FillPatternElement):
                 pat = fp.GetFillPattern()
                 if pat and pat.IsSolidFill:
@@ -3401,7 +3472,7 @@ class T3LabAIServer(object):
                     rev_color = Color(r, g, b)
                     ogs = OverrideGraphicSettings()
                     ogs.SetProjectionLineColor(rev_color)
-                    if solid_id != ElementId(-1):
+                    if solid_id != ElementId.InvalidElementId:
                         try:
                             ogs.SetSurfaceForegroundPatternId(solid_id)
                             ogs.SetSurfaceForegroundPatternColor(rev_color)
@@ -3675,7 +3746,7 @@ class T3LabAIServer(object):
                 eid   = int(arguments.get('element_id', 0))
                 pname = arguments.get('parameter_name', '')
                 value = arguments.get('value', '')
-                elem  = doc.GetElement(ElementId(eid))
+                elem  = doc.GetElement(make_eid(eid))
                 if not elem:
                     return {'error': 'Element not found: {}'.format(eid)}
                 param = elem.LookupParameter(pname)
@@ -3703,7 +3774,7 @@ class T3LabAIServer(object):
                     elif st == StorageType.Integer:
                         param.Set(int(float(value)))
                     elif st == StorageType.ElementId:
-                        param.Set(ElementId(int(value)))
+                        param.Set(make_eid(int(value)))
                     t.Commit()
                     return {'success': True, 'element_id': eid, 'parameter': pname, 'value': value}
                 except Exception as e:
@@ -3717,7 +3788,7 @@ class T3LabAIServer(object):
             try:
                 from Autodesk.Revit.DB import StorageType
                 eid  = int(arguments.get('element_id', 0))
-                elem = doc.GetElement(ElementId(eid))
+                elem = doc.GetElement(make_eid(eid))
                 if not elem:
                     return {'error': 'Element not found: {}'.format(eid)}
                 params = []
@@ -3758,7 +3829,7 @@ class T3LabAIServer(object):
                 dy = float(arguments.get('dy', 0)) * ft
                 dz = float(arguments.get('dz', 0)) * ft
                 ids_raw = arguments.get('element_ids', [])
-                id_list = SCG.List[ElementId]([ElementId(int(i)) for i in ids_raw])
+                id_list = SCG.List[ElementId]([make_eid(int(i)) for i in ids_raw])
                 t = Transaction(doc, 'T3Lab AI Move Elements')
                 t.Start()
                 try:
@@ -3781,7 +3852,7 @@ class T3LabAIServer(object):
                 dy = float(arguments.get('dy', 0)) * ft
                 dz = float(arguments.get('dz', 0)) * ft
                 ids_raw = arguments.get('element_ids', [])
-                id_list = SCG.List[ElementId]([ElementId(int(i)) for i in ids_raw])
+                id_list = SCG.List[ElementId]([make_eid(int(i)) for i in ids_raw])
                 t = Transaction(doc, 'T3Lab AI Copy Elements')
                 t.Start()
                 try:
@@ -3808,7 +3879,7 @@ class T3LabAIServer(object):
                 oy = float(arguments.get('origin_y', 0)) * ft
                 axis = Line.CreateBound(XYZ(ox, oy, 0), XYZ(ox, oy, 1))
                 ids_raw = arguments.get('element_ids', [])
-                id_list = SCG.List[ElementId]([ElementId(int(i)) for i in ids_raw])
+                id_list = SCG.List[ElementId]([make_eid(int(i)) for i in ids_raw])
                 t = Transaction(doc, 'T3Lab AI Rotate Elements')
                 t.Start()
                 try:
@@ -3825,7 +3896,7 @@ class T3LabAIServer(object):
         elif tool_name == 'get_element_bounding_box':
             try:
                 eid  = int(arguments.get('element_id', 0))
-                elem = doc.GetElement(ElementId(eid))
+                elem = doc.GetElement(make_eid(eid))
                 if not elem:
                     return {'error': 'Element not found: {}'.format(eid)}
                 bb = elem.get_BoundingBox(None)
@@ -3906,7 +3977,7 @@ class T3LabAIServer(object):
                 view_id   = arguments.get('view_id')
                 target_view = None
                 if view_id:
-                    target_view = doc.GetElement(ElementId(int(view_id)))
+                    target_view = doc.GetElement(make_eid(int(view_id)))
                 elif view_name:
                     views = FilteredElementCollector(doc).OfClass(View).ToElements()
                     for v in views:
@@ -3929,7 +4000,7 @@ class T3LabAIServer(object):
                 from Autodesk.Revit.DB import Transaction
                 eid      = int(arguments.get('element_id', 0))
                 new_name = arguments.get('new_name', '')
-                elem     = doc.GetElement(ElementId(eid))
+                elem     = doc.GetElement(make_eid(eid))
                 if not elem:
                     return {'error': 'Element not found: {}'.format(eid)}
                 t = Transaction(doc, 'T3Lab AI Rename Element')
@@ -4012,8 +4083,8 @@ class T3LabAIServer(object):
                 mm_to_ft = 0.00328084
                 x = float(arguments.get('x', 297)) * mm_to_ft
                 y = float(arguments.get('y', 210)) * mm_to_ft
-                sheet = doc.GetElement(ElementId(sheet_id))
-                view  = doc.GetElement(ElementId(view_id))
+                sheet = doc.GetElement(make_eid(sheet_id))
+                view  = doc.GetElement(make_eid(view_id))
                 if not sheet:
                     return {'error': 'Sheet not found: {}'.format(sheet_id)}
                 if not view:
@@ -4053,7 +4124,17 @@ class T3LabAIServer(object):
                 type_name = arguments.get('text_type')
                 font_size = arguments.get('font_size')
 
+                # Target view: explicit sheet_number > active view. The AI
+                # often passes sheet_number — ignoring it silently placed
+                # notes on whatever view happened to be active.
                 active_view = doc.ActiveView
+                sheet_no = arguments.get('sheet_number')
+                if sheet_no:
+                    from Autodesk.Revit.DB import ViewSheet as _VS
+                    for _s in FilteredElementCollector(doc).OfClass(_VS):
+                        if _s.SheetNumber == u'{}'.format(sheet_no):
+                            active_view = _s
+                            break
                 if not active_view:
                     return {'error': 'No active view'}
 
@@ -4100,15 +4181,24 @@ class T3LabAIServer(object):
                     tn_type = tn_types[0]
 
                 t = Transaction(doc, 'T3Lab AI Create Text Note')
-                t.Start()
                 try:
+                    t.Start()
                     opts = TextNoteOptions(tn_type.Id)
                     note = TextNote.Create(doc, active_view.Id, XYZ(x, y, 0), text, opts)
                     t.Commit()
                     return {'success': True, 'text_note_id': eid_value(note.Id),
-                            'text': text, 'type_used': tn_type.Name}
+                            'text': text, 'type_used': tn_type.Name,
+                            'view': active_view.Name}
                 except Exception as e:
-                    t.RollBack()
+                    # RollBack itself throws when the transaction never
+                    # started or already auto-rolled-back — guard it so the
+                    # ORIGINAL error reaches the model instead of "The
+                    # transaction has not been started yet".
+                    try:
+                        if t.HasStarted() and not t.HasEnded():
+                            t.RollBack()
+                    except Exception:
+                        pass
                     return {'error': str(e)}
             except Exception as e:
                 return {'error': str(e)}
@@ -4192,7 +4282,7 @@ class T3LabAIServer(object):
                 try:
                     count = 0
                     for raw_id in ids_raw:
-                        elem = doc.GetElement(ElementId(int(raw_id)))
+                        elem = doc.GetElement(make_eid(int(raw_id)))
                         if elem:
                             ws_param = elem.get_Parameter(
                                 __import__('Autodesk.Revit.DB', fromlist=['BuiltInParameter']).BuiltInParameter.ELEM_PARTITION_PARAM
@@ -4675,7 +4765,7 @@ class T3LabAIServer(object):
                 if raw_id is None:
                     return {'error': 'element_id is required'}
 
-                el = doc.GetElement(ElementId(int(raw_id)))
+                el = doc.GetElement(make_eid(int(raw_id)))
                 if el is None:
                     return {'error': 'No element with id {}'.format(raw_id)}
                 if not isinstance(el, CurveElement):
@@ -4788,7 +4878,7 @@ class T3LabAIServer(object):
                 raw_id = arguments.get('element_id')
                 if raw_id is None:
                     return {'error': 'element_id is required'}
-                el = doc.GetElement(ElementId(int(raw_id)))
+                el = doc.GetElement(make_eid(int(raw_id)))
                 if el is None:
                     return {'error': 'No element with id {}'.format(raw_id)}
                 loc = el.Location
@@ -4851,8 +4941,8 @@ class T3LabAIServer(object):
         elif tool_name == 'join_geometry':
             from Autodesk.Revit.DB import ElementId, Transaction, JoinGeometryUtils
             try:
-                a = doc.GetElement(ElementId(int(arguments.get('element_id_a', 0))))
-                b = doc.GetElement(ElementId(int(arguments.get('element_id_b', 0))))
+                a = doc.GetElement(make_eid(int(arguments.get('element_id_a', 0))))
+                b = doc.GetElement(make_eid(int(arguments.get('element_id_b', 0))))
                 if a is None or b is None:
                     return {'error': 'Both element_id_a and element_id_b must resolve to elements.'}
                 unjoin = bool(arguments.get('unjoin', False))
@@ -4892,7 +4982,7 @@ class T3LabAIServer(object):
                 ids    = arguments.get('element_ids')
 
                 if ids:
-                    elements = [doc.GetElement(ElementId(int(i))) for i in ids]
+                    elements = [doc.GetElement(make_eid(int(i))) for i in ids]
                     elements = [e for e in elements if e is not None]
                 else:
                     cat = arguments.get('category')
@@ -4947,7 +5037,7 @@ class T3LabAIServer(object):
                 limit = int(arguments.get('limit', 500))
                 ids   = arguments.get('element_ids')
                 if ids:
-                    target = [ElementId(int(i)) for i in ids][:limit]
+                    target = [make_eid(int(i)) for i in ids][:limit]
                 else:
                     cat = arguments.get('category')
                     bic = self._bic_map().get(cat) if cat else None
@@ -5047,7 +5137,7 @@ class T3LabAIServer(object):
 
                 grids = []
                 for i in ids:
-                    e = doc.GetElement(ElementId(int(i)))
+                    e = doc.GetElement(make_eid(int(i)))
                     if isinstance(e, Grid):
                         grids.append(e)
                 if len(grids) < 2:
@@ -5091,7 +5181,7 @@ class T3LabAIServer(object):
                 sid = arguments.get('schedule_id')
                 sname = arguments.get('schedule_name')
                 if sid is not None:
-                    cand = doc.GetElement(ElementId(int(sid)))
+                    cand = doc.GetElement(make_eid(int(sid)))
                     if isinstance(cand, ViewSchedule):
                         sched = cand
                 if sched is None:
@@ -5108,7 +5198,16 @@ class T3LabAIServer(object):
                     elif all_sched:
                         sched = all_sched[0]
                 if sched is None:
-                    return {'error': 'No matching schedule found.'}
+                    # Dead-end errors teach the model nothing — hand it the
+                    # real schedule names so the next call can succeed.
+                    try:
+                        _names = sorted(s.Name for s in all_sched)[:40]
+                    except Exception:
+                        _names = []
+                    return {'error': 'No matching schedule found.',
+                            'available_schedules': _names,
+                            'hint': 'Call get_schedule_data again with one of '
+                                    'available_schedules (exact name).'}
 
                 defn = sched.Definition
                 headers = []
@@ -5122,19 +5221,75 @@ class T3LabAIServer(object):
                 body = sched.GetTableData().GetSectionData(SectionType.Body)
                 n_rows = body.NumberOfRows
                 n_cols = body.NumberOfColumns
+
+                # Statistics MUST be computed here over the FULL body — the
+                # agent loop truncates big results before the model sees
+                # them, and an LLM "counting" a truncated row list produces
+                # confident nonsense (observed: 108 windows reported from a
+                # cut-off dump). row_count / column_totals below are exact
+                # regardless of how many raw rows survive truncation.
+                import re as _re_num
+
+                def _cell_num(s):
+                    # Whole cell must be "number [unit]" ("108", "12.5 m2",
+                    # "95%") — a bare prefix match would happily pull 50 out
+                    # of a text cell like '50" x 60"' and poison the totals.
+                    try:
+                        s2 = (s or u'').strip().replace(u',', u'')
+                        m = _re_num.match(
+                            u'^(-?\\d+(?:\\.\\d+)?)\\s*'
+                            u'[A-Za-z°²³%]{0,4}[23]?$', s2)
+                        return float(m.group(1)) if m else None
+                    except Exception:
+                        return None
+
                 rows = []
+                data_rows = 0
+                totals_rows = []
+                sums = [0.0] * n_cols
+                sum_hits = [0] * n_cols
                 for r in range(n_rows):
-                    if len(rows) >= limit:
-                        break
-                    row = []
+                    cells = []
                     for c in range(n_cols):
                         try:
-                            row.append(sched.GetCellText(SectionType.Body, r, c))
+                            cells.append(sched.GetCellText(SectionType.Body, r, c))
                         except Exception:
-                            row.append('')
-                    rows.append(row)
+                            cells.append('')
+                    if len(rows) < limit:
+                        rows.append(cells)
+                    stripped = [(c or u'').strip() for c in cells]
+                    if not any(stripped):
+                        continue                      # blank separator row
+                    if stripped == [h.strip() for h in headers]:
+                        continue                      # repeated header row
+                    first = next((c for c in stripped if c), u'')
+                    if u'total' in first.lower():
+                        totals_rows.append(cells)     # Revit grand/group total
+                        continue
+                    data_rows += 1
+                    for c in range(n_cols):
+                        v = _cell_num(stripped[c])
+                        if v is not None:
+                            sums[c] += v
+                            sum_hits[c] += 1
+                column_totals = {}
+                for c in range(n_cols):
+                    if sum_hits[c]:
+                        column_totals[headers[c] if c < len(headers)
+                                      else 'Field{}'.format(c)] = round(sums[c], 2)
+
                 return {'schedule': sched.Name, 'id': eid_value(sched.Id),
-                        'headers': headers, 'row_count': len(rows), 'rows': rows}
+                        'headers': headers,
+                        'row_count': data_rows,
+                        'rows_returned': len(rows),
+                        'rows_truncated': n_rows > len(rows),
+                        'column_totals': column_totals,
+                        'schedule_totals_rows': totals_rows,
+                        'note': ('row_count and column_totals are computed '
+                                 'over the FULL schedule - use THESE for any '
+                                 'statistic; never count or sum the (possibly '
+                                 'truncated) rows yourself.'),
+                        'rows': rows}
             except Exception as e:
                 return {'error': str(e), 'tool': tool_name}
 
@@ -5202,7 +5357,7 @@ class T3LabAIServer(object):
         elif tool_name == 'duplicate_view':
             from Autodesk.Revit.DB import Transaction, ElementId, View, ViewDuplicateOption
             try:
-                view = doc.GetElement(ElementId(int(arguments.get('view_id', 0))))
+                view = doc.GetElement(make_eid(int(arguments.get('view_id', 0))))
                 if not isinstance(view, View):
                     return {'error': 'view_id does not refer to a view.'}
                 mode = (arguments.get('mode') or 'plain').lower()
@@ -5257,7 +5412,7 @@ class T3LabAIServer(object):
                 try:
                     for vid in view_ids:
                         try:
-                            v = doc.GetElement(ElementId(int(vid)))
+                            v = doc.GetElement(make_eid(int(vid)))
                             v.ViewTemplateId = tpl.Id
                             applied += 1
                         except Exception:
@@ -5288,7 +5443,7 @@ class T3LabAIServer(object):
                 if cat_ids.Count == 0:
                     return {'error': 'No valid categories resolved from {}.'.format(cats)}
 
-                view = doc.GetElement(ElementId(int(arguments['view_id']))) if arguments.get('view_id') else doc.ActiveView
+                view = doc.GetElement(make_eid(int(arguments['view_id']))) if arguments.get('view_id') else doc.ActiveView
 
                 # Optional single "contains" rule on a parameter.
                 elem_filter = None
@@ -5373,10 +5528,10 @@ class T3LabAIServer(object):
                 t.Start()
                 try:
                     if existing_sheet_id:
-                        sheet = doc.GetElement(ElementId(int(existing_sheet_id)))
+                        sheet = doc.GetElement(make_eid(int(existing_sheet_id)))
                         col, row = 0, 0
                         for vid in view_ids:
-                            v_eid = ElementId(int(vid))
+                            v_eid = make_eid(int(vid))
                             if Viewport.CanAddViewToSheet(doc, sheet.Id, v_eid):
                                 center = XYZ(0.5 + col * 0.9, 0.9 - row * 0.7, 0)
                                 vp = Viewport.Create(doc, sheet.Id, v_eid, center)
@@ -5391,7 +5546,7 @@ class T3LabAIServer(object):
                         if not tb.IsActive:
                             tb.Activate(); doc.Regenerate()
                         for vid in view_ids:
-                            v_eid = ElementId(int(vid))
+                            v_eid = make_eid(int(vid))
                             sheet = ViewSheet.Create(doc, tb.Id)
                             if Viewport.CanAddViewToSheet(doc, sheet.Id, v_eid):
                                 vp = Viewport.Create(doc, sheet.Id, v_eid, XYZ(1.0, 0.7, 0))
@@ -5425,7 +5580,7 @@ class T3LabAIServer(object):
                     _os.makedirs(folder)
                 id_list = NetList[ElementId]()
                 for i in ids:
-                    id_list.Add(ElementId(int(i)))
+                    id_list.Add(make_eid(int(i)))
                 opts = DWGExportOptions()
                 ok = doc.Export(folder, 'T3Lab_Export', id_list, opts)
                 return {'success': bool(ok), 'count': id_list.Count, 'output_folder': folder}
@@ -5439,7 +5594,7 @@ class T3LabAIServer(object):
             from System.Collections.Generic import List as NetList
             import os as _os
             try:
-                view = doc.GetElement(ElementId(int(arguments['view_id']))) if arguments.get('view_id') else doc.ActiveView
+                view = doc.GetElement(make_eid(int(arguments['view_id']))) if arguments.get('view_id') else doc.ActiveView
                 folder = arguments.get('output_folder', '')
                 if not folder:
                     dp = doc.PathName
@@ -5607,7 +5762,7 @@ class T3LabAIServer(object):
                 t.Start()
                 try:
                     for rid in ids:
-                        room = doc.GetElement(ElementId(int(rid)))
+                        room = doc.GetElement(make_eid(int(rid)))
                         if room is None:
                             continue
                         loops = room.GetBoundarySegments(bopts)

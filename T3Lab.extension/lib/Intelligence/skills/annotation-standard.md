@@ -1,7 +1,7 @@
 ---
 name: annotation-standard
 description: Dimension, tag and text note conventions on drawings
-triggers: dim, kich thuoc, ghi kich thuoc, danh tag, tag tuong, tag elements, ghi chu, text note, annotation
+triggers: dim, kich thuoc, ghi kich thuoc, danh tag, tag tuong, tag elements, ghi chu, text note, annotation, dimension, chuoi dim, tag room, tag phong, general notes
 agents: revit_action, general
 tools: create_dimension, tag_elements, tag_all_walls, tag_all_rooms, create_text_note
 ---

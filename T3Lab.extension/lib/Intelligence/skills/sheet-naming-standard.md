@@ -1,7 +1,7 @@
 ---
 name: sheet-naming-standard
 description: T3Lab sheet naming and numbering rules for creating or renaming sheets
-triggers: ten sheet, so sheet, sheet number, doi ten sheet, tao sheet, dat ten sheet, sheet name
+triggers: ten sheet, so sheet, sheet number, doi ten sheet, tao sheet, dat ten sheet, sheet name, rename sheet, danh so sheet, sheet moi
 agents: revit_action, general
 tools: revit_list_sheets, rename_element, create_sheet
 ---

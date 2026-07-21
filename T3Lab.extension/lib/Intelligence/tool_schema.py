@@ -30,6 +30,43 @@ import copy
 # terminal — the launch happens on the UI thread after the loop finishes.
 LAUNCHER_TOOL_NAME = "open_t3lab_tool"
 
+# Synthetic tool for persistent assistant memory (assistant_memory.py).
+# Executed locally by script.py's _exec_tool wrapper — never reaches the
+# Revit server, so it needs no ExternalEvent and is always non-terminal.
+MEMORY_TOOL_NAME = "remember_fact"
+
+
+def make_memory_tool():
+    """Build the remember_fact schema in server-registry shape."""
+    return {
+        "name": MEMORY_TOOL_NAME,
+        "description": (
+            "Save ONE durable fact to the assistant's persistent memory so "
+            "future chats start knowing it. Use only when the user states a "
+            "lasting preference or convention ('from now on...', 'remember "
+            "that...', 'our sheet prefix is...'). Never store one-off request "
+            "details, secrets/API keys, or element ids. The user can review "
+            "everything with /memory."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fact": {
+                    "type": "string",
+                    "description": "The fact as one short English sentence.",
+                },
+                "scope": {
+                    "type": "string",
+                    "enum": ["project", "global"],
+                    "description": ("project = a convention of THIS Revit "
+                                    "project; global = a user preference "
+                                    "that applies to every project."),
+                },
+            },
+            "required": ["fact"],
+        },
+    }
+
 
 def make_launcher_tool(intents):
     """Build the open_t3lab_tool schema in server-registry shape.

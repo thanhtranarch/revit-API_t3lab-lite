@@ -1,8 +1,8 @@
 ---
 name: level-grid-standard
 description: Level and grid creation rules - naming, elevations, axes
-triggers: tao level, them level, tao grid, luoi truc, cao do, them tang, tang moi, truc moi
-agents: revit_action, revit_data
+triggers: tao level, them level, tao grid, luoi truc, cao do, them tang, tang moi, truc moi, create level, create grid, new level, add grid, grid line, cao do tang, danh so truc
+agents: revit_action, revit_data, modeling
 tools: list_levels, create_level, create_grid, get_elements_by_level
 ---
 # Quy ước Level & Grid (T3Lab)

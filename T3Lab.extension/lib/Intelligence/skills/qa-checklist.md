@@ -1,8 +1,8 @@
 ---
 name: qa-checklist
 description: Revit model QA checklist before handover or periodic audits
-triggers: kiem tra model, qa model, audit model, model health, kiem tra chat luong, danh gia model
-agents: revit_data, general
+triggers: kiem tra model, qa model, audit model, model health, kiem tra chat luong, danh gia model, model checker, check model, review model, soat model
+agents: revit_data, qa_check, general
 tools: get_model_warnings, get_model_health, analyze_model_statistics, list_worksets
 ---
 # Checklist QA model Revit (T3Lab)

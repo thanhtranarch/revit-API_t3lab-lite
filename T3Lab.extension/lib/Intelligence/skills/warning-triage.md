@@ -1,8 +1,8 @@
 ---
 name: warning-triage
 description: Classify and fix model warnings by priority
-triggers: sua warning, xu ly warning, fix warning, giam warning, loi model, warning nhieu
-agents: revit_action, revit_data
+triggers: sua warning, xu ly warning, fix warning, giam warning, loi model, warning nhieu, canh bao, warnings, duplicate instances, review warning
+agents: revit_action, revit_data, qa_check
 tools: get_model_warnings, select_elements, color_elements, join_geometry, delete_element, revit_override_color
 ---
 # Xử lý Warnings (T3Lab)

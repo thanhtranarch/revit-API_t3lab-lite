@@ -1285,10 +1285,14 @@
 
                     <!-- Dynamic Welcome Greeting -->
                     <Grid x:Name="welcome_greeting_panel" Margin="4,16,4,20" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock x:Name="welcome_greeting_text" Text="Good afternoon, Thạnh"
-                                       FontSize="20" Foreground="#27272A" FontFamily="Georgia"
-                                       VerticalAlignment="Center"/>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="welcome_greeting_text" Text="Good afternoon, Thạnh"
+                                           FontSize="20" Foreground="#27272A" FontFamily="Georgia"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <!-- Quick-start suggestion chips (filled from code-behind) -->
+                            <WrapPanel x:Name="welcome_suggestions" Margin="0,14,0,0"/>
                         </StackPanel>
                     </Grid>
 
@@ -1737,7 +1741,7 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- ── Footer line: copyright (left) + input hint (right) ── -->
+                <!-- ── Footer line: copyright (left) + AI disclaimer (center) + input hint (right) ── -->
                 <Grid Margin="4,6,4,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
@@ -1747,6 +1751,12 @@
                     <TextBlock Grid.Column="0" Text="© Copyright by T3Lab"
                                FontSize="11" Foreground="#F59E0B"
                                VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1"
+                               Text="T3Lab AI can make mistakes. Please double-check responses."
+                               FontSize="10.5" Foreground="#A1A1AA"
+                               FontFamily="Hanken Grotesk"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" Margin="10,0"/>
                     <TextBlock Grid.Column="2"
                                Text="/ for skills  ·  Shift+Enter = new line"
                                FontSize="10.5" Foreground="#A1A1AA"

@@ -119,6 +119,46 @@ class AgentLoop(object):
             except Exception:
                 pass
 
+    # ── Text tool-call rescue ─────────────────────────────────────────────────
+
+    def _registered_tool_names(self):
+        """Tool names from the provider-native schema list (Anthropic uses
+        {"name": ...}, OpenAI-style wraps it in {"function": {"name": ...}})."""
+        names = set()
+        for t in (self._tools or []):
+            try:
+                n = t.get("name") or (t.get("function") or {}).get("name")
+                if n:
+                    names.add(n)
+            except Exception:
+                pass
+        return names
+
+    def _rescue_text_tool_call(self, text):
+        """Salvage a tool call the model wrote as plain text instead of a
+        native tool_call block — local models drift into JSON-in-prose like
+        {"name": "get_material_quantities", "parameters": {...}} after
+        seeing a tool error. Returns a tool_calls-shaped list, or None."""
+        if not text or u"{" not in text:
+            return None
+        try:
+            import re
+            m = re.search(r'\{[\s\S]*\}', text)
+            obj = json.loads(m.group()) if m else None
+        except Exception:
+            return None
+        if not isinstance(obj, dict):
+            return None
+        name = obj.get("name") or obj.get("tool") or obj.get("intent")
+        args = (obj.get("parameters") or obj.get("arguments")
+                or obj.get("params") or {})
+        if not name or not isinstance(args, dict):
+            return None
+        if name not in self._registered_tool_names():
+            return None
+        return [{"id": "text_rescue", "name": u"{}".format(name),
+                 "args": args}]
+
     # ── Main loop ─────────────────────────────────────────────────────────────
 
     def run(self, history, system_prompt, user_content):
@@ -172,6 +212,16 @@ class AgentLoop(object):
 
             text  = (resp.get("text") or u"").strip()
             calls = resp.get("tool_calls") or []
+
+            # Model wrote the tool call as JSON text instead of a native
+            # tool_call block → execute it anyway instead of ending the turn
+            # with a dead JSON blob on screen.
+            rescued = False
+            if not calls and text:
+                _rc = self._rescue_text_tool_call(text)
+                if _rc:
+                    calls = _rc
+                    rescued = True
 
             if text:
                 last_text = text
@@ -240,7 +290,20 @@ class AgentLoop(object):
             # dump into the model context.
             try:
                 res_strs = [_result_to_json(r) for r in results]
-                messages.extend(self._provider.agent_tool_results(calls, res_strs))
+                if rescued:
+                    # A rescued call has no native tool_call block in the
+                    # transcript, so provider tool-result messages would
+                    # reference an unknown id — feed the result back as plain
+                    # user text instead (accepted by every provider).
+                    messages.append({
+                        "role": "user",
+                        "content": u"Tool `{}` returned: {}\nContinue the "
+                                   u"task. Use REAL tool calls, never JSON "
+                                   u"as text.".format(calls[0]["name"],
+                                                      res_strs[0])})
+                else:
+                    messages.extend(
+                        self._provider.agent_tool_results(calls, res_strs))
             except Exception:
                 return self._finish("failed", last_text, None, iteration, tool_runs)
 
@@ -290,6 +353,11 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 6. `open_t3lab_tool` opens a T3Lab window and ENDS your turn — only ever call it last, and never together with other tools.
 7. When the user refers to the current selection ("these elements", "the selected walls", "các element này", "đang chọn"), call `revit_get_selected_elements` FIRST and operate on those element ids — never guess ids.
 8. Trust tool results over assumptions: counts, names and ids come from the model, not from memory of typical projects.
+9. Scope resolution when the request names no explicit target: for CHECKING / auditing / statistics / spell-check requests the default scope is the ENTIRE PROJECT — never silently limit to the current view (limit only when the user says so, or ask ONE question when unsure). For MODIFY actions, use the "Current Revit context" block below — the user's selection first, then the active view. Never report "nothing found" from one filtered query: re-check with corrected arguments or wider scope first.
+10. NUMBERS MUST COME FROM TOOLS, NEVER FROM YOU. Tool results may be truncated before you see them, so counting or summing rows/elements yourself gives wrong answers. Use the exact fields the tools compute: `total_count` (ai_element_filter), `row_count` / `column_totals` (get_schedule_data), `element_counts` (analyze_model_statistics). If a statistic you need has no tool-computed field, say so — do not estimate.
+
+## Multiple open models
+Several documents can be open in this Revit session; every tool operates on the ACTIVE one. To work across models: `list_open_documents` → `switch_active_document` (exact title) → read/modify there → switch again as needed, then combine everything into ONE final answer stating which model each number comes from. Element ids are only valid inside their own document — never reuse ids across models. When the user names a model that is not in `list_open_documents`, it may live in a different Revit window (separate process): say so and point them to the assistant in that window — do not guess.
 
 ## Current Revit context
 {context}

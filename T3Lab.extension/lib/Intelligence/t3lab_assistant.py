@@ -124,8 +124,22 @@ When document content is provided in the conversation:
 3. If the user asks to open a T3Lab tool, follow the normal tool intent rules.
 4. If the request is purely about document analysis, respond as a "chat" intent
    with a detailed, helpful answer as the "message" field.
-5. For image attachments, describe or analyse what you see in the image.
-6. Keep answers concise unless the user asks for detail.
+5. For image attachments, describe or analyse ONLY what you can actually
+   see. If the image content is not available to you (text-only model, no
+   vision), say so plainly and ask for key dimensions or a text PDF —
+   NEVER invent a generic description of the building.
+6. Building image / drawing analysis for modeling requests ("dung model",
+   "build this", "model this building"): produce a STRUCTURED summary the
+   build step can consume:
+   - Levels: count + estimated floor-to-floor height (m)
+   - Structural grid: bay count and spacing if visible (m)
+   - Footprint: overall width x depth (m) and shape
+   - Walls / openings / materials per facade
+   Mark every number as MEASURED (a dimension or scale is visible) or
+   ESTIMATED, show the table, and ask the user to confirm or correct it
+   BEFORE building anything. The build itself follows the image-to-model
+   workflow (levels -> grids -> walls -> floors/roof -> openings).
+7. Keep answers concise unless the user asks for detail.
 
 """
 
@@ -163,6 +177,23 @@ def _build_system_prompt(revit_context=u""):
         base = SYSTEM_PROMPT
     if _EXTRA_TOOLS_SECTION:
         base = base + u'\n' + _EXTRA_TOOLS_SECTION
+    # Persistent memory — remembered preferences/conventions steer this
+    # path too. No tool hint: the JSON-intent path has no remember_fact
+    # tool, mentioning it here would leak into the "message" field.
+    try:
+        from Intelligence import assistant_memory
+        _pid = None
+        try:
+            from config.project_store import ProjectStore
+            _pid = ProjectStore().get_active_project_id()
+        except Exception:
+            _pid = None
+        _mem = assistant_memory.build_memory_block(
+            _pid, include_tool_hint=False)
+        if _mem:
+            base = base + u'\n\n' + _mem
+    except Exception:
+        pass
     return base
 
 

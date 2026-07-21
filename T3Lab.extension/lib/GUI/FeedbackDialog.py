@@ -18,6 +18,11 @@ from __future__ import unicode_literals
 from datetime import datetime
 import os
 
+import clr
+clr.AddReference('PresentationFramework')
+clr.AddReference('PresentationCore')
+clr.AddReference('WindowsBase')
+
 from System import Uri
 from System.Diagnostics import Process, ProcessStartInfo
 from System.Windows import WindowState, Clipboard
