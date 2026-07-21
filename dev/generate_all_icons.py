@@ -180,6 +180,28 @@ def draw_ribbon_names_highlights(draw, size):
     draw.rounded_rectangle([300, 460, 724, 560], radius=15, fill=HIGHLIGHT_COLOR)
 
 
+def draw_llms_setting(draw, size, color):
+    # Gear body: bold central disc
+    draw.ellipse([280, 280, 744, 744], fill=color)
+    # 8 chunky axis-aligned teeth around the disc
+    cx, cy = 512, 512
+    tooth = 130
+    offsets = [
+        (0, -390), (0, 390), (-390, 0), (390, 0),
+        (-276, -276), (276, -276), (-276, 276), (276, 276),
+    ]
+    for dx, dy in offsets:
+        x, y = cx + dx, cy + dy
+        draw.rounded_rectangle(
+            [x - tooth / 2, y - tooth / 2, x + tooth / 2, y + tooth / 2],
+            radius=24, fill=color)
+
+def draw_llms_setting_highlights(draw, size):
+    # Inner cutout ring (charcoal) + glowing AI core
+    draw.ellipse([400, 400, 624, 624], fill=SILHOUETTE_COLOR)
+    draw.ellipse([462, 462, 562, 562], fill=HIGHLIGHT_COLOR)
+
+
 def draw_tab_manager(draw, size, color):
     # Back Tab (Silhouette)
     draw.rounded_rectangle([220, 280, 620, 680], radius=40, fill=color)
@@ -258,7 +280,7 @@ ICONS_CONFIG = [
         "name": "mcp_control",
         "shape": draw_mcp_control,
         "highlights": draw_mcp_control_highlights,
-        "dest_rel_path": "MCPControl.pushbutton"
+        "dest_rel_path": "Assistant Tools.stack/MCPControl.pushbutton"
     },
     {
         "name": "pdf_import",
@@ -270,7 +292,13 @@ ICONS_CONFIG = [
         "name": "feedback",
         "shape": draw_feedback,
         "highlights": draw_feedback_highlights,
-        "dest_rel_path": "Feedback.pushbutton"
+        "dest_rel_path": "Assistant Tools.stack/Feedback.pushbutton"
+    },
+    {
+        "name": "llms_setting",
+        "shape": draw_llms_setting,
+        "highlights": draw_llms_setting_highlights,
+        "dest_rel_path": "Assistant Tools.stack/LLMsSetting.pushbutton"
     },
     {
         "name": "cloud_links",

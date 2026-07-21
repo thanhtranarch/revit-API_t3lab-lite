@@ -154,6 +154,10 @@ class DeepSeekProvider(BaseLLMProvider):
         """Model to call: user's choice first, else from the LIVE list (may fetch)."""
         return self._model or self._pick_model(self.get_models())
 
+    def pick_fast_model(self):
+        """Fastest model from the CACHED live list (classification calls)."""
+        return self._pick_model(self._cached_models or [])
+
     # ── Chat ─────────────────────────────────────────────────────────────────
 
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
@@ -167,7 +171,7 @@ class DeepSeekProvider(BaseLLMProvider):
         else:
             text = user_content or ""
 
-        model = self._resolve_model()
+        model = kwargs.get("model_override") or self._resolve_model()
         if not model:
             return None   # key not verified / vendor reported no models
         msgs  = []

@@ -242,6 +242,10 @@ class T3LabAISettings(object):
         mode = self._settings.get('agents', {}).get('action_mode', 'auto')
         return mode if mode in ('auto', 'confirm') else 'auto'
 
+    def get_agent_option(self, key, default=None):
+        """Read a scalar switch from the agents block."""
+        return self._settings.get('agents', {}).get(key, default)
+
     def set_agent_option(self, key, value):
         """Persist a switch in the agents block."""
         self._settings = self._load_settings()
