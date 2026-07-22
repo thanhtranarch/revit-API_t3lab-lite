@@ -149,7 +149,12 @@ SPECIALISTS = {
             "## Examples\n"
             "User: \"đổi tên sheet A-101 thành A-102\" -> revit_list_sheets "
             "to find the id -> rename_element -> reply \"Đã đổi tên sheet "
-            "A-101 → A-102 (id 12345).\""
+            "A-101 → A-102 (id 12345).\"\n"
+            "User: \"tô đỏ tường\" (= color the walls red — the color is "
+            "what to APPLY, not a filter value) -> ai_element_filter "
+            "(category Walls, NO parameter filter) to get the ids -> "
+            "revit_override_color (color \"red\", element_ids from the "
+            "filter) -> reply \"Đã tô đỏ 128 tường trong view hiện tại.\""
         ),
     ),
 

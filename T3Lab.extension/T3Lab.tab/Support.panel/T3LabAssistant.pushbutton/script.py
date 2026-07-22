@@ -664,6 +664,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._slash_rows      = []      # Border rows (for highlight swap)
         self._slash_sel       = 0       # highlighted index
         self._forced_skill_id = None    # skill forced via /slash for THIS message
+        self._forced_skill_args = u""   # user text after the /slash id (pre-boilerplate)
 
         # ── Usage-flow state: message queue + quick-reply chips ───────────────
         # The input stays ENABLED while a request runs (Claude-style): Enter
@@ -702,6 +703,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     pass
             self.Deactivated += _win_deactivated
+        except Exception:
+            pass
+
+        # Per-project scheduled prompts (project panel → Scheduled): a 30s
+        # UI-thread timer fires due daily tasks while the window is open.
+        # No-op when no project is active or no tasks are defined.
+        try:
+            self._start_schedule_timer()
         except Exception:
             pass
 
@@ -997,6 +1006,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
         window-state saving alive for Alt+F4 / Revit pane close.
         """
         self._save_window_state()
+        # Stop the scheduled-prompts timer: a DispatcherTimer keeps ticking
+        # after the window closes (holding the window alive) and a due task
+        # would run _process_input() on a closed window — an invisible LLM
+        # request with results shown nowhere.
+        try:
+            self._sched_timer.Stop()
+        except Exception:
+            pass
 
     def minimize_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -1159,7 +1176,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from config.user_profile import UserProfile
             name = UserProfile().get_name() or u"Thạnh"
             self._render_greeting(name)
-            self._populate_welcome_suggestions()
 
             # The welcome banner only shows on a fresh chat (no history yet).
             if self._persisted_msgs:
@@ -1168,68 +1184,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.welcome_greeting_panel.Visibility = Visibility.Visible
         except Exception:
             pass
-
-    # Quick-start chips on the fresh-chat welcome screen: label + the phrase
-    # inserted into the composer on click (NOT auto-sent — the user can edit).
-    # The slash phrase carries a trailing space so the skills popup does not
-    # reopen over it and a single Enter sends it.
-    _WELCOME_SUGGESTIONS = [
-        (u"Thống kê model",    u"thống kê toàn bộ model"),
-        (u"Check chính tả",    u"/english-spellcheck "),
-        (u"Export PDF",        u"export pdf all sheets"),
-        (u"Bạn làm được gì?",  u"what can you do?"),
-    ]
-
-    def _populate_welcome_suggestions(self):
-        """Fill the welcome quick-start chip row (idempotent). UI THREAD."""
-        try:
-            panel = getattr(self, 'welcome_suggestions', None)
-            if panel is None:
-                return   # stale cached XAML without the WrapPanel
-            panel.Children.Clear()
-            from System.Windows.Controls import Border, TextBlock
-            from System.Windows import Thickness, CornerRadius
-            from System.Windows.Media import SolidColorBrush, Color
-            from System.Windows.Input import Cursors
-
-            _bg     = Color.FromRgb(0xFF, 0xFF, 0xFF)
-            _bg_hov = Color.FromRgb(0xF1, 0xF5, 0xF9)
-            for label, phrase in self._WELCOME_SUGGESTIONS:
-                chip = Border()
-                chip.Background = SolidColorBrush(_bg)
-                chip.BorderBrush = SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0))
-                chip.BorderThickness = Thickness(1)
-                chip.CornerRadius = CornerRadius(12)
-                chip.Padding = Thickness(11, 5, 11, 6)
-                chip.Margin = Thickness(0, 0, 6, 6)
-                chip.Cursor = Cursors.Hand
-                tb = TextBlock()
-                tb.Text = label
-                tb.FontSize = 12
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-                tb.Foreground = SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69))
-                chip.Child = tb
-
-                def _click(s, ev, _p=phrase):
-                    try:
-                        self.chat_input.Text = _p
-                        self.chat_input.CaretIndex = len(_p)
-                        self.chat_input.Focus()
-                    except Exception:
-                        pass
-                    ev.Handled = True
-                chip.MouseLeftButtonUp += _click
-
-                def _enter(s, ev, _c=chip):
-                    _c.Background = SolidColorBrush(_bg_hov)
-
-                def _leave(s, ev, _c=chip):
-                    _c.Background = SolidColorBrush(_bg)
-                chip.MouseEnter += _enter
-                chip.MouseLeave += _leave
-                panel.Children.Add(chip)
-        except Exception as ex:
-            logger.debug("_populate_welcome_suggestions error: {}".format(ex))
 
     # ─── First-run onboarding ─────────────────────────────────────────────────
 
@@ -1432,13 +1386,37 @@ class T3LabAssistantWindow(forms.WPFWindow):
         removed)."""
         self._open_llm_settings()
 
-    def _open_llm_settings(self):
+    def _open_llm_settings(self, tab=None, select_pid=None):
         """Show the LLMs Setting dialog modally, then refresh anything it
         may have changed (provider/model chip, action mode, display name,
-        projects)."""
+        projects).
+
+        tab: optional tab key ('general'/'provider'/'projects'/'knowledge'/
+        'skills') to open on — 'Customize project…' used to always land on
+        General, hiding where projects are edited. select_pid preselects a
+        project in the Projects tab (used right after New project so the
+        user lands in the name box, not a generic dialog).
+        """
         try:
             from GUI.LLMSettingDialog import LLMSettingWindow
             dlg = LLMSettingWindow()
+            try:
+                if select_pid:
+                    dlg._load_projects_tab(select_pid=select_pid)
+                if tab:
+                    _rb = getattr(dlg, 'tab_' + tab, None)
+                    if _rb is not None:
+                        _rb.IsChecked = True
+                if tab == 'projects':
+                    def _focus_name(s, ev):
+                        try:
+                            dlg.project_name_box.Focus()
+                            dlg.project_name_box.SelectAll()
+                        except Exception:
+                            pass
+                    dlg.Loaded += _focus_name
+            except Exception:
+                pass
             dlg.ShowDialog()
         except Exception as ex:
             logger.debug("_open_llm_settings error: {}".format(ex))
@@ -1460,6 +1438,75 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
     # ─── Projects (workspaces) ────────────────────────────────────────────────
+
+    def _project_overview_text(self, pid, header=None):
+        """Markdown overview of what the given project scope actually
+        changes (instructions / knowledge / memory / provider / chats) —
+        posted on switch, create and on demand, so the project chip stops
+        being a mystery. Cheap: small JSON reads + one os.walk of the
+        project's own files dir (external knowledge_dirs are NOT walked —
+        they may be big network shares)."""
+        from config.project_store import ProjectStore
+        ps = ProjectStore()
+        meta = ps.get_project(pid) or {}
+        lines = [header or u"**Project: {}**".format(
+            meta.get('name', pid)), u""]
+
+        instr = u" ".join(((meta.get('instructions') or u'')).split())
+        if instr:
+            if len(instr) > 110:
+                instr = instr[:109] + u"…"
+            lines.append(u"- **Instructions:** {}".format(instr))
+        else:
+            lines.append(u"- **Instructions:** none yet — add them via "
+                         u"project popup → Customize project; they steer "
+                         u"every reply in this project.")
+
+        n_files = 0
+        try:
+            for _r, _sub, _fs in os.walk(
+                    os.path.join(ps.project_dir(pid), 'files')):
+                n_files += len(_fs)
+                if n_files > 200:
+                    break
+        except Exception:
+            pass
+        n_extra = len([d for d in (meta.get('knowledge_dirs') or []) if d])
+        if n_files or n_extra:
+            _extra = (u" + {} linked folder(s)".format(n_extra)
+                      if n_extra else u"")
+            lines.append(u"- **Knowledge:** {} file(s){} — replies quote "
+                         u"these documents (project popup → Open knowledge "
+                         u"folder to add more).".format(
+                             u"200+" if n_files > 200 else n_files, _extra))
+        else:
+            lines.append(u"- **Knowledge:** empty — attach files in chat or "
+                         u"drop PDF/DOCX/MD via project popup → Open "
+                         u"knowledge folder.")
+
+        try:
+            from Intelligence import assistant_memory as _am
+            _facts = _am.list_facts(pid)
+            _n_proj = len([1 for _s, _f in _facts
+                           if _s == _am.PROJECT_SCOPE])
+            lines.append(u"- **Memory:** {} project fact(s) + {} global — "
+                         u'say "remember ..." to add.'.format(
+                             _n_proj, len(_facts) - _n_proj))
+        except Exception:
+            pass
+
+        if meta.get('provider'):
+            lines.append(u"- **AI provider:** {}{} (applied whenever this "
+                         u"project activates).".format(
+                             meta['provider'],
+                             u" / " + meta['model']
+                             if meta.get('model') else u""))
+        else:
+            lines.append(u"- **AI provider:** follows the global setting.")
+
+        lines.append(u"- **Chats, attachments & activity logs:** stored "
+                     u"inside this project, separate per Revit document.")
+        return u"\n".join(lines)
 
     def _activate_project(self, pid):
         """Switch the active project: history, knowledge scope, provider.
@@ -1494,10 +1541,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._update_knowledge_status()
             self._kick_knowledge_scan()
             name = (ps.get_project(pid) or {}).get('name') if pid else None
-            self._append_bot_message(
-                u"Switched to project **{}**.".format(name) if name
-                else u"Project mode off — using the shared workspace.",
-                icon=_ICON_REFRESH, icon_color=_ICON_SLATE)
+            if pid and name:
+                try:
+                    _msg = self._project_overview_text(
+                        pid, header=u"Switched to project **{}** — this "
+                        u"scope is now active:".format(name))
+                except Exception:
+                    _msg = u"Switched to project **{}**.".format(name)
+            else:
+                _msg = (u"Project mode off — using the shared workspace: "
+                        u"global knowledge & memory, per-document chat "
+                        u"history, provider unchanged.")
+            self._append_bot_message(_msg, icon=_ICON_REFRESH,
+                                     icon_color=_ICON_SLATE)
             self._update_composer_chips()
         except Exception as ex:
             logger.debug("_activate_project error: {}".format(ex))
@@ -1521,12 +1577,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
             self._update_composer_chips()
-            self._append_bot_message(
-                u"Created project **{}**. Set its name + custom instructions "
-                u"in Settings → Projects, and drop documents into the project's "
-                u"knowledge folder so replies follow this project.".format(
-                    meta['name']),
-                icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
+            try:
+                _msg = self._project_overview_text(
+                    meta['id'],
+                    header=u"Created & switched to project **{}**."
+                    .format(meta['name']))
+            except Exception:
+                _msg = u"Created project **{}**.".format(meta['name'])
+            self._append_bot_message(_msg, icon=_ICON_SUCCESS,
+                                     icon_color=_ICON_GREEN)
+            # Land the user straight in the rename box instead of telling
+            # them to find Settings → Projects on their own.
+            self._open_llm_settings(tab='projects', select_pid=meta['id'])
         except Exception as ex:
             logger.debug("_create_new_project error: {}".format(ex))
 
@@ -2757,8 +2819,27 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("project_chip_clicked error: {}".format(ex))
 
+    def _project_row_subtitle(self, ps, pid):
+        """Content hint for a project popup row: 'N files · instructions ✓'.
+        Only the project's own files dir is counted (cheap, local)."""
+        try:
+            meta = ps.get_project(pid) or {}
+            n = 0
+            for _r, _sub, _fs in os.walk(
+                    os.path.join(ps.project_dir(pid), 'files')):
+                n += len(_fs)
+                if n > 99:
+                    break
+            has_instr = bool((meta.get('instructions') or u'').strip())
+            return u"{} file{} · {}".format(
+                u"99+" if n > 99 else n, u"" if n == 1 else u"s",
+                u"instructions ✓" if has_instr else u"no instructions")
+        except Exception:
+            return None
+
     def _build_project_popup(self):
-        """Fill the project popup: none + projects + new/customize. UI THREAD."""
+        """Fill the project popup: none + projects (with content hints) +
+        actions for the active project + new/customize. UI THREAD."""
         from config.project_store import ProjectStore
         ps = ProjectStore()
         active = ps.get_active_project_id()
@@ -2771,10 +2852,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             handler=lambda s, ev: self._project_popup_select(None)))
         for meta in ps.list_projects():
             panel.Children.Add(self._popup_row(
-                meta['name'], None, active=(meta['id'] == active),
+                meta['name'], self._project_row_subtitle(ps, meta['id']),
+                active=(meta['id'] == active),
                 handler=(lambda s, ev, _p=meta['id']:
                          self._project_popup_select(_p))))
         panel.Children.Add(self._popup_separator())
+        if active:
+            panel.Children.Add(self._popup_row(
+                u"Project panel",
+                u"Instructions · Memory · Context · Scheduled",
+                icon=u"",
+                handler=lambda s, ev: self._open_project_panel()))
+            panel.Children.Add(self._popup_row(
+                u"Open knowledge folder",
+                u"Drop PDF/DOCX/MD here for replies",
+                icon=u"",
+                handler=lambda s, ev: self._project_popup_open_folder()))
         panel.Children.Add(self._popup_row(
             u"New project", None, icon=u"",
             handler=lambda s, ev: self._project_popup_new()))
@@ -2808,12 +2901,470 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
         self._create_new_project()
 
+    # ─── Project panel (Claude-style: Instructions/Memory/Context/Scheduled) ──
+
+    def _open_project_panel(self):
+        """Open the project panel overlay for the active project."""
+        try:
+            self.project_popup.IsOpen = False
+        except Exception:
+            pass
+        try:
+            from config.project_store import ProjectStore
+            pid = ProjectStore().get_active_project_id()
+            if not pid:
+                return
+            self._build_project_panel(pid)
+            self.project_panel_overlay.Visibility = Visibility.Visible
+        except Exception as ex:
+            logger.debug("_open_project_panel error: {}".format(ex))
+
+    def project_panel_close_clicked(self, sender, e):
+        try:
+            self.project_panel_overlay.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
+
+    def _build_project_panel(self, pid):
+        """Render the Instructions / Memory / Context / Scheduled sections
+        into project_panel_host. UI THREAD. The whole panel is rebuilt after
+        every edit — content is tiny, correctness beats diffing."""
+        from System.Windows.Controls import (Border, Button, Grid as WGrid,
+                                             ColumnDefinition, Orientation,
+                                             ScrollBarVisibility, StackPanel,
+                                             TextBlock, TextBox)
+        from System.Windows import (Thickness, TextWrapping, GridLength,
+                                    HorizontalAlignment, TextDecorations)
+        from System.Windows.Media import SolidColorBrush, Color
+        from System.Windows.Input import Cursors
+        from config.project_store import ProjectStore
+
+        ps = ProjectStore()
+        meta = ps.get_project(pid) or {}
+        host = self.project_panel_host
+        host.Children.Clear()
+        try:
+            self.project_panel_title.Text = meta.get('name') or u"Project"
+        except Exception:
+            pass
+
+        _font  = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+        _mdl2  = System.Windows.Media.FontFamily("Segoe MDL2 Assets")
+        _ink   = SolidColorBrush(Color.FromRgb(24, 24, 27))     # #18181B
+        _muted = SolidColorBrush(Color.FromRgb(113, 113, 122))  # #71717A
+        _faint = SolidColorBrush(Color.FromRgb(161, 161, 170))  # #A1A1AA
+        _blue  = SolidColorBrush(Color.FromRgb(59, 130, 246))   # #3B82F6
+        _red   = SolidColorBrush(Color.FromRgb(239, 68, 68))    # #EF4444
+        _inbrd = SolidColorBrush(Color.FromRgb(203, 213, 225))  # #CBD5E1
+
+        def _tb(text, size=12, fg=None, bold=False, wrap=True, margin=None):
+            t = TextBlock()
+            t.Text = text
+            t.FontSize = size
+            t.FontFamily = _font
+            t.Foreground = fg or _ink
+            if bold:
+                t.FontWeight = System.Windows.FontWeights.SemiBold
+            if wrap:
+                t.TextWrapping = TextWrapping.Wrap
+            if margin is not None:
+                t.Margin = margin
+            return t
+
+        def _glyph_btn(glyph, handler, tip=None, fg=None):
+            g = TextBlock()
+            g.Text = glyph
+            g.FontFamily = _mdl2
+            g.FontSize = 11
+            g.Foreground = fg or _muted
+            g.Cursor = Cursors.Hand
+            g.Margin = Thickness(10, 2, 2, 0)
+            if tip:
+                g.ToolTip = tip
+            g.MouseLeftButtonUp += handler
+            return g
+
+        def _two_col(left, right=None, top=6):
+            g = WGrid()
+            g.Margin = Thickness(0, top, 0, 0)
+            g.ColumnDefinitions.Add(ColumnDefinition())
+            c1 = ColumnDefinition()
+            c1.Width = GridLength.Auto
+            g.ColumnDefinitions.Add(c1)
+            g.Children.Add(left)
+            if right is not None:
+                WGrid.SetColumn(right, 1)
+                g.Children.Add(right)
+            return g
+
+        def _section(title, right_widget=None):
+            host.Children.Add(_two_col(
+                _tb(title, size=13.5, bold=True, wrap=False),
+                right_widget, top=0))
+
+        def _sep():
+            b = Border()
+            b.Height = 1
+            b.Background = SolidColorBrush(Color.FromRgb(241, 245, 249))
+            b.Margin = Thickness(0, 14, 0, 14)
+            host.Children.Add(b)
+
+        def _small_btn(label, handler, primary=False):
+            b = Button()
+            b.Content = label
+            try:
+                b.Style = self.FindResource(
+                    "PrimaryButton" if primary else "SecondaryButton")
+            except Exception:
+                pass
+            b.FontSize = 11
+            b.Padding = Thickness(12, 4, 12, 4)
+            b.Margin = Thickness(8, 0, 0, 0)
+            b.Click += handler
+            return b
+
+        def _input_box(text=u"", multiline=False):
+            tbx = TextBox()
+            tbx.Text = text
+            tbx.FontSize = 12
+            tbx.FontFamily = _font
+            tbx.Padding = Thickness(8, 5, 8, 5)
+            tbx.BorderBrush = _inbrd
+            if multiline:
+                tbx.AcceptsReturn = True
+                tbx.TextWrapping = TextWrapping.Wrap
+                tbx.MinHeight = 74
+                tbx.MaxHeight = 150
+                tbx.VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            return tbx
+
+        # ── 1. Instructions ────────────────────────────────────────────────
+        instr = meta.get('instructions') or u''
+        ed_panel = StackPanel()
+        ed_panel.Visibility = Visibility.Collapsed
+        ed_panel.Margin = Thickness(0, 8, 0, 0)
+        ed_box = _input_box(instr, multiline=True)
+        ed_panel.Children.Add(ed_box)
+
+        def _save_instr(s, ev):
+            try:
+                ProjectStore().update_project(
+                    pid, {'instructions': (ed_box.Text or u'').strip()})
+            except Exception:
+                pass
+            self._build_project_panel(pid)
+
+        _instr_row = StackPanel()
+        _instr_row.Orientation = Orientation.Horizontal
+        _instr_row.HorizontalAlignment = HorizontalAlignment.Right
+        _instr_row.Margin = Thickness(0, 6, 0, 0)
+        _instr_row.Children.Add(_small_btn(u"Save", _save_instr,
+                                           primary=True))
+        ed_panel.Children.Add(_instr_row)
+
+        def _toggle_instr(s, ev):
+            ed_panel.Visibility = (
+                Visibility.Collapsed
+                if ed_panel.Visibility == Visibility.Visible
+                else Visibility.Visible)
+
+        _section(u"Instructions",
+                 _glyph_btn(u"" if instr.strip() else u"",
+                            _toggle_instr, tip=u"Edit instructions"))
+        if instr.strip():
+            _prev = u" ".join(instr.split())
+            if len(_prev) > 220:
+                _prev = _prev[:219] + u"…"
+            host.Children.Add(_tb(_prev, size=11.5, fg=_muted,
+                                  margin=Thickness(0, 4, 0, 0)))
+        else:
+            host.Children.Add(_tb(
+                u"Add instructions to tailor the assistant's replies in "
+                u"this project.", size=11.5, fg=_faint,
+                margin=Thickness(0, 4, 0, 0)))
+        host.Children.Add(ed_panel)
+        _sep()
+
+        # ── 2. Memory (project-scope facts) ────────────────────────────────
+        _section(u"Memory")
+        _mem_rows = 0
+        try:
+            from Intelligence import assistant_memory as _am
+            for _i, (_scope, _f) in enumerate(_am.list_facts(pid)):
+                if _scope != _am.PROJECT_SCOPE:
+                    continue
+                _mem_rows += 1
+
+                def _rm_fact(s, ev, _n=_i + 1):
+                    try:
+                        from Intelligence import assistant_memory as _am2
+                        _am2.remove_fact(_n, pid)
+                    except Exception:
+                        pass
+                    self._build_project_panel(pid)
+
+                host.Children.Add(_two_col(
+                    _tb(u"• {}".format(_f.get('text') or u''),
+                        size=11.5, fg=_muted),
+                    _glyph_btn(u"", _rm_fact, tip=u"Forget")))
+        except Exception:
+            pass
+        if not _mem_rows:
+            host.Children.Add(_tb(
+                u'Project memory will show here — say "remember ..." in '
+                u'chat and facts land in this list.', size=11.5, fg=_faint,
+                margin=Thickness(0, 4, 0, 0)))
+        _sep()
+
+        # ── 3. Context (knowledge files the RAG index answers from) ───────
+        def _add_files(s, ev):
+            try:
+                import clr
+                clr.AddReference('System.Windows.Forms')
+                from System.Windows.Forms import OpenFileDialog, DialogResult
+                dlg = OpenFileDialog()
+                dlg.Multiselect = True
+                dlg.Title = "Add documents to this project"
+                dlg.Filter = ("Documents|*.pdf;*.docx;*.txt;*.md;*.csv;"
+                              "*.xlsx|All files|*.*")
+                if dlg.ShowDialog() == DialogResult.OK:
+                    import shutil as _sh
+                    dst = os.path.join(ps.project_dir(pid), 'files')
+                    if not os.path.isdir(dst):
+                        os.makedirs(dst)
+                    for f in dlg.FileNames:
+                        try:
+                            _sh.copy2(f, os.path.join(
+                                dst, os.path.basename(f)))
+                        except Exception:
+                            pass
+                    self._kick_knowledge_scan()
+                    self._build_project_panel(pid)
+            except Exception as _ex:
+                logger.debug("panel add files error: {}".format(_ex))
+
+        _section(u"Context", _glyph_btn(u"", _add_files,
+                                        tip=u"Add documents"))
+        files = []
+        try:
+            for _r, _sub, _fs in os.walk(
+                    os.path.join(ps.project_dir(pid), 'files')):
+                for _f in _fs:
+                    files.append(os.path.join(_r, _f))
+                if len(files) > 60:
+                    break
+        except Exception:
+            pass
+        if files:
+            for fp in files[:12]:
+                _sz = None
+                try:
+                    _sz = _tb(u"{:.0f} KB".format(
+                        os.path.getsize(fp) / 1024.0),
+                        size=10.5, fg=_faint, wrap=False)
+                except Exception:
+                    pass
+                host.Children.Add(_two_col(
+                    _tb(os.path.basename(fp), size=11.5, fg=_muted,
+                        wrap=False), _sz, top=5))
+            if len(files) > 12:
+                host.Children.Add(_tb(
+                    u"… and {} more".format(len(files) - 12),
+                    size=10.5, fg=_faint, margin=Thickness(0, 5, 0, 0)))
+        else:
+            host.Children.Add(_tb(
+                u"Add PDFs, documents, or other text to reference in this "
+                u"project.", size=11.5, fg=_faint,
+                margin=Thickness(0, 4, 0, 0)))
+
+        lnk = _tb(u"Open knowledge folder", size=11, fg=_blue, wrap=False,
+                  margin=Thickness(0, 8, 0, 0))
+        lnk.Cursor = Cursors.Hand
+        lnk.TextDecorations = TextDecorations.Underline
+        lnk.MouseLeftButtonUp += (
+            lambda s, ev: self._open_active_project_folder())
+        host.Children.Add(lnk)
+        _sep()
+
+        # ── 4. Scheduled (daily prompts while the window is open) ─────────
+        sched = [t for t in (meta.get('scheduled') or []) if t]
+        add_panel = StackPanel()
+        add_panel.Visibility = Visibility.Collapsed
+        add_panel.Margin = Thickness(0, 8, 0, 0)
+        add_panel.Children.Add(_tb(u"PROMPT TO RUN", size=9, fg=_faint,
+                                   bold=True, margin=Thickness(2, 0, 0, 4)))
+        p_box = _input_box()
+        add_panel.Children.Add(p_box)
+        add_panel.Children.Add(_tb(u"DAILY AT (HH:MM)", size=9, fg=_faint,
+                                   bold=True, margin=Thickness(2, 8, 0, 4)))
+        t_box = _input_box(u"09:00")
+        t_box.Width = 80
+        t_box.HorizontalAlignment = HorizontalAlignment.Left
+        add_panel.Children.Add(t_box)
+
+        def _add_sched(s, ev):
+            try:
+                import time as _t
+                _p = (p_box.Text or u'').strip()
+                _m = re.match(r'^(\d{1,2}):(\d{2})$',
+                              (t_box.Text or u'').strip())
+                if not _p or not _m or int(_m.group(1)) > 23 \
+                        or int(_m.group(2)) > 59:
+                    (t_box if _p else p_box).BorderBrush = _red
+                    return
+                _items = list((ProjectStore().get_project(pid) or {})
+                              .get('scheduled') or [])
+                _items.append({
+                    'id': u's_{}'.format(int(_t.time() * 1000)),
+                    'prompt': _p,
+                    'time': u"{:02d}:{}".format(int(_m.group(1)),
+                                                _m.group(2)),
+                    'enabled': True,
+                    'last_run': u''})
+                ProjectStore().update_project(pid, {'scheduled': _items})
+            except Exception as _ex:
+                logger.debug("panel add schedule error: {}".format(_ex))
+            self._build_project_panel(pid)
+
+        _sched_row = StackPanel()
+        _sched_row.Orientation = Orientation.Horizontal
+        _sched_row.HorizontalAlignment = HorizontalAlignment.Right
+        _sched_row.Margin = Thickness(0, 8, 0, 0)
+        _sched_row.Children.Add(_small_btn(u"Add task", _add_sched,
+                                           primary=True))
+        add_panel.Children.Add(_sched_row)
+
+        def _toggle_sched(s, ev):
+            add_panel.Visibility = (
+                Visibility.Collapsed
+                if add_panel.Visibility == Visibility.Visible
+                else Visibility.Visible)
+
+        _section(u"Scheduled", _glyph_btn(u"", _toggle_sched,
+                                          tip=u"New scheduled task"))
+        if sched:
+            for it in sched:
+                _pv = u" ".join((it.get('prompt') or u'').split())
+                if len(_pv) > 70:
+                    _pv = _pv[:69] + u"…"
+
+                def _rm_sched(s, ev, _tid=it.get('id')):
+                    try:
+                        _items = [t for t in
+                                  ((ProjectStore().get_project(pid) or {})
+                                   .get('scheduled') or [])
+                                  if t.get('id') != _tid]
+                        ProjectStore().update_project(
+                            pid, {'scheduled': _items})
+                    except Exception:
+                        pass
+                    self._build_project_panel(pid)
+
+                host.Children.Add(_two_col(
+                    _tb(u"{} daily — {}".format(it.get('time') or u'?',
+                                                _pv),
+                        size=11.5, fg=_muted),
+                    _glyph_btn(u"", _rm_sched, tip=u"Remove")))
+            host.Children.Add(_tb(
+                u"Runs once per day at the set time while the assistant "
+                u"window is open (skipped while a request is busy).",
+                size=10.5, fg=_faint, margin=Thickness(0, 8, 0, 0)))
+        else:
+            host.Children.Add(_tb(
+                u"Set up recurring daily prompts for this project — e.g. "
+                u'"get model warnings", "check chính tả". They run while '
+                u"the assistant window is open.", size=11.5, fg=_faint,
+                margin=Thickness(0, 4, 0, 0)))
+        host.Children.Add(add_panel)
+
+    # ─── Scheduled prompts runner ─────────────────────────────────────────────
+
+    def _start_schedule_timer(self):
+        """30s UI-thread timer that fires due per-project scheduled prompts
+        (project panel → Scheduled) while the window is open."""
+        try:
+            from System.Windows.Threading import DispatcherTimer
+            from System import TimeSpan
+            t = DispatcherTimer()
+            t.Interval = TimeSpan.FromSeconds(30)
+            t.Tick += self._schedule_tick
+            t.Start()
+            self._sched_timer = t
+        except Exception as ex:
+            logger.debug("_start_schedule_timer error: {}".format(ex))
+
+    def _schedule_tick(self, sender, e):
+        """Fire at most ONE due scheduled prompt per tick. A task is due
+        when enabled, not yet run today and its HH:MM has passed. last_run
+        is stamped BEFORE sending so a slow request never double-fires."""
+        try:
+            if self._busy:
+                return
+            from config.project_store import ProjectStore
+            import time as _t
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            if not pid:
+                return
+            items = (ps.get_project(pid) or {}).get('scheduled') or []
+            if not items:
+                return
+            now_hm = _t.strftime('%H:%M')
+            today = _t.strftime('%Y-%m-%d')
+            fired = None
+            for it in items:
+                if not it.get('enabled', True):
+                    continue
+                if it.get('last_run') == today:
+                    continue
+                if (it.get('time') or u'99:99') <= now_hm:
+                    it['last_run'] = today
+                    fired = it
+                    break
+            if not fired:
+                return
+            ps.update_project(pid, {'scheduled': items})
+            draft = self.chat_input.Text
+            self.chat_input.Text = fired.get('prompt') or u''
+            self._process_input()
+            try:
+                self.chat_input.Text = draft
+                self.chat_input.CaretIndex = len(draft or u"")
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug("_schedule_tick error: {}".format(ex))
+
+    def _open_active_project_folder(self):
+        """Open the active project's knowledge folder (files/) in Explorer —
+        the drop target for PDF/DOCX/MD the RAG index answers from."""
+        try:
+            import System.Diagnostics
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            pid = ps.get_active_project_id()
+            if not pid:
+                return
+            d = os.path.join(ps.project_dir(pid), 'files')
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            System.Diagnostics.Process.Start(d)
+        except Exception as ex:
+            logger.debug("_open_active_project_folder error: {}".format(ex))
+
+    def _project_popup_open_folder(self):
+        try:
+            self.project_popup.IsOpen = False
+        except Exception:
+            pass
+        self._open_active_project_folder()
+
     def _project_popup_settings(self):
         try:
             self.project_popup.IsOpen = False
         except Exception:
             pass
-        self._open_llm_settings()
+        self._open_llm_settings(tab='projects')
 
     def model_chip_clicked(self, sender, e):
         """Open the Claude-style provider/model picker popup."""
@@ -3338,6 +3889,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # through unchanged (e.g. "/абв" or a plain path-like string).
             self._close_skills_popup()
             self._forced_skill_id = None
+            self._forced_skill_args = u""
             route_text = raw
             m = re.match(r'^/([\w\-]+)(?:\s+(.*))?$', raw, re.S) if raw else None
             if m:
@@ -3347,17 +3899,27 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     if any(s['id'] == m.group(1) for s in _cat):
                         self._forced_skill_id = m.group(1)
                         route_text = (m.group(2) or u"").strip()
+                        # Keep the user's own words (pre-boilerplate) so the
+                        # router can tell a scan request from a fix request.
+                        self._forced_skill_args = route_text
                         if not route_text:
                             # Slash-only invocation: the literal "/skill-id"
                             # reads as gibberish to the model and it guesses a
                             # target (e.g. renaming walls). Send an explicit
                             # context-first instruction instead.
+                            # Phrased as "follow the workflow in your system
+                            # prompt" — both the native path and the legacy
+                            # JSON-intent path inject the skill body there.
+                            # The old "Apply the '<id>' playbook" wording made
+                            # JSON-intent models answer {"intent":
+                            # "apply_playbook"} → "Tool does not exist".
                             route_text = (
-                                u"Apply the '{}' playbook now using its "
+                                u"Follow the '{}' workflow (the Active skill "
+                                u"in your system prompt) NOW, using its "
                                 u"DEFAULT scope. Checking/audit/statistics "
-                                u"playbooks default to the ENTIRE project — "
+                                u"workflows default to the ENTIRE project — "
                                 u"start scanning immediately, do NOT ask "
-                                u"about scope. Playbooks that MODIFY the "
+                                u"about scope. Workflows that MODIFY the "
                                 u"model: use my selection or active view "
                                 u"and confirm before any model-wide edit."
                             ).format(m.group(1))
@@ -3838,6 +4400,29 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # check_spelling triggers and the skill never runs).
             _skill_forced = bool(getattr(self, '_forced_skill_id', None))
 
+            # EXCEPTION — /english-spellcheck SCAN requests. The agent
+            # playbook can only ever see one ai_element_filter page (50 of
+            # potentially thousands of notes) and then reports fake
+            # full-project coverage ("4495 scanned, 0 errors" after reading
+            # 50). Scans therefore go to the deterministic batch pipeline
+            # (_run_spellcheck), which reads EVERY string. Explicit
+            # fix/apply wording still reaches the agent, which owns
+            # set_parameter / rename_element.
+            if _skill_forced and self._forced_skill_id == 'english-spellcheck':
+                _args = getattr(self, '_forced_skill_args', u'') or u''
+                _fix_req = bool(re.search(
+                    r'\b(fix|apply|correct|rename|update|replace|change)\b',
+                    _args, re.I)) or any(
+                    k in _args.lower() for k in (
+                        u'sửa', u'sua lai', u'sua loi', u'thay', u'đổi',
+                        u'doi ten', u'cập nhật', u'cap nhat'))
+                if not _fix_req:
+                    def _run_spell():
+                        self._execute_result({'intent': 'check_spelling',
+                                              'params': {}})
+                    self.Dispatcher.Invoke(Action(_run_spell))
+                    return
+
             # ── Context carryover (Claude-style continuation) ─────────────────
             # When the assistant just asked a clarifying question, a short
             # reply ("1", "entire project", "ok"...) is the ANSWER to that
@@ -4050,6 +4635,25 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if _handled:
                             return
 
+                    # Skill playbook for the LEGACY path too. When the native
+                    # agent path is unavailable (provider without native
+                    # tools, MCP server not up, turn-1 provider mute), a
+                    # /slash skill used to reach this JSON-intent loop as the
+                    # bare boilerplate with NO playbook injected — the model
+                    # then hallucinated pseudo-intents ("apply_playbook") and
+                    # the skill never ran.
+                    _legacy_skills_block = u""
+                    try:
+                        _dec_lg = getattr(self, '_agent_decision', None) or {}
+                        _sk_lg = _dec_lg.get('skill') or getattr(
+                            self, '_forced_skill_id', None)
+                        if _sk_lg:
+                            from Intelligence.skills_engine import (
+                                build_skills_block as _bsb)
+                            _legacy_skills_block = _bsb([_sk_lg])
+                    except Exception:
+                        _legacy_skills_block = u""
+
                     # Run up to 5 iterations of tool execution
                     max_iterations = 5
                     current_iteration = 0
@@ -4108,6 +4712,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         system_prompt = _build_system_prompt(revit_context=_ctx_block)
                         if server_tools_str:
                             system_prompt += server_tools_str
+                        if _legacy_skills_block:
+                            system_prompt += (
+                                u"\n\n" + _legacy_skills_block +
+                                u"\n\nIMPORTANT: the Active skill above is a "
+                                u"set of INSTRUCTIONS for you — 'playbook', "
+                                u"'skill' and 'apply_playbook' are NOT intent "
+                                u"or tool names. Execute its steps now using "
+                                u"ONLY the intents and MCP tools listed in "
+                                u"this prompt.")
 
                         if has_attach or rag_context:
                             system_prompt = _RAG_SYSTEM_PREFIX + system_prompt
@@ -4573,6 +5186,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         def work():
             report = None
+            ui_findings, ui_total, ui_uniq, ui_failed = [], 0, 0, 0
             try:
                 from Services import spell_checker as SC
                 # Collect on the Revit MAIN thread via the MCP server's
@@ -4583,6 +5197,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 # also proofreads sheet/view/room/level names + project info,
                 # not just TextNotes.
                 notes = None
+                res = None
                 try:
                     from core.server import get_t3labai_server
                     srv = get_t3labai_server()
@@ -4591,8 +5206,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         r = srv._execute_tool(name, args)
                         return r if isinstance(r, dict) else {}
 
+                    # limit must cover the WHOLE model — the old cap of 1000
+                    # silently skipped 3/4 of a 4500-note project, so typos
+                    # past the cap were never seen. Dedupe + batching below
+                    # keep the LLM calls bounded regardless of note count.
                     res = _tool('ai_element_filter',
-                                {'category': 'TextNotes', 'limit': 1000})
+                                {'category': 'TextNotes', 'limit': 100000})
                     if 'elements' in res:
                         notes = []
 
@@ -4611,17 +5230,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                          if n['view'] == av['name']]
                         else:
                             for sh in _tool('revit_list_sheets',
-                                            {}).get('sheets', [])[:400]:
+                                            {}).get('sheets', [])[:5000]:
                                 _add(sh.get('id'), sh.get('name'),
                                      u'Sheet name')
                             for vw in _tool('revit_list_views',
-                                            {}).get('views', [])[:400]:
+                                            {}).get('views', [])[:5000]:
                                 _add(vw.get('id'), vw.get('name'),
                                      u'View name')
                             for _cat, _lbl in (('Rooms', u'Room name'),
                                                ('Levels', u'Level name')):
                                 r2 = _tool('ai_element_filter',
-                                           {'category': _cat, 'limit': 300})
+                                           {'category': _cat, 'limit': 5000})
                                 for el in r2.get('elements', []):
                                     _add(el.get('id'), el.get('name'), _lbl)
                             pi = _tool('revit_get_project_info', {})
@@ -4633,11 +5252,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception as _col_ex:
                     logger.debug("spellcheck server collect error: {}".format(_col_ex))
                     notes = None
-                if notes is None:
+                if notes is None and isinstance(res, dict) and res.get('error'):
+                    # The scan TOOL failed (e.g. document-context error) —
+                    # surface that instead of the misleading "No Text Notes
+                    # found": every model has at least view/level names, so
+                    # an empty scan almost always means the scan itself
+                    # broke, and hiding the error sent debugging the wrong
+                    # way (looked like an empty model).
+                    report = (u"Không quét được model — MCP server báo lỗi: {}"
+                              if viet else
+                              u"Could not scan the model — MCP server error: {}"
+                              ).format(res.get('error'))
+                elif notes is None:
                     # Last resort — only works when Revit tolerates an
                     # off-thread read (idle).
                     notes = SC.collect_text_notes(self.doc, view_only=view_only)
-                if not notes:
+                if report is not None:
+                    pass          # scan error already reported above
+                elif not notes:
                     if viet:
                         report = u"No Text Notes found{}.".format(
                             u" in the current view" if view_only else u" in the project")
@@ -4655,7 +5287,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                   u"Settings (⚙) and try again.").format(len(notes))
                 else:
                     uniq    = SC.dedupe_notes(notes)
-                    batches = SC.build_batches(uniq)
+                    # Cloud providers take much larger proofreading batches
+                    # than the small-local-model default (25 notes/3.5k chars)
+                    # — on a 4500-note model that default means ~150 LLM
+                    # round-trips.
+                    try:
+                        _cloud = get_active_provider_name() in (
+                            "claude", "openai")
+                    except Exception:
+                        _cloud = False
+                    if _cloud:
+                        batches = SC.build_batches(uniq, max_notes=120,
+                                                   max_chars=15000)
+                        _max_tok = 3000
+                    else:
+                        batches = SC.build_batches(uniq)
+                        _max_tok = 1400
                     if len(batches) > 1:
                         self._safe_append_bot(
                             u"Found {} text items ({} unique strings) — checking "
@@ -4673,7 +5320,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         resp = None
                         try:
                             resp = router.chat([], sys_p, SC.build_batch_query(batch),
-                                               max_tokens=1400)
+                                               max_tokens=_max_tok)
                         except Exception as ex:
                             logger.debug("spellcheck batch error: {}".format(ex))
                         if not resp or not resp.strip():
@@ -4682,13 +5329,32 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         findings.extend(SC.parse_findings(resp, batch))
                     report = SC.format_report(findings, len(notes), len(uniq),
                                               failed, viet, view_only)
+                    ui_findings, ui_total, ui_uniq, ui_failed = \
+                        findings, len(notes), len(uniq), failed
             except Exception as ex:
                 logger.debug("spellcheck error: {}".format(ex))
                 report = (u"Spell-check failed — see the console for details."
                           if viet else u"Spell-check failed — see console for details.")
             if report:
-                def _show(_r=report):
-                    self._append_bot_message(_r)
+                # Findings render as an interactive card (proposed fix +
+                # clickable element-id links that select & zoom in Revit);
+                # the plain-text report still goes to history so follow-up
+                # "fix ..." turns have the full list, and stays the visible
+                # fallback if the card fails to build.
+                def _show(_r=report, _f=ui_findings, _t=ui_total,
+                          _u=ui_uniq, _fb=ui_failed):
+                    shown = False
+                    if _f:
+                        shown = self._append_spellcheck_findings(
+                            _f, viet, _t, _u)
+                    if not shown:
+                        self._append_bot_message(_r)
+                    elif _fb:
+                        self._append_bot_message(
+                            u"⚠️ {} nhóm không kiểm tra được (AI không phản "
+                            u"hồi) — thử lại sau.".format(_fb) if viet else
+                            u"⚠️ {} batch(es) could not be checked (no AI "
+                            u"response) — try again.".format(_fb))
                     self._add_to_history("assistant", _r)
                 self.Dispatcher.Invoke(Action(_show))
             self.Dispatcher.Invoke(Action(lambda: self._set_busy(False)))
@@ -4733,6 +5399,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         only when nothing was shown to the user yet.
         """
         if provider is None or not getattr(provider, "SUPPORTS_NATIVE_TOOLS", False):
+            logger.debug("native path skipped: provider {} has no native tools"
+                         .format(getattr(provider, 'NAME', provider)))
             return False
 
         from Intelligence.agent_loop import AgentLoop, build_agent_system_prompt
@@ -4741,7 +5409,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             from core.server import get_t3labai_server
             srv = get_t3labai_server()
-        except Exception:
+        except Exception as _srv_ex:
+            logger.debug("native path skipped: MCP server unavailable ({})"
+                         .format(_srv_ex))
             return False
 
         launcher = tool_schema.make_launcher_tool(list(TOOL_LAUNCHERS.keys()))
@@ -4775,6 +5445,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tools = tool_schema.get_tools_for_provider(
                 provider.NAME, _extras, essential_only=_is_local)
         if len(tools) <= len(_extras):   # registry unavailable
+            logger.debug("native path skipped: tool registry empty for "
+                         "provider {}".format(provider.NAME))
             return False
 
         ctx = u""
@@ -5428,6 +6100,136 @@ class T3LabAssistantWindow(forms.WPFWindow):
         t = Thread(ThreadStart(_work))
         t.IsBackground = True
         t.Start()
+
+    def _append_spellcheck_findings(self, findings, viet, total, uniq):
+        """Interactive spell-check result card — one row per finding with the
+        proposed correction and clickable element-id links (select & zoom in
+        Revit, same mechanism as the tool-card id chips). UI THREAD.
+
+        Returns True when the card rendered; the caller falls back to the
+        plain-text report bubble on False so findings are never lost.
+        """
+        try:
+            from System.Windows.Controls import Border, StackPanel, TextBlock, Orientation
+            from System.Windows import Thickness, CornerRadius, TextWrapping, TextDecorations
+            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Input import Cursors
+
+            card = Border()
+            card.Background      = SolidColorBrush(Color.FromRgb(248, 250, 252))   # #F8FAFC
+            card.BorderBrush     = SolidColorBrush(Color.FromRgb(226, 232, 240))   # #E2E8F0
+            card.BorderThickness = Thickness(1)
+            card.CornerRadius    = CornerRadius(8)
+            card.Padding         = Thickness(12, 9, 12, 10)
+            card.Margin          = Thickness(34, 0, 60, 10)
+
+            panel = StackPanel()
+            _font = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+
+            hdr = TextBlock()
+            hdr.Text = (u"🔍 Kiểm tra chính tả: {} mục ({} nội dung) — {} lỗi"
+                        .format(total, uniq, len(findings)) if viet else
+                        u"🔍 Spell-check: {} items ({} unique) — {} issue(s)"
+                        .format(total, uniq, len(findings)))
+            hdr.FontSize   = 12.5
+            hdr.FontFamily = _font
+            hdr.FontWeight = System.Windows.FontWeights.SemiBold
+            hdr.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))            # #0F172A
+            hdr.TextWrapping = TextWrapping.Wrap
+            panel.Children.Add(hdr)
+
+            _MAX_ROWS = 40
+            for i, f in enumerate(findings[:_MAX_ROWS]):
+                n = f["note"]
+
+                issue = TextBlock()
+                issue.Text         = u"{}. {}".format(i + 1, f["issue"])
+                issue.FontSize     = 12
+                issue.FontFamily   = _font
+                issue.FontWeight   = System.Windows.FontWeights.SemiBold
+                issue.Foreground   = SolidColorBrush(Color.FromRgb(15, 23, 42))    # #0F172A
+                issue.TextWrapping = TextWrapping.Wrap
+                issue.Margin       = Thickness(0, 8, 0, 0)
+                panel.Children.Add(issue)
+
+                src_txt = n["text"]
+                if len(src_txt) > 110:
+                    src_txt = src_txt[:109] + u"…"
+                views = [v for v in n.get("views", []) if v]
+                src = TextBlock()
+                src.Text         = (u'"{}"'.format(src_txt)
+                                    + (u" — " + u", ".join(views[:2])
+                                       if views else u""))
+                src.FontSize     = 11
+                src.FontFamily   = _font
+                src.Foreground   = SolidColorBrush(Color.FromRgb(100, 116, 139))   # #64748B
+                src.TextWrapping = TextWrapping.Wrap
+                src.Margin       = Thickness(12, 1, 0, 0)
+                panel.Children.Add(src)
+
+                ids = [x for x in n.get("ids", []) if x]
+                if ids:
+                    links = StackPanel()
+                    links.Orientation = Orientation.Horizontal
+                    links.Margin      = Thickness(12, 2, 0, 0)
+
+                    def _mk_link(label, id_list):
+                        tb = TextBlock()
+                        tb.Text            = label
+                        tb.FontSize        = 11
+                        tb.FontFamily      = _font
+                        tb.Foreground      = SolidColorBrush(Color.FromRgb(59, 130, 246))  # #3B82F6
+                        tb.TextDecorations = TextDecorations.Underline
+                        tb.Cursor          = Cursors.Hand
+                        tb.Margin          = Thickness(0, 0, 10, 0)
+                        tb.ToolTip         = u"Select & zoom in Revit"
+
+                        def _click(s, e, _ids=list(id_list)):
+                            self._select_in_revit_async(_ids)
+
+                        tb.MouseLeftButtonUp += _click
+                        return tb
+
+                    for eid in ids[:6]:
+                        links.Children.Add(_mk_link(u"#{}".format(eid), [eid]))
+                    if len(ids) > 1:
+                        links.Children.Add(_mk_link(
+                            u"chọn cả {}".format(len(ids)) if viet
+                            else u"select all {}".format(len(ids)), ids))
+                    panel.Children.Add(links)
+
+            if len(findings) > _MAX_ROWS:
+                more = TextBlock()
+                more.Text = (u"… và {} lỗi khác — xem danh sách đầy đủ trong "
+                             u"lịch sử chat.".format(len(findings) - _MAX_ROWS)
+                             if viet else
+                             u"… and {} more — full list kept in the chat "
+                             u"history.".format(len(findings) - _MAX_ROWS))
+                more.FontSize   = 11
+                more.FontFamily = _font
+                more.Foreground = SolidColorBrush(Color.FromRgb(100, 116, 139))
+                more.Margin     = Thickness(0, 8, 0, 0)
+                panel.Children.Add(more)
+
+            hint = TextBlock()
+            hint.Text = (u'Bấm ID để chọn & zoom trong Revit. Nhắn "sửa 1,2..." '
+                         u'hoặc "sửa tất cả" để áp dụng đề xuất.' if viet else
+                         u'Click an ID to select & zoom in Revit. Reply '
+                         u'"fix 1,2..." or "fix all" to apply the suggestions.')
+            hint.FontSize     = 11
+            hint.FontFamily   = _font
+            hint.Foreground   = SolidColorBrush(Color.FromRgb(148, 163, 184))      # #94A3B8
+            hint.TextWrapping = TextWrapping.Wrap
+            hint.Margin       = Thickness(0, 10, 0, 0)
+            panel.Children.Add(hint)
+
+            card.Child = panel
+            self.chat_history_panel.Children.Add(card)
+            self._scroll_to_bottom()
+            return True
+        except Exception as ex:
+            logger.debug("_append_spellcheck_findings error: {}".format(ex))
+            return False
 
     # ─── Destructive-tool confirmation (B5) ────────────────────────────────────
 

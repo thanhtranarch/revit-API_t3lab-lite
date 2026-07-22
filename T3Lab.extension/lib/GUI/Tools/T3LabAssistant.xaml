@@ -1291,8 +1291,6 @@
                                            FontSize="20" Foreground="#27272A" FontFamily="Georgia"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
-                            <!-- Quick-start suggestion chips (filled from code-behind) -->
-                            <WrapPanel x:Name="welcome_suggestions" Margin="0,14,0,0"/>
                         </StackPanel>
                     </Grid>
 
@@ -1910,6 +1908,54 @@
                                 Click="onboarding_save_clicked"/>
                     </Grid>
                 </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             PROJECT PANEL OVERLAY (Claude-style: Instructions / Memory /
+             Context / Scheduled of the ACTIVE project). Section content
+             is built in code — see _build_project_panel in script.py.
+        ═══════════════════════════════════════════════════════════ -->
+        <Border x:Name="project_panel_overlay" Visibility="Collapsed"
+                Grid.Row="0" Grid.RowSpan="99" Grid.Column="0" Grid.ColumnSpan="99"
+                Panel.ZIndex="996" Background="#7F18181B">
+            <Border Width="432" MaxHeight="600" VerticalAlignment="Center"
+                    HorizontalAlignment="Center" Background="White"
+                    CornerRadius="16" BorderBrush="#E6E6EA" BorderThickness="1">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <!-- Header: project name + close -->
+                    <Grid Grid.Row="0" Margin="24,18,14,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock x:Name="project_panel_title" Text="Project"
+                                       FontSize="15" FontWeight="Bold"
+                                       Foreground="#0F172A"
+                                       FontFamily="Hanken Grotesk"/>
+                            <TextBlock Text="Instructions · Memory · Context · Scheduled"
+                                       FontSize="10.5" Foreground="#A1A1AA"
+                                       FontFamily="Hanken Grotesk" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        <Button x:Name="project_panel_close_btn" Grid.Column="1"
+                                Style="{StaticResource WinCtrlButton}"
+                                Width="30" Height="30" VerticalAlignment="Top"
+                                Click="project_panel_close_clicked" ToolTip="Close">
+                            <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="10"/>
+                        </Button>
+                    </Grid>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Margin="10,0,10,16">
+                        <StackPanel x:Name="project_panel_host" Margin="14,0"/>
+                    </ScrollViewer>
+                </Grid>
             </Border>
         </Border>
 </Grid>

@@ -23,14 +23,39 @@ try:
 except ImportError:
     import Queue as _queue_mod            # IronPython 2.7
 
-# Process-wide anchor for the server singleton. Stored on the `sys` module —
-# which is never re-imported — so the live server survives a pyRevit reload
-# (a reload re-imports core.server, resetting the class-level _instance to
-# None). Without this, start_server() on the fresh instance would find the
-# old port still held by the orphaned server thread and bind a SECOND port in
-# the same Revit process: one Revit, two ports, which the bridge then mistakes
-# for two Revit windows. One Revit process must expose exactly one port.
+# Process-wide anchor for the server singleton. Stored on
+# AppDomain.CurrentDomain — the ONLY store that is truly per-Revit-process.
+# The previous anchor was an attribute on `sys`, but each IronPython engine
+# has its OWN `sys` module: a pyRevit reload (or any command running in a
+# fresh engine) got a blank `sys`, missed the anchor, built a second server
+# and bound the next port while the orphaned old server thread kept its port
+# LISTENING. Six reloads in a day = six live servers = the whole 48884-48894
+# range exhausted ("No usable port"). AppDomain data is shared by every
+# engine in the process, so the live server (port, HTTP thread,
+# ExternalEvent) is found and reused across reloads. `sys` is kept only as a
+# fallback for non-.NET runs (dev tooling under CPython).
+# One Revit process must expose exactly one port.
 _PROCESS_SINGLETON_KEY = '_t3lab_mcp_server_singleton'
+
+
+def _get_process_anchor():
+    try:
+        from System import AppDomain
+        existing = AppDomain.CurrentDomain.GetData(_PROCESS_SINGLETON_KEY)
+        if existing is not None:
+            return existing
+    except Exception:
+        pass
+    return getattr(sys, _PROCESS_SINGLETON_KEY, None)
+
+
+def _set_process_anchor(inst):
+    try:
+        from System import AppDomain
+        AppDomain.CurrentDomain.SetData(_PROCESS_SINGLETON_KEY, inst)
+    except Exception:
+        pass
+    setattr(sys, _PROCESS_SINGLETON_KEY, inst)
 
 from Snippets._compat import eid_value, make_eid
 try:
@@ -85,6 +110,18 @@ try:
             self.tasks = _queue_mod.Queue()
 
         def Execute(self, app):
+            # `app` is the live UIApplication Revit hands to every external
+            # event — the ONLY document source that works regardless of
+            # which IronPython engine created this server. The engine-bound
+            # pyrevit.HOST_APP.uiapp is None when the AppDomain-anchored
+            # singleton was built in a startup/hook engine, which made every
+            # tool fail with "No active document" while a model was open.
+            # Cache it so fallback reads (executed off this event) can use
+            # it too.
+            try:
+                self.server._cached_uiapp = app
+            except Exception:
+                pass
             # Drain everything queued: ExternalEvent coalesces multiple
             # Raise() calls into one Execute, and several callers (HTTP
             # worker + assistant thread) may be waiting at once.
@@ -100,7 +137,7 @@ try:
                     self.server._write_in_progress = True
                 try:
                     task.result = self.server._execute_tool_in_context(
-                        task.tool_name, task.arguments)
+                        task.tool_name, task.arguments, uiapp=app)
                     task.exception = None
                 except Exception as e:
                     task.exception = e
@@ -145,7 +182,8 @@ class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 
 # Module-level (not instance state): survives pyRevit reloads, where the
-# pre-reload server singleton stashed on `sys` skips __init__ entirely.
+# pre-reload server singleton found via the AppDomain anchor skips __init__
+# entirely.
 _MCP_REQUEST_LOCK = threading.Lock()
 
 
@@ -209,8 +247,12 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
             self._handle_sse()
 
         elif path == '/health':
-            # Health check
-            self._send_json({'status': 'ok'})
+            # Health check. pid + port let external diagnostics attribute a
+            # listener to its Revit process — the same pid answering on
+            # SEVERAL ports in the range means orphaned duplicate servers
+            # (broken singleton anchor), not several Revit windows.
+            self._send_json({'status': 'ok', 'pid': os.getpid(),
+                             'port': self.server.server_port})
 
         elif path in ('/v1/models', '/models'):
             # Tolerate OpenAI-compatible clients that probe for a model list,
@@ -349,19 +391,20 @@ class T3LabAIServer(object):
     _lock = threading.Lock()
 
     def __new__(cls):
-        # A prior instance stashed on `sys` (from before a pyRevit reload)
-        # wins over a fresh class-level _instance. Returning an instance of a
-        # DIFFERENT (old) class means Python skips __init__, so the already-
-        # running server — its port, HTTP thread and ExternalEvent — is reused
-        # untouched instead of a second one being spun up. A full Revit restart
-        # (required to load edited server code anyway) starts clean.
-        existing = getattr(sys, _PROCESS_SINGLETON_KEY, None)
+        # A prior instance anchored on the AppDomain (from before a pyRevit
+        # reload, or from another engine) wins over a fresh class-level
+        # _instance. Returning an instance of a DIFFERENT (old) class means
+        # Python skips __init__, so the already-running server — its port,
+        # HTTP thread and ExternalEvent — is reused untouched instead of a
+        # second one being spun up. A full Revit restart (required to load
+        # edited server code anyway) starts clean.
+        existing = _get_process_anchor()
         if existing is not None:
             cls._instance = existing
             return existing
         if cls._instance is None:
             with cls._lock:
-                existing = getattr(sys, _PROCESS_SINGLETON_KEY, None)
+                existing = _get_process_anchor()
                 if existing is not None:
                     cls._instance = existing
                     return existing
@@ -369,7 +412,7 @@ class T3LabAIServer(object):
                     inst = super(T3LabAIServer, cls).__new__(cls)
                     inst._initialized = False
                     cls._instance = inst
-                    setattr(sys, _PROCESS_SINGLETON_KEY, inst)
+                    _set_process_anchor(inst)
         return cls._instance
 
     def __init__(self):
@@ -387,6 +430,10 @@ class T3LabAIServer(object):
         self._tools = {}
         self._external_event = None
         self._event_handler = None
+        # UIApplication captured from ExternalEvent.Execute — the engine-
+        # independent document source (read via getattr: an anchored
+        # pre-update instance may predate this attribute).
+        self._cached_uiapp = None
         self._write_in_progress = False
         self._start_error = None
         self._token = self._get_or_create_token()
@@ -505,7 +552,7 @@ class T3LabAIServer(object):
             },
             'revit_override_color': {
                 'name': 'revit_override_color',
-                'description': 'Override elements color in the active view',
+                'description': 'Apply ONE specific color override to elements in the active view — the right tool for "color/tô walls red", "highlight X in green". For coloring BY a parameter\'s values use color_elements instead.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -693,6 +740,10 @@ class T3LabAIServer(object):
                         'limit': {
                             'type': 'integer',
                             'description': 'Max results to return (default 50)'
+                        },
+                        'offset': {
+                            'type': 'integer',
+                            'description': 'Skip the first N matches (paging). When the result says truncated=true, call again with offset=offset+count until offset+count reaches total_count — never conclude from a truncated list.'
                         }
                     },
                     'required': ['category']
@@ -879,7 +930,7 @@ class T3LabAIServer(object):
             },
             'color_elements': {
                 'name': 'color_elements',
-                'description': 'Color elements in the active view based on a parameter value — each unique value gets a distinct color',
+                'description': 'Color-CODE elements in the active view BY a parameter\'s values — each unique value gets a distinct auto-assigned color (legend style). NOT for applying one specific color: for "color/tô walls red" use revit_override_color instead.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -889,7 +940,7 @@ class T3LabAIServer(object):
                         },
                         'parameter_name': {
                             'type': 'string',
-                            'description': 'Parameter name to group colors by (e.g. "Type Name", "Level")'
+                            'description': 'Parameter name to group colors by (e.g. "Type Name", "Level"). Must be a real existing parameter — never an empty string, never a color name.'
                         }
                     },
                     'required': ['category', 'parameter_name']
@@ -1699,12 +1750,27 @@ class T3LabAIServer(object):
         """
         try:
             from pyrevit import HOST_APP, revit
-            uiapp = HOST_APP.uiapp
+            uiapp = None
+            try:
+                uiapp = HOST_APP.uiapp
+            except Exception:
+                pass
+            if uiapp is None:
+                # Startup/hook-engine singleton: HOST_APP has no uiapp —
+                # use the one cached from ExternalEvent.Execute.
+                uiapp = getattr(self, '_cached_uiapp', None)
+            if uiapp is None:
+                return []
             active_title = None
             try:
                 active_title = revit.doc.Title
             except Exception:
                 pass
+            if active_title is None:
+                try:
+                    active_title = uiapp.ActiveUIDocument.Document.Title
+                except Exception:
+                    pass
 
             docs = []
             for d in uiapp.Application.Documents:
@@ -1719,7 +1785,22 @@ class T3LabAIServer(object):
         except Exception:
             return []
 
-    def _recover_active_document(self, uidoc):
+    def _get_uiapp(self, preferred=None):
+        """UIApplication with engine fallback: prefer the one Revit passed
+        into ExternalEvent.Execute (engine-independent), then the per-engine
+        pyrevit HOST_APP, then the copy cached from a previous Execute.
+        Returns None only when no tool has ever run through the event."""
+        if preferred is not None:
+            return preferred
+        try:
+            from pyrevit import HOST_APP
+            if HOST_APP.uiapp is not None:
+                return HOST_APP.uiapp
+        except Exception:
+            pass
+        return getattr(self, '_cached_uiapp', None)
+
+    def _recover_active_document(self, uidoc, uiapp=None):
         """Best-effort (doc, uidoc, error) when no active document resolved.
 
         pyrevit.revit.doc is None when Revit sits on the start page, when no
@@ -1729,10 +1810,29 @@ class T3LabAIServer(object):
         document when the choice is unambiguous; otherwise return an
         actionable error dict instead of letting every tool crash with
         "'NoneType' object has no attribute 'Title'".
+
+        uiapp: the UIApplication Revit passed into ExternalEvent.Execute.
+        The per-engine pyrevit.HOST_APP.uiapp is None when this server
+        singleton was created in a startup/hook engine (AppDomain anchor),
+        so the event-supplied/cached uiapp is the reliable source there.
         """
         try:
-            from pyrevit import HOST_APP
-            uiapp = HOST_APP.uiapp
+            if uiapp is None:
+                try:
+                    from pyrevit import HOST_APP
+                    uiapp = HOST_APP.uiapp
+                except Exception:
+                    uiapp = None
+            if uiapp is None:
+                uiapp = getattr(self, '_cached_uiapp', None)
+            if uiapp is None:
+                return None, None, {
+                    'error': ('Cannot reach the Revit UIApplication from '
+                              'this engine yet (no tool has run through the '
+                              'Revit ExternalEvent in this session). Retry '
+                              'the call once — the first ExternalEvent '
+                              'execution registers the Revit context.'),
+                }
 
             active = None
             try:
@@ -2028,13 +2128,16 @@ class T3LabAIServer(object):
         except Exception as e:
             return False, str(e)
 
-    def _execute_tool_in_context(self, tool_name, arguments):
+    def _execute_tool_in_context(self, tool_name, arguments, uiapp=None):
         """Execute a Revit tool directly (must be inside Revit context thread).
 
         Target document resolution: 1) the active view's document
-        (pyrevit.revit.doc — what the user sees on screen), 2) the single
-        open document when unambiguous (_recover_active_document), 3) an
-        actionable error listing open documents — never a guess. Use
+        (pyrevit.revit.doc — what the user sees on screen), 2) the uiapp
+        Revit passed into ExternalEvent.Execute (engine-independent — the
+        per-engine pyrevit.HOST_APP has no UIApplication when the AppDomain-
+        anchored singleton was created in a startup/hook engine), 3) the
+        single open document when unambiguous (_recover_active_document),
+        4) an actionable error listing open documents — never a guess. Use
         switch_active_document / open_document to change the target.
         """
         try:
@@ -2045,7 +2148,17 @@ class T3LabAIServer(object):
             doc = revit.doc
             uidoc = revit.uidoc
             if doc is None and tool_name not in self._DOCLESS_TOOLS:
-                doc, uidoc, no_doc_err = self._recover_active_document(uidoc)
+                _ui = uiapp or getattr(self, '_cached_uiapp', None)
+                if _ui is not None:
+                    try:
+                        _ud = _ui.ActiveUIDocument
+                        if _ud is not None and _ud.Document is not None:
+                            doc, uidoc = _ud.Document, _ud
+                    except Exception:
+                        pass
+            if doc is None and tool_name not in self._DOCLESS_TOOLS:
+                doc, uidoc, no_doc_err = self._recover_active_document(
+                    uidoc, uiapp)
                 if no_doc_err is not None:
                     no_doc_err['tool'] = tool_name
                     return no_doc_err
@@ -2679,6 +2792,10 @@ class T3LabAIServer(object):
             param_arg = arguments.get('parameter_name')
             val_arg   = (arguments.get('parameter_value') or '').lower()
             limit_arg = int(arguments.get('limit', 50))
+            try:
+                offset_arg = max(0, int(arguments.get('offset', 0)))
+            except Exception:
+                offset_arg = 0
             # Shared category vocabulary (_bic_map) instead of a private
             # 10-entry subset — TextNotes/Dimensions/Levels/Sheets etc. were
             # unreachable here, which made e.g. spell-check scans return
@@ -2711,6 +2828,7 @@ class T3LabAIServer(object):
                     total_matches = 0
             scanned = 0
             param_missing = 0
+            matched_seen = 0
             for elem in collector:
                 if not param_arg and len(results) >= limit_arg:
                     break
@@ -2730,7 +2848,11 @@ class T3LabAIServer(object):
                     if match:
                         if param_arg:
                             total_matches += 1
-                        if len(results) < limit_arg:
+                        matched_seen += 1
+                        # offset = paging support: skip the first N matches so
+                        # callers can walk a large model page by page instead
+                        # of only ever seeing the first `limit` elements.
+                        if matched_seen > offset_arg and len(results) < limit_arg:
                             entry = {
                                 'id': eid_value(elem.Id),
                                 'name': elem.Name if hasattr(elem, 'Name') else '',
@@ -2756,8 +2878,21 @@ class T3LabAIServer(object):
                     pass
             out = {'category': cat_arg, 'filter_param': param_arg,
                    'count': len(results), 'total_count': total_matches,
-                   'truncated': total_matches > len(results),
+                   'offset': offset_arg,
+                   'truncated': total_matches > offset_arg + len(results),
                    'elements': results}
+            # A truncated list silently read as "the whole model" is how the
+            # assistant ends up reporting "scanned 4495 notes, 0 errors" after
+            # seeing 50 of them — spell out the incomplete coverage and how to
+            # page for the rest.
+            if out['truncated']:
+                out['warning'] = (
+                    'INCOMPLETE LIST: elements {}-{} of {} matches. Call again '
+                    'with offset={} (same limit) to continue paging. Do NOT '
+                    'claim full coverage or report totals as "scanned" until '
+                    'offset+count reaches total_count.'
+                ).format(offset_arg + 1, offset_arg + len(results),
+                         total_matches, offset_arg + len(results))
             # "0 results" caused by a parameter that simply doesn't exist on
             # this category reads like "no elements" to the model — tell it
             # what actually happened so it can rephrase the query.
@@ -3426,7 +3561,16 @@ class T3LabAIServer(object):
             from Autodesk.Revit.DB import (Color, OverrideGraphicSettings, Transaction,
                                            FillPatternElement, ElementId)
             cat_arg   = arguments.get('category', 'Rooms')
-            param_arg = arguments.get('parameter_name', 'Name')
+            param_arg = (arguments.get('parameter_name') or '').strip()
+            # Empty parameter_name would dump every element into one 'Unknown'
+            # group and paint them all the first palette color (blue) — the
+            # classic misfire when the model wanted ONE specific color.
+            if not param_arg:
+                return {'error': "parameter_name is required — color_elements "
+                                 "color-codes elements BY a parameter's values "
+                                 "(one distinct color per value, e.g. 'Type Name', "
+                                 "'Level'). To apply ONE specific color (e.g. red) "
+                                 "use revit_override_color instead."}
             view      = doc.ActiveView
 
             CATEGORY_MAP = {
@@ -3457,6 +3601,16 @@ class T3LabAIServer(object):
                     groups.setdefault(val, []).append(elem.Id)
                 except Exception:
                     pass
+
+            # Parameter found on NO element → coloring would be one arbitrary
+            # 'Unknown'-group color, which reads as a bug. Refuse instead.
+            if groups and set(groups.keys()) == set(['Unknown']):
+                return {'error': "Parameter '{}' was not found on any {} "
+                                 "element — nothing was colored. Color-coding "
+                                 "needs a real parameter (e.g. 'Type Name', "
+                                 "'Level'). To apply ONE specific color to all "
+                                 "of them, call revit_override_color "
+                                 "instead.".format(param_arg, cat_arg)}
 
             # Assign distinct colors
             COLORS = [
@@ -4412,12 +4566,11 @@ class T3LabAIServer(object):
         # ── switch_active_document ───────────────────────────────────────────
         elif tool_name == 'switch_active_document':
             try:
-                from pyrevit import HOST_APP
                 query = (arguments.get('path_or_title') or '').strip()
                 if not query:
                     return {'error': 'path_or_title is required.'}
 
-                uiapp = HOST_APP.uiapp
+                uiapp = self._get_uiapp(uiapp)
                 open_docs = [d for d in uiapp.Application.Documents if not d.IsLinked]
 
                 def _norm(p):
@@ -4516,7 +4669,6 @@ class T3LabAIServer(object):
         # ── open_document ────────────────────────────────────────────────────
         elif tool_name == 'open_document':
             try:
-                from pyrevit import HOST_APP
                 path = (arguments.get('path') or '').strip()
                 if not path:
                     return {'error': 'path is required.'}
@@ -4525,7 +4677,7 @@ class T3LabAIServer(object):
                                       '.rvt / .rfa file — list_recent_documents shows recent '
                                       'project paths.').format(path)}
 
-                uiapp = HOST_APP.uiapp
+                uiapp = self._get_uiapp(uiapp)
 
                 def _norm(p):
                     return os.path.normcase(os.path.normpath(p)) if p else ''
@@ -4553,13 +4705,12 @@ class T3LabAIServer(object):
         # ── close_document ───────────────────────────────────────────────────
         elif tool_name == 'close_document':
             try:
-                from pyrevit import HOST_APP
                 query = (arguments.get('path_or_title') or '').strip()
                 save = bool(arguments.get('save', False))
                 if not query:
                     return {'error': 'path_or_title is required.'}
 
-                uiapp = HOST_APP.uiapp
+                uiapp = self._get_uiapp(uiapp)
                 open_docs = [d for d in uiapp.Application.Documents if not d.IsLinked]
 
                 def _norm(p):
@@ -4682,12 +4833,11 @@ class T3LabAIServer(object):
             try:
                 from System import Guid as SysGuid
                 from Autodesk.Revit.UI import DockablePaneId
-                from pyrevit import HOST_APP
                 action  = arguments.get('action', 'show').lower()
                 message = arguments.get('message', '')
                 pane_guid = SysGuid('7F3A9B2E-C4D1-4E8F-A6B5-1234567890AB')
                 pane_id   = DockablePaneId(pane_guid)
-                uiapp     = HOST_APP.uiapp
+                uiapp     = self._get_uiapp(uiapp)
                 pane      = uiapp.GetDockablePane(pane_id)
                 if pane is None:
                     return {'error': 'DockablePane not registered. Restart Revit after installing T3Lab.'}

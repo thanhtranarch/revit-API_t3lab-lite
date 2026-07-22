@@ -1394,6 +1394,81 @@
                                      BorderThickness="1" Background="White"
                                      TextWrapping="Wrap" AcceptsReturn="True"
                                      VerticalScrollBarVisibility="Auto"/>
+
+                            <!-- Default AI provider/model applied on activation -->
+                            <TextBlock Text="DEFAULT AI (OPTIONAL)" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Text="Applied automatically whenever this project is activated. Model id is optional (blank = provider default)."
+                                       FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
+                                       Margin="1,0,0,6"/>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="project_provider_combo" Grid.Column="0"
+                                          Style="{StaticResource T3ComboBox}">
+                                    <ComboBoxItem Content="Follow global setting" Tag=""
+                                                  IsSelected="True"/>
+                                    <ComboBoxItem Content="Claude — Anthropic" Tag="claude"/>
+                                    <ComboBoxItem Content="GPT — OpenAI" Tag="openai"/>
+                                    <ComboBoxItem Content="DeepSeek" Tag="deepseek"/>
+                                    <ComboBoxItem Content="Ollama — Local" Tag="ollama"/>
+                                    <ComboBoxItem Content="LM Studio — Local" Tag="lmstudio"/>
+                                </ComboBox>
+                                <TextBox x:Name="project_model_box" Grid.Column="2"
+                                         Style="{StaticResource T3InputField}"
+                                         ToolTip="Optional model id, e.g. claude-sonnet-5"/>
+                            </Grid>
+
+                            <!-- Context (knowledge files of this project) -->
+                            <TextBlock Text="CONTEXT (KNOWLEDGE FILES)" Style="{StaticResource FieldLabel}"/>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="project_files_status" Grid.Column="0"
+                                           Text="0 files" FontSize="12" Foreground="#71717A"
+                                           VerticalAlignment="Center"/>
+                                <Button x:Name="project_add_files_btn" Grid.Column="2"
+                                        Style="{StaticResource SecondaryButton}" Height="30"
+                                        Content="Add files…" Click="project_add_files_clicked"
+                                        ToolTip="Copy PDF/DOCX/TXT/MD into this project's knowledge folder"/>
+                                <Button x:Name="project_open_folder_btn" Grid.Column="4"
+                                        Style="{StaticResource SecondaryButton}" Height="30"
+                                        Content="Open folder" Click="project_open_folder_clicked"
+                                        ToolTip="Open the project's knowledge folder in Explorer"/>
+                            </Grid>
+
+                            <!-- Scheduled daily prompts -->
+                            <TextBlock Text="SCHEDULED (DAILY PROMPTS)" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Text="Run automatically at the set time while the assistant window is open."
+                                       FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
+                                       Margin="1,0,0,6"/>
+                            <StackPanel x:Name="project_sched_panel" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="64"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="project_sched_prompt_box" Grid.Column="0"
+                                         Style="{StaticResource T3InputField}"
+                                         ToolTip="Prompt to run, e.g. 'get model warnings'"/>
+                                <TextBox x:Name="project_sched_time_box" Grid.Column="2"
+                                         Style="{StaticResource T3InputField}" Text="09:00"
+                                         ToolTip="Daily time (HH:MM)"/>
+                                <Button x:Name="project_sched_add_btn" Grid.Column="4"
+                                        Style="{StaticResource SecondaryButton}" Height="30"
+                                        Content="Add" Click="project_sched_add_clicked"/>
+                            </Grid>
+
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>

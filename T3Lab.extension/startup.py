@@ -135,6 +135,12 @@ except Exception:
 # %APPDATA%/T3LabAI/mcp_paths.json to opt out. (Read via load_settings, not
 # get_setting — get_setting treats a stored false as "absent" and would
 # overwrite it with the default.)
+#
+# Port lifecycle after startup is owned by the extension hooks: closing the
+# LAST document releases the port immediately (hooks/doc-closed.py), and
+# opening/creating a document brings the server back (hooks/doc-opened.py,
+# hooks/doc-created.py) — so an idle Revit at the start page never squats a
+# port in the shared 48884-48894 range.
 try:
     from Services.mcp_service import MCPService
     MCPService.deploy_bridge()

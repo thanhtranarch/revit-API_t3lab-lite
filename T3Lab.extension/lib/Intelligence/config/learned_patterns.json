@@ -1,11 +1,11 @@
 {
   "patterns": {
     "english spellcheck": {
-      "params": {}, 
-      "last_message": "Scanning model Text Notes for English spelling errors...", 
       "last_raw": "/english-spellcheck", 
-      "hits": 1, 
-      "intent": "check_spelling"
+      "params": {}, 
+      "intent": "check_spelling", 
+      "last_message": "Scanning model Text Notes for English spelling errors...", 
+      "hits": 4
     }
   }
 }

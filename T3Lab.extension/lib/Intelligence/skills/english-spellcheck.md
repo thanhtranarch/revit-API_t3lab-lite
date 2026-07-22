@@ -19,7 +19,7 @@ Quét đủ các nguồn sau (batch các call read trong một lượt khi có t
 5. **Tên level / grid**: `ai_element_filter` với `category="Levels"` rồi `category="Grids"`.
 6. **Thông tin dự án**: `revit_get_project_info` (project name, client, address, status).
 - User đang chọn sẵn phần tử ("đoạn text này"): dùng `revit_get_selected_elements` và CHỈ kiểm tra phần được chọn.
-- `total_count` > `count` nghĩa là danh sách bị cắt — tăng `limit` để quét đủ, hoặc báo rõ "đã kiểm tra X/Y".
+- `total_count` > `count` (hoặc `truncated: true`) nghĩa là danh sách bị cắt — gọi lại `ai_element_filter` với `offset` = số mục đã đọc (cùng `limit`) cho tới khi `offset + count` = `total_count`. Chưa đọc đủ thì **TUYỆT ĐỐI KHÔNG** được kết luận "đã quét X mục, 0 lỗi" — chỉ được báo "mới kiểm tra X/Y mục".
 
 ## Cách kiểm tra
 - Tự soát chính tả + ngữ pháp tiếng Anh trên từng chuỗi; chỉ báo lỗi THẬT (sai chính tả, sai từ, lặp từ), không sửa văn phong.

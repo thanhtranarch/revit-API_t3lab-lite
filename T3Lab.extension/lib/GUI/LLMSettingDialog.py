@@ -775,6 +775,21 @@ class LLMSettingWindow(forms.WPFWindow):
                 self.project_edit_panel.Visibility = Visibility.Visible
                 self.project_name_box.Text = meta.get('name', u'')
                 self.project_instructions_box.Text = meta.get('instructions', u'')
+                # Default AI override (applied on activation)
+                try:
+                    want = meta.get('provider') or ''
+                    combo = self.project_provider_combo
+                    idx = 0
+                    for i in range(combo.Items.Count):
+                        if str(combo.Items[i].Tag or '') == want:
+                            idx = i
+                            break
+                    combo.SelectedIndex = idx
+                    self.project_model_box.Text = meta.get('model') or u''
+                except Exception:
+                    pass
+                self._update_project_files_status(pid)
+                self._render_project_sched(pid)
             else:
                 self.project_edit_panel.Visibility = Visibility.Collapsed
         except Exception as ex:
@@ -803,10 +818,20 @@ class LLMSettingWindow(forms.WPFWindow):
             pid = self._selected_project_id()
             if not pid:
                 return
+            prov = None
+            try:
+                item = self.project_provider_combo.SelectedItem
+                if item is not None and item.Tag:
+                    prov = str(item.Tag)
+            except Exception:
+                prov = None
+            model = (self.project_model_box.Text or u'').strip() or None
             from config.project_store import ProjectStore
             ProjectStore().update_project(pid, {
                 'name': self.project_name_box.Text.strip() or u"Project",
                 'instructions': self.project_instructions_box.Text.strip(),
+                'provider': prov,
+                'model': model,
             })
             self._load_projects_tab(select_pid=pid)
             self._flash_hint(self.project_saved_hint)
@@ -832,6 +857,177 @@ class LLMSettingWindow(forms.WPFWindow):
             self._load_projects_tab()
         except Exception as ex:
             logger.debug("project_delete_clicked error: {}".format(ex))
+
+    # ── Projects: context files ──────────────────────────────────────────────
+
+    def _project_files_dir(self, pid):
+        """projects/<pid>/files — created on demand."""
+        from config.project_store import ProjectStore
+        d = os.path.join(ProjectStore().project_dir(pid), 'files')
+        if not os.path.isdir(d):
+            try:
+                os.makedirs(d)
+            except Exception:
+                pass
+        return d
+
+    def _update_project_files_status(self, pid):
+        try:
+            n = 0
+            for _r, _s, _fs in os.walk(self._project_files_dir(pid)):
+                n += len(_fs)
+                if n > 99:
+                    break
+            self.project_files_status.Text = u"{} file{} in the knowledge folder".format(
+                u"99+" if n > 99 else n, u"" if n == 1 else u"s")
+        except Exception as ex:
+            logger.debug("_update_project_files_status error: {}".format(ex))
+
+    def project_add_files_clicked(self, sender, e):
+        """Copy picked documents into the project's knowledge folder."""
+        try:
+            pid = self._selected_project_id()
+            if not pid:
+                return
+            clr.AddReference('System.Windows.Forms')
+            from System.Windows.Forms import OpenFileDialog, DialogResult
+            dlg = OpenFileDialog()
+            dlg.Multiselect = True
+            dlg.Title = "Add documents to this project"
+            dlg.Filter = ("Documents|*.pdf;*.docx;*.txt;*.md;*.csv;*.xlsx|"
+                          "All files|*.*")
+            if dlg.ShowDialog() != DialogResult.OK:
+                return
+            import shutil
+            dst = self._project_files_dir(pid)
+            for f in dlg.FileNames:
+                try:
+                    shutil.copy2(f, os.path.join(dst, os.path.basename(f)))
+                except Exception:
+                    pass
+            self._update_project_files_status(pid)
+            # Editing the ACTIVE project → refresh its RAG index now;
+            # other projects get indexed on activation.
+            try:
+                from config.project_store import ProjectStore
+                if ProjectStore().get_active_project_id() == pid:
+                    self._kick_knowledge_scan()
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug("project_add_files_clicked error: {}".format(ex))
+
+    def project_open_folder_clicked(self, sender, e):
+        try:
+            pid = self._selected_project_id()
+            if not pid:
+                return
+            import System.Diagnostics
+            System.Diagnostics.Process.Start(self._project_files_dir(pid))
+        except Exception as ex:
+            logger.debug("project_open_folder_clicked error: {}".format(ex))
+
+    # ── Projects: scheduled daily prompts ────────────────────────────────────
+
+    def _render_project_sched(self, pid):
+        """Rebuild the scheduled-prompt rows for the selected project."""
+        try:
+            from config.project_store import ProjectStore
+            from System.Windows.Controls import (Grid, ColumnDefinition,
+                                                 TextBlock)
+            from System.Windows import Thickness, GridLength, TextWrapping
+            from System.Windows.Input import Cursors
+
+            panel = self.project_sched_panel
+            panel.Children.Clear()
+            items = (ProjectStore().get_project(pid) or {}) \
+                .get('scheduled') or []
+            if not items:
+                t = TextBlock()
+                t.Text = u"No scheduled prompts yet."
+                t.FontSize = 11
+                t.Foreground = _MUTED
+                t.Margin = Thickness(1, 0, 0, 4)
+                panel.Children.Add(t)
+                return
+            for it in items:
+                g = Grid()
+                g.Margin = Thickness(1, 2, 0, 2)
+                g.ColumnDefinitions.Add(ColumnDefinition())
+                c1 = ColumnDefinition()
+                c1.Width = GridLength.Auto
+                g.ColumnDefinitions.Add(c1)
+                _pv = u" ".join((it.get('prompt') or u'').split())
+                if len(_pv) > 60:
+                    _pv = _pv[:59] + u"…"
+                lbl = TextBlock()
+                lbl.Text = u"{} — {}".format(it.get('time') or u'?', _pv)
+                lbl.FontSize = 12
+                lbl.Foreground = _brush(82, 82, 91)
+                lbl.TextWrapping = TextWrapping.Wrap
+                g.Children.Add(lbl)
+
+                x = TextBlock()
+                x.Text = u""
+                x.FontFamily = System.Windows.Media.FontFamily(
+                    "Segoe MDL2 Assets")
+                x.FontSize = 10
+                x.Foreground = _MUTED
+                x.Cursor = Cursors.Hand
+                x.Margin = Thickness(10, 2, 2, 0)
+                x.ToolTip = u"Remove"
+
+                def _rm(s, ev, _tid=it.get('id'), _pid=pid):
+                    try:
+                        from config.project_store import ProjectStore as _PS
+                        _items = [t2 for t2 in
+                                  ((_PS().get_project(_pid) or {})
+                                   .get('scheduled') or [])
+                                  if t2.get('id') != _tid]
+                        _PS().update_project(_pid, {'scheduled': _items})
+                    except Exception:
+                        pass
+                    self._render_project_sched(_pid)
+
+                x.MouseLeftButtonUp += _rm
+                Grid.SetColumn(x, 1)
+                g.Children.Add(x)
+                panel.Children.Add(g)
+        except Exception as ex:
+            logger.debug("_render_project_sched error: {}".format(ex))
+
+    def project_sched_add_clicked(self, sender, e):
+        """Validate + append one scheduled daily prompt."""
+        try:
+            pid = self._selected_project_id()
+            if not pid:
+                return
+            import re as _re
+            import time as _time
+            prompt = (self.project_sched_prompt_box.Text or u'').strip()
+            m = _re.match(r'^(\d{1,2}):(\d{2})$',
+                          (self.project_sched_time_box.Text or u'').strip())
+            if not prompt or not m or int(m.group(1)) > 23 \
+                    or int(m.group(2)) > 59:
+                (self.project_sched_time_box if prompt
+                 else self.project_sched_prompt_box).BorderBrush = _RED
+                return
+            self.project_sched_prompt_box.BorderBrush = _brush(203, 213, 225)
+            self.project_sched_time_box.BorderBrush = _brush(203, 213, 225)
+            from config.project_store import ProjectStore
+            items = list((ProjectStore().get_project(pid) or {})
+                         .get('scheduled') or [])
+            items.append({
+                'id': u's_{}'.format(int(_time.time() * 1000)),
+                'prompt': prompt,
+                'time': u"{:02d}:{}".format(int(m.group(1)), m.group(2)),
+                'enabled': True,
+                'last_run': u''})
+            ProjectStore().update_project(pid, {'scheduled': items})
+            self.project_sched_prompt_box.Text = u''
+            self._render_project_sched(pid)
+        except Exception as ex:
+            logger.debug("project_sched_add_clicked error: {}".format(ex))
 
     # ─── TAB: Knowledge ─────────────────────────────────────────────────────
 

@@ -42,11 +42,23 @@ _KNOWLEDGE_WORDS = ('tcvn', 'qcvn', 'spec', 'specification', 'standard',
                     'catalogue', 'catalog')
 
 _ACTION_PHRASES = ('doi ten', 'di chuyen', 'to mau', 'danh tag', 'gan tag',
-                   'dat ten', 'chinh sua', 'cap nhat', 'thay doi')
+                   'dat ten', 'chinh sua', 'cap nhat', 'thay doi',
+                   'danh dau')
 _ACTION_WORDS = ('sua', 'xoa', 'tao', 'dat', 'gan', 'doi', 'them',
                  'rename', 'delete', 'create', 'move', 'set', 'change',
                  'update', 'modify', 'draw', 'place', 'tag', 'color',
-                 'export', 'xuat', 'duplicate', 'copy', 'hide', 'isolate')
+                 'export', 'xuat', 'duplicate', 'copy', 'hide', 'isolate',
+                 'highlight')
+
+# Color commands usually name the color directly ("tô đỏ tường", "bôi xanh
+# các cột") instead of saying "tô màu". The verbs are only unambiguous WITH
+# their diacritics — "tô đỏ" folds to "to do", which would false-match
+# English ("what to do...") — so these phrases are matched as substrings of
+# the RAW lowercase text, before folding. Diacritic-less input ("to do
+# tuong") stays ambiguous on purpose and falls through to the LLM stage.
+_ACTION_COLOR_RAW = ('tô đỏ', 'tô xanh', 'tô vàng', 'tô cam', 'tô tím',
+                     'tô hồng', 'tô đen', 'tô trắng', 'tô xám', 'tô nâu',
+                     'bôi đỏ', 'bôi xanh', 'bôi vàng', 'bôi màu', 'bôi đen')
 
 _DATA_PHRASES = ('bao nhieu', 'liet ke', 'danh sach', 'thong ke', 'canh bao',
                  'how many', 'kiem tra model', 'tinh trang model', 'thong tin')
@@ -119,9 +131,10 @@ class AgentDispatcher(object):
         for mask in _NOUN_MASK_PHRASES:
             folded_masked = folded_masked.replace(mask, ' ')
         tokens = set(folded_masked.split())
+        raw_lower = re.sub(r'\s+', ' ', (text or '').lower()).strip()
 
         decision = self._keyword_stage(folded, folded_masked, tokens,
-                                       attached_pdf_annotated)
+                                       raw_lower, attached_pdf_annotated)
         if decision is not None:
             skill = self._match_skill(text, skills_engine)
             decision['skill'] = skill
@@ -138,7 +151,7 @@ class AgentDispatcher(object):
 
     # ── stage 1: keywords ─────────────────────────────────────────────────
 
-    def _keyword_stage(self, folded, folded_masked, tokens,
+    def _keyword_stage(self, folded, folded_masked, tokens, raw_lower,
                        attached_pdf_annotated):
         # 1. PDF markup workflow — most specific
         if attached_pdf_annotated or _has_phrase(folded, _COMMENT_PHRASES) \
@@ -167,7 +180,8 @@ class AgentDispatcher(object):
         # 6. Model modification — a write verb wins even when doc/count
         #    words are present ("đổi chiều cao theo tiêu chuẩn" → action)
         if _has_phrase(folded_masked, _ACTION_PHRASES) \
-                or (tokens & set(_ACTION_WORDS)):
+                or (tokens & set(_ACTION_WORDS)) \
+                or any(p in raw_lower for p in _ACTION_COLOR_RAW):
             return {'specialist': 'revit_action', 'source': 'keyword',
                     'confidence': 0.8}
         # 7. Document questions

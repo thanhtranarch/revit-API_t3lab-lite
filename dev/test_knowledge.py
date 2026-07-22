@@ -313,14 +313,19 @@ def test_dispatcher():
           label('đổi tên sheet A-101 thành A-102') == 'revit_action')
     check('delete → revit_action',
           label('xóa các text note trong view này') == 'revit_action')
-    check('export → revit_action',
-          label('xuất pdf toàn bộ sheet') == 'revit_action')
+    check('export → export',
+          label('xuất pdf toàn bộ sheet') == 'export')
     check('standard question → knowledge',
           label('tiêu chuẩn chiều cao lan can là bao nhiêu?') == 'knowledge')
     check('doc question → knowledge',
           label('trong tài liệu có nói về cấp chống cháy không') == 'knowledge')
     check('action beats knowledge',
           label('sửa chiều cao lan can theo tiêu chuẩn') == 'revit_action')
+    check('to do (color) → revit_action',
+          label('tô đỏ tường') == 'revit_action')
+    check('boi xanh → revit_action',
+          label('bôi xanh các cột tầng 2') == 'revit_action')
+    check('en to-do not action', label('tell me what to do') == 'general')
     check('cmt → comment',
           label('hoàn thiện các cmt trong bản vẽ') == 'comment')
     check('bluebeam → comment',
@@ -361,7 +366,8 @@ def test_specialists():
         get_spec, SPECIALISTS, READ_TOOLS, ACTION_TOOLS)
 
     check('registry names', set(SPECIALISTS.keys()) ==
-          set(['general', 'revit_data', 'revit_action', 'knowledge', 'comment']))
+          set(['general', 'revit_data', 'revit_action', 'knowledge',
+               'comment', 'multi_doc', 'modeling', 'qa_check', 'export']))
     check('unknown → general', get_spec('nope').name == 'general')
 
     data = get_spec('revit_data')
