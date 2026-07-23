@@ -178,6 +178,7 @@ class AgentLoop(object):
         last_text  = u""
         tool_runs  = 0
         iteration  = 0
+        done_calls = set()   # (name, canonical args) that succeeded this run
 
         while iteration < self._max_iterations:
             iteration += 1
@@ -261,6 +262,24 @@ class AgentLoop(object):
                                     "note": "User stopped the request."})
                     break
 
+                # Deterministic duplicate guard: identical (name, args) that
+                # already succeeded in THIS run is never executed again — the
+                # model gets an error result telling it to move on, and no
+                # tool card ever reaches the UI for the repeat.
+                try:
+                    call_key = (name, json.dumps(args, sort_keys=True,
+                                                 ensure_ascii=False))
+                except Exception:
+                    call_key = (name, u"{}".format(args))
+                if call_key in done_calls:
+                    results.append({
+                        "error": u"Duplicate call: `{}` with identical "
+                                 u"arguments already succeeded in this "
+                                 u"request. Do not repeat completed calls — "
+                                 u"continue with the next step or give the "
+                                 u"final answer.".format(name)})
+                    continue
+
                 self._emit("on_tool_start", name, args, iteration)
                 t0 = time.time()
                 try:
@@ -274,6 +293,8 @@ class AgentLoop(object):
                 tool_runs += 1
                 self._emit("on_tool_done", name, res, ok, dt)
                 results.append(res)
+                if ok:
+                    done_calls.add(call_key)
 
             if launch_intent:
                 return self._finish("done", last_text, launch_intent,
@@ -355,8 +376,10 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 8. Trust tool results over assumptions: counts, names and ids come from the model, not from memory of typical projects.
 9. Scope resolution when the request names no explicit target: for CHECKING / auditing / statistics / spell-check requests the default scope is the ENTIRE PROJECT — never silently limit to the current view (limit only when the user says so, or ask ONE question when unsure). For MODIFY actions, use the "Current Revit context" block below — the user's selection first, then the active view. Never report "nothing found" from one filtered query: re-check with corrected arguments or wider scope first.
 10. NUMBERS MUST COME FROM TOOLS, NEVER FROM YOU. Tool results may be truncated before you see them, so counting or summing rows/elements yourself gives wrong answers. Use the exact fields the tools compute: `total_count` (ai_element_filter), `row_count` / `column_totals` (get_schedule_data), `element_counts` (analyze_model_statistics). If a statistic you need has no tool-computed field, say so — do not estimate.
-11. Color / highlight requests — "tô màu", "tô đỏ X", "bôi xanh X", "đổi màu X", "highlight X", "color X red": the color word is the OVERRIDE color to APPLY, never a parameter value to filter by (Revit elements have no "Color" or "Fill Color" parameter). Resolve the target ids first (the user's selection, or `ai_element_filter` with category only — no parameter filter), then call `revit_override_color` with that color and those ids. Use `color_elements` only when the user wants elements colored BY a parameter's values (one distinct color per value, e.g. "tô màu tường theo Type") — and its parameter_name must be a REAL parameter, never empty, never a color name.
+11. Color / highlight requests — "tô màu", "tô đỏ X", "bôi xanh X", "đổi màu X", "highlight X", "color X red": the color word is the OVERRIDE color to APPLY, never a parameter value to filter by (Revit elements have no "Color" or "Fill Color" parameter). For ALL elements of a category ("tô vàng sàn", "color the walls red") call `revit_override_color` with `category` + `color` directly — the server collects every matching element itself, no ids needed and NO count limit. Pass `element_ids` only for a SUBSET: the user's selection (via revit_get_selected_elements) or ids from `ai_element_filter` (category only, no parameter filter; if its `total_count` exceeds the ids returned, re-call with limit=total_count so every match is included). Use `color_elements` only when the user wants elements colored BY a parameter's values (one distinct color per value, e.g. "tô màu tường theo Type") — and its parameter_name must be a REAL parameter, never empty, never a color name.
 12. NEVER fabricate tool activity. Every action happens ONLY through a real tool call in this conversation — if you say you will use a tool, emit that tool call in the same turn, and only report results that came back from an actual tool result. Writing an invented "Result:" for a call you never made is a critical failure.
+13. HISTORY IS NOT A TO-DO LIST: act only on the LATEST user message. Earlier turns are background context — an action already reported successful there is DONE; never re-execute it unless the user explicitly asks again. Each new command fully replaces the previous one: after "tô đỏ tường" (walls red) succeeded, "tô vàng sàn" targets FLOORS + YELLOW only — walls and red are finished business.
+14. WHOLE-CATEGORY actions never need ids: `revit_override_color`, `operate_element` (select/hide/isolate/unhide/reset_color), `select_elements`, `set_element_workset`, `bulk_set_parameter` and `tag_elements` all accept `category` and the server collects EVERY matching element itself — one call, no count limit. Ferry ids from `ai_element_filter` only for true subsets (specific parameter values, a picked selection), and remember its id list is paged.
 
 ## Multiple open models
 Several documents can be open in this Revit session; every tool operates on the ACTIVE one. To work across models: `list_open_documents` → `switch_active_document` (exact title) → read/modify there → switch again as needed, then combine everything into ONE final answer stating which model each number comes from. Element ids are only valid inside their own document — never reuse ids across models. When the user names a model that is not in `list_open_documents`, it may live in a different Revit window (separate process): say so and point them to the assistant in that window — do not guess.

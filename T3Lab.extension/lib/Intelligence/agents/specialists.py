@@ -113,20 +113,34 @@ SPECIALISTS = {
         allows_writes=False,
         use_launcher=False,
         max_iterations=6,
-        max_tokens=1200,
+        max_tokens=1600,
         prompt_intro=(
             "## Role: DATA specialist (read-only)\n"
             "This request is a QUERY about the model. Answer it with read "
             "tools only — you have no modify tools in this turn. Get the "
-            "numbers, then answer compactly (counts, tables). If the user "
-            "actually wants a modification, say so and stop."
+            "numbers, then answer compactly. A plain 'có bao nhiêu X?' gets a "
+            "one-line total. A 'thống kê / thong ke / statistics / breakdown' "
+            "request gets a markdown PIPE TABLE broken down by Type × Level "
+            "(group the tool's element list by name × level) with a final "
+            "**Tổng** row = the tool's total_count — never just a single "
+            "number. If the user actually wants a modification, say so and stop."
         ),
         few_shot=(
             "## Examples\n"
-            "User: \"có bao nhiêu bức tường?\" -> call ai_element_filter "
+            "User: \"có bao nhiêu bức tường?\" (simple count) -> ai_element_filter "
             "(category Walls), reply \"Model có 128 bức tường.\"\n"
-            "User: \"liệt kê các sheet A\" -> call revit_list_sheets, reply "
-            "with a compact table of matching numbers + names."
+            "User: \"thống kê cửa\" / \"thong ke door\" (breakdown) -> "
+            "ai_element_filter (category Doors, limit 1000). When "
+            "truncated=false, group elements by (name, level) and reply with a "
+            "pipe table:\n"
+            "| Loại cửa | Tầng | Số lượng |\n"
+            "| --- | --- | --- |\n"
+            "| 36\" x 84\" | Level 1 | 40 |\n"
+            "| **Tổng** |  | **142** |\n"
+            "(the Tổng cell = total_count). If truncated=true, page with offset "
+            "until offset+count reaches total_count before tabulating.\n"
+            "User: \"liệt kê các sheet A\" -> revit_list_sheets, reply with a "
+            "compact table of matching numbers + names."
         ),
     ),
 
@@ -151,10 +165,10 @@ SPECIALISTS = {
             "to find the id -> rename_element -> reply \"Đã đổi tên sheet "
             "A-101 → A-102 (id 12345).\"\n"
             "User: \"tô đỏ tường\" (= color the walls red — the color is "
-            "what to APPLY, not a filter value) -> ai_element_filter "
-            "(category Walls, NO parameter filter) to get the ids -> "
-            "revit_override_color (color \"red\", element_ids from the "
-            "filter) -> reply \"Đã tô đỏ 128 tường trong view hiện tại.\""
+            "what to APPLY, not a filter value) -> revit_override_color "
+            "(category \"Walls\", color \"red\" — ONE call, the server "
+            "collects ALL walls itself, no limit) -> reply \"Đã tô đỏ "
+            "128 tường trong view hiện tại.\""
         ),
     ),
 

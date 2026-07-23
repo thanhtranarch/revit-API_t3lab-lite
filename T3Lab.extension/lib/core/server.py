@@ -552,7 +552,7 @@ class T3LabAIServer(object):
             },
             'revit_override_color': {
                 'name': 'revit_override_color',
-                'description': 'Apply ONE specific color override to elements in the active view — the right tool for "color/tô walls red", "highlight X in green". For coloring BY a parameter\'s values use color_elements instead.',
+                'description': 'Apply ONE specific color override to elements in the active view — the right tool for "color/tô walls red", "highlight X in green". For a WHOLE category pass `category` directly: the server collects ALL matching elements itself (no ids needed, no count limit). For coloring BY a parameter\'s values use color_elements instead.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -560,12 +560,16 @@ class T3LabAIServer(object):
                             'type': 'string',
                             'description': 'Hex color code (e.g. #FF0000) or CSS color name (e.g. red, green, blue)'
                         },
+                        'category': {
+                            'type': 'string',
+                            'description': 'Optional category name (Walls, Floors, Doors, Windows, Columns, Ceilings, Roofs, ...). When given and element_ids is omitted, EVERY element of this category visible in the active view is colored — preferred for whole-category requests, no count limit.'
+                        },
                         'element_ids': {
                             'type': 'array',
                             'items': {
                                 'type': 'integer'
                             },
-                            'description': 'Optional list of Revit element IDs. If omitted, applies to the currently selected elements.'
+                            'description': 'Optional list of Revit element IDs for a specific subset. If both this and category are omitted, applies to the currently selected elements.'
                         }
                     },
                     'required': ['color']
@@ -671,7 +675,7 @@ class T3LabAIServer(object):
             },
             'get_current_view_elements': {
                 'name': 'get_current_view_elements',
-                'description': 'Get all visible elements in the current active view, optionally filtered by category',
+                'description': 'Get elements visible in the current active view, optionally filtered by category. Returns total_count (EXACT, uncapped — use it for any statistics) plus up to `limit` element entries.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -681,7 +685,7 @@ class T3LabAIServer(object):
                         },
                         'limit': {
                             'type': 'integer',
-                            'description': 'Max number of elements to return (default 100)'
+                            'description': 'Max element entries listed in the reply (default 100). total_count in the result is always the exact uncapped count.'
                         }
                     },
                     'required': []
@@ -911,7 +915,7 @@ class T3LabAIServer(object):
             },
             'operate_element': {
                 'name': 'operate_element',
-                'description': 'Operate on elements: select, hide, isolate, unhide, or setColor in the active view',
+                'description': 'Operate on elements in the active view: select, hide, isolate, unhide, reset_color. Pass category to operate on ALL elements of that category (no ids needed, no count limit), or element_ids for a specific subset.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
@@ -919,13 +923,17 @@ class T3LabAIServer(object):
                             'type': 'string',
                             'description': 'Operation: "select", "hide", "isolate", "unhide", "reset_color"'
                         },
+                        'category': {
+                            'type': 'string',
+                            'description': 'Optional category name (Walls, Floors, Doors, ...). When given and element_ids is omitted, the operation applies to EVERY element of this category visible in the active view — no count limit.'
+                        },
                         'element_ids': {
                             'type': 'array',
                             'items': {'type': 'integer'},
-                            'description': 'Element IDs to operate on'
+                            'description': 'Element IDs for a specific subset (omit when using category)'
                         }
                     },
-                    'required': ['operation', 'element_ids']
+                    'required': ['operation']
                 }
             },
             'color_elements': {
@@ -936,7 +944,7 @@ class T3LabAIServer(object):
                     'properties': {
                         'category': {
                             'type': 'string',
-                            'description': 'Element category to color (e.g. Walls, Rooms, Floors)'
+                            'description': 'Element category to color — any supported category name (Walls, Floors, Doors, Windows, Rooms, Columns, Ceilings, Roofs, ...)'
                         },
                         'parameter_name': {
                             'type': 'string',
@@ -1251,17 +1259,21 @@ class T3LabAIServer(object):
             },
             'set_element_workset': {
                 'name': 'set_element_workset',
-                'description': 'Move one or more elements to a specified workset',
+                'description': 'Move elements to a specified workset. Pass category to move ALL elements of that category (no ids needed, no count limit), or element_ids for a subset.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
+                        'category': {
+                            'type': 'string',
+                            'description': 'Optional category name (Walls, Floors, ...). When given and element_ids is omitted, EVERY element of this category in the project is moved — no count limit.'
+                        },
                         'element_ids': {
                             'type': 'array', 'items': {'type': 'integer'},
-                            'description': 'Element IDs to move to the workset'
+                            'description': 'Element IDs for a specific subset (omit when using category)'
                         },
                         'workset_name': {'type': 'string', 'description': 'Target workset name'}
                     },
-                    'required': ['element_ids', 'workset_name']
+                    'required': ['workset_name']
                 }
             },
             # ── Datum / navigation ────────────────────────────────────────────
@@ -1355,7 +1367,7 @@ class T3LabAIServer(object):
                         'filter_parameter': {'type': 'string', 'description': 'Optional parameter to filter elements by before setting'},
                         'filter_value': {'type': 'string', 'description': 'Optional value substring the filter_parameter must contain'},
                         'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Optional explicit element IDs (overrides category collection)'},
-                        'limit': {'type': 'integer', 'description': 'Max elements to modify (default 500)'}
+                        'limit': {'type': 'integer', 'description': 'Optional cap on elements to modify. Omit (default) for NO limit — every matching element is modified.'}
                     },
                     'required': ['parameter_name', 'value']
                 }
@@ -1371,7 +1383,7 @@ class T3LabAIServer(object):
                         'parameter_value': {'type': 'string', 'description': 'Optional value substring to match'},
                         'element_ids': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'Optional explicit IDs to select (overrides category)'},
                         'add_to_selection': {'type': 'boolean', 'description': 'Add to the current selection instead of replacing (default false)'},
-                        'limit': {'type': 'integer', 'description': 'Max elements to select (default 500)'},
+                        'limit': {'type': 'integer', 'description': 'Optional cap on selection size. Omit (default) for NO limit — every match is selected.'},
                         'show': {'type': 'boolean', 'description': 'Also zoom the view onto the selected elements (default false)'}
                     },
                     'required': []
@@ -2070,6 +2082,28 @@ class T3LabAIServer(object):
             'Dimensions': B.OST_Dimensions,
         }
 
+    def _resolve_bic(self, cat_arg):
+        """Category name -> (bic, canonical_name, error_dict). Exactly one of
+        bic / error_dict is non-None. Case-insensitive; unknown names get the
+        supported list + retry hint. Shared by every tool that accepts a
+        `category` argument so they all speak the same vocabulary and return
+        the same unknown-category contract."""
+        CATEGORY_MAP = self._bic_map()
+        bic = CATEGORY_MAP.get(cat_arg)
+        name = cat_arg
+        if bic is None and cat_arg:
+            for _k in CATEGORY_MAP:
+                if _k.lower() == u'{}'.format(cat_arg).lower():
+                    bic = CATEGORY_MAP[_k]
+                    name = _k
+                    break
+        if bic is None:
+            return None, cat_arg, {
+                'error': "Unknown category '{}'.".format(cat_arg),
+                'supported_categories': sorted(CATEGORY_MAP.keys()),
+                'hint': 'Retry with one of supported_categories.'}
+        return bic, name, None
+
     def _parse_color(self, color_str):
         """Parse a hex (#RRGGBB / #RGB) or CSS-name color into an (r, g, b)
         tuple, or None if unparseable. Mirrors the inline parser in
@@ -2288,12 +2322,32 @@ class T3LabAIServer(object):
         elif tool_name == 'revit_override_color':
             color_str = arguments.get('color')
             element_ids = arguments.get('element_ids')
-            
+            cat_arg = arguments.get('category')
+
+            # Whole-category path — server-side collection, NO count cap.
+            # The model used to ferry ids from ai_element_filter, whose
+            # paging capped big requests at its `limit` (50 by default), so
+            # "tô vàng sàn" on 500 floors colored only the first page.
+            # Scoped to the active view: overrides are per-view, so coloring
+            # elements invisible here would have no visible effect anyway.
+            category_used = None
+            if not element_ids and cat_arg:
+                bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+                if _cat_err:
+                    return _cat_err
+                element_ids = [eid_value(e.Id) for e in
+                               FilteredElementCollector(doc, doc.ActiveView.Id)
+                               .OfCategory(bic).WhereElementIsNotElementType()]
+                if not element_ids:
+                    return {'error': "No {} elements are visible in the "
+                                     "active view.".format(cat_arg)}
+                category_used = cat_arg
+
             # If element_ids is omitted or empty, use the active selection
             if not element_ids:
                 selection = uidoc.Selection.GetElementIds()
                 element_ids = [eid_value(eid) for eid in selection]
-                
+
             if not element_ids:
                 return {'error': 'No elements specified and no elements are selected in Revit.'}
 
@@ -2400,12 +2454,16 @@ class T3LabAIServer(object):
                     pass
             t.Commit()
             
-            return {
+            result = {
                 'success': True,
                 'overridden_count': overridden_count,
                 'color': color_str or 'red',
                 'rgb': [r, g, b]
             }
+            if category_used:
+                result['category'] = category_used
+                result['scope'] = 'active_view'
+            return result
 
         elif tool_name == 'create_level':
             from Autodesk.Revit.DB import Level, Transaction, ElementId
@@ -2659,24 +2717,23 @@ class T3LabAIServer(object):
             if view is None:
                 return {'error': 'No active view in Revit — open or activate a view first.'}
 
-            CATEGORY_MAP = {
-                'Walls': BuiltInCategory.OST_Walls,
-                'Floors': BuiltInCategory.OST_Floors,
-                'Doors': BuiltInCategory.OST_Doors,
-                'Windows': BuiltInCategory.OST_Windows,
-                'Rooms': BuiltInCategory.OST_Rooms,
-                'Columns': BuiltInCategory.OST_Columns,
-                'Beams': BuiltInCategory.OST_StructuralFraming,
-                'Ceilings': BuiltInCategory.OST_Ceilings,
-                'Roofs': BuiltInCategory.OST_Roofs,
-                'Furniture': BuiltInCategory.OST_Furniture,
-                'Grids': BuiltInCategory.OST_Grids,
-                'Levels': BuiltInCategory.OST_Levels,
-            }
-            if cat_arg and cat_arg in CATEGORY_MAP:
-                collector = FilteredElementCollector(doc, view.Id).OfCategory(CATEGORY_MAP[cat_arg]).WhereElementIsNotElementType()
+            # Shared category vocabulary (was a private 12-entry map where an
+            # UNKNOWN category name silently scanned every element in the
+            # view instead of erroring).
+            if cat_arg:
+                bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+                if _cat_err:
+                    return _cat_err
+                collector = FilteredElementCollector(doc, view.Id).OfCategory(bic).WhereElementIsNotElementType()
             else:
                 collector = FilteredElementCollector(doc, view.Id).WhereElementIsNotElementType()
+
+            # Exact total BEFORE the cap — counts must come from the DB, not
+            # from the model counting a truncated list.
+            try:
+                total_count = collector.GetElementCount()
+            except Exception:
+                total_count = None
 
             elements_out = []
             for elem in collector:
@@ -2691,7 +2748,14 @@ class T3LabAIServer(object):
                     })
                 except Exception:
                     pass
-            return {'view': view.Name, 'count': len(elements_out), 'elements': elements_out}
+            out = {'view': view.Name, 'count': len(elements_out),
+                   'total_count': total_count, 'elements': elements_out}
+            if total_count is not None and total_count > len(elements_out):
+                out['warning'] = ('List truncated: showing {} of {} elements. '
+                                 'Use total_count for statistics; raise limit '
+                                 'only if you need the actual ids.'.format(
+                                     len(elements_out), total_count))
+            return out
 
         # ── get_available_family_types ───────────────────────────────────────
         elif tool_name == 'get_available_family_types':
@@ -2801,18 +2865,9 @@ class T3LabAIServer(object):
             # unreachable here, which made e.g. spell-check scans return
             # nothing. Unknown names now error with the supported list
             # instead of silently scanning EVERY element in the project.
-            CATEGORY_MAP = self._bic_map()
-            bic = CATEGORY_MAP.get(cat_arg)
-            if bic is None and cat_arg:
-                for _k in CATEGORY_MAP:
-                    if _k.lower() == u'{}'.format(cat_arg).lower():
-                        bic = CATEGORY_MAP[_k]
-                        cat_arg = _k
-                        break
-            if bic is None:
-                return {'error': "Unknown category '{}'.".format(cat_arg),
-                        'supported_categories': sorted(CATEGORY_MAP.keys()),
-                        'hint': 'Retry with one of supported_categories.'}
+            bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+            if _cat_err:
+                return _cat_err
             collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
             # total_count is the REAL number of matches (uncapped) so
             # statistics questions ("how many windows?") get the true total
@@ -2853,10 +2908,28 @@ class T3LabAIServer(object):
                         # callers can walk a large model page by page instead
                         # of only ever seeing the first `limit` elements.
                         if matched_seen > offset_arg and len(results) < limit_arg:
+                            # Level name — same two-step resolution as
+                            # get_material_quantities (LevelId, then a 'Level'
+                            # parameter for host-based elements that lack one)
+                            # so "thống kê" breakdown tables have Type × Level.
+                            lvl_name = ''
+                            try:
+                                _lv = doc.GetElement(elem.LevelId)
+                                lvl_name = _lv.Name if _lv else ''
+                            except Exception:
+                                pass
+                            if not lvl_name:
+                                try:
+                                    _lp = elem.LookupParameter('Level')
+                                    if _lp:
+                                        lvl_name = _lp.AsValueString() or ''
+                                except Exception:
+                                    pass
                             entry = {
                                 'id': eid_value(elem.Id),
                                 'name': elem.Name if hasattr(elem, 'Name') else '',
                                 'category': elem.Category.Name if elem.Category else '',
+                                'level': lvl_name,
                                 'param_value': param_val,
                             }
                             # Text-bearing elements (TextNote, ModelText):
@@ -3513,8 +3586,23 @@ class T3LabAIServer(object):
             from Autodesk.Revit.DB import ElementId, Transaction
             op      = (arguments.get('operation') or '').lower()
             ids     = arguments.get('element_ids', [])
+            cat_arg = arguments.get('category')
             view    = doc.ActiveView
-            elem_ids = [make_eid(int(i)) for i in ids]
+            # Whole-category path: "select/hide all floors" collects every
+            # matching element in the active view server-side — no id
+            # ferrying, no count cap (same contract as revit_override_color).
+            if not ids and cat_arg:
+                bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+                if _cat_err:
+                    return _cat_err
+                elem_ids = list(FilteredElementCollector(doc, view.Id)
+                                .OfCategory(bic).WhereElementIsNotElementType()
+                                .ToElementIds())
+                if not elem_ids:
+                    return {'error': 'No {} elements are visible in the '
+                                     'active view.'.format(cat_arg)}
+            else:
+                elem_ids = [make_eid(int(i)) for i in ids]
 
             if op == 'select':
                 from System.Collections.Generic import List
@@ -3573,14 +3661,13 @@ class T3LabAIServer(object):
                                  "use revit_override_color instead."}
             view      = doc.ActiveView
 
-            CATEGORY_MAP = {
-                'Walls': BuiltInCategory.OST_Walls,
-                'Floors': BuiltInCategory.OST_Floors,
-                'Rooms': BuiltInCategory.OST_Rooms,
-                'Columns': BuiltInCategory.OST_Columns,
-                'Beams': BuiltInCategory.OST_StructuralFraming,
-            }
-            bic = CATEGORY_MAP.get(cat_arg, BuiltInCategory.OST_Rooms)
+            # Full shared category vocabulary (was a private 5-entry map that
+            # silently fell back to Rooms for anything else — "tô màu cửa
+            # theo Type" colored ROOMS). Unknown names now error with the
+            # supported list, same contract as ai_element_filter.
+            bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+            if _cat_err:
+                return _cat_err
             collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
 
             # Find solid fill pattern (InvalidElementId sentinel — ElementId(-1)
@@ -4422,6 +4509,20 @@ class T3LabAIServer(object):
                     return {'error': 'Document is not workshared'}
                 ws_name  = arguments.get('workset_name', '')
                 ids_raw  = arguments.get('element_ids', [])
+                cat_arg  = arguments.get('category')
+                # Whole-category path — project-wide (worksets are model-wide,
+                # not per-view): "chuyển tất cả tường sang workset X" in one
+                # call, no id ferrying, no count cap.
+                if not ids_raw and cat_arg:
+                    bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+                    if _cat_err:
+                        return _cat_err
+                    ids_raw = [eid_value(e.Id) for e in
+                               FilteredElementCollector(doc).OfCategory(bic)
+                               .WhereElementIsNotElementType()]
+                    if not ids_raw:
+                        return {'error': 'No {} elements found in the '
+                                         'model.'.format(cat_arg)}
                 # Find target workset
                 worksets = FilteredWorksetCollector(doc).OfKind(WorksetKind.UserWorkset).ToWorksets()
                 target_ws = None
@@ -5128,7 +5229,10 @@ class T3LabAIServer(object):
                 value  = str(value)
                 fparam = arguments.get('filter_parameter')
                 fval   = (arguments.get('filter_value') or '').lower()
-                limit  = int(arguments.get('limit', 500))
+                # No cap by default — "set X on ALL walls" must reach every
+                # wall (the old default of 500 silently stopped there on big
+                # models). An explicit positive limit is still honored.
+                limit  = int(arguments.get('limit', 0) or 0)
                 ids    = arguments.get('element_ids')
 
                 if ids:
@@ -5136,10 +5240,11 @@ class T3LabAIServer(object):
                     elements = [e for e in elements if e is not None]
                 else:
                     cat = arguments.get('category')
-                    bic = self._bic_map().get(cat) if cat else None
-                    if cat and bic is None:
-                        return {'error': 'Unknown category "{}". Known: {}'.format(
-                            cat, ', '.join(sorted(self._bic_map().keys())))}
+                    bic = None
+                    if cat:
+                        bic, cat, _cat_err = self._resolve_bic(cat)
+                        if _cat_err:
+                            return _cat_err
                     coll = FilteredElementCollector(doc).WhereElementIsNotElementType()
                     if bic is not None:
                         coll = coll.OfCategory(bic)
@@ -5150,7 +5255,7 @@ class T3LabAIServer(object):
                 t.Start()
                 try:
                     for elem in elements:
-                        if modified >= limit:
+                        if limit > 0 and modified >= limit:
                             break
                         try:
                             if fparam:
@@ -5184,15 +5289,22 @@ class T3LabAIServer(object):
             from Autodesk.Revit.DB import ElementId
             from System.Collections.Generic import List as NetList
             try:
-                limit = int(arguments.get('limit', 500))
+                # No cap by default — "select ALL walls" must select every
+                # wall (the old default of 500 silently stopped there). An
+                # explicit positive limit is still honored.
+                limit = int(arguments.get('limit', 0) or 0)
                 ids   = arguments.get('element_ids')
                 if ids:
-                    target = [make_eid(int(i)) for i in ids][:limit]
+                    target = [make_eid(int(i)) for i in ids]
+                    if limit > 0:
+                        target = target[:limit]
                 else:
                     cat = arguments.get('category')
-                    bic = self._bic_map().get(cat) if cat else None
-                    if cat and bic is None:
-                        return {'error': 'Unknown category "{}".'.format(cat)}
+                    bic = None
+                    if cat:
+                        bic, cat, _cat_err = self._resolve_bic(cat)
+                        if _cat_err:
+                            return _cat_err
                     coll = FilteredElementCollector(doc).WhereElementIsNotElementType()
                     if bic is not None:
                         coll = coll.OfCategory(bic)
@@ -5200,7 +5312,7 @@ class T3LabAIServer(object):
                     pval  = (arguments.get('parameter_value') or '').lower()
                     target = []
                     for elem in coll:
-                        if len(target) >= limit:
+                        if limit > 0 and len(target) >= limit:
                             break
                         if pname:
                             p = elem.LookupParameter(pname)
@@ -5239,9 +5351,9 @@ class T3LabAIServer(object):
                                            LocationPoint)
             try:
                 cat = arguments.get('category')
-                bic = self._bic_map().get(cat)
-                if bic is None:
-                    return {'error': 'Unknown category "{}".'.format(cat)}
+                bic, cat, _cat_err = self._resolve_bic(cat)
+                if _cat_err:
+                    return _cat_err
                 leader = bool(arguments.get('leader', False))
                 view = doc.ActiveView
                 elems = FilteredElementCollector(doc, view.Id).OfCategory(bic).WhereElementIsNotElementType().ToElements()
@@ -5330,6 +5442,27 @@ class T3LabAIServer(object):
                 sched = None
                 sid = arguments.get('schedule_id')
                 sname = arguments.get('schedule_name')
+                # Frequent model mistake: calling this tool with `category`
+                # (confusing it with create_schedule / get_material_quantities).
+                # This tool only READS an EXISTING ViewSchedule by name/id and
+                # has no `category` arg. Silently falling through to all_sched[0]
+                # returns an unrelated schedule that poisons the next turn (the
+                # model then emits garbage → "Could not read data" fallback).
+                # Turn the dead-end into a self-correcting redirect instead.
+                if sid is None and not sname and arguments.get('category'):
+                    _cat = u'{}'.format(arguments.get('category'))
+                    return {
+                        'error': "get_schedule_data reads an EXISTING schedule "
+                                 "by schedule_name/schedule_id and has no "
+                                 "'category' argument.",
+                        'hint': u"For a quantity takeoff of '{c}', call "
+                                u"get_material_quantities(category='{c}') for "
+                                u"areas/volumes, or analyze_model_statistics for "
+                                u"counts. To read '{c}' as a table, first "
+                                u"create_schedule(category='{c}'), then call "
+                                u"get_schedule_data(schedule_name=...).".format(
+                                    c=_cat)
+                    }
                 if sid is not None:
                     cand = doc.GetElement(make_eid(int(sid)))
                     if isinstance(cand, ViewSchedule):

@@ -1129,6 +1129,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._conversation_history = []
             self._persisted_msgs = []
             self._prev_agent_decision = None   # no carryover across chats
+            self._prev_turn_calls = set()      # repeat guard resets with chat
             self._queued_inputs = []           # rows were removed above
             self._quickreply_row = None
             # Delete saved file
@@ -1998,6 +1999,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._show_typing_indicator()
         else:
             self._hide_typing_indicator()
+            # Freeze avatar spins — rotation is the "thinking" indicator,
+            # so a finished turn must leave every icon standing still.
+            self._stop_avatar_spins()
 
         # Auto-send the next queued message once this request is fully done.
         # BeginInvoke lets the current finish-handler stack unwind first.
@@ -4440,6 +4444,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             break
                     _continuation = (u'?' in _last_bot[-250:]
                                      and len((raw or u'').strip()) <= 80)
+                    # A generic closing question ("Bạn có muốn thực hiện một
+                    # hành động khác không?" / "Anything else?") is NOT a
+                    # clarifying question — the task is finished, so whatever
+                    # the user types next is a NEW request, not an answer.
+                    if _continuation:
+                        _tail = _last_bot[-250:].lower()
+                        _closers = (u'hành động khác', u'hanh dong khac',
+                                    u'gì khác', u'gi khac', u'gì nữa',
+                                    u'gi nua', u'cần gì thêm', u'can gi them',
+                                    u'giúp gì thêm', u'giup gi them',
+                                    u'hỗ trợ gì thêm', u'ho tro gi them',
+                                    u'anything else', u'else i can help',
+                                    u'need anything', u'can i help',
+                                    u'tiếp theo không', u'tiep theo khong',
+                                    u'next step?', u'what next')
+                        if any(c in _tail for c in _closers):
+                            _continuation = False
+                    # An input that independently matches a command pattern
+                    # (action verb, tô/bôi color phrase, export/build/QA
+                    # keywords...) is a NEW command even right after a real
+                    # clarifying question — "tô vàng sàn" typed after "tô đỏ
+                    # tường" finished must route fresh; riding the old thread
+                    # here replayed the completed red-walls task.
+                    if _continuation and HAS_AGENTS:
+                        _fresh = AgentDispatcher().classify(
+                            raw, allow_llm=False)
+                        if _fresh and _fresh.get('source') == 'keyword':
+                            _continuation = False
                 except Exception:
                     _continuation = False
             if _continuation:
@@ -4658,6 +4690,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     max_iterations = 5
                     current_iteration = 0
                     current_history = list(history)
+                    # Deterministic repeat guards — small local models ignore
+                    # prompt rules and re-emit calls: the same call again in
+                    # the same turn ("tô xanh sàn" ran 3x), or a finished
+                    # PREVIOUS turn's call mid-turn ("tô tím cửa" replayed).
+                    # Prompt rules alone don't stop this; the loop does.
+                    _turn_calls = set()          # (intent, args) run THIS turn
+                    _prev_calls = getattr(self, '_prev_turn_calls', None) or set()
+                    _blocked_repeats = 0
 
                     # Initial user prompt
                     current_query = (rag_context + u"\n\n" + captured) if rag_context else captured
@@ -4829,6 +4869,50 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 pass
 
                             if is_local_tool:
+                                _call_key = (intent, _json.dumps(
+                                    params or {}, sort_keys=True,
+                                    ensure_ascii=False))
+                                _dup_now = _call_key in _turn_calls
+                                # A previous turn's call re-emitted AFTER this
+                                # turn already did its own different work =
+                                # old-context drift. (The FIRST call of a turn
+                                # matching the previous turn stays allowed —
+                                # the user may legitimately repeat a command.)
+                                _old_ctx = (not _dup_now and bool(_turn_calls)
+                                            and _call_key in _prev_calls)
+                                if _dup_now or _old_ctx:
+                                    _blocked_repeats += 1
+                                    if _blocked_repeats >= 2:
+                                        # Model is looping — conclude for it.
+                                        result = {"intent": "chat",
+                                                  "message": (
+                                            u"Đã thực hiện xong yêu cầu của bạn."
+                                            if _is_viet_text(captured) else
+                                            u"Done — the request has been completed.")}
+                                        break
+                                    if _dup_now:
+                                        _guard_msg = (
+                                            u"Tool `{}` with IDENTICAL arguments already ran "
+                                            u"successfully in THIS turn — never repeat a "
+                                            u"completed call. If the request \"{}\" is "
+                                            u"fulfilled, reply with the final JSON now: "
+                                            u'{{"intent": "chat", "message": "<short summary>"}}.'
+                                            .format(intent, captured))
+                                    else:
+                                        _guard_msg = (
+                                            u"Tool `{}` with these arguments already ran in a "
+                                            u"PREVIOUS completed turn — that work is DONE. Act "
+                                            u"ONLY on the current request: \"{}\". Reply with "
+                                            u"the next NEW tool call for it, or the final "
+                                            u'summary JSON {{"intent": "chat", "message": '
+                                            u'"..."}} if it is fulfilled.'.format(intent, captured))
+                                    current_history.append(
+                                        {"role": "assistant",
+                                         "content": _json.dumps(_parsed, ensure_ascii=False)})
+                                    current_history.append(
+                                        {"role": "user", "content": _guard_msg})
+                                    current_query = _guard_msg
+                                    continue
                                 # The streamed preview (if any) is superseded by
                                 # explicit tool-execution feedback below.
                                 self.Dispatcher.Invoke(Action(self._remove_stream_bubble))
@@ -4853,12 +4937,35 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 except Exception as execute_err:
                                     tool_result = {"error": str(execute_err)}
 
+                                # Register the successful call (errors stay
+                                # unregistered — rule 4 allows ONE retry with
+                                # corrected/same args after a failure).
+                                if not (isinstance(tool_result, dict)
+                                        and tool_result.get('error')):
+                                    _turn_calls.add(_call_key)
+
                                 # Log tool call and result to current_history using portable roles
                                 current_history.append({"role": "assistant", "content": _json.dumps(_parsed, ensure_ascii=False)})
                                 current_history.append({"role": "user", "content": u"Tool `{}` returned: {}".format(intent, _json.dumps(tool_result, ensure_ascii=False))})
 
-                                # Setup subsequent query
-                                current_query = u"Tool `{}` successfully returned: {}. Please proceed to the next step or conclude if done.".format(intent, _json.dumps(tool_result, ensure_ascii=False))
+                                # Setup subsequent query — restate WHICH request
+                                # is being executed. A bare "proceed to the next
+                                # step" let small models drift into the chat
+                                # history and replay the PREVIOUS turn's command
+                                # ("tô vàng sàn" re-ran the finished "tô đỏ
+                                # tường" task).
+                                current_query = (
+                                    u"Tool `{}` returned: {}. Continue with the "
+                                    u"NEXT step of the user's LATEST request "
+                                    u"ONLY: \"{}\". Earlier conversation turns "
+                                    u"are already completed — never repeat "
+                                    u"them. Reply with the next tool call, or "
+                                    u"a final summary if this request is "
+                                    u"done.".format(
+                                        intent,
+                                        _json.dumps(tool_result,
+                                                    ensure_ascii=False),
+                                        captured))
                                 continue
                             else:
                                 # A model that picks "unknown" but still wrote a
@@ -4874,6 +4981,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         else:
                             result = {"intent": "chat", "message": _cleaned}
                             break
+
+                    # Remember this turn's executed calls — the next turn's
+                    # old-context guard needs them. Pure-chat turns keep the
+                    # previous registry alive.
+                    if _turn_calls:
+                        self._prev_turn_calls = set(_turn_calls)
 
                     def finish():
                         try:
@@ -5780,6 +5893,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 and not stream["open"]):
             return False
 
+        # Model "answered" with an EMPTY turn — no text, no tool calls
+        # (local models do this when a playbook/tool catalog confuses
+        # them). Nothing has reached the UI, so ending here left the user
+        # with just a skill chip and total silence (observed 2026-07-22:
+        # "khối lượng bê tông" → schedule-qto chip → nothing). Fall back
+        # to the legacy JSON-intent path instead — it always ends with a
+        # visible reply (answer, keyword fallback, or a real error).
+        if (result.get("status") == "done"
+                and not (result.get("text") or u"").strip()
+                and not result.get("tool_runs")
+                and not stream["open"]):
+            logger.debug("native path: empty model turn -> legacy fallback")
+            return False
+
         def _finish_ui():
             try:
                 # A turn interrupted mid-stream leaves an open live bubble.
@@ -6454,6 +6581,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._avatar_bitmap_failed = True
             return None
 
+    def _stop_avatar_spins(self):
+        """Freeze every live avatar spin (UI thread only). Rotation is the
+        'thinking' indicator: bubbles born during a busy turn spin, and the
+        moment the turn ends they all stop and rest upright."""
+        spins = getattr(self, '_live_avatar_spins', None) or []
+        if not spins:
+            return
+        try:
+            from System.Windows.Media import RotateTransform
+            for spin in spins:
+                try:
+                    spin.BeginAnimation(RotateTransform.AngleProperty, None)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        self._live_avatar_spins = []
+
     def _make_avatar(self, letter, _unused_start=None, _unused_end=None):
         """Create a circular avatar showing the tool's real icon.png.
 
@@ -6473,26 +6618,32 @@ class T3LabAssistantWindow(forms.WPFWindow):
         av.Margin = Thickness(0, 2, 10, 0)
         av.VerticalAlignment = VerticalAlignment.Top
 
-        # Spin every assistant avatar continuously in place (user request:
-        # permanent rotation, not only while busy). 30fps cap keeps dozens
-        # of live animations cheap; each clock dies with its bubble.
-        try:
-            from System.Windows.Media import RotateTransform
-            from System.Windows.Media.Animation import (DoubleAnimation,
-                                                        RepeatBehavior,
-                                                        Timeline)
-            from System.Windows import Point, Duration
-            from System import TimeSpan, Nullable, Int32
-            av.RenderTransformOrigin = Point(0.5, 0.5)
-            spin = RotateTransform()
-            av.RenderTransform = spin
-            anim = DoubleAnimation(
-                0.0, 360.0, Duration(TimeSpan.FromSeconds(1.6)))
-            anim.RepeatBehavior = RepeatBehavior.Forever
-            Timeline.SetDesiredFrameRate(anim, Nullable[Int32](30))
-            spin.BeginAnimation(RotateTransform.AngleProperty, anim)
-        except Exception:
-            pass
+        # Spin the avatar ONLY while the assistant is thinking (user request
+        # 2026-07-22, replacing the earlier permanent rotation): a bubble
+        # created during a busy turn spins, and _set_busy(False) freezes
+        # every live spin — so a moving icon always means "working right
+        # now". 30fps cap keeps concurrent animations cheap.
+        if getattr(self, '_busy', False):
+            try:
+                from System.Windows.Media import RotateTransform
+                from System.Windows.Media.Animation import (DoubleAnimation,
+                                                            RepeatBehavior,
+                                                            Timeline)
+                from System.Windows import Point, Duration
+                from System import TimeSpan, Nullable, Int32
+                av.RenderTransformOrigin = Point(0.5, 0.5)
+                spin = RotateTransform()
+                av.RenderTransform = spin
+                anim = DoubleAnimation(
+                    0.0, 360.0, Duration(TimeSpan.FromSeconds(1.6)))
+                anim.RepeatBehavior = RepeatBehavior.Forever
+                Timeline.SetDesiredFrameRate(anim, Nullable[Int32](30))
+                spin.BeginAnimation(RotateTransform.AngleProperty, anim)
+                if not hasattr(self, '_live_avatar_spins'):
+                    self._live_avatar_spins = []
+                self._live_avatar_spins.append(spin)
+            except Exception:
+                pass
 
         bmp = self._get_avatar_bitmap()
         if bmp is not None:
