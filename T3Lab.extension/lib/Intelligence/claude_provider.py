@@ -34,10 +34,22 @@ _PREF_TEXT   = ("haiku", "sonnet", "opus")   # cheap-first for plain chat
 _PREF_VISION = ("sonnet", "opus", "haiku")   # capable-first for images/agent
 _PREF_FAST   = ("haiku", "sonnet")           # latency-first for classify calls
 
-# Extended-thinking budget for agent turns (agents.extended_thinking).
-# max_tokens is raised to budget + answer headroom when thinking is on.
+# Extended-thinking config for agent turns (agents.extended_thinking).
+#
+# Adaptive thinking ("type": "adaptive") is the current-generation format —
+# required (not just preferred) on Claude Opus 4.7/4.8, Sonnet 5 and Fable 5,
+# which reject the older "enabled"/budget_tokens shape with a 400. It is also
+# accepted on Opus 4.6 / Sonnet 4.6. Some older-but-still-served models (e.g.
+# Opus 4.5, Sonnet 4.5) only understand the legacy "enabled"+budget_tokens
+# shape and 400 on "adaptive" instead. Since models are resolved live from
+# /v1/models with no hardcoded whitelist (see module docstring), we can't
+# know in advance which shape a given account's selected model wants — try
+# adaptive first (the modern default for every current-generation model) and
+# fall back to the legacy shape only if the API rejects it. The outcome is
+# cached per-model so the fallback round-trip only happens once.
 _THINK_BUDGET = 3000
-_THINK_BETA   = "interleaved-thinking-2025-05-14"
+_THINK_EFFORT = "high"
+_THINK_BETA   = "interleaved-thinking-2025-05-14"   # legacy-mode only; GA (no header needed) on 4.6+ adaptive thinking
 
 
 # ─── Provider ──────────────────────────────────────────────────────────────────
@@ -53,6 +65,7 @@ class ClaudeProvider(BaseLLMProvider):
     def __init__(self):
         self._model         = None   # None → auto-select text vs vision model
         self._cached_models = None   # filled on first successful /v1/models fetch
+        self._thinking_mode = {}     # model name -> "adaptive" | "legacy", learned on first 400
 
     # ── Credentials ───────────────────────────────────────────────────────────
 
@@ -260,7 +273,7 @@ class ClaudeProvider(BaseLLMProvider):
             return False
 
     def _agent_payload(self, model, system_prompt, messages, tools, max_tokens,
-                       stream, thinking=False):
+                       stream, thinking_mode=None):
         """Build a Messages API payload with prompt caching on system + tools
         AND on the conversation prefix.
 
@@ -273,6 +286,10 @@ class ClaudeProvider(BaseLLMProvider):
              every subsequent iteration of the loop instead of being
              re-processed from scratch. On multi-tool requests this cuts
              both latency and input cost substantially.
+
+        thinking_mode: None (thinking off), "adaptive" (current-generation
+        models), or "legacy" (older enabled+budget_tokens shape — see the
+        module-level comment above _THINK_BUDGET for why both exist).
         """
         cached_tools = list(tools or [])
         if cached_tools:
@@ -289,7 +306,10 @@ class ClaudeProvider(BaseLLMProvider):
         }
         if cached_tools:
             payload["tools"] = cached_tools
-        if thinking:
+        if thinking_mode == "adaptive":
+            payload["thinking"]      = {"type": "adaptive"}
+            payload["output_config"] = {"effort": _THINK_EFFORT}
+        elif thinking_mode == "legacy":
             # budget must stay below max_tokens — raise the cap so the final
             # answer never gets squeezed out by the reasoning budget.
             payload["thinking"]   = {"type": "enabled",
@@ -298,6 +318,13 @@ class ClaudeProvider(BaseLLMProvider):
         if stream:
             payload["stream"] = True
         return payload
+
+    @staticmethod
+    def _thinking_rejected(ex):
+        """True if `ex` looks like the API rejecting the `thinking` param
+        shape (wrong type for this model generation) rather than some other
+        failure (network, auth, rate limit) that a retry wouldn't fix."""
+        return "thinking" in u"{}".format(ex).lower()
 
     @staticmethod
     def _cache_marked_messages(messages):
@@ -344,14 +371,16 @@ class ClaudeProvider(BaseLLMProvider):
             return None
 
         # Deep reasoning (opt-in): extended thinking between tool calls.
-        thinking = self._thinking_enabled()
+        # Default to adaptive (current-generation shape); a cached "legacy"
+        # verdict from a prior 400 on this model skips straight past it.
+        thinking_mode = (self._thinking_mode.get(model, "adaptive")
+                         if self._thinking_enabled() else None)
 
-        headers = {
-            "x-api-key":         api_key,
-            "anthropic-version": ANTHROPIC_API_VER,
-        }
-        if thinking:
-            headers["anthropic-beta"] = _THINK_BETA
+        def _headers(mode):
+            h = {"x-api-key": api_key, "anthropic-version": ANTHROPIC_API_VER}
+            if mode == "legacy":
+                h["anthropic-beta"] = _THINK_BETA
+            return h
 
         # ── Streaming attempt ────────────────────────────────────────────────
         state = {
@@ -425,24 +454,41 @@ class ClaudeProvider(BaseLLMProvider):
             self._clear_error()
             payload = self._agent_payload(model, system_prompt, messages, tools,
                                           max_tokens, stream=True,
-                                          thinking=thinking)
-            http_post_stream(CLAUDE_API_URL, payload, headers, _on_line,
-                             timeout_ms=180000)
+                                          thinking_mode=thinking_mode)
+            http_post_stream(CLAUDE_API_URL, payload, _headers(thinking_mode),
+                             _on_line, timeout_ms=180000)
             streamed_ok = bool(state["blocks"]) or state["stop_reason"] is not None
         except Exception as ex:
-            self._record_error(u"chat_agent stream failed: {}".format(ex))
+            if thinking_mode == "adaptive" and self._thinking_rejected(ex):
+                # This model generation doesn't accept adaptive thinking —
+                # fall back to the legacy shape and remember the verdict so
+                # future calls on this model skip straight to it.
+                self._thinking_mode[model] = thinking_mode = "legacy"
+                state["blocks"], state["cur"], state["stop_reason"] = [], None, None
+                try:
+                    payload = self._agent_payload(model, system_prompt, messages,
+                                                  tools, max_tokens, stream=True,
+                                                  thinking_mode=thinking_mode)
+                    http_post_stream(CLAUDE_API_URL, payload, _headers(thinking_mode),
+                                     _on_line, timeout_ms=180000)
+                    streamed_ok = (bool(state["blocks"])
+                                  or state["stop_reason"] is not None)
+                except Exception as ex2:
+                    self._record_error(u"chat_agent stream failed: {}".format(ex2))
+            else:
+                self._record_error(u"chat_agent stream failed: {}".format(ex))
 
         if streamed_ok:
             return self._agent_result_from_blocks(state["blocks"],
                                                   state["stop_reason"])
 
         # ── Blocking fallback ────────────────────────────────────────────────
-        try:
-            payload   = self._agent_payload(model, system_prompt, messages, tools,
-                                            max_tokens, stream=False,
-                                            thinking=thinking)
-            resp_text = http_post(CLAUDE_API_URL, payload, headers,
-                                  timeout_ms=180000)
+        def _do_blocking(mode):
+            payload    = self._agent_payload(model, system_prompt, messages, tools,
+                                             max_tokens, stream=False,
+                                             thinking_mode=mode)
+            resp_text  = http_post(CLAUDE_API_URL, payload, _headers(mode),
+                                   timeout_ms=180000)
             api_result = json.loads(resp_text)
             blocks = []
             for b in api_result.get("content", []) or []:
@@ -459,9 +505,20 @@ class ClaudeProvider(BaseLLMProvider):
                 elif b.get("type") == "redacted_thinking":
                     blocks.append({"type": "redacted_thinking", "parts": [],
                                    "data": b.get("data")})
-            return self._agent_result_from_blocks(
-                blocks, api_result.get("stop_reason"))
+            return blocks, api_result.get("stop_reason")
+
+        try:
+            blocks, stop_reason = _do_blocking(thinking_mode)
+            return self._agent_result_from_blocks(blocks, stop_reason)
         except Exception as ex:
+            if thinking_mode == "adaptive" and self._thinking_rejected(ex):
+                self._thinking_mode[model] = thinking_mode = "legacy"
+                try:
+                    blocks, stop_reason = _do_blocking(thinking_mode)
+                    return self._agent_result_from_blocks(blocks, stop_reason)
+                except Exception as ex2:
+                    self._record_error(u"chat_agent() failed: {}".format(ex2))
+                    return None
             self._record_error(u"chat_agent() failed: {}".format(ex))
             return None
 
