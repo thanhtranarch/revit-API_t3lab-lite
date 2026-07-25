@@ -212,11 +212,39 @@ def list_models():
         return []
 
 
-def get_best_model():
-    """Return the best available small-model name, or None if none installed."""
+def _param_billions(name):
+    """Parse the parameter count from a model tag, e.g. 'qwen3:14b' → 14.0.
+    Returns 0.0 when no size is present (unknown → treated as small)."""
+    import re
+    m = re.search(r'(\d+(?:\.\d+)?)\s*b\b', (name or "").lower())
+    try:
+        return float(m.group(1)) if m else 0.0
+    except Exception:
+        return 0.0
+
+
+def get_best_model(prefer_capable=False):
+    """Return the best installed model name, or None if none installed.
+
+    Default (prefer_capable=False): smallest/fastest first via PREFERRED_MODELS
+    — right for the lightweight NLU/intent path.
+
+    prefer_capable=True (quality mode): pick the strongest installed model —
+    reasoning models (Qwen3, ...) first, then largest parameter count. This
+    generalizes to whatever Qwen3 variant the user actually installed instead
+    of relying on a hardcoded whitelist.
+    """
     installed = list_models()
     if not installed:
         return None
+    if prefer_capable:
+        try:
+            from Intelligence.llm_provider import is_reasoning_model
+        except Exception:
+            is_reasoning_model = lambda _n: False
+        def _score(n):
+            return (1 if is_reasoning_model(n) else 0, _param_billions(n))
+        return sorted(installed, key=_score, reverse=True)[0]
     # Try preferred list first
     for pref in PREFERRED_MODELS:
         pref_base = pref.split(":")[0]

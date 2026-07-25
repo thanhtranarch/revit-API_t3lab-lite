@@ -17,7 +17,8 @@ import json
 import os
 import sys
 
-from Intelligence.llm_provider import BaseLLMProvider, http_post, http_get
+from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_get,
+                                       local_sampling_params, is_reasoning_model)
 
 
 # ─── Provider ──────────────────────────────────────────────────────────────────
@@ -44,6 +45,19 @@ class OllamaProvider(BaseLLMProvider):
         self._model = None        # None → auto-select best installed model
         self._host  = None        # None → read from local_llm.OLLAMA_HOST
         self._active_host = None  # last host that actually responded
+
+    # Reasoning models spend most of a turn inside <think>...</think>; a tool
+    # call or final answer only appears AFTER that. num_predict caps the whole
+    # generation, so the instruct-tuned budget (1.5k) truncated the reply
+    # before the model ever reached its tool call. Give thinking models real
+    # room to finish reasoning and still answer.
+    REASONING_MIN_PREDICT = int(os.environ.get("T3LAB_OLLAMA_MIN_PREDICT", 4096))
+
+    def _num_predict_for(self, model, max_tokens):
+        """Effective num_predict — widened for reasoning models."""
+        if is_reasoning_model(model):
+            return max(int(max_tokens), self.REASONING_MIN_PREDICT)
+        return int(max_tokens)
 
     def _num_ctx_for(self, payload, max_tokens):
         """Pick a num_ctx that fits this request: estimated prompt tokens
@@ -126,12 +140,25 @@ class OllamaProvider(BaseLLMProvider):
             pass
         return []
 
+    @staticmethod
+    def _quality_mode():
+        """Opus-parity switch (agents.quality_mode). Off by default. When on,
+        the auto-pick favours the strongest installed model over the fastest."""
+        try:
+            from config.settings import get_settings
+            return bool(get_settings().is_quality_mode_enabled())
+        except Exception:
+            return False
+
     def get_active_model(self):
         if self._model:
             return self._model
         mod = self._local_llm()
         if mod:
             try:
+                return mod.get_best_model(prefer_capable=self._quality_mode())
+            except TypeError:
+                # Older local_llm without the prefer_capable kwarg.
                 return mod.get_best_model()
             except Exception:
                 pass
@@ -231,12 +258,19 @@ class OllamaProvider(BaseLLMProvider):
         msgs = [{"role": "system", "content": system_prompt}]
         msgs.extend(list(messages or []))
 
+        # Reasoning models (Qwen3, ...) need non-greedy sampling to avoid the
+        # thinking-mode repetition trap, plus a wider num_predict so a tool
+        # call after <think> isn't truncated. Instruct models keep low-temp
+        # determinism for stable tool JSON.
+        opts = {"num_predict": self._num_predict_for(model, max_tokens)}
+        opts.update(local_sampling_params(model))
+
         payload = {
             "model":      model,
             "messages":   msgs,
             "stream":     False,
             "keep_alive": "15m",
-            "options":    {"temperature": 0.0, "num_predict": max_tokens},
+            "options":    opts,
         }
         if tools:
             payload["tools"] = tools

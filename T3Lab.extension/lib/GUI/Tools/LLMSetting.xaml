@@ -1225,7 +1225,7 @@
                             <TextBlock Text="Maximum quality (Opus parity)" FontSize="12.5"
                                        Foreground="#27272A"/>
                         </CheckBox>
-                        <TextBlock Text="ON: picks the most capable Claude model (Opus) as the default, turns deep reasoning on, and gives replies more room so answers stay complete. Best-in-class quality, but higher cost and latency per reply. OFF (default): balanced speed and cost. Claude only; utility calls stay on the fast model."
+                        <TextBlock Text="ON: picks the most capable model as the default (Claude → Opus; local → the strongest installed model), turns deep reasoning on, and gives replies more room so answers stay complete. Best-in-class quality, but higher cost/latency per reply. OFF (default): balanced speed and cost. Utility calls always stay on the fast model."
                                    FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
                                    Margin="1,0,0,16" LineHeight="15"/>
 

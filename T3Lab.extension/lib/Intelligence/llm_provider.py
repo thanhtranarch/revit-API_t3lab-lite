@@ -363,8 +363,44 @@ def parse_openai_stream_line(line):
 
 # ─── Native tool calling (OpenAI wire format — shared by OpenAI/DeepSeek) ──────
 
+# ─── Local reasoning-model sampling ────────────────────────────────────────────
+# Substrings that mark a hybrid/reasoning local model (Qwen3, QwQ, DeepSeek-R1,
+# Magistral, etc.). These models are trained with sampled decoding and DEGRADE
+# under greedy (temperature 0): Qwen's own guidance is explicit that greedy
+# decoding in thinking mode causes endless repetition and quality drops. The
+# whole codebase historically pinned temperature 0.0 for determinism of tool
+# JSON — correct for instruct models, actively harmful for these.
+_REASONING_MODEL_HINTS = (
+    "qwen3", "qwq", "deepseek-r1", "-r1", "r1-", "magistral",
+    "reasoning", "thinker", "marco-o1", "openthinker", "phi-4-reasoning",
+)
+
+
+def is_reasoning_model(model_name):
+    """True when the model name looks like a hybrid/reasoning local model."""
+    if not model_name:
+        return False
+    low = u"{}".format(model_name).lower()
+    return any(h in low for h in _REASONING_MODEL_HINTS)
+
+
+def local_sampling_params(model_name):
+    """Recommended sampling options for a local model, by family.
+
+    Reasoning models (Qwen3 thinking, DeepSeek-R1, ...) get the vendor-
+    recommended non-greedy profile (temp 0.6 / top_p 0.95 / top_k 20 / min_p 0)
+    so thinking mode doesn't collapse into repetition. Plain instruct models
+    keep the deterministic low-temperature profile that makes tool-call JSON
+    stable. Returns a dict of raw option names (temperature/top_p/top_k/min_p)
+    — each provider maps them onto its own payload shape.
+    """
+    if is_reasoning_model(model_name):
+        return {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0}
+    return {"temperature": 0.0, "top_p": 0.9}
+
+
 def openai_chat_agent(url, headers, model, system_prompt, messages, tools,
-                      max_tokens=1500, timeout_ms=180000):
+                      max_tokens=1500, timeout_ms=180000, extra_payload=None):
     """One blocking agentic turn against an OpenAI-compatible /chat/completions.
 
     `messages` must be OpenAI-native (may contain assistant tool_calls and
@@ -382,6 +418,10 @@ def openai_chat_agent(url, headers, model, system_prompt, messages, tools,
     payload = {"model": model, "messages": msgs, "max_tokens": max_tokens}
     if tools:
         payload["tools"] = tools
+    # extra_payload carries provider-specific knobs (sampling for local
+    # reasoning models, tool_choice, ...) without changing OpenAI's defaults.
+    if extra_payload:
+        payload.update(extra_payload)
 
     resp_text = http_post(url, payload, headers, timeout_ms=timeout_ms)
     data = json.loads(resp_text)
