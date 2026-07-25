@@ -1215,6 +1215,22 @@
 
                         <Border Height="1" Background="#E2E8F0" Margin="0,0,0,16"/>
 
+                        <!-- Response quality (Opus parity) -->
+                        <TextBlock Text="RESPONSE QUALITY" Style="{StaticResource FieldLabel}"/>
+                        <CheckBox x:Name="quality_mode_toggle"
+                                  Style="{StaticResource T3ToggleSwitch}"
+                                  Margin="1,4,0,6"
+                                  Checked="quality_mode_toggled"
+                                  Unchecked="quality_mode_toggled">
+                            <TextBlock Text="Maximum quality (Opus parity)" FontSize="12.5"
+                                       Foreground="#27272A"/>
+                        </CheckBox>
+                        <TextBlock Text="ON: picks the most capable Claude model (Opus) as the default, turns deep reasoning on, and gives replies more room so answers stay complete. Best-in-class quality, but higher cost and latency per reply. OFF (default): balanced speed and cost. Claude only; utility calls stay on the fast model."
+                                   FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
+                                   Margin="1,0,0,16" LineHeight="15"/>
+
+                        <Border Height="1" Background="#E2E8F0" Margin="0,0,0,16"/>
+
                         <!-- Data -->
                         <TextBlock Text="DATA" Style="{StaticResource FieldLabel}"/>
                         <TextBlock Text="Chat history, projects, attachments and the knowledge index are stored per-user under %APPDATA%\T3LabAI."

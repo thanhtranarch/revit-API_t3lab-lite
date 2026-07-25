@@ -6114,7 +6114,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 res_s = u"{}".format(result)
             rt = handle["result"]
-            rt.Text       = res_s[:240] + (u"…" if len(res_s) > 240 else u"")
+            # Friendly one-line summary of common result shapes; full JSON
+            # stays available on hover so nothing is hidden.
+            summary = self._summarize_tool_result(result, res_s)
+            rt.Text       = summary[:240] + (u"…" if len(summary) > 240 else u"")
             rt.ToolTip    = res_s[:4000]
             rt.Visibility = Visibility.Visible
 
@@ -6158,6 +6161,44 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("_update_tool_card error: {}".format(ex))
+
+    @staticmethod
+    def _summarize_tool_result(result, fallback):
+        """Turn a tool-result dict into a short human line for the card body.
+
+        Reads the tool-computed count/summary fields the agent itself relies
+        on (total_count, element_counts, count, message...) so the card reads
+        like a status line instead of a raw JSON dump. Full JSON stays in the
+        tooltip. Falls back to compact JSON for unrecognized shapes.
+        """
+        if not isinstance(result, dict):
+            return fallback
+        if result.get("error"):
+            return u"Error: {}".format(result.get("error"))
+        parts = []
+        # Explicit human message from the tool, if any.
+        msg = result.get("message") or result.get("summary")
+        if msg:
+            parts.append(u"{}".format(msg))
+        # The count fields the agent trusts (see agent_loop rule 10).
+        for key, label in ((u"total_count", u"matched"),
+                            (u"count", u"count"),
+                            (u"row_count", u"rows"),
+                            (u"modified_count", u"modified"),
+                            (u"created_count", u"created"),
+                            (u"deleted_count", u"deleted")):
+            if isinstance(result.get(key), int):
+                parts.append(u"{} {}".format(result[key], label))
+        ec = result.get("element_counts")
+        if isinstance(ec, dict) and ec:
+            top = sorted(ec.items(), key=lambda kv: kv[1], reverse=True)[:4]
+            parts.append(u", ".join(u"{}: {}".format(k, v) for k, v in top))
+        # A bare success flag with nothing else still deserves a word.
+        if not parts and result.get("success") is True:
+            parts.append(u"Done")
+        if not parts:
+            return fallback
+        return u"  ·  ".join(parts)
 
     @staticmethod
     def _extract_element_ids(result, _limit=60):
@@ -6828,10 +6869,36 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     text_block.Inlines.Add(r)
                     continue
 
-            # Bullet lines
+            # Blockquote: "> text" → muted bar + text
+            if stripped.startswith(u'> '):
+                from System.Windows.Media import SolidColorBrush, Color
+                bar = Run()
+                bar.Text       = u'▏ '   # ▏ left one-eighth block
+                bar.Foreground = SolidColorBrush(Color.FromRgb(148, 163, 184))  # #94A3B8
+                text_block.Inlines.Add(bar)
+                quote = Run()
+                quote.Text       = stripped[2:]
+                quote.Foreground = SolidColorBrush(Color.FromRgb(100, 116, 139))  # #64748B
+                quote.FontStyle  = System.Windows.FontStyles.Italic
+                text_block.Inlines.Add(quote)
+                continue
+
+            # Ordered list: "1. text", "2) text" → keep the number, indent-align
+            import re as _re_md
+            _om = _re_md.match(r'^(\d{1,3})[.)]\s+(.*)$', stripped)
+            if _om:
+                num_run = Run()
+                num_run.Text       = u'{}. '.format(_om.group(1))
+                num_run.FontWeight = FontWeights.SemiBold
+                text_block.Inlines.Add(num_run)
+                T3LabAssistantWindow._add_inline_md(text_block, _om.group(2))
+                continue
+
+            # Bullet lines (also nested "  - " / "  * ")
             if stripped.startswith(u'* ') or stripped.startswith(u'- '):
+                indent = len(line) - len(line.lstrip())
                 prefix_run = Run()
-                prefix_run.Text = u'• '   # bullet •
+                prefix_run.Text = (u'    ' if indent >= 2 else u'') + u'• '
                 text_block.Inlines.Add(prefix_run)
                 line = stripped[2:]             # remaining text after bullet marker
 
@@ -6925,9 +6992,48 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("_make_md_table error: {}".format(ex))
             return None
 
+    def _make_code_block(self, code_lines):
+        """Render a fenced ``` code block as a monospace card with a subtle
+        surface bg and horizontal scroll so code formatting is preserved."""
+        from System.Windows.Controls import Border, TextBlock, ScrollViewer, ScrollBarVisibility
+        from System.Windows import Thickness, CornerRadius
+        from System.Windows.Media import SolidColorBrush, Color, FontFamily
+
+        tb = TextBlock()
+        tb.Text       = u"\n".join(code_lines).rstrip(u"\n")
+        tb.FontFamily = FontFamily(u"Consolas")
+        tb.FontSize   = 12
+        tb.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))    # #0F172A
+
+        sv = ScrollViewer()
+        sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+        sv.VerticalScrollBarVisibility   = ScrollBarVisibility.Disabled
+        sv.Content = tb
+
+        card = Border()
+        card.Background      = SolidColorBrush(Color.FromRgb(241, 245, 249))  # #F1F5F9
+        card.BorderBrush     = SolidColorBrush(Color.FromRgb(226, 232, 240))  # #E2E8F0
+        card.BorderThickness = Thickness(1)
+        card.CornerRadius    = CornerRadius(6)
+        card.Padding         = Thickness(10, 8, 10, 8)
+        card.Margin          = Thickness(0, 4, 0, 4)
+        card.Child = sv
+        return card
+
+    def _make_hr(self):
+        """A thin horizontal divider for markdown '---' / '***' rules."""
+        from System.Windows.Controls import Border
+        from System.Windows import Thickness
+        from System.Windows.Media import SolidColorBrush, Color
+        hr = Border()
+        hr.Height     = 1
+        hr.Background  = SolidColorBrush(Color.FromRgb(226, 232, 240))  # #E2E8F0
+        hr.Margin      = Thickness(0, 8, 0, 8)
+        return hr
+
     def _render_md_blocks(self, text, icon=None, icon_color=None):
         """Build the CONTENT of a bot bubble: a StackPanel of paragraph
-        TextBlocks and real table Grids.
+        TextBlocks, real table Grids, fenced code cards, and rules.
 
         The old single-TextBlock renderer showed markdown tables as raw
         "| a | b |" pipe text; consecutive pipe-lines now become a bordered
@@ -6972,6 +7078,33 @@ class T3LabAssistantWindow(forms.WPFWindow):
         n = len(lines)
         while i < n:
             s = lines[i].strip()
+
+            # Fenced code block: ```lang ... ``` → monospace card
+            if s.startswith(u"```"):
+                i += 1
+                code_lines = []
+                while i < n and not lines[i].strip().startswith(u"```"):
+                    code_lines.append(lines[i])
+                    i += 1
+                if i < n:               # consume the closing fence
+                    i += 1
+                _flush_para()
+                try:
+                    panel.Children.Add(self._make_code_block(code_lines))
+                except Exception:
+                    para.extend(code_lines)
+                continue
+
+            # Horizontal rule: standalone ---, ***, ___
+            if s in (u"---", u"***", u"___"):
+                _flush_para()
+                try:
+                    panel.Children.Add(self._make_hr())
+                except Exception:
+                    pass
+                i += 1
+                continue
+
             if s.startswith(u"|") and s.count(u"|") >= 2:
                 tbl = []
                 while i < n:
