@@ -5516,6 +5516,30 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
 
+    def _build_knowledge_reference(self, query, local=False):
+        """Retrieve a compact project-knowledge block to ground the tool agent.
+
+        BM25-only (no embedder) so it stays fast and deterministic on every
+        request — the lexical channel is exactly what carries local models.
+        Returns a system-prompt fragment or '' (nothing relevant / no index).
+        Budget is tighter for local models to protect their context window.
+        """
+        if not HAS_KNOWLEDGE:
+            return u''
+        try:
+            from Intelligence.knowledge.knowledge_agent import (
+                KnowledgeAgent, build_reference_block)
+            agent = KnowledgeAgent(embedder=None)   # BM25-only: fast + always-on
+            top_k = 2 if local else 3
+            hits = agent.retrieve(query, top_k=top_k)
+            if not hits:
+                return u''
+            return build_reference_block(
+                hits, excerpt_chars=(500 if local else 800), max_items=top_k)
+        except Exception as ex:
+            logger.debug("knowledge reference build error: {}".format(ex))
+            return u''
+
     def _run_native_agent(self, provider, history, captured,
                           spec=None, skill_ids=None, rag_context=None):
         """Run the native tool-calling agent loop. WORKER THREAD.
@@ -5623,6 +5647,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 _PS_mem().get_active_project_id())
             if _mem_block:
                 system_prompt += u"\n\n" + _mem_block
+        except Exception:
+            pass
+
+        # Project-knowledge grounding — inject a compact reference block so the
+        # tool agent's ANSWERS and ACTIONS follow documented standards, not just
+        # the knowledge specialist. Retrieved from the user's request (BM25); a
+        # stray hit on an unrelated command is harmless (the header tells the
+        # model to ignore irrelevant excerpts). knowledge/comment specialists
+        # have their own retrieval pipeline and never reach this path.
+        try:
+            _spec_name = spec.name if spec is not None else 'general'
+            if _spec_name not in ('knowledge', 'comment'):
+                _kref = self._build_knowledge_reference(captured, local=_is_local)
+                if _kref:
+                    system_prompt += u"\n\n" + _kref
         except Exception:
             pass
 

@@ -515,6 +515,18 @@ def test_knowledge_agent():
         line = format_citation_line(res['citations'])
         check('citation line', 'fire.md' in line and 'Nguồn' in line, line)
 
+        # reference block for the tool agent (grounding without the knowledge
+        # specialist): empty when nothing retrieved, populated + capped otherwise.
+        from Intelligence.knowledge.knowledge_agent import build_reference_block
+        check('ref block empty on no hits', build_reference_block([]) == '')
+        ref_hits = agent.retrieve('cửa thoát hiểm rộng bao nhiêu?', top_k=3)
+        block = build_reference_block(ref_hits, excerpt_chars=500, max_items=2)
+        check('ref block has source + guidance',
+              'fire.md' in block and 'reference material' in block.lower()
+              and '800 mm' in block, block[:80])
+        check('ref block caps items',
+              block.count('] fire.md') <= 2, block)
+
         res2 = agent.answer('chủ đề hoàn toàn khác biệt xyz', [], chat_fn)
         check('no hits status', res2['status'] == 'no_hits', res2)
 
