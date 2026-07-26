@@ -458,6 +458,108 @@ def openai_chat_agent(url, headers, model, system_prompt, messages, tools,
     }
 
 
+def openai_chat_agent_stream(url, headers, model, system_prompt, messages, tools,
+                             max_tokens=1500, timeout_ms=180000, on_delta=None,
+                             extra_payload=None):
+    """Streaming variant of openai_chat_agent for OpenAI-compatible servers.
+
+    Streams visible text through on_delta as it arrives AND accumulates the
+    tool_call deltas (which arrive fragmented by index, with `arguments`
+    streamed as partial JSON strings) into whole calls. Returns the same
+    uniform chat_agent dict. Raises on transport failure so callers can fall
+    back to the blocking openai_chat_agent.
+    """
+    msgs = []
+    if system_prompt:
+        msgs.append({"role": "system", "content": system_prompt})
+    msgs.extend(list(messages or []))
+
+    payload = {"model": model, "messages": msgs,
+               "max_tokens": max_tokens, "stream": True}
+    if tools:
+        payload["tools"] = tools
+    if extra_payload:
+        payload.update(extra_payload)
+
+    state = {"text": [], "tool": {}, "order": [], "finish": None}
+
+    def _on_line(line):
+        if not line:
+            return
+        line = line.strip()
+        if not line.startswith("data:"):
+            return
+        data = line[5:].strip()
+        if not data or data == "[DONE]":
+            return
+        try:
+            obj = json.loads(data)
+        except Exception:
+            return
+        choices = obj.get("choices") or []
+        if not choices:
+            return
+        ch    = choices[0]
+        delta = ch.get("delta") or {}
+
+        c = delta.get("content")
+        if c:
+            state["text"].append(c)
+            if on_delta:
+                try:
+                    on_delta(c)
+                except Exception:
+                    pass
+
+        for tc in (delta.get("tool_calls") or []):
+            idx  = tc.get("index", 0)
+            slot = state["tool"].get(idx)
+            if slot is None:
+                slot = {"id": tc.get("id", ""), "name": u"", "args": []}
+                state["tool"][idx] = slot
+                state["order"].append(idx)
+            if tc.get("id"):
+                slot["id"] = tc["id"]
+            fn = tc.get("function") or {}
+            if fn.get("name"):
+                slot["name"] = fn["name"]
+            if fn.get("arguments"):
+                slot["args"].append(fn["arguments"])
+
+        if ch.get("finish_reason"):
+            state["finish"] = ch["finish_reason"]
+
+    http_post_stream(url, payload, headers, _on_line, timeout_ms=timeout_ms)
+
+    raw_text = u"".join(state["text"])
+    text     = re.sub(r"<think>[\s\S]*?</think>", "", raw_text).strip()
+
+    tool_calls = []
+    raw_calls  = []
+    for idx in state["order"]:
+        slot     = state["tool"][idx]
+        args_str = u"".join(slot["args"])
+        try:
+            args = json.loads(args_str) if args_str.strip() else {}
+        except Exception:
+            args = {}
+        tool_calls.append({"id": slot["id"], "name": slot["name"], "args": args})
+        raw_calls.append({"id": slot["id"], "type": "function",
+                          "function": {"name": slot["name"],
+                                       "arguments": args_str or "{}"}})
+
+    assistant_msg = {"role": "assistant", "content": raw_text or None}
+    if raw_calls:
+        assistant_msg["tool_calls"] = raw_calls
+
+    return {
+        "text":          text,
+        "tool_calls":    tool_calls,
+        "assistant_msg": assistant_msg,
+        "stop_reason":   "tool_use" if tool_calls else (state["finish"] or "end_turn"),
+    }
+
+
 def openai_agent_tool_results(tool_calls, result_strs):
     """OpenAI format: one role:"tool" message per call, matched by id.
 

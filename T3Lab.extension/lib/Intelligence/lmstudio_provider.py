@@ -17,6 +17,7 @@ import json
 
 from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_get,
                                        http_get_auth, openai_chat_agent,
+                                       openai_chat_agent_stream,
                                        openai_agent_tool_results,
                                        local_sampling_params, is_reasoning_model)
 
@@ -289,13 +290,24 @@ class LMStudioProvider(BaseLLMProvider):
             max_tokens = max(int(max_tokens), self.REASONING_MIN_TOKENS)
         extra = dict(local_sampling_params(model))   # temperature/top_p/top_k/min_p
 
+        endpoint = self._get_chat_endpoint()
+        headers  = self._auth_headers()
+
+        # Stream first for a live typing effect; any transport/parse failure
+        # falls back to a single blocking call so a stream-averse server or
+        # proxy never breaks the turn.
         try:
             self._clear_error()
+            return openai_chat_agent_stream(
+                endpoint, headers, model, system_prompt, messages, tools,
+                max_tokens, on_delta=on_delta, extra_payload=extra)
+        except Exception as ex:
+            self._debug_log(u"chat_agent stream failed, blocking: {}".format(ex))
+
+        try:
             return openai_chat_agent(
-                self._get_chat_endpoint(),
-                self._auth_headers(),
-                model, system_prompt, messages, tools, max_tokens,
-                extra_payload=extra)
+                endpoint, headers, model, system_prompt, messages, tools,
+                max_tokens, extra_payload=extra)
         except Exception as ex:
             self._record_error(u"chat_agent() failed: {}".format(ex))
             return None

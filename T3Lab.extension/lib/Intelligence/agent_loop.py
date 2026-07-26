@@ -53,8 +53,13 @@ def _result_to_json(result):
     return s
 
 
-def _sanitize_history(history, limit=16):
-    """Reduce persisted chat history to plain-text user/assistant messages."""
+def _sanitize_history(history, limit=24):
+    """Reduce persisted chat history to plain-text user/assistant messages.
+
+    24 turns (was 16) gives the agent stronger multi-turn continuity. It stays
+    affordable: Claude re-reads the transcript prefix from the prompt cache,
+    and Ollama's num_ctx is sized to fit the actual payload per request.
+    """
     out = []
     for h in (history or [])[-limit:]:
         role    = h.get("role", "")
@@ -389,7 +394,28 @@ Several documents can be open in this Revit session; every tool operates on the 
 """
 
 
-def build_agent_system_prompt(revit_context=u""):
-    """System prompt for the native tool-calling agent path."""
+# Compact few-shot for LOCAL models on the DEFAULT (no-specialist) path.
+# Cloud models follow the prose rules above reliably; small local models pick
+# the right tool far more often when shown a couple of concrete traces. The
+# per-specialist paths carry their own few-shot; this fills the general path.
+_LOCAL_GENERAL_FEWSHOT = u"""
+## Examples (follow this tool-calling style)
+User: "có bao nhiêu cửa?" -> call ai_element_filter(category="Doors"); read total_count; reply "Model có 84 cửa."
+User: "chọn các element đang chọn và ẩn đi" -> call revit_get_selected_elements FIRST; then operate_element(action="hide", element_ids=[...]); reply what was hidden.
+User: "tô đỏ tường" -> call revit_override_color(category="Walls", color="red") ONE time (server collects every wall, no ids, no limit); reply "Đã tô đỏ 128 tường."
+User: "mở batchout" -> call open_t3lab_tool(tool_intent="open_batchout") LAST and stop.
+Rules shown above still apply: query before you modify, numbers come from tool fields (total_count/...), never invent a tool or a result.
+"""
+
+
+def build_agent_system_prompt(revit_context=u"", local=False):
+    """System prompt for the native tool-calling agent path.
+
+    local=True appends a compact few-shot trace — small local models select
+    tools far more accurately from concrete examples than from prose alone.
+    """
     ctx = revit_context.strip() if revit_context else u"(no context snapshot available)"
-    return _AGENT_PROMPT.format(context=ctx)
+    prompt = _AGENT_PROMPT.format(context=ctx)
+    if local:
+        prompt += u"\n" + _LOCAL_GENERAL_FEWSHOT
+    return prompt

@@ -2123,6 +2123,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("_request_stop error: {}".format(ex))
 
+    @staticmethod
+    def _quality_mode_on():
+        """True when the Opus-parity / maximum-quality switch is enabled."""
+        try:
+            from config.settings import get_settings
+            return bool(get_settings().is_quality_mode_enabled())
+        except Exception:
+            return False
+
     def _safe_update_typing_text(self, text):
         """Thread-safe update of the typing indicator text."""
         def action():
@@ -2182,14 +2191,25 @@ class T3LabAssistantWindow(forms.WPFWindow):
             
             # Select Vietnamese text if the input was Vietnamese, else English
             is_vn = _is_viet_text(self._last_raw)
-            
+
+            # Quality mode = extended reasoning (Claude adaptive thinking /
+            # Qwen3 thinking). Surface it so the extra latency reads as the
+            # model thinking deeply, not as a stall.
+            if self._quality_mode_on():
+                if self._typing_elapsed < 2:
+                    txt = u"● ● ●  Đang suy luận sâu..." if is_vn else "● ● ●  Reasoning deeply..."
+                else:
+                    txt = u"● ● ●  Đang suy luận & xử lý..." if is_vn else "● ● ●  Thinking it through..."
+                self._typing_text_block.Text = txt
+                return
+
             if self._typing_elapsed < 1:
                 txt = u"● ● ●  Đang đọc dữ liệu Revit..." if is_vn else "● ● ●  Reading Revit data..."
             elif self._typing_elapsed < 3:
                 txt = u"● ● ●  Đang phân tích yêu cầu..." if is_vn else "● ● ●  Formulating response..."
             else:
                 txt = u"● ● ●  Đang phản hồi..." if is_vn else "● ● ●  Responding..."
-                
+
             self._typing_text_block.Text = txt
         except Exception:
             pass
@@ -5588,7 +5608,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 spec, ctx, project_instructions=_proj_instructions,
                 skills_block=_skills_block, local=_is_local)
         else:
-            system_prompt = build_agent_system_prompt(ctx)
+            system_prompt = build_agent_system_prompt(ctx, local=_is_local)
             if _proj_instructions:
                 system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
             if _skills_block:

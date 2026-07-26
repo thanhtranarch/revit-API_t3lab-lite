@@ -18,6 +18,7 @@ import os
 import sys
 
 from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_get,
+                                       http_post_stream,
                                        local_sampling_params, is_reasoning_model)
 
 
@@ -268,7 +269,6 @@ class OllamaProvider(BaseLLMProvider):
         payload = {
             "model":      model,
             "messages":   msgs,
-            "stream":     False,
             "keep_alive": "15m",
             "options":    opts,
         }
@@ -278,40 +278,95 @@ class OllamaProvider(BaseLLMProvider):
         # so they count against num_ctx — size the window after adding them.
         payload["options"]["num_ctx"] = self._num_ctx_for(payload, max_tokens)
 
+        url = self._get_host() + "/api/chat"
+
+        # Qwen3-class models think by default. Quality mode keeps that deep
+        # reasoning; normal mode turns it OFF for reasoning models — faster
+        # replies AND steadier tool-call JSON (no rambling <think> before the
+        # call). Only sent for reasoning models, and ONLY on the streaming
+        # payload: the blocking fallback omits it so an older Ollama that
+        # rejects the `think` field still recovers.
+        think_val = None
+        if is_reasoning_model(model):
+            think_val = bool(self._quality_mode())
+
+        # ── Streaming attempt (NDJSON, one JSON object per line) ──────────────
+        # Ollama streams message.content deltas for a live typing effect and
+        # emits tool_calls in a chunk near the end. Any failure falls through
+        # to the blocking call below so a stream-averse setup still works.
         try:
-            resp_text = http_post(
-                self._get_host() + "/api/chat",
-                payload,
-                timeout_ms=180000,
-            )
+            stream_payload = dict(payload)
+            stream_payload["stream"] = True
+            if think_val is not None:
+                stream_payload["think"] = think_val
+            state = {"content": [], "tool_calls": []}
+
+            def _on_line(line, _st=state):
+                if not line:
+                    return
+                try:
+                    obj = json.loads(line.strip())
+                except Exception:
+                    return
+                msg = obj.get("message") or {}
+                piece = msg.get("content") or u""
+                if piece:
+                    _st["content"].append(piece)
+                    if on_delta:
+                        try:
+                            on_delta(piece)
+                        except Exception:
+                            pass
+                if msg.get("tool_calls"):
+                    _st["tool_calls"].extend(msg["tool_calls"])
+
+            http_post_stream(url, stream_payload, on_line=_on_line,
+                             timeout_ms=180000)
+            if state["content"] or state["tool_calls"]:
+                full_msg = {"role": "assistant",
+                            "content": u"".join(state["content"]),
+                            "tool_calls": state["tool_calls"]}
+                return self._assemble_agent_result(full_msg)
+        except Exception as ex:
+            self._debug_log("chat_agent stream failed, blocking: {}".format(ex))
+
+        # ── Blocking fallback ────────────────────────────────────────────────
+        try:
+            block_payload = dict(payload)
+            block_payload["stream"] = False
+            resp_text = http_post(url, block_payload, timeout_ms=180000)
             data = json.loads(resp_text)
-            msg  = data.get("message", {}) or {}
-
-            text = msg.get("content") or u""
-            import re as _re
-            text = _re.sub(r"<think>[\s\S]*?</think>", "", text).strip()
-
-            tool_calls = []
-            for c in (msg.get("tool_calls") or []):
-                fn   = c.get("function", {}) or {}
-                args = fn.get("arguments")
-                if not isinstance(args, dict):
-                    try:
-                        args = json.loads(args) if args else {}
-                    except Exception:
-                        args = {}
-                tool_calls.append({"id": "", "name": fn.get("name", ""),
-                                   "args": args})
-
-            return {
-                "text":          text,
-                "tool_calls":    tool_calls,
-                "assistant_msg": msg,
-                "stop_reason":   "tool_use" if tool_calls else "end_turn",
-            }
+            return self._assemble_agent_result(data.get("message", {}) or {})
         except Exception as ex:
             self._debug_log("chat_agent() failed: {}".format(ex))
             return None
+
+    @staticmethod
+    def _assemble_agent_result(msg):
+        """Build the uniform chat_agent dict from an Ollama assistant message
+        (used by both the streaming and blocking paths)."""
+        import re as _re
+        text = msg.get("content") or u""
+        text = _re.sub(r"<think>[\s\S]*?</think>", "", text).strip()
+
+        tool_calls = []
+        for c in (msg.get("tool_calls") or []):
+            fn   = c.get("function", {}) or {}
+            args = fn.get("arguments")
+            if not isinstance(args, dict):
+                try:
+                    args = json.loads(args) if args else {}
+                except Exception:
+                    args = {}
+            tool_calls.append({"id": "", "name": fn.get("name", ""),
+                               "args": args})
+
+        return {
+            "text":          text,
+            "tool_calls":    tool_calls,
+            "assistant_msg": msg,
+            "stop_reason":   "tool_use" if tool_calls else "end_turn",
+        }
 
     @staticmethod
     def agent_tool_results(tool_calls, result_strs):
