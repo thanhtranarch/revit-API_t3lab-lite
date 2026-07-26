@@ -455,9 +455,32 @@ class ExportManagerWindow(forms.WPFWindow):
             self.modeless = detect_persistent_engine()
 
             # Modeless support: window no longer blocks Revit, so export and
-            # transaction work must be marshalled back into API context
+            # transaction work must be marshalled back into API context via
+            # this ExternalEvent. It is used ONLY on the modeless path
+            # (see _run_in_api_context); modal mode marshals through the
+            # Dispatcher and never touches it.
             self._api_handler = BatchOutEventHandler(logger)
-            self._api_event = ExternalEvent.Create(self._api_handler)
+            self._api_event = None
+            if self.modeless:
+                # ExternalEvent.Create() only succeeds inside a valid Revit API
+                # context — i.e. a pushbutton command executing on the UI
+                # thread. When this window is constructed from a NON-command
+                # context — the docked T3Lab Assistant pane's message handler,
+                # or the Assistant's background direct-export thread — Create
+                # throws "Attempting to create an ExternalEvent outside of a
+                # standard API execution" and the whole launch dies before the
+                # window ever appears. Degrade to modal (which needs no
+                # ExternalEvent) instead of hard-crashing. Mirrors
+                # server.ensure_external_event(), which returns the error
+                # rather than letting Create escape.
+                try:
+                    self._api_event = ExternalEvent.Create(self._api_handler)
+                except Exception as ee_ex:
+                    logger.debug(
+                        "ExternalEvent.Create unavailable (window constructed "
+                        "outside API context) — falling back to modal: "
+                        "{}".format(ee_ex))
+                    self.modeless = False
 
             self.all_sheets = []
             self.filtered_sheets = []
