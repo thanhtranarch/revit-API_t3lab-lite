@@ -49,7 +49,7 @@ class BM25Index(object):
         self.remove_document(doc_id)
         for chunk in chunks:
             key = make_chunk_key(doc_id, chunk["page"], chunk["seq"])
-            tokens = vi_text.tokenize(chunk["text"])
+            tokens = vi_text.tokenize(chunk["text"], bigrams=True)
             if not tokens:
                 continue
             self.doclen[key] = len(tokens)
@@ -101,7 +101,7 @@ class BM25Index(object):
         allowed_docs: optional set of doc_ids — restrict scoring to chunks
         of those documents (used for attached-file retrieval).
         """
-        terms = vi_text.tokenize(query_text)
+        terms = vi_text.tokenize(query_text, bigrams=True)
         n = len(self.doclen)
         if not terms or not n:
             return []

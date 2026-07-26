@@ -62,22 +62,30 @@ _STOPWORDS_EN = frozenset([
 _STOPWORDS = _STOPWORDS_VI | _STOPWORDS_EN
 
 
-def tokenize(text):
+def tokenize(text, bigrams=False):
     """lower + fold diacritics + split on non-alphanumerics + drop short/stop.
 
     Returns a list of folded lowercase tokens (len >= 2, no stopwords).
+
+    bigrams=True additionally appends adjacent word bigrams ("lan_can",
+    "chieu_cao") after the unigrams. Vietnamese words are multi-syllable and
+    written space-separated ("tường chịu lực", "dầm sàn"); indexing bigrams
+    lets BM25 reward true phrase matches, not just scattered syllables — a
+    large precision gain that needs no embeddings, so it helps EVERY model.
     """
     if not text:
         return []
     folded = fold_diacritics(text).lower()
-    out = []
-    for tok in _SPLIT_RE.split(folded):
-        if len(tok) < 2:
-            continue
-        if tok in _STOPWORDS:
-            continue
-        out.append(tok)
-    return out
+    raw = [t for t in _SPLIT_RE.split(folded) if len(t) >= 2]
+    unigrams = [t for t in raw if t not in _STOPWORDS]
+    if not bigrams:
+        return unigrams
+    # Bigrams form from the RAW sequence (stopwords included) so a phrase
+    # stays connected even through a syllable that happens to be a stopword —
+    # e.g. Vietnamese "lan can" (railing) keeps the bigram "lan_can" although
+    # "can" collides with the English stopword and is dropped as a unigram.
+    grams = [raw[i] + u'_' + raw[i + 1] for i in range(len(raw) - 1)]
+    return unigrams + grams
 
 
 def word_match_score(a_tokens, b_tokens):

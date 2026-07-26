@@ -60,6 +60,15 @@ def test_vi_text():
     check('word_match_score partial', 0.7 < s <= 1.0, s)
     check('word_match_score empty', vi_text.word_match_score([], ['a']) == 0.0)
 
+    # bigram tokens (BM25 index/query use these) — unigrams preserved, adjacent
+    # bigrams appended; the default (unigram-only) path is unchanged.
+    bg = vi_text.tokenize('chiều cao lan can', bigrams=True)
+    check('bigram keeps unigrams', 'lan' in bg and 'cao' in bg, repr(bg))
+    check('bigram adjacency', 'lan_can' in bg and 'chieu_cao' in bg, repr(bg))
+    check('bigram bridges stopword-collision', 'lan_can' in bg, repr(bg))
+    check('default has no bigram',
+          '_' not in ''.join(vi_text.tokenize('chiều cao lan can')), repr(bg))
+
 
 # ─── chunker ──────────────────────────────────────────────────────────────────
 
@@ -147,6 +156,18 @@ def test_bm25():
     check('remove_document size', idx.size == 2, idx.size)
     check('removed doc unfindable', not any(
         k.startswith('d_aaa#') for k, _ in idx.search('lan can', top_k=5)))
+
+    # bigram precision: the chunk with the exact PHRASE must beat the one that
+    # only has the words scattered — the win a unigram-only index can't make.
+    pidx = BM25Index()
+    pidx.add_document('d_phrase', [
+        {'page': 1, 'seq': 0, 'text': 'Yêu cầu tường chịu lực dày 220 mm.'},
+        {'page': 1, 'seq': 1,
+         'text': 'Bức tường ngăn không chịu tải, lực gió tính riêng.'},
+    ])
+    ph = pidx.search('tường chịu lực', top_k=2)
+    check('bigram phrase wins',
+          ph and ph[0][0] == make_chunk_key('d_phrase', 1, 0), ph)
 
 
 # ─── embeddings ───────────────────────────────────────────────────────────────
