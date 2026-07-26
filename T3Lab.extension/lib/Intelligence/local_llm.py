@@ -17,13 +17,19 @@ __title__   = "Local LLM"
 """Quick start
 -----------
 1. Install Ollama:  https://ollama.ai
-2. Pull a model:
-       ollama pull qwen2.5:0.5b      # ~400 MB  fastest
-       ollama pull qwen2.5:1.5b      # ~1.0 GB  balanced
-       ollama pull llama3.2:1b       # ~1.3 GB  good
-       ollama pull phi3:mini         # ~2.3 GB  best quality
+2. Pull a model. For the AGENTIC assistant (tool-calling) pick Qwen3 by VRAM —
+   avoid <4B for multi-tool work, they misfire tools:
+       ollama pull qwen3:4b          # ~2.7 GB  6-8 GB VRAM  (floor)
+       ollama pull qwen3:8b          # ~5.2 GB  8-12 GB VRAM (balanced)
+       ollama pull qwen3:14b         # ~9.3 GB  12-16 GB VRAM ★ sweet spot
+       ollama pull qwen3:30b-a3b     # ~19 GB   24-32 GB VRAM (MoE: fast + smart)
+   Tiny models (qwen3:1.7b, qwen2.5:0.5b) are fine only for the lightweight
+   NLU/intent path, not for reliable agentic tool-calling.
+   Measure on YOUR hardware:  python3 dev/bench_local_models.py
 3. Start Ollama (it auto-starts on most systems after install).
 4. Open T3Lab Assistant — the "LOCAL" badge will appear in the header.
+   Turn on Settings → "Maximum quality" to auto-pick the strongest installed
+   model and enable deep thinking.
 
 Environment variable
 --------------------
@@ -67,19 +73,30 @@ OLLAMA_HOST    = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 TIMEOUT_GEN    = 60   # seconds — generation call
 TIMEOUT_PROBE  = 3    # seconds — availability ping
 
-# Preferred models smallest/fastest first.
-# T3Lab Assistant will pick the first one that is installed.
+# Auto-pick order for the DEFAULT (non-quality) path: smallest/fastest first,
+# used mainly by the lightweight NLU/intent fallback. The agentic assistant
+# prefers an explicit user choice, and quality mode uses capability scoring
+# (get_best_model(prefer_capable=True), which ranks reasoning family + size),
+# so this list only needs to name-recognize the common local models —
+# including Qwen3, the recommended family for tool-calling.
 PREFERRED_MODELS = [
     "qwen2.5:0.5b",
+    "qwen3:0.6b",
     "qwen2.5:1.5b",
+    "qwen3:1.7b",
     "llama3.2:1b",
     "phi3:mini",
     "gemma2:2b",
     "qwen2.5:3b",
+    "qwen3:4b",
     "llama3.2:3b",
     "mistral:7b",
     "qwen2.5:7b",
+    "qwen3:8b",
     "llama3:8b",
+    "qwen3:14b",
+    "qwen3:30b-a3b",
+    "qwen3:32b",
 ]
 
 # ─── System prompt (tuned for small models: concise, structured) ───────────────
