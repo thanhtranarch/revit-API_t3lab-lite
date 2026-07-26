@@ -15,7 +15,11 @@ __title__  = "LM Studio Provider"
 
 import json
 
-from Intelligence.llm_provider import BaseLLMProvider, http_post, http_get, http_get_auth
+from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_get,
+                                       http_get_auth, openai_chat_agent,
+                                       openai_chat_agent_stream,
+                                       openai_agent_tool_results,
+                                       local_sampling_params, is_reasoning_model)
 
 DEFAULT_HOST = "http://localhost:1234"
 
@@ -23,9 +27,17 @@ DEFAULT_HOST = "http://localhost:1234"
 class LMStudioProvider(BaseLLMProvider):
     """Adapter for LM Studio (OpenAI-compatible local server)."""
 
-    NAME            = "lmstudio"
-    DISPLAY_NAME    = "LM Studio"
-    SUPPORTS_VISION = False
+    NAME                  = "lmstudio"
+    DISPLAY_NAME          = "LM Studio"
+    SUPPORTS_VISION       = False
+    SUPPORTS_NATIVE_TOOLS = True    # OpenAI-compatible /v1/chat/completions tools;
+                                    # a model that ignores tools fails turn 1 →
+                                    # caller falls back to the JSON-intent path
+
+    # Reasoning models spend a turn inside <think>…</think> before the tool
+    # call or answer — give them real room so max_tokens doesn't truncate the
+    # reply before the model reaches its tool call.
+    REASONING_MIN_TOKENS = 4096
 
     def __init__(self):
         self._model = None        # None → use whatever is loaded in LM Studio
@@ -251,3 +263,53 @@ class LMStudioProvider(BaseLLMProvider):
             return content if content else None
         except Exception:
             return None
+
+    # ── Agentic chat (native tool calling, blocking) ──────────────────────────
+
+    def chat_agent(self, system_prompt, messages, tools,
+                   on_delta=None, max_tokens=1500, **kwargs):
+        """One agentic turn via the OpenAI-compatible /v1/chat/completions
+        `tools` parameter. Blocking — the agent loop surfaces text itself.
+
+        Reuses the shared OpenAI agent helper (same wire format) but injects
+        reasoning-model sampling and a widened token budget so Qwen3-class
+        local models don't collapse into repetition or truncate mid-think.
+        Returns None when the server is unreachable / no model loaded, so the
+        agent loop cleanly falls back to the JSON-intent path.
+        """
+        model = self._model or self.get_active_model()
+        if not model:
+            return None
+
+        # LM Studio's tools API lives on the OpenAI-compatible endpoint; the
+        # native /api/v1/chat flavour does not accept `tools` the same way.
+        if getattr(self, "_api_prefix", "/v1") != "/v1":
+            return None
+
+        if is_reasoning_model(model):
+            max_tokens = max(int(max_tokens), self.REASONING_MIN_TOKENS)
+        extra = dict(local_sampling_params(model))   # temperature/top_p/top_k/min_p
+
+        endpoint = self._get_chat_endpoint()
+        headers  = self._auth_headers()
+
+        # Stream first for a live typing effect; any transport/parse failure
+        # falls back to a single blocking call so a stream-averse server or
+        # proxy never breaks the turn.
+        try:
+            self._clear_error()
+            return openai_chat_agent_stream(
+                endpoint, headers, model, system_prompt, messages, tools,
+                max_tokens, on_delta=on_delta, extra_payload=extra)
+        except Exception as ex:
+            self._debug_log(u"chat_agent stream failed, blocking: {}".format(ex))
+
+        try:
+            return openai_chat_agent(
+                endpoint, headers, model, system_prompt, messages, tools,
+                max_tokens, extra_payload=extra)
+        except Exception as ex:
+            self._record_error(u"chat_agent() failed: {}".format(ex))
+            return None
+
+    agent_tool_results = staticmethod(openai_agent_tool_results)

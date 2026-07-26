@@ -135,6 +135,34 @@ class KnowledgeAgent(object):
         return {"status": "done", "text": text, "citations": citations}
 
 
+def build_reference_block(hits, excerpt_chars=800, max_items=3):
+    """Format retrieved excerpts as a compact grounding block for the tool-
+    calling agent (general/data/action/... specialists), NOT the knowledge
+    specialist.
+
+    Returns a system-prompt fragment, or '' when there is nothing to inject.
+    The header tells the agent to FOLLOW these documented standards when the
+    request touches them (and name the source), but to ignore them when
+    irrelevant — so a stray lexical hit on an unrelated command is harmless.
+    """
+    if not hits:
+        return u''
+    lines = [
+        u"## Project reference material (from the knowledge base)",
+        u"When the request involves a documented standard, dimension, code "
+        u"or rule below, FOLLOW it and name the source file in your reply. "
+        u"If these excerpts are not relevant to the request, ignore them. "
+        u"Never invent a standard that is not shown here.",
+    ]
+    for i, hit in enumerate(hits[:max_items]):
+        page_note = (u" — p.{}".format(hit['page'])
+                     if hit.get('page') else u"")
+        lines.append(u"[{}] {}{}:\n{}".format(
+            i + 1, hit.get('file', '?'), page_note,
+            (hit.get('text') or u'')[:excerpt_chars]))
+    return u"\n\n".join(lines)
+
+
 def format_citation_line(citations):
     """Compact markdown sources line appended under the answer."""
     if not citations:

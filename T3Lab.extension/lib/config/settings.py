@@ -84,6 +84,7 @@ class T3LabAISettings(object):
             'agents': {
                 'multi_agent':  True,
                 'llm_classify': True,
+                'quality_mode': False,
             },
             'skills': {
                 'disabled': [],
@@ -231,6 +232,16 @@ class T3LabAISettings(object):
     def is_llm_classify_enabled(self):
         """Whether the dispatcher may use one small LLM call to classify."""
         return bool(self._settings.get('agents', {}).get('llm_classify', True))
+
+    def is_quality_mode_enabled(self):
+        """Opus-parity switch (default off — trades cost/latency for depth).
+
+        When on, the Claude provider prefers the most capable model for the
+        default (Opus > Sonnet > Haiku), turns extended thinking on for agent
+        turns, and raises the agentic token ceiling. Tiny utility calls
+        (classification) pin a fast model via model_override and are unaffected.
+        """
+        return bool(self._settings.get('agents', {}).get('quality_mode', False))
 
     def get_action_mode(self):
         """Harness action mode for model-editing tools.

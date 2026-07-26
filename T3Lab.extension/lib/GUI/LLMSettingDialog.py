@@ -93,9 +93,10 @@ class LLMSettingWindow(forms.WPFWindow):
 
     def __init__(self):
         self._ui_ready     = False   # guards tab_changed during XAML load
-        self._action_guard = False   # guards action_mode_toggled re-entry
-        self._think_guard  = False   # guards extended_thinking_toggled re-entry
-        self._embed_guard  = False   # guards knowledge_embed_toggled re-entry
+        self._action_guard  = False  # guards action_mode_toggled re-entry
+        self._think_guard   = False  # guards extended_thinking_toggled re-entry
+        self._quality_guard = False  # guards quality_mode_toggled re-entry
+        self._embed_guard   = False  # guards knowledge_embed_toggled re-entry
         self._kn_scan_busy = False
 
         forms.WPFWindow.__init__(self, _XAML)
@@ -679,6 +680,15 @@ class LLMSettingWindow(forms.WPFWindow):
             pass
         finally:
             self._think_guard = False
+        try:
+            from config.settings import get_settings
+            self._quality_guard = True
+            self.quality_mode_toggle.IsChecked = bool(
+                get_settings().is_quality_mode_enabled())
+        except Exception:
+            pass
+        finally:
+            self._quality_guard = False
 
     def save_username_clicked(self, sender, e):
         name = (self.username_box.Text or u"").strip()
@@ -713,6 +723,22 @@ class LLMSettingWindow(forms.WPFWindow):
                 bool(self.extended_thinking_toggle.IsChecked))
         except Exception as ex:
             logger.debug("extended_thinking_toggled error: {}".format(ex))
+
+    def quality_mode_toggled(self, sender, e):
+        """Persist the Opus-parity (maximum quality) switch.
+
+        When on, the Claude provider defaults to the most capable model,
+        forces deep reasoning on agent turns, and widens the token ceiling.
+        """
+        if getattr(self, '_quality_guard', False):
+            return
+        try:
+            from config.settings import get_settings
+            get_settings().set_agent_option(
+                'quality_mode',
+                bool(self.quality_mode_toggle.IsChecked))
+        except Exception as ex:
+            logger.debug("quality_mode_toggled error: {}".format(ex))
 
     def open_data_dir_clicked(self, sender, e):
         """Open %APPDATA%/T3LabAI in Explorer."""
