@@ -229,8 +229,12 @@ class AgentDispatcher(object):
         except Exception:
             fast = None
         try:
+            # response_format is required now that Ollama's JSON grammar is
+            # opt-in rather than hardcoded on — this stage json.loads() the
+            # reply below. Cloud providers accept and ignore it.
             raw = provider.chat([], system, text or '', max_tokens=60,
-                                temperature=0.0, model_override=fast)
+                                temperature=0.0, model_override=fast,
+                                response_format={"type": "json_object"})
         except TypeError:
             try:
                 raw = provider.chat([], system, text or '', 60)

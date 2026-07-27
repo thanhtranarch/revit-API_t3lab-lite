@@ -83,15 +83,31 @@ class OllamaProvider(BaseLLMProvider):
         except Exception:
             return None
 
+    def _configured_host(self):
+        """Host saved in settings.json, else local_llm's env-backed default.
+
+        Mirrors LMStudioProvider._configured_host. Without this, a custom
+        Ollama URL lived only in memory: set_host() set an attribute nobody
+        persisted, so the setting was lost on restart and the dialog always
+        redisplayed http://localhost:11434.
+        """
+        host = None
+        try:
+            from config.settings import T3LabAISettings
+            host = T3LabAISettings().get_api_key("Ollama_Host")
+        except Exception:
+            host = None
+        if not host:
+            mod = self._local_llm()
+            host = mod.OLLAMA_HOST if mod else "http://localhost:11434"
+        return host.rstrip("/") if host else host
+
     def _get_host(self):
-        mod = self._local_llm()
-        return self._active_host or self._host or (
-            mod.OLLAMA_HOST if mod else "http://localhost:11434")
+        return self._active_host or self._host or self._configured_host()
 
     def _candidate_hosts(self):
         """Hosts to try, in order: explicit/configured → 127.0.0.1 → localhost."""
-        mod = self._local_llm()
-        cfg = self._host or (mod.OLLAMA_HOST if mod else None)
+        cfg = self._host or self._configured_host()
         out = []
         for h in (cfg, "http://127.0.0.1:11434", "http://localhost:11434"):
             if h:
@@ -155,32 +171,60 @@ class OllamaProvider(BaseLLMProvider):
         if self._model:
             return self._model
         mod = self._local_llm()
-        if mod:
-            try:
-                return mod.get_best_model(prefer_capable=self._quality_mode())
-            except TypeError:
-                # Older local_llm without the prefer_capable kwarg.
-                return mod.get_best_model()
-            except Exception:
-                pass
-        return None
+        if not mod:
+            return None
+        # Rank the models installed on the host WE are configured for.
+        # local_llm.get_best_model() re-discovers via its module-level
+        # OLLAMA_HOST constant, so with a remote Ollama it queried localhost,
+        # found nothing, and returned None — while check_health() (which does
+        # honour _candidate_hosts) reported a green "Ready" dot.
+        try:
+            _host, names = self._probe_tags()
+            if names:
+                return mod.pick_best(names,
+                                     prefer_capable=self._quality_mode())
+        except AttributeError:
+            pass          # older local_llm without pick_best
+        except Exception:
+            pass
+        try:
+            return mod.get_best_model(prefer_capable=self._quality_mode())
+        except TypeError:
+            # Older local_llm without the prefer_capable kwarg.
+            return mod.get_best_model()
+        except Exception:
+            return None
 
     def set_model(self, model_name):
         self._model = model_name
         return True
 
     def reload_credentials(self):
-        """No-op — Ollama needs no credentials. Clears nothing."""
-        pass
+        """Re-read the configured host on the next call.
+
+        Ollama needs no API key, but it does have a saved server URL — so this
+        must drop the cached live host, exactly like LMStudioProvider does.
+        """
+        self._active_host = None
 
     def invalidate_models_cache(self):
         """No-op — Ollama always fetches live from /api/tags."""
         pass
 
     def set_host(self, host):
-        """Override the Ollama server URL (e.g. 'http://192.168.1.10:11434')."""
+        """Override the Ollama server URL (e.g. 'http://192.168.1.10:11434').
+
+        Persists to settings.json so the choice survives a Revit restart.
+        Doing the write HERE (rather than in the settings dialog) means no
+        caller can accidentally take an in-memory-only path.
+        """
         self._host = host
         self._active_host = None   # re-probe with the new host on next check
+        try:
+            from config.settings import T3LabAISettings
+            T3LabAISettings().set_api_key("Ollama_Host", host)
+        except Exception:
+            pass
 
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """
@@ -215,7 +259,6 @@ class OllamaProvider(BaseLLMProvider):
             "model":      model,
             "messages":   msgs,
             "stream":     False,
-            "format":     "json",
             # Keep the model resident between requests — reloading a local
             # model costs multi-second latency on every cold call.
             "keep_alive": "15m",
@@ -224,6 +267,15 @@ class OllamaProvider(BaseLLMProvider):
                 "num_predict": max_tokens,
             },
         }
+        # JSON grammar is OPT-IN, honouring the caller's response_format the
+        # same way LMStudioProvider does. It used to be hardcoded on for EVERY
+        # call, which forced JSON out of paths that need prose: Test Connection
+        # showed {"reply": "Connected OK"} instead of a sentence, the docked
+        # pane's quick-chat returned JSON, and spell-check — whose prompt asks
+        # for a line format and whose parser is a line regex — silently matched
+        # nothing and reported zero findings on Ollama.
+        if self._wants_json(kwargs.get("response_format")):
+            payload["format"] = "json"
         payload["options"]["num_ctx"] = self._num_ctx_for(payload, max_tokens)
 
         try:

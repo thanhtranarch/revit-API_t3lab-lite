@@ -129,6 +129,11 @@ class LLMSettingWindow(forms.WPFWindow):
         "ollama":   u"Ollama base URL",
         "lmstudio": u"LM Studio base URL",
     }
+    # settings.json key each local provider's server URL is stored under.
+    _HOST_KEY_MAP = {
+        "ollama":   "Ollama_Host",
+        "lmstudio": "LMStudio_Host",
+    }
 
     def __init__(self):
         self._ui_ready     = False   # guards tab_changed during XAML load
@@ -136,12 +141,31 @@ class LLMSettingWindow(forms.WPFWindow):
         self._think_guard   = False  # guards extended_thinking_toggled re-entry
         self._quality_guard = False  # guards quality_mode_toggled re-entry
         self._embed_guard   = False  # guards knowledge_embed_toggled re-entry
+        self._prov_guard    = False  # guards provider_changed re-entry
         self._kn_scan_busy = False
         self._ctx_busy = False   # guards concurrent context-digest rebuilds
+
+        # Dirty-tracking for the two editable text fields. A background probe
+        # calls _apply_provider_chrome, which used to overwrite whatever the
+        # user was typing — paste a key, wait ~5s, watch it turn back into the
+        # old masked value. Focus alone is not enough (the user can click the
+        # MODEL combo mid-edit), so the edit flag is the real guard.
+        # An int counter, not a bool, so nested programmatic writes nest.
+        self._suppress_text_dirty = 0
+        self._key_dirty  = False
+        self._host_dirty = False
+        self._chrome_provider = None   # provider the fields currently show
 
         forms.WPFWindow.__init__(self, _XAML)
         self._models_cache = {}
         self._probing = False
+        self._probe_pending = None   # at most one queued switch (last wins)
+
+        try:
+            self.api_key_box.TextChanged += self._key_box_changed
+            self.host_box.TextChanged += self._host_box_changed
+        except Exception as ex:
+            logger.debug("dirty-tracking wiring failed: {}".format(ex))
 
         self._update_instant()
         self._load_general_tab()
@@ -150,6 +174,58 @@ class LLMSettingWindow(forms.WPFWindow):
         self._load_skills_tab()
         self._ui_ready = True
         self._probe_all_async()
+
+    # ─── Threading / text-field helpers ─────────────────────────────────────
+
+    def _ui_invoke(self, fn):
+        """Marshal fn to the UI thread, tolerating a shut-down dispatcher.
+
+        Closing this window while "Checking connection…" or Test Connection is
+        in flight used to throw unhandled on a .NET background thread.
+        """
+        try:
+            self.Dispatcher.Invoke(Action(fn))
+        except Exception as ex:
+            logger.debug("_ui_invoke skipped: {}".format(ex))
+
+    def _start_worker(self, fn):
+        """Start an STA background thread. Returns False if it could not start,
+        so callers can un-latch whatever busy flag they already raised."""
+        try:
+            t = Thread(ThreadStart(fn))
+            t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+            return True
+        except Exception as ex:
+            logger.debug("_start_worker failed: {}".format(ex))
+            return False
+
+    def _key_box_changed(self, sender, e):
+        if not self._suppress_text_dirty:
+            self._key_dirty = True
+
+    def _host_box_changed(self, sender, e):
+        if not self._suppress_text_dirty:
+            self._host_dirty = True
+
+    def _set_text_quiet(self, box, text):
+        """Write to a text box without marking it user-edited."""
+        self._suppress_text_dirty += 1
+        try:
+            box.Text = text
+        finally:
+            self._suppress_text_dirty -= 1
+
+    @staticmethod
+    def _is_editing(box, dirty):
+        """True when repainting `box` would destroy user input."""
+        if dirty:
+            return True
+        try:
+            return bool(box.IsKeyboardFocusWithin)
+        except Exception:
+            return False
 
     # ─── Tabs ───────────────────────────────────────────────────────────────
 
@@ -189,6 +265,8 @@ class LLMSettingWindow(forms.WPFWindow):
     # ─── Provider / model ───────────────────────────────────────────────────
 
     def provider_changed(self, sender, e):
+        if self._prov_guard:
+            return          # programmatic repaint, not a user choice
         try:
             item = self.provider_combo.SelectedItem
             if item is None:
@@ -207,34 +285,63 @@ class LLMSettingWindow(forms.WPFWindow):
             from Intelligence.llm_router import LLMRouter
             router = LLMRouter()
             if not router.switch_provider(name):
+                # Provider failed to load — the router is still on the previous
+                # one, so repaint the combo to match reality. Otherwise the
+                # dialog shows "DeepSeek" while every later action (Save Key,
+                # Test) keys off router.get_active_name() and would write the
+                # DeepSeek key into the Claude slot.
+                self._apply_provider_chrome(router.get_active_name(),
+                                            force_fields=True)
+                self.model_saved_hint.Foreground = _RED
+                self.model_saved_hint.Text = u"That provider failed to load"
                 return
-            self._apply_provider_chrome(name)
-
-            if self._probing:
-                return
-            self._probing = True
-
-            def _bg():
-                try:
-                    router.probe_provider(name)
-                    provider = router.get_active_provider()
-                    if provider:
-                        try:
-                            self._models_cache[name] = provider.get_models()
-                        except Exception:
-                            pass
-                    self.Dispatcher.Invoke(Action(self._update_probed))
-                except Exception:
-                    pass
-                finally:
-                    self._probing = False
-
-            t = Thread(ThreadStart(_bg))
-            t.IsBackground = True
-            t.SetApartmentState(ApartmentState.STA)
-            t.Start()
+            self._apply_provider_chrome(name, force_fields=True)
+            self._start_probe(name)
         except Exception as ex:
             logger.debug("_switch_provider error: {}".format(ex))
+
+    def _start_probe(self, name):
+        """Probe one provider off-thread, queueing if another probe is running.
+
+        The old code simply returned when self._probing was set, which the
+        startup probe holds for several seconds — so switching provider right
+        after opening the window silently never loaded the new provider's
+        models and the MODEL combo stayed disabled with a valid saved key.
+        _probe_pending holds at most one name (last wins), so the chain always
+        terminates.
+        """
+        if self._probing:
+            self._probe_pending = name
+            return
+        self._probing = True
+
+        def _bg():
+            try:
+                from Intelligence.llm_router import LLMRouter
+                router = LLMRouter()
+                router.probe_provider(name)
+                # get_provider(name), NOT get_active_provider(): if the user
+                # switched again mid-probe, the latter would store the NEW
+                # provider's models under the OLD provider's cache key.
+                provider = router.get_provider(name)
+                if provider:
+                    try:
+                        self._models_cache[name] = provider.get_models()
+                    except Exception:
+                        pass
+                self._ui_invoke(self._update_probed)
+            except Exception as ex:
+                logger.debug("_start_probe error: {}".format(ex))
+            finally:
+                def _next():
+                    self._probing = False
+                    pending, self._probe_pending = self._probe_pending, None
+                    if pending:
+                        self._start_probe(pending)
+                self._ui_invoke(_next)
+
+        if not self._start_worker(_bg):
+            self._probing = False
 
     def model_changed(self, sender, e):
         try:
@@ -361,17 +468,32 @@ class LLMSettingWindow(forms.WPFWindow):
             from config.settings import T3LabAISettings
             from Intelligence.llm_router import LLMRouter
 
-            key = self.api_key_box.Text.strip()
-            if not key or key.endswith("..."):
-                return
-
+            key = (self.api_key_box.Text or u"").strip()
             router = LLMRouter()
             name = router.get_active_name()
             settings_key = self._KEY_NAME_MAP.get(name)
             if not settings_key:
                 return
 
-            T3LabAISettings().set_api_key(settings_key, key)
+            if not key:
+                self.model_saved_hint.Foreground = _RED
+                self.model_saved_hint.Text = u"Enter an API key first"
+                self._flash_saved_hint()
+                return
+
+            # The box shows a MASK of the stored key until the user types.
+            # This used to `return` silently on the mask, so pressing Save Key
+            # without retyping looked like a dead button. Re-validating the
+            # stored key is the useful thing to do — and re-saving the mask
+            # would have destroyed the real key.
+            if not self._key_dirty and key == getattr(self, '_key_mask_shown', None):
+                self.model_saved_hint.Foreground = _MUTED
+                self.model_saved_hint.Text = u"Using the saved key — checking connection…"
+            else:
+                T3LabAISettings().set_api_key(settings_key, key)
+                self._key_dirty = False
+                self.model_saved_hint.Foreground = _MUTED
+                self.model_saved_hint.Text = u"Checking connection…"
 
             provider = router.get_active_provider()
             if provider and hasattr(provider, "reload_credentials"):
@@ -383,8 +505,6 @@ class LLMSettingWindow(forms.WPFWindow):
             self.model_combo.IsEnabled = False
             self.save_model_btn.IsEnabled = False
             self.save_key_btn.IsEnabled = False
-            self.model_saved_hint.Foreground = _MUTED
-            self.model_saved_hint.Text = u"Checking connection…"
 
             def _validate():
                 ok = False
@@ -413,12 +533,13 @@ class LLMSettingWindow(forms.WPFWindow):
                         self.model_saved_hint.Text = u"✗ Invalid key or connection failed"
                     self._set_status_dot(name, ok)
 
-                self.Dispatcher.Invoke(Action(_apply))
+                self._ui_invoke(_apply)
 
-            t = Thread(ThreadStart(_validate))
-            t.IsBackground = True
-            t.SetApartmentState(ApartmentState.STA)
-            t.Start()
+            if not self._start_worker(_validate):
+                # Never leave the button latched off because a thread failed.
+                self.save_key_btn.IsEnabled = True
+                self.model_saved_hint.Foreground = _RED
+                self.model_saved_hint.Text = u"Could not start the check — try again"
         except Exception as ex:
             logger.debug("save_key_clicked error: {}".format(ex))
 
@@ -435,18 +556,21 @@ class LLMSettingWindow(forms.WPFWindow):
             router = LLMRouter()
             name = router.get_active_name()
 
-            if name == "lmstudio":
-                T3LabAISettings().set_api_key("LMStudio_Host", host)
+            # Both local providers persist their URL the same way now. Ollama
+            # used to take an in-memory-only path (provider.set_host), so the
+            # value was lost on restart and the field always redisplayed
+            # localhost — even immediately after a "successful" Save.
+            key = self._HOST_KEY_MAP.get(name)
+            if key:
+                T3LabAISettings().set_api_key(key, host)
                 provider = router.get_active_provider()
                 if provider and hasattr(provider, "reload_credentials"):
                     provider.reload_credentials()
-            elif name == "ollama":
-                provider = router.get_active_provider()
-                if provider and hasattr(provider, "set_host"):
-                    provider.set_host(host)
 
+            self._host_dirty = False
             self._models_cache.pop(name, None)
             self._update_instant()
+            self._flash_hint(self.model_saved_hint, u"✓ Server URL saved")
 
             def _probe():
                 try:
@@ -455,30 +579,38 @@ class LLMSettingWindow(forms.WPFWindow):
                     live_models = provider.get_models() if provider else []
                     if live_models:
                         self._models_cache[name] = live_models
-                    self.Dispatcher.Invoke(Action(self._update_probed))
-                except Exception:
-                    pass
+                    self._ui_invoke(self._update_probed)
+                except Exception as pex:
+                    logger.debug("host probe error: {}".format(pex))
 
-            t = Thread(ThreadStart(_probe))
-            t.IsBackground = True
-            t.SetApartmentState(ApartmentState.STA)
-            t.Start()
+            self._start_worker(_probe)
         except Exception as ex:
             logger.debug("save_host_clicked error: {}".format(ex))
 
-    def _apply_host_panel(self, name):
+    def _apply_host_panel(self, name, force_fields=False):
         try:
             if name in self._HOST_DEFAULTS:
                 self.host_panel.Visibility = Visibility.Visible
                 self.host_label.Text = self._HOST_LABELS.get(name, u"Server URL")
+                if not (force_fields or not self._is_editing(
+                        self.host_box, self._host_dirty)):
+                    return
+                if force_fields:
+                    self._host_dirty = False
                 current = u""
                 try:
-                    if name == "lmstudio":
-                        from config.settings import T3LabAISettings
-                        current = T3LabAISettings().get_api_key("LMStudio_Host") or u""
+                    # Read back BOTH local providers. Only LMStudio_Host was
+                    # read before, so a saved Ollama URL was invisible and the
+                    # field snapped back to localhost the moment you pressed
+                    # Save (save_host_clicked calls _update_instant).
+                    from config.settings import T3LabAISettings
+                    key = self._HOST_KEY_MAP.get(name)
+                    if key:
+                        current = T3LabAISettings().get_api_key(key) or u""
                 except Exception:
                     pass
-                self.host_box.Text = current or self._HOST_DEFAULTS[name]
+                self._set_text_quiet(
+                    self.host_box, current or self._HOST_DEFAULTS[name])
             else:
                 self.host_panel.Visibility = Visibility.Collapsed
         except Exception as ex:
@@ -555,16 +687,16 @@ class LLMSettingWindow(forms.WPFWindow):
                 self.test_btn.IsEnabled = True
                 self.status_text.Text = u"Ready"
 
-            self.Dispatcher.Invoke(Action(_update))
+            self._ui_invoke(_update)
 
-        t = Thread(ThreadStart(_do_test))
-        t.IsBackground = True
-        t.SetApartmentState(ApartmentState.STA)
-        t.Start()
+        if not self._start_worker(_do_test):
+            self.test_btn.IsEnabled = True
+            self.status_text.Text = u"Ready"
+            self.test_label.Text = u"Could not start the test — try again"
 
     # ─── Status dots ────────────────────────────────────────────────────────
 
-    def _set_status_dot(self, name, available):
+    def _set_status_dot(self, name, available, probed=True):
         mapping = {
             "claude":   (self.status_dot_claude,   self.status_text_claude),
             "openai":   (self.status_dot_openai,   self.status_text_openai),
@@ -580,6 +712,12 @@ class LLMSettingWindow(forms.WPFWindow):
             dot.Fill = _READY
             txt.Text = u"Ready"
             txt.Foreground = _READY
+        elif not probed:
+            # Not health-checked yet — say so rather than asserting
+            # "Not set up", which contradicted the live check moments later.
+            dot.Fill = _GRAY
+            txt.Text = u"Checking…"
+            txt.Foreground = _MUTED
         else:
             dot.Fill = _GRAY
             txt.Text = u"Not set up"
@@ -587,11 +725,22 @@ class LLMSettingWindow(forms.WPFWindow):
 
     # ─── Full render passes ─────────────────────────────────────────────────
 
-    def _apply_provider_chrome(self, active):
-        """Provider combo selection + brand dot + API-key section, no HTTP."""
-        self.provider_combo.SelectionChanged -= self.provider_changed
-        self.provider_combo.SelectedIndex = self._PROV_INDEX.get(active, 0)
-        self.provider_combo.SelectionChanged += self.provider_changed
+    def _apply_provider_chrome(self, active, force_fields=False):
+        """Provider combo selection + brand dot + API-key section, no HTTP.
+
+        force_fields=True repaints the text fields even when the user has been
+        typing — correct for a genuine provider CHANGE (a half-typed key for
+        the previous provider is meaningless), wrong for a background probe.
+        """
+        # A re-entrancy guard, matching _action_guard / _think_guard / etc.
+        # This used to detach and re-attach the XAML-declared handler with a
+        # bare -= / +=: if the -= silently no-ops, every repaint stacks another
+        # provider_changed subscription and one selection spawns N threads.
+        self._prov_guard = True
+        try:
+            self.provider_combo.SelectedIndex = self._PROV_INDEX.get(active, 0)
+        finally:
+            self._prov_guard = False
 
         rgb = self._BRAND_COLORS.get(active, (161, 161, 170))
         self.provider_brand_dot.Fill = _brush(*rgb)
@@ -603,17 +752,31 @@ class LLMSettingWindow(forms.WPFWindow):
         self.get_api_key_link.Visibility = (
             Visibility.Visible if needs_key else Visibility.Collapsed)
 
-        if needs_key:
-            try:
-                from config.settings import T3LabAISettings
-                saved = T3LabAISettings().get_api_key(self._KEY_NAME_MAP.get(active, "")) or ""
-                self.api_key_box.Text = (saved[:8] + u"...") if len(saved) > 8 else saved
-            except Exception:
-                pass
-        else:
-            self.api_key_box.Text = u""
+        # Always repaint when the provider itself changed, otherwise the fields
+        # would describe a provider that is no longer selected.
+        switched = (active != self._chrome_provider)
+        may_write = force_fields or switched or not self._is_editing(
+            self.api_key_box, self._key_dirty)
 
-        self._apply_host_panel(active)
+        if may_write:
+            if switched or force_fields:
+                self._key_dirty = False
+            if needs_key:
+                try:
+                    from config.settings import T3LabAISettings
+                    saved = T3LabAISettings().get_api_key(
+                        self._KEY_NAME_MAP.get(active, "")) or ""
+                    self._key_mask_shown = (
+                        (saved[:8] + u"...") if len(saved) > 8 else saved)
+                    self._set_text_quiet(self.api_key_box, self._key_mask_shown)
+                except Exception:
+                    pass
+            else:
+                self._key_mask_shown = u""
+                self._set_text_quiet(self.api_key_box, u"")
+
+        self._chrome_provider = active
+        self._apply_host_panel(active, force_fields=force_fields or switched)
 
     def _update_instant(self):
         """Phase 1 — zero HTTP, cached/local data only."""
@@ -639,7 +802,8 @@ class LLMSettingWindow(forms.WPFWindow):
 
             for name in ("claude", "openai", "deepseek", "ollama", "lmstudio"):
                 info = status.get(name, {})
-                self._set_status_dot(name, info.get("available", False))
+                self._set_status_dot(name, info.get("available", False),
+                                     probed=info.get("probed", True))
         except Exception as ex:
             logger.debug("_update_probed error: {}".format(ex))
 
@@ -655,25 +819,28 @@ class LLMSettingWindow(forms.WPFWindow):
                 active = router.get_active_name()
 
                 router.probe_provider(active)
-                provider = router.get_active_provider()
+                provider = router.get_provider(active)
                 if provider:
                     try:
                         self._models_cache[active] = provider.get_models()
                     except Exception:
                         pass
-                self.Dispatcher.Invoke(Action(self._update_probed))
+                self._ui_invoke(self._update_probed)
 
                 router.get_status(use_cache=False)
-                self.Dispatcher.Invoke(Action(self._update_probed))
-            except Exception:
-                pass
+                self._ui_invoke(self._update_probed)
+            except Exception as ex:
+                logger.debug("_probe_all_async error: {}".format(ex))
             finally:
-                self._probing = False
+                def _next():
+                    self._probing = False
+                    pending, self._probe_pending = self._probe_pending, None
+                    if pending:
+                        self._start_probe(pending)
+                self._ui_invoke(_next)
 
-        t = Thread(ThreadStart(_bg))
-        t.IsBackground = True
-        t.SetApartmentState(ApartmentState.STA)
-        t.Start()
+        if not self._start_worker(_bg):
+            self._probing = False
 
     # ─── Generic hint flash ─────────────────────────────────────────────────
 
@@ -1213,6 +1380,13 @@ class LLMSettingWindow(forms.WPFWindow):
         if not todo:
             return
         if self._ctx_busy:
+            # Used to return silently, so the per-row ↻ button (which is not
+            # visibly disabled, unlike project_rescan_btn) looked broken.
+            try:
+                self.project_files_status.Text = (
+                    u"A rescan is already running — please wait for it to finish.")
+            except Exception:
+                pass
             return
         self._ctx_busy = True
         try:
@@ -1336,10 +1510,15 @@ class LLMSettingWindow(forms.WPFWindow):
             except Exception:
                 self._ctx_busy = False
 
-        t = Thread(ThreadStart(_work))
-        t.IsBackground = True
-        t.SetApartmentState(ApartmentState.STA)
-        t.Start()
+        if not self._start_worker(_work):
+            # Un-latch, or the rescan buttons stay dead for the window's life.
+            self._ctx_busy = False
+            try:
+                self.project_rescan_btn.IsEnabled = True
+                self.project_files_status.Text = (
+                    u"Could not start the rescan — try again.")
+            except Exception:
+                pass
 
     def project_rescan_clicked(self, sender, e):
         """Re-read every linked folder of the selected project and rebuild
@@ -1611,14 +1790,14 @@ class LLMSettingWindow(forms.WPFWindow):
                 logger.debug("knowledge scan error: {}".format(ex))
             finally:
                 self._kn_scan_busy = False
-                try:
-                    self.Dispatcher.Invoke(Action(self._load_knowledge_tab))
-                except Exception:
-                    pass
-        _kt = Thread(ThreadStart(_scan))
-        _kt.IsBackground = True
-        _kt.SetApartmentState(ApartmentState.STA)
-        _kt.Start()
+                self._ui_invoke(self._load_knowledge_tab)
+        if not self._start_worker(_scan):
+            self._kn_scan_busy = False
+            try:
+                self.knowledge_index_status.Text = (
+                    u"Could not start the scan — try again.")
+            except Exception:
+                pass
 
     def add_knowledge_dir_clicked(self, sender, e):
         """Pick a folder to add to the knowledge index. UI THREAD."""
@@ -1636,7 +1815,11 @@ class LLMSettingWindow(forms.WPFWindow):
             logger.debug("add_knowledge_dir_clicked error: {}".format(ex))
 
     def reindex_clicked(self, sender, e):
-        self._kick_knowledge_scan()
+        # A raw WPF click handler must never let an exception escape.
+        try:
+            self._kick_knowledge_scan()
+        except Exception as ex:
+            logger.debug("reindex_clicked error: {}".format(ex))
 
     def knowledge_embed_toggled(self, sender, e):
         """Persist the semantic-search switch; pull the embed model when
@@ -1665,18 +1848,15 @@ class LLMSettingWindow(forms.WPFWindow):
                                         u"Embed model unavailable — check Ollama")
                                 except Exception:
                                     pass
-                            self.Dispatcher.Invoke(Action(_fail))
+                            self._ui_invoke(_fail)
                             return
                     store = get_active_store()
                     if store is not None:
                         store.embed_pending(emb, budget_sec=300)
-                    self.Dispatcher.Invoke(Action(self._load_knowledge_tab))
+                    self._ui_invoke(self._load_knowledge_tab)
                 except Exception as ex2:
                     logger.debug("embed enable error: {}".format(ex2))
-            _et = Thread(ThreadStart(_ensure))
-            _et.IsBackground = True
-            _et.SetApartmentState(ApartmentState.STA)
-            _et.Start()
+            self._start_worker(_ensure)
         except Exception as ex:
             logger.debug("knowledge_embed_toggled error: {}".format(ex))
 

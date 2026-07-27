@@ -41,14 +41,17 @@ import os
 import re
 
 # ─── HTTP back-end selection ───────────────────────────────────────────────────
-# Try .NET WebClient first (available in IronPython / pyRevit)
+# Try .NET HttpWebRequest first (available in IronPython / pyRevit)
 # then fall back to standard-library urllib.
+# HttpWebRequest, not WebClient: WebClient cannot express a timeout.
 
 _USE_NET = False
 try:
     import clr
     clr.AddReference('System.Net')
-    from System.Net import WebClient, WebException, ServicePointManager
+    from System.Net import (WebException, ServicePointManager,
+                            HttpWebRequest)
+    from System.IO import StreamReader
     from System.Text import Encoding as _NetEncoding
     _USE_NET = True
 except Exception:
@@ -170,7 +173,12 @@ output: {"intent":"chat","params":{},"message":"Không có gì! Cần gì cứ h
 # ─── HTTP helpers ──────────────────────────────────────────────────────────────
 
 def _post_json(url, payload, timeout=TIMEOUT_GEN):
-    """POST a JSON-serialisable payload; return response string."""
+    """POST a JSON-serialisable payload; return response string.
+
+    Same WebClient trap as _get_text: WebClient has no timeout knob, so the
+    `timeout` argument was silently ignored on the .NET path and the call
+    inherited ~100s regardless of what the caller asked for.
+    """
     body = json.dumps(payload, ensure_ascii=False)
     if isinstance(body, type(u"")):
         body_bytes = body.encode("utf-8")
@@ -178,11 +186,26 @@ def _post_json(url, payload, timeout=TIMEOUT_GEN):
         body_bytes = body
 
     if _USE_NET:
-        client = WebClient()
-        client.Encoding = _NetEncoding.UTF8
-        client.Headers.Add("Content-Type", "application/json; charset=utf-8")
-        resp = client.UploadData(url, "POST", body_bytes)
-        return _NetEncoding.UTF8.GetString(resp)
+        req = HttpWebRequest.Create(url)
+        req.Method = "POST"
+        req.ContentType = "application/json; charset=utf-8"
+        req.Timeout = int(timeout * 1000)
+        req.ReadWriteTimeout = int(timeout * 1000)
+        req.ContentLength = len(body_bytes)
+        stream = req.GetRequestStream()
+        try:
+            stream.Write(body_bytes, 0, len(body_bytes))
+        finally:
+            stream.Close()
+        resp = req.GetResponse()
+        try:
+            reader = StreamReader(resp.GetResponseStream(), _NetEncoding.UTF8)
+            try:
+                return reader.ReadToEnd()
+            finally:
+                reader.Close()
+        finally:
+            resp.Close()
 
     if _HAS_URLLIB:
         req = Request(url, body_bytes,
@@ -195,12 +218,29 @@ def _post_json(url, payload, timeout=TIMEOUT_GEN):
 
 
 def _get_text(url, timeout=TIMEOUT_PROBE):
-    """GET url; return response string or None."""
+    """GET url; return response string or None.
+
+    The .NET branch uses HttpWebRequest, NOT WebClient: WebClient exposes no
+    timeout and inherits .NET's ~100s default, so this function ignored its own
+    `timeout` argument entirely. A firewalled (DROP, not REJECT) Ollama port
+    then froze the caller for a minute and a half — and because
+    get_status_instant() reaches here from the UI thread, that froze Revit.
+    """
     try:
         if _USE_NET:
-            client = WebClient()
-            client.Encoding = _NetEncoding.UTF8
-            return client.DownloadString(url)
+            req = HttpWebRequest.Create(url)
+            req.Method = "GET"
+            req.Timeout = int(timeout * 1000)
+            req.ReadWriteTimeout = int(timeout * 1000)
+            resp = req.GetResponse()
+            try:
+                reader = StreamReader(resp.GetResponseStream(), _NetEncoding.UTF8)
+                try:
+                    return reader.ReadToEnd()
+                finally:
+                    reader.Close()
+            finally:
+                resp.Close()
         if _HAS_URLLIB:
             resp = urlopen(url, timeout=timeout)
             raw = resp.read()
@@ -211,15 +251,32 @@ def _get_text(url, timeout=TIMEOUT_PROBE):
 
 # ─── Public API ───────────────────────────────────────────────────────────────
 
+def get_host():
+    """Resolve the Ollama base URL: saved setting → env/default constant.
+
+    Module-level OLLAMA_HOST is read from os.environ at import time, so it can
+    never see a host the user configured in LLMs Setting. Every public function
+    here goes through this instead.
+    """
+    try:
+        from config.settings import T3LabAISettings
+        host = T3LabAISettings().get_api_key("Ollama_Host")
+        if host:
+            return host.rstrip("/")
+    except Exception:
+        pass
+    return OLLAMA_HOST
+
+
 def is_running():
     """Return True if Ollama server is reachable."""
-    text = _get_text(OLLAMA_HOST + "/api/tags")
+    text = _get_text(get_host() + "/api/tags")
     return text is not None
 
 
-def list_models():
+def list_models(host=None):
     """Return list of installed model name strings (or empty list)."""
-    text = _get_text(OLLAMA_HOST + "/api/tags")
+    text = _get_text((host or get_host()) + "/api/tags")
     if not text:
         return []
     try:
@@ -240,18 +297,14 @@ def _param_billions(name):
         return 0.0
 
 
-def get_best_model(prefer_capable=False):
-    """Return the best installed model name, or None if none installed.
+def pick_best(installed, prefer_capable=False):
+    """Rank an ALREADY-FETCHED model list and return the best name, or None.
 
-    Default (prefer_capable=False): smallest/fastest first via PREFERRED_MODELS
-    — right for the lightweight NLU/intent path.
-
-    prefer_capable=True (quality mode): pick the strongest installed model —
-    reasoning models (Qwen3, ...) first, then largest parameter count. This
-    generalizes to whatever Qwen3 variant the user actually installed instead
-    of relying on a hardcoded whitelist.
+    Pure — no HTTP. Split out of get_best_model so a caller that already probed
+    the right host (OllamaProvider, which honours a configured remote URL) can
+    rank those names instead of triggering a second discovery against the
+    module-level default host.
     """
-    installed = list_models()
     if not installed:
         return None
     if prefer_capable:
@@ -269,6 +322,20 @@ def get_best_model(prefer_capable=False):
             if inst == pref or inst.startswith(pref_base + ":"):
                 return inst
     return installed[0]
+
+
+def get_best_model(prefer_capable=False, host=None):
+    """Return the best installed model name, or None if none installed.
+
+    Default (prefer_capable=False): smallest/fastest first via PREFERRED_MODELS
+    — right for the lightweight NLU/intent path.
+
+    prefer_capable=True (quality mode): pick the strongest installed model —
+    reasoning models (Qwen3, ...) first, then largest parameter count. This
+    generalizes to whatever Qwen3 variant the user actually installed instead
+    of relying on a hardcoded whitelist.
+    """
+    return pick_best(list_models(host=host), prefer_capable=prefer_capable)
 
 
 def parse_command(user_input, history=None, model=None):
@@ -306,7 +373,7 @@ def parse_command(user_input, history=None, model=None):
 
     try:
         resp_text = _post_json(
-            OLLAMA_HOST + "/api/chat",
+            get_host() + "/api/chat",
             {
                 "model":   model,
                 "messages": messages,

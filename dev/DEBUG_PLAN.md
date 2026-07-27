@@ -294,3 +294,52 @@ Các launcher còn lại + UI.stack + PDF import + Feedback.
 **Kết luận GĐ4 (2026-07-05):** toàn bộ 12 ngày + 4 roadmap độc lập hoàn tất; mọi issue functional
 đã đóng (user xác nhận đã debug hết). Còn lại chỉ là tech debt F5 và backlog cố ý hoãn — không có
 việc bắt buộc nào đang mở.
+
+---
+
+## 8. Đợt debug T3Lab Assistant + LLMs Setting (2026-07-27)
+
+> Hai tool AI là phần chưa từng đi qua chương trình debug GĐ1–GĐ4 (đóng 2026-07-05,
+> phủ 41 tool còn lại). Phạm vi user chốt: **sửa lỗi + hoàn thiện UX, không thêm
+> tính năng mới**. Icon ribbon dark theme: user từ chối, ngoài scope.
+
+### Vì sao audit tĩnh không bắt được
+
+Trước đợt này cả 3 audit + 2 test suite đều xanh; quét thêm AST, import chéo,
+cú pháp py3-only, pyflakes, đối chiếu XAML handler ↔ Python (2 chiều) cũng sạch.
+**Toàn bộ 33 lỗi dưới đây tìm bằng đọc code**, không phải bằng công cụ.
+
+### Nhóm lỗi đã sửa
+
+| # | Lỗi | Sửa |
+|---|-----|-----|
+| A1 | **Stop không dừng**: `_cancel_requested` chỉ được đọc ở spellcheck + native loop; vòng tool cũ (5 vòng) và knowledge/comment agent không kiểm tra → bấm Stop xong agent vẫn chạy tiếp tool **ghi** vào model, nút Stop bị disable nên không bấm lại được | 3 checkpoint trong vòng lặp + sau mỗi lần chạy tool, `_finish_cancelled` báo rõ "Stopped. N step(s) had already run", watchdog 20s giải phóng UI kể cả khi worker treo. Cancel exit của knowledge/comment agent **phải `return True`** — trả `False` sẽ khởi động lại request mới ngay sau khi user bấm Stop |
+| A2 | **5 handler nuốt lỗi im lặng**: xoá typing dots + mở khoá busy nhưng không in gì → user gửi tin, xoáy quay biến mất, assistant không bao giờ trả lời | `_report_error()` dùng chung: log `logger.error`, hiện bubble cảnh báo, `_set_busy(False)` trong `finally` |
+| A3 | `str(execute_err)` raise `UnicodeEncodeError` trên IronPython 2.7 khi lỗi Revit có ký tự non-ASCII (tên family tiếng Việt) — **nguyên nhân gốc của A2** | `_exc_text()` không bao giờ raise |
+| A4 | Hết 5 vòng lặp → `result=None` → báo *"I didn't understand this request"* **sau khi 5 tool đã chạy thành công và sửa model** | Báo đúng giới hạn + số bước đã chạy, kèm chip "Continue" |
+| A5 | `_stream_llm_turn(**kwargs)` nhận rồi vứt kwargs → vòng 1 stream không có JSON mode, câu trả lời đúng user vừa xem stream bị ghi đè bằng *"Could not read data from the model"* | Forward `**kwargs` (phải cùng commit với D4) |
+| A6–A10 | Thread discovery `Dispatcher.Invoke` không guard; `reset_chat` không chặn khi đang bận + để lại ref bubble mồ côi; `_typing_timer` không stop khi đóng window (leak cả cây window); test `q in u'memory'` **ngược** (`/e`, `/r`, `/` đều hiện Memory); `undo_clicked` gọi `revit.doc.CanUndo()/.Undo()` **không tồn tại** trên Document | Guard + busy guard + stop timer + `u'memory'.startswith(q)` + `PostCommand(RevitCommandId.LookupPostableCommandId(PostableCommand.Undo))` (async → copy là "Undo sent to Revit.") |
+| B11–B17 | Dialog LLMs Setting: `Dispatcher.Invoke` cuối thread không guard (đóng window giữa lúc probe → crash); probe nền **ghi đè API key user đang dán**; nút Save Key **im lặng** khi ô đang hiện mask; đổi provider trong ~8s đầu không nạp model; cờ busy latch vĩnh viễn nếu thread không start; `-=`/`+=` handler không guard | `_ui_invoke`/`_start_worker` dùng chung; dirty-tracking (counter, không phải bool) + `force_fields`; Save Key re-validate key đã lưu; `_probe_pending` xếp hàng; un-latch khi start fail; `_prov_guard` thay cho detach/attach |
+| C18–C22 | Ollama hỏng đầu-cuối khi không dùng host mặc định: `set_host` chỉ ghi RAM; `get_active_model` đi qua `OLLAMA_HOST` module-level nên hỏi localhost (dot xanh "Ready" nhưng Test báo "No model selected"); `_get_text`/`_post_json` **bỏ qua tham số timeout** (WebClient không có timeout → ~100s .NET mặc định); `format:"json"` **hardcode cho MỌI call**; `get_status_instant` gọi HTTP **trên UI thread** | Lưu `Ollama_Host` (đối xứng LM Studio); `pick_best()` thuần + `_probe_tags` đúng host; `HttpWebRequest` có `.Timeout`; `format` **opt-in** theo `response_format`; `get_status_instant` đọc settings, không I/O |
+| D23–D29 | Router/settings: `probe_provider` không set `_status_ts`; `get_status` báo remote "available" chỉ vì **có key** (mâu thuẫn với `check_health` trong cùng dialog); 5 thread ghi dict chung không lock (IronPython không có GIL); `set_model` không refresh cache → chip model hiện model cũ; 4 setter ghi đè cả file từ dict cũ → **2 phiên Revit xoá key của nhau**; `_load_settings` fallback defaults với **mọi** lỗi đọc → 1 lần bật toggle trên file settings.json bị cụt là **mất sạch API key**; project override ghi đè provider mặc định toàn cục | TTL chỉ arm khi cache đủ provider; `check_health` thật + cờ `probed` (dot "Checking…"); lock cục bộ; refresh cache; `_update(mutator)` reload→patch→save cho mọi setter; phân biệt *thiếu file* / *parse lỗi* (quarantine `settings.corrupt-<stamp>.json`, giữ nguyên bytes) / *không đọc được* (từ chối ghi); `switch_provider(persist=False)` |
+| E30–E33 | `AssistantPaneController` (~350 dòng) + `AssistantPane.xaml` (~1370 dòng) là **code chết** — `SetupDockablePane` nạp thẳng full window nên `get_pane_controller()` luôn `None`; `show_assistant_pane` vẫn trả `{'success': True}` nên agent tưởng đã gửi message; Command Palette (~170 dòng XAML + bảng 50 lệnh) **không có nút nào mở được**; log context-menu ghi **mỗi lần right-click**, đồng bộ trên UI thread, không giới hạn dung lượng | Xoá code chết (user chốt); `message_injected: False` + note trung thực; **mở** Command Palette (nút composer + Ctrl+K); log tắt mặc định (`T3LAB_CTXMENU_DEBUG=1`) + cap 256KB |
+
+### KHÔNG phải lỗi (đã kiểm tra — đừng "sửa")
+
+- `_is_viet_text` trả `False` vô điều kiện — **cố ý**, có ghi chú ("UI + replies locked to English, 2026-07-18").
+- `_FAST_CONTEXT_ENABLED = False` — **cố ý** (tắt 2026-07-06 vì keyword match cướp query không liên quan).
+- `_update_knowledge_status` là no-op hook — **cố ý** sau khi UI knowledge chuyển sang LLMs Setting.
+- `get_status(use_cache=True)` **không có caller nào** trong repo → claim "TTL chết làm probe chậm" là phóng đại; vẫn arm TTL nhưng chỉ khi cache đủ provider (arm sau probe 1 provider sẽ phục vụ snapshot thiếu 4 provider trong 30s).
+- 2 hàm knowledge/comment agent trả `False` ở except ngoài cùng là **đường degrade có chủ đích** (user vẫn nhận trả lời từ legacy path) — chỉ nâng log `debug` → `error`, không thêm bubble.
+- Theo tiền lệ **F5**: chỉ sửa đúng 5 handler kết thúc lượt chat, KHÔNG quét ~310 handler còn lại.
+
+### Regression
+
+Thêm `dev/test_assistant_llm.py` (44 check, CPython3) — khoá lại 4 lỗi mất dữ liệu/UI nói dối
+đã repro được, cộng host Ollama và định tuyến `response_format`. Chạy cùng
+`test_knowledge.py`, `test_llm_config.py` và 3 audit; tất cả xanh.
+
+**Còn lại cần QA trong Revit** (không tự bịa kết quả — chờ user xác nhận): Stop giữa chừng ·
+lỗi hiện bubble · giới hạn 5 bước · ô API key không bị ghi đè · đổi provider lúc mới mở ·
+Ollama host LAN + Test Connection trả câu văn · 2 phiên Revit · nút Undo · popup `/` · palette Ctrl+K ·
+log right-click ngừng phình.
