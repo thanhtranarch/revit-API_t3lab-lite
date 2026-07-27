@@ -477,6 +477,27 @@ def test_skills():
     check('skills block built', 'Active skill' in block and 'QA' in block, block[:60])
     check('empty block', build_skills_block([]) == '')
 
+    # ── /slash specialist resolution (regression: a bare "/skill-id" was
+    #    classified from its own boilerplate — the word "MODIFY" matched the
+    #    action-verb table — so a reference playbook got the revit_action
+    #    role, write tools and the "tô đỏ tường" few-shot, and the local
+    #    model replayed the previous turn's colour override) ───────────────
+    check('specialist keeps declared choice',
+          engine.specialist_for('warning-triage', 'revit_data') == 'revit_data')
+    check('specialist rejects undeclared choice',
+          engine.specialist_for('iso19650-naming', 'revit_action') == 'general',
+          engine.specialist_for('iso19650-naming', 'revit_action'))
+    check('specialist falls back to first agent',
+          engine.specialist_for('qa-checklist', None) == 'revit_data')
+    check('specialist unknown skill', engine.specialist_for('nope', 'general') is None)
+    check('agents_for', 'knowledge' in engine.agents_for('iso19650-naming'))
+
+    check('reference skill (no tools)', engine.is_reference_skill('iso19650-naming'))
+    check('reference skill bep', engine.is_reference_skill('bep-guideline'))
+    check('tool skill is not reference',
+          not engine.is_reference_skill('warning-triage'))
+    check('unknown skill is not reference', not engine.is_reference_skill('nope'))
+
 
 # ─── knowledge_agent ──────────────────────────────────────────────────────────
 
