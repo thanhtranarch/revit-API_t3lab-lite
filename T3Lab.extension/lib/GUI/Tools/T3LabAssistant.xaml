@@ -1603,6 +1603,23 @@
                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
                             </Button>
 
+                            <!-- Command palette (grid) — browse what the assistant can do.
+                                 Sits at the left edge of the spacer column, so the
+                                 existing column indices stay unchanged. -->
+                            <Button Grid.Column="2" x:Name="btn_cmd_palette"
+                                    Style="{StaticResource IconButton}"
+                                    Width="30" Height="30" Margin="2,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    Click="cmd_palette_toggle_clicked"
+                                    ToolTip="Command palette — browse example requests (Ctrl+K)">
+                                <Path Data="M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z"
+                                      Stroke="#52525B" StrokeThickness="1.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Width="15" Height="15" Stretch="Uniform"
+                                      VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            </Button>
+
                             <!-- Model / provider chip -->
                             <Button Grid.Column="3" x:Name="model_chip_btn"
                                     Style="{StaticResource ComposerChipBtn}"

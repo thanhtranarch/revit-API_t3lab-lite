@@ -25,6 +25,7 @@ failing registration/resolution can be diagnosed from a single Revit test run.
 
 from __future__ import unicode_literals
 
+import io
 import os
 import datetime
 import traceback
@@ -40,18 +41,36 @@ _APP_ID = u"T3Lab.ContextMenu.AssistantCreator"
 _TARGETS = (u"t3labassistant",)
 
 # ─── Debug log ─────────────────────────────────────────────────────────────────
+# OFF by default. BuildContextMenu runs on EVERY right-click in Revit, on the
+# UI thread, before the menu is drawn — so this used to do two or three
+# synchronous file open/write/close operations per click and grow an unbounded,
+# unrotated log through a normal modelling day. Set T3LAB_CTXMENU_DEBUG=1 (or
+# flip _LOG_ENABLED) only while diagnosing menu registration.
+_LOG_ENABLED = bool(os.environ.get("T3LAB_CTXMENU_DEBUG"))
+_LOG_MAX_BYTES = 256 * 1024
 _LOG_PATH = os.path.join(os.path.expanduser("~"), "T3Lab_AI_Data",
                          "context_menu_debug.log")
 
 
 def _log(msg):
-    """Append a timestamped line to the debug log. Never raises."""
+    """Append a timestamped line to the debug log. Never raises. No-op unless
+    debugging is explicitly enabled."""
+    if not _LOG_ENABLED:
+        return
     try:
         d = os.path.dirname(_LOG_PATH)
         if not os.path.isdir(d):
             os.makedirs(d)
+        # Truncate rather than grow without bound.
+        try:
+            if os.path.getsize(_LOG_PATH) > _LOG_MAX_BYTES:
+                os.remove(_LOG_PATH)
+        except Exception:
+            pass
         stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(_LOG_PATH, "a") as f:
+        # io.open + explicit encoding: the plain open(..., "a") here raised
+        # UnicodeEncodeError (swallowed) on any non-ASCII payload under py2.
+        with io.open(_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(u"[{}] {}\n".format(stamp, msg))
     except Exception:
         pass

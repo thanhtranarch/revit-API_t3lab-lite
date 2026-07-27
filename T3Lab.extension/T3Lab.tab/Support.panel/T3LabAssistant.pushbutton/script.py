@@ -425,6 +425,25 @@ def _hide_reasoning(text):
     return out.lstrip()
 
 
+def _exc_text(exc):
+    """Exception message as unicode. Never raises.
+
+    `str(exc)` is unsafe under IronPython 2.7: a Revit error carrying a
+    non-ASCII message (a Vietnamese family name, a localised Windows string)
+    makes it throw UnicodeEncodeError from INSIDE an error handler, which then
+    killed the whole chat turn and left the user staring at nothing.
+    """
+    try:
+        return u"{}".format(exc)
+    except Exception:
+        pass
+    try:
+        r = repr(exc)
+        return r.decode('utf-8', 'replace') if isinstance(r, bytes) else u"{}".format(r)
+    except Exception:
+        return u"<unprintable error>"
+
+
 def _is_viet_text(text):
     # UI + replies locked to English (2026-07-18): every bilingual branch
     # now renders its English variant. Detection kept below for re-enable.
@@ -645,6 +664,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._agent_loop        = None    # running AgentLoop (native tools path)
         self._cancel_requested  = False   # Stop pressed before the loop existed
 
+        # ── Turn bookkeeping ──────────────────────────────────────────────────
+        # _request_id is bumped by _set_busy(True). Every terminal handler
+        # captures it at request start and no-ops if it no longer matches, so a
+        # late worker and the Stop watchdog can never BOTH release the UI —
+        # a double release fires _drain_queued_input twice and sends two
+        # queued messages back to back.
+        self._request_id  = 0
+        self._replied     = False   # a terminal message was already posted
+        self._tool_runs   = 0       # tools executed in the current turn
+
         # ── Easy-to-use input: multi-line with Shift+Enter ────────────────────
         try:
             from System.Windows.Controls import ScrollBarVisibility
@@ -722,6 +751,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.PreviewDragOver += self._file_drag_over
             self.PreviewDrop += self._file_drop
             self.chat_input.PreviewKeyDown += self._input_preview_keydown
+            # Ctrl+K anywhere in the window toggles the command palette.
+            self.PreviewKeyDown += self._window_preview_keydown
         except Exception:
             pass
 
@@ -734,8 +765,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # ── Tool discovery (background, then inject chips into UI) ─────────────
         def _discover_and_update():
-            import time; time.sleep(0.3)
-            self.Dispatcher.Invoke(Action(self._bootstrap_discovered_tools))
+            # Unguarded, this threw unhandled on a .NET background thread when
+            # the window was closed inside the 300ms sleep — every other worker
+            # in this file wraps its dispatcher hop.
+            try:
+                import time; time.sleep(0.3)
+                self.Dispatcher.Invoke(Action(self._bootstrap_discovered_tools))
+            except Exception as ex:
+                logger.debug("tool discovery skipped: {}".format(_exc_text(ex)))
 
         _dt = Thread(ThreadStart(_discover_and_update))
         _dt.IsBackground = True
@@ -824,7 +861,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             )))
 
                             payload = {"name": "qwen2.5:1.5b", "stream": False}
-                            local_llm._post_json(local_llm.OLLAMA_HOST + "/api/pull", payload, timeout=600)
+                            local_llm._post_json(local_llm.get_host() + "/api/pull", payload, timeout=600)
 
                             self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
                                 u"Tải thành công mô hình AI qwen2.5:1.5b! Bạn có thể sử dụng T3Lab Assistant ngoại tuyến.",
@@ -1014,6 +1051,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._sched_timer.Stop()
         except Exception:
             pass
+        # Same reasoning for the typing-indicator timer: it ticks once a second
+        # against a closed window and holds a strong reference to the whole
+        # window tree (history, avatar bitmaps) for the rest of the Revit
+        # session — reopening the assistant leaked another one.
+        try:
+            self._typing_timer.Stop()
+        except Exception:
+            pass
+        self._stop_stop_watchdog()
 
     def minimize_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -1026,15 +1072,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.WindowState = WindowState.Maximized
 
     def undo_clicked(self, sender, e):
-        """Undo the last Revit transaction."""
+        """Undo the last Revit transaction.
+
+        Autodesk.Revit.DB.Document has neither CanUndo() nor Undo() — the old
+        code raised AttributeError straight into a logger.debug, so the button
+        did nothing at all and said nothing about it. Undo is a POSTABLE UI
+        command: it must go through UIApplication.PostCommand, and PostCommand
+        takes a RevitCommandId, not the PostableCommand enum value.
+        """
         try:
-            if revit.doc.CanUndo():
-                revit.doc.Undo()
-                self._append_bot_message(u"↺ Undid the last action.")
-            else:
-                self._append_bot_message(u"Nothing to undo.")
+            from pyrevit import HOST_APP
+            from Autodesk.Revit.UI import RevitCommandId, PostableCommand
+            cid = RevitCommandId.LookupPostableCommandId(PostableCommand.Undo)
+            HOST_APP.uiapp.PostCommand(cid)
+            # PostCommand is asynchronous — Revit runs it on the next input
+            # cycle — so this must not claim the undo already happened. There
+            # is also no public "is anything undoable" query; when there is
+            # nothing to undo Revit simply no-ops.
+            self._append_bot_message(u"Undo sent to Revit.")
         except Exception as ex:
-            logger.debug("Undo error: {}".format(ex))
+            # Not _report_error: this is a standalone button, not a chat turn —
+            # claiming the turn would suppress a running request's own reply.
+            logger.error(u"undo: {}".format(_exc_text(ex)))
+            self._append_bot_message(
+                u"Undo is unavailable right now — use Ctrl+Z in Revit.",
+                icon=_ICON_WARNING, icon_color=_ICON_AMBER)
 
     # ─── Tool discovery bootstrap ──────────────────────────────────────────────
 
@@ -1122,9 +1184,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def reset_chat_clicked(self, sender, e):
         """Clear the chat history for this document and reset the UI."""
         try:
+            # Resetting mid-request detached the live bubble while the worker
+            # kept a reference to it: the answer landed in an orphaned
+            # TextBlock (blank chat), and the stale _typing_row made
+            # _show_typing_indicator early-return for the rest of the session.
+            # _project_popup_select / _create_new_project already guard this way.
+            if getattr(self, '_busy', False):
+                self._append_bot_message(
+                    u"Still working on the current request — press Stop first, "
+                    u"then start a new conversation.",
+                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                return
             # Remove all children except the welcome greeting panel (first child)
             while self.chat_history_panel.Children.Count > 1:
                 self.chat_history_panel.Children.RemoveAt(1)
+            # Drop references to rows that were just detached above
+            self._clear_stream_refs()
+            self._typing_row = None
+            self._typing_text_block = None
             # Clear in-memory state
             self._conversation_history = []
             self._persisted_msgs = []
@@ -1527,13 +1604,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-            # Apply the project's provider/model preference (if any)
+            # Apply the project's provider/model preference (if any).
+            # persist=False: a project override is SCOPED to that project.
+            # Persisting it rewrote settings.json's active_provider, so
+            # deactivating the project never restored the user's own default
+            # and the next Revit start came up on the project's provider.
             try:
                 meta = ps.get_project(pid) if pid else None
                 if meta and meta.get('provider'):
                     from Intelligence.llm_router import LLMRouter
                     LLMRouter().switch_provider(meta['provider'],
-                                                meta.get('model'))
+                                                meta.get('model'),
+                                                persist=False)
                     self._update_ai_badge()
             except Exception:
                 pass
@@ -1824,14 +1906,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
     _active_cmd_cat = "export"   # current palette category
 
     def cmd_palette_toggle_clicked(self, sender, e):
-        """Toggle the command palette panel."""
-        if self.cmd_palette.Visibility == Visibility.Visible:
-            self.cmd_palette.Visibility = Visibility.Collapsed
-        else:
-            self.cmd_palette.Visibility = Visibility.Visible
-            # Build initial category if panel was never opened
-            if not self.cmd_cards_panel.Children.Count:
-                self._build_cmd_cards(self._active_cmd_cat)
+        """Toggle the command palette panel.
+
+        Reachable from the composer's grid button and Ctrl+K. Until 2026-07-27
+        nothing called this, so the whole palette — panel, category tabs and
+        the _COMMANDS table — was unreachable dead UI.
+        """
+        try:
+            if self.cmd_palette.Visibility == Visibility.Visible:
+                self.cmd_palette.Visibility = Visibility.Collapsed
+            else:
+                self.cmd_palette.Visibility = Visibility.Visible
+                # Build initial category if panel was never opened
+                if not self.cmd_cards_panel.Children.Count:
+                    self._build_cmd_cards(self._active_cmd_cat)
+        except Exception as ex:
+            logger.debug("cmd_palette_toggle_clicked error: {}".format(ex))
 
     def cmd_palette_close_clicked(self, sender, e):
         self.cmd_palette.Visibility = Visibility.Collapsed
@@ -1959,6 +2049,115 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("_cmd_card_clicked error: {}".format(ex))
 
+    # ─── Turn termination (cancel / error) ────────────────────────────────────
+
+    def _ui_invoke(self, fn):
+        """Run fn on the UI thread, swallowing a shut-down dispatcher.
+
+        Marshalling to a closed window throws on a .NET background thread with
+        no handler above it, which can take the process down.
+        """
+        try:
+            self.Dispatcher.Invoke(Action(fn))
+        except Exception:
+            pass
+
+    def _claim_turn(self, rid=None):
+        """True if this caller owns the terminal message for the current turn.
+
+        Guards against two racing finishers (worker + Stop watchdog) both
+        posting a bubble and both releasing the busy lock.
+        """
+        if rid is not None and rid != getattr(self, '_request_id', 0):
+            return False
+        if getattr(self, '_replied', False):
+            return False
+        self._replied = True
+        return True
+
+    def _cancelled(self):
+        """True once Stop has been pressed for the running turn."""
+        return bool(getattr(self, '_cancel_requested', False))
+
+    def _finish_cancelled(self, rid=None, note=None):
+        """End the turn because the user pressed Stop. Any thread.
+
+        Cancellation is checked BETWEEN steps — a Revit Transaction already in
+        flight is never aborted — which is what the Stop tooltip promises.
+        """
+        if not self._claim_turn(rid):
+            return
+
+        def _ui():
+            try:
+                ran = getattr(self, '_tool_runs', 0)
+                if ran:
+                    msg = (u"Stopped. {} step(s) had already run and were "
+                           u"not undone.".format(ran))
+                else:
+                    msg = u"Stopped."
+                if note:
+                    msg += u" " + note
+                try:
+                    self._remove_stream_bubble()
+                    self._clear_stream_refs()
+                except Exception:
+                    pass
+                self._hide_typing_indicator()
+                self._append_bot_message(msg, icon=_ICON_WARNING,
+                                         icon_color=_ICON_SLATE)
+            except Exception:
+                pass
+            finally:
+                self._set_busy(False)
+        self._ui_invoke(_ui)
+
+    def _report_error(self, where, exc=None, rid=None, hint=None):
+        """End the turn with a VISIBLE message. Any thread.
+
+        Every one of these paths used to clear the busy flag and hide the
+        typing dots while printing nothing at all: the user's message just sat
+        there and the assistant never answered. logger.error goes to a pyRevit
+        console that is not open.
+        """
+        try:
+            logger.error(u"{}: {}".format(where, _exc_text(exc)))
+        except Exception:
+            pass
+        if not self._claim_turn(rid):
+            return
+
+        def _ui():
+            try:
+                msg = (u"Something went wrong while handling that request — "
+                       u"nothing else was changed in the model. Please try "
+                       u"again; the details are in the pyRevit console.")
+                if hint:
+                    msg = hint + u"\n\n" + msg
+                try:
+                    self._remove_stream_bubble()
+                    self._clear_stream_refs()
+                except Exception:
+                    pass
+                self._hide_typing_indicator()
+                self._append_bot_message(msg, icon=_ICON_WARNING,
+                                         icon_color=_ICON_AMBER)
+            except Exception:
+                pass
+            finally:
+                self._set_busy(False)
+        self._ui_invoke(_ui)
+
+    def _stop_stop_watchdog(self):
+        """Cancel the Stop watchdog timer, if one is armed."""
+        try:
+            t = getattr(self, '_stop_timer', None)
+            if t is not None:
+                t.Stop()
+        except Exception:
+            pass
+        self._stop_timer = None
+
     # ─── Session guard & UI state ─────────────────────────────────────────────
 
     def _set_busy(self, busy):
@@ -1973,6 +2172,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._busy = busy
         if busy:
             self._cancel_requested = False
+            self._request_id = getattr(self, '_request_id', 0) + 1
+            self._replied    = False
+            self._tool_runs  = 0
+        else:
+            self._stop_stop_watchdog()
         try:
             self.chat_input.IsEnabled = True
             self._render_send_button(busy)
@@ -2120,8 +2324,41 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
             self._safe_update_typing_text(u"● ● ●  Stopping after the current step…")
+            self._arm_stop_watchdog()
         except Exception as ex:
             logger.debug("_request_stop error: {}".format(ex))
+
+    def _arm_stop_watchdog(self, seconds=20.0):
+        """Release the UI even if the worker never reaches a cancel checkpoint.
+
+        Without this, Stop pressed while a provider call is hung (server killed
+        mid-generation) leaves the send button disabled and the composer stuck
+        on "Stopping…" for the rest of the session. The _request_id guard means
+        that if the worker DOES finish first, this fires into a no-op.
+        """
+        self._stop_stop_watchdog()
+        try:
+            from System.Windows.Threading import DispatcherTimer
+            from System import TimeSpan
+            rid = getattr(self, '_request_id', 0)
+            timer = DispatcherTimer()
+            timer.Interval = TimeSpan.FromSeconds(seconds)
+
+            def _tick(s, ev):
+                try:
+                    timer.Stop()
+                    if self._busy and self._cancelled():
+                        self._finish_cancelled(
+                            rid,
+                            note=u"A background step is still finishing; "
+                                 u"its result will be discarded.")
+                except Exception:
+                    pass
+            timer.Tick += _tick
+            timer.Start()
+            self._stop_timer = timer
+        except Exception:
+            self._stop_timer = None
 
     @staticmethod
     def _quality_mode_on():
@@ -2277,6 +2514,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if len(one_line) > 400:
                 one_line = one_line[:400] + u"…"
             self._log_activity(u"Assistant: {}".format(one_line))
+
+    # ─── Window-level shortcuts ───────────────────────────────────────────────
+
+    def _window_preview_keydown(self, sender, e):
+        """Ctrl+K toggles the command palette; Esc closes it."""
+        try:
+            from System.Windows.Input import Key, Keyboard, ModifierKeys
+            if (e.Key == Key.K and
+                    (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control):
+                self.cmd_palette_toggle_clicked(sender, e)
+                e.Handled = True
+                return
+            if (e.Key == Key.Escape and
+                    self.cmd_palette.Visibility == Visibility.Visible):
+                self.cmd_palette.Visibility = Visibility.Collapsed
+                e.Handled = True
+        except Exception as ex:
+            logger.debug("_window_preview_keydown error: {}".format(ex))
 
     # ─── File attachment ──────────────────────────────────────────────────────
 
@@ -2602,7 +2857,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # Built-in /memory command (not a skill) — listed in the same popup
         # so it is discoverable the same way. _process_input won't find it
         # in the skills catalog, so the text routes to _try_memory_command.
-        if q in u'memory':
+        # Substring test was REVERSED ("is the query inside the word memory"),
+        # so /e, /r, /o and even a bare / surfaced the Memory row.
+        if u'memory'.startswith(q):
             items.append({'id': u'memory', 'name': u'Memory',
                           'description': (u'View or manage what the '
                                           u'assistant remembers'),
@@ -4118,6 +4375,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # only the results marshal back onto the dispatcher.
             self._set_busy(True)
 
+            _rid = getattr(self, '_request_id', 0)
+
             def _route(_rt=route_text):
                 try:
                     # Archive attachments into the project's dated folder and
@@ -4145,15 +4404,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         _req, _skill_note))
                     self._route_input(_rt, _files)
                 except Exception as ex:
-                    logger.error("_route_input error: {}".format(ex))
-
-                    def _fail():
-                        self._hide_typing_indicator()
-                        self._set_busy(False)
-                    try:
-                        self.Dispatcher.Invoke(Action(_fail))
-                    except Exception:
-                        pass
+                    # Used to hide the dots and release busy while printing
+                    # NOTHING: the user's message sat in the transcript and the
+                    # assistant simply never answered.
+                    if self._cancelled():
+                        self._finish_cancelled(_rid)
+                    else:
+                        self._report_error(u"_route_input", ex, _rid)
+                finally:
+                    # Belt and braces: every terminal path releases busy before
+                    # returning, so this normally does nothing — but if one ever
+                    # leaks, the window must not stay locked forever.
+                    # Deliberately does NOT claim the turn: releasing busy twice
+                    # is harmless, whereas claiming would suppress a message a
+                    # legitimate finisher still wanted to post.
+                    if self._busy and _rid == getattr(self, '_request_id', 0):
+                        self._ui_invoke(lambda: self._set_busy(False))
 
             rt = Thread(ThreadStart(_route))
             rt.IsBackground = True
@@ -4161,8 +4427,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             rt.Start()
 
         except Exception as ex:
-            logger.error("Error in _process_input: {}".format(ex))
-            self._set_busy(False)
+            # UI thread — Dispatcher.Invoke from here executes inline, so
+            # _report_error is safe and cannot deadlock.
+            self._report_error(u"_process_input", ex)
 
     def _build_attachment_context(self, raw, attached):
         """Build the attachment context string. WORKER THREAD.
@@ -4281,7 +4548,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
+            _rid = getattr(self, '_request_id', 0)
+            if self._cancelled():
+                self._finish_cancelled(_rid)
+                return True          # MUST be True — see below
+
             def _chat(system_prompt, query):
+                if self._cancelled():
+                    return None
                 return self._stream_llm_turn(
                     provider, router, list(history), system_prompt, query,
                     max_tokens=900)
@@ -4289,6 +4563,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
             result = agent.answer(raw, history, _chat,
                                   project_instructions=proj_instructions,
                                   skills_block=skills_block)
+
+            # Every cancel exit from this function returns True. Returning
+            # False makes _route_input fall through to the normal LLM path,
+            # i.e. it would start a brand-new request seconds after the user
+            # pressed Stop.
+            if self._cancelled():
+                try:
+                    self._ui_invoke(self._remove_stream_bubble)
+                except Exception:
+                    pass
+                self._finish_cancelled(_rid)
+                return True
+
             if result.get('status') != 'done':
                 # remove any half-made bubble before falling through
                 if result.get('status') == 'llm_failed':
@@ -4315,7 +4602,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.Dispatcher.Invoke(Action(_done))
             return True
         except Exception as ex:
-            logger.debug("_run_knowledge_agent error: {}".format(ex))
+            # Falling through to the legacy LLM path is the DESIGNED
+            # degradation (the user still gets an answer), so no bubble here —
+            # but a real crash must not be invisible at debug level.
+            logger.error("_run_knowledge_agent error: {}".format(_exc_text(ex)))
             return False
 
     def _run_comment_agent(self, pdf_path, history):
@@ -4347,10 +4637,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 pass
 
             agent = CommentAgent()
+            _rid = getattr(self, '_request_id', 0)
+            if self._cancelled():
+                self._finish_cancelled(_rid)
+                return True
+
             report = agent.analyze(
                 pdf_path, srv._execute_tool, provider, router,
                 progress_cb=self._safe_update_typing_text,
                 skills_block=skills_block)
+
+            # True, not False: False falls through to normal document analysis,
+            # which would start fresh work right after the user pressed Stop.
+            if self._cancelled():
+                self._finish_cancelled(_rid)
+                return True
 
             if report.get('error') == 'no_annotations':
                 return False   # analyze as a normal document instead
@@ -4389,12 +4690,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             icon=_ICON_SYNC, icon_color=_ICON_SLATE)
                     self._set_busy(False)
                 except Exception as dex:
-                    logger.debug("comment done error: {}".format(dex))
-                    self._set_busy(False)
+                    self._report_error(
+                        u"comment report render", dex,
+                        hint=u"The comment report could not be displayed.")
             self.Dispatcher.Invoke(Action(_done))
             return True
         except Exception as ex:
-            logger.debug("_run_comment_agent error: {}".format(ex))
+            # Same designed degradation as _run_knowledge_agent — the PDF is
+            # still analysed as a plain document — but log it visibly.
+            logger.error("_run_comment_agent error: {}".format(_exc_text(ex)))
             return False
 
     def _skip_comment_item(self, item, setter):
@@ -4750,6 +5054,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                 def do_nlp():
                     result = None
+                    # Owns the terminal message for THIS turn; a later turn
+                    # bumps _request_id and invalidates any stale finisher.
+                    rid = getattr(self, '_request_id', 0)
                     # Distinguishes "the model returned nothing at all" (timeout,
                     # connection error, empty body) from "the model answered but
                     # picked an unrecognised intent" — without this, both looked
@@ -4856,6 +5163,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                     while current_iteration < max_iterations:
                         current_iteration += 1
+
+                        # Stop before spending another LLM turn. This loop used
+                        # to ignore _cancel_requested entirely, so Stop greyed
+                        # out the button while the agent kept issuing up to five
+                        # more calls and executing real write tools.
+                        if self._cancelled():
+                            self._finish_cancelled(rid)
+                            return
 
                         # Dynamically query Revit context on each iteration
                         _ctx_block = u""
@@ -5087,7 +5402,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     srv = get_t3labai_server()
                                     tool_result = srv._execute_tool(intent, params)
                                 except Exception as execute_err:
-                                    tool_result = {"error": str(execute_err)}
+                                    # _exc_text, never str(): a Revit error
+                                    # carrying a non-ASCII message made str()
+                                    # raise UnicodeEncodeError here, killing the
+                                    # whole turn from inside the error handler.
+                                    tool_result = {"error": _exc_text(execute_err),
+                                                   "tool": intent}
 
                                 # Register the successful call (errors stay
                                 # unregistered — rule 4 allows ONE retry with
@@ -5095,6 +5415,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 if not (isinstance(tool_result, dict)
                                         and tool_result.get('error')):
                                     _turn_calls.add(_call_key)
+                                    self._tool_runs += 1
+
+                                # Tool execution is where the seconds go, so
+                                # this is the checkpoint that makes Stop feel
+                                # immediate. Returning here skips finish(), so
+                                # there is no double release.
+                                if self._cancelled():
+                                    self._finish_cancelled(rid)
+                                    return
 
                                 # Log tool call and result to current_history using portable roles
                                 current_history.append({"role": "assistant", "content": _json.dumps(_parsed, ensure_ascii=False)})
@@ -5140,11 +5469,58 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     if _turn_calls:
                         self._prev_turn_calls = set(_turn_calls)
 
+                    # Falling out of the while loop leaves result=None, because
+                    # every tool-executing branch ends in `continue` and only a
+                    # text reply breaks with a result. finish() then walked all
+                    # the way down to "I didn't understand this request" — after
+                    # five tools had SUCCESSFULLY run and modified the model.
+                    # Only synthesise when tools actually ran; with none, the
+                    # existing llm_call_failed / didn't-understand paths are
+                    # still the right answer.
+                    if result is None and self._tool_runs:
+                        result = {
+                            "intent": "chat",
+                            "message": (
+                                u"Completed {} step(s), then stopped — this "
+                                u"request needs more steps than one turn "
+                                u"allows. Tell me what to do next, or split it "
+                                u"into smaller requests.".format(self._tool_runs)),
+                            "params": {},
+                            "_max_steps": True,
+                        }
+
                     def finish():
                         try:
+                            if self._cancelled():
+                                self._finish_cancelled(rid)
+                                return
+                            if not self._claim_turn(rid):
+                                return
                             has_stream = (self._stream_tb is not None)
                             r_intent   = result.get("intent") if result else None
                             _conv      = ("chat", "help", "greet")
+
+                            # Step budget exhausted mid-plan — show what ran and
+                            # offer the same one-click continuation the native
+                            # agent path already offers.
+                            if result and result.get("_max_steps"):
+                                if has_stream:
+                                    self._remove_stream_bubble()
+                                    self._clear_stream_refs()
+                                self._hide_typing_indicator()
+                                msg = result.get("message", u"")
+                                self._append_bot_message(
+                                    msg, icon=_ICON_WARNING,
+                                    icon_color=_ICON_AMBER)
+                                self._add_to_history("assistant", msg)
+                                try:
+                                    self._append_quick_replies(
+                                        [u"Continue"],
+                                        [u"continue where you stopped"])
+                                except Exception:
+                                    pass
+                                self._set_busy(False)
+                                return
 
                             # Plain conversational reply that already streamed live
                             # → keep the bubble, just apply markdown + record it.
@@ -5236,10 +5612,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     self._append_bot_message(msg)
                                     self._set_busy(False)
                         except Exception as finish_ex:
-                            logger.error("finish error: {}".format(finish_ex))
-                            self._hide_typing_indicator()
                             self._clear_stream_refs()
-                            self._set_busy(False)
+                            # _claim_turn was already taken at the top of
+                            # finish(); release it so the error can be shown.
+                            self._replied = False
+                            self._report_error(u"finish", finish_ex, rid)
 
                     self.Dispatcher.Invoke(Action(finish))
 
@@ -6189,8 +6566,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 else:
                     self._set_busy(False)
             except Exception as ex:
-                logger.error("native agent finish error: {}".format(ex))
-                self._set_busy(False)
+                self._report_error(u"native agent finish", ex)
 
         self.Dispatcher.Invoke(Action(_finish_ui))
         return True
@@ -7623,11 +7999,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 pass
 
         try:
+            # **kwargs MUST be forwarded. The tool loop's first (streamed) turn
+            # passes response_format={"type":"json_object"}; dropping it meant
+            # iteration 1 ran without JSON mode, so a prose reply failed the
+            # JSON regex and a correct answer the user had just watched stream
+            # in was overwritten with "Could not read data from the model".
+            # Both chat_stream implementations already accept **kwargs.
             if provider is not None and provider.check_health():
                 return provider.chat_stream(
-                    history[-16:], system_prompt, query, _on_delta, max_tokens)
+                    history[-16:], system_prompt, query, _on_delta,
+                    max_tokens, **kwargs)
             return router.chat_stream(
-                history[-16:], system_prompt, query, _on_delta, max_tokens)
+                history[-16:], system_prompt, query, _on_delta,
+                max_tokens, **kwargs)
         except Exception as ex:
             logger.debug("_stream_llm_turn error: {}".format(ex))
             return None

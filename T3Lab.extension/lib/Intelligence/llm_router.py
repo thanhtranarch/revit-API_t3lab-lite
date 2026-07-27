@@ -146,13 +146,18 @@ class LLMRouter(object):
         """Return the active provider instance, or None."""
         return self._providers.get(self._active_name)
 
-    def switch_provider(self, name, model=None):
+    def switch_provider(self, name, model=None, persist=True):
         """
         Hot-swap to a different provider.
 
         Args:
             name (str): provider name — "claude", "openai", or "ollama".
             model (str|None): optional model to activate on the new provider.
+            persist (bool): write the choice to settings.json as the user's
+                global default. Pass False for a SCOPED switch (e.g. a project
+                workspace's provider override) — otherwise activating a project
+                permanently rewrites the user's default and deactivating it
+                never restores what they had.
 
         Returns:
             bool: True on success, False if provider is unknown.
@@ -180,17 +185,24 @@ class LLMRouter(object):
             except Exception:
                 pass
 
-        # Persist provider selection
-        try:
-            s.set_active_provider(name)
-        except Exception:
-            pass
+        # Persist provider selection (skipped for scoped switches)
+        if persist:
+            try:
+                s.set_active_provider(name)
+            except Exception:
+                pass
 
         # Log provider hot-swap action
         try:
             s.log_model_usage("SWITCH_PROVIDER", name, model)
         except Exception:
             pass
+
+        # A switch changes which provider is "active"; the cached snapshot
+        # tracks that live, but the model may have changed too.
+        with self._status_lock:
+            if self._status_cache and name in self._status_cache and model:
+                self._status_cache[name]["model"] = model
 
         return True
 
@@ -215,6 +227,13 @@ class LLMRouter(object):
                 s.log_model_usage("SET_MODEL", provider_name, model_name)
             except Exception:
                 pass
+            # Keep the cached snapshot honest. get_status_instant() /
+            # get_status_cached() are what the assistant's composer chip and the
+            # settings dialog render from, and nothing re-probes on a timer — so
+            # without this the UI keeps showing the PREVIOUS model indefinitely.
+            with self._status_lock:
+                if self._status_cache and provider_name in self._status_cache:
+                    self._status_cache[provider_name]["model"] = model_name
 
         return ok
 
@@ -353,32 +372,39 @@ class LLMRouter(object):
         import threading
         status = {}
         threads = []
+        # Local lock, deliberately NOT self._status_lock: a worker calling
+        # check_health() must never contend with (or re-enter) the router-level
+        # lock the block below acquires. IronPython has no GIL, so five threads
+        # inserting into a plain dict can collide during a resize.
+        status_lock = threading.Lock()
 
         def probe_worker(name):
             provider = self._providers[name]
             try:
-                is_active = (name == self._active_name)
-                is_remote = name not in ("ollama", "lmstudio")
-                if is_remote and not is_active:
-                    if hasattr(provider, "_get_api_key"):
-                        available = bool(provider._get_api_key())
-                    else:
-                        available = False
-                else:
-                    available = provider.check_health()
+                # Every provider gets a REAL health check. This used to report a
+                # non-active remote provider "available" from mere API-key
+                # presence, while probe_provider() used check_health() — both
+                # wrote the same cache, so the settings dialog could show a
+                # revoked key as red and then flip it green two seconds later.
+                # The workers run in parallel, so wall-clock is bounded by the
+                # slowest provider, not the sum.
+                available = provider.check_health()
             except Exception:
                 available = False
             try:
                 model = provider.get_active_model()
             except Exception:
                 model = None
-            status[name] = {
+            info = {
                 "available":       available,
                 "model":           model,
                 "display_name":    provider.DISPLAY_NAME,
                 "active":          (name == self._active_name),
                 "supports_vision": provider.SUPPORTS_VISION,
+                "probed":          True,
             }
+            with status_lock:
+                status[name] = info
 
         probe_order = self.get_local_provider_names() + self.get_remote_provider_names()
         for name in probe_order:
@@ -433,8 +459,15 @@ class LLMRouter(object):
                     available = False
             except Exception:
                 available = False
+            # NEVER call provider.get_active_model() here. For Ollama/LM Studio
+            # it does real HTTP (tag probes, and local_llm's .NET GET used to
+            # inherit a ~100s timeout), and this function is called from the UI
+            # thread — that combination froze Revit while opening LLMs Setting.
+            # The saved preference is the only zero-HTTP source of truth.
             try:
-                model = provider.get_active_model()
+                _ensure_lib_in_path()
+                from config.settings import T3LabAISettings
+                model = T3LabAISettings().get_provider_model(name)
             except Exception:
                 model = None
             snap[name] = {
@@ -443,6 +476,7 @@ class LLMRouter(object):
                 "display_name":    provider.DISPLAY_NAME,
                 "active":          (name == self._active_name),
                 "supports_vision": provider.SUPPORTS_VISION,
+                "probed":          False,   # guessed, not health-checked
             }
         return snap
 
@@ -471,12 +505,19 @@ class LLMRouter(object):
             "display_name":    provider.DISPLAY_NAME,
             "active":          (name == self._active_name),
             "supports_vision": provider.SUPPORTS_VISION,
+            "probed":          True,
         }
-        # Merge into cache so subsequent get_status(use_cache=True) sees it
+        # Merge into cache so subsequent get_status(use_cache=True) sees it.
+        # Arm the 30s TTL only once the cache covers EVERY loaded provider —
+        # arming it after a single-provider probe would serve a partial
+        # snapshot for 30s and blank the other providers' status dots.
         with self._status_lock:
             if self._status_cache is None:
                 self._status_cache = {}
             self._status_cache[name] = dict(info)
+            if set(self._status_cache) >= set(self._providers):
+                import time as _t
+                self._status_ts = _t.time()
         return info
 
     def get_local_provider_names(self):

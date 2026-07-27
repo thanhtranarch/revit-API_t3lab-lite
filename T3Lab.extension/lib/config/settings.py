@@ -34,6 +34,8 @@ class T3LabAISettings(object):
             return
 
         self._settings_file = self._get_settings_path()
+        self._load_ok       = True    # False → the file exists but we couldn't read it
+        self._load_error    = None
         self._settings = self._load_settings()
         self._initialized = True
 
@@ -46,15 +48,80 @@ class T3LabAISettings(object):
         return os.path.join(settings_dir, 'settings.json')
 
     def _load_settings(self):
-        """Load settings from file"""
-        if os.path.exists(self._settings_file):
-            try:
-                with io.open(self._settings_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception:
-                pass
+        """Load settings from file, distinguishing the three failure modes.
 
-        return self._get_default_settings()
+        This used to `except Exception: pass` straight into the defaults, which
+        made a truncated settings.json catastrophic: every setter reloads before
+        saving, so ONE toggle in LLMs Setting rewrote the defaults over the file
+        and silently destroyed every API key, model preference and knowledge dir.
+
+        Now:
+          * file absent (first run) → defaults, writes allowed
+          * file parses            → parsed, writes allowed
+          * file exists but is not valid JSON → quarantine it as
+            settings.corrupt-<stamp>.json, then behave like "absent". The bytes
+            survive, so keys can be recovered by hand, and the app stays usable.
+          * file exists but cannot be read (locked by the other Revit session,
+            permissions) → do NOT quarantine (the file is probably fine).
+            Serve defaults for READS only and make save_settings() refuse, so a
+            transient lock can never clobber good data. It self-heals on the
+            next attempt because every setter reloads first.
+        """
+        self._load_ok    = True
+        self._load_error = None
+
+        if not os.path.exists(self._settings_file):
+            return self._get_default_settings()
+
+        try:
+            with io.open(self._settings_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except ValueError as ex:
+            # Malformed / truncated JSON. json.JSONDecodeError subclasses
+            # ValueError on py3 and does not exist on py2 — ValueError is the
+            # portable catch for both runtimes.
+            self._quarantine_corrupt(ex)
+            return self._get_default_settings()
+        except Exception as ex:
+            self._load_ok    = False
+            self._load_error = u"{}".format(ex)
+            return self._get_default_settings()
+
+    def _quarantine_corrupt(self, reason):
+        """Move an unparseable settings.json aside so it is never overwritten."""
+        try:
+            import datetime
+            stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+            dest = os.path.join(
+                os.path.dirname(self._settings_file),
+                'settings.corrupt-{}.json'.format(stamp))
+            os.rename(self._settings_file, dest)
+            self._load_error = u"settings.json was not valid JSON ({}); " \
+                               u"kept a copy at {}".format(reason, dest)
+        except Exception as ex:
+            # Could not move it — refuse to write rather than destroy it.
+            self._load_ok    = False
+            self._load_error = u"settings.json is corrupt and could not be " \
+                               u"quarantined: {}".format(ex)
+
+    def is_healthy(self):
+        """False when the settings file exists but could not be read."""
+        return bool(self._load_ok)
+
+    def get_load_error(self):
+        """Human-readable reason the last load failed, or None."""
+        return self._load_error
+
+    def _update(self, mutator):
+        """Reload from disk → apply `mutator(settings)` → save.
+
+        The single write path for every setter. Reloading first is what stops
+        two Revit sessions from overwriting each other: without it, a session
+        holding a stale in-memory dict wipes whatever the other one saved.
+        """
+        self._settings = self._load_settings()
+        mutator(self._settings)
+        return self.save_settings()
 
     def _get_default_settings(self):
         """Get default settings"""
@@ -101,14 +168,15 @@ class T3LabAISettings(object):
 
     def save_window_state(self, left, top, width, height, sidebar_open=False):
         """Persist window geometry and sidebar visibility."""
-        self._settings['window_state'] = {
-            'left':         left,
-            'top':          top,
-            'width':        width,
-            'height':       height,
-            'sidebar_open': sidebar_open,
-        }
-        self.save_settings()
+        def _m(s):
+            s['window_state'] = {
+                'left':         left,
+                'top':          top,
+                'width':        width,
+                'height':       height,
+                'sidebar_open': sidebar_open,
+            }
+        return self._update(_m)
 
     def save_settings(self):
         """Save settings to file.
@@ -116,7 +184,12 @@ class T3LabAISettings(object):
         Uses ensure_ascii=True + io.open(utf-8) so non-ASCII values
         (Vietnamese usernames, unicode paths) never break the dump
         under IronPython 2.7.
+
+        Refuses when the last load failed on an existing file — writing then
+        would replace real data with defaults.
         """
+        if not self._load_ok:
+            return False
         try:
             payload = json.dumps(self._settings, indent=2, ensure_ascii=True)
             if isinstance(payload, bytes):
@@ -149,12 +222,9 @@ class T3LabAISettings(object):
         (or other providers) are not accidentally overwritten by stale
         in-memory data.
         """
-        # Merge: reload disk → patch → save
-        self._settings = self._load_settings()
-        if 'api_keys' not in self._settings:
-            self._settings['api_keys'] = {}
-        self._settings['api_keys'][provider_name] = api_key
-        return self.save_settings()
+        def _m(s):
+            s.setdefault('api_keys', {})[provider_name] = api_key
+        return self._update(_m)
 
     def get_active_provider(self):
         """Return the name of the last-selected LLM provider ('claude', 'openai', 'ollama')."""
@@ -162,8 +232,9 @@ class T3LabAISettings(object):
 
     def set_active_provider(self, name):
         """Persist the active provider name."""
-        self._settings['active_provider'] = name
-        self.save_settings()
+        def _m(s):
+            s['active_provider'] = name
+        return self._update(_m)
 
     def get_provider_model(self, provider_name):
         """Return the saved model name for a provider, or None."""
@@ -171,10 +242,9 @@ class T3LabAISettings(object):
 
     def set_provider_model(self, provider_name, model_name):
         """Persist the preferred model name for a provider."""
-        if 'model_preferences' not in self._settings:
-            self._settings['model_preferences'] = {}
-        self._settings['model_preferences'][provider_name] = model_name
-        self.save_settings()
+        def _m(s):
+            s.setdefault('model_preferences', {})[provider_name] = model_name
+        return self._update(_m)
 
     def get_username(self):
         """Return the saved user name, or default 'Thạnh'."""
@@ -182,8 +252,9 @@ class T3LabAISettings(object):
 
     def set_username(self, username):
         """Persist the user name."""
-        self._settings['username'] = username
-        self.save_settings()
+        def _m(s):
+            s['username'] = username
+        return self._update(_m)
 
     # ------------------------------------------------------------------
     # Knowledge directories (RAG sources)
@@ -195,21 +266,19 @@ class T3LabAISettings(object):
 
     def add_knowledge_dir(self, path):
         """Add a knowledge directory (reload-merge-save, like set_api_key)."""
-        self._settings = self._load_settings()
-        know = self._settings.setdefault('knowledge', {})
-        dirs = know.setdefault('dirs', [])
-        if path not in dirs:
-            dirs.append(path)
-        return self.save_settings()
+        def _m(s):
+            dirs = s.setdefault('knowledge', {}).setdefault('dirs', [])
+            if path not in dirs:
+                dirs.append(path)
+        return self._update(_m)
 
     def remove_knowledge_dir(self, path):
         """Remove a knowledge directory."""
-        self._settings = self._load_settings()
-        know = self._settings.setdefault('knowledge', {})
-        dirs = know.setdefault('dirs', [])
-        if path in dirs:
-            dirs.remove(path)
-        return self.save_settings()
+        def _m(s):
+            dirs = s.setdefault('knowledge', {}).setdefault('dirs', [])
+            if path in dirs:
+                dirs.remove(path)
+        return self._update(_m)
 
     def get_knowledge_option(self, key, default=None):
         """Read a scalar option from the knowledge block."""
@@ -217,9 +286,9 @@ class T3LabAISettings(object):
 
     def set_knowledge_option(self, key, value):
         """Persist a scalar option in the knowledge block."""
-        self._settings = self._load_settings()
-        self._settings.setdefault('knowledge', {})[key] = value
-        return self.save_settings()
+        def _m(s):
+            s.setdefault('knowledge', {})[key] = value
+        return self._update(_m)
 
     # ------------------------------------------------------------------
     # Multi-agent switches
@@ -259,9 +328,9 @@ class T3LabAISettings(object):
 
     def set_agent_option(self, key, value):
         """Persist a switch in the agents block."""
-        self._settings = self._load_settings()
-        self._settings.setdefault('agents', {})[key] = value
-        return self.save_settings()
+        def _m(s):
+            s.setdefault('agents', {})[key] = value
+        return self._update(_m)
 
     # ------------------------------------------------------------------
     # Skills
@@ -273,14 +342,13 @@ class T3LabAISettings(object):
 
     def set_skill_disabled(self, skill_id, disabled):
         """Toggle a skill on/off (persisted globally)."""
-        self._settings = self._load_settings()
-        block = self._settings.setdefault('skills', {})
-        items = block.setdefault('disabled', [])
-        if disabled and skill_id not in items:
-            items.append(skill_id)
-        elif not disabled and skill_id in items:
-            items.remove(skill_id)
-        return self.save_settings()
+        def _m(s):
+            items = s.setdefault('skills', {}).setdefault('disabled', [])
+            if disabled and skill_id not in items:
+                items.append(skill_id)
+            elif not disabled and skill_id in items:
+                items.remove(skill_id)
+        return self._update(_m)
 
     # ------------------------------------------------------------------
     # Active project
@@ -292,9 +360,9 @@ class T3LabAISettings(object):
 
     def set_active_project(self, project_id):
         """Persist the active project id (None = no project)."""
-        self._settings = self._load_settings()
-        self._settings['active_project'] = project_id
-        return self.save_settings()
+        def _m(s):
+            s['active_project'] = project_id
+        return self._update(_m)
 
     def log_model_usage(self, action, provider, model):
         """Log model usage/setup to a log file for audit and fast setup verification."""

@@ -170,16 +170,21 @@ class CommentAgent(object):
             json.dumps(payload, ensure_ascii=False, indent=1))
 
         raw = None
+        # response_format is required now that Ollama's JSON grammar is opt-in
+        # rather than hardcoded on — the reply is json.loads()ed below.
+        _json_fmt = {"type": "json_object"}
         try:
             if provider is not None:
                 raw = provider.chat([], system, query,
-                                    max_tokens=_PROPOSAL_MAX_TOKENS)
+                                    max_tokens=_PROPOSAL_MAX_TOKENS,
+                                    response_format=_json_fmt)
         except Exception:
             raw = None
         if not raw and router is not None:
             try:
                 raw = router.chat([], system, query,
-                                  max_tokens=_PROPOSAL_MAX_TOKENS)
+                                  max_tokens=_PROPOSAL_MAX_TOKENS,
+                                  response_format=_json_fmt)
             except Exception:
                 raw = None
         if not raw:

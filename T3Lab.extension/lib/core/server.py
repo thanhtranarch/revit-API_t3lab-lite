@@ -1689,7 +1689,10 @@ class T3LabAIServer(object):
                         },
                         'message': {
                             'type': 'string',
-                            'description': 'Optional message to inject into the pane chat'
+                            'description': ('Optional message to inject into the pane chat. '
+                                            'Delivery is NOT guaranteed — always check '
+                                            '"message_injected" in the result, and repeat the '
+                                            'text in your own reply when it is false.')
                         }
                     },
                     'required': []
@@ -5364,16 +5367,17 @@ class T3LabAIServer(object):
                 else:
                     pane.Show()
                     result = {'success': True, 'action': 'show'}
-                # Inject message into pane if provided
+                # The pane hosts the full assistant window, which has no
+                # message-injection channel. Always report this truthfully:
+                # the key used to be ABSENT on the failure path, so the model
+                # saw {'success': True} and believed it had delivered text it
+                # actually dropped.
                 if message:
-                    try:
-                        from GUI.AssistantPaneControl import get_pane_controller
-                        ctrl = get_pane_controller()
-                        if ctrl:
-                            ctrl.add_message(message, is_user=False)
-                            result['message_injected'] = True
-                    except Exception:
-                        result['message_injected'] = False
+                    result['message_injected'] = False
+                    result['note'] = (
+                        'The pane is showing but has no message channel — the '
+                        'text was NOT delivered. Say it in your chat reply '
+                        'instead.')
                 return result
             except Exception as e:
                 return {'error': str(e)}

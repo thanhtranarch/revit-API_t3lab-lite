@@ -693,6 +693,23 @@ class BaseLLMProvider(object):
         except Exception:
             pass
 
+    @staticmethod
+    def _wants_json(response_format):
+        """True when a caller asked for a JSON-only reply.
+
+        Accepts every shape used across the codebase: the OpenAI-style
+        {"type": "json_object"} dict that the assistant's tool loop sends, and
+        the bare "json" string. Providers that constrain decoding server-side
+        (Ollama's `format`) use this so JSON mode is opt-in per call instead of
+        forced on paths that need prose.
+        """
+        if not response_format:
+            return False
+        if isinstance(response_format, dict):
+            return u"json" in u"{}".format(
+                response_format.get("type", "")).lower()
+        return u"json" in u"{}".format(response_format).lower()
+
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """
         Send a chat request and return the raw response text.
