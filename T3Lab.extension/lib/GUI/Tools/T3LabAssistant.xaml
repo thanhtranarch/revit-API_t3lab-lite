@@ -1265,7 +1265,6 @@
 <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>    <!-- Chat area      -->
-            <RowDefinition Height="Auto"/> <!-- Command palette -->
             <RowDefinition Height="Auto"/> <!-- Input bar      -->
         </Grid.RowDefinitions>
 
@@ -1321,187 +1320,11 @@
         </Grid>
 
 
-        <!-- ═══════════════════════════════════════════════════════════
-             COMMAND PALETTE (Row 1 — collapsible, above input bar)
-        ═══════════════════════════════════════════════════════════ -->
-        <Border x:Name="cmd_palette"
-                Grid.Row="1"
-                Visibility="Collapsed"
-                Background="White"
-                BorderBrush="#E6E6EA" BorderThickness="0,1,0,0">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>   <!-- Header bar   -->
-                    <RowDefinition Height="Auto"/>   <!-- Category tabs -->
-                    <RowDefinition Height="230"/>    <!-- Command cards -->
-                </Grid.RowDefinitions>
-
-                <!-- ── Palette header ── -->
-                <Border Grid.Row="0" Background="#F8FAFC"
-                        BorderBrush="#E6E6EA" BorderThickness="0,0,0,1"
-                        Padding="16,8,12,8">
-                    <Grid>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="&#xE8A1;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                       Foreground="#64748B" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <TextBlock Text="Command Reference" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="#27272A" FontFamily="Hanken Grotesk"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text=" — click any command to insert it" FontSize="11"
-                                       Foreground="#A1A1AA" FontFamily="Hanken Grotesk"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                        <Button x:Name="btn_cmd_palette_close"
-                                HorizontalAlignment="Right" VerticalAlignment="Center"
-                                Style="{StaticResource IconButton}"
-                                Width="26" Height="26"
-                                Click="cmd_palette_close_clicked">
-                            <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="9" Foreground="#71717A"/>
-                        </Button>
-                    </Grid>
-                </Border>
-
-                <!-- ── Category tabs ── -->
-                <Border Grid.Row="1" Background="White"
-                        BorderBrush="#E6E6EA" BorderThickness="0,0,0,1"
-                        Padding="14,7,14,7">
-                    <StackPanel Orientation="Horizontal">
-                        <Button x:Name="btn_cat_export" Tag="export"
-                                Click="cmd_cat_clicked" Cursor="Hand"
-                                Height="27" Margin="0,0,6,0" Padding="12,3"
-                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
-                                BorderThickness="0" Background="#18181B" Foreground="White">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bg"
-                                            Background="{TemplateBinding Background}"
-                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE1DC;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBlock Text="Export" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="btn_cat_tools" Tag="tools"
-                                Click="cmd_cat_clicked" Cursor="Hand"
-                                Height="27" Margin="0,0,6,0" Padding="12,3"
-                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
-                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bg"
-                                            Background="{TemplateBinding Background}"
-                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE74C;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBlock Text="Tools" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="btn_cat_query" Tag="query"
-                                Click="cmd_cat_clicked" Cursor="Hand"
-                                Height="27" Margin="0,0,6,0" Padding="12,3"
-                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
-                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}"
-                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBlock Text="Query" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="btn_cat_create" Tag="create"
-                                Click="cmd_cat_clicked" Cursor="Hand"
-                                Height="27" Margin="0,0,6,0" Padding="12,3"
-                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
-                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}"
-                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE948;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBlock Text="Create" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="btn_cat_modify" Tag="modify"
-                                Click="cmd_cat_clicked" Cursor="Hand"
-                                Height="27" Margin="0,0,6,0" Padding="12,3"
-                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
-                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}"
-                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8C6;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBlock Text="Modify" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="btn_cat_ai" Tag="ai"
-                                Click="cmd_cat_clicked" Cursor="Hand"
-                                Height="27" Padding="12,3"
-                                FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"
-                                BorderThickness="0" Background="#F4F4F6" Foreground="#27272A">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="bg"
-                                            Background="{TemplateBinding Background}"
-                                            CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE8D4;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBlock Text="AI Chat" FontFamily="Hanken Grotesk" FontSize="11" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Command cards (WrapPanel, built from Python) ── -->
-                <ScrollViewer Grid.Row="2"
-                              HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Auto">
-                    <WrapPanel x:Name="cmd_cards_panel"
-                               Orientation="Horizontal"
-                               Margin="14,10,6,10"/>
-                </ScrollViewer>
-            </Grid>
-        </Border>
 
         <!-- ═══════════════════════════════════════════════════════════
              INPUT BAR & ACTION CENTER
         ═══════════════════════════════════════════════════════════ -->
-        <Border Grid.Row="2" Background="#F4F4F6"
+        <Border Grid.Row="1" Background="#F4F4F6"
                 BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
                 Padding="16,8,16,10">
             <StackPanel>
@@ -1606,19 +1429,6 @@
                             <!-- Command palette (grid) — browse what the assistant can do.
                                  Sits at the left edge of the spacer column, so the
                                  existing column indices stay unchanged. -->
-                            <Button Grid.Column="2" x:Name="btn_cmd_palette"
-                                    Style="{StaticResource IconButton}"
-                                    Width="30" Height="30" Margin="2,0,0,0"
-                                    HorizontalAlignment="Left"
-                                    Click="cmd_palette_toggle_clicked"
-                                    ToolTip="Command palette — browse example requests (Ctrl+K)">
-                                <Path Data="M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z"
-                                      Stroke="#52525B" StrokeThickness="1.6"
-                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                      StrokeLineJoin="Round"
-                                      Width="15" Height="15" Stretch="Uniform"
-                                      VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                            </Button>
 
                             <!-- Model / provider chip -->
                             <Button Grid.Column="3" x:Name="model_chip_btn"

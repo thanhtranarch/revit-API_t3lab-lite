@@ -322,7 +322,21 @@ cú pháp py3-only, pyflakes, đối chiếu XAML handler ↔ Python (2 chiều)
 | B11–B17 | Dialog LLMs Setting: `Dispatcher.Invoke` cuối thread không guard (đóng window giữa lúc probe → crash); probe nền **ghi đè API key user đang dán**; nút Save Key **im lặng** khi ô đang hiện mask; đổi provider trong ~8s đầu không nạp model; cờ busy latch vĩnh viễn nếu thread không start; `-=`/`+=` handler không guard | `_ui_invoke`/`_start_worker` dùng chung; dirty-tracking (counter, không phải bool) + `force_fields`; Save Key re-validate key đã lưu; `_probe_pending` xếp hàng; un-latch khi start fail; `_prov_guard` thay cho detach/attach |
 | C18–C22 | Ollama hỏng đầu-cuối khi không dùng host mặc định: `set_host` chỉ ghi RAM; `get_active_model` đi qua `OLLAMA_HOST` module-level nên hỏi localhost (dot xanh "Ready" nhưng Test báo "No model selected"); `_get_text`/`_post_json` **bỏ qua tham số timeout** (WebClient không có timeout → ~100s .NET mặc định); `format:"json"` **hardcode cho MỌI call**; `get_status_instant` gọi HTTP **trên UI thread** | Lưu `Ollama_Host` (đối xứng LM Studio); `pick_best()` thuần + `_probe_tags` đúng host; `HttpWebRequest` có `.Timeout`; `format` **opt-in** theo `response_format`; `get_status_instant` đọc settings, không I/O |
 | D23–D29 | Router/settings: `probe_provider` không set `_status_ts`; `get_status` báo remote "available" chỉ vì **có key** (mâu thuẫn với `check_health` trong cùng dialog); 5 thread ghi dict chung không lock (IronPython không có GIL); `set_model` không refresh cache → chip model hiện model cũ; 4 setter ghi đè cả file từ dict cũ → **2 phiên Revit xoá key của nhau**; `_load_settings` fallback defaults với **mọi** lỗi đọc → 1 lần bật toggle trên file settings.json bị cụt là **mất sạch API key**; project override ghi đè provider mặc định toàn cục | TTL chỉ arm khi cache đủ provider; `check_health` thật + cờ `probed` (dot "Checking…"); lock cục bộ; refresh cache; `_update(mutator)` reload→patch→save cho mọi setter; phân biệt *thiếu file* / *parse lỗi* (quarantine `settings.corrupt-<stamp>.json`, giữ nguyên bytes) / *không đọc được* (từ chối ghi); `switch_provider(persist=False)` |
-| E30–E33 | `AssistantPaneController` (~350 dòng) + `AssistantPane.xaml` (~1370 dòng) là **code chết** — `SetupDockablePane` nạp thẳng full window nên `get_pane_controller()` luôn `None`; `show_assistant_pane` vẫn trả `{'success': True}` nên agent tưởng đã gửi message; Command Palette (~170 dòng XAML + bảng 50 lệnh) **không có nút nào mở được**; log context-menu ghi **mỗi lần right-click**, đồng bộ trên UI thread, không giới hạn dung lượng | Xoá code chết (user chốt); `message_injected: False` + note trung thực; **mở** Command Palette (nút composer + Ctrl+K); log tắt mặc định (`T3LAB_CTXMENU_DEBUG=1`) + cap 256KB |
+| E30–E33 | `AssistantPaneController` (~350 dòng) + `AssistantPane.xaml` (~1370 dòng) là **code chết** — `SetupDockablePane` nạp thẳng full window nên `get_pane_controller()` luôn `None`; `show_assistant_pane` vẫn trả `{'success': True}` nên agent tưởng đã gửi message; Command Palette (~170 dòng XAML + bảng 50 lệnh) **không có nút nào mở được**; log context-menu ghi **mỗi lần right-click**, đồng bộ trên UI thread, không giới hạn dung lượng | Xoá code chết (user chốt); `message_injected: False` + note trung thực; **xoá** Command Palette (xem ghi chú dưới); log tắt mặc định (`T3LAB_CTXMENU_DEBUG=1`) + cap 256KB |
+
+### Ghi chú — Command Palette: mở rồi xoá (2026-07-27)
+
+Ban đầu user chọn **mở** palette (thêm nút composer + Ctrl+K, commit `9da4b81`), sau đó
+đổi ý và yêu cầu **xoá hẳn khỏi khung chat**. Đã gỡ trọn bộ: khối XAML `cmd_palette`
+(~173 dòng) + `RowDefinition` của row 1 (thanh input lên `Grid.Row="1"`), nút
+`btn_cmd_palette`, bảng `_COMMANDS` (~50 lệnh) và 7 method palette, cùng
+`_window_preview_keydown` (chỉ phục vụ Ctrl+K/Esc của palette).
+
+Lý do kỹ thuật ủng hộ việc xoá: `_COMMANDS` là danh sách câu ví dụ **hardcode**, ngược
+hướng với `d8cdebd` ("Refactor capability overview with live registry validation") vốn
+đã thay catalog cứng bằng truy vấn registry sống — giữ lại sẽ lệch khỏi registry thật
+ngay lần đầu đổi tên tool. XAML và Python **phải xoá cùng commit**, vì `audit_tools.py`
+check #3 đối chiếu `Click=` ↔ method Python theo cả hai chiều.
 
 ### KHÔNG phải lỗi (đã kiểm tra — đừng "sửa")
 
