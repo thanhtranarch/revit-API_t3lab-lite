@@ -2691,6 +2691,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
         Idempotent — safe to call from several points along _route_input.
         skill_forced=True later bypasses filter_for_specialist so an explicit
         user invocation always wins over the agents: frontmatter filter.
+
+        The specialist is ALSO constrained to the skill's `agents:` list.
+        The dispatcher classifies the routed message, which for a bare
+        "/skill-id" is synthetic boilerplate: its word "MODIFY" matched the
+        action-verb table, so every slash-only invocation was handed the
+        revit_action role (write tools + the "tô đỏ tường" few-shot) and a
+        local model replayed the previous turn's edit instead of running
+        the playbook. The frontmatter decides now.
         """
         sid = getattr(self, '_forced_skill_id', None)
         if not sid:
@@ -2700,6 +2708,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     'source': 'slash', 'confidence': 1.0}
         self._agent_decision['skill'] = sid
         self._agent_decision['skill_forced'] = True
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            _cur = self._agent_decision.get('specialist')
+            _spec = get_skills_engine().specialist_for(sid, _cur)
+            if _spec and _spec != _cur:
+                logger.debug("slash /{}: specialist {} -> {} "
+                             "(skill frontmatter)".format(sid, _cur, _spec))
+                self._agent_decision['specialist'] = _spec
+                self._agent_decision['source'] = 'slash'
+        except Exception as _sp_ex:
+            logger.debug("specialist_for error: {}".format(_sp_ex))
 
     def _popup_row(self, title, subtitle=None, icon=None, active=False,
                    dot=None, hover=True, handler=None):
@@ -4004,16 +4023,40 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             # The old "Apply the '<id>' playbook" wording made
                             # JSON-intent models answer {"intent":
                             # "apply_playbook"} → "Tool does not exist".
-                            route_text = (
-                                u"Follow the '{}' workflow (the Active skill "
-                                u"in your system prompt) NOW, using its "
-                                u"DEFAULT scope. Checking/audit/statistics "
-                                u"workflows default to the ENTIRE project — "
-                                u"start scanning immediately, do NOT ask "
-                                u"about scope. Workflows that MODIFY the "
-                                u"model: use my selection or active view "
-                                u"and confirm before any model-wide edit."
-                            ).format(m.group(1))
+                            # Reference playbooks (no `tools:` in the
+                            # frontmatter — iso19650-naming, bep-guideline)
+                            # get their OWN wording: told to "start scanning
+                            # immediately" they have nothing to scan, and a
+                            # small local model filled the gap by replaying
+                            # the previous turn's tool calls.
+                            _ref = get_skills_engine().is_reference_skill(
+                                m.group(1))
+                            if _ref:
+                                route_text = (
+                                    u"Answer from the '{}' reference (the "
+                                    u"Active skill in your system prompt) "
+                                    u"for THIS message only. Summarise the "
+                                    u"rules it defines and ask me for the "
+                                    u"input it needs (file/sheet list, "
+                                    u"project code...). Do NOT call any "
+                                    u"Revit tool and do NOT repeat or "
+                                    u"re-run any earlier request in this "
+                                    u"conversation."
+                                ).format(m.group(1))
+                            else:
+                                route_text = (
+                                    u"Follow the '{}' workflow (the Active "
+                                    u"skill in your system prompt) NOW, "
+                                    u"using its DEFAULT scope. Checking/"
+                                    u"audit/statistics workflows default to "
+                                    u"the ENTIRE project — start scanning "
+                                    u"immediately, do NOT ask about scope. "
+                                    u"Workflows that change the model: use "
+                                    u"my selection or active view and "
+                                    u"confirm before any model-wide edit. "
+                                    u"Ignore every earlier request in this "
+                                    u"conversation — do not repeat it."
+                                ).format(m.group(1))
                 except Exception:
                     pass
 
@@ -4607,10 +4650,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     _multi_on, _llm_clf_on = True, True
                 if _multi_on:
+                    # Classify the USER's words. A slash-forced skill routes
+                    # the user's args (empty for a bare "/skill-id"), never
+                    # the synthetic boilerplate — classifying that text put
+                    # every slash-only invocation on the action specialist.
+                    # Empty text scores nothing, so the specialist comes
+                    # from the skill frontmatter (_apply_forced_skill).
+                    _clf_text = raw
+                    if _skill_forced:
+                        _clf_text = (getattr(self, '_forced_skill_args', u'')
+                                     or u'').strip()
                     _clf_provider = None
                     _is_chat_msg = bool(
                         nlu_result and nlu_result.get("intent") == "chat")
-                    if _llm_clf_on and not _is_chat_msg:
+                    if _llm_clf_on and not _is_chat_msg and _clf_text:
                         try:
                             from Intelligence.llm_router import LLMRouter as _LLMR
                             _clf_provider = _LLMR().get_active_provider()
@@ -4624,7 +4677,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         pass
                     try:
                         self._agent_decision = AgentDispatcher().classify(
-                            raw, provider=_clf_provider,
+                            _clf_text, provider=_clf_provider,
                             skills_engine=_skills_eng,
                             allow_llm=bool(_clf_provider))
                     except Exception as _disp_ex:
