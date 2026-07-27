@@ -276,6 +276,42 @@ class SkillsEngine(object):
         meta = self._skills.get(skill_id)
         return list((meta or {}).get('tools', []))
 
+    def agents_for(self, skill_id):
+        """Specialist names a skill declares (empty = applies everywhere)."""
+        self._ensure_scanned()
+        meta = self._skills.get(skill_id)
+        return list((meta or {}).get('agents', []))
+
+    def specialist_for(self, skill_id, preferred=None):
+        """Specialist to run a /slash-forced skill under.
+
+        The router classifies the *message*, which for a bare "/skill-id"
+        invocation is synthetic boilerplate — its wording (e.g. the word
+        "MODIFY") used to decide the specialist, so a reference playbook
+        could land on the action specialist and get write tools plus the
+        "tô đỏ tường" few-shot. The frontmatter is the authority instead:
+        keep `preferred` when the skill declares it, otherwise fall back to
+        the first declared agent.
+
+        Returns None when the skill is unknown or declares no agents (=
+        applies everywhere → leave the router's choice alone).
+        """
+        agents = self.agents_for(skill_id)
+        if not agents:
+            return None
+        if preferred and preferred in agents:
+            return preferred
+        return agents[0]
+
+    def is_reference_skill(self, skill_id):
+        """True for playbooks that declare no tools — standards/naming
+        references that are answered from their body, not by running Revit
+        tools."""
+        self._ensure_scanned()
+        if skill_id not in self._skills:
+            return False
+        return not self.tools_for(skill_id)
+
     def set_enabled(self, skill_id, enabled):
         try:
             from config.settings import get_settings
