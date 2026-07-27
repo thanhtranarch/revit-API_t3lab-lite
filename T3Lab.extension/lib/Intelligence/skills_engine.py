@@ -179,6 +179,11 @@ class SkillsEngine(object):
                              for t in meta.get('triggers', [])],
                 'agents': meta.get('agents', []),
                 'tools': meta.get('tools', []),
+                # 'standard: project' marks a playbook whose concrete values
+                # (codes, numbering, names, thresholds) are company-specific
+                # and MUST come from the project's BEP/standard documents —
+                # see _PROJECT_STANDARD_CONTRACT.
+                'standard': (meta.get('standard') or '').strip().lower(),
                 'path': path,
                 'source': source,
             }
@@ -347,20 +352,68 @@ When `total_count` > returned count, raise `limit` and rescan, or report \
 and state clearly what was NOT covered and why."""
 
 
+# Injected ONLY when an active skill declares `standard: project`.
+# Naming codes, sheet numbering, workset names, LOD matrices, suitability and
+# revision codes, export naming and folder structures are COMPANY-SPECIFIC —
+# they come from the client's/employer's BEP, EIR or in-house standard, not
+# from a generic playbook. Without this block the model reads the illustrative
+# tables in those skill bodies as "the" standard and confidently invents rules
+# for a company that never agreed to them.
+_PROJECT_STANDARD_CONTRACT = """\
+## Project-standard precedence (this request touches a company-specific standard)
+1. THE PROJECT DOCUMENTS ARE THE ONLY AUTHORITY: the project's BEP, EIR, \
+in-house standard/guideline, or any document in the knowledge base defines \
+the real codes, prefixes, numbering, names, LOD matrix and thresholds. \
+Use the "Project reference material" excerpts and the project instructions \
+first, follow them EXACTLY, and name the source file you took each rule from.
+2. THE PLAYBOOK TABLES ARE A GENERIC TEMPLATE, NOT THE PROJECT'S RULE: every \
+concrete code, prefix, example name and threshold written in the skill body \
+below is an illustrative industry-typical placeholder. NEVER present it as \
+this project's standard and never apply it silently.
+3. WHEN NO PROJECT STANDARD IS FOUND: say so plainly in one line — no BEP / \
+standard document was found in the knowledge base — then ask the user to add \
+it, naming a concrete route: Settings → Projects → Link folder (link the \
+project's BEP/standards folder, indexed in place), Settings → Projects → Add \
+files (copy the BEP/standard in), or Settings → Knowledge → Add folder (a \
+company-wide standards folder for every project). Then re-run the request. \
+Offer the generic template ONLY as an explicitly-labelled temporary \
+suggestion the user must confirm.
+4. NEVER INVENT OR ASSUME: do not fabricate a project code, discipline \
+prefix, revision/suitability code or LOD requirement. If the existing model \
+already shows a convention (e.g. via revit_list_sheets, list_worksets, \
+list_levels, revit_list_views), you may FOLLOW the observed existing pattern \
+— state that you inferred it from the model, not from a standard document."""
+
+
+def _needs_project_standard(engine, skill_ids):
+    """True when any of the given skills declares `standard: project`."""
+    for sid in skill_ids:
+        meta = engine._skills.get(sid) or {}
+        if (meta.get('standard') or '') == 'project':
+            return True
+    return False
+
+
 def build_skills_block(skill_ids, max_skills=2):
     """'## Active skill' prompt block for the matched skills (capped),
-    preceded by the shared execution contract."""
+    preceded by the shared execution contract — plus the project-standard
+    precedence contract when a company-specific standard skill is active."""
     if not skill_ids:
         return ''
     engine = get_skills_engine()
     parts = []
+    used = []
     for sid in list(skill_ids)[:max_skills]:
         body = engine.get_body(sid)
         if not body:
             continue
         meta = engine._skills.get(sid) or {}
+        used.append(sid)
         parts.append('## Active skill: {}\n{}'.format(
             meta.get('name', sid), body))
     if not parts:
         return ''
-    return '\n\n'.join([_SKILLS_CONTRACT] + parts)
+    head = [_SKILLS_CONTRACT]
+    if _needs_project_standard(engine, used):
+        head.append(_PROJECT_STANDARD_CONTRACT)
+    return '\n\n'.join(head + parts)

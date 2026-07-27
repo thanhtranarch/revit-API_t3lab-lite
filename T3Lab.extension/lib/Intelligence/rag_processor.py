@@ -15,6 +15,7 @@ Author: Tran Tien Thanh
 from __future__ import unicode_literals
 
 import os
+import re
 import base64
 
 # ── .NET / IronPython imports ─────────────────────────────────────────────────
@@ -74,8 +75,16 @@ def extract_pdf_pages(pdf_path, max_pages=200):
 
     Tries (in order):
       1. iTextSharp (if available in Revit environment) — real page numbers
-      2. Byte-level ASCII scan (fallback) — one pseudo-page numbered 0,
+      2. pdf_text: pure-Python inflate + content-stream parse — real page
+         numbers, handles FlateDecode/ObjStm/ToUnicode
+      3. Byte-level ASCII scan (last resort) — one pseudo-page numbered 0,
          signalling "page unknown / partial extraction" to callers.
+
+    Step 2 exists because step 3 CANNOT read a compressed PDF: it used to
+    return raw deflate bytes and PDF dictionary fragments as if they were
+    text, poisoning the RAG index and the folder digests. The byte scan now
+    only runs when both real parsers come back empty, and its output is
+    rejected when it doesn't look like prose (see _looks_like_text).
 
     Returns:
         list of (page_no, unicode_text) tuples; [] if nothing extractable.
@@ -92,10 +101,54 @@ def extract_pdf_pages(pdf_path, max_pages=200):
     pages = _itextsharp_pages(pdf_path, max_pages)
     if pages:
         return pages
+    try:
+        from Intelligence.knowledge import pdf_text as _pt
+        pages = _pt.extract_pages(pdf_path, max_pages=max_pages)
+        if pages:
+            return pages
+    except Exception:
+        pass
     text = _fallback_byte_scan(pdf_path)
-    if text:
+    if text and _looks_like_text(text):
         return [(0, text)]
     return []
+
+
+# Very common words. Real prose is ~10-25% of these; compressed-binary noise
+# and PDF object dictionaries (/Type/Catalog/Pages 2 0 R) contain almost none —
+# a letter/symbol ratio alone does NOT separate them, since both are full of
+# ASCII letters.
+_STOPWORDS_EN = set((
+    'the and for of to in is are with this that all shall be as on by or from '
+    'not it its at any each such which when where must may can will use used '
+    'file name project model drawing document number code'
+).split())
+_STOPWORDS_VI = set((
+    'va cua cho cac la duoc trong theo khi den tu mot nhung voi tai ban ten'
+).split())
+_COMMON_WORDS = _STOPWORDS_EN | _STOPWORDS_VI
+
+
+def _looks_like_text(text, min_common=0.05, max_symbol=0.06):
+    """Guard against the byte scan returning compressed-binary noise.
+
+    Judged on WORD content, not character classes: inflate output and PDF
+    dictionaries are full of ASCII letters, so a printable-ratio test passes
+    them happily (that is exactly how `/Type/Catalog/Pages 2 0 R` and
+    `|* Q9nG%6bHiw?` ended up in the index).
+    """
+    sample = (text or '')[:4000]
+    if len(sample) < 60:
+        return False
+    words = re.findall(r"[A-Za-z]{2,}", sample.lower())
+    if len(words) < 20:
+        return False
+    common = sum(1 for w in words if w in _COMMON_WORDS)
+    if common / float(len(words)) < min_common:
+        return False
+    # PDF syntax / binary is dense in these; prose is not
+    symbols = sum(1 for ch in sample if ch in '/<>[]{}\\|~^`')
+    return symbols / float(len(sample)) <= max_symbol
 
 
 def extract_pdf_text(pdf_path):

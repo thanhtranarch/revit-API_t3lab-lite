@@ -1439,9 +1439,11 @@
 
                             <!-- Context (knowledge files of this project) -->
                             <TextBlock Text="CONTEXT (KNOWLEDGE FILES)" Style="{StaticResource FieldLabel}"/>
-                            <Grid Margin="0,0,0,12">
+                            <Grid Margin="0,0,0,6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="8"/>
@@ -1449,16 +1451,27 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock x:Name="project_files_status" Grid.Column="0"
                                            Text="0 files" FontSize="12" Foreground="#71717A"
-                                           VerticalAlignment="Center"/>
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                 <Button x:Name="project_add_files_btn" Grid.Column="2"
                                         Style="{StaticResource SecondaryButton}" Height="30"
                                         Content="Add files…" Click="project_add_files_clicked"
                                         ToolTip="Copy PDF/DOCX/TXT/MD into this project's knowledge folder"/>
-                                <Button x:Name="project_open_folder_btn" Grid.Column="4"
+                                <Button x:Name="project_link_folder_btn" Grid.Column="4"
                                         Style="{StaticResource SecondaryButton}" Height="30"
-                                        Content="Open folder" Click="project_open_folder_clicked"
-                                        ToolTip="Open the project's knowledge folder in Explorer"/>
+                                        Content="Link folder" Click="project_link_folder_clicked"
+                                        ToolTip="Link an external folder (BEP, standards, network share) as project knowledge — indexed in place, a CONTEXT.md digest is written inside it"/>
+                                <Button x:Name="project_rescan_btn" Grid.Column="6"
+                                        Style="{StaticResource SecondaryButton}" Height="30"
+                                        Content="↻ Rescan" Click="project_rescan_clicked"
+                                        ToolTip="Re-read every linked folder, rebuild its CONTEXT.md and refresh the search index — run this after the BEP or standards are updated"/>
                             </Grid>
+                            <!-- Linked external knowledge folders -->
+                            <StackPanel x:Name="project_dirs_panel" Margin="0,0,0,6"/>
+                            <Button x:Name="project_open_folder_btn"
+                                    Style="{StaticResource SecondaryButton}" Height="28"
+                                    HorizontalAlignment="Left" Margin="0,0,0,0"
+                                    Content="Open knowledge folder" Click="project_open_folder_clicked"
+                                    ToolTip="Open the project's knowledge folder in Explorer"/>
 
                             <!-- Scheduled daily prompts -->
                             <TextBlock Text="SCHEDULED (DAILY PROMPTS)" Style="{StaticResource FieldLabel}"/>

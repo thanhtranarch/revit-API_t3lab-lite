@@ -45,6 +45,45 @@ except Exception:
         return ''
 
 
+def _open_in_explorer(path):
+    """Open a folder in Explorer. Returns True on success.
+
+    NEVER use a bare Process.Start(folder) here: Revit 2025+ runs on .NET 8,
+    where ProcessStartInfo.UseShellExecute defaults to FALSE, so handing it a
+    directory (or any non-executable) raises Win32Exception instead of asking
+    the shell to open it. Under Revit 2023 (.NET Framework 4.8) the same call
+    works, which is why this looks machine-specific. Combined with a
+    `except Exception: logger.debug(...)`, the button silently did nothing —
+    the exact failure already documented for the activity-log button in
+    T3LabAssistant/script.py.
+
+    explorer.exe always exists and takes a quoted path on both runtimes.
+    """
+    try:
+        import System.Diagnostics as _diag
+        if not path:
+            return False
+        if not os.path.isdir(path):
+            try:
+                os.makedirs(path)
+            except Exception:
+                return False
+        _diag.Process.Start(u"explorer.exe", u'"{}"'.format(path))
+        return True
+    except Exception as ex:
+        logger.debug("_open_in_explorer({}) failed: {}".format(path, ex))
+    # last resort: shell-execute the path explicitly
+    try:
+        import System.Diagnostics as _diag
+        psi = _diag.ProcessStartInfo(path)
+        psi.UseShellExecute = True
+        _diag.Process.Start(psi)
+        return True
+    except Exception as ex:
+        logger.debug("_open_in_explorer fallback failed: {}".format(ex))
+    return False
+
+
 def _brush(r, g, b):
     return SolidColorBrush(Color.FromRgb(r, g, b))
 
@@ -98,6 +137,7 @@ class LLMSettingWindow(forms.WPFWindow):
         self._quality_guard = False  # guards quality_mode_toggled re-entry
         self._embed_guard   = False  # guards knowledge_embed_toggled re-entry
         self._kn_scan_busy = False
+        self._ctx_busy = False   # guards concurrent context-digest rebuilds
 
         forms.WPFWindow.__init__(self, _XAML)
         self._models_cache = {}
@@ -305,8 +345,13 @@ class LLMSettingWindow(forms.WPFWindow):
             url = self._API_KEY_URLS.get(name)
             if not url:
                 return
-            import System.Diagnostics
-            System.Diagnostics.Process.Start(url)
+            # Same .NET 8 trap as _open_in_explorer: a bare Process.Start(url)
+            # throws under Revit 2025+ because UseShellExecute defaults to
+            # False there, leaving this button dead. Ask the shell explicitly.
+            import System.Diagnostics as _diag
+            psi = _diag.ProcessStartInfo(url)
+            psi.UseShellExecute = True
+            _diag.Process.Start(psi)
         except Exception as ex:
             logger.debug("get_api_key_clicked error: {}".format(ex))
 
@@ -743,11 +788,8 @@ class LLMSettingWindow(forms.WPFWindow):
     def open_data_dir_clicked(self, sender, e):
         """Open %APPDATA%/T3LabAI in Explorer."""
         try:
-            import System.Diagnostics
             d = os.path.join(os.environ.get('APPDATA', ''), 'T3LabAI')
-            if not os.path.isdir(d):
-                os.makedirs(d)
-            System.Diagnostics.Process.Start(d)
+            _open_in_explorer(d)
         except Exception as ex:
             logger.debug("open_data_dir_clicked error: {}".format(ex))
 
@@ -815,6 +857,7 @@ class LLMSettingWindow(forms.WPFWindow):
                 except Exception:
                     pass
                 self._update_project_files_status(pid)
+                self._render_project_dirs(pid)
                 self._render_project_sched(pid)
             else:
                 self.project_edit_panel.Visibility = Visibility.Collapsed
@@ -904,8 +947,34 @@ class LLMSettingWindow(forms.WPFWindow):
                 n += len(_fs)
                 if n > 99:
                     break
-            self.project_files_status.Text = u"{} file{} in the knowledge folder".format(
+            txt = u"{} file{} in the knowledge folder".format(
                 u"99+" if n > 99 else n, u"" if n == 1 else u"s")
+            # Linked folders are NOT walked here (they may be big network
+            # shares and this runs on the UI thread) — the exact document
+            # count is read back from each folder's context/ digest instead.
+            try:
+                from config.project_store import ProjectStore
+                from Intelligence.knowledge import context_digest
+                dirs = ProjectStore().get_knowledge_dirs(pid)
+                if dirs:
+                    docs = 0
+                    unscanned = 0
+                    for d in dirs:
+                        st = context_digest.read_context_stats(d)
+                        if st.get('exists'):
+                            docs += st.get('files') or 0
+                        else:
+                            unscanned += 1
+                    txt += u" + {} linked folder{}".format(
+                        len(dirs), u"" if len(dirs) == 1 else u"s")
+                    if docs:
+                        txt += u" ({} doc{} indexed)".format(
+                            docs, u"" if docs == 1 else u"s")
+                    if unscanned:
+                        txt += u" · {} not scanned yet".format(unscanned)
+            except Exception:
+                pass
+            self.project_files_status.Text = txt
         except Exception as ex:
             logger.debug("_update_project_files_status error: {}".format(ex))
 
@@ -947,11 +1016,353 @@ class LLMSettingWindow(forms.WPFWindow):
         try:
             pid = self._selected_project_id()
             if not pid:
+                try:
+                    self.project_files_status.Text = (
+                        u"Select a project first.")
+                except Exception:
+                    pass
                 return
-            import System.Diagnostics
-            System.Diagnostics.Process.Start(self._project_files_dir(pid))
+            folder = self._project_files_dir(pid)
+            if not _open_in_explorer(folder):
+                # never fail silently — that is what made this look dead
+                try:
+                    self.project_files_status.Text = (
+                        u"Could not open: {}".format(folder))
+                except Exception:
+                    pass
         except Exception as ex:
             logger.debug("project_open_folder_clicked error: {}".format(ex))
+
+    # ── Projects: linked external knowledge folders ─────────────────────────
+
+    def _render_project_dirs(self, pid):
+        """Rebuild the linked-folder rows for the selected project. UI THREAD."""
+        try:
+            from System.Windows.Controls import (Border, Button, Grid,
+                                                 ColumnDefinition, TextBlock)
+            from System.Windows import Thickness, CornerRadius, GridLength
+            from config.project_store import ProjectStore
+
+            panel = self.project_dirs_panel
+            panel.Children.Clear()
+            dirs = ProjectStore().get_knowledge_dirs(pid)
+            if not dirs:
+                return
+
+            for path in dirs:
+                row = Border()
+                row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
+                row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                row.BorderThickness = Thickness(1)
+                row.CornerRadius = CornerRadius(8)
+                row.Padding = Thickness(10, 6, 8, 6)
+                row.Margin = Thickness(0, 0, 0, 4)
+
+                grid = Grid()
+                c0 = ColumnDefinition()
+                c0.Width = GridLength(1, System.Windows.GridUnitType.Star)
+                c1 = ColumnDefinition()
+                c1.Width = GridLength.Auto
+                c2 = ColumnDefinition()
+                c2.Width = GridLength.Auto
+                grid.ColumnDefinitions.Add(c0)
+                grid.ColumnDefinitions.Add(c1)
+                grid.ColumnDefinitions.Add(c2)
+
+                missing = not os.path.isdir(path)
+                # exact counts come from the folder's own context/ digest —
+                # no walking of a possibly-remote share on the UI thread
+                try:
+                    from Intelligence.knowledge import context_digest
+                    st = context_digest.read_context_stats(path)
+                except Exception:
+                    st = {'exists': False, 'files': 0, 'updated': '', 'llm': 0}
+
+                if missing:
+                    note = u"  (not found)"
+                elif not st.get('exists'):
+                    note = u"  · not scanned yet"
+                else:
+                    note = u"  · {} doc{}".format(
+                        st.get('files') or 0,
+                        u"" if (st.get('files') or 0) == 1 else u"s")
+                    if st.get('llm'):
+                        note += u" (LLM {})".format(st['llm'])
+                    if st.get('updated'):
+                        note += u" · {}".format(st['updated'][:16])
+
+                tb = TextBlock()
+                tb.Text = (u"🔗 " + (os.path.basename(path.rstrip(u'\\/'))
+                                     or path) + note)
+                tb.ToolTip = (path
+                              + (u"\n\nDigest: " + st.get('path', u'')
+                                 if st.get('exists') else u'')
+                              + u"\n\nClick to open this folder")
+                tb.FontSize = 11.5
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.Foreground = SolidColorBrush(
+                    Color.FromRgb(239, 68, 68) if missing
+                    else Color.FromRgb(82, 82, 91))
+                tb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                tb.TextTrimming = System.Windows.TextTrimming.CharacterEllipsis
+                # the row itself opens the LINKED folder (not the project's
+                # own files dir, which is what the button below opens)
+                if not missing:
+                    tb.Cursor = System.Windows.Input.Cursors.Hand
+
+                    def _make_open(_p):
+                        def _open(s, ev):
+                            if not _open_in_explorer(_p):
+                                try:
+                                    self.project_files_status.Text = (
+                                        u"Could not open: {}".format(_p))
+                                except Exception:
+                                    pass
+                        return _open
+                    tb.MouseLeftButtonUp += _make_open(path)
+                Grid.SetColumn(tb, 0)
+                grid.Children.Add(tb)
+
+                rb = Button()
+                rb.Content = u"↻"
+                rb.FontSize = 11
+                rb.Width = 20
+                rb.Height = 20
+                rb.Cursor = System.Windows.Input.Cursors.Hand
+                rb.Background = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
+                rb.BorderThickness = Thickness(0)
+                rb.Foreground = SolidColorBrush(Color.FromRgb(59, 130, 246))
+                rb.IsEnabled = not missing
+                rb.ToolTip = u"Rescan this folder and rebuild its CONTEXT.md"
+
+                def _make_rescan(_p, _pid):
+                    def _rescan(s, ev):
+                        self._build_context_digest([_p], _pid)
+                    return _rescan
+                rb.Click += _make_rescan(path, pid)
+                Grid.SetColumn(rb, 1)
+                grid.Children.Add(rb)
+
+                btn = Button()
+                btn.Content = u"✕"
+                btn.FontSize = 10
+                btn.Width = 20
+                btn.Height = 20
+                btn.Cursor = System.Windows.Input.Cursors.Hand
+                btn.Background = SolidColorBrush(Color.FromArgb(0, 0, 0, 0))
+                btn.BorderThickness = Thickness(0)
+                btn.Foreground = SolidColorBrush(Color.FromRgb(161, 161, 170))
+                btn.ToolTip = u"Unlink this folder (files are NOT deleted)"
+
+                def _make_unlink(_p, _pid):
+                    def _unlink(s, ev):
+                        try:
+                            ProjectStore().remove_knowledge_dir(_pid, _p)
+                            self._render_project_dirs(_pid)
+                            self._update_project_files_status(_pid)
+                            if ProjectStore().get_active_project_id() == _pid:
+                                self._kick_knowledge_scan()
+                        except Exception as uex:
+                            logger.debug("unlink dir error: {}".format(uex))
+                    return _unlink
+                btn.Click += _make_unlink(path, pid)
+                Grid.SetColumn(btn, 2)
+                grid.Children.Add(btn)
+
+                row.Child = grid
+                panel.Children.Add(row)
+        except Exception as ex:
+            logger.debug("_render_project_dirs error: {}".format(ex))
+
+    def project_link_folder_clicked(self, sender, e):
+        """Link an external folder as project knowledge, write its CONTEXT.md
+        digest, then re-index. UI THREAD (digest+scan run in background)."""
+        try:
+            pid = self._selected_project_id()
+            if not pid:
+                return
+            clr.AddReference('System.Windows.Forms')
+            from System.Windows.Forms import FolderBrowserDialog, DialogResult
+            dlg = FolderBrowserDialog()
+            dlg.Description = ("Chon thu muc BEP / tieu chuan / tai lieu de "
+                               "lien ket vao project")
+            if dlg.ShowDialog() != DialogResult.OK or not dlg.SelectedPath:
+                return
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            if ps.add_knowledge_dir(pid, dlg.SelectedPath) is None:
+                return
+            self._render_project_dirs(pid)
+            self._update_project_files_status(pid)
+            self._build_context_digest([dlg.SelectedPath], pid)
+        except Exception as ex:
+            logger.debug("project_link_folder_clicked error: {}".format(ex))
+
+    def _build_context_digest(self, folders, pid=None, project_ctx=True):
+        """Rebuild <folder>/context/CONTEXT.md for each folder on a background
+        thread, then re-index. Accepts one path or a list. Never blocks the UI.
+
+        Re-runnable by design: the digest is regenerated from whatever the
+        folder holds RIGHT NOW, so this doubles as the rescan/reload path
+        after a BEP or standard is updated on the share.
+        """
+        if isinstance(folders, (list, tuple)):
+            todo = [f for f in folders if f]
+        else:
+            todo = [folders] if folders else []
+        if not todo:
+            return
+        if self._ctx_busy:
+            return
+        self._ctx_busy = True
+        try:
+            self.project_rescan_btn.IsEnabled = False
+        except Exception:
+            pass
+
+        def _set_status(text):
+            def _ui(_t=text):
+                try:
+                    self.project_files_status.Text = _t
+                except Exception:
+                    pass
+            try:
+                self.Dispatcher.BeginInvoke(Action(_ui))
+            except Exception:
+                pass
+
+        def _work():
+            results = []
+            ctx_info = []
+            try:
+                from Intelligence.knowledge import context_digest
+                for i, folder in enumerate(todo, start=1):
+                    if not os.path.isdir(folder):
+                        continue
+                    label = os.path.basename(folder.rstrip(u'\\/')) or folder
+                    prefix = (u"[{}/{}] ".format(i, len(todo))
+                              if len(todo) > 1 else u"")
+
+                    def _prog(name, _p=prefix, _l=label):
+                        _set_status(u"{}{}: {}".format(_p, _l[:18], name[:26]))
+                    _set_status(u"{}Reading {}…".format(prefix, label[:24]))
+                    try:
+                        res = context_digest.build_context_file(
+                            folder, progress_cb=_prog)
+                    except Exception as bex:
+                        logger.debug("digest {} error: {}".format(folder, bex))
+                        res = None
+                    if res:
+                        results.append(res)
+            except Exception as wex:
+                logger.debug("context digest error: {}".format(wex))
+
+            # ── project-wide BIM context (steps 3+4 of the RAG cycle) ──────
+            # Per-folder digests summarise ONE file at a time; this pass asks
+            # the indexed corpus a fixed set of BIM-standard questions and
+            # answers each from the best passages across ALL linked folders,
+            # with file+page citations.
+            if pid and project_ctx:
+                try:
+                    _set_status(u"Indexing for project context…")
+                    from config.project_store import ProjectStore as _PS
+                    from Intelligence.knowledge import project_context as _pc
+                    ps = _PS()
+                    store = ps.knowledge_store_for(pid)
+                    if store is not None:
+                        store.scan()
+                        embedder = None
+                        try:
+                            from Intelligence.knowledge.embeddings import (
+                                get_default_embedder)
+                            emb = get_default_embedder()
+                            if emb is not None and emb.is_available():
+                                store.embed_pending(emb, budget_sec=120)
+                                embedder = emb
+                        except Exception:
+                            embedder = None
+                        chat = None
+                        try:
+                            from Intelligence.knowledge.context_digest import (
+                                _default_chat_fn)
+                            chat = _default_chat_fn()
+                        except Exception:
+                            chat = None
+
+                        def _tprog(topic):
+                            _set_status(u"Context: {}".format(topic[:34]))
+                        ctx = _pc.build_project_context(
+                            store, chat, embedder=embedder,
+                            progress_cb=_tprog)
+                        out_dir = os.path.join(ps.project_dir(pid), 'files')
+                        ctx_path = _pc.write_project_context(out_dir, ctx)
+                        if ctx_path:
+                            ctx_info.append(ctx)
+                except Exception as pex:
+                    logger.debug("project context error: {}".format(pex))
+
+            def _done():
+                self._ctx_busy = False
+                try:
+                    self.project_rescan_btn.IsEnabled = True
+                except Exception:
+                    pass
+                try:
+                    if results:
+                        docs = sum(r.get('files') or 0 for r in results)
+                        n_llm = sum(r.get('llm') or 0 for r in results)
+                        msg = (u"Context rebuilt: {} doc(s) in {} folder(s){}"
+                               .format(docs, len(results),
+                                       u" · LLM {}".format(n_llm) if n_llm
+                                       else u" · excerpt only (no LLM)"))
+                        if ctx_info:
+                            c = ctx_info[0]
+                            msg += u" · PROJECT_CONTEXT {}/{} topics".format(
+                                c.get('topics_found') or 0,
+                                c.get('topics_total') or 0)
+                        self.project_files_status.Text = msg
+                    elif todo:
+                        self.project_files_status.Text = (
+                            u"Nothing indexable found in the linked folder(s).")
+                    if pid:
+                        from config.project_store import ProjectStore
+                        if ProjectStore().get_active_project_id() == pid:
+                            self._kick_knowledge_scan()
+                        self._render_project_dirs(pid)
+                except Exception as dex:
+                    logger.debug("digest done error: {}".format(dex))
+            try:
+                self.Dispatcher.BeginInvoke(Action(_done))
+            except Exception:
+                self._ctx_busy = False
+
+        t = Thread(ThreadStart(_work))
+        t.IsBackground = True
+        t.SetApartmentState(ApartmentState.STA)
+        t.Start()
+
+    def project_rescan_clicked(self, sender, e):
+        """Re-read every linked folder of the selected project and rebuild
+        their CONTEXT.md digests + the search index."""
+        try:
+            pid = self._selected_project_id()
+            if not pid:
+                return
+            from config.project_store import ProjectStore
+            dirs = ProjectStore().get_knowledge_dirs(pid)
+            if not dirs:
+                # nothing linked — still refresh the index of the project's
+                # own files so the button is never a dead end
+                self.project_files_status.Text = (
+                    u"No linked folder — refreshing index…")
+                if ProjectStore().get_active_project_id() == pid:
+                    self._kick_knowledge_scan()
+                else:
+                    self._update_project_files_status(pid)
+                return
+            self._build_context_digest(dirs, pid)
+        except Exception as ex:
+            logger.debug("project_rescan_clicked error: {}".format(ex))
 
     # ── Projects: scheduled daily prompts ────────────────────────────────────
 
@@ -1361,8 +1772,7 @@ class LLMSettingWindow(forms.WPFWindow):
         """Open the user skills folder in Explorer."""
         try:
             from Intelligence.skills_engine import _user_skills_dir
-            import System.Diagnostics
-            System.Diagnostics.Process.Start(_user_skills_dir())
+            _open_in_explorer(_user_skills_dir())
         except Exception as ex:
             logger.debug("open_skills_dir_clicked error: {}".format(ex))
 

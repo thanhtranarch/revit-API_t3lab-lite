@@ -4,8 +4,15 @@ description: Prepare COBie handover data - map Revit parameters to COBie fields
 triggers: cobie, du lieu tai san, asset data, ban giao du lieu, facility management, fm data, du lieu van hanh, van hanh bao tri, asset register, ma tai san
 agents: general, revit_data, revit_action, qa_check
 tools: get_all_parameters, set_parameter, bulk_set_parameter, create_project_parameter, create_schedule, get_schedule_data, export_room_data, ai_element_filter
+standard: project
 ---
 # Chuẩn bị dữ liệu COBie (T3Lab)
+
+> **⚠️ Nguồn chuẩn — đọc trước khi áp dụng**
+> Mọi mã, tiền tố, cách đánh số, tên gọi và ngưỡng viết trong tài liệu này chỉ là **mẫu tham khảo chung của ngành**, KHÔNG phải chuẩn của dự án. Chuẩn thật phụ thuộc từng công ty/chủ đầu tư.
+> 1. **Ưu tiên tuyệt đối**: BEP / EIR / tiêu chuẩn nội bộ của dự án có trong knowledge base — áp dụng đúng theo đó và ghi rõ tên file nguồn đã lấy quy tắc.
+> 2. **Nếu chưa có file chuẩn**: nói rõ một câu "chưa tìm thấy BEP/tiêu chuẩn dự án trong knowledge base", rồi đề nghị người dùng bổ sung theo một trong các cách: **Settings → Projects → Link folder** (link thẳng thư mục BEP/tiêu chuẩn của dự án — quét tại chỗ, tự sinh file `context/CONTEXT.md`), **Settings → Projects → Add files** (copy file BEP/standard vào project), hoặc **Settings → Knowledge → Add folder** (thư mục tiêu chuẩn dùng chung cho mọi dự án). Sau đó chạy lại yêu cầu.
+> 3. **Không tự bịa** mã dự án, tiền tố bộ môn, mã revision/suitability hay yêu cầu LOD. Nếu model hiện tại đã có quy ước sẵn thì được phép theo quy ước quan sát được — nhưng phải nói rõ là suy ra từ model, không phải từ tài liệu chuẩn.
 
 COBie = bộ dữ liệu có cấu trúc bàn giao cho đội vận hành (O&M), thay cho hồ sơ giấy rời rạc.
 

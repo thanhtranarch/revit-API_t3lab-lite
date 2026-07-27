@@ -1971,6 +1971,218 @@ class T3LabAIServer(object):
         'show_assistant_pane', 'file_watcher_status',
     ])
 
+    def _show_elements_smart(self, uidoc, doc, ids):
+        """Navigate to `ids` without Revit's "No good view could be found."
+
+        uidoc.ShowElements() asks Revit to GUESS a view. For a model element
+        (wall, door) that works, but a VIEW-SPECIFIC element — a text note in a
+        legend, a tag or dimension in a drafting view — only exists in its
+        owner view, and when that view isn't open Revit gives up and raises
+        that modal dialog. The dialog comes from Revit itself, so wrapping
+        ShowElements in try/except does NOT suppress it.
+
+        So: resolve the element's OwnerViewId first and ACTIVATE that view,
+        then zoom via the UIView. ShowElements is only used as a fallback for
+        genuine model elements, where it behaves well.
+
+        Safe to change the active view here: select_elements is in
+        _WRITE_TOOLS, so this already runs on Revit's main thread via the
+        ExternalEvent.
+
+        Returns a small dict describing what happened (merged into the tool
+        result) — never raises.
+        """
+        from Autodesk.Revit.DB import ElementId, View, ViewSheet
+        from System.Collections.Generic import List as NetList
+
+        info = {}
+        try:
+            owner_view = None
+            for eid in ids:
+                el = doc.GetElement(eid)
+                if el is None:
+                    continue
+                ovid = getattr(el, 'OwnerViewId', None)
+                if ovid is None or eid_value(ovid) <= 0:
+                    continue                      # model element (not view-owned)
+                v = doc.GetElement(ovid)
+                if isinstance(v, View) and not v.IsTemplate:
+                    owner_view = v
+                    break
+
+            if owner_view is not None:
+                # Activating a view that is already active throws; skip it.
+                try:
+                    if eid_value(uidoc.ActiveView.Id) != eid_value(owner_view.Id):
+                        uidoc.ActiveView = owner_view
+                        info['activated_view'] = owner_view.Name
+                except Exception as ex:
+                    info['activate_error'] = str(ex)
+                # Re-apply the selection: changing the active view clears it.
+                try:
+                    net = NetList[ElementId]()
+                    for i in ids:
+                        net.Add(i)
+                    uidoc.Selection.SetElementIds(net)
+                except Exception:
+                    pass
+                info['view'] = owner_view.Name
+                info['view_type'] = str(getattr(owner_view, 'ViewType', ''))
+                if self._zoom_to(uidoc, doc, owner_view, ids):
+                    info['zoomed'] = True
+                return info
+
+            # Model element → ShowElements is appropriate. Only call it when
+            # the element is actually visible somewhere, otherwise Revit pops
+            # the modal dialog at the user.
+            visible = self._first_view_showing(uidoc, doc, ids)
+            if visible is None:
+                info['show_skipped'] = ('element is not visible in any view '
+                                        '(hidden, closed workset, or '
+                                        'view-specific with no owner view)')
+                return info
+            try:
+                net = NetList[ElementId]()
+                for i in ids:
+                    net.Add(i)
+                uidoc.ShowElements(net)
+                info['zoomed'] = True
+            except Exception as ex:
+                info['show_error'] = str(ex)
+        except Exception as ex:
+            info['show_error'] = str(ex)
+        return info
+
+    def _zoom_to(self, uidoc, doc, view, ids):
+        """Zoom the open UIView of `view` onto the elements' bounding box."""
+        try:
+            from Autodesk.Revit.DB import XYZ
+            bmin = bmax = None
+            for eid in ids:
+                el = doc.GetElement(eid)
+                if el is None:
+                    continue
+                try:
+                    bb = el.get_BoundingBox(view)
+                except Exception:
+                    bb = None
+                if bb is None:
+                    continue
+                bmin = bb.Min if bmin is None else XYZ(
+                    min(bmin.X, bb.Min.X), min(bmin.Y, bb.Min.Y),
+                    min(bmin.Z, bb.Min.Z))
+                bmax = bb.Max if bmax is None else XYZ(
+                    max(bmax.X, bb.Max.X), max(bmax.Y, bb.Max.Y),
+                    max(bmax.Z, bb.Max.Z))
+            if bmin is None or bmax is None:
+                return False
+            pad = 2.0            # feet of breathing room around the target
+            bmin = XYZ(bmin.X - pad, bmin.Y - pad, bmin.Z)
+            bmax = XYZ(bmax.X + pad, bmax.Y + pad, bmax.Z)
+            for uiview in uidoc.GetOpenUIViews():
+                if eid_value(uiview.ViewId) == eid_value(view.Id):
+                    uiview.ZoomAndCenterRectangle(bmin, bmax)
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _first_view_showing(self, uidoc, doc, ids, max_views=40):
+        """A view in which at least one of `ids` is visible, or None.
+
+        Used to decide whether ShowElements can succeed, so the user never
+        gets Revit's "No good view could be found." modal.
+
+        Runs on Revit's MAIN thread, so cost matters: the search is ordered
+        cheapest-first (active view, then already-open views) and every
+        collector is narrowed to the elements' own categories before a
+        bounded sweep of the remaining views. On a large model an unbounded
+        all-views × all-elements scan would freeze the UI for seconds.
+        """
+        try:
+            from Autodesk.Revit.DB import (FilteredElementCollector, View,
+                                           ViewType, ElementMulticategoryFilter,
+                                           ElementId)
+            from System.Collections.Generic import List as NetList
+
+            wanted = set(eid_value(i) for i in ids)
+            if not wanted:
+                return None
+
+            cat_ids = NetList[ElementId]()
+            seen_cat = set()
+            for eid in ids:
+                el = doc.GetElement(eid)
+                if el is None or el.Category is None:
+                    continue
+                cv = eid_value(el.Category.Id)
+                if cv not in seen_cat:
+                    seen_cat.add(cv)
+                    cat_ids.Add(el.Category.Id)
+            cat_filter = (ElementMulticategoryFilter(cat_ids)
+                          if cat_ids.Count else None)
+
+            def _hits(view):
+                try:
+                    coll = FilteredElementCollector(doc, view.Id) \
+                        .WhereElementIsNotElementType()
+                    if cat_filter is not None:
+                        coll = coll.WherePasses(cat_filter)
+                    for e in coll:
+                        if eid_value(e.Id) in wanted:
+                            return True
+                except Exception:
+                    pass
+                return False
+
+            skip = (ViewType.Schedule, ViewType.ColumnSchedule,
+                    ViewType.PanelSchedule, ViewType.DrawingSheet,
+                    ViewType.Internal, ViewType.ProjectBrowser,
+                    ViewType.SystemBrowser, ViewType.Undefined)
+
+            # 1. the active view, 2. any already-open view — near-zero cost
+            candidates, done = [], set()
+            try:
+                candidates.append(uidoc.ActiveView)
+            except Exception:
+                pass
+            try:
+                for uv in uidoc.GetOpenUIViews():
+                    v = doc.GetElement(uv.ViewId)
+                    if v is not None:
+                        candidates.append(v)
+            except Exception:
+                pass
+            for v in candidates:
+                try:
+                    key = eid_value(v.Id)
+                    if key in done or v.IsTemplate or v.ViewType in skip:
+                        continue
+                    done.add(key)
+                    if _hits(v):
+                        return v
+                except Exception:
+                    continue
+
+            # 3. bounded sweep of the remaining views
+            n = 0
+            for v in FilteredElementCollector(doc).OfClass(View):
+                if n >= max_views:
+                    break
+                try:
+                    key = eid_value(v.Id)
+                    if key in done or v.IsTemplate or v.ViewType in skip:
+                        continue
+                    done.add(key)
+                    n += 1
+                    if _hits(v):
+                        return v
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        return None
+
     def ensure_external_event(self):
         """Create the ExternalEvent used to marshal tool execution onto Revit's
         main thread.
@@ -5538,13 +5750,13 @@ class T3LabAIServer(object):
                 for i in target:
                     net.Add(i)
                 uidoc.Selection.SetElementIds(net)
+                shown = None
                 if bool(arguments.get('show', False)) and net.Count:
-                    # Zoom the view onto the selection (element-link clicks).
-                    try:
-                        uidoc.ShowElements(net)
-                    except Exception:
-                        pass
-                return {'success': True, 'selected_count': net.Count}
+                    shown = self._show_elements_smart(uidoc, doc, target)
+                out = {'success': True, 'selected_count': net.Count}
+                if shown:
+                    out.update(shown)
+                return out
             except Exception as e:
                 return {'error': str(e), 'tool': tool_name}
 

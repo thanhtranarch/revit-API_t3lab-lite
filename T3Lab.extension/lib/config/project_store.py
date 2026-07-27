@@ -141,6 +141,44 @@ class ProjectStore(object):
             return None
         return meta
 
+    # ── linked knowledge folders (external RAG sources) ───────────────────
+    # The project always indexes its own <project>/files dir; these are EXTRA
+    # folders the user links (a network share of standards, a BEP folder...).
+    # knowledge_store_for() already merges them into the store's source_dirs,
+    # so adding one here + a rescan is all that's needed.
+
+    def get_knowledge_dirs(self, pid):
+        """Linked external folders for a project (never the built-in files dir)."""
+        meta = self.get_project(pid)
+        if not meta:
+            return []
+        return [d for d in (meta.get('knowledge_dirs') or []) if d]
+
+    def add_knowledge_dir(self, pid, path):
+        """Link an external folder. Returns the updated list, or None."""
+        path = (path or '').strip()
+        if not path:
+            return None
+        dirs = self.get_knowledge_dirs(pid)
+        # normcase compare so C:\Docs and c:\docs don't both get linked
+        if not any(os.path.normcase(os.path.abspath(d)) ==
+                   os.path.normcase(os.path.abspath(path)) for d in dirs):
+            dirs.append(path)
+        if self.update_project(pid, {'knowledge_dirs': dirs}) is None:
+            return None
+        self._store_cache.pop(pid, None)   # rebuild store with new source_dirs
+        return dirs
+
+    def remove_knowledge_dir(self, pid, path):
+        """Unlink an external folder. Returns the updated list, or None."""
+        target = os.path.normcase(os.path.abspath((path or '').strip()))
+        dirs = [d for d in self.get_knowledge_dirs(pid)
+                if os.path.normcase(os.path.abspath(d)) != target]
+        if self.update_project(pid, {'knowledge_dirs': dirs}) is None:
+            return None
+        self._store_cache.pop(pid, None)
+        return dirs
+
     def delete_project(self, pid):
         """Remove the project folder; clears active_project if it was it."""
         if not pid:

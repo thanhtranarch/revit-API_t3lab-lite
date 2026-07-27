@@ -3381,6 +3381,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _open_active_project_folder(self):
         """Open the active project's knowledge folder (files/) in Explorer —
         the drop target for PDF/DOCX/MD the RAG index answers from."""
+        d = u""
         try:
             import System.Diagnostics
             from config.project_store import ProjectStore
@@ -3391,9 +3392,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
             d = os.path.join(ps.project_dir(pid), 'files')
             if not os.path.isdir(d):
                 os.makedirs(d)
-            System.Diagnostics.Process.Start(d)
+            # explorer.exe + quoted path, never a bare Process.Start(dir):
+            # Revit 2025+ runs .NET 8 where UseShellExecute defaults to False,
+            # so passing a directory raises Win32Exception and the button
+            # silently does nothing (same trap as activity_log_clicked below).
+            System.Diagnostics.Process.Start(
+                u"explorer.exe", u'"{}"'.format(d))
         except Exception as ex:
             logger.debug("_open_active_project_folder error: {}".format(ex))
+            try:
+                self._append_bot_message(
+                    u"Couldn't open the knowledge folder:\n`{}`".format(d),
+                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+            except Exception:
+                pass
 
     def _project_popup_open_folder(self):
         try:
@@ -6429,12 +6441,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return
 
         def _work():
+            res = None
             try:
                 from core.server import get_t3labai_server
                 srv = get_t3labai_server()
-                srv._execute_tool('select_elements',
-                                  {'element_ids': ids, 'show': True,
-                                   'limit': len(ids)})
+                res = srv._execute_tool('select_elements',
+                                        {'element_ids': ids, 'show': True,
+                                         'limit': len(ids)})
+            except Exception:
+                res = None
+            # Tell the user WHY a link didn't move the view. Revit's own
+            # "No good view could be found." dialog is now avoided upstream,
+            # so silence here would otherwise look like a dead link.
+            try:
+                if not isinstance(res, dict):
+                    return
+                why = res.get('show_skipped') or res.get('show_error')
+                if not why:
+                    return   # success — the view visibly changed, stay quiet
+
+                def _ui():
+                    try:
+                        self._append_bot_message(
+                            u"Couldn't jump to element {}: {}".format(
+                                u", ".join(str(i) for i in ids[:3]), why),
+                            icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                    except Exception:
+                        pass
+                self.Dispatcher.BeginInvoke(Action(_ui))
             except Exception:
                 pass
 
