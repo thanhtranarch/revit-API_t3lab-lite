@@ -30,9 +30,10 @@ ANTHROPIC_API_VER = "2023-06-01"
 # NO hardcoded model names: the models an account can use come exclusively
 # from the live /v1/models endpoint after the key is verified. Defaults are
 # picked from that live list by substring preference only.
-_PREF_TEXT   = ("haiku", "sonnet", "opus")   # cheap-first for plain chat
-_PREF_VISION = ("sonnet", "opus", "haiku")   # capable-first for images/agent
-_PREF_FAST   = ("haiku", "sonnet")           # latency-first for classify calls
+_PREF_TEXT    = ("haiku", "sonnet", "opus")   # cheap-first for plain chat
+_PREF_VISION  = ("sonnet", "opus", "haiku")   # capable-first for images/agent
+_PREF_FAST    = ("haiku", "sonnet")           # latency-first for classify calls
+_PREF_QUALITY = ("opus", "sonnet", "haiku")   # Opus-parity mode: most capable first
 
 # Extended-thinking config for agent turns (agents.extended_thinking).
 #
@@ -50,6 +51,11 @@ _PREF_FAST   = ("haiku", "sonnet")           # latency-first for classify calls
 _THINK_BUDGET = 3000
 _THINK_EFFORT = "high"
 _THINK_BETA   = "interleaved-thinking-2025-05-14"   # legacy-mode only; GA (no header needed) on 4.6+ adaptive thinking
+
+# Opus-parity mode: agent turns get a wider answer ceiling so rich replies
+# (multi-step summaries, tables, code) never truncate. Utility calls are
+# unaffected — they pin a fast model + tiny token cap via model_override.
+_QUALITY_AGENT_TOKENS = 4000
 
 
 # ─── Provider ──────────────────────────────────────────────────────────────────
@@ -157,10 +163,29 @@ class ClaudeProvider(BaseLLMProvider):
         calls (classification). No HTTP; None until models were fetched."""
         return self._pick_model(self._cached_models or [], _PREF_FAST)
 
+    @staticmethod
+    def _quality_mode():
+        """Opus-parity switch (agents.quality_mode). Off by default."""
+        try:
+            _ensure_lib_in_path()
+            from config.settings import get_settings
+            return bool(get_settings().is_quality_mode_enabled())
+        except Exception:
+            return False
+
     def _default_model(self, prefer_vision=False):
-        """Default model resolved against the live /v1/models list (may fetch)."""
-        return self._pick_model(
-            self.get_models(), _PREF_VISION if prefer_vision else _PREF_TEXT)
+        """Default model resolved against the live /v1/models list (may fetch).
+
+        Opus-parity mode overrides the cheap-first/capable-first order with
+        most-capable-first (_PREF_QUALITY) so the user-facing default becomes
+        Opus. Utility calls bypass this via model_override, so classification
+        stays on the fast model.
+        """
+        if self._quality_mode():
+            prefs = _PREF_QUALITY
+        else:
+            prefs = _PREF_VISION if prefer_vision else _PREF_TEXT
+        return self._pick_model(self.get_models(), prefs)
 
     # ── Chat ─────────────────────────────────────────────────────────────────
 
@@ -263,12 +288,19 @@ class ClaudeProvider(BaseLLMProvider):
 
     @staticmethod
     def _thinking_enabled():
-        """agents.extended_thinking switch (default off — costs latency)."""
+        """Extended-thinking switch for agent turns.
+
+        On when EITHER the explicit agents.extended_thinking option is set OR
+        Opus-parity mode is active (quality_mode implies deep reasoning
+        between tool calls). Off by default — thinking costs latency.
+        """
         try:
             _ensure_lib_in_path()
             from config.settings import get_settings
-            return bool(get_settings().get_agent_option("extended_thinking",
-                                                        False))
+            s = get_settings()
+            if s.is_quality_mode_enabled():
+                return True
+            return bool(s.get_agent_option("extended_thinking", False))
         except Exception:
             return False
 
@@ -369,6 +401,11 @@ class ClaudeProvider(BaseLLMProvider):
         model = self._model or self._default_model(prefer_vision=True)
         if not model:
             return None
+
+        # Opus-parity mode widens the answer ceiling so rich multi-step
+        # replies never truncate. Never lower a caller's explicit higher cap.
+        if self._quality_mode():
+            max_tokens = max(max_tokens, _QUALITY_AGENT_TOKENS)
 
         # Deep reasoning (opt-in): extended thinking between tool calls.
         # Default to adaptive (current-generation shape); a cached "legacy"

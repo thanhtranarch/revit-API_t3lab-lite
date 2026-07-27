@@ -37,6 +37,11 @@ INDEXABLE_EXTS = TEXT_EXTS + (PDF_EXT,)
 _CHUNK_CACHE_CAP = 8          # per-store: how many docs' chunk files stay in memory
 _SCAN_SLEEP_SEC = 0.01        # breather between files so Revit stays responsive
 
+# Bump whenever the BM25 tokenization changes (so on-disk indexes rebuild).
+#   1 = unigram tokens
+#   2 = unigram + adjacent bigram tokens (vi_text.tokenize bigrams=True)
+INDEX_SCHEMA_VERSION = 2
+
 
 def _norm(path):
     return os.path.normcase(os.path.abspath(path))
@@ -98,10 +103,19 @@ class KnowledgeStore(object):
             self._manifest['files'] = {}
         self._bm25 = BM25Index.from_dict(
             _read_json(os.path.join(self.index_dir, 'bm25.json'), {}))
+        # Tokenizer/schema migration: an index built by an older tokenizer
+        # would only ever match its old unigram postings. Drop it so the next
+        # scan() rebuilds every document with the current tokenization — one
+        # background pass, then bigram-aware retrieval for all queries.
+        if self._manifest.get('schema') != INDEX_SCHEMA_VERSION:
+            self._manifest['files'] = {}
+            self._manifest['schema'] = INDEX_SCHEMA_VERSION
+            self._bm25 = BM25Index()
 
     def _save(self):
         """Callers hold self._lock."""
         self._manifest['updated'] = time.strftime('%Y-%m-%d %H:%M:%S')
+        self._manifest['schema'] = INDEX_SCHEMA_VERSION
         try:
             _write_json(os.path.join(self.index_dir, 'manifest.json'), self._manifest)
             _write_json(os.path.join(self.index_dir, 'bm25.json'), self._bm25.to_dict())

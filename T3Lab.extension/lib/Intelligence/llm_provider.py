@@ -363,8 +363,44 @@ def parse_openai_stream_line(line):
 
 # ─── Native tool calling (OpenAI wire format — shared by OpenAI/DeepSeek) ──────
 
+# ─── Local reasoning-model sampling ────────────────────────────────────────────
+# Substrings that mark a hybrid/reasoning local model (Qwen3, QwQ, DeepSeek-R1,
+# Magistral, etc.). These models are trained with sampled decoding and DEGRADE
+# under greedy (temperature 0): Qwen's own guidance is explicit that greedy
+# decoding in thinking mode causes endless repetition and quality drops. The
+# whole codebase historically pinned temperature 0.0 for determinism of tool
+# JSON — correct for instruct models, actively harmful for these.
+_REASONING_MODEL_HINTS = (
+    "qwen3", "qwq", "deepseek-r1", "-r1", "r1-", "magistral",
+    "reasoning", "thinker", "marco-o1", "openthinker", "phi-4-reasoning",
+)
+
+
+def is_reasoning_model(model_name):
+    """True when the model name looks like a hybrid/reasoning local model."""
+    if not model_name:
+        return False
+    low = u"{}".format(model_name).lower()
+    return any(h in low for h in _REASONING_MODEL_HINTS)
+
+
+def local_sampling_params(model_name):
+    """Recommended sampling options for a local model, by family.
+
+    Reasoning models (Qwen3 thinking, DeepSeek-R1, ...) get the vendor-
+    recommended non-greedy profile (temp 0.6 / top_p 0.95 / top_k 20 / min_p 0)
+    so thinking mode doesn't collapse into repetition. Plain instruct models
+    keep the deterministic low-temperature profile that makes tool-call JSON
+    stable. Returns a dict of raw option names (temperature/top_p/top_k/min_p)
+    — each provider maps them onto its own payload shape.
+    """
+    if is_reasoning_model(model_name):
+        return {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0}
+    return {"temperature": 0.0, "top_p": 0.9}
+
+
 def openai_chat_agent(url, headers, model, system_prompt, messages, tools,
-                      max_tokens=1500, timeout_ms=180000):
+                      max_tokens=1500, timeout_ms=180000, extra_payload=None):
     """One blocking agentic turn against an OpenAI-compatible /chat/completions.
 
     `messages` must be OpenAI-native (may contain assistant tool_calls and
@@ -382,6 +418,10 @@ def openai_chat_agent(url, headers, model, system_prompt, messages, tools,
     payload = {"model": model, "messages": msgs, "max_tokens": max_tokens}
     if tools:
         payload["tools"] = tools
+    # extra_payload carries provider-specific knobs (sampling for local
+    # reasoning models, tool_choice, ...) without changing OpenAI's defaults.
+    if extra_payload:
+        payload.update(extra_payload)
 
     resp_text = http_post(url, payload, headers, timeout_ms=timeout_ms)
     data = json.loads(resp_text)
@@ -415,6 +455,108 @@ def openai_chat_agent(url, headers, model, system_prompt, messages, tools,
         "tool_calls":    tool_calls,
         "assistant_msg": assistant_msg,
         "stop_reason":   "tool_use" if tool_calls else "end_turn",
+    }
+
+
+def openai_chat_agent_stream(url, headers, model, system_prompt, messages, tools,
+                             max_tokens=1500, timeout_ms=180000, on_delta=None,
+                             extra_payload=None):
+    """Streaming variant of openai_chat_agent for OpenAI-compatible servers.
+
+    Streams visible text through on_delta as it arrives AND accumulates the
+    tool_call deltas (which arrive fragmented by index, with `arguments`
+    streamed as partial JSON strings) into whole calls. Returns the same
+    uniform chat_agent dict. Raises on transport failure so callers can fall
+    back to the blocking openai_chat_agent.
+    """
+    msgs = []
+    if system_prompt:
+        msgs.append({"role": "system", "content": system_prompt})
+    msgs.extend(list(messages or []))
+
+    payload = {"model": model, "messages": msgs,
+               "max_tokens": max_tokens, "stream": True}
+    if tools:
+        payload["tools"] = tools
+    if extra_payload:
+        payload.update(extra_payload)
+
+    state = {"text": [], "tool": {}, "order": [], "finish": None}
+
+    def _on_line(line):
+        if not line:
+            return
+        line = line.strip()
+        if not line.startswith("data:"):
+            return
+        data = line[5:].strip()
+        if not data or data == "[DONE]":
+            return
+        try:
+            obj = json.loads(data)
+        except Exception:
+            return
+        choices = obj.get("choices") or []
+        if not choices:
+            return
+        ch    = choices[0]
+        delta = ch.get("delta") or {}
+
+        c = delta.get("content")
+        if c:
+            state["text"].append(c)
+            if on_delta:
+                try:
+                    on_delta(c)
+                except Exception:
+                    pass
+
+        for tc in (delta.get("tool_calls") or []):
+            idx  = tc.get("index", 0)
+            slot = state["tool"].get(idx)
+            if slot is None:
+                slot = {"id": tc.get("id", ""), "name": u"", "args": []}
+                state["tool"][idx] = slot
+                state["order"].append(idx)
+            if tc.get("id"):
+                slot["id"] = tc["id"]
+            fn = tc.get("function") or {}
+            if fn.get("name"):
+                slot["name"] = fn["name"]
+            if fn.get("arguments"):
+                slot["args"].append(fn["arguments"])
+
+        if ch.get("finish_reason"):
+            state["finish"] = ch["finish_reason"]
+
+    http_post_stream(url, payload, headers, _on_line, timeout_ms=timeout_ms)
+
+    raw_text = u"".join(state["text"])
+    text     = re.sub(r"<think>[\s\S]*?</think>", "", raw_text).strip()
+
+    tool_calls = []
+    raw_calls  = []
+    for idx in state["order"]:
+        slot     = state["tool"][idx]
+        args_str = u"".join(slot["args"])
+        try:
+            args = json.loads(args_str) if args_str.strip() else {}
+        except Exception:
+            args = {}
+        tool_calls.append({"id": slot["id"], "name": slot["name"], "args": args})
+        raw_calls.append({"id": slot["id"], "type": "function",
+                          "function": {"name": slot["name"],
+                                       "arguments": args_str or "{}"}})
+
+    assistant_msg = {"role": "assistant", "content": raw_text or None}
+    if raw_calls:
+        assistant_msg["tool_calls"] = raw_calls
+
+    return {
+        "text":          text,
+        "tool_calls":    tool_calls,
+        "assistant_msg": assistant_msg,
+        "stop_reason":   "tool_use" if tool_calls else (state["finish"] or "end_turn"),
     }
 
 
