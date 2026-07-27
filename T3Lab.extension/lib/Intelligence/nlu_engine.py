@@ -1088,34 +1088,216 @@ def is_capability_question(expanded):
     return any(r.search(padded) for r in _CAP_RES)
 
 
+# ─── Practical capability overview (grouped by workflow, verified live) ───────
+# The assistant's real power is acting DIRECTLY on the open model through the
+# MCP tool registry (core/server.py). "What can you do?" is answered from a
+# CURATED, workflow-grouped map with concrete notes — the practical style users
+# expect — but every line is VALIDATED against the live registry at render time:
+#   • a line whose tools are ALL gone is dropped (no advertising dead names —
+#     the drift trap documented in Intelligence/t3lab_agent.py); and
+#   • any registered tool the map doesn't mention is surfaced under "Khác/Other"
+#     so a newly-added tool is never silently hidden.
+# Curated notes were checked against the tool schemas in core/server.py, e.g.
+# purge_unused/delete_element dry_run, export_sheets_pdf `combined`, create_grid
+# auto x_labels/y_labels, split_* geometry preservation, create_point_based host.
+
+def _live_tool_names():
+    """Set of MCP tool names currently registered, or an empty set when the
+    registry is unreachable (running outside Revit / offline tests)."""
+    try:
+        from Intelligence.t3lab_agent import _get_mcp_tools
+        return set(t.get("name", "") for t in _get_mcp_tools())
+    except Exception:
+        return set()
+
+
+def _live_skills():
+    """[(name, description)] of enabled assistant skills, or [] if none/error."""
+    try:
+        from Intelligence.skills_engine import get_skills_engine
+        return [(s.get("name") or s.get("id"), s.get("description") or u"")
+                for s in get_skills_engine().get_catalog(enabled_only=True)]
+    except Exception:
+        return []
+
+
+def _user_display_name():
+    """User's set display name, or '' (no fallback — used only to personalise)."""
+    try:
+        from config.user_profile import get_profile
+        return (get_profile().get_name(fallback=False) or u"").strip()
+    except Exception:
+        return u""
+
+
+# Internal/plumbing tools deliberately kept out of the user-facing overview
+# (and out of the "Other" catch-all) — they aren't things a user asks for.
+_CAP_HIDE = frozenset([
+    u"say_hello", u"show_assistant_pane", u"file_watcher_status",
+])
+
+# Curated capability map. Each section: (emoji, vi_title, en_title, lines).
+# Each line: (names_tuple, vi_markdown, en_markdown). The line renders when the
+# registry is unknown (offline) OR at least one of its names is registered;
+# every name feeds the "covered" set that drives the anti-drift catch-all.
+_CAP_MAP = [
+    (u"📖", u"ĐỌC / QUERY", u"READ / QUERY", [
+        ((u"ai_element_filter",),
+         u"`ai_element_filter` — lọc element theo category + parameter (Walls, Doors, Rooms, Grids, Pipes…)",
+         u"`ai_element_filter` — filter elements by category + parameter (Walls, Doors, Rooms, Grids, Pipes…)"),
+        ((u"get_all_parameters", u"get_parameter", u"revit_get_element_info"),
+         u"`get_all_parameters` / `get_parameter` / `revit_get_element_info` — đọc mọi param & thông tin của 1 element",
+         u"`get_all_parameters` / `get_parameter` / `revit_get_element_info` — read every parameter & info of an element"),
+        ((u"get_elements_by_level", u"get_current_view_elements", u"get_current_view_info", u"revit_get_active_view", u"get_element_bounding_box"),
+         u"`get_elements_by_level`, `get_current_view_elements`, `get_current_view_info` / `revit_get_active_view`, `get_element_bounding_box`",
+         u"`get_elements_by_level`, `get_current_view_elements`, `get_current_view_info` / `revit_get_active_view`, `get_element_bounding_box`"),
+        ((u"revit_get_selected_elements", u"select_elements", u"get_available_family_types"),
+         u"`revit_get_selected_elements`, `select_elements` (chọn theo category+filter, zoom tới được), `get_available_family_types`",
+         u"`revit_get_selected_elements`, `select_elements` (select by category+filter, can zoom to them), `get_available_family_types`"),
+        ((u"get_schedule_data", u"get_material_quantities"),
+         u"`get_schedule_data` — đọc schedule ra JSON (row_count + column_totals chính xác), `get_material_quantities`",
+         u"`get_schedule_data` — read a schedule as JSON (exact row_count + column_totals), `get_material_quantities`"),
+        ((u"list_levels", u"revit_list_views", u"revit_list_sheets", u"list_worksets"),
+         u"`list_levels`, `revit_list_views`, `revit_list_sheets`, `list_worksets`",
+         u"`list_levels`, `revit_list_views`, `revit_list_sheets`, `list_worksets`"),
+        ((u"get_revit_context", u"revit_get_project_info", u"analyze_model_statistics"),
+         u"`get_revit_context`, `revit_get_project_info`, `analyze_model_statistics` — tổng quan model",
+         u"`get_revit_context`, `revit_get_project_info`, `analyze_model_statistics` — model overview"),
+    ]),
+    (u"✏️", u"TẠO / SỬA", u"CREATE / MODIFY", [
+        ((u"place_wall", u"create_surface_based_element"),
+         u"**Walls / Floors / Ceilings / Roofs** — `place_wall`, `create_surface_based_element`",
+         u"**Walls / Floors / Ceilings / Roofs** — `place_wall`, `create_surface_based_element`"),
+        ((u"create_point_based_element",),
+         u"**Doors / Windows / Furniture** — `create_point_based_element` (host được vào wall)",
+         u"**Doors / Windows / Furniture** — `create_point_based_element` (can be hosted into a wall)"),
+        ((u"create_line_based_element", u"create_structural_framing_system"),
+         u"**Beams / Pipes / Ducts** — `create_line_based_element`, `create_structural_framing_system`",
+         u"**Beams / Pipes / Ducts** — `create_line_based_element`, `create_structural_framing_system`"),
+        ((u"create_grid", u"create_level", u"create_room", u"load_family", u"room_to_floor"),
+         u"**Grids / Levels / Rooms** — `create_grid` (tự đặt label A/B/C · 1/2/3), `create_level`, `create_room`, `load_family`, `room_to_floor`",
+         u"**Grids / Levels / Rooms** — `create_grid` (auto labels A/B/C · 1/2/3), `create_level`, `create_room`, `load_family`, `room_to_floor`"),
+        ((u"move_elements", u"copy_elements", u"rotate_element", u"split_element", u"split_curve"),
+         u"`move_elements`, `copy_elements`, `rotate_element`, `split_element` / `split_curve` (giữ đúng arc/spline, không flatten)",
+         u"`move_elements`, `copy_elements`, `rotate_element`, `split_element` / `split_curve` (keeps arcs/splines exact, no flattening)"),
+        ((u"join_geometry", u"delete_element", u"operate_element"),
+         u"`join_geometry` (join/unjoin), `delete_element` (có `dry_run` xem trước), `operate_element` (hide / isolate / unhide / reset màu)",
+         u"`join_geometry` (join/unjoin), `delete_element` (`dry_run` preview), `operate_element` (hide / isolate / unhide / reset color)"),
+        ((u"bulk_set_parameter", u"set_parameter", u"rename_element"),
+         u"`bulk_set_parameter` — set 1 param cho hàng trăm element cùng lúc (filter được); `set_parameter`, `rename_element` cho từng element",
+         u"`bulk_set_parameter` — set one parameter across hundreds of elements at once (filterable); `set_parameter`, `rename_element` for a single element"),
+        ((u"create_project_parameter", u"create_workset", u"set_element_workset"),
+         u"`create_project_parameter`, `create_workset`, `set_element_workset`",
+         u"`create_project_parameter`, `create_workset`, `set_element_workset`"),
+    ]),
+    (u"📁", u"VIEW / SHEET / ANNOTATION", u"VIEW / SHEET / ANNOTATION", [
+        ((u"create_view", u"duplicate_view", u"apply_view_template", u"create_view_filter", u"set_active_view"),
+         u"`create_view`, `duplicate_view` (plain / with detailing / dependent), `apply_view_template`, `create_view_filter`, `set_active_view`",
+         u"`create_view`, `duplicate_view` (plain / with detailing / dependent), `apply_view_template`, `create_view_filter`, `set_active_view`"),
+        ((u"create_schedule", u"create_sheet", u"place_views_on_sheets", u"add_view_to_sheet"),
+         u"`create_schedule`, `create_sheet`, `place_views_on_sheets`, `add_view_to_sheet`",
+         u"`create_schedule`, `create_sheet`, `place_views_on_sheets`, `add_view_to_sheet`"),
+        ((u"create_dimension", u"create_text_note", u"tag_elements", u"tag_all_rooms", u"tag_all_walls"),
+         u"`create_dimension`, `create_text_note`, `tag_elements` / `tag_all_rooms` / `tag_all_walls`",
+         u"`create_dimension`, `create_text_note`, `tag_elements` / `tag_all_rooms` / `tag_all_walls`"),
+        ((u"color_elements", u"revit_override_color"),
+         u"`color_elements` — tô màu theo giá trị parameter (rất hay để QA); `revit_override_color`",
+         u"`color_elements` — color-code by parameter value (great for QA); `revit_override_color`"),
+    ]),
+    (u"📤", u"EXPORT", u"EXPORT", [
+        ((u"export_sheets_pdf", u"export_dwg", u"export_image", u"export_room_data"),
+         u"`export_sheets_pdf` (gộp thành 1 file được), `export_dwg`, `export_image` (PNG), `export_room_data`",
+         u"`export_sheets_pdf` (can combine into one file), `export_dwg`, `export_image` (PNG), `export_room_data`"),
+    ]),
+    (u"🔍", u"QA / MODEL HEALTH", u"QA / MODEL HEALTH", [
+        ((u"audit_model", u"get_model_warnings", u"get_model_health", u"analyze_model_statistics"),
+         u"`audit_model`, `get_model_warnings`, `get_model_health`, `analyze_model_statistics`",
+         u"`audit_model`, `get_model_warnings`, `get_model_health`, `analyze_model_statistics`"),
+        ((u"purge_unused",),
+         u"`purge_unused` — mặc định dry-run (chỉ báo cáo); set `dry_run=false` mới thật sự xoá",
+         u"`purge_unused` — dry-run by default (report only); set `dry_run=false` to actually purge"),
+    ]),
+    (u"⚡", u"ADVANCED", u"ADVANCED", [
+        ((u"send_code_to_revit",),
+         u"`send_code_to_revit` — chạy **IronPython trực tiếp** trong Revit context (full API) → mạnh nhất, làm được cả những gì tool có sẵn chưa cover",
+         u"`send_code_to_revit` — run **IronPython directly** in the Revit context (full API) → the most powerful path, does what the built-in tools don't cover yet"),
+        ((u"store_project_data", u"store_room_data", u"query_stored_data"),
+         u"Lưu / truy vấn dữ liệu bền vững trong model: `store_project_data`, `store_room_data`, `query_stored_data`",
+         u"Persist / query data inside the model: `store_project_data`, `store_room_data`, `query_stored_data`"),
+        ((u"switch_active_document", u"open_document", u"close_document", u"list_open_documents", u"list_recent_documents"),
+         u"Làm việc trên nhiều model đang mở: `switch_active_document`, `open_document`, `close_document`, `list_open_documents`, `list_recent_documents`",
+         u"Work across open models: `switch_active_document`, `open_document`, `close_document`, `list_open_documents`, `list_recent_documents`"),
+    ]),
+]
+
+
 def _capabilities_overview(viet):
-    """Full tool list grouped by ribbon panel — for 'what can you do?'."""
-    groups, order = {}, []
-    for tool in _tool_catalog():
-        panel = tool.get('panel') or (u"Khác" if viet else u"Other")
-        if panel not in groups:
-            groups[panel] = []
-            order.append(panel)
-        groups[panel].append(tool['title'])
-    lines = []
-    total = 0
-    for panel in order:
-        titles = groups[panel]
-        total += len(titles)
-        shown = u", ".join(titles[:8])
-        if len(titles) > 8:
-            shown += (u" +{} tool khác".format(len(titles) - 8) if viet
-                      else u" +{} more".format(len(titles) - 8))
-        lines.append(u"**{}**: {}".format(panel, shown))
+    """Practical, workflow-grouped overview of what the assistant can DO on the
+    live model — curated notes validated against the MCP registry, plus live
+    skills and a compact pointer to the openable ribbon tools. See _CAP_MAP."""
+    live = _live_tool_names()   # empty set when offline → show every line
+
     if viet:
-        return (u"🧰 T3Lab có {} tool:\n{}\n\n"
-                u"Ngoài ra tôi xuất sheet trực tiếp được ('xuất pdf G sheet').\n"
-                u"Gõ 'mở <tên tool>' để mở, hoặc hỏi "
-                u"'có tool nào để ... không?'").format(total, u"\n".join(lines))
-    return (u"🧰 T3Lab has {} tools:\n{}\n\n"
-            u"I can also export sheets directly ('export pdf G sheet').\n"
-            u"Type 'open <tool name>' to open one, or ask "
-            u"'is there a tool for ...?'").format(total, u"\n".join(lines))
+        out = [u"Đây là những gì mình làm được **trực tiếp trên model Revit** "
+               u"(qua T3Lab connector):"]
+    else:
+        out = [u"Here's what I can do **directly on the Revit model** "
+               u"(via the T3Lab connector):"]
+
+    covered = set()
+    for emoji, vi_title, en_title, lines in _CAP_MAP:
+        rendered = []
+        for names, vi_line, en_line in lines:
+            covered.update(names)
+            if live and not (set(names) & live):
+                continue   # every referenced tool is gone → drop the line
+            rendered.append(u"• " + (vi_line if viet else en_line))
+        if rendered:
+            out.append(u"\n{} **{}**\n{}".format(
+                emoji, vi_title if viet else en_title, u"\n".join(rendered)))
+
+    # ── Anti-drift safety net: registered tools the curated map never named ──
+    if live:
+        extra = sorted(live - covered - _CAP_HIDE)
+        if extra:
+            chips = u", ".join(u"`{}`".format(n) for n in extra)
+            out.append((u"\n🧩 **Khác** (tool mới, chưa xếp nhóm): {}" if viet
+                        else u"\n🧩 **Other** (newer tools, not yet grouped): {}"
+                        ).format(chips))
+
+    # ── Skills (live from SkillsEngine), personalised if a name is set ───────
+    skills = _live_skills()
+    if skills:
+        name = _user_display_name()
+        if viet:
+            hdr = (u"\n🎯 **SKILLS chuyên biệt đã cài cho {}**:".format(name)
+                   if name else u"\n🎯 **SKILLS chuyên biệt đã cài**:")
+        else:
+            hdr = (u"\n🎯 **Custom skills set up for {}**:".format(name)
+                   if name else u"\n🎯 **Custom skills installed**:")
+        s_lines = [hdr]
+        for sname, sdesc in skills[:12]:
+            s_lines.append(u"• **{}** — {}".format(sname, sdesc) if sdesc
+                           else u"• **{}**".format(sname))
+        rest = skills[12:]
+        if rest:
+            names = u", ".join(sn for sn, _ in rest)
+            s_lines.append((u"• …+{} skill nữa: {}" if viet
+                            else u"• …+{} more: {}").format(len(rest), names))
+        out.append(u"\n".join(s_lines))
+
+    # ── Compact pointer to the openable ribbon tools + quick affordances ─────
+    total_open = len(_tool_catalog())
+    if viet:
+        out.append(u"\n📂 Ngoài ra mình mở được **{} tool trên ribbon** — gõ "
+                   u"*mở <tên tool>*, hỏi *có tool nào để … không?*, hoặc xuất "
+                   u"nhanh *xuất pdf G sheet*.".format(total_open))
+    else:
+        out.append(u"\n📂 I can also open **{} ribbon tools** — type "
+                   u"*open <tool name>*, ask *is there a tool for …?*, or quick-"
+                   u"export *export pdf G sheets*.".format(total_open))
+
+    return u"\n".join(out)
 
 
 def answer_capability_question(user_input, viet):

@@ -1,18 +1,18 @@
 {
   "patterns": {
     "batchout": {
-      "hits": 1, 
       "last_raw": "m\u1edf batchout", 
       "params": {}, 
       "intent": "open_batchout", 
-      "last_message": "\u0110ang m\u1edf BatchOut..."
+      "last_message": "\u0110ang m\u1edf BatchOut...", 
+      "hits": 1
     }, 
     "english spellcheck": {
       "last_raw": "/english-spellcheck", 
       "params": {}, 
       "intent": "check_spelling", 
       "last_message": "Scanning model Text Notes for English spelling errors...", 
-      "hits": 10
+      "hits": 11
     }
   }
 }
