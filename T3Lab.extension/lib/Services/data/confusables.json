@@ -1,0 +1,12 @@
+[
+  {
+    "find": "\\b(to|please|pls|kindly|will|would|shall|should|can|could|may|must)\\s+advice\\b",
+    "sub": "\\1 advise",
+    "reason": "verb"
+  },
+  {
+    "find": "\\bplease be advice\\b",
+    "sub": "please be advised",
+    "reason": "advised"
+  }
+]

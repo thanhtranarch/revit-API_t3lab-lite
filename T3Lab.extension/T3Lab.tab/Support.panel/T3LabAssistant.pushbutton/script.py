@@ -3378,15 +3378,27 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("model_chip_clicked error: {}".format(ex))
 
-    def _build_model_popup(self):
-        """Fill the model popup from the instant router snapshot. UI THREAD."""
+    def _build_model_popup(self, _skip_refresh=False):
+        """Fill the model popup from the instant router snapshot. UI THREAD.
+
+        Only providers that are actually READY (configured for remote /
+        probed-reachable for local) are listed. Showing every provider,
+        including ones marked "Not set up", confused users about what they
+        could actually pick, so unconfigured providers are hidden. The active
+        provider is always kept as a safety net, and a background probe keeps
+        local providers (Ollama / LM Studio) accurate since the instant
+        snapshot reports them unavailable until probed.
+        """
         from Intelligence.llm_router import LLMRouter
         router = LLMRouter()
         status = router.get_status_instant()
         panel = self.model_popup_panel
         panel.Children.Clear()
+        shown = 0
         for name in router.get_provider_names():
             info = status.get(name, {})
+            if not info.get('available') and not info.get('active'):
+                continue                       # hide "Not set up" providers
             model = info.get('model') or u""
             subtitle = model if model else (
                 None if info.get('available')
@@ -3397,10 +3409,65 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 dot=self._BADGE_COLORS.get(name, self._BADGE_GRAY),
                 handler=(lambda s, ev, _n=name:
                          self._model_popup_select(_n))))
+            shown += 1
+        if shown == 0:
+            # Never leave the menu blank - point the user at Settings.
+            panel.Children.Add(self._popup_row(
+                u"No providers ready - open Settings to configure",
+                None, icon=u"", hover=False,
+                handler=lambda s, ev: self._model_popup_settings()))
+        if not _skip_refresh:
+            self._refresh_model_popup_async(status)
         panel.Children.Add(self._popup_separator())
         panel.Children.Add(self._popup_row(
             u"Configure API key & model…", None, icon=u"",
             handler=lambda s, ev: self._model_popup_settings()))
+
+    def _refresh_model_popup_async(self, prev_status):
+        """Probe local providers (fast, localhost) off-thread and rebuild the
+        popup once if their Ready status changed. Ollama / LM Studio report
+        unavailable in the instant snapshot until probed, so a just-started
+        local engine would otherwise stay hidden until the next open.
+        """
+        if getattr(self, '_model_popup_refreshing', False):
+            return
+        self._model_popup_refreshing = True
+
+        def _work():
+            changed = False
+            try:
+                from Intelligence.llm_router import LLMRouter
+                router = LLMRouter()
+                names = router.get_provider_names()
+                for name in ('ollama', 'lmstudio'):
+                    if name not in names:
+                        continue
+                    before = bool((prev_status.get(name) or {}).get('available'))
+                    try:
+                        info = router.probe_provider(name)
+                    except Exception:
+                        info = None
+                    if bool((info or {}).get('available')) != before:
+                        changed = True
+            except Exception:
+                changed = False
+
+            def _rebuild():
+                self._model_popup_refreshing = False
+                try:
+                    if (changed and getattr(self, 'model_popup', None) is not None
+                            and self.model_popup.IsOpen):
+                        self._build_model_popup(_skip_refresh=True)
+                except Exception:
+                    pass
+            try:
+                self.Dispatcher.Invoke(Action(_rebuild))
+            except Exception:
+                self._model_popup_refreshing = False
+
+        t = Thread(ThreadStart(_work))
+        t.IsBackground = True
+        t.Start()
 
     def _model_popup_select(self, name):
         try:
@@ -5314,54 +5381,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 try:
                     from core.server import get_t3labai_server
                     srv = get_t3labai_server()
-
-                    def _tool(name, args):
-                        r = srv._execute_tool(name, args)
-                        return r if isinstance(r, dict) else {}
-
-                    # limit must cover the WHOLE model — the old cap of 1000
-                    # silently skipped 3/4 of a 4500-note project, so typos
-                    # past the cap were never seen. Dedupe + batching below
-                    # keep the LLM calls bounded regardless of note count.
-                    res = _tool('ai_element_filter',
-                                {'category': 'TextNotes', 'limit': 100000})
-                    if 'elements' in res:
+                    # ONE main-thread collector for the whole model. Replaces the
+                    # old piecemeal calls (TextNotes + sheets/views/rooms/levels
+                    # + 4 project-info fields): it also gathers title-block
+                    # labels, the FULL Project Information, revision
+                    # descriptions, view "Title on Sheet", dimension text
+                    # overrides, model text and schedule names, so every place
+                    # that holds human-authored text gets proofread.
+                    res = srv._execute_tool('collect_spellcheck_text',
+                                            {'view_only': view_only})
+                    if not isinstance(res, dict):
+                        res = {}
+                    if 'items' in res:
                         notes = []
-
-                        def _add(_id, _txt, _src):
-                            _txt = (_txt or u'').strip()
+                        for it in res['items']:
+                            _txt = (it.get('text') or u'').strip()
                             if _txt and any(c.isalpha() for c in _txt):
-                                notes.append({'id': _id, 'text': _txt,
-                                              'view': _src})
-                        for el in res['elements']:
-                            _add(el.get('id'), el.get('text'),
-                                 el.get('view', u''))
-                        if view_only:
-                            av = _tool('revit_get_active_view', {})
-                            if av.get('name'):
-                                notes = [n for n in notes
-                                         if n['view'] == av['name']]
-                        else:
-                            for sh in _tool('revit_list_sheets',
-                                            {}).get('sheets', [])[:5000]:
-                                _add(sh.get('id'), sh.get('name'),
-                                     u'Sheet name')
-                            for vw in _tool('revit_list_views',
-                                            {}).get('views', [])[:5000]:
-                                _add(vw.get('id'), vw.get('name'),
-                                     u'View name')
-                            for _cat, _lbl in (('Rooms', u'Room name'),
-                                               ('Levels', u'Level name')):
-                                r2 = _tool('ai_element_filter',
-                                           {'category': _cat, 'limit': 5000})
-                                for el in r2.get('elements', []):
-                                    _add(el.get('id'), el.get('name'), _lbl)
-                            pi = _tool('revit_get_project_info', {})
-                            for _k in ('name', 'client', 'address', 'status'):
-                                _v = pi.get(_k)
-                                if _v:
-                                    _add(None, u'{}'.format(_v),
-                                         u'Project info: {}'.format(_k))
+                                notes.append({
+                                    'id':   it.get('id'),
+                                    'text': _txt,
+                                    'view': it.get('view')
+                                            or it.get('source') or u'',
+                                })
                 except Exception as _col_ex:
                     logger.debug("spellcheck server collect error: {}".format(_col_ex))
                     notes = None
@@ -5389,61 +5430,81 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     else:
                         report = u"No Text Notes found{}.".format(
                             u" in the active view" if view_only else u" in the project")
-                elif not (has_api_key() or has_local_llm()):
-                    if viet:
-                        report = (u"Found **{}** Text Notes but no AI provider is "
-                                  u"connected for spell-checking — connect one in "
-                                  u"Settings (⚙) and try again.").format(len(notes))
-                    else:
-                        report = (u"Found **{}** Text Notes but no AI provider is "
-                                  u"connected to proofread them — connect one in "
-                                  u"Settings (⚙) and try again.").format(len(notes))
                 else:
-                    uniq    = SC.dedupe_notes(notes)
-                    # Cloud providers take much larger proofreading batches
-                    # than the small-local-model default (25 notes/3.5k chars)
-                    # — on a 4500-note model that default means ~150 LLM
-                    # round-trips.
-                    try:
-                        _cloud = get_active_provider_name() in (
-                            "claude", "openai")
-                    except Exception:
-                        _cloud = False
-                    if _cloud:
-                        batches = SC.build_batches(uniq, max_notes=120,
-                                                   max_chars=15000)
-                        _max_tok = 3000
-                    else:
-                        batches = SC.build_batches(uniq)
-                        _max_tok = 1400
-                    if len(batches) > 1:
-                        self._safe_append_bot(
-                            u"Found {} text items ({} unique strings) — checking "
-                            u"in {} batches, please wait...".format(len(notes), len(uniq), len(batches))
+                    uniq = SC.dedupe_notes(notes)
+                    # PRIMARY detector — deterministic dictionary + edit-distance
+                    # engine (no AI provider needed). This replaces "hand every
+                    # batch to the connected LLM and trust the answer": small
+                    # local models (llama3.1:8b, qwen...) routinely replied
+                    # NO_ERRORS on obvious typos, so the scan looked clean while
+                    # Claude-via-MCP flagged them all. The dictionary engine
+                    # catches them offline and instantly.
+                    det = SC.check_deterministic(uniq)
+                    if det is not None:
+                        if len(uniq) > 300:
+                            self._safe_append_bot(
+                                u"Đang phân tích {} nội dung ({} mục)…".format(
+                                    len(uniq), len(notes)) if viet else
+                                u"Analyzing {} unique texts ({} items)…".format(
+                                    len(uniq), len(notes)))
+                        findings, failed = det, 0
+                        report = SC.format_report(findings, len(notes), len(uniq),
+                                                  failed, viet, view_only)
+                        ui_findings, ui_total, ui_uniq, ui_failed = \
+                            findings, len(notes), len(uniq), failed
+                    elif not (has_api_key() or has_local_llm()):
+                        report = (
+                            u"Đã tìm thấy **{}** mục text nhưng không tải được từ "
+                            u"điển kiểm tra chính tả và chưa kết nối AI — cài lại "
+                            u"extension hoặc kết nối provider trong Settings (⚙)."
                             if viet else
-                            u"Found {} text items ({} unique texts) — checking in {} "
-                            u"batches, please wait...".format(len(notes), len(uniq), len(batches)))
-                    from Intelligence.llm_router import LLMRouter
-                    router = LLMRouter()
-                    sys_p  = SC.build_system_prompt(viet)
-                    findings, failed = [], 0
-                    for batch in batches:
-                        if self._cancel_requested:
-                            break
-                        resp = None
+                            u"Found **{}** text items but the spell-check "
+                            u"dictionary could not be loaded and no AI provider is "
+                            u"connected — reinstall the extension or connect a "
+                            u"provider in Settings (⚙).").format(len(notes))
+                    else:
+                        # Fallback (dictionary asset missing) — legacy LLM batch
+                        # path. Cloud providers take much larger batches than the
+                        # small-local-model default (25 notes / 3.5k chars).
                         try:
-                            resp = router.chat([], sys_p, SC.build_batch_query(batch),
-                                               max_tokens=_max_tok)
-                        except Exception as ex:
-                            logger.debug("spellcheck batch error: {}".format(ex))
-                        if not resp or not resp.strip():
-                            failed += 1
-                            continue
-                        findings.extend(SC.parse_findings(resp, batch))
-                    report = SC.format_report(findings, len(notes), len(uniq),
-                                              failed, viet, view_only)
-                    ui_findings, ui_total, ui_uniq, ui_failed = \
-                        findings, len(notes), len(uniq), failed
+                            _cloud = get_active_provider_name() in (
+                                "claude", "openai")
+                        except Exception:
+                            _cloud = False
+                        if _cloud:
+                            batches = SC.build_batches(uniq, max_notes=120,
+                                                       max_chars=15000)
+                            _max_tok = 3000
+                        else:
+                            batches = SC.build_batches(uniq)
+                            _max_tok = 1400
+                        if len(batches) > 1:
+                            self._safe_append_bot(
+                                u"Found {} text items ({} unique texts) — checking "
+                                u"in {} batches, please wait...".format(
+                                    len(notes), len(uniq), len(batches)))
+                        from Intelligence.llm_router import LLMRouter
+                        router = LLMRouter()
+                        sys_p  = SC.build_system_prompt(viet)
+                        findings, failed = [], 0
+                        for batch in batches:
+                            if self._cancel_requested:
+                                break
+                            resp = None
+                            try:
+                                resp = router.chat([], sys_p,
+                                                   SC.build_batch_query(batch),
+                                                   max_tokens=_max_tok)
+                            except Exception as ex:
+                                logger.debug("spellcheck batch error: {}".format(ex))
+                            if not resp or not resp.strip():
+                                failed += 1
+                                continue
+                            findings.extend(SC.parse_findings(resp, batch))
+                        report = SC.format_report(findings, len(notes), len(uniq),
+                                                  failed, viet, view_only)
+                        ui_findings, ui_total, ui_uniq, ui_failed = \
+                            findings, len(notes), len(uniq), failed
             except Exception as ex:
                 logger.debug("spellcheck error: {}".format(ex))
                 report = (u"Spell-check failed — see the console for details."
@@ -6229,123 +6290,222 @@ class T3LabAssistantWindow(forms.WPFWindow):
         t.Start()
 
     def _append_spellcheck_findings(self, findings, viet, total, uniq):
-        """Interactive spell-check result card — one row per finding with the
-        proposed correction and clickable element-id links (select & zoom in
-        Revit, same mechanism as the tool-card id chips). UI THREAD.
+        """Interactive spell-check result TABLE — one row per distinct
+        correction (# · Wrong · Correct · Qty · Element IDs · View), matching
+        the way Claude-via-MCP presents a scan. Every element-id is a clickable
+        link that opens the view containing that element and zooms to it
+        (uidoc.ShowElements). UI THREAD.
 
         Returns True when the card rendered; the caller falls back to the
-        plain-text report bubble on False so findings are never lost.
+        plain-text markdown-table report on False so findings are never lost.
         """
         try:
-            from System.Windows.Controls import Border, StackPanel, TextBlock, Orientation
-            from System.Windows import Thickness, CornerRadius, TextWrapping, TextDecorations
+            from System.Windows.Controls import (Border, StackPanel, TextBlock,
+                                                  WrapPanel, Grid,
+                                                  ColumnDefinition, RowDefinition,
+                                                  Orientation)
+            from System.Windows import (Thickness, CornerRadius, TextWrapping,
+                                        TextDecorations, GridLength, GridUnitType,
+                                        HorizontalAlignment, VerticalAlignment)
             from System.Windows.Media import SolidColorBrush, Color
             from System.Windows.Input import Cursors
 
+            try:
+                from Services import spell_checker as SC
+                rows = SC.aggregate_findings(findings)
+            except Exception:
+                rows = []
+            if not rows:
+                return False
+
+            _font = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+
+            def _brush(r, g, b):
+                return SolidColorBrush(Color.FromRgb(r, g, b))
+            INK, MUTED, FAINT = _brush(15, 23, 42), _brush(100, 116, 139), _brush(148, 163, 184)
+            BLUE, RED, GREEN = _brush(59, 130, 246), _brush(220, 38, 38), _brush(5, 150, 105)
+            LINE, ALT = _brush(241, 245, 249), _brush(248, 250, 252)
+
             card = Border()
-            card.Background      = SolidColorBrush(Color.FromRgb(248, 250, 252))   # #F8FAFC
-            card.BorderBrush     = SolidColorBrush(Color.FromRgb(226, 232, 240))   # #E2E8F0
+            card.Background      = _brush(255, 255, 255)
+            card.BorderBrush     = _brush(226, 232, 240)                          # #E2E8F0
             card.BorderThickness = Thickness(1)
             card.CornerRadius    = CornerRadius(8)
             card.Padding         = Thickness(12, 9, 12, 10)
             card.Margin          = Thickness(34, 0, 60, 10)
 
             panel = StackPanel()
-            _font = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
 
+            instances = sum(len(r["ids"]) for r in rows)
             hdr = TextBlock()
-            hdr.Text = (u"🔍 Kiểm tra chính tả: {} mục ({} nội dung) — {} lỗi"
-                        .format(total, uniq, len(findings)) if viet else
-                        u"🔍 Spell-check: {} items ({} unique) — {} issue(s)"
-                        .format(total, uniq, len(findings)))
-            hdr.FontSize   = 12.5
-            hdr.FontFamily = _font
-            hdr.FontWeight = System.Windows.FontWeights.SemiBold
-            hdr.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))            # #0F172A
+            hdr.Text = (u"🔍 Kiểm tra chính tả: {} lỗi ({} vị trí) trong {} nội dung"
+                        .format(len(rows), instances, uniq) if viet else
+                        u"🔍 Spell-check: {} issue(s) across {} instances in {} unique texts"
+                        .format(len(rows), instances, uniq))
+            hdr.FontSize     = 12.5
+            hdr.FontFamily   = _font
+            hdr.FontWeight   = System.Windows.FontWeights.SemiBold
+            hdr.Foreground   = INK
             hdr.TextWrapping = TextWrapping.Wrap
+            hdr.Margin       = Thickness(0, 0, 0, 8)
             panel.Children.Add(hdr)
 
-            _MAX_ROWS = 40
-            for i, f in enumerate(findings[:_MAX_ROWS]):
-                n = f["note"]
+            grid = Grid()
+            for w in (GridLength.Auto, GridLength.Auto, GridLength.Auto,
+                      GridLength.Auto, GridLength(1.4, GridUnitType.Star),
+                      GridLength(1.0, GridUnitType.Star)):
+                cd = ColumnDefinition()
+                cd.Width = w
+                grid.ColumnDefinitions.Add(cd)
 
-                issue = TextBlock()
-                issue.Text         = u"{}. {}".format(i + 1, f["issue"])
-                issue.FontSize     = 12
-                issue.FontFamily   = _font
-                issue.FontWeight   = System.Windows.FontWeights.SemiBold
-                issue.Foreground   = SolidColorBrush(Color.FromRgb(15, 23, 42))    # #0F172A
-                issue.TextWrapping = TextWrapping.Wrap
-                issue.Margin       = Thickness(0, 8, 0, 0)
-                panel.Children.Add(issue)
+            _MAX_ROWS = 60
+            shown_rows = rows[:_MAX_ROWS]
+            for _ in range(len(shown_rows) + 1):
+                grid.RowDefinitions.Add(RowDefinition())
 
-                src_txt = n["text"]
-                if len(src_txt) > 110:
-                    src_txt = src_txt[:109] + u"…"
-                views = [v for v in n.get("views", []) if v]
-                src = TextBlock()
-                src.Text         = (u'"{}"'.format(src_txt)
-                                    + (u" — " + u", ".join(views[:2])
-                                       if views else u""))
-                src.FontSize     = 11
-                src.FontFamily   = _font
-                src.Foreground   = SolidColorBrush(Color.FromRgb(100, 116, 139))   # #64748B
-                src.TextWrapping = TextWrapping.Wrap
-                src.Margin       = Thickness(12, 1, 0, 0)
-                panel.Children.Add(src)
+            def _cell(text, col, row, brush, size=12, bold=False, wrap=True,
+                      align_r=False):
+                tb = TextBlock()
+                tb.Text         = text
+                tb.FontSize     = size
+                tb.FontFamily   = _font
+                tb.Foreground   = brush
+                tb.TextWrapping = TextWrapping.Wrap if wrap else TextWrapping.NoWrap
+                tb.Margin       = Thickness(0, 5, 12, 5)
+                tb.VerticalAlignment = VerticalAlignment.Center
+                if bold:
+                    tb.FontWeight = System.Windows.FontWeights.SemiBold
+                if align_r:
+                    tb.HorizontalAlignment = HorizontalAlignment.Right
+                Grid.SetColumn(tb, col)
+                Grid.SetRow(tb, row)
+                grid.Children.Add(tb)
+                return tb
 
-                ids = [x for x in n.get("ids", []) if x]
-                if ids:
-                    links = StackPanel()
-                    links.Orientation = Orientation.Horizontal
-                    links.Margin      = Thickness(12, 2, 0, 0)
+            # header row
+            heads = ([u"#", u"Sai", u"Đúng", u"SL", u"Element IDs", u"View"] if viet
+                     else [u"#", u"Wrong", u"Correct", u"Qty", u"Element IDs", u"View"])
+            for c, h in enumerate(heads):
+                _cell(h, c, 0, FAINT, size=10.5, bold=True,
+                      align_r=(c == 3)).FontWeight = System.Windows.FontWeights.Bold
+            hline = Border()
+            hline.BorderBrush = _brush(226, 232, 240)
+            hline.BorderThickness = Thickness(0, 0, 0, 1)
+            Grid.SetRow(hline, 0)
+            Grid.SetColumnSpan(hline, 6)
+            grid.Children.Add(hline)
 
-                    def _mk_link(label, id_list):
-                        tb = TextBlock()
-                        tb.Text            = label
-                        tb.FontSize        = 11
-                        tb.FontFamily      = _font
-                        tb.Foreground      = SolidColorBrush(Color.FromRgb(59, 130, 246))  # #3B82F6
-                        tb.TextDecorations = TextDecorations.Underline
-                        tb.Cursor          = Cursors.Hand
-                        tb.Margin          = Thickness(0, 0, 10, 0)
-                        tb.ToolTip         = u"Select & zoom in Revit"
+            for i, r in enumerate(shown_rows):
+                rr = i + 1
+                bg = Border()
+                bg.Background      = ALT if (i % 2 == 1) else _brush(255, 255, 255)
+                bg.BorderBrush     = LINE
+                bg.BorderThickness = Thickness(0, 0, 0, 1)
+                Grid.SetRow(bg, rr)
+                Grid.SetColumnSpan(bg, 6)
+                grid.Children.Add(bg)
 
-                        def _click(s, e, _ids=list(id_list)):
-                            self._select_in_revit_async(_ids)
+                _cell(u"{}".format(rr), 0, rr, MUTED, size=11)
 
-                        tb.MouseLeftButtonUp += _click
-                        return tb
+                # wrong — red badge
+                badge = Border()
+                badge.Background      = _brush(254, 242, 242)                     # #FEF2F2
+                badge.BorderBrush     = _brush(252, 165, 165)                     # #FCA5A5
+                badge.BorderThickness = Thickness(1)
+                badge.CornerRadius    = CornerRadius(4)
+                badge.Padding         = Thickness(6, 1, 6, 2)
+                badge.Margin          = Thickness(0, 4, 12, 4)
+                badge.HorizontalAlignment = HorizontalAlignment.Left
+                badge.VerticalAlignment   = VerticalAlignment.Center
+                bt = TextBlock()
+                bt.Text = r["wrong"]
+                bt.FontSize = 11.5
+                bt.FontFamily = _font
+                bt.Foreground = RED
+                bt.TextWrapping = TextWrapping.Wrap
+                badge.Child = bt
+                Grid.SetColumn(badge, 1)
+                Grid.SetRow(badge, rr)
+                grid.Children.Add(badge)
 
-                    for eid in ids[:6]:
-                        links.Children.Add(_mk_link(u"#{}".format(eid), [eid]))
-                    if len(ids) > 1:
-                        links.Children.Add(_mk_link(
-                            u"chọn cả {}".format(len(ids)) if viet
-                            else u"select all {}".format(len(ids)), ids))
-                    panel.Children.Add(links)
+                right = r["right"]
+                if r.get("reason") and not right:
+                    right = r["reason"]
+                elif r.get("reason"):
+                    right = u"{} ({})".format(right, r["reason"])
+                _cell(right, 2, rr, GREEN, size=12, bold=True)
 
-            if len(findings) > _MAX_ROWS:
+                _cell(u"{}".format(len(r["ids"])), 3, rr, MUTED, size=11,
+                      align_r=True)
+
+                # element-id links (WrapPanel) — click opens the element's view
+                ids = [x for x in r["ids"] if x is not None]
+                wrap = WrapPanel()
+                wrap.Orientation = Orientation.Horizontal
+                wrap.Margin      = Thickness(0, 4, 12, 4)
+                Grid.SetColumn(wrap, 4)
+                Grid.SetRow(wrap, rr)
+
+                def _mk_link(label, id_list, tip):
+                    tb = TextBlock()
+                    tb.Text            = label
+                    tb.FontSize        = 11
+                    tb.FontFamily      = _font
+                    tb.Foreground      = BLUE
+                    tb.TextDecorations = TextDecorations.Underline
+                    tb.Cursor          = Cursors.Hand
+                    tb.Margin          = Thickness(0, 1, 10, 1)
+                    tb.ToolTip         = tip
+
+                    def _click(s, e, _ids=list(id_list)):
+                        self._select_in_revit_async(_ids)
+
+                    tb.MouseLeftButtonUp += _click
+                    return tb
+
+                _go_tip = (u"Mở view chứa element & zoom" if viet
+                           else u"Open the element's view & zoom")
+                for eid in ids[:8]:
+                    wrap.Children.Add(_mk_link(u"#{}".format(eid), [eid], _go_tip))
+                if len(ids) > 8:
+                    wrap.Children.Add(_mk_link(
+                        u"+{}".format(len(ids) - 8), ids,
+                        (u"Chọn tất cả {}".format(len(ids)) if viet
+                         else u"Select all {}".format(len(ids)))))
+                elif len(ids) > 1:
+                    wrap.Children.Add(_mk_link(
+                        u"chọn cả {}".format(len(ids)) if viet
+                        else u"all {}".format(len(ids)), ids,
+                        (u"Chọn & zoom tất cả" if viet else u"Select & zoom all")))
+                grid.Children.Add(wrap)
+
+                views = [v for v in r["views"] if v]
+                _cell(u" / ".join(views[:3]) + (u" …" if len(views) > 3 else u"")
+                      if views else u"—", 5, rr, MUTED, size=11)
+
+            panel.Children.Add(grid)
+
+            if len(rows) > _MAX_ROWS:
                 more = TextBlock()
-                more.Text = (u"… và {} lỗi khác — xem danh sách đầy đủ trong "
-                             u"lịch sử chat.".format(len(findings) - _MAX_ROWS)
-                             if viet else
-                             u"… and {} more — full list kept in the chat "
-                             u"history.".format(len(findings) - _MAX_ROWS))
-                more.FontSize   = 11
+                more.Text = (u"… và {} lỗi khác — xem bảng đầy đủ trong lịch sử chat."
+                             .format(len(rows) - _MAX_ROWS) if viet else
+                             u"… and {} more — full table kept in the chat history."
+                             .format(len(rows) - _MAX_ROWS))
+                more.FontSize = 11
                 more.FontFamily = _font
-                more.Foreground = SolidColorBrush(Color.FromRgb(100, 116, 139))
-                more.Margin     = Thickness(0, 8, 0, 0)
+                more.Foreground = MUTED
+                more.Margin = Thickness(0, 8, 0, 0)
+                more.TextWrapping = TextWrapping.Wrap
                 panel.Children.Add(more)
 
             hint = TextBlock()
-            hint.Text = (u'Bấm ID để chọn & zoom trong Revit. Nhắn "sửa 1,2..." '
+            hint.Text = (u'Bấm ID để mở view chứa element. Nhắn "sửa 1,2..." '
                          u'hoặc "sửa tất cả" để áp dụng đề xuất.' if viet else
-                         u'Click an ID to select & zoom in Revit. Reply '
+                         u'Click an ID to open the element\'s view. Reply '
                          u'"fix 1,2..." or "fix all" to apply the suggestions.')
             hint.FontSize     = 11
             hint.FontFamily   = _font
-            hint.Foreground   = SolidColorBrush(Color.FromRgb(148, 163, 184))      # #94A3B8
+            hint.Foreground   = FAINT
             hint.TextWrapping = TextWrapping.Wrap
             hint.Margin       = Thickness(0, 10, 0, 0)
             panel.Children.Add(hint)

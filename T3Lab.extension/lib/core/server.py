@@ -2300,6 +2300,210 @@ class T3LabAIServer(object):
                 })
             return {'count': len(sheets), 'sheets': sheets}
 
+        elif tool_name == 'collect_spellcheck_text':
+            # One-shot collector for /english-spellcheck: gather EVERY
+            # human-authored string in the model so the deterministic engine
+            # can proofread it — not just Text Notes, but title-block labels,
+            # the full Project Information, revision descriptions, view titles,
+            # dimension text overrides, model text and schedule names. Read
+            # only, runs on the Revit main thread (routed like any read tool).
+            from Autodesk.Revit.DB import (BuiltInCategory as _B,
+                                           BuiltInParameter as _BP, StorageType)
+            from Snippets._compat import elem_name
+            import re as _re
+            items, counts = [], {}
+            view_only = bool(arguments.get('view_only'))
+            av_id = None
+            try:
+                if view_only and doc.ActiveView is not None:
+                    av_id = doc.ActiveView.Id
+            except Exception:
+                av_id = None
+
+            _vn_cache = {}
+
+            def _view_name(vid):
+                try:
+                    k = eid_value(vid)
+                    if k in _vn_cache:
+                        return _vn_cache[k]
+                    ov = doc.GetElement(vid)
+                    nm = ov.Name if ov is not None else u''
+                    _vn_cache[k] = nm
+                    return nm
+                except Exception:
+                    return u''
+
+            def _add(_id, _txt, _src, _view):
+                try:
+                    _txt = (_txt or u'').strip()
+                except Exception:
+                    return
+                if not _txt or not any(c.isalpha() for c in _txt):
+                    return
+                items.append({'id': _id, 'text': _re.sub(r'[\r\n]+', u' / ', _txt),
+                              'source': _src, 'view': _view or _src})
+                counts[_src] = counts.get(_src, 0) + 1
+
+            # 1. Text Notes (respects view_only)
+            try:
+                from Autodesk.Revit.DB import TextNote
+                _c = (FilteredElementCollector(doc, av_id) if av_id is not None
+                      else FilteredElementCollector(doc))
+                for tn in _c.OfClass(TextNote).WhereElementIsNotElementType():
+                    _add(eid_value(tn.Id), tn.Text, u'Text Note',
+                         _view_name(tn.OwnerViewId))
+            except Exception:
+                pass
+
+            # 2. Model Text (3D text)
+            try:
+                from Autodesk.Revit.DB import ModelText
+                for mt in FilteredElementCollector(doc).OfClass(ModelText):
+                    _add(eid_value(mt.Id), mt.Text, u'Model Text', u'Model Text')
+            except Exception:
+                pass
+
+            # 3. Dimension text overrides ("VERFIY ON SITE" typos live here)
+            try:
+                from Autodesk.Revit.DB import Dimension
+                _c = (FilteredElementCollector(doc, av_id) if av_id is not None
+                      else FilteredElementCollector(doc))
+
+                def _dim_add(_did, obj, vname):
+                    for attr in ('ValueOverride', 'Above', 'Below',
+                                 'Prefix', 'Suffix'):
+                        try:
+                            v = getattr(obj, attr, None)
+                        except Exception:
+                            v = None
+                        if v:
+                            _add(_did, v, u'Dimension text', vname)
+
+                for dim in _c.OfClass(Dimension).WhereElementIsNotElementType():
+                    vname = _view_name(dim.OwnerViewId)
+                    _did = eid_value(dim.Id)
+                    n = 0
+                    try:
+                        n = dim.NumberOfSegments
+                    except Exception:
+                        n = 0
+                    if n and n > 0:
+                        try:
+                            for seg in dim.Segments:
+                                _dim_add(_did, seg, vname)
+                        except Exception:
+                            pass
+                    else:
+                        _dim_add(_did, dim, vname)
+            except Exception:
+                pass
+
+            if not view_only:
+                # 4. Sheets — name + number
+                try:
+                    for s in FilteredElementCollector(doc).OfClass(ViewSheet):
+                        _add(eid_value(s.Id), s.Name, u'Sheet name',
+                             u'Sheet ' + (s.SheetNumber or u''))
+                        _add(eid_value(s.Id), s.SheetNumber, u'Sheet number',
+                             u'Sheet ' + (s.SheetNumber or u''))
+                except Exception:
+                    pass
+
+                # 5. Views — name + "Title on Sheet"
+                try:
+                    from Autodesk.Revit.DB import View
+                    for v in FilteredElementCollector(doc).OfClass(View):
+                        if v.IsTemplate:
+                            continue
+                        _add(eid_value(v.Id), v.Name, u'View name', u'View')
+                        try:
+                            p = v.get_Parameter(_BP.VIEW_DESCRIPTION)
+                            if p is not None:
+                                _add(eid_value(v.Id), p.AsString(),
+                                     u'Title on sheet', v.Name)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+                # 6. Rooms / Levels / Grids — names
+                for _cat, _lbl in ((_B.OST_Rooms, u'Room name'),
+                                   (_B.OST_Levels, u'Level name'),
+                                   (_B.OST_Grids, u'Grid name')):
+                    try:
+                        for el in (FilteredElementCollector(doc).OfCategory(_cat)
+                                   .WhereElementIsNotElementType()):
+                            _add(eid_value(el.Id), elem_name(el), _lbl, _lbl)
+                    except Exception:
+                        pass
+
+                # 7. Project Information — ALL string parameters
+                try:
+                    pinfo = doc.ProjectInformation
+                    if pinfo is not None:
+                        pid = eid_value(pinfo.Id)
+                        for p in pinfo.Parameters:
+                            try:
+                                if p.StorageType != StorageType.String:
+                                    continue
+                                val = p.AsString()
+                                if val:
+                                    _add(pid, val,
+                                         u'Project info: ' + p.Definition.Name,
+                                         u'Project Information')
+                            except Exception:
+                                continue
+                except Exception:
+                    pass
+
+                # 8. Title blocks — instance string-parameter values (labels)
+                try:
+                    for tb in (FilteredElementCollector(doc)
+                               .OfCategory(_B.OST_TitleBlocks)
+                               .WhereElementIsNotElementType()):
+                        vname = _view_name(tb.OwnerViewId) or u'Title block'
+                        tid = eid_value(tb.Id)
+                        for p in tb.Parameters:
+                            try:
+                                if p.StorageType != StorageType.String:
+                                    continue
+                                val = p.AsString()
+                                if val:
+                                    _add(tid, val, u'Title block', vname)
+                            except Exception:
+                                continue
+                except Exception:
+                    pass
+
+                # 9. Revisions — descriptions
+                try:
+                    from Autodesk.Revit.DB import Revision
+                    for rv in FilteredElementCollector(doc).OfClass(Revision):
+                        try:
+                            _add(eid_value(rv.Id), rv.Description,
+                                 u'Revision', u'Revision')
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+                # 10. Schedule names
+                try:
+                    from Autodesk.Revit.DB import ViewSchedule
+                    for sc in FilteredElementCollector(doc).OfClass(ViewSchedule):
+                        try:
+                            if sc.IsTemplate:
+                                continue
+                            _add(eid_value(sc.Id), sc.Name,
+                                 u'Schedule name', u'Schedule')
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            return {'items': items, 'counts': counts, 'total': len(items)}
+
         elif tool_name == 'revit_get_element_info':
             from Autodesk.Revit.DB import ElementId
             eid = make_eid(int(arguments.get('element_id', 0)))
