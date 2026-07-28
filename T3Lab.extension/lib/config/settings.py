@@ -322,6 +322,22 @@ class T3LabAISettings(object):
         mode = self._settings.get('agents', {}).get('action_mode', 'auto')
         return mode if mode in ('auto', 'confirm') else 'auto'
 
+    def get_reply_language(self):
+        """Language the assistant answers in.
+
+        'auto' = follow the language the user wrote in (default), 'vi' and
+        'en' pin it. Read by the Assistant for its own strings and threaded
+        into the LLM system prompts so the model agrees with the UI.
+        """
+        lang = self._settings.get('agents', {}).get('reply_language', 'auto')
+        return lang if lang in ('auto', 'vi', 'en') else 'auto'
+
+    def set_reply_language(self, lang):
+        """Persist the reply-language preference ('auto' | 'vi' | 'en')."""
+        if lang not in ('auto', 'vi', 'en'):
+            lang = 'auto'
+        return self.set_agent_option('reply_language', lang)
+
     def get_agent_option(self, key, default=None):
         """Read a scalar switch from the agents block."""
         return self._settings.get('agents', {}).get(key, default)

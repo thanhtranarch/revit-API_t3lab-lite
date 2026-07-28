@@ -27,10 +27,10 @@ Chain: launcher → `PDFImportDialog.py` → `PDFImport.xaml`
 - [ ] Kiểm tra API import PDF theo version Revit đang chạy (API đổi giữa các version)
 - [ ] Ghi chú:
 
-## Tool 4/9 — T3LabAssistant ⚠️ tool lớn nhất codebase (3594 loc)
+## Tool 4/9 — T3LabAssistant ⚠️ tool lớn nhất codebase (8115 loc, cập nhật 2026-07-28)
 Chain: self-contained → `T3LabAssistant.xaml` · import động (`imp` → `importlib` fallback) · gọi `core.server`
 
-- [ ] Mở UI chat không lỗi (XAML 2100+ dòng)
+- [ ] Mở UI chat không lỗi (XAML 1982 dòng)
 - [ ] **Xác nhận nhánh import động**: trên IronPython 2.7 `importlib.util` không tồn tại → code phải rơi vào nhánh `imp` (script.py:165-184). Thêm log tạm xác nhận nhánh nào chạy
 - [ ] Server MCP chưa chạy → assistant thông báo, không crash
 - [ ] Server đang chạy → gửi 1 lệnh đơn giản, nhận phản hồi

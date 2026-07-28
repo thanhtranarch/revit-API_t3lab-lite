@@ -112,15 +112,7 @@ INTENTS (pick the best one):
   export_direct           - export/print sheets without opening UI
   open_batchout_configured- open BatchOut pre-configured
   open_batchout           - open BatchOut (no config)
-  open_parasync           - open ParaSync
-  open_loadfamily         - open Load Family
-  open_loadfamily_cloud   - open Load Family (Cloud)
-  open_projectname        - open Project Name
-  open_workset            - open Workset manager
-  open_dimtext            - edit dimension text
-  open_upperdimtext       - edit upper dimension text
-  open_resetoverrides     - reset graphic overrides
-  open_grids              - open Grid tool
+  open_loadfamily         - open the Family Loader
   help                    - answer a question about T3Lab
   greet                   - reply to a greeting
   chat                    - general conversation
@@ -153,11 +145,8 @@ output: {"intent":"open_batchout","params":{},"message":"Đang mở BatchOut..."
 input:  mở batchout G sheet pdf
 output: {"intent":"open_batchout_configured","params":{"format":"pdf","filter":"G"},"message":"Mở BatchOut với G sheet..."}
 
-input:  parasync
-output: {"intent":"open_parasync","params":{},"message":"Đang mở ParaSync..."}
-
 input:  load family
-output: {"intent":"open_loadfamily","params":{},"message":"Đang mở Load Family..."}
+output: {"intent":"open_loadfamily","params":{},"message":"Đang mở Family Loader..."}
 
 input:  hello
 output: {"intent":"greet","params":{},"message":"Hello! I'm T3Lab Assistant. How can I help?"}

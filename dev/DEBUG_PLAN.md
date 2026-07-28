@@ -78,7 +78,7 @@ Khi debug các tool này, lỗi thật sẽ bị nuốt im lặng → phải t�
 - Kiểm tra thực tế: **74/76 XAML và cả file chuẩn `UIStandardShowcase.xaml` đã đặt copyright ở footer (status bar) BÊN TRÁI** từ trước (copyright → divider 1px `#DCDCE0` → status text). Tài liệu `ui-design-standard.md` cũ bắt overlay góc phải-dưới (`Grid.RowSpan="99"`) mới là thứ sai so với codebase.
 - **Đã cập nhật** `.claude/rules/ui-design-standard.md`: chuẩn chính thức = copyright ở footer, left-most element, theo snippet của `UIStandardShowcase.xaml`; Variant B không có footer dùng fallback overlay **trái**-dưới; item-template XAML (`CadtoFloorLayerItem.xaml`) được miễn trừ. `dev/audit_ui.py` đã sửa theo rule mới.
 - Việc còn lại (2 outlier, đều thuộc T3LabAssistant — gộp xử lý với F8 trong GĐ2 Ngày 3):
-  - `T3LabAssistant.xaml:~2109` — copyright đang căn **giữa** dưới ô chat input
+  - `T3LabAssistant.xaml:1766` — copyright (số dòng cũ ~2109 đã lệch sau khi file co lại còn 1982 dòng; khối copyright vẫn còn, không bị mất)
   - `AssistantPane.xaml:~1357` — copyright theo chuẩn cũ (overlay góc **phải**-dưới); đây là file duy nhất từng theo doc cũ
 - Các hạng mục UI khác đều đạt: palette Lumina (trừ F8), font, WindowChrome, glyph, shared styles, không dot-notation. KHÔNG sửa 2 file UI-locked (`DWGManagement.xaml`, `ExportManager.xaml`).
 
@@ -218,7 +218,7 @@ Ghi kết quả vào bảng mục 4 (cột Trạng thái: ⬜ chưa test / ✅ p
 | 33 | MCPControl | launcher → `MCPControlDialog.py` | 348 | Start/stop server `core/server.py`; port 48884 | Bật/tắt server; port bị chiếm | ✅ |
 | 34 | Feedback | self | 232 | Gửi feedback ra ngoài (network) | Không có mạng; nội dung unicode tiếng Việt | ✅ |
 | 35 | PDF import | self, không UI | 33 | Phụ thuộc API import PDF theo version Revit | Revit 2022+ import 1 PDF | ✅ |
-| 36 | T3LabAssistant | self | 3594 | **Tool lớn nhất**; import động (`imp`/`importlib` có guard); gọi `core.server`; UI chat | Mở UI; server chưa chạy; gửi 1 lệnh; kiểm tra fallback import trên IronPython (`importlib.util` không tồn tại → phải rơi vào nhánh `imp`) | ✅ |
+| 36 | T3LabAssistant | self | 8115 | **Tool lớn nhất**; import động (`imp`/`importlib` có guard); gọi `core.server`; UI chat | Mở UI; server chưa chạy; gửi 1 lệnh; kiểm tra fallback import trên IronPython (`importlib.util` không tồn tại → phải rơi vào nhánh `imp`) | ✅ |
 | 37 | ManaTabs | self | 147 | Thao tác UI Revit qua Windows API — dễ vỡ theo version | Revit nhiều tab; 2 bare except | ✅ |
 | 38 | Ribbon Names | self | 154 | Sửa text ribbon qua AdWindows.dll | Đổi tên; restart Revit xem persist | ✅ |
 | 39 | BG Theme | self | 122 | Đổi background/theme qua UIApplication settings | Toggle theme; Revit dark mode | ✅ |
@@ -326,8 +326,8 @@ cú pháp py3-only, pyflakes, đối chiếu XAML handler ↔ Python (2 chiều)
 
 ### KHÔNG phải lỗi (đã kiểm tra — đừng "sửa")
 
-- `_is_viet_text` trả `False` vô điều kiện — **cố ý**, có ghi chú ("UI + replies locked to English, 2026-07-18").
-- `_FAST_CONTEXT_ENABLED = False` — **cố ý** (tắt 2026-07-06 vì keyword match cướp query không liên quan).
+- ~~`_is_viet_text` trả `False` vô điều kiện — **cố ý**, có ghi chú ("UI + replies locked to English, 2026-07-18").~~ **Đã đảo lại ở §9 (2026-07-28)**: khoá này không thực sự làm UI thành tiếng Anh — các chuỗi tiếng Việt viết KHÔNG có nhánh `if viet:` vẫn hiện, nên cửa sổ lẫn hai ngôn ngữ.
+- ~~`_FAST_CONTEXT_ENABLED = False` — **cố ý** (tắt 2026-07-06 vì keyword match cướp query không liên quan).~~ **Đã xoá hẳn ở §9 (2026-07-28)**: lý do tắt vẫn đúng, nhưng giữ ~220 dòng không bao giờ chạy chỉ tạo ảo giác còn đường tắt; tầng agent đã trả lời các câu hỏi này bằng tool thật.
 - `_update_knowledge_status` là no-op hook — **cố ý** sau khi UI knowledge chuyển sang LLMs Setting.
 - `get_status(use_cache=True)` **không có caller nào** trong repo → claim "TTL chết làm probe chậm" là phóng đại; vẫn arm TTL nhưng chỉ khi cache đủ provider (arm sau probe 1 provider sẽ phục vụ snapshot thiếu 4 provider trong 30s).
 - 2 hàm knowledge/comment agent trả `False` ở except ngoài cùng là **đường degrade có chủ đích** (user vẫn nhận trả lời từ legacy path) — chỉ nâng log `debug` → `error`, không thêm bubble.
@@ -343,3 +343,54 @@ Thêm `dev/test_assistant_llm.py` (44 check, CPython3) — khoá lại 4 lỗi m
 lỗi hiện bubble · giới hạn 5 bước · ô API key không bị ghi đè · đổi provider lúc mới mở ·
 Ollama host LAN + Test Connection trả câu văn · 2 phiên Revit · nút Undo · popup `/` · palette Ctrl+K ·
 log right-click ngừng phình.
+
+---
+
+## 9. Đợt debug logic T3Lab Assistant (2026-07-28)
+
+> Phạm vi user chốt: **tính logic của tool assistant và các vấn đề liên quan** — catalog tool,
+> launcher, định tuyến, ngôn ngữ, side effect lúc khởi động. Không đụng XAML.
+
+### Vì sao audit tĩnh không bắt được (lần nữa)
+
+3 audit + 5 test suite đều xanh trước đợt này. Cả 4 nhóm lỗi dưới đây đều là **dữ liệu
+tĩnh nói dối về thực tế trên đĩa** — không có lỗi cú pháp, không có import hỏng, không có
+handler thiếu. Chỉ đối chiếu từng đường dẫn với `os.path.exists()` mới lộ ra.
+
+### Nhóm lỗi đã sửa
+
+| # | Lỗi | Sửa |
+|---|-----|-----|
+| G1 | **Catalog tool nói dối**: 10 intent mở tool được quảng cáo cho LLM; 7 trỏ tới pushbutton **không còn tồn tại** (ParaSync, ProjectName, Workset, DimText, UpperAll, Reset Overrides, Beam), `open_grids` không có launcher nào, `open_loadfamily_cloud` trùng khít `open_loadfamily` (`show_family_manager` chỉ có tab 0/1, không có tab cloud). Catalog bị nhân bản ở **10 bảng trong 5 module**, không bảng nào đối chiếu với đĩa | `TOOL_LAUNCHERS` giữ BatchOut + Family Loader, phần còn lại sinh từ registry `tool_discovery`, loại mọi intent không có script trên đĩa và ghi vào activity log. `_BUILTIN_TOOLS`, bảng trigger/threshold/label/message của `nlu_engine`, `AVAILABLE_INTENTS` của `t3lab_agent`, prompt local model — đều rút về 2 launcher đặc biệt + đọc registry |
+| G2 | **`make_generic_launcher` báo thành công dối** — đường đi của **mọi** tool auto-discovered: nạp script bằng `imp.load_source` tên `_auto_<title>`, nên khối `if __name__ == '__main__':` mà **36/42 pushbutton** dùng không bao giờ chạy; vẫn `return True`. Kèm 4 launcher hardcode chỉ `import` rồi `return mod is not None` | `run_tool_script()` exec source với `__name__='__main__'` (đọc **bytes** — Python 2 từ chối coding declaration trong unicode source), trả `(ok, error_text)`; nhánh `imp` chỉ tính thành công khi **thật sự** `ShowDialog()` được; `SystemExit` = thành công |
+| G3 | `_SKIP_BUTTONS` loại `PropertyLine.pushbutton` với lý do "đã hardcode trong TOOL_LAUNCHERS" — nhưng nó **tồn tại thật** và **chưa bao giờ** có trong `TOOL_LAUNCHERS` → assistant hoàn toàn không với tới được. `discover_new_tools` chỉ thêm, không bao giờ xoá → pushbutton bị đổi tên/xoá nằm lại registry vĩnh viễn | Skip list còn đúng hạ tầng + 2 launcher đặc biệt; `discover_new_tools` prune entry không còn script |
+| G4 | **Song ngữ chết một nửa**: `_is_viet_text` khoá `return False` (2026-07-18) khiến 57 nhánh `if viet:` chỉ chạy vế Anh — nhưng chuỗi tiếng Việt viết KHÔNG có nhánh vẫn hiện (`/memory`, thông báo tải model, toàn bộ `AssistantCards`, xác nhận spellcheck). Một nhánh `if/else` có **hai vế giống hệt nhau**. Prompt cũng mâu thuẫn: `agent_loop` ép tiếng Anh trong khi ví dụ của `t3lab_assistant` phát ra tiếng Việt; prompt knowledge agent viết bằng tiếng Việt kèm dòng "always answer in English" | Setting `agents.reply_language` (`auto`/`vi`/`en`, mặc định auto-detect); `_note_user_language` ghi nhớ ngôn ngữ mỗi lượt để chuỗi không thuộc lượt nào (card, thông báo nền) đi theo; `AssistantCards` có đủ 2 biến thể; `build_agent_system_prompt` / `build_specialist_prompt` / `KnowledgeAgent.answer` / prompt pane nhận cùng tham số ngôn ngữ |
+| G5 | **Khởi động chạy ngầm không xin phép**: `_bg_startup_probe` spawn `ollama serve` bằng `subprocess.Popen` và POST `/api/pull` tải `qwen2.5:1.5b` (timeout 600s) — tiến trình nền + ~1 GB tải về, không hỏi, không huỷ được, mọi lỗi nuốt trong `except Exception: logger.debug`. Ngay bên dưới, nhánh knowledge embeddings đã ghi đúng chuẩn ("the ~270 MB pull is never triggered silently") | `_offer_local_engine` chỉ **mời**, hành động nằm sau cú click; từ chối được nhớ (`agents.local_engine_declined`); không mời khi đã có cloud provider hoặc chưa cài Ollama. `_append_action_chips` gọi thẳng handler (khác `_append_quick_replies` vốn đẩy text qua LLM). Lỗi của các bước còn lại ra activity log |
+| G6 | `_exec_tool` closure lên `doc_guard` được gán **sau 50 dòng** — chạy được chỉ nhờ thứ tự gọi; đổi thứ tự là `NameError` ngay tool call đầu tiên | Khai báo `doc_guard` trước `_exec_tool` |
+| G7 | **Carryover quá lỏng**: `'?' in last_bot[-250:] and len(raw) <= 80` — dấu hỏi ở **bất kỳ đâu** trong 250 ký tự cuối đều tính, và 80 ký tự đủ chứa một lệnh mới. "tô vàng sàn" (13 ký tự) qua cả hai, chỉ còn escape hatch keyword chặn — một lớp duy nhất | `routing.is_continuation()`: tin cuối của bot phải **kết thúc** bằng câu hỏi, và câu trả lời phải **có dạng câu trả lời** (số thứ tự, chọn phương án, từ đồng ý, hoặc cụm danh từ ngắn không mang động từ hành động — lấy bảng động từ từ chính dispatcher) |
+| G8 | Learned pattern (Jaccard ≥ 0.8) chạy **trước** NLU và cướp lượt vô điều kiện → mapping cũ thắng cả khi NLU đọc đúng catalog hiện tại; mapping học cho tool đã đổi tên vẫn thắng | Tính NLU trước, `routing.learned_pattern_wins()` phân xử: pattern chỉ thắng khi NLU không có ý kiến hoặc cả hai đồng ý |
+
+### Regression
+
+Thêm `dev/test_assistant_routing.py` (99 check, CPython3): launcher chạy thật, catalog khớp
+đĩa, phát hiện ngôn ngữ, thang định tuyến, và **các cặp tranh chấp precedence của dispatcher**
+(`đổi model` → multi_doc chứ không phải action; `bản vẽ` không tính là động từ `vẽ`; `tô đỏ`
+chỉ khớp khi có dấu) — trước đây hoàn toàn không có test, sửa bảng từ khoá là âm thầm phá tuning.
+Kèm một **drift check** fail ngay khi bất kỳ prompt tĩnh nào nhắc một intent `open_*` không phải
+launcher đặc biệt, không có trong registry, và cũng không phải tool MCP.
+
+`dev/test_knowledge.py` khẳng định prompt knowledge chỉ-tiếng-Việt cũ → đã cập nhật cho cả 2 ngôn ngữ.
+Toàn bộ 5 test suite + 3 audit xanh.
+
+### Còn lại cần QA trong Revit (không tự bịa kết quả — chờ user xác nhận)
+
+1. `mở workset` → mở **ManaWorkset** thật, không phải lỗi console.
+2. `mở property line` → mở PropertyLine (trước đợt này hoàn toàn không với tới được).
+3. `mở parasync` → trả lời trung thực "không có tool này" + gợi ý tool gần nhất.
+4. **Mọi tool auto-discovered giờ CHẠY THẬT** thay vì no-op im lặng — cần smoke test vài tool;
+   một số có thể lộ lỗi vốn bị che.
+5. Gõ tiếng Việt → toàn bộ reply (kể cả tool card, confirm card) tiếng Việt; gõ tiếng Anh → toàn Anh.
+6. Máy chưa cài/chưa chạy Ollama → thấy lời mời có nút, **không** tự tải model.
+7. Assistant hỏi lại → trả lời ngắn ("1", "toàn bộ project") → tiếp đúng mạch;
+   gõ lệnh mới ngay sau câu hỏi → route mới, không lặp lại việc cũ.
+8. Undo hoàn tác trọn TransactionGroup sau một lệnh sửa model.

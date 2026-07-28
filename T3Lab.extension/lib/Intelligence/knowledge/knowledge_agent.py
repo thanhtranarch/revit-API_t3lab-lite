@@ -17,16 +17,40 @@ from __future__ import unicode_literals
 _EXCERPT_CHARS = 900     # max chars of one excerpt shown to the model
 _TOP_K = 6
 
-_SYSTEM_PROMPT = (
+# The rules were written in Vietnamese with an "always answer in English" line
+# bolted on, so the model was told to answer in a language the surrounding
+# instructions did not use. Both variants are spelled out now and the caller
+# picks one.
+_SYSTEM_PROMPT_VI = (
     "Bạn là trợ lý tài liệu kỹ thuật của T3Lab bên trong Revit.\n"
     "NGUYÊN TẮC:\n"
     "- CHỈ trả lời dựa trên các trích đoạn tài liệu được cung cấp bên dưới.\n"
     "- Luôn ghi nguồn bằng chỉ số [n] ngay sau thông tin lấy từ trích đoạn [n].\n"
     "- Nếu các trích đoạn không đủ để trả lời, nói rõ là tài liệu không đề cập"
     " — TUYỆT ĐỐI không bịa.\n"
-    "- Always answer in English, regardless of the question's language.\n"
+    "- Luôn trả lời bằng tiếng Việt.\n"
     "- Trả lời ngắn gọn, đúng trọng tâm; dùng gạch đầu dòng khi liệt kê."
 )
+
+_SYSTEM_PROMPT_EN = (
+    "You are T3Lab's technical-document assistant inside Revit.\n"
+    "RULES:\n"
+    "- Answer ONLY from the document excerpts provided below.\n"
+    "- Always cite with the index [n] right after information taken from"
+    " excerpt [n].\n"
+    "- If the excerpts are not enough to answer, say plainly that the"
+    " documents do not cover it — NEVER invent anything.\n"
+    "- Always answer in English.\n"
+    "- Be brief and to the point; use bullets when listing."
+)
+
+# Back-compat default for callers that do not pass a language.
+_SYSTEM_PROMPT = _SYSTEM_PROMPT_EN
+
+
+def get_system_prompt(viet=False):
+    """Knowledge-agent system prompt in the requested language."""
+    return _SYSTEM_PROMPT_VI if viet else _SYSTEM_PROMPT_EN
 
 
 class KnowledgeAgent(object):
@@ -75,28 +99,34 @@ class KnowledgeAgent(object):
     # ── prompting ─────────────────────────────────────────────────────────
 
     def build_prompt(self, question, hits, project_instructions='',
-                     skills_block=''):
-        """Returns (system_prompt, user_query)."""
-        sys_parts = [_SYSTEM_PROMPT]
+                     skills_block='', viet=False):
+        """Returns (system_prompt, user_query), in the requested language."""
+        sys_parts = [get_system_prompt(viet)]
         if project_instructions:
-            sys_parts.append("HƯỚNG DẪN DỰ ÁN:\n" + project_instructions)
+            sys_parts.append(("HƯỚNG DẪN DỰ ÁN:\n" if viet
+                              else "PROJECT INSTRUCTIONS:\n")
+                             + project_instructions)
         if skills_block:
             sys_parts.append(skills_block)
 
-        lines = ["TRÍCH ĐOẠN TÀI LIỆU:"]
+        lines = ["TRÍCH ĐOẠN TÀI LIỆU:" if viet else "DOCUMENT EXCERPTS:"]
         for i, hit in enumerate(hits):
-            page_note = (" — trang {}".format(hit['page'])
-                         if hit.get('page') else "")
+            if hit.get('page'):
+                page_note = ((" — trang {}" if viet else " — page {}")
+                             .format(hit['page']))
+            else:
+                page_note = ""
             lines.append("[{}] {}{}:\n{}".format(
                 i + 1, hit.get('file', '?'), page_note,
                 (hit.get('text') or '')[:_EXCERPT_CHARS]))
-        lines.append("CÂU HỎI: " + (question or ''))
+        lines.append(("CÂU HỎI: " if viet else "QUESTION: ") + (question or ''))
         return "\n\n".join(sys_parts), "\n\n".join(lines)
 
     # ── answer ────────────────────────────────────────────────────────────
 
     def answer(self, question, history, chat_fn,
-               project_instructions='', skills_block='', top_k=_TOP_K):
+               project_instructions='', skills_block='', top_k=_TOP_K,
+               viet=False):
         """Full pipeline. `chat_fn(system_prompt, user_query)` returns the
         response text (may stream internally) or None.
 
@@ -110,7 +140,7 @@ class KnowledgeAgent(object):
             return {"status": "no_hits"}
 
         system_prompt, query = self.build_prompt(
-            question, hits, project_instructions, skills_block)
+            question, hits, project_instructions, skills_block, viet=viet)
         text = None
         try:
             text = chat_fn(system_prompt, query)

@@ -526,12 +526,23 @@ def test_knowledge_agent():
             seen['query'] = query
             return 'Chiều rộng tối thiểu là 800 mm [1].'
 
-        res = agent.answer('cửa thoát hiểm rộng bao nhiêu?', [], chat_fn)
+        res = agent.answer('cửa thoát hiểm rộng bao nhiêu?', [], chat_fn,
+                           viet=True)
         check('agent done', res['status'] == 'done', res)
         check('citation built', res['citations'] and
               res['citations'][0]['file'] == 'fire.md', res.get('citations'))
         check('excerpt in query', '800 mm' in seen['query'])
-        check('grounding rule in system', 'trích đoạn' in seen['system'])
+        check('grounding rule in system (vi)', 'trích đoạn' in seen['system'])
+
+        # The prompt used to be Vietnamese-only with an "always answer in
+        # English" line bolted on; both languages are now spelled out and the
+        # caller picks one (2026-07-28).
+        # Same query (so retrieval still hits the Vietnamese doc), English out.
+        agent.answer('cửa thoát hiểm rộng bao nhiêu?', [], chat_fn, viet=False)
+        check('grounding rule in system (en)',
+              'excerpt' in seen['system'].lower(), seen['system'][:120])
+        check('english prompt has no Vietnamese rules',
+              'NGUYÊN TẮC' not in seen['system'])
 
         line = format_citation_line(res['citations'])
         check('citation line', 'fire.md' in line and 'Nguồn' in line, line)
