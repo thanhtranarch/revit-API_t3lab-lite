@@ -3091,6 +3091,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                           'description': (u'View or manage what the '
                                           u'assistant remembers'),
                           'source': None, 'enabled': True})
+        # Same deal for /skills — install or update Claude skills from a
+        # GitHub repo link (routes to _try_skills_command).
+        if u'skills'.startswith(q):
+            items.append({'id': u'skills', 'name': u'Skills',
+                          'description': (u'Install or update skills from a '
+                                          u'GitHub repo'),
+                          'source': None, 'enabled': True})
         if not items:
             self._close_skills_popup()
             return
@@ -4250,6 +4257,108 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug('_try_memory_command error: {}'.format(ex))
             return False
 
+    def _try_skills_command(self, raw):
+        """Install / update skills from a GitHub repo. WORKER THREAD.
+
+        Handles both the explicit command family (`/skills`,
+        `/skills install <url>`, `/skills update`, `/skills remove <id>`) and
+        the natural request ("cài skill từ https://github.com/owner/repo").
+        Deterministic — no LLM round-trip, so it works with no provider
+        configured. Returns True when the request was fully handled here.
+        """
+        try:
+            text = (raw or u'').strip()
+            if not text:
+                return False
+            from Intelligence import skill_installer as installer
+            parsed = installer.parse_skills_command(text)
+            if not parsed:
+                return False
+            action, arg = parsed
+            viet = _is_viet_text(text)
+
+            if action == 'help':
+                msg = (u'Lệnh skills: `/skills` · '
+                       u'`/skills install <link GitHub>` · `/skills update` · '
+                       u'`/skills remove <id>`\nHoặc chỉ cần nói: "cài skill '
+                       u'từ https://github.com/owner/repo".' if viet else
+                       u'Skills commands: `/skills` · '
+                       u'`/skills install <github link>` · `/skills update` · '
+                       u'`/skills remove <id>`\nOr just say: "install skills '
+                       u'from https://github.com/owner/repo".')
+                self._post_bot(msg, _ICON_INFO, _ICON_SLATE)
+                return True
+
+            if action == 'list':
+                msg = installer.format_inventory(
+                    installer.list_installed(), viet)
+                self._post_bot(msg, _ICON_LIST, _ICON_SLATE)
+                return True
+
+            if action == 'remove':
+                if not arg:
+                    self._post_bot(
+                        u'Cần id skill: `/skills remove <id>`' if viet else
+                        u'Missing skill id: `/skills remove <id>`',
+                        _ICON_WARNING, _ICON_AMBER)
+                    return True
+                ok, note = installer.remove_installed(arg)
+                self._rescan_skills()
+                self._post_bot(note,
+                               _ICON_SUCCESS if ok else _ICON_WARNING,
+                               _ICON_GREEN if ok else _ICON_AMBER)
+                return True
+
+            # ── install / update: network work, so say so first ───────────
+            if action == 'install':
+                notice = (u'Đang tải skill từ {}…'.format(arg.get('url'))
+                          if viet else
+                          u'Downloading skills from {}…'.format(arg.get('url')))
+            else:
+                notice = (u'Đang cập nhật các skill đã cài…' if viet else
+                          u'Updating installed skills…')
+            self._log_activity(u'Skills: {}'.format(text))
+
+            def _notice(_m=notice):
+                self._append_bot_message(_m, icon=_ICON_SYNC,
+                                         icon_color=_ICON_SLATE)
+            self.Dispatcher.Invoke(Action(_notice))
+
+            if action == 'install':
+                report = installer.install_from_github(arg)
+            else:
+                report = installer.update_all()
+
+            self._rescan_skills()
+            self._post_bot(installer.format_report(report, viet),
+                           _ICON_SUCCESS if (report.get('installed') or
+                                             report.get('updated'))
+                           else _ICON_WARNING,
+                           _ICON_GREEN if (report.get('installed') or
+                                           report.get('updated'))
+                           else _ICON_AMBER)
+            return True
+        except Exception as ex:
+            logger.debug('_try_skills_command error: {}'.format(ex))
+            return False
+
+    def _rescan_skills(self):
+        """Re-read the skill folders so new skills reach /slash immediately."""
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            get_skills_engine().scan()
+        except Exception as ex:
+            logger.debug('_rescan_skills error: {}'.format(ex))
+
+    def _post_bot(self, msg, icon, color):
+        """Finish a deterministic turn: show `msg`, record it, release busy."""
+        def _show():
+            self._hide_typing_indicator()
+            self._append_bot_message(msg, icon=icon, icon_color=color)
+            self._add_to_history('assistant', msg)
+            self._set_busy(False)
+        self.Dispatcher.Invoke(Action(_show))
+
     def _process_input(self):
         """Read input (+ any attachments), dispatch to NLP or keyword fallback."""
         try:
@@ -4808,6 +4917,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # answered instantly here — before learned patterns or NLU can
             # hijack the wording.
             if not attached and raw and self._try_memory_command(raw):
+                return
+
+            # ── Skill packs from GitHub (deterministic, no LLM) ────────────
+            # "/skills …" and "cài skill từ <repo link>" install or refresh
+            # Claude-format skills. Answered here so it works offline-ish
+            # (network for the download only) and can never be re-read as a
+            # Revit command by the NLU.
+            if not attached and raw and self._try_skills_command(raw):
                 return
 
             # ── PDF markup-comment workflow (R4) ───────────────────────────

@@ -152,6 +152,9 @@ t3lab-revit-api/
 - `nlu_engine.py` — Natural Language Understanding for Vietnamese / English
 - `rag_processor.py` — Retrieval-Augmented Generation for Revit API context
 - `local_llm.py` — Offline LLM support via Ollama
+- `skills_engine.py` — instruction packs that activate on a request
+- `skill_installer.py` — installs Claude-format skills from a GitHub repo link
+  ([docs](docs/assistant-skills-from-github.md))
 
 ### `lib/Snippets/`
 19 reusable IronPython patterns covering: annotations, bounding boxes, context managers, unit conversion, element manipulation, Excel integration, filtered element collectors, groups, lines, graphics overrides, revisions, selection, sheets, text, views, and more.
