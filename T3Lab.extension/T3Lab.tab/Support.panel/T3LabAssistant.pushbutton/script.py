@@ -800,6 +800,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 time.sleep(0.5)   # let window render first
 
                 # ─── 1. Auto-start Revit MCP Server & File Watcher ───
+                # In-process infrastructure: nothing is downloaded and nothing
+                # outlives Revit, so this still runs unattended — but a failure
+                # is no longer invisible. It used to vanish into logger.debug,
+                # and every tool call would then fail for no stated reason.
                 try:
                     from Services.mcp_service import MCPService
                     # Start MCP HTTP Server if stopped
@@ -812,60 +816,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         MCPService.start_watcher()
                 except Exception as ex:
                     logger.debug("Auto-start MCP/watcher failed: {}".format(ex))
+                    self._log_activity(
+                        u"MCP server/watcher did not start: {}".format(
+                            _exc_text(ex)))
 
-                # ─── 2. Auto-start Ollama Local Engine ───
+                # ─── 2. Local engine: OFFER, never start or download ───────
+                # This used to spawn `ollama serve` with subprocess.Popen and
+                # then POST /api/pull for qwen2.5:1.5b with a 600 s timeout —
+                # launching a background process and pulling ~1 GB onto the
+                # user's machine, with no consent, no cancel and every failure
+                # swallowed. The knowledge-embeddings step below already held
+                # the right line ("the ~270 MB pull is never triggered
+                # silently from startup"); this now follows it.
                 try:
-                    from Intelligence import local_llm
-                    if not local_llm.is_running():
-                        import subprocess
-                        import os
-                        user_profile = os.environ.get('USERPROFILE', '')
-                        ollama_paths = [
-                            "ollama",
-                            os.path.join(user_profile, "AppData", "Local", "Programs", "Ollama", "ollama.exe")
-                        ]
-                        launched = False
-                        for path in ollama_paths:
-                            try:
-                                # Start Ollama server in background (no console window)
-                                if os.path.exists(path) or path == "ollama":
-                                    subprocess.Popen([path, "serve"], 
-                                                     creationflags=0x08000000) # CREATE_NO_WINDOW
-                                    launched = True
-                                    break
-                            except Exception:
-                                pass
-                        
-                        if launched:
-                            # Wait for server to boot up
-                            for _ in range(10):
-                                time.sleep(0.5)
-                                if local_llm.is_running():
-                                    break
+                    self._offer_local_engine()
                 except Exception as ex:
-                    logger.debug("Ollama launch failed: {}".format(ex))
-
-                # ─── 3. Auto-download Default Model if empty ───
-                try:
-                    from Intelligence import local_llm
-                    if local_llm.is_running():
-                        models = local_llm.list_models()
-                        if not models:
-                            # Notify user in the chat panel
-                            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
-                                u"Không tìm thấy mô hình AI cục bộ nào. Đang tự động tải mô hình mặc định (qwen2.5:1.5b) về máy bạn. Quá trình này chạy ngầm và có thể mất vài phút...",
-                                icon=_ICON_SYNC, icon_color=_ICON_SLATE
-                            )))
-
-                            payload = {"name": "qwen2.5:1.5b", "stream": False}
-                            local_llm._post_json(local_llm.get_host() + "/api/pull", payload, timeout=600)
-
-                            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
-                                u"Tải thành công mô hình AI qwen2.5:1.5b! Bạn có thể sử dụng T3Lab Assistant ngoại tuyến.",
-                                icon=_ICON_SUCCESS, icon_color=_ICON_GREEN
-                            )))
-                except Exception as ex:
-                    logger.debug("Auto-pull model failed: {}".format(ex))
+                    logger.debug("Local engine offer failed: {}".format(ex))
 
                 # ─── 3.4 Skills registry scan ───
                 try:
@@ -874,6 +840,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     logger.debug("Skills scanned: {}".format(_n_skills))
                 except Exception as ex:
                     logger.debug("Skills scan failed: {}".format(ex))
+                    self._log_activity(
+                        u"Skills scan failed: {}".format(_exc_text(ex)))
 
                 # ─── 3.5 Knowledge index: incremental scan + vectors ───
                 # Scans %APPDATA%/T3LabAI/knowledge/ plus user dirs; only
@@ -899,6 +867,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 Action(self._update_knowledge_status))
                 except Exception as ex:
                     logger.debug("Knowledge scan failed: {}".format(ex))
+                    self._log_activity(
+                        u"Knowledge scan failed: {}".format(_exc_text(ex)))
 
                 from Intelligence.llm_router import LLMRouter
                 router = LLMRouter()
@@ -1833,6 +1803,240 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
         self._quickreply_row = None
+
+    def _append_action_chips(self, labels, handlers):
+        """Chips that CALL a handler instead of sending text. UI THREAD.
+
+        _append_quick_replies routes its chip through _process_input, i.e. back
+        into the LLM. A consent prompt needs the opposite: the click must run
+        exactly the action the user agreed to and nothing else.
+        """
+        try:
+            self._remove_quick_replies()
+            from System.Windows.Controls import (Border, TextBlock, StackPanel,
+                                                 Orientation)
+            from System.Windows import Thickness, CornerRadius
+            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Input import Cursors
+
+            row = StackPanel()
+            row.Orientation = Orientation.Horizontal
+            row.Margin = Thickness(34, 2, 0, 10)
+
+            for i, label in enumerate(labels):
+                chip = Border()
+                chip.Background = SolidColorBrush(Color.FromRgb(0xEF, 0xF6, 0xFF))
+                chip.BorderBrush = SolidColorBrush(Color.FromRgb(0xBF, 0xDB, 0xFE))
+                chip.BorderThickness = Thickness(1)
+                chip.CornerRadius = CornerRadius(12)
+                chip.Padding = Thickness(11, 4, 11, 5)
+                chip.Margin = Thickness(0, 0, 6, 0)
+                chip.Cursor = Cursors.Hand
+                tb = TextBlock()
+                tb.Text = label
+                tb.FontSize = 11.5
+                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+                tb.FontWeight = System.Windows.FontWeights.SemiBold
+                tb.Foreground = SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
+                chip.Child = tb
+
+                def _click(s, ev, _h=handlers[i] if i < len(handlers) else None):
+                    try:
+                        self._remove_quick_replies()
+                        if _h:
+                            _h()
+                    except Exception as cex:
+                        logger.debug("action chip error: {}".format(cex))
+                    ev.Handled = True
+                chip.MouseLeftButtonUp += _click
+                row.Children.Add(chip)
+
+            self.chat_history_panel.Children.Add(row)
+            self._quickreply_row = row
+            self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug("_append_action_chips error: {}".format(ex))
+
+    # ─── Local engine (opt-in) ────────────────────────────────────────────────
+
+    _LOCAL_MODEL = "qwen2.5:1.5b"
+
+    def _offer_local_engine(self):
+        """Offer — never perform — local-engine setup. WORKER THREAD.
+
+        Starting a background process and downloading a model are the user's
+        decisions. Declining is remembered so the offer does not reappear on
+        every window open.
+        """
+        from Intelligence import local_llm
+
+        # A configured cloud provider means the assistant already works; do
+        # not push a local engine on top of it.
+        try:
+            if has_api_key():
+                return
+        except Exception:
+            pass
+
+        try:
+            from config.settings import get_settings
+            if get_settings().get_agent_option('local_engine_declined', False):
+                return
+        except Exception:
+            pass
+
+        viet = _ui_viet()
+        running = False
+        try:
+            running = local_llm.is_running()
+        except Exception:
+            running = False
+
+        if not running:
+            if not self._ollama_binary():
+                return          # not installed — nothing to offer
+            msg = (u"Máy bạn đã cài Ollama nhưng engine chưa chạy. Khởi động "
+                   u"để dùng T3Lab Assistant ngoại tuyến?" if viet else
+                   u"Ollama is installed on this machine but not running. "
+                   u"Start it so the assistant can work offline?")
+            labels = ([u"Khởi động engine", u"Để sau"] if viet
+                      else [u"Start engine", u"Not now"])
+            handlers = [self._start_local_engine, self._decline_local_engine]
+        else:
+            try:
+                if local_llm.list_models():
+                    return      # ready to go
+            except Exception:
+                return
+            msg = (u"Engine cục bộ đang chạy nhưng chưa có mô hình nào. Tải "
+                   u"mô hình mặc định {} (khoảng 1 GB)?".format(self._LOCAL_MODEL)
+                   if viet else
+                   u"The local engine is running but has no model. Download "
+                   u"the default model {} (about 1 GB)?".format(self._LOCAL_MODEL))
+            labels = ([u"Tải mô hình", u"Để sau"] if viet
+                      else [u"Download model", u"Not now"])
+            handlers = [self._pull_local_model, self._decline_local_engine]
+
+        def _ask():
+            self._append_bot_message(msg, icon=_ICON_INFO,
+                                     icon_color=_ICON_SLATE)
+            self._append_action_chips(labels, handlers)
+        self.Dispatcher.Invoke(Action(_ask))
+
+    @staticmethod
+    def _ollama_binary():
+        """Path to the ollama executable, or None when it is not installed."""
+        profile = os.environ.get('USERPROFILE', '')
+        candidates = [os.path.join(profile, "AppData", "Local", "Programs",
+                                   "Ollama", "ollama.exe")]
+        for path in candidates:
+            if path and os.path.exists(path):
+                return path
+        # On PATH? Only trust this when it actually resolves.
+        try:
+            import subprocess
+            subprocess.check_output(["ollama", "--version"],
+                                    creationflags=0x08000000)
+            return "ollama"
+        except Exception:
+            return None
+
+    def _decline_local_engine(self):
+        """'Not now' — remember it so the offer stops nagging. UI THREAD."""
+        try:
+            from config.settings import get_settings
+            get_settings().set_agent_option('local_engine_declined', True)
+        except Exception:
+            pass
+        self._log_activity(u"Local engine setup declined by user")
+
+    def _start_local_engine(self):
+        """Launch `ollama serve` — only ever from an explicit click."""
+        def _work():
+            path = self._ollama_binary()
+            err = u""
+            ok = False
+            try:
+                import subprocess
+                import time as _t
+                subprocess.Popen([path, "serve"], creationflags=0x08000000)
+                from Intelligence import local_llm
+                for _ in range(10):
+                    _t.sleep(0.5)
+                    if local_llm.is_running():
+                        ok = True
+                        break
+            except Exception as ex:
+                err = _exc_text(ex)
+
+            viet = _ui_viet()
+            if ok:
+                text = (u"Đã khởi động engine cục bộ." if viet
+                        else u"Local engine started.")
+                icon, color = _ICON_SUCCESS, _ICON_GREEN
+            else:
+                text = ((u"Không khởi động được engine cục bộ. {}" if viet
+                         else u"Could not start the local engine. {}")
+                        .format(err))
+                icon, color = _ICON_WARNING, _ICON_AMBER
+            self._log_activity(text)
+
+            def _show():
+                self._append_bot_message(text, icon=icon, icon_color=color)
+                if ok:
+                    # Now that it runs, it may still have no model.
+                    self._offer_local_engine()
+            self.Dispatcher.Invoke(Action(_show))
+
+        _t2 = Thread(ThreadStart(_work))
+        _t2.IsBackground = True
+        _t2.SetApartmentState(ApartmentState.STA)
+        _t2.Start()
+
+    def _pull_local_model(self):
+        """Download the default local model — only from an explicit click."""
+        viet = _ui_viet()
+        self._append_bot_message(
+            (u"Đang tải {} về máy bạn. Việc này chạy ngầm và có thể mất vài "
+             u"phút…".format(self._LOCAL_MODEL) if viet else
+             u"Downloading {} to this machine. This runs in the background "
+             u"and can take several minutes…".format(self._LOCAL_MODEL)),
+            icon=_ICON_SYNC, icon_color=_ICON_SLATE)
+
+        def _work():
+            err = u""
+            try:
+                from Intelligence import local_llm
+                local_llm._post_json(
+                    local_llm.get_host() + "/api/pull",
+                    {"name": self._LOCAL_MODEL, "stream": False}, timeout=600)
+                ok = bool(local_llm.list_models())
+                if not ok:
+                    err = u"the engine reports no installed model"
+            except Exception as ex:
+                ok, err = False, _exc_text(ex)
+
+            _v = _ui_viet()
+            if ok:
+                text = ((u"Đã tải xong {}. Bạn có thể dùng T3Lab Assistant "
+                         u"ngoại tuyến." if _v else
+                         u"{} is installed. The assistant can now work "
+                         u"offline.").format(self._LOCAL_MODEL))
+                icon, color = _ICON_SUCCESS, _ICON_GREEN
+            else:
+                text = ((u"Tải {} thất bại: {}" if _v
+                         else u"Could not download {}: {}")
+                        .format(self._LOCAL_MODEL, err))
+                icon, color = _ICON_WARNING, _ICON_AMBER
+            self._log_activity(text)
+            self.Dispatcher.Invoke(Action(
+                lambda: self._append_bot_message(text, icon=icon,
+                                                 icon_color=color)))
+
+        _t3 = Thread(ThreadStart(_work))
+        _t3.IsBackground = True
+        _t3.SetApartmentState(ApartmentState.STA)
+        _t3.Start()
 
     # ─── Command palette ──────────────────────────────────────────────────────
 
@@ -3907,226 +4111,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    # DB-only fast path (no LLM round-trip). DISABLED 2026-07-06: keyword
-    # matching hijacks unrelated queries (e.g. "check lỗi tiếng Anh trong dự
-    # án" → project info) — every query now goes through the NLP/LLM pipeline.
-    _FAST_CONTEXT_ENABLED = False
-
-    # Keyword groups for the DB-only fast path (no LLM round-trip)
-    _FAST_CTX_PROJECT = (
-        u"thông tin dự án", u"thong tin du an", u"thông tin project", u"thông tin model",
-        u"thong tin model", u"dự án này", u"du an nay", u"project info",
-        u"project information", u"about project", u"model info", u"project", u"dự án", u"du an",
-    )
-    _FAST_CTX_VIEW = (
-        u"view hiện tại", u"view hien tai", u"thông tin view", u"thong tin view",
-        u"current view", u"active view", u"view đang mở", u"view dang mo",
-        u"activeview", u"currentview", u"view",
-    )
-    _FAST_CTX_SELECTION = (
-        u"đang chọn", u"dang chon", u"đang được chọn", u"dang duoc chon",
-        u"selected element", u"selection", u"đã chọn", u"da chon",
-        u"bao nhiêu element", u"how many selected", u"sel", u"selected",
-        u"đang chọn gì", u"dang chon gi",
-    )
-    # Action verbs and terms that prevent fast-path routing (exact word-level match)
-    _FAST_CTX_EXCLUDE_WORDS = {
-        u"tạo", u"create", u"mở", u"open", u"xuất", u"export", u"in", u"print",
-        u"ẩn", u"hide", u"color", u"màu", u"xoá", u"delete", u"remove",
-        u"vẽ", u"draw", u"tag", u"add", u"thêm", u"sửa", u"edit", u"update",
-        u"chạy", u"run", u"c#", u"csharp", u"load", u"tải", u"nap",
-        u"batchout", u"parasync", u"dim", u"override", u"isolate", u"highlight"
-    }
-
-    # Substrings that prevent fast-path routing
-    _FAST_CTX_EXCLUDE_SUBS = (
-        u"batchout", u"parasync", u"override", u"isolate", u"highlight"
-    )
-
-    # Specific Revit element type and query keywords that prevent generic fast-path hijacking
-    _FAST_CTX_ELEMENT_WORDS = {
-        u"tường", u"wall", u"cửa", u"door", u"sàn", u"floor", u"mái", u"roof",
-        u"phòng", u"room", u"dầm", u"beam", u"cột", u"column", u"trần", u"ceiling",
-        u"family", u"type", u"vật liệu", u"material", u"level", u"tầng", u"grid",
-        u"lưới", u"sheet", u"bản vẽ", u"ban ve", u"parameter", u"tham số", u"tham so",
-        u"khối lượng", u"khoi luong", u"quantity", u"count", u"nhiêu", u"nhieu",
-        u"bao nhiêu", u"bao nhieu", u"how many", u"list", u"danh sách", u"danh sach"
-    }
-
-    _FAST_CTX_ELEMENT_MAP = {
-        u"tường": ([DB.BuiltInCategory.OST_Walls], u"Tường", u"Walls"),
-        u"wall": ([DB.BuiltInCategory.OST_Walls], u"Tường", u"Walls"),
-        u"cửa": ([DB.BuiltInCategory.OST_Doors], u"Cửa đi", u"Doors"),
-        u"door": ([DB.BuiltInCategory.OST_Doors], u"Cửa đi", u"Doors"),
-        u"sàn": ([DB.BuiltInCategory.OST_Floors], u"Sàn", u"Floors"),
-        u"floor": ([DB.BuiltInCategory.OST_Floors], u"Sàn", u"Floors"),
-        u"mái": ([DB.BuiltInCategory.OST_Roofs], u"Mái", u"Roofs"),
-        u"roof": ([DB.BuiltInCategory.OST_Roofs], u"Mái", u"Roofs"),
-        u"phòng": ([DB.BuiltInCategory.OST_Rooms], u"Phòng", u"Rooms"),
-        u"room": ([DB.BuiltInCategory.OST_Rooms], u"Phòng", u"Rooms"),
-        u"dầm": ([DB.BuiltInCategory.OST_StructuralFraming], u"Dầm", u"Beams"),
-        u"beam": ([DB.BuiltInCategory.OST_StructuralFraming], u"Dầm", u"Beams"),
-        u"cột": ([DB.BuiltInCategory.OST_StructuralColumns, DB.BuiltInCategory.OST_Columns], u"Cột", u"Columns"),
-        u"column": ([DB.BuiltInCategory.OST_StructuralColumns, DB.BuiltInCategory.OST_Columns], u"Cột", u"Columns"),
-        u"trần": ([DB.BuiltInCategory.OST_Ceilings], u"Trần", u"Ceilings"),
-        u"ceiling": ([DB.BuiltInCategory.OST_Ceilings], u"Trần", u"Ceilings"),
-        u"cửa sổ": ([DB.BuiltInCategory.OST_Windows], u"Cửa sổ", u"Windows"),
-        u"window": ([DB.BuiltInCategory.OST_Windows], u"Cửa sổ", u"Windows"),
-        u"lưới": ([DB.BuiltInCategory.OST_Grids], u"Lưới trục", u"Grids"),
-        u"grid": ([DB.BuiltInCategory.OST_Grids], u"Lưới trục", u"Grids"),
-        u"level": ([DB.BuiltInCategory.OST_Levels], u"Tầng", u"Levels"),
-        u"tầng": ([DB.BuiltInCategory.OST_Levels], u"Tầng", u"Levels"),
-    }
-
-    def _count_elements(self, category_list, in_active_view=False):
-        try:
-            from Autodesk.Revit import DB as _DB
-            total = 0
-            for bic in category_list:
-                if in_active_view and self.doc.ActiveView:
-                    collector = _DB.FilteredElementCollector(self.doc, self.doc.ActiveView.Id)
-                else:
-                    collector = _DB.FilteredElementCollector(self.doc)
-                collector.OfCategory(bic).WhereElementIsNotElementType()
-                total += collector.GetElementCount()
-            return total
-        except Exception as ex:
-            logger.debug("_count_elements error: {}".format(ex))
-            return 0
-
-    def _try_fast_context_answer(self, raw):
-        """Answer project/view/selection questions directly from Revit (no LLM).
-
-        Returns a formatted message string if the query matches a known context
-        question, else None (so the normal NLP/LLM pipeline runs).
-        """
-        try:
-            if not self._FAST_CONTEXT_ENABLED:
-                return None
-            if not raw:
-                return None
-            low = raw.lower().strip()
-
-            # Check for fast element count query
-            count_kws = [u"bao nhiêu", u"bao nhieu", u"đếm", u"dem", u"số lượng", u"so luong", u"count", u"how many", u"tổng số", u"tong so"]
-            want_count = any(k in low for k in count_kws)
-            target_cats = []
-            cat_display_vn = u""
-            cat_display_en = u""
-            
-            if want_count:
-                for kw, (bics, vn_name, en_name) in self._FAST_CTX_ELEMENT_MAP.items():
-                    if re.search(r'\b' + re.escape(kw) + r'\b', low):
-                        target_cats = bics
-                        cat_display_vn = vn_name
-                        cat_display_en = en_name
-                        break
-            
-            if want_count and target_cats:
-                in_view = any(k in low for k in [u"trong view", u"view này", u"view dang mo", u"view đang mở", u"view hiện tại", u"view hien tai", u"in view", u"active view", u"current view"])
-                count = self._count_elements(target_cats, in_active_view=in_view)
-                
-                viet = _is_viet_text(raw)
-                lines = []
-                lines.append(u"⚡ **Phản hồi tức thì từ Revit DB**")
-                lines.append(u"")
-                if viet:
-                    scope_str = u"trong view hiện tại" if in_view else u"trong toàn bộ dự án"
-                    lines.append(u"📋 **Thống kê cấu kiện**")
-                    lines.append(u"- Số lượng {}: **{}** ({})".format(cat_display_vn, count, scope_str))
-                else:
-                    scope_str = u"in active view" if in_view else u"in entire project"
-                    lines.append(u"📋 **Element Statistics**")
-                    lines.append(u"- Number of {}: **{}** ({})".format(cat_display_en, count, scope_str))
-                return u"\n".join(lines)
-
-            # Word-level and substring-level checks to prevent hijacking commands
-            words = set(low.split())
-            if (any(w in words for w in self._FAST_CTX_EXCLUDE_WORDS) 
-                    or any(s in low for s in self._FAST_CTX_EXCLUDE_SUBS)
-                    or any(e in words for e in self._FAST_CTX_ELEMENT_WORDS)):
-                return None
-
-            want_project   = any(k in low for k in self._FAST_CTX_PROJECT)
-            want_view      = any(k in low for k in self._FAST_CTX_VIEW)
-            want_selection = any(k in low for k in self._FAST_CTX_SELECTION)
-            if not (want_project or want_view or want_selection):
-                return None
-
-            ctx = ContextScout.get_active_context()
-            if not ctx or "error" in ctx:
-                return None
-
-            viet = _is_viet_text(raw)
-            lines = []
-
-            # Add premium visual badge
-            if viet:
-                lines.append(u"⚡ **Phản hồi tức thì từ Revit DB**")
-            else:
-                lines.append(u"⚡ **Instant Revit DB Answer**")
-            lines.append(u"")
-
-            if want_project:
-                p = ctx.get("project", {})
-                r = ctx.get("revit", {})
-                if viet:
-                    lines.append(u"📋 **Thông tin dự án**")
-                    lines.append(u"- Tên file: {}".format(p.get("title") or u"—"))
-                    lines.append(u"- Tên dự án: {}".format(p.get("name") or u"—"))
-                    lines.append(u"- Mã số: {}".format(p.get("number") or u"—"))
-                    lines.append(u"- Khu vực: {}".format(p.get("region") or u"—"))
-                    lines.append(u"- Revit: {}".format(r.get("version") or u"—"))
-                else:
-                    lines.append(u"📋 **Project information**")
-                    lines.append(u"- File: {}".format(p.get("title") or u"—"))
-                    lines.append(u"- Name: {}".format(p.get("name") or u"—"))
-                    lines.append(u"- Number: {}".format(p.get("number") or u"—"))
-                    lines.append(u"- Region: {}".format(p.get("region") or u"—"))
-                    lines.append(u"- Revit: {}".format(r.get("version") or u"—"))
-
-            if want_view:
-                v = ctx.get("active_view", {})
-                if len(lines) > 2:
-                    lines.append(u"")
-                if viet:
-                    lines.append(u"🖼️ **View hiện tại**")
-                    lines.append(u"- Tên: {}".format(v.get("name") or u"—"))
-                    lines.append(u"- Loại: {}".format(v.get("type") or u"—"))
-                    lines.append(u"- Tỷ lệ: {}".format(v.get("scale") or u"—"))
-                    lines.append(u"- Bộ môn: {}".format(v.get("discipline") or u"—"))
-                else:
-                    lines.append(u"🖼️ **Active view**")
-                    lines.append(u"- Name: {}".format(v.get("name") or u"—"))
-                    lines.append(u"- Type: {}".format(v.get("type") or u"—"))
-                    lines.append(u"- Scale: {}".format(v.get("scale") or u"—"))
-                    lines.append(u"- Discipline: {}".format(v.get("discipline") or u"—"))
-
-            if want_selection:
-                s = ctx.get("selection", {})
-                cnt = s.get("count", 0)
-                details = s.get("details", [])
-                if len(lines) > 2:
-                    lines.append(u"")
-                if viet:
-                    lines.append(u"🎯 **Đối tượng đang chọn: {}**".format(cnt))
-                    if details:
-                        for idx, d in enumerate(details):
-                            lines.append(u"  {}. {} (Category: {}) [ID: {}]".format(idx + 1, d["name"], d["category"], d["id"]))
-                        if cnt > len(details):
-                            lines.append(u"  *... và {} đối tượng khác.*".format(cnt - len(details)))
-                else:
-                    lines.append(u"🎯 **Selected elements: {}**".format(cnt))
-                    if details:
-                        for idx, d in enumerate(details):
-                            lines.append(u"  {}. {} (Category: {}) [ID: {}]".format(idx + 1, d["name"], d["category"], d["id"]))
-                        if cnt > len(details):
-                            lines.append(u"  *... and {} more item(s).*".format(cnt - len(details)))
-
-            return u"\n".join(lines) if len(lines) > 2 else None
-        except Exception as ex:
-            logger.debug("_try_fast_context_answer error: {}".format(ex))
-            return None
+    # NOTE — 2026-07-28: the DB-only fast path was deleted here.
+    # _FAST_CONTEXT_ENABLED had been False since 2026-07-06 (its keyword
+    # matching hijacked unrelated queries — "check lỗi tiếng Anh trong dự án"
+    # answered with project info), so _try_fast_context_answer, _count_elements
+    # and their keyword tables were ~220 lines of unreachable code. The agent
+    # path answers these questions from real tool results instead, under the
+    # "NUMBERS MUST COME FROM TOOLS" rule in agent_loop._AGENT_PROMPT.
 
     # ─── Persistent memory: /memory command + "remember ..." triggers ─────────
 
@@ -4849,19 +4840,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             use_local        = HAS_NLP and has_local_llm()
             use_claude       = HAS_NLP and has_api_key()   # True for any configured provider
             _active_provider = get_active_provider_name()  # "claude" | "openai" | "ollama"
-
-            # ── 0. Fast context answer (DB-only, no LLM) — disabled via
-            #      _FAST_CONTEXT_ENABLED, see class attribute above ────────
-            if self._FAST_CONTEXT_ENABLED and HAS_SCOUT and not has_attach:
-                fast = self._try_fast_context_answer(raw)
-                if fast:
-                    def _show_fast(_fast=fast):
-                        self._hide_typing_indicator()
-                        self._append_bot_message(_fast)
-                        self._add_to_history("assistant", _fast)
-                        self._set_busy(False)
-                    self.Dispatcher.Invoke(Action(_show_fast))
-                    return
 
             # An explicit /slash skill invocation must reach the agent with
             # its playbook — the learned-pattern and NLU stages would hijack
@@ -6301,6 +6279,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             '__begin_action_group', '__end_action_group',
         ))
 
+        # ── D1: cancel the loop when the USER switches documents mid-request ──
+        # Agent-initiated document changes (switch_active_document /
+        # open_document / close_document called by the model for a multi-doc
+        # workflow) DISARM the guard for the rest of the request instead of
+        # tripping it — the agent is deliberately working across models.
+        #
+        # Declared HERE, above _exec_tool, because _exec_tool closes over it.
+        # It used to be assigned ~50 lines further down and only worked
+        # because nothing called _exec_tool in between; any reordering would
+        # have turned that into a NameError at the first tool call.
+        doc_guard = {"key": _get_doc_key(), "armed": True}
+
         def _exec_tool(name, args):
             args = dict(args or {})
             if name == tool_schema.MEMORY_TOOL_NAME:
@@ -6355,13 +6345,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     doc_guard["armed"] = False
             return res
-
-        # ── D1: cancel the loop when the USER switches documents mid-request ──
-        # Agent-initiated document changes (switch_active_document /
-        # open_document / close_document called by the model for a multi-doc
-        # workflow) DISARM the guard for the rest of the request instead of
-        # tripping it — the agent is deliberately working across models.
-        doc_guard = {"key": _get_doc_key(), "armed": True}
 
         def _guard_check():
             try:
@@ -7552,8 +7535,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         text = _re.sub(r'\n{3,}', u'\n\n', u'\n'.join(lines_out))
         return text.strip()
 
-    # Legacy colored emoji markers (still produced by older message-builders
-    # like _try_fast_context_answer) mapped to a minimal MDL2 glyph + Lumina
+    # Legacy colored emoji markers (still reachable through chat history saved
+    # before the fast-context path was removed) mapped to a minimal MDL2 glyph
+    # + Lumina
     # color — converted at render time so no caller needs to change its
     # markdown text, only this one renderer.
     _MD_ICON_MARKERS = [
