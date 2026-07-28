@@ -34,6 +34,10 @@ LIB = os.path.join(EXT, 'lib')
 TAB = os.path.join(EXT, 'T3Lab.tab')
 sys.path.insert(0, LIB)
 
+# Sandbox %APPDATA% BEFORE any config/settings import, so settings.json lands
+# in a throwaway dir instead of the real one.
+os.environ['APPDATA'] = tempfile.mkdtemp(prefix='t3lab_test_')
+
 FAILURES = []
 
 
@@ -277,6 +281,69 @@ def test_no_dead_intent_advertised_anywhere():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 3. Language is consistent
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_agent_prompt_language_follows_setting():
+    """The agent prompt used to hardcode "Always reply in English", which
+    contradicted the UI once the assistant's own strings followed the user."""
+    from Intelligence.agent_loop import build_agent_system_prompt
+
+    en = build_agent_system_prompt(u"ctx", lang='en')
+    vi = build_agent_system_prompt(u"ctx", lang='vi')
+    auto = build_agent_system_prompt(u"ctx", lang='auto')
+
+    check('en pins English', 'reply in English' in en)
+    check('vi pins Vietnamese', 'reply in Vietnamese' in vi)
+    check('vi does not also demand English', 'reply in English' not in vi)
+    check('auto mirrors the user', 'SAME language' in auto)
+    check('auto pins neither language',
+          'Always reply in English' not in auto
+          and 'Always reply in Vietnamese' not in auto)
+
+
+def test_specialist_prompt_forwards_language():
+    from Intelligence.agents.specialists import build_specialist_prompt
+    vi = build_specialist_prompt(None, u"ctx", lang='vi')
+    check('specialist prompt honours lang', 'reply in Vietnamese' in vi)
+
+
+def test_knowledge_prompt_is_single_language():
+    """The knowledge prompt was written in Vietnamese with an
+    "always answer in English" line bolted on."""
+    from Intelligence.knowledge.knowledge_agent import get_system_prompt
+    vi, en = get_system_prompt(True), get_system_prompt(False)
+    check('vi knowledge prompt does not demand English',
+          'in English' not in vi)
+    check('en knowledge prompt is English', 'Always answer in English' in en)
+    check('en knowledge prompt has no Vietnamese rules',
+          'NGUYÊN TẮC' not in en)
+
+
+def test_assistant_cards_are_bilingual():
+    """Every visible card string had a single Vietnamese form, which is why
+    the window still mixed languages after the English lock."""
+    from GUI import AssistantCards as AC
+    for key, pair in AC._TEXT.items():
+        check('card string "{}" has both languages'.format(key),
+              len(pair) == 2 and pair[0] and pair[1] and pair[0] != pair[1],
+              pair)
+    check('action labels cover the same actions',
+          set(AC._ACTION_LABELS_VI) == set(AC._ACTION_LABELS_EN))
+
+
+def test_reply_language_setting_roundtrip():
+    import config.settings as CS
+    CS.T3LabAISettings._instance = None
+    s = CS.T3LabAISettings()
+    check('default is auto', s.get_reply_language() == 'auto')
+    s.set_reply_language('vi')
+    check('vi persists', s.get_reply_language() == 'vi')
+    s.set_reply_language('klingon')
+    check('unknown value falls back to auto', s.get_reply_language() == 'auto')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -294,6 +361,13 @@ TESTS = [
         test_builtin_tools_are_installed,
         test_renamed_tools_resolve_to_real_tools,
         test_no_dead_intent_advertised_anywhere,
+    ]),
+    ('language', [
+        test_agent_prompt_language_follows_setting,
+        test_specialist_prompt_forwards_language,
+        test_knowledge_prompt_is_single_language,
+        test_assistant_cards_are_bilingual,
+        test_reply_language_setting_roundtrip,
     ]),
 ]
 

@@ -282,11 +282,15 @@ def get_spec(name):
 
 
 def build_specialist_prompt(spec, revit_context, project_instructions='',
-                            skills_block='', local=False):
+                            skills_block='', local=False, lang='auto'):
     """Base agent prompt + specialist role + (local-only) few-shot +
-    project instructions + active-skill block."""
+    project instructions + active-skill block.
+
+    lang ('auto' | 'vi' | 'en') is passed straight through to the base prompt
+    so a specialist turn answers in the same language as the rest of the UI.
+    """
     from Intelligence.agent_loop import build_agent_system_prompt
-    parts = [build_agent_system_prompt(revit_context)]
+    parts = [build_agent_system_prompt(revit_context, lang=lang)]
     if spec is not None and spec.prompt_intro:
         parts.append(spec.prompt_intro)
     if local and spec is not None and spec.few_shot:

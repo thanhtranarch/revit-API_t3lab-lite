@@ -13,7 +13,11 @@ from __future__ import unicode_literals
 __author__ = "Tran Tien Thanh"
 __title__ = "Assistant Cards"
 
-_ACTION_LABELS = {
+# These cards used to be Vietnamese-only, which is why the window still mixed
+# languages after the 2026-07-18 "English lock": nothing here consulted the
+# user's language at all. Every visible string now has both variants and the
+# caller passes `viet` for the current turn.
+_ACTION_LABELS_VI = {
     'fix_parameter':  'Sửa parameter',
     'move_element':   'Di chuyển element',
     'fix_tag':        'Sửa tag',
@@ -24,6 +28,55 @@ _ACTION_LABELS = {
     'info':           'Chỉ thông tin',
     'manual':         'Xử lý tay',
 }
+
+_ACTION_LABELS_EN = {
+    'fix_parameter':  'Fix parameter',
+    'move_element':   'Move element',
+    'fix_tag':        'Fix tag',
+    'fix_dimension':  'Fix dimension',
+    'create_element': 'Create element',
+    'delete_element': 'Delete element',
+    'place_note':     'Place note',
+    'info':           'Information only',
+    'manual':         'Handle manually',
+}
+
+# key → (vi, en)
+_TEXT = {
+    'title':        (u"Comment bản vẽ: ",           u"Drawing comments: "),
+    'sheet_match':  (u"Sheet khớp: {} — {}   ·   model đang mở",
+                     u"Matched sheet: {} — {}   ·   in the open model"),
+    'needs_switch': (u"Không thấy sheet trong model ACTIVE — có model khác "
+                     u"đang mở, cần switch document trước khi xử lý.",
+                     u"Sheet is not in the ACTIVE model — another model is "
+                     u"open; switch document before processing."),
+    'no_match':     (u"Chưa khớp được sheet nào trong model đang mở.",
+                     u"No sheet matched in the open model."),
+    'partial':      (u"PDF nén một phần — có thể còn markup chưa đọc được.",
+                     u"PDF is partly compressed — some markup may be unread."),
+    'row_head':     (u"[{}] trang {} · {} · {}",
+                     u"[{}] page {} · {} · {}"),
+    'no_author':    (u"không rõ tác giả",           u"unknown author"),
+    'no_content':   (u"(markup không có nội dung chữ)",
+                     u"(markup has no text content)"),
+    'proposal':     (u"Đề xuất: [{}] {}",           u"Proposed: [{}] {}"),
+    'run':          (u"▶ Thực hiện",                u"▶ Run"),
+    'run_tip':      (u"Chạy phương án qua AI agent",
+                     u"Run this proposal through the AI agent"),
+    'note':         (u"Ghi chú vào sheet",          u"Note on sheet"),
+    'note_tip':     (u"Đặt TextNote đánh dấu comment này trong model",
+                     u"Place a TextNote marking this comment in the model"),
+    'skip':         (u"Bỏ qua",                     u"Skip"),
+    'skip_tip':     (u"Đánh dấu không xử lý",       u"Mark as not handled"),
+}
+
+
+def _t(key, viet):
+    """Localised string for `key`."""
+    pair = _TEXT.get(key)
+    if not pair:
+        return key
+    return pair[0] if viet else pair[1]
 
 _EXECUTABLE_ACTIONS = frozenset([
     'fix_parameter', 'move_element', 'fix_tag', 'fix_dimension',
@@ -60,13 +113,14 @@ def _mini_button(label, tooltip, fg=(82, 82, 91)):
     return btn
 
 
-def build_comment_report_card(report, on_run, on_note, on_skip):
+def build_comment_report_card(report, on_run, on_note, on_skip, viet=False):
     """The comment-resolution report card.
 
     Args:
         report: CommentAgent.analyze() result.
         on_run/on_note/on_skip: callbacks receiving (item, status_setter)
             where status_setter(text, ok) updates the row's status label.
+        viet: render the card in Vietnamese instead of English.
 
     Returns a WPF Border ready to append to the chat panel.
     """
@@ -87,7 +141,7 @@ def build_comment_report_card(report, on_run, on_note, on_skip):
 
     # ── header ──
     title = TextBlock()
-    title.Text = "Comment bản vẽ: " + (report.get('pdf_name') or '')
+    title.Text = _t('title', viet) + (report.get('pdf_name') or '')
     title.FontSize = 12.5
     title.FontWeight = System.Windows.FontWeights.SemiBold
     title.FontFamily = _font()
@@ -98,15 +152,14 @@ def build_comment_report_card(report, on_run, on_note, on_skip):
     match = report.get('sheet_match')
     sub = TextBlock()
     if match:
-        sub.Text = "Sheet khớp: {} — {}   ·   model đang mở".format(
+        sub.Text = _t('sheet_match', viet).format(
             match.get('number', ''), match.get('name', ''))
         sub.Foreground = _brush(16, 185, 129)
     elif report.get('needs_switch'):
-        sub.Text = ("Không thấy sheet trong model ACTIVE — có model khác "
-                    "đang mở, cần switch document trước khi xử lý.")
+        sub.Text = _t('needs_switch', viet)
         sub.Foreground = _brush(245, 158, 11)
     else:
-        sub.Text = "Chưa khớp được sheet nào trong model đang mở."
+        sub.Text = _t('no_match', viet)
         sub.Foreground = _brush(239, 68, 68)
     sub.FontSize = 10.5
     sub.FontFamily = _font()
@@ -116,7 +169,7 @@ def build_comment_report_card(report, on_run, on_note, on_skip):
 
     if report.get('partial_extraction'):
         warn = TextBlock()
-        warn.Text = "PDF nén một phần — có thể còn markup chưa đọc được."
+        warn.Text = _t('partial', viet)
         warn.FontSize = 9.5
         warn.FontFamily = _font()
         warn.Foreground = _brush(161, 161, 170)
@@ -132,13 +185,13 @@ def build_comment_report_card(report, on_run, on_note, on_skip):
     # ── items ──
     for item in report.get('items', []):
         root.Children.Add(_build_item_row(item, report,
-                                          on_run, on_note, on_skip))
+                                          on_run, on_note, on_skip, viet))
 
     card.Child = root
     return card
 
 
-def _build_item_row(item, report, on_run, on_note, on_skip):
+def _build_item_row(item, report, on_run, on_note, on_skip, viet=False):
     from System.Windows.Controls import (Border, TextBlock, StackPanel,
                                          Orientation)
     from System.Windows import Thickness, CornerRadius, TextWrapping
@@ -156,9 +209,9 @@ def _build_item_row(item, report, on_run, on_note, on_skip):
     box = StackPanel()
 
     head = TextBlock()
-    head.Text = "[{}] trang {} · {} · {}".format(
+    head.Text = _t('row_head', viet).format(
         item.get('id', ''), item.get('page', ''),
-        item.get('subtype', ''), item.get('author') or 'không rõ tác giả')
+        item.get('subtype', ''), item.get('author') or _t('no_author', viet))
     head.FontSize = 9.5
     head.FontFamily = _font()
     head.Foreground = _brush(161, 161, 170)
@@ -166,7 +219,7 @@ def _build_item_row(item, report, on_run, on_note, on_skip):
 
     content = TextBlock()
     content.Text = (item.get('content') or item.get('subject')
-                    or '(markup không có nội dung chữ)')
+                    or _t('no_content', viet))
     content.FontSize = 12
     content.FontFamily = _font()
     content.Foreground = _brush(39, 39, 42)
@@ -176,9 +229,10 @@ def _build_item_row(item, report, on_run, on_note, on_skip):
 
     proposal = TextBlock()
     action = prop.get('action_type', 'manual')
-    label = _ACTION_LABELS.get(action, action)
+    labels = _ACTION_LABELS_VI if viet else _ACTION_LABELS_EN
+    label = labels.get(action, action)
     desc = prop.get('description') or ''
-    proposal.Text = "Đề xuất: [{}] {}".format(label, desc)
+    proposal.Text = _t('proposal', viet).format(label, desc)
     proposal.FontSize = 10.5
     proposal.FontFamily = _font()
     proposal.Foreground = _brush(59, 130, 246)
@@ -211,17 +265,16 @@ def _build_item_row(item, report, on_run, on_note, on_skip):
 
     executable = action in _EXECUTABLE_ACTIONS
     if executable and on_run is not None:
-        b_run = _mini_button("▶ Thực hiện", "Chạy phương án qua AI agent",
+        b_run = _mini_button(_t('run', viet), _t('run_tip', viet),
                              fg=(16, 185, 129))
         b_run.Click += _wrap_cb(on_run, item, setter)
         bar.Children.Add(b_run)
     if on_note is not None:
-        b_note = _mini_button("Ghi chú vào sheet",
-                              "Đặt TextNote đánh dấu comment này trong model")
+        b_note = _mini_button(_t('note', viet), _t('note_tip', viet))
         b_note.Click += _wrap_cb(on_note, item, setter)
         bar.Children.Add(b_note)
     if on_skip is not None:
-        b_skip = _mini_button("Bỏ qua", "Đánh dấu không xử lý",
+        b_skip = _mini_button(_t('skip', viet), _t('skip_tip', viet),
                               fg=(161, 161, 170))
         b_skip.Click += _wrap_cb(on_skip, item, setter)
         bar.Children.Add(b_skip)

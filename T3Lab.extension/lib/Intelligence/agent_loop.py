@@ -355,7 +355,7 @@ class AgentLoop(object):
 _AGENT_PROMPT = u"""You are T3Lab Assistant, an AI agent embedded in Autodesk Revit via the T3Lab pyRevit extension. You can read and modify the live Revit model through the tools provided.
 
 ## Language & formatting
-Always reply in English, regardless of the language the user writes in. Keep replies short and practical — one or two sentences between tool calls, a compact summary at the end.
+{language}Keep replies short and practical — one or two sentences between tool calls, a compact summary at the end.
 Use markdown when it helps: **bold**, `code`, bullet lists, and pipe tables (| a | b |) for numeric summaries — the chat renders them natively. Do NOT use emoji.
 
 ## Units
@@ -408,14 +408,28 @@ Rules shown above still apply: query before you modify, numbers come from tool f
 """
 
 
-def build_agent_system_prompt(revit_context=u"", local=False):
+# Language directives. The prompt used to hardcode "Always reply in English,
+# regardless of the language the user writes in", which disagreed with the UI
+# the moment the assistant's own strings went back to following the user.
+_LANG_EN = (u"Always reply in English, regardless of the language the user "
+            u"writes in. ")
+_LANG_VI = (u"Always reply in Vietnamese, regardless of the language the user "
+            u"writes in. ")
+_LANG_AUTO = (u"Reply in the SAME language the user wrote in — Vietnamese in, "
+              u"Vietnamese out; English in, English out. ")
+
+
+def build_agent_system_prompt(revit_context=u"", local=False, lang="auto"):
     """System prompt for the native tool-calling agent path.
 
     local=True appends a compact few-shot trace — small local models select
     tools far more accurately from concrete examples than from prose alone.
+    lang is 'auto' | 'vi' | 'en' and must match what the UI itself renders,
+    so the model's prose and the assistant's own strings agree.
     """
     ctx = revit_context.strip() if revit_context else u"(no context snapshot available)"
-    prompt = _AGENT_PROMPT.format(context=ctx)
+    language = {'vi': _LANG_VI, 'en': _LANG_EN}.get(lang, _LANG_AUTO)
+    prompt = _AGENT_PROMPT.format(context=ctx, language=language)
     if local:
         prompt += u"\n" + _LOCAL_GENERAL_FEWSHOT
     return prompt

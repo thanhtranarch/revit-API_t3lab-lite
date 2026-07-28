@@ -596,7 +596,7 @@ _PANE_SYSTEM_PROMPT = (
     "and T3Lab tool usage. "
     "Be concise and practical — aim for under 120 words unless the user asks for detail. "
     "Use plain text (no Markdown). "
-    "Respond in English, regardless of the user's language."
+    "Respond in the SAME language the user wrote in."
 )
 
 

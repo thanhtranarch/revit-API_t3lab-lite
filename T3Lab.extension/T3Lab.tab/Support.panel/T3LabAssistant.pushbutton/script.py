@@ -172,7 +172,8 @@ except Exception as e:
     def get_spec(name): return None
     def build_specialist_prompt(spec, ctx, **kw):
         from Intelligence.agent_loop import build_agent_system_prompt
-        return build_agent_system_prompt(ctx)
+        return build_agent_system_prompt(ctx, local=kw.get('local', False),
+                                         lang=kw.get('lang', 'auto'))
 
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
@@ -360,13 +361,67 @@ def _exc_text(exc):
         return u"<unprintable error>"
 
 
+_VIET_CHARS = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
+               u"ụủứừửữựỳỵỷỹ")
+
+
+def _reply_language():
+    """User's language preference: 'auto' | 'vi' | 'en'. Never raises."""
+    try:
+        from config.settings import get_settings
+        return get_settings().get_reply_language()
+    except Exception:
+        return 'auto'
+
+
 def _is_viet_text(text):
-    # UI + replies locked to English (2026-07-18): every bilingual branch
-    # now renders its English variant. Detection kept below for re-enable.
-    return False
-    viet_chars = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
-                  u"ụủứừửữựỳỵỷỹ")
-    return any(c in viet_chars for c in text.lower())
+    """True when the assistant should answer this turn in Vietnamese.
+
+    Between 2026-07-18 and 2026-07-28 this was hard-wired to `return False`
+    with the detection left unreachable below it. That did not make the UI
+    English: the ~57 `if viet:` branches all took their English arm, but the
+    Vietnamese strings that were written WITHOUT a branch (the /memory
+    replies, the local-model download notices, the spell-check confirmation,
+    every label in AssistantCards) still rendered — so the window mixed both
+    languages. The setting now decides, and 'auto' detects from the text.
+    """
+    lang = _reply_language()
+    if lang == 'vi':
+        return True
+    if lang == 'en':
+        return False
+    if not text:
+        return _ui_viet()
+    viet = any(c in _VIET_CHARS for c in text.lower())
+    if viet:
+        # Remember it: messages that belong to no particular turn (startup
+        # notices, card labels) should follow the language the user is
+        # actually typing in.
+        global _LAST_USER_VIET
+        _LAST_USER_VIET = True
+    return viet
+
+
+# Language of the most recent user message, for strings that are not tied to
+# one turn. None until the user has typed something.
+_LAST_USER_VIET = None
+
+
+def _note_user_language(text):
+    """Record the language of a user message. Call once per submitted turn."""
+    global _LAST_USER_VIET
+    if text:
+        _LAST_USER_VIET = any(c in _VIET_CHARS for c in text.lower())
+
+
+def _ui_viet():
+    """Language for UI strings with no user text of their own."""
+    lang = _reply_language()
+    if lang == 'vi':
+        return True
+    if lang == 'en':
+        return False
+    return bool(_LAST_USER_VIET)
 
 
 # Tools whose launcher needs arguments or a non-script entry point. Every
@@ -889,9 +944,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     no_provider = not has_api_key() and not has_local_llm()
                     if already_onboarded and fresh_chat and no_provider:
                         def _nudge():
-                            self._append_bot_message(get_setup_guidance_message(True),
-                                                     icon=_ICON_INFO, icon_color=_ICON_SLATE)
-                            self._add_to_history("assistant", get_setup_guidance_message(True))
+                            _guide = get_setup_guidance_message(_ui_viet())
+                            self._append_bot_message(_guide, icon=_ICON_INFO,
+                                                     icon_color=_ICON_SLATE)
+                            self._add_to_history("assistant", _guide)
                         self.Dispatcher.Invoke(Action(_nudge))
                 except Exception:
                     pass
@@ -4195,6 +4251,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not raw and not attached:
                 return
 
+            # Language of THIS turn steers every string the assistant emits
+            # while handling it, including ones with no text of their own
+            # (tool cards, confirm cards, background notices).
+            _note_user_language(raw)
+
             # ── Concurrency: queue instead of reject ──────────────────────────
             # Runs BEFORE the slash parse below — a queued "/skill" message
             # must not overwrite _forced_skill_id while the current request
@@ -4511,7 +4572,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             result = agent.answer(raw, history, _chat,
                                   project_instructions=proj_instructions,
-                                  skills_block=skills_block)
+                                  skills_block=skills_block,
+                                  viet=_is_viet_text(raw))
 
             # Every cancel exit from this function returns True. Returning
             # False makes _route_input fall through to the normal LLM path,
@@ -4621,7 +4683,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             on_note=lambda item, setter:
                                 self._execute_comment_item(item, setter, 'note'),
                             on_skip=lambda item, setter:
-                                self._skip_comment_item(item, setter))
+                                self._skip_comment_item(item, setter),
+                            viet=_ui_viet())
                         self.chat_history_panel.Children.Add(card)
                         self._scroll_to_bottom()
                         rendered = True
@@ -4651,10 +4714,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return False
 
     def _skip_comment_item(self, item, setter):
-        """'Bỏ qua' button — mark only. UI THREAD."""
+        """Skip button on a comment row — mark only. UI THREAD."""
         try:
+            _v = _ui_viet()
             item['status'] = 'skipped'
-            setter(u"Skipped", False)
+            setter(u"Đã bỏ qua" if _v else u"Skipped", False)
         except Exception:
             pass
 
@@ -4662,18 +4726,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
         """Run/Note button on a comment row. UI THREAD entry — spawns the
         standard revit_action specialist on a worker thread."""
         try:
+            _v = _ui_viet()
             if self._busy:
-                setter(u"Busy — wait for the current request", False)
+                setter(u"Đang bận — chờ yêu cầu hiện tại" if _v
+                       else u"Busy — wait for the current request", False)
                 return
             agent = getattr(self, '_comment_agent', None)
             report = getattr(self, '_comment_report', None)
             if agent is None or report is None:
-                setter(u"This report is no longer valid", False)
+                setter(u"Báo cáo này không còn hiệu lực" if _v
+                       else u"This report is no longer valid", False)
                 return
             instruction = (agent.build_run_instruction(item, report)
                            if mode == 'run'
                            else agent.build_note_instruction(item, report))
-            setter(u"Running...", False)
+            setter(u"Đang chạy..." if _v else u"Running...", False)
             self._set_busy(True)
 
             def _work():
@@ -4693,10 +4760,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if handled:
                             item['status'] = ('done' if mode == 'run'
                                               else 'noted')
-                            setter(u"Done" if mode == 'run'
-                                   else u"Noted", True)
+                            if mode == 'run':
+                                setter(u"Xong" if _v else u"Done", True)
+                            else:
+                                setter(u"Đã ghi chú" if _v else u"Noted", True)
                         else:
-                            setter(u"Failed — try again", False)
+                            setter(u"Thất bại — thử lại" if _v
+                                   else u"Failed — try again", False)
                             self._set_busy(False)
                     except Exception:
                         pass
@@ -5630,9 +5700,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if conv.get("intent") in ("greet", "chat", "help") and conv.get("message"):
                     reply = conv["message"]
                 elif _is_viet_text(raw):
-                    reply = u"Hello! I'm T3Lab Assistant.\nWhat would you like to do today?"
+                    reply = (u"Xin chào! Tôi là T3Lab Assistant.\n"
+                             u"Hôm nay bạn muốn làm gì?")
                 else:
-                    reply = u"Hello! I'm T3Lab Assistant.\nWhat would you like to do today?"
+                    reply = (u"Hello! I'm T3Lab Assistant.\n"
+                             u"What would you like to do today?")
                 _bot(reply)
                 self._set_busy(False)
                 return
@@ -6127,12 +6199,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
+        # The model must answer in the same language the window renders in,
+        # otherwise a Vietnamese turn gets Vietnamese tool cards wrapped
+        # around an English answer.
+        _lang = _reply_language()
+        if _lang == 'auto':
+            _lang = 'vi' if _is_viet_text(captured) else 'en'
+
         if spec is not None and HAS_SPECIALISTS:
             system_prompt = build_specialist_prompt(
                 spec, ctx, project_instructions=_proj_instructions,
-                skills_block=_skills_block, local=_is_local)
+                skills_block=_skills_block, local=_is_local, lang=_lang)
         else:
-            system_prompt = build_agent_system_prompt(ctx, local=_is_local)
+            system_prompt = build_agent_system_prompt(ctx, local=_is_local,
+                                                      lang=_lang)
             if _proj_instructions:
                 system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
             if _skills_block:
