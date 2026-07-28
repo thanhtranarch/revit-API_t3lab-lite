@@ -230,15 +230,18 @@ def _load_batchout_mod():
 
 
 def launch_batchout():
-    """Open the BatchOut export dialog (no pre-configuration)."""
+    """Open the BatchOut export dialog (no pre-configuration).
+
+    Zero-arg launchers return (ok, error_text) — see TOOL_LAUNCHERS.
+    """
     try:
         mod = _load_batchout_mod()
         window = mod.ExportManagerWindow()
         window.ShowDialog()
-        return True
+        return True, u""
     except Exception as ex:
-        logger.error("Error launching BatchOut: {}".format(ex))
-        return False
+        logger.error("Error launching BatchOut: {}".format(_exc_text(ex)))
+        return False, _exc_text(ex)
 
 
 def launch_batchout_configured(config, progress_cb=None):
@@ -294,113 +297,26 @@ def launch_export_direct(config, progress_cb=None):
         return False
 
 
-def launch_parasync():
-    """Open the ParaSync parameter sync tool."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'ParaSync.pushbutton')
-        mod = _load_script('parasync_script', script_path)
-        if mod is None:
-            raise RuntimeError("Could not load ParaSync module from: {}".format(script_path))
-        window = mod.ParaSyncWindow()
-        window.ShowDialog()
-        return True
-    except Exception as ex:
-        logger.error("Error launching ParaSync: {}".format(ex))
-        return False
-
-
 def launch_loadfamily():
-    """Open the Load Family dialog."""
+    """Open the Family Manager on its Loader tab."""
     try:
         from GUI.ManaFamiDialog import show_family_manager
         show_family_manager(default_tab=0)
-        return True
+        return True, u""
     except Exception as ex:
-        logger.error("Error launching LoadFamily: {}".format(ex))
-        return False
+        logger.error("Error launching LoadFamily: {}".format(_exc_text(ex)))
+        return False, _exc_text(ex)
 
 
-def launch_loadfamily_cloud():
-    """Open the Load Family (Cloud) dialog."""
-    try:
-        from GUI.ManaFamiDialog import show_family_manager
-        show_family_manager(default_tab=0)
-        return True
-    except Exception as ex:
-        logger.error("Error launching LoadFamily Cloud: {}".format(ex))
-        return False
-
-
-def launch_projectname():
-    """Open the Project Name tool."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'ProjectName.pushbutton')
-        mod = _load_script('projectname_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching ProjectName: {}".format(ex))
-        return False
-
-
-def launch_workset():
-    """Open the Workset manager."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'Workset.pushbutton')
-        mod = _load_script('workset_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching Workset: {}".format(ex))
-        return False
-
-
-def launch_dimtext():
-    """Run the Dim Text tool on current selection."""
-    try:
-        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Text.stack', 'TextTagTools.pulldown', 'DimText.pushbutton')
-        mod = _load_script('dimtext_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching DimText: {}".format(ex))
-        return False
-
-
-def launch_upperall():
-    """Run the Upper All Text tool on current selection."""
-    try:
-        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Text.stack', 'TextTagTools.pulldown', 'UpperAll.pushbutton')
-        mod = _load_script('upperall_script', script_path)
-        if mod and hasattr(mod, 'main'):
-            mod.main()
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching UpperAll: {}".format(ex))
-        return False
-
-
-def launch_resetoverrides():
-    """Run the Reset Overrides tool on the active view."""
-    try:
-        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Graphic 2.stack', 'Reset Overrides.pushbutton')
-        mod = _load_script('resetoverrides_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching Reset Overrides: {}".format(ex))
-        return False
-
-
-def launch_cadtobeam():
-    """Open the CAD to Beam tool."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'Create.stack', 'Create Elements.pulldown', 'Beam.pushbutton')
-        mod = _load_script('cadtobeam_script', script_path)
-        if mod:
-            window = mod.CADtoBeamWindow()
-            window.ShowDialog()
-            return True
-        return False
-    except Exception as ex:
-        logger.error("Error launching CADtoBeam: {}".format(ex))
-        return False
+# NOTE — 2026-07-28. Seven hardcoded launchers (ParaSync, ProjectName,
+# Workset, DimText, UpperAll, Reset Overrides, Beam) were removed here: every
+# one pointed at a pushbutton directory that no longer exists, so they always
+# failed, while still being advertised to the model. `open_grids` and
+# `open_loadfamily_cloud` went with them — Grids.pushbutton never existed, and
+# the "cloud" launcher was a byte-for-byte duplicate of launch_loadfamily
+# (show_family_manager only has tabs 0/1, Loader and Management — no cloud
+# tab). Everything except BatchOut and the Family Manager now comes from the
+# tool_discovery registry, validated against disk. See _build_tool_launchers.
 
 
 # Map intent → launcher function
@@ -453,34 +369,53 @@ def _is_viet_text(text):
     return any(c in viet_chars for c in text.lower())
 
 
-TOOL_LAUNCHERS = {
-    "open_batchout":         launch_batchout,
-    "open_parasync":         launch_parasync,
-    "open_loadfamily":       launch_loadfamily,
-    "open_loadfamily_cloud": launch_loadfamily_cloud,
-    "open_projectname":      launch_projectname,
-    "open_workset":          launch_workset,
-    "open_dimtext":          launch_dimtext,
-    "open_upperdimtext":     launch_upperall,
-    "open_resetoverrides":   launch_resetoverrides,
-    "open_cad_to_beam":      launch_cadtobeam,
+# Tools whose launcher needs arguments or a non-script entry point. Every
+# OTHER intent is generated from the tool_discovery registry — see
+# _register_discovered_launchers. Keeping this list to what genuinely cannot
+# be auto-derived is the point: the previous hardcoded map drifted until 8 of
+# its 10 intents pointed at pushbuttons that had been deleted or renamed.
+_SPECIAL_LAUNCHERS = {
+    "open_batchout":   launch_batchout,
+    "open_loadfamily": launch_loadfamily,
 }
+
+TOOL_LAUNCHERS = dict(_SPECIAL_LAUNCHERS)
+
+# intent → display title, for user-facing "Opening X..." messages.
+TOOL_TITLES = {
+    "open_batchout":   u"BatchOut",
+    "open_loadfamily": u"Family Loader",
+}
+
+# Registry entries dropped because their script.py is not on disk. Surfaced in
+# the activity log instead of silently shipping a broken intent to the model.
+DROPPED_TOOLS = []
 
 
 def _register_discovered_launchers(tools):
-    """
-    For each auto-discovered tool, add a generic launcher to TOOL_LAUNCHERS
-    and update the NLP module's system prompt.
+    """Rebuild TOOL_LAUNCHERS from the registry, validating each against disk.
+
+    An intent only survives when its script.py actually exists — an intent the
+    assistant cannot honour must never reach the model, because the model will
+    happily promise to open it.
 
     Args:
         tools: list of tool dicts from discover_new_tools() / get_registered_tools()
     """
+    del DROPPED_TOOLS[:]
     for tool in tools:
         intent = tool.get('intent')
-        if not intent or intent in TOOL_LAUNCHERS:
+        path   = tool.get('script_path')
+        if not intent or intent in _SPECIAL_LAUNCHERS:
             continue
-        launcher = make_generic_launcher(tool['script_path'], tool['title'])
-        TOOL_LAUNCHERS[intent] = launcher
+        if not path or not os.path.exists(path):
+            DROPPED_TOOLS.append((intent, path or u"<no path>"))
+            TOOL_LAUNCHERS.pop(intent, None)
+            TOOL_TITLES.pop(intent, None)
+            continue
+        title = tool.get('title') or intent
+        TOOL_LAUNCHERS[intent] = make_generic_launcher(path, title)
+        TOOL_TITLES[intent] = title
 
     # Inject all registered tools (new + old) into the NLP system prompt
     if HAS_NLP:
@@ -488,6 +423,13 @@ def _register_discovered_launchers(tools):
             inject_discovered_tools(get_registered_tools())
         except Exception:
             pass
+
+
+def get_tool_title(intent):
+    """Display label for an intent; falls back to a readable form of the id."""
+    if intent in TOOL_TITLES:
+        return TOOL_TITLES[intent]
+    return (intent or u"").replace('open_', '').replace('_', ' ').strip().title()
 
 
 # ─── Chat history persistence ─────────────────────────────────────────────────
@@ -1111,16 +1053,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not HAS_DISCOVERY:
                 return
 
-            # ── Discover (writes registry) ────────────────────────────────────
+            # ── Discover (writes registry, drops vanished buttons) ───────────
             new_tools = discover_new_tools()
 
             # ── Register launchers + inject into NLP ─────────────────────────
-            _register_discovered_launchers(new_tools)
+            # ONE pass over the full registry: _register_discovered_launchers
+            # rebuilds the catalog and validates every script path, so calling
+            # it with just the new tools first would only reset the drop list.
+            _register_discovered_launchers(get_registered_tools())
 
-            # Also register launchers for tools already in registry from previous runs
-            all_tools = get_registered_tools()
-            if all_tools:
-                _register_discovered_launchers(all_tools)
+            # A registry entry whose script has since been deleted never
+            # reaches the model — but it should not vanish silently either.
+            if DROPPED_TOOLS:
+                self._log_activity(
+                    u"Tool catalog: skipped {} intent(s) with no script on "
+                    u"disk — {}".format(
+                        len(DROPPED_TOOLS),
+                        u", ".join(i for i, _p in DROPPED_TOOLS[:8])))
 
             # ── Chat notification for NEW tools only ──────────────────────────
             if new_tools:
@@ -5740,12 +5689,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # ── Simple tool launchers ─────────────────────────────────────────────
         if intent in TOOL_LAUNCHERS:
-            confirm = message or u"Opening the tool..."
+            confirm = message or u"Opening {}...".format(get_tool_title(intent))
             _bot(confirm)
             _learn(confirm)
-            ok = TOOL_LAUNCHERS[intent]()
+            ok, err = TOOL_LAUNCHERS[intent]()
             if not ok:
-                self._append_bot_message(u"Could not open the tool. Check the console.")
+                self._append_bot_message(self._launch_failure_text(intent, err))
             self._set_busy(False)
             return
 
@@ -5793,9 +5742,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                            else u"Opening {}...".format(label))
                 _bot(confirm)
                 learn_pattern(raw, _match['intent'], {}, confirm)
-                ok = TOOL_LAUNCHERS[_match['intent']]()
+                ok, err = TOOL_LAUNCHERS[_match['intent']]()
                 if not ok:
-                    self._append_bot_message(u"Could not open the tool. Check the console.")
+                    self._append_bot_message(
+                        self._launch_failure_text(_match['intent'], err))
+                self._set_busy(False)
+                return
+            # Nothing resolved — name the tools that DO exist rather than
+            # leaving the user with a dead intent name. `_cands` comes from
+            # resolve_tool's ambiguity list (top 3 plausible tools).
+            if intent not in TOOL_LAUNCHERS:
+                _bot(self._unknown_tool_text(intent, raw))
                 self._set_busy(False)
                 return
 
@@ -5811,6 +5768,44 @@ class T3LabAssistantWindow(forms.WPFWindow):
         else:
             _bot(u"Tool `{}` does not exist — check the name or describe what you need.".format(intent))
         self._set_busy(False)
+
+    def _launch_failure_text(self, intent, err):
+        """Honest failure message for a launcher that did not open its tool.
+
+        Replaces the old "Could not open the tool. Check the console." — the
+        console is not where a Revit user looks, and the message named neither
+        the tool nor the reason.
+        """
+        title = get_tool_title(intent)
+        if err:
+            return u"Could not open **{}**: {}".format(title, err)
+        return u"Could not open **{}** — the tool reported no reason.".format(title)
+
+    def _unknown_tool_text(self, intent, raw):
+        """Message for an intent that resolves to no installed tool.
+
+        Lists real alternatives from the live catalog so the user is not left
+        guessing. The old code advertised intents whose pushbuttons had been
+        deleted, so this path used to be reached constantly.
+        """
+        lines = [u"There is no tool called `{}` in this extension.".format(intent)]
+        names = []
+        try:
+            from Intelligence.nlu_engine import resolve_tool
+            _m, cands = resolve_tool(raw or u"")
+            for c in (cands or [])[:3]:
+                t = c.get('title') or c.get('intent')
+                if t and t not in names:
+                    names.append(t)
+        except Exception:
+            pass
+        if names:
+            lines.append(u"Closest matches: {}.".format(
+                u", ".join(u"**{}**".format(n) for n in names)))
+        else:
+            lines.append(u"Type `/` or open the command palette to see what is "
+                         u"available.")
+        return u"\n\n".join(lines)
 
     def _run_spellcheck(self, raw):
         """Collect every TextNote, proofread them in batches via the LLM,
@@ -6012,9 +6007,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._add_to_history("assistant", default_msg)
         launcher = TOOL_LAUNCHERS.get(intent)
         if launcher:
-            ok = launcher()
+            ok, err = launcher()
             if not ok:
-                self._append_bot_message(u"Could not open the tool. Check the console.")
+                self._append_bot_message(self._launch_failure_text(intent, err))
+        else:
+            self._append_bot_message(self._unknown_tool_text(intent, default_msg))
         self._set_busy(False)
 
     # ─── Native agentic loop (function calling) ────────────────────────────────

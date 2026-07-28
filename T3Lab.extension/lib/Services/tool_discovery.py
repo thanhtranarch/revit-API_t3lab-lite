@@ -30,24 +30,23 @@ REGISTRY_FILE = os.path.join(_LIB_DIR, 'config', 'tool_registry.json')
 # rebuilt from scratch so every entry carries the new fields (doc, xaml).
 REGISTRY_VERSION = 2
 
-# ── Buttons that are infrastructure / already hardcoded in TOOL_LAUNCHERS ─────
+# ── Buttons that must not be auto-registered ─────────────────────────────────
+# Keep this list to what genuinely cannot be auto-derived. It used to also
+# exclude ParaSync / ProjectName / Workset / DimText / UpperAll / Reset
+# Overrides / Grids / LoadFamily* as "already hard-coded" — but those
+# pushbuttons no longer exist (or never did), so the exclusions were inert.
+# PropertyLine.pushbutton was the costly one: it EXISTS, was skipped here as
+# hard-coded, and was never actually in TOOL_LAUNCHERS — leaving a real tool
+# the assistant could not reach at all.
 _SKIP_BUTTONS = {
-    # Infrastructure — not user-facing tools
+    # Infrastructure — not user-facing tools. (Settings.pushbutton and
+    # StartMCP.pushbutton were listed here too; neither exists — the real
+    # buttons are LLMsSetting and MCPControl, and those SHOULD be openable.)
     'T3LabAssistant.pushbutton',
-    'Settings.pushbutton',
-    'StartMCP.pushbutton',
-    # Already hard-coded in script.py TOOL_LAUNCHERS
+    # Have a dedicated launcher in script.py (_SPECIAL_LAUNCHERS): they take
+    # arguments or open through a Dialog module rather than a script entry.
     'BatchOut.pushbutton',
-    'ParaSync.pushbutton',
-    'LoadFamily.pushbutton',
-    'LoadFamily(Cloud).pushbutton',
-    'ProjectName.pushbutton',
-    'Workset.pushbutton',
-    'DimText.pushbutton',
-    'UpperAll.pushbutton',
-    'Reset Overrides.pushbutton',
-    'Grids.pushbutton',
-    'PropertyLine.pushbutton',
+    'ManaFami.pushbutton',
 }
 
 
@@ -227,6 +226,15 @@ def discover_new_tools():
     # newer fields (doc, xaml) used by the assistant's tool catalog.
     if reg.get('version') != REGISTRY_VERSION:
         reg = {'version': REGISTRY_VERSION, 'tools': {}}
+
+    # Prune entries whose script.py is gone. Registration was append-only, so a
+    # renamed or deleted pushbutton stayed in the registry forever and kept
+    # being offered to the model as an openable tool.
+    stale = [btn for btn, e in (reg.get('tools') or {}).items()
+             if not (e.get('script_path') and os.path.exists(e['script_path']))]
+    for btn in stale:
+        reg['tools'].pop(btn, None)
+
     known = set(reg.get('tools', {}).keys())
 
     new_tools = []
@@ -248,7 +256,7 @@ def discover_new_tools():
         reg.setdefault('tools', {})[btn] = entry
         new_tools.append(entry)
 
-    if new_tools:
+    if new_tools or stale:
         save_registry(reg)
 
     return new_tools
@@ -260,53 +268,93 @@ def get_registered_tools():
     return list(reg.get('tools', {}).values())
 
 
+def _err_text(exc):
+    """Exception message as unicode. Never raises.
+
+    `str(exc)` is unsafe under IronPython 2.7: an error carrying non-ASCII
+    text (a Vietnamese family name, a localised Windows string) throws
+    UnicodeEncodeError from inside the handler.
+    """
+    try:
+        return u"{}".format(exc)
+    except Exception:
+        pass
+    try:
+        r = repr(exc)
+        return r.decode('utf-8', 'replace') if isinstance(r, bytes) else u"{}".format(r)
+    except Exception:
+        return u"<unprintable error>"
+
+
+def run_tool_script(script_path, title=None):
+    """Execute a pushbutton's script.py the way pyRevit runs it.
+
+    Returns (ok, error_text) — error_text is u'' on success.
+
+    pyRevit executes a button script as the __main__ module, and 36 of the
+    42 T3Lab pushbuttons put their entry point inside `if __name__ ==
+    '__main__':`. The previous implementation tried `imp.load_source` FIRST
+    (module name `_auto_<title>`), so that guard never fired: the module
+    imported, nothing ran, and the launcher still reported success. The
+    caller then told the user the tool had opened while nothing happened.
+    Running the source as __main__ is therefore the primary strategy, not
+    the fallback.
+
+    The source is read as BYTES on purpose: every script starts with a
+    `# -*- coding: utf-8 -*-` line, and CPython/IronPython 2.7 raise
+    "SyntaxError: encoding declaration in Unicode string" when such source
+    is passed to compile() as unicode. Bytes honour the declaration on both
+    Python 2 and 3.
+    """
+    if not script_path or not os.path.exists(script_path):
+        return False, u"Script not found on disk: {}".format(
+            script_path or u"<empty path>")
+
+    # ── Strategy 1: run as __main__ (correct pyRevit semantics) ───────────
+    first_err = u""
+    try:
+        with open(script_path, 'rb') as f:
+            src = f.read()
+        glb = {'__file__': script_path, '__name__': '__main__', '__doc__': None}
+        exec(compile(src, script_path, 'exec'), glb)  # noqa
+        return True, u""
+    except SystemExit:
+        # pyRevit's forms.alert(exitscript=True) is a normal exit path.
+        return True, u""
+    except Exception as ex:
+        first_err = _err_text(ex)
+
+    # ── Strategy 2: import the module and show a window it defines ────────
+    # Only counts as success when a *Window / *Dialog is ACTUALLY shown —
+    # a bare successful import means nothing ran.
+    try:
+        import imp
+        safe = re.sub(r'[^a-z0-9]', '_', (title or 'tool').lower())
+        mod  = imp.load_source('_auto_' + safe, script_path)
+        for attr in dir(mod):
+            if not (attr.endswith('Window') or attr.endswith('Dialog')):
+                continue
+            cls = getattr(mod, attr, None)
+            if not isinstance(cls, type):
+                continue
+            try:
+                cls().ShowDialog()
+                return True, u""
+            except Exception:
+                continue
+    except SystemExit:
+        return True, u""
+    except Exception:
+        pass
+
+    return False, first_err or u"Could not run {}".format(
+        os.path.basename(script_path))
+
+
 def make_generic_launcher(script_path, title):
-    """
-    Build a zero-argument launcher function for an auto-discovered tool.
-
-    Strategy (tries each in order):
-      1. Load the module with imp.load_source — module-level code runs the tool.
-      2. If that surfaces a *Window / *Dialog class, instantiate + ShowDialog.
-      3. Fall back to exec() of the raw source.
-
-    Returns:
-        callable () → bool
-    """
+    """Build a zero-argument launcher for a tool. Returns callable () → (ok, err)."""
     def _launcher():
-        # ── Strategy 1: imp.load_source ───────────────────────────────────
-        try:
-            import imp
-            safe = re.sub(r'[^a-z0-9]', '_', title.lower())
-            mod  = imp.load_source('_auto_' + safe, script_path)
-            # Try to find a Window/Dialog class and show it
-            for attr in dir(mod):
-                if attr.endswith('Window') or attr.endswith('Dialog'):
-                    cls = getattr(mod, attr, None)
-                    if cls and callable(cls) and isinstance(cls, type):
-                        try:
-                            win = cls()
-                            win.ShowDialog()
-                            return True
-                        except Exception:
-                            pass
-            # Module loaded successfully (script ran at module level)
-            return True
-        except Exception:
-            pass
-
-        # ── Strategy 2: exec the source ───────────────────────────────────
-        try:
-            with open(script_path, 'r') as f:
-                src = f.read()
-            g = {'__file__': script_path, '__name__': '__main__'}
-            exec(compile(src, script_path, 'exec'), g)  # noqa
-            return True
-        except SystemExit:
-            return True   # clean exit is normal
-        except Exception:
-            pass
-
-        return False
+        return run_tool_script(script_path, title)
 
     return _launcher
 
