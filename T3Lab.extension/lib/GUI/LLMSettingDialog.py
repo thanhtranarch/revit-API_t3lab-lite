@@ -1882,6 +1882,13 @@ class LLMSettingWindow(forms.WPFWindow):
                 panel.Children.Add(tb)
                 return
 
+            try:
+                from Intelligence.skill_installer import list_installed
+                installed_ids = set(i.get('skill_id')
+                                    for i in list_installed())
+            except Exception:
+                installed_ids = set()
+
             for meta in skills:
                 row = Border()
                 row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
@@ -1901,7 +1908,14 @@ class LLMSettingWindow(forms.WPFWindow):
                 grid.ColumnDefinitions.Add(col_tgl)
 
                 tb = TextBlock()
-                tb.Text = meta.get('name', meta['id'])
+                label = meta.get('name', meta['id'])
+                # Where it came from matters once repos are in play: a skill
+                # pulled from GitHub is the one "Update" will overwrite.
+                if meta['id'] in installed_ids:
+                    label += u"   ·  GitHub"
+                elif meta.get('source') == 'builtin':
+                    label += u"   ·  built-in"
+                tb.Text = label
                 tb.FontSize = 11.5
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
                 tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
@@ -1955,6 +1969,71 @@ class LLMSettingWindow(forms.WPFWindow):
             _open_in_explorer(_user_skills_dir())
         except Exception as ex:
             logger.debug("open_skills_dir_clicked error: {}".format(ex))
+
+    def install_skills_clicked(self, sender, e):
+        """Ask for a GitHub repo link and install the Claude skills in it.
+
+        Same installer the chat uses, so a skill added here behaves exactly
+        like one added by asking the assistant for it.
+        """
+        try:
+            from Intelligence import skill_installer as installer
+            url = forms.ask_for_string(
+                prompt="Paste a GitHub repo link (a /tree/<branch>/<folder> "
+                       "link installs just that folder):",
+                default="https://github.com/",
+                title="Install skills from GitHub")
+            if not url or not url.strip():
+                return
+            source = installer.parse_repo_url(url)
+            if not source:
+                forms.alert("That is not a GitHub repo link.\n\n"
+                            "Expected something like "
+                            "https://github.com/owner/repo",
+                            title="Install skills")
+                return
+            report = installer.install_from_github(source)
+            self.refresh_skills_clicked(None, None)
+            forms.alert(_plain_report(report), title="Install skills")
+        except Exception as ex:
+            logger.debug("install_skills_clicked error: {}".format(ex))
+            forms.alert("Install failed: {}".format(ex),
+                        title="Install skills")
+
+    def update_skills_clicked(self, sender, e):
+        """Re-pull every skill that was installed from a repo."""
+        try:
+            from Intelligence import skill_installer as installer
+            installed = installer.list_installed()
+            if not installed:
+                forms.alert("No skills were installed from GitHub yet.\n\n"
+                            "Use 'Install from GitHub' first.",
+                            title="Update skills")
+                return
+            report = installer.update_all()
+            self.refresh_skills_clicked(None, None)
+            forms.alert(_plain_report(report), title="Update skills")
+        except Exception as ex:
+            logger.debug("update_skills_clicked error: {}".format(ex))
+            forms.alert("Update failed: {}".format(ex),
+                        title="Update skills")
+
+
+def _plain_report(report):
+    """Installer report as plain text for a pyRevit alert (no markdown)."""
+    report = report or {}
+    lines = []
+    for entry in (report.get('installed') or []):
+        lines.append(u"installed  /{}".format(entry['id']))
+    for entry in (report.get('updated') or []):
+        lines.append(u"updated    /{}".format(entry['id']))
+    for sid, why in (report.get('skipped') or [])[:6]:
+        lines.append(u"skipped    {} ({})".format(sid, why))
+    for err in (report.get('errors') or [])[:4]:
+        lines.append(u"error      {}".format(err))
+    if not lines:
+        lines.append(u"Nothing changed.")
+    return u"\n".join(lines)
 
 
 def show_llm_setting_dialog():
