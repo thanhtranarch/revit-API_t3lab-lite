@@ -150,6 +150,24 @@ except Exception as e:
     def get_global_store(): return None
     def get_active_store(): return None
 
+# ─── Routing decisions (pure, testable — see lib/Intelligence/routing.py) ─────
+try:
+    from Intelligence import routing
+except Exception as e:
+    logger.warning("Could not import routing: {}".format(e))
+
+    class routing(object):
+        """Degradation stub: keep the previous turn's behaviour, never carry
+        over, and let learned patterns act as they did before."""
+        @staticmethod
+        def is_continuation(*a, **kw): return False
+
+        @staticmethod
+        def learned_pattern_wins(learned, nlu_result): return bool(learned)
+
+        @staticmethod
+        def wants_spellcheck_fix(args): return False
+
 # ─── Multi-agent dispatcher (specialist routing) ──────────────────────────────
 try:
     from Intelligence.agents.dispatcher import AgentDispatcher
@@ -4857,12 +4875,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # set_parameter / rename_element.
             if _skill_forced and self._forced_skill_id == 'english-spellcheck':
                 _args = getattr(self, '_forced_skill_args', u'') or u''
-                _fix_req = bool(re.search(
-                    r'\b(fix|apply|correct|rename|update|replace|change)\b',
-                    _args, re.I)) or any(
-                    k in _args.lower() for k in (
-                        u'sửa', u'sua lai', u'sua loi', u'thay', u'đổi',
-                        u'doi ten', u'cập nhật', u'cap nhat'))
+                _fix_req = routing.wants_spellcheck_fix(_args)
                 if not _fix_req:
                     def _run_spell():
                         self._execute_result({'intent': 'check_spelling',
@@ -4885,68 +4898,59 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if _h.get('role') == 'assistant':
                             _last_bot = u'{}'.format(_h.get('content') or u'')
                             break
-                    _continuation = (u'?' in _last_bot[-250:]
-                                     and len((raw or u'').strip()) <= 80)
-                    # A generic closing question ("Bạn có muốn thực hiện một
-                    # hành động khác không?" / "Anything else?") is NOT a
-                    # clarifying question — the task is finished, so whatever
-                    # the user types next is a NEW request, not an answer.
-                    if _continuation:
-                        _tail = _last_bot[-250:].lower()
-                        _closers = (u'hành động khác', u'hanh dong khac',
-                                    u'gì khác', u'gi khac', u'gì nữa',
-                                    u'gi nua', u'cần gì thêm', u'can gi them',
-                                    u'giúp gì thêm', u'giup gi them',
-                                    u'hỗ trợ gì thêm', u'ho tro gi them',
-                                    u'anything else', u'else i can help',
-                                    u'need anything', u'can i help',
-                                    u'tiếp theo không', u'tiep theo khong',
-                                    u'next step?', u'what next')
-                        if any(c in _tail for c in _closers):
-                            _continuation = False
                     # An input that independently matches a command pattern
                     # (action verb, tô/bôi color phrase, export/build/QA
                     # keywords...) is a NEW command even right after a real
                     # clarifying question — "tô vàng sàn" typed after "tô đỏ
                     # tường" finished must route fresh; riding the old thread
                     # here replayed the completed red-walls task.
-                    if _continuation and HAS_AGENTS:
+                    _fresh_kw = False
+                    if HAS_AGENTS:
                         _fresh = AgentDispatcher().classify(
                             raw, allow_llm=False)
-                        if _fresh and _fresh.get('source') == 'keyword':
-                            _continuation = False
+                        _fresh_kw = bool(_fresh
+                                         and _fresh.get('source') == 'keyword')
+                    _continuation = routing.is_continuation(
+                        _last_bot, raw, _prev_dec, fresh_keyword_hit=_fresh_kw)
                 except Exception:
                     _continuation = False
             if _continuation:
                 logger.debug("carryover: continuing {} / {}".format(
                     _prev_dec.get('specialist'), _prev_dec.get('skill')))
 
-            # ── 1. Learned patterns (skip if attachments present) ─────────────
-            if HAS_NLP and not has_attach and not _skill_forced \
-                    and not _continuation:
-                learned = find_learned_match(raw)
-                if learned:
-                    def _run_learned(_r=learned):
-                        self._execute_result(_r)
-                    self.Dispatcher.Invoke(Action(_run_learned))
-                    return
-
-            # ── 2. Built-in NLU (skip for RAG / attachment queries) ───────────
+            # ── 1/2. Deterministic stages: NLU first, learned patterns second ─
+            # find_learned_match() used to run BEFORE the NLU and take the turn
+            # outright on a Jaccard >= 0.8 phrasing match. That let a
+            # remembered mapping outrank a confident read of the real tool
+            # catalog — and learned mappings go stale, so a phrase learned for
+            # a tool that has since been renamed kept winning. The NLU is
+            # computed first now and routing.learned_pattern_wins() arbitrates.
             nlu_result = None
-            if HAS_NLP and not has_attach and not _skill_forced \
-                    and not _continuation:
+            learned = None
+            _deterministic = (HAS_NLP and not has_attach and not _skill_forced
+                              and not _continuation)
+            if _deterministic:
                 nlu_result = parse_command_nlu(captured, history)
-                if nlu_result and nlu_result.get("intent") not in (None, "unknown"):
-                    # _authoritative = answered from the real tool catalog
-                    # (capability questions, ambiguity clarifications) — the
-                    # LLM must not get a chance to override it with a guess.
-                    if nlu_result["intent"] not in ("chat", "help") \
-                            or nlu_result.get("_authoritative") \
-                            or not (use_local or use_claude):
-                        def _run_nlu(_r=nlu_result):
-                            self._execute_result(_r)
-                        self.Dispatcher.Invoke(Action(_run_nlu))
-                        return
+                learned = find_learned_match(raw)
+
+            if learned and routing.learned_pattern_wins(learned, nlu_result):
+                def _run_learned(_r=learned):
+                    self._execute_result(_r)
+                self.Dispatcher.Invoke(Action(_run_learned))
+                return
+
+            if _deterministic and nlu_result \
+                    and nlu_result.get("intent") not in (None, "unknown"):
+                # _authoritative = answered from the real tool catalog
+                # (capability questions, ambiguity clarifications) — the
+                # LLM must not get a chance to override it with a guess.
+                if nlu_result["intent"] not in ("chat", "help") \
+                        or nlu_result.get("_authoritative") \
+                        or not (use_local or use_claude):
+                    def _run_nlu(_r=nlu_result):
+                        self._execute_result(_r)
+                    self.Dispatcher.Invoke(Action(_run_nlu))
+                    return
 
             # ── 2.5 Specialist dispatch (multi-agent layer) ────────────────
             # Keyword stage always; one tiny LLM classify call only for

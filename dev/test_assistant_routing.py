@@ -344,6 +344,158 @@ def test_reply_language_setting_roundtrip():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 4. Routing ladder
+# ─────────────────────────────────────────────────────────────────────────────
+
+_PREV = {'specialist': 'revit_action', 'skill': 'model-cleanup'}
+
+
+def test_continuation_needs_a_trailing_question():
+    """The old test accepted a '?' anywhere in the last 250 characters, so a
+    question mark in a mid-message aside opened the continuation path."""
+    from Intelligence import routing as R
+
+    check('question at the end counts',
+          R.ends_with_question(u"Bạn muốn áp dụng cho toàn bộ project?"))
+    check('trailing markdown does not hide it',
+          R.ends_with_question(u"Which scope do you mean?**"))
+    check('mid-message question does not count',
+          not R.ends_with_question(
+              u"Bạn hỏi 'cái gì?' thì đây là kết quả.\nĐã tô đỏ 128 tường."))
+    check('statement is not a question',
+          not R.ends_with_question(u"Đã tô đỏ 128 tường."))
+    check('empty is not a question', not R.ends_with_question(u""))
+
+
+def test_continuation_accepts_real_answers():
+    from Intelligence import routing as R
+    q = u"Bạn muốn áp dụng cho toàn bộ project hay chỉ view hiện tại?"
+
+    for reply in (u"1", u"2", u"b", u"ok", u"vâng", u"toàn bộ project",
+                  u"chỉ view hiện tại", u"phương án 2", u"cả hai"):
+        check(u'continues on "{}"'.format(reply),
+              R.is_continuation(q, reply, _PREV), reply)
+
+
+def test_continuation_rejects_new_commands():
+    """"tô vàng sàn" after a clarifying question is a NEW command. It is 13
+    characters, so the old length test passed it and only the keyword escape
+    hatch stopped it — one check standing alone."""
+    from Intelligence import routing as R
+    q = u"Bạn muốn áp dụng cho toàn bộ project hay chỉ view hiện tại?"
+
+    check('new colour command is not a continuation',
+          not R.is_continuation(q, u"tô vàng sàn", _PREV))
+    check('new export command is not a continuation',
+          not R.is_continuation(q, u"xuất pdf toàn bộ G sheet", _PREV))
+    check('delete command is not a continuation',
+          not R.is_continuation(q, u"xóa hết tường tầng 2", _PREV))
+    check('shape check stands without the keyword hatch',
+          not R.looks_like_answer(u"tô vàng sàn"),
+          'action verb must disqualify an answer')
+
+
+def test_continuation_rejects_closing_questions():
+    from Intelligence import routing as R
+    for closer in (u"Bạn có muốn thực hiện một hành động khác không?",
+                   u"Anything else I can help with?",
+                   u"Cần gì thêm không?"):
+        check(u'closing question does not carry over',
+              not R.is_continuation(closer, u"1", _PREV), closer)
+
+
+def test_continuation_guards():
+    from Intelligence import routing as R
+    q = u"Which scope?"
+    check('no previous decision → no carryover',
+          not R.is_continuation(q, u"1", None))
+    check('fresh keyword hit → no carryover',
+          not R.is_continuation(q, u"1", _PREV, fresh_keyword_hit=True))
+    check('empty reply → no carryover', not R.is_continuation(q, u"  ", _PREV))
+    check('long reply → no carryover',
+          not R.is_continuation(q, u"x" * 120, _PREV))
+
+
+def test_learned_pattern_defers_to_nlu():
+    """A learned pattern used to take the turn outright before the NLU ran, so
+    a stale mapping outranked a confident read of the live tool catalog."""
+    from Intelligence import routing as R
+    learned = {'intent': 'open_batchout', 'params': {}}
+
+    check('wins when the NLU has no opinion',
+          R.learned_pattern_wins(learned, None))
+    check('wins when the NLU says unknown',
+          R.learned_pattern_wins(learned, {'intent': 'unknown'}))
+    check('wins when both agree',
+          R.learned_pattern_wins(learned, {'intent': 'open_batchout'}))
+    check('loses when the NLU names another tool',
+          not R.learned_pattern_wins(learned, {'intent': 'check_spelling'}))
+    check('loses to an authoritative catalog answer',
+          not R.learned_pattern_wins(
+              learned, {'intent': 'help', '_authoritative': True}))
+    check('nothing learned → never wins',
+          not R.learned_pattern_wins(None, None))
+
+
+def test_dispatcher_precedence_conflicts():
+    """The dispatcher's keyword stage is ordering-sensitive and its comments
+    document specific conflicts it had to be tuned for. None of them had a
+    test, so a table edit could silently undo the tuning."""
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    d = AgentDispatcher()
+
+    def spec(text):
+        return d.classify(text, allow_llm=False).get('specialist')
+
+    cases = [
+        # "đổi model" contains the action verb 'doi' but is a document switch
+        (u"đổi model sang file kia", 'multi_doc'),
+        (u"so sánh 2 model", 'multi_doc'),
+        # 'xuat'/'export' are action words too; the export spec must win
+        (u"xuất pdf toàn bộ sheet", 'export'),
+        # 'tao tuong' would otherwise land in generic action
+        (u"tạo tường tầng 2", 'modeling'),
+        # audits get the QA role, not the data role
+        (u"kiểm tra warning trong model", 'qa_check'),
+        # a write verb wins over doc/count words
+        (u"đổi chiều cao theo tiêu chuẩn", 'revit_action'),
+        # colour phrases only match WITH diacritics
+        (u"tô đỏ tường", 'revit_action'),
+        # read-only questions
+        (u"có bao nhiêu cửa", 'revit_data'),
+        # document questions
+        (u"theo tiêu chuẩn TCVN thì sao", 'knowledge'),
+        # PDF markup workflow
+        (u"xử lý comment bản vẽ", 'comment'),
+    ]
+    for text, want in cases:
+        got = spec(text)
+        check(u'"{}" → {}'.format(text, want), got == want,
+              'got {}'.format(got))
+
+    # "bản vẽ" folds to "ban ve" — its "ve" must not count as the verb "vẽ".
+    check('"bản vẽ" alone is not an action',
+          spec(u"bản vẽ này là gì") != 'revit_action',
+          spec(u"bản vẽ này là gì"))
+    # Diacritic-less "to do" must stay ambiguous rather than false-matching
+    # English ("what to do...").
+    check('"what to do" is not a colour command',
+          spec(u"what to do next") != 'revit_action',
+          spec(u"what to do next"))
+
+
+def test_spellcheck_fix_detection():
+    from Intelligence import routing as R
+    for args in (u"fix them", u"apply the corrections", u"sửa hết",
+                 u"sửa lỗi chính tả", u"cập nhật lại"):
+        check(u'"{}" asks for a fix'.format(args),
+              R.wants_spellcheck_fix(args), args)
+    for args in (u"", u"scan the project", u"kiểm tra toàn bộ dự án"):
+        check(u'"{}" is a scan'.format(args),
+              not R.wants_spellcheck_fix(args), args)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -368,6 +520,16 @@ TESTS = [
         test_knowledge_prompt_is_single_language,
         test_assistant_cards_are_bilingual,
         test_reply_language_setting_roundtrip,
+    ]),
+    ('routing', [
+        test_continuation_needs_a_trailing_question,
+        test_continuation_accepts_real_answers,
+        test_continuation_rejects_new_commands,
+        test_continuation_rejects_closing_questions,
+        test_continuation_guards,
+        test_learned_pattern_defers_to_nlu,
+        test_dispatcher_precedence_conflicts,
+        test_spellcheck_fix_detection,
     ]),
 ]
 
