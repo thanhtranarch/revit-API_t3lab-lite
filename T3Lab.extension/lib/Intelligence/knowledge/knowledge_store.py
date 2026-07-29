@@ -34,6 +34,11 @@ TEXT_EXTS = ('.txt', '.md')
 PDF_EXT = '.pdf'
 INDEXABLE_EXTS = TEXT_EXTS + (PDF_EXT,)
 
+# Files the assistant itself writes into an indexed folder. Never index them:
+# they are generated FROM the corpus, so re-ingesting them makes the model cite
+# its own summary as project evidence.
+GENERATED_DOCS = frozenset(['PROJECT_CONTEXT.md'])
+
 _CHUNK_CACHE_CAP = 8          # per-store: how many docs' chunk files stay in memory
 _SCAN_SLEEP_SEC = 0.01        # breather between files so Revit stays responsive
 
@@ -230,6 +235,13 @@ class KnowledgeStore(object):
                 for dirpath, _dirnames, filenames in os.walk(root_dir):
                     for fname in filenames:
                         if os.path.splitext(fname)[1].lower() not in INDEXABLE_EXTS:
+                            continue
+                        if fname in GENERATED_DOCS:
+                            # Assistant-written summaries live in the same
+                            # files/ dir that is a RAG source. Indexing them
+                            # feeds the model its own prose back as if it were
+                            # project evidence — a self-citation loop.
+                            # context_digest guards its output dir the same way.
                             continue
                         path = os.path.join(dirpath, fname)
                         npath = _norm(path)

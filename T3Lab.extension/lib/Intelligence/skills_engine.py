@@ -88,16 +88,43 @@ def _user_skills_dir():
     return d
 
 
+def _active_pid():
+    """Active project id, or None.
+
+    Goes through ProjectStore rather than settings directly: it nulls out a
+    STALE id (project folder deleted outside the app). Reading settings raw
+    meant skills kept resolving against a dead project dir while every other
+    subsystem had already agreed there was no active project.
+    """
+    try:
+        from config.project_store import ProjectStore
+        return ProjectStore().get_active_project_id()
+    except Exception:
+        return None
+
+
 def _project_skills_dir():
     try:
-        from config.settings import get_settings
-        pid = get_settings().get_active_project()
+        pid = _active_pid()
         if pid:
             from config.project_store import ProjectStore
             return os.path.join(ProjectStore().project_dir(pid), 'skills')
     except Exception:
         pass
     return None
+
+
+def _project_disabled_skills():
+    """Skill ids switched off for the active project (empty when none)."""
+    try:
+        pid = _active_pid()
+        if not pid:
+            return []
+        from config.project_store import ProjectStore
+        meta = ProjectStore().get_project(pid) or {}
+        return list(meta.get('skills_disabled') or [])
+    except Exception:
+        return []
 
 
 class SkillsEngine(object):
@@ -197,11 +224,26 @@ class SkillsEngine(object):
     # ── queries ───────────────────────────────────────────────────────────
 
     def _disabled(self):
+        """Skill ids switched off — global preference UNION the active
+        project's own list.
+
+        `skills_disabled` has been written into every project.json since
+        create_project existed but had no reader anywhere, so a project could
+        never actually turn a skill off. Union (not override) is the safe
+        reading: a project may narrow the skill set, never re-enable something
+        the user disabled globally.
+        """
+        out = set()
         try:
             from config.settings import get_settings
-            return set(get_settings().get_disabled_skills())
+            out |= set(get_settings().get_disabled_skills())
         except Exception:
-            return set()
+            pass
+        try:
+            out |= set(_project_disabled_skills())
+        except Exception:
+            pass
+        return out
 
     def all_skills(self):
         """Every skill meta (including disabled), for the sidebar list."""

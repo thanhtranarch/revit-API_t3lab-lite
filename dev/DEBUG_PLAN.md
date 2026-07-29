@@ -357,3 +357,96 @@ Thêm `dev/test_assistant_llm.py` (44 check, CPython3) — khoá lại 4 lỗi m
 lỗi hiện bubble · giới hạn 5 bước · ô API key không bị ghi đè · đổi provider lúc mới mở ·
 Ollama host LAN + Test Connection trả câu văn · 2 phiên Revit · nút Undo · popup `/` · palette Ctrl+K ·
 log right-click ngừng phình.
+
+---
+
+## 9. Enhance Project + liên kết & tối ưu (2026-07-27)
+
+> Yêu cầu user: *"enhance project trong llms setting và toàn bộ khung chat t3lab
+> assistant, đảm bảo tính liên kết của các chức năng, và tối ưu hoá chúng"*.
+> Mức độ user chốt: **liên kết + tối ưu + lấp phần dở dang, không thêm năng lực
+> hoàn toàn mới**. Hướng: **LLMs Setting là nơi sửa duy nhất**.
+
+### Phát hiện nặng nhất: phạm vi project không tới được model đúng lúc cần
+
+Cả 5 provider đều `SUPPORTS_NATIVE_TOOLS = True`, nên đường **legacy** JSON không
+phải fallback hiếm cho model local — nó được chọn khi **có attachment** hoặc
+`rag_context` lớn. Mà đường legacy dựng system prompt **không có** project
+instructions lẫn memory (đường native thì có cả hai). Tức là: **đính kèm tài liệu
+dự án → mất sạch quy ước của project**, đúng ngay lúc chúng quan trọng nhất.
+
+Đã gộp về một helper `_project_prompt_blocks()` và tiêm vào **mọi** đường:
+legacy, native, knowledge agent (trước chỉ có instructions, thiếu memory) và
+comment agent (trước không có gì). Test khoá lại: chỉ còn **một** chỗ gọi
+`get_active_prompt_addendum()` trong toàn file.
+
+### Liên kết (một nguồn sự thật)
+
+| Trước | Sau |
+|---|---|
+| Sửa project được ở **2 nơi** với hình dạng ghi khác nhau (panel patch riêng `instructions`; dialog luôn ghi đè cả `name/instructions/provider/model`) | Panel khung chat **chỉ-xem** + nút "Edit in LLMs Setting"; mọi chỉnh sửa dồn về tab Projects |
+| Memory facts **chỉ** quản lý được trong panel | Chuyển vào tab Projects (`_render_project_memory`) — panel read-only nên phải có nhà mới |
+| Panel chỉ `os.walk` `files/` → **sai lệch** khi project có linked folder | Panel hiện cả linked folders |
+| 3 đường đổi scope reset 3 tập state khác nhau; `_activate_project` để lại `_stream_row`/`_typing_row` mồ côi (đúng lỗi đã sửa cho `reset_chat_clicked` đợt trước) | Một `_reset_session_state()` dùng chung cho cả 3 |
+| Xoá project đang hoạt động trong dialog → `_persist_message` kế tiếp **ghi transcript cũ vào lịch sử global** | `_refresh_after_settings(scope_before=...)` phát hiện đổi scope → re-scope history + rebuild panel |
+| Override provider của project chỉ áp lúc kích hoạt; rời project **không hoàn nguyên** | `_apply_project_provider()` nhớ provider trước đó và khôi phục khi rời |
+| 4 bản `os.walk` đếm tài liệu, 3 ngưỡng khác nhau, chỉ 1 bản tính linked folder | `ProjectStore.count_documents()` / `describe_documents()` dùng chung, có cache |
+| 2 bảng màu brand provider, 2 bản mở Explorer (**bản khung chat thiếu fallback .NET 8** → nút chết trên Revit 2025+) | `lib/GUI/AssistantShared.py` |
+| Lịch: regex + sinh id + record shape nhân bản ở 2 nơi | `ProjectStore.validate_schedule_time/add/remove/set_enabled/due_schedule` (`due_schedule` thuần → test được không cần WPF) |
+
+### Tối ưu I/O
+
+`get_project()` đọc `project.json` **mỗi lần gọi** (18 call site), `list_projects()`
+đọc **toàn bộ** project.json mỗi lần gọi. Thêm cache theo `(mtime, size)`:
+
+- **50× `get_project` → 1 lần đọc đĩa** (trước: 50); **10× `list_projects` → 0**.
+- Vẫn thấy sửa từ session Revit khác (key theo mtime), và trả về **bản sao** —
+  caller có mutate (tick đóng dấu `last_run`) cũng không bẩn cache.
+- Chữa luôn: tick 30 giây đọc đĩa trên UI thread, mở popup project (2N đọc JSON +
+  N `os.walk`), ≥3 lần đọc lặp mỗi lượt chat.
+- `_root()` mkdir một lần; `_store_cache` invalidate khi `update_project`
+  (trước KnowledgeStore giữ `source_dirs` cũ).
+
+### Lấp phần dở dang
+
+- **`skills_disabled`**: ghi vào mọi `project.json` từ khi có project nhưng
+  **không ai đọc**. Nối vào `skills_engine._disabled()` theo kiểu **hợp nhất**
+  global ∪ project — project được thu hẹp, không được bật lại thứ user đã tắt.
+- **`scheduled[].enabled`**: tick có đọc nhưng **không UI nào ghi** → thêm toggle
+  trong tab Projects.
+- **`last_run`**: trước đóng dấu **trước** khi gửi, nên `_process_input` thoát sớm
+  là task bị coi như đã chạy mà chưa tới model. Nay chỉ đóng dấu khi lượt đã thực
+  sự bắt đầu (`_request_id` đổi), và hiện `last_run` trong tab.
+- **Tick cướp input**: `_process_input` snapshot attachment + `/skill` rồi xoá →
+  lịch chạy lúc user đang stage file sẽ gửi kèm file của họ. Nay hoãn tick khi
+  composer có attachment / forced skill / text đang gõ.
+- **Lịch chỉ chạy cho project đang hoạt động** nhưng tab cho thêm vào bất kỳ
+  project → thêm cảnh báo rõ trong tab.
+- **`created`**: lưu mà chưa bao giờ hiện → tooltip ô tên project.
+- **`PROJECT_CONTEXT.md`** được ghi vào `files/` mà `files/` **chính là nguồn RAG**
+  → bản tóm tắt LLM tự sinh bị index lại thành "bằng chứng dự án" và tự trích dẫn
+  chính nó. Thêm `GENERATED_DOCS` loại trừ khỏi `scan()` và khỏi `count_documents`.
+- **`skills_engine`** đọc thẳng `settings.get_active_project()`, bỏ qua kiểm tra
+  id chết → đi qua `ProjectStore.get_active_project_id()`.
+
+### Sửa lỗi sai sự thật
+
+`_project_overview_text` nói chats + attachments + logs đều "separate per Revit
+document". Thực tế **chỉ chats** theo document (`history_path`); attachments và
+logs theo **ngày**. Câu này hiện tách đúng hai ý.
+
+### Regression
+
+`dev/test_assistant_llm.py` lên **7 nhóm test mới** (tổng 44 → 76 check): cache
+meta + invalidate + copy-semantics + external edit, API lịch + `due_schedule`,
+đếm tài liệu, loại trừ `PROJECT_CONTEXT.md`, `skills_disabled` + stale id, cả hai
+đường prompt mang project scope, và một-nơi-sửa-duy-nhất. Test cuối **bắt được
+lỗi thật**: `_run_knowledge_agent` vẫn lấy instructions riêng và thiếu memory.
+
+3 audit + 3 test suite xanh.
+
+**Cần QA trong Revit**: đính kèm PDF khi có project → trả lời tôn trọng project
+instructions · panel chỉ-xem + nút Edit mở đúng tab/project · đổi project giữa lúc
+chat không để lại bubble mồ côi · xoá project đang hoạt động rồi gửi tin → không
+ghi transcript cũ vào lịch sử global · toggle bật/tắt lịch · lịch không cướp
+attachment đang stage · mở popup project với nhiều project phải tức thì.

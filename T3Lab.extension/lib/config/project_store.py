@@ -20,6 +20,7 @@ Author: Tran Tien Thanh
 """
 from __future__ import unicode_literals
 
+import copy
 import hashlib
 import io
 import json
@@ -45,6 +46,13 @@ def _read_json(path, default=None):
         return default
 
 
+# Files the assistant GENERATES into a project's files/ dir. files/ is itself a
+# RAG source, so without this the LLM-written project summary is re-indexed as
+# if it were a user document and the model ends up citing its own summary back
+# to itself. context_digest already excludes its own output dir the same way.
+_GENERATED_DOCS = frozenset(['PROJECT_CONTEXT.md'])
+
+
 class ProjectStore(object):
     """Singleton project registry."""
 
@@ -62,6 +70,15 @@ class ProjectStore(object):
         if self._initialized:
             return
         self._store_cache = {}     # pid -> KnowledgeStore
+        # pid -> (mtime, size, meta). project.json used to be re-read from disk
+        # on EVERY get_project() call, and there are ~18 call sites: the 30s
+        # schedule tick, at least 3 reads per chat turn, and 2N reads plus N
+        # os.walk each time the project popup opens. Keyed on (mtime, size) so
+        # an edit made by another Revit session is still picked up.
+        self._meta_cache = {}
+        self._count_cache = {}     # (pid, cap) -> (files_mtime, own_count)
+        self._meta_lock = threading.Lock()
+        self._root_ready = None    # _root() only needs to mkdir once per path
         self._initialized = True
 
     # ── paths ─────────────────────────────────────────────────────────────
@@ -69,11 +86,15 @@ class ProjectStore(object):
     def _root(self):
         base = os.environ.get('APPDATA', '') or os.path.expanduser('~')
         d = os.path.join(base, 'T3LabAI', 'projects')
-        if not os.path.isdir(d):
-            try:
-                os.makedirs(d)
-            except Exception:
-                pass
+        # This is called by every path helper; the isdir/makedirs pair used to
+        # run on each one. Re-check when APPDATA changes (tests sandbox it).
+        if self._root_ready != d:
+            if not os.path.isdir(d):
+                try:
+                    os.makedirs(d)
+                except Exception:
+                    pass
+            self._root_ready = d
         return d
 
     def project_dir(self, pid):
@@ -84,12 +105,42 @@ class ProjectStore(object):
 
     # ── CRUD ──────────────────────────────────────────────────────────────
 
+    # ── meta cache ────────────────────────────────────────────────────────
+
+    def _read_meta_cached(self, pid):
+        """project.json for `pid`, served from cache while mtime+size match."""
+        path = self._project_json(pid)
+        try:
+            st = os.stat(path)
+            stamp = (st.st_mtime, st.st_size)
+        except Exception:
+            self.invalidate_meta(pid)
+            return None
+        with self._meta_lock:
+            hit = self._meta_cache.get(pid)
+            if hit is not None and hit[0] == stamp:
+                return hit[1]
+        meta = _read_json(path)
+        if meta is None:
+            return None
+        with self._meta_lock:
+            self._meta_cache[pid] = (stamp, meta)
+        return meta
+
+    def invalidate_meta(self, pid=None):
+        """Drop cached project.json (one pid, or all when pid is None)."""
+        with self._meta_lock:
+            if pid is None:
+                self._meta_cache.clear()
+            else:
+                self._meta_cache.pop(pid, None)
+
     def list_projects(self):
         """[{'id','name','created'}] sorted by name."""
         out = []
         try:
             for entry in os.listdir(self._root()):
-                meta = _read_json(self._project_json(entry))
+                meta = self._read_meta_cached(entry)
                 if meta and meta.get('id'):
                     out.append({'id': meta['id'],
                                 'name': meta.get('name', entry),
@@ -122,12 +173,21 @@ class ProjectStore(object):
                 except Exception:
                     pass
         _write_json(self._project_json(pid), meta)
+        self.invalidate_meta(pid)
         return meta
 
     def get_project(self, pid):
+        """project.json for `pid`, or None.
+
+        Returns a COPY: callers routinely mutate the dict they get back (the
+        schedule tick stamps last_run, the settings dialog edits lists), and a
+        shared cached dict would let those edits leak into every other reader
+        before they are ever written to disk.
+        """
         if not pid:
             return None
-        return _read_json(self._project_json(pid))
+        meta = self._read_meta_cached(pid)
+        return copy.deepcopy(meta) if meta is not None else None
 
     def update_project(self, pid, patch):
         """Merge `patch` into project.json. Returns the new meta or None."""
@@ -139,6 +199,11 @@ class ProjectStore(object):
             _write_json(self._project_json(pid), meta)
         except Exception:
             return None
+        self.invalidate_meta(pid)
+        # knowledge_dirs may have changed, and knowledge_store_for() mutates a
+        # CACHED KnowledgeStore's source_dirs in place — without this a stale
+        # store keeps indexing the old set.
+        self._store_cache.pop(pid, None)
         return meta
 
     # ── linked knowledge folders (external RAG sources) ───────────────────
@@ -187,10 +252,155 @@ class ProjectStore(object):
             if self.get_active_project_id() == pid:
                 self.set_active_project(None)
             self._store_cache.pop(pid, None)
+            self.invalidate_meta(pid)
             shutil.rmtree(self.project_dir(pid), ignore_errors=True)
             return True
         except Exception:
             return False
+
+    # ── document counts (one implementation, cached) ──────────────────────
+
+    def count_documents(self, pid, cap=200):
+        """(own_files, linked_dirs, linked_docs, unscanned_dirs) for `pid`.
+
+        There used to be FOUR independent os.walk implementations of this — in
+        the project overview, the popup row subtitle, the chat project panel and
+        the settings dialog — with three different caps, and only the dialog
+        counted linked folders at all. They all ran on the UI thread.
+
+        Linked folders are never walked here: they can be big network shares.
+        Their document counts come from each folder's own context/ digest,
+        exactly as the settings dialog already did.
+
+        Cached against the files/ dir mtime, so the popup can call it once per
+        project without re-walking on every open.
+        """
+        files_dir = os.path.join(self.project_dir(pid), 'files')
+        try:
+            stamp = os.stat(files_dir).st_mtime
+        except Exception:
+            stamp = None
+        key = (pid, cap)
+        with self._meta_lock:
+            hit = self._count_cache.get(key)
+            if hit is not None and hit[0] == stamp:
+                own = hit[1]
+            else:
+                own = None
+        if own is None:
+            own = 0
+            for _r, _s, fs in os.walk(files_dir):
+                for f in fs:
+                    # PROJECT_CONTEXT.md is generated INTO files/ by the
+                    # context builder; it is not a user document.
+                    if f in _GENERATED_DOCS:
+                        continue
+                    own += 1
+                    if own > cap:
+                        break
+                if own > cap:
+                    break
+            with self._meta_lock:
+                self._count_cache[key] = (stamp, own)
+
+        dirs = self.get_knowledge_dirs(pid)
+        linked_docs = 0
+        unscanned = 0
+        if dirs:
+            try:
+                from Intelligence.knowledge import context_digest
+                for d in dirs:
+                    st = context_digest.read_context_stats(d)
+                    if st.get('exists'):
+                        linked_docs += st.get('files') or 0
+                    else:
+                        unscanned += 1
+            except Exception:
+                unscanned = len(dirs)
+        return own, len(dirs), linked_docs, unscanned
+
+    def describe_documents(self, pid, cap=200):
+        """Human-readable one-liner for the counts above (shared wording)."""
+        own, n_dirs, docs, unscanned = self.count_documents(pid, cap=cap)
+        shown = u"{}+".format(cap) if own > cap else u"{}".format(own)
+        txt = u"{} file{} in the knowledge folder".format(
+            shown, u"" if own == 1 else u"s")
+        if n_dirs:
+            txt += u" + {} linked folder{}".format(
+                n_dirs, u"" if n_dirs == 1 else u"s")
+            if docs:
+                txt += u" ({} doc{} indexed)".format(
+                    docs, u"" if docs == 1 else u"s")
+            if unscanned:
+                txt += u" · {} not scanned yet".format(unscanned)
+        return txt
+
+    # ── scheduled prompts ─────────────────────────────────────────────────
+
+    def validate_schedule_time(self, text):
+        """'H:MM'/'HH:MM' -> canonical 'HH:MM', or None when invalid.
+
+        Zero-padding matters: _schedule_tick compares times as STRINGS, so a
+        hand-written '9:00' would sort after '10:00'.
+        """
+        import re as _re
+        m = _re.match(r'^(\d{1,2}):(\d{2})$', (text or u'').strip())
+        if not m:
+            return None
+        h, mi = int(m.group(1)), int(m.group(2))
+        if h > 23 or mi > 59:
+            return None
+        return u"{:02d}:{:02d}".format(h, mi)
+
+    def add_schedule(self, pid, prompt, time_text):
+        """Append one scheduled prompt. Returns the new list, or None."""
+        prompt = (prompt or u'').strip()
+        hhmm = self.validate_schedule_time(time_text)
+        if not prompt or not hhmm:
+            return None
+        items = list((self.get_project(pid) or {}).get('scheduled') or [])
+        items.append({
+            'id': u's_{}'.format(int(time.time() * 1000)),
+            'prompt': prompt,
+            'time': hhmm,
+            'enabled': True,
+            'last_run': u'',
+        })
+        return items if self.update_project(
+            pid, {'scheduled': items}) is not None else None
+
+    def remove_schedule(self, pid, task_id):
+        """Drop one scheduled prompt by id. Returns the new list, or None."""
+        items = [t for t in ((self.get_project(pid) or {}).get('scheduled') or [])
+                 if t.get('id') != task_id]
+        return items if self.update_project(
+            pid, {'scheduled': items}) is not None else None
+
+    def set_schedule_enabled(self, pid, task_id, enabled):
+        """Toggle one scheduled prompt. `enabled` was read by the tick but no
+        UI ever wrote it — this is what makes the field real."""
+        items = list((self.get_project(pid) or {}).get('scheduled') or [])
+        for t in items:
+            if t.get('id') == task_id:
+                t['enabled'] = bool(enabled)
+                break
+        else:
+            return None
+        return items if self.update_project(
+            pid, {'scheduled': items}) is not None else None
+
+    @staticmethod
+    def due_schedule(items, now_hm, today):
+        """First task due at `now_hm` on `today`, or None. Pure — no I/O, no
+        WPF — so the schedule rule is testable headlessly."""
+        for it in (items or []):
+            if not it.get('enabled', True):
+                continue
+            if it.get('last_run') == today:
+                continue
+            if (it.get('time') or u'99:99') <= now_hm:
+                return it
+        return None
 
     # ── active project ────────────────────────────────────────────────────
 

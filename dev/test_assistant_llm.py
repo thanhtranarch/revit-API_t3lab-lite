@@ -361,6 +361,224 @@ def test_json_callers_opt_in():
           src2.count('json_object') >= 1)
 
 
+# ─── project store: caching + scope plumbing ─────────────────────────────────
+
+def test_project_meta_cache():
+    """project.json used to be re-read on EVERY get_project call (18 sites,
+    incl. a 30s timer and 3+ reads per chat turn)."""
+    print('[project: meta cache]')
+    _reset_appdata()
+    import config.project_store as PS
+    PS.ProjectStore._instance = None
+    ps = PS.ProjectStore()
+    pid = ps.create_project('Cache')['id']
+
+    reads = {'n': 0}
+    orig = PS._read_json
+
+    def counting(path, default=None):
+        if path.endswith('project.json'):
+            reads['n'] += 1
+        return orig(path, default)
+    PS._read_json = counting
+    try:
+        reads['n'] = 0
+        for _ in range(30):
+            ps.get_project(pid)
+        check('30 reads served from cache', reads['n'] <= 1, reads['n'])
+
+        reads['n'] = 0
+        for _ in range(5):
+            ps.list_projects()
+        check('list_projects cached too', reads['n'] == 0, reads['n'])
+
+        # a write must invalidate
+        ps.update_project(pid, {'instructions': 'WH- prefix'})
+        check('update visible after write',
+              ps.get_project(pid)['instructions'] == 'WH- prefix')
+
+        # an edit by ANOTHER Revit session must still be picked up
+        import time
+        time.sleep(0.01)
+        path = ps._project_json(pid)
+        data = orig(path)
+        data['name'] = 'Edited elsewhere'
+        PS._write_json(path, data)
+        check('external edit picked up (mtime keyed)',
+              ps.get_project(pid)['name'] == 'Edited elsewhere')
+    finally:
+        PS._read_json = orig
+
+    # callers mutate what they get (the tick stamps last_run) — must be a copy
+    got = ps.get_project(pid)
+    got['name'] = 'MUTATED'
+    check('returned meta is a copy',
+          ps.get_project(pid)['name'] != 'MUTATED')
+
+
+def test_project_schedule_api():
+    print('[project: schedule api]')
+    ps = _reset_appdata() and None
+    import config.project_store as PS
+    PS.ProjectStore._instance = None
+    ps = PS.ProjectStore()
+    pid = ps.create_project('Sched')['id']
+
+    check('pads H:MM', ps.validate_schedule_time('9:05') == '09:05')
+    check('rejects 24:00', ps.validate_schedule_time('24:00') is None)
+    check('rejects 09:70', ps.validate_schedule_time('09:70') is None)
+    check('rejects junk', ps.validate_schedule_time('soon') is None)
+
+    items = ps.add_schedule(pid, 'get model warnings', '9:05')
+    check('added with canonical time', items[0]['time'] == '09:05')
+    tid = items[0]['id']
+
+    # due logic is pure so it can be tested without WPF
+    check('not due before its time',
+          ps.due_schedule(items, '08:00', '2026-07-27') is None)
+    check('due after its time',
+          ps.due_schedule(items, '10:00', '2026-07-27') is not None)
+    check('not due twice in a day',
+          ps.due_schedule([dict(items[0], last_run='2026-07-27')],
+                          '10:00', '2026-07-27') is None)
+
+    ps.set_schedule_enabled(pid, tid, False)
+    items = ps.get_project(pid)['scheduled']
+    check('enabled persists (field had no writer before)',
+          items[0]['enabled'] is False)
+    check('paused task never due',
+          ps.due_schedule(items, '23:59', '2026-07-27') is None)
+
+    check('removed', ps.remove_schedule(pid, tid) == [])
+
+
+def test_project_document_counts():
+    print('[project: document counts]')
+    _reset_appdata()
+    import io as _io
+    import config.project_store as PS
+    PS.ProjectStore._instance = None
+    ps = PS.ProjectStore()
+    pid = ps.create_project('Docs')['id']
+    files_dir = os.path.join(ps.project_dir(pid), 'files')
+    for name in ('bep.md', 'notes.txt', 'PROJECT_CONTEXT.md'):
+        with _io.open(os.path.join(files_dir, name), 'w', encoding='utf-8') as f:
+            f.write('x')
+
+    own, dirs, docs, unscanned = ps.count_documents(pid)
+    # PROJECT_CONTEXT.md is written INTO files/ by the context builder; it is
+    # generated FROM the corpus, so counting it as a user document (and, worse,
+    # indexing it) makes the model cite its own summary back at itself.
+    check('generated summary not counted', own == 2, own)
+    check('no linked dirs yet', dirs == 0 and docs == 0 and unscanned == 0)
+    check('describe mentions the count',
+          '2 file' in ps.describe_documents(pid), ps.describe_documents(pid))
+
+
+def test_generated_docs_excluded_from_index():
+    print('[knowledge: generated docs excluded]')
+    from Intelligence.knowledge import knowledge_store as KS
+    check('PROJECT_CONTEXT.md is in the exclusion set',
+          'PROJECT_CONTEXT.md' in KS.GENERATED_DOCS)
+    import inspect
+    src = inspect.getsource(KS.KnowledgeStore.scan)
+    check('scan() consults it', 'GENERATED_DOCS' in src)
+
+
+def test_skills_respect_project_scope():
+    print('[skills: project scope]')
+    _reset_appdata()
+    import config.project_store as PS
+    PS.ProjectStore._instance = None
+    ps = PS.ProjectStore()
+    import Intelligence.skills_engine as SE
+    SE.SkillsEngine._instance = None
+    eng = SE.get_skills_engine()
+    eng.scan()
+    ids = [s['id'] for s in eng.all_skills()]
+    if not ids:
+        print('  skip  no skills found')
+        return
+    target = ids[0]
+
+    pid = ps.create_project('Skills')['id']
+    ps.set_active_project(pid)
+    check('enabled by default',
+          [s for s in eng.all_skills() if s['id'] == target][0]['enabled'])
+
+    # skills_disabled has been written into every project.json since projects
+    # existed, and had no reader anywhere until now.
+    ps.update_project(pid, {'skills_disabled': [target]})
+    check('project can disable a skill',
+          [s for s in eng.all_skills() if s['id'] == target][0]['enabled'] is False)
+    check('and it leaves the catalog',
+          target not in [c['id'] for c in eng.get_catalog()])
+
+    ps.update_project(pid, {'skills_disabled': []})
+    check('re-enabled when the project list clears',
+          [s for s in eng.all_skills() if s['id'] == target][0]['enabled'])
+
+    # a project folder deleted outside the app must not keep resolving
+    import shutil
+    shutil.rmtree(ps.project_dir(pid), ignore_errors=True)
+    ps.invalidate_meta()
+    check('stale project id resolves to none', SE._active_pid() is None)
+    check('and yields no project skills dir',
+          SE._project_skills_dir() is None)
+
+
+def test_prompt_paths_carry_project_scope():
+    """Both prompt builders must inject project instructions + memory.
+
+    The native tool-calling path did; the legacy JSON path did NOT — and the
+    legacy path is what runs when the user ATTACHES a document, i.e. exactly
+    when a project's conventions matter most.
+    """
+    print('[assistant: project scope reaches both prompt paths]')
+    import io as _io
+    src = _io.open(os.path.join(
+        REPO, 'T3Lab.extension', 'T3Lab.tab', 'Support.panel',
+        'T3LabAssistant.pushbutton', 'script.py'), encoding='utf-8').read()
+
+    check('shared helper exists', 'def _project_prompt_blocks' in src)
+    check('legacy path applies it',
+          '_apply_project_blocks(system_prompt)' in src)
+    check('native path uses the same helper',
+          '_proj_instructions, _mem_block = self._project_prompt_blocks()' in src)
+    check('comment agent is grounded too',
+          'extra_context=_extra' in src)
+    # the old inline duplicates must be gone
+    check('no second addendum fetch',
+          src.count('get_active_prompt_addendum()') == 1,
+          src.count('get_active_prompt_addendum()'))
+
+
+def test_single_edit_surface():
+    """The chat panel is read-only; editing lives in LLMs Setting."""
+    print('[assistant: one edit surface]')
+    import io as _io
+    src = _io.open(os.path.join(
+        REPO, 'T3Lab.extension', 'T3Lab.tab', 'Support.panel',
+        'T3LabAssistant.pushbutton', 'script.py'), encoding='utf-8').read()
+    panel = src.split('def _build_project_panel', 1)[1]
+    panel = panel.split('def _start_schedule_timer', 1)[0]
+
+    check('panel no longer writes project.json',
+          'update_project' not in panel)
+    check('panel offers the settings route',
+          '_edit_project_in_settings' in panel)
+    check('panel shows linked folders',
+          'get_knowledge_dirs' in panel)
+
+    dlg = _io.open(os.path.join(
+        REPO, 'T3Lab.extension', 'lib', 'GUI', 'LLMSettingDialog.py'),
+        encoding='utf-8').read()
+    check('memory management moved into the dialog',
+          'def _render_project_memory' in dlg)
+    check('schedule rows use the store API',
+          'set_schedule_enabled' in dlg and 'remove_schedule' in dlg)
+
+
 def main():
     test_settings_merge_on_write()
     test_settings_corrupt_quarantine()
@@ -376,6 +594,13 @@ def main():
     test_wants_json_contract()
     test_ollama_json_is_opt_in()
     test_json_callers_opt_in()
+    test_project_meta_cache()
+    test_project_schedule_api()
+    test_project_document_counts()
+    test_generated_docs_excluded_from_index()
+    test_skills_respect_project_scope()
+    test_prompt_paths_carry_project_scope()
+    test_single_edit_surface()
 
     print('')
     if FAILURES:
