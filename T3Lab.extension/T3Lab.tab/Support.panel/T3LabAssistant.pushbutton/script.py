@@ -57,6 +57,33 @@ lib_dir = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
     sys.path.insert(0, lib_dir)
 
+# ─── Shared with the LLMs Setting dialog ──────────────────────────────────────
+# Provider brand colours and the shell folder/file openers live in one place;
+# the chat window's private copies of the openers lacked the .NET 8
+# UseShellExecute fallback, so those buttons died silently under Revit 2025+.
+try:
+    from GUI.AssistantShared import (PROVIDER_COLORS as _SHARED_PROVIDER_COLORS,
+                                     PROVIDER_GRAY as _SHARED_PROVIDER_GRAY,
+                                     open_in_explorer as _open_in_explorer,
+                                     open_file_with_shell as _open_file_shell,
+                                     project_scope_lines as _project_scope_lines)
+except Exception:
+    _SHARED_PROVIDER_COLORS = {
+        "claude": (217, 119, 87), "openai": (16, 163, 127),
+        "deepseek": (37, 99, 235), "ollama": (59, 130, 246),
+        "lmstudio": (124, 58, 237),
+    }
+    _SHARED_PROVIDER_GRAY = (161, 161, 170)
+
+    def _open_in_explorer(path, create=True):
+        return False
+
+    def _open_file_shell(path):
+        return False
+
+    def _project_scope_lines(meta, doc_counts=None):
+        return []
+
 # ─── NLP module ───────────────────────────────────────────────────────────────
 try:
     from Intelligence.t3lab_assistant import (parse_command, has_api_key, keyword_parse,
@@ -710,6 +737,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._forced_skill_id = None    # skill forced via /slash for THIS message
         self._forced_skill_args = u""   # user text after the /slash id (pre-boilerplate)
 
+        # Provider active before a project override was applied, so leaving the
+        # project can put it back (a scoped override must be undoable).
+        self._pre_project_provider = None
+
         # ── Usage-flow state: message queue + quick-reply chips ───────────────
         # The input stays ENABLED while a request runs (Claude-style): Enter
         # queues the next message, which auto-sends when the current request
@@ -766,8 +797,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.PreviewDragOver += self._file_drag_over
             self.PreviewDrop += self._file_drop
             self.chat_input.PreviewKeyDown += self._input_preview_keydown
-            # Ctrl+K anywhere in the window toggles the command palette.
-            self.PreviewKeyDown += self._window_preview_keydown
         except Exception:
             pass
 
@@ -1188,20 +1217,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     u"then start a new conversation.",
                     icon=_ICON_WARNING, icon_color=_ICON_AMBER)
                 return
-            # Remove all children except the welcome greeting panel (first child)
-            while self.chat_history_panel.Children.Count > 1:
-                self.chat_history_panel.Children.RemoveAt(1)
-            # Drop references to rows that were just detached above
-            self._clear_stream_refs()
-            self._typing_row = None
-            self._typing_text_block = None
-            # Clear in-memory state
-            self._conversation_history = []
-            self._persisted_msgs = []
-            self._prev_agent_decision = None   # no carryover across chats
-            self._prev_turn_calls = set()      # repeat guard resets with chat
-            self._queued_inputs = []           # rows were removed above
-            self._quickreply_row = None
+            self._reset_session_state(clear_transcript=True)
             # Delete saved file
             clear_chat_history(self._doc_key)
             self._update_welcome_greeting()
@@ -1214,17 +1230,54 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("reset_chat error: {}".format(ex))
 
+    def _reset_session_state(self, clear_transcript=True):
+        """Drop everything tied to the OLD conversation scope. UI THREAD.
+
+        There were three "switch scope" paths — reset_chat_clicked,
+        _activate_project and _create_new_project — and each reset a different
+        subset of the same state. _activate_project in particular detached the
+        chat rows without clearing `_stream_row` / `_typing_row`, which is the
+        exact defect already fixed for reset_chat_clicked: the answer lands in
+        an orphaned TextBlock and `_show_typing_indicator` early-returns for the
+        rest of the session. One implementation, used by all three.
+        """
+        try:
+            if clear_transcript:
+                # Keep the welcome greeting panel (first child)
+                while self.chat_history_panel.Children.Count > 1:
+                    self.chat_history_panel.Children.RemoveAt(1)
+        except Exception:
+            pass
+        # Rows detached above must not stay referenced
+        try:
+            self._clear_stream_refs()
+        except Exception:
+            pass
+        self._typing_row        = None
+        self._typing_text_block = None
+        self._quickreply_row    = None
+        self._queued_inputs     = []      # their chips were just removed
+        # Conversation + agent carryover
+        self._conversation_history = []
+        self._persisted_msgs       = []
+        self._prev_agent_decision  = None  # specialist choice must not carry over
+        self._prev_turn_calls      = set()  # repeat guard is per-conversation
+        # Composer staging: attachments and a forced /skill belong to the old
+        # scope; carrying them into a new project silently mis-files documents.
+        try:
+            self._attached_files = []
+            self._refresh_attachment_panel()
+        except Exception:
+            pass
+        self._forced_skill_id   = None
+        self._forced_skill_args = u""
+
     # ─── AI badge & provider switcher ────────────────────────────────────────
 
-    # Provider brand colors (shared by badge + health refresh)
-    _BADGE_COLORS = {
-        "claude":    (217, 119,  87),  # Anthropic orange
-        "openai":    ( 16, 163, 127),  # OpenAI green
-        "deepseek":  ( 37,  99, 235),  # DeepSeek blue
-        "ollama":    ( 59, 130, 246),  # Ollama blue
-        "lmstudio":  (124,  58, 237),  # LM Studio purple
-    }
-    _BADGE_GRAY = (161, 161, 170)       # #A1A1AA — no provider / offline
+    # Provider brand colors — shared with the LLMs Setting dialog so a provider
+    # can never render one colour here and another there.
+    _BADGE_COLORS = _SHARED_PROVIDER_COLORS
+    _BADGE_GRAY = _SHARED_PROVIDER_GRAY   # #A1A1AA — no provider / offline
 
     def _render_greeting(self, name):
         """Set the welcome greeting text for a given name (no settings read)."""
@@ -1488,13 +1541,39 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     dlg.Loaded += _focus_name
             except Exception:
                 pass
+            _scope_before = self._active_pid()
             dlg.ShowDialog()
         except Exception as ex:
             logger.debug("_open_llm_settings error: {}".format(ex))
-        self._refresh_after_settings()
+            _scope_before = self._active_pid()
+        self._refresh_after_settings(scope_before=_scope_before)
 
-    def _refresh_after_settings(self):
+    @staticmethod
+    def _active_pid():
+        try:
+            from config.project_store import ProjectStore
+            return ProjectStore().get_active_project_id()
+        except Exception:
+            return None
+
+    def _refresh_after_settings(self, scope_before=None):
         """Sync the chat window with state edited in the settings dialog."""
+        # A project can be DELETED in the dialog, which clears active_project.
+        # The transcript on screen still belongs to the old scope, so the next
+        # _persist_message would have written it into the global history file.
+        # Re-scope before anything else touches history.
+        try:
+            _pid_now = self._active_pid()
+            if _pid_now != scope_before:
+                self._reset_session_state(clear_transcript=True)
+                self._restore_history()
+                self._kick_knowledge_scan()
+            # Either way the project's provider/model override may have been
+            # edited. Re-activation is blocked for an unchanged pid, so without
+            # this the edit had no effect until the user switched away and back.
+            self._apply_project_provider(_pid_now)
+        except Exception as ex:
+            logger.debug("scope re-sync error: {}".format(ex))
         try:
             self._update_composer_chips()
         except Exception:
@@ -1507,8 +1586,94 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._update_welcome_greeting()
         except Exception:
             pass
+        # The project panel overlay, if open, was rendered from pre-edit data.
+        try:
+            if (getattr(self, 'project_panel_overlay', None) is not None
+                    and self.project_panel_overlay.Visibility == Visibility.Visible):
+                _pid = self._active_pid()
+                if _pid:
+                    self._build_project_panel(_pid)
+                else:
+                    self.project_panel_overlay.Visibility = Visibility.Collapsed
+        except Exception as ex:
+            logger.debug("project panel refresh error: {}".format(ex))
 
     # ─── Projects (workspaces) ────────────────────────────────────────────────
+
+    def _project_prompt_blocks(self):
+        """(project_instructions, memory_block) for the active project.
+
+        The single source of project grounding for a turn. It exists because
+        the two prompt-building paths had drifted apart: the native
+        tool-calling path injected both blocks, while the legacy JSON-intent
+        path injected NEITHER. The legacy path is not a rare fallback — it is
+        taken whenever the user attaches a document or RAG returns a lot of
+        context, i.e. exactly when working with project material, so a project's
+        instructions and remembered conventions silently vanished at the moment
+        they mattered most.
+
+        Never raises; a failure just means an unscoped prompt.
+        """
+        instructions = u""
+        memory = u""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            instructions = ps.get_active_prompt_addendum() or u""
+            try:
+                from Intelligence import assistant_memory
+                memory = assistant_memory.build_memory_block(
+                    ps.get_active_project_id()) or u""
+            except Exception:
+                memory = u""
+        except Exception:
+            pass
+        return instructions, memory
+
+    def _apply_project_blocks(self, system_prompt):
+        """Append project instructions + memory to a plain system prompt."""
+        instructions, memory = self._project_prompt_blocks()
+        if instructions:
+            system_prompt += u"\n\n## Project instructions\n" + instructions
+        if memory:
+            system_prompt += u"\n\n" + memory
+        return system_prompt
+
+    def _apply_project_provider(self, pid):
+        """Apply (or undo) a project's provider/model override.
+
+        A project override is SCOPED: switch_provider(persist=False) keeps it
+        out of settings.json, so the user's global default survives a restart.
+        The missing half was the undo — leaving a project used to strand its
+        provider for the rest of the session because nothing switched back.
+        `_pre_project_provider` remembers what was active before the first
+        override so it can be restored.
+        """
+        try:
+            from Intelligence.llm_router import LLMRouter
+            router = LLMRouter()
+            meta = None
+            try:
+                from config.project_store import ProjectStore
+                meta = ProjectStore().get_project(pid) if pid else None
+            except Exception:
+                meta = None
+
+            want = (meta or {}).get('provider')
+            if want:
+                if getattr(self, '_pre_project_provider', None) is None:
+                    self._pre_project_provider = router.get_active_name()
+                router.switch_provider(want, (meta or {}).get('model'),
+                                       persist=False)
+            else:
+                prev = getattr(self, '_pre_project_provider', None)
+                if prev and prev != router.get_active_name():
+                    # Back to whatever the user had before any override.
+                    router.switch_provider(prev, persist=False)
+                self._pre_project_provider = None
+            self._update_ai_badge()
+        except Exception as ex:
+            logger.debug("_apply_project_provider error: {}".format(ex))
 
     def _project_overview_text(self, pid, header=None):
         """Markdown overview of what the given project scope actually
@@ -1533,23 +1698,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                          u"project popup → Customize project; they steer "
                          u"every reply in this project.")
 
-        n_files = 0
+        # One cached counter shared with the popup subtitle, the project panel
+        # and the settings dialog — there used to be four separate os.walk
+        # implementations with three different caps, and only one of them
+        # counted linked folders at all.
         try:
-            for _r, _sub, _fs in os.walk(
-                    os.path.join(ps.project_dir(pid), 'files')):
-                n_files += len(_fs)
-                if n_files > 200:
-                    break
+            n_files, n_extra, _docs, _unscanned = ps.count_documents(pid)
         except Exception:
-            pass
-        n_extra = len([d for d in (meta.get('knowledge_dirs') or []) if d])
+            n_files, n_extra = 0, 0
         if n_files or n_extra:
-            _extra = (u" + {} linked folder(s)".format(n_extra)
-                      if n_extra else u"")
-            lines.append(u"- **Knowledge:** {} file(s){} — replies quote "
-                         u"these documents (project popup → Open knowledge "
-                         u"folder to add more).".format(
-                             u"200+" if n_files > 200 else n_files, _extra))
+            lines.append(u"- **Knowledge:** {} — replies quote these documents "
+                         u"(project popup → Open knowledge folder to add "
+                         u"more).".format(ps.describe_documents(pid)))
         else:
             lines.append(u"- **Knowledge:** empty — attach files in chat or "
                          u"drop PDF/DOCX/MD via project popup → Open "
@@ -1575,8 +1735,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
         else:
             lines.append(u"- **AI provider:** follows the global setting.")
 
-        lines.append(u"- **Chats, attachments & activity logs:** stored "
-                     u"inside this project, separate per Revit document.")
+        # Only CHATS are per-document (ProjectStore.history_path). Attachments
+        # and activity logs are filed per DAY — this line used to claim all
+        # three were per-document, which is simply not what the store does.
+        lines.append(u"- **Chats:** stored in this project, separate per "
+                     u"Revit document.")
+        lines.append(u"- **Attachments & activity logs:** stored in this "
+                     u"project, filed by date.")
         return u"\n".join(lines)
 
     def _activate_project(self, pid):
@@ -1589,29 +1754,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             # Swap chat history to the new scope
             try:
-                while self.chat_history_panel.Children.Count > 1:
-                    self.chat_history_panel.Children.RemoveAt(1)
-                self._conversation_history = []
-                self._persisted_msgs = []
+                self._reset_session_state(clear_transcript=True)
                 self._restore_history()
             except Exception:
                 pass
 
-            # Apply the project's provider/model preference (if any).
-            # persist=False: a project override is SCOPED to that project.
-            # Persisting it rewrote settings.json's active_provider, so
-            # deactivating the project never restored the user's own default
-            # and the next Revit start came up on the project's provider.
-            try:
-                meta = ps.get_project(pid) if pid else None
-                if meta and meta.get('provider'):
-                    from Intelligence.llm_router import LLMRouter
-                    LLMRouter().switch_provider(meta['provider'],
-                                                meta.get('model'),
-                                                persist=False)
-                    self._update_ai_badge()
-            except Exception:
-                pass
+            self._apply_project_provider(pid)
 
             # Rescan knowledge scope for the new project in background
             self._update_knowledge_status()
@@ -1644,12 +1792,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             n = len(ps.list_projects()) + 1
             meta = ps.create_project(u"Project {}".format(n))
             ps.set_active_project(meta['id'])
-            # sync the rest of the scope like a manual switch
+            # sync the rest of the scope like a manual switch — same reset,
+            # same history re-scope and same knowledge rescan _activate_project
+            # does, instead of the partial subset this used to do.
             try:
-                while self.chat_history_panel.Children.Count > 1:
-                    self.chat_history_panel.Children.RemoveAt(1)
-                self._conversation_history = []
-                self._persisted_msgs = []
+                self._reset_session_state(clear_transcript=True)
+                self._restore_history()
+                self._apply_project_provider(meta['id'])
+                self._kick_knowledge_scan()
             except Exception:
                 pass
             self._update_composer_chips()
@@ -1821,460 +1971,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
         self._quickreply_row = None
-
-    def _append_action_chips(self, labels, handlers):
-        """Chips that CALL a handler instead of sending text. UI THREAD.
-
-        _append_quick_replies routes its chip through _process_input, i.e. back
-        into the LLM. A consent prompt needs the opposite: the click must run
-        exactly the action the user agreed to and nothing else.
-        """
-        try:
-            self._remove_quick_replies()
-            from System.Windows.Controls import (Border, TextBlock, StackPanel,
-                                                 Orientation)
-            from System.Windows import Thickness, CornerRadius
-            from System.Windows.Media import SolidColorBrush, Color
-            from System.Windows.Input import Cursors
-
-            row = StackPanel()
-            row.Orientation = Orientation.Horizontal
-            row.Margin = Thickness(34, 2, 0, 10)
-
-            for i, label in enumerate(labels):
-                chip = Border()
-                chip.Background = SolidColorBrush(Color.FromRgb(0xEF, 0xF6, 0xFF))
-                chip.BorderBrush = SolidColorBrush(Color.FromRgb(0xBF, 0xDB, 0xFE))
-                chip.BorderThickness = Thickness(1)
-                chip.CornerRadius = CornerRadius(12)
-                chip.Padding = Thickness(11, 4, 11, 5)
-                chip.Margin = Thickness(0, 0, 6, 0)
-                chip.Cursor = Cursors.Hand
-                tb = TextBlock()
-                tb.Text = label
-                tb.FontSize = 11.5
-                tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-                tb.FontWeight = System.Windows.FontWeights.SemiBold
-                tb.Foreground = SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
-                chip.Child = tb
-
-                def _click(s, ev, _h=handlers[i] if i < len(handlers) else None):
-                    try:
-                        self._remove_quick_replies()
-                        if _h:
-                            _h()
-                    except Exception as cex:
-                        logger.debug("action chip error: {}".format(cex))
-                    ev.Handled = True
-                chip.MouseLeftButtonUp += _click
-                row.Children.Add(chip)
-
-            self.chat_history_panel.Children.Add(row)
-            self._quickreply_row = row
-            self._scroll_to_bottom()
-        except Exception as ex:
-            logger.debug("_append_action_chips error: {}".format(ex))
-
-    # ─── Local engine (opt-in) ────────────────────────────────────────────────
-
-    _LOCAL_MODEL = "qwen2.5:1.5b"
-
-    def _offer_local_engine(self):
-        """Offer — never perform — local-engine setup. WORKER THREAD.
-
-        Starting a background process and downloading a model are the user's
-        decisions. Declining is remembered so the offer does not reappear on
-        every window open.
-        """
-        from Intelligence import local_llm
-
-        # A configured cloud provider means the assistant already works; do
-        # not push a local engine on top of it.
-        try:
-            if has_api_key():
-                return
-        except Exception:
-            pass
-
-        try:
-            from config.settings import get_settings
-            if get_settings().get_agent_option('local_engine_declined', False):
-                return
-        except Exception:
-            pass
-
-        viet = _ui_viet()
-        running = False
-        try:
-            running = local_llm.is_running()
-        except Exception:
-            running = False
-
-        if not running:
-            if not self._ollama_binary():
-                return          # not installed — nothing to offer
-            msg = (u"Máy bạn đã cài Ollama nhưng engine chưa chạy. Khởi động "
-                   u"để dùng T3Lab Assistant ngoại tuyến?" if viet else
-                   u"Ollama is installed on this machine but not running. "
-                   u"Start it so the assistant can work offline?")
-            labels = ([u"Khởi động engine", u"Để sau"] if viet
-                      else [u"Start engine", u"Not now"])
-            handlers = [self._start_local_engine, self._decline_local_engine]
-        else:
-            try:
-                if local_llm.list_models():
-                    return      # ready to go
-            except Exception:
-                return
-            msg = (u"Engine cục bộ đang chạy nhưng chưa có mô hình nào. Tải "
-                   u"mô hình mặc định {} (khoảng 1 GB)?".format(self._LOCAL_MODEL)
-                   if viet else
-                   u"The local engine is running but has no model. Download "
-                   u"the default model {} (about 1 GB)?".format(self._LOCAL_MODEL))
-            labels = ([u"Tải mô hình", u"Để sau"] if viet
-                      else [u"Download model", u"Not now"])
-            handlers = [self._pull_local_model, self._decline_local_engine]
-
-        def _ask():
-            self._append_bot_message(msg, icon=_ICON_INFO,
-                                     icon_color=_ICON_SLATE)
-            self._append_action_chips(labels, handlers)
-        self.Dispatcher.Invoke(Action(_ask))
-
-    @staticmethod
-    def _ollama_binary():
-        """Path to the ollama executable, or None when it is not installed."""
-        profile = os.environ.get('USERPROFILE', '')
-        candidates = [os.path.join(profile, "AppData", "Local", "Programs",
-                                   "Ollama", "ollama.exe")]
-        for path in candidates:
-            if path and os.path.exists(path):
-                return path
-        # On PATH? Only trust this when it actually resolves.
-        try:
-            import subprocess
-            subprocess.check_output(["ollama", "--version"],
-                                    creationflags=0x08000000)
-            return "ollama"
-        except Exception:
-            return None
-
-    def _decline_local_engine(self):
-        """'Not now' — remember it so the offer stops nagging. UI THREAD."""
-        try:
-            from config.settings import get_settings
-            get_settings().set_agent_option('local_engine_declined', True)
-        except Exception:
-            pass
-        self._log_activity(u"Local engine setup declined by user")
-
-    def _start_local_engine(self):
-        """Launch `ollama serve` — only ever from an explicit click."""
-        def _work():
-            path = self._ollama_binary()
-            err = u""
-            ok = False
-            try:
-                import subprocess
-                import time as _t
-                subprocess.Popen([path, "serve"], creationflags=0x08000000)
-                from Intelligence import local_llm
-                for _ in range(10):
-                    _t.sleep(0.5)
-                    if local_llm.is_running():
-                        ok = True
-                        break
-            except Exception as ex:
-                err = _exc_text(ex)
-
-            viet = _ui_viet()
-            if ok:
-                text = (u"Đã khởi động engine cục bộ." if viet
-                        else u"Local engine started.")
-                icon, color = _ICON_SUCCESS, _ICON_GREEN
-            else:
-                text = ((u"Không khởi động được engine cục bộ. {}" if viet
-                         else u"Could not start the local engine. {}")
-                        .format(err))
-                icon, color = _ICON_WARNING, _ICON_AMBER
-            self._log_activity(text)
-
-            def _show():
-                self._append_bot_message(text, icon=icon, icon_color=color)
-                if ok:
-                    # Now that it runs, it may still have no model.
-                    self._offer_local_engine()
-            self.Dispatcher.Invoke(Action(_show))
-
-        _t2 = Thread(ThreadStart(_work))
-        _t2.IsBackground = True
-        _t2.SetApartmentState(ApartmentState.STA)
-        _t2.Start()
-
-    def _pull_local_model(self):
-        """Download the default local model — only from an explicit click."""
-        viet = _ui_viet()
-        self._append_bot_message(
-            (u"Đang tải {} về máy bạn. Việc này chạy ngầm và có thể mất vài "
-             u"phút…".format(self._LOCAL_MODEL) if viet else
-             u"Downloading {} to this machine. This runs in the background "
-             u"and can take several minutes…".format(self._LOCAL_MODEL)),
-            icon=_ICON_SYNC, icon_color=_ICON_SLATE)
-
-        def _work():
-            err = u""
-            try:
-                from Intelligence import local_llm
-                local_llm._post_json(
-                    local_llm.get_host() + "/api/pull",
-                    {"name": self._LOCAL_MODEL, "stream": False}, timeout=600)
-                ok = bool(local_llm.list_models())
-                if not ok:
-                    err = u"the engine reports no installed model"
-            except Exception as ex:
-                ok, err = False, _exc_text(ex)
-
-            _v = _ui_viet()
-            if ok:
-                text = ((u"Đã tải xong {}. Bạn có thể dùng T3Lab Assistant "
-                         u"ngoại tuyến." if _v else
-                         u"{} is installed. The assistant can now work "
-                         u"offline.").format(self._LOCAL_MODEL))
-                icon, color = _ICON_SUCCESS, _ICON_GREEN
-            else:
-                text = ((u"Tải {} thất bại: {}" if _v
-                         else u"Could not download {}: {}")
-                        .format(self._LOCAL_MODEL, err))
-                icon, color = _ICON_WARNING, _ICON_AMBER
-            self._log_activity(text)
-            self.Dispatcher.Invoke(Action(
-                lambda: self._append_bot_message(text, icon=icon,
-                                                 icon_color=color)))
-
-        _t3 = Thread(ThreadStart(_work))
-        _t3.IsBackground = True
-        _t3.SetApartmentState(ApartmentState.STA)
-        _t3.Start()
-
-    # ─── Command palette ──────────────────────────────────────────────────────
-
-    # All commands exposed to the AI, grouped by category.
-    # Each entry: icon (Segoe MDL2 Assets codepoint), name, example phrase (inserted into chat).
-    _COMMANDS = {
-        "export": [
-            (u"", u"Export PDF — All Sheets",       u"export pdf all sheets"),
-            (u"", u"Export DWG — All Sheets",       u"export dwg all sheets"),
-            (u"", u"Export G Sheets → PDF",         u"export pdf G sheets"),
-            (u"", u"Export A Sheets → PDF",         u"export pdf A sheets"),
-            (u"", u"Export IFC",                    u"export ifc"),
-            (u"", u"Export Image (PNG/JPEG)",       u"export sheet images"),
-            (u"", u"Open BatchOut",                 u"open batchout"),
-            (u"", u"BatchOut — G Sheet PDF",        u"open batchout G sheet pdf"),
-            (u"", u"BatchOut — Configured",         u"open batchout configured"),
-        ],
-        "tools": [
-            (u"", u"ParaSync",                      u"open parasync"),
-            (u"", u"Load Family",                   u"open load family"),
-            (u"", u"Load Family (Cloud)",           u"open load family cloud"),
-            (u"", u"DimText",                       u"open dimtext"),
-            (u"", u"Upper DimText",                 u"open upper dimtext"),
-            (u"", u"Reset Overrides",               u"reset graphic overrides"),
-            (u"", u"Workset",                       u"open workset"),
-            (u"", u"Project Name",                  u"open project name"),
-            (u"", u"Grids",                         u"open grids"),
-        ],
-        "ai": [
-            (u"", u"Project Info",                  u"current project info"),
-            (u"", u"Active View Info",              u"what is the current view?"),
-            (u"", u"Selected Elements",             u"info on selected elements"),
-            (u"", u"Revit Question",                u"explain worksets in Revit"),
-            (u"", u"Analyze Attachment",            u"analyze the attached document"),
-            (u"", u"Help",                          u"help"),
-        ],
-        # ── Revit MCP commands (revit-mcp server) ──────────────────────────
-        "query": [
-            (u"", u"View Info",             u"thong tin view hien tai la gi?"),
-            (u"", u"Elements in View",      u"lay danh sach element trong view hien tai"),
-            (u"", u"Selected Elements",     u"thong tin cac element dang duoc chon"),
-            (u"", u"Filter by Category",    u"loc tat ca tuong (OST_Walls) trong view"),
-            (u"", u"Available Families",    u"family types cua di co san trong project"),
-            (u"", u"Material Quantities",   u"tinh khoi luong vat lieu tuong trong du an"),
-            (u"", u"Model Statistics",      u"thong ke toan bo model - so element, family, view"),
-            (u"", u"Export Room Data",      u"xuat danh sach toan bo phong va dien tich"),
-            (u"", u"Query Stored Data",     u"truy van du lieu project da luu"),
-        ],
-        "create": [
-            (u"", u"Create Wall",           u"tao tuong dai 5000mm tu (0,0,0) den (5000,0,0) cao 3000mm"),
-            (u"", u"Create Floor",          u"tao san be tong 10x10m tai Level 1"),
-            (u"", u"Create Roof",           u"tao mai phang bao quanh building footprint"),
-            (u"", u"Create Room",           u"tao phong ten Phong hop so 101 tai toa do (3000,3000,0)"),
-            (u"", u"Create Grid System",    u"tao luoi truc A-F cach nhau 6000mm, 1-8 cach nhau 7200mm"),
-            (u"", u"Create Level",          u"tao tang Level 2 o do cao 4000mm"),
-            (u"", u"Create Door/Window",    u"tao cua di tai vi tri (2500,0,0) trong tuong"),
-            (u"", u"Create Furniture",      u"tao ban lam viec tai (1000,1000,0) xoay 90 do"),
-            (u"", u"Create Beam System",    u"tao he dam tai Level 2, khoang cach 1200mm, vung 10x20m"),
-        ],
-        "modify": [
-            (u"", u"Select by ID",          u"chon element co ID 123456"),
-            (u"", u"Color by Parameter",    u"to mau tuong theo loai (Type) - moi type mot mau"),
-            (u"", u"Color Rooms by Dept",   u"to mau phong theo department"),
-            (u"", u"Highlight Elements",    u"highlight do cac element co ID 111 222 333"),
-            (u"", u"Hide Elements",         u"an element co ID 444 555 trong view"),
-            (u"", u"Isolate Elements",      u"isolate tat ca cot (OST_Columns) trong view"),
-            (u"", u"Reset Visibility",      u"reset isolate - khoi phuc hien thi binh thuong"),
-            (u"", u"Delete Elements",       u"xoa element co ID 123 456 789"),
-            (u"", u"Tag All Walls",         u"gan tag tat ca tuong trong view hien tai"),
-            (u"", u"Tag All Rooms",         u"gan tag tat ca phong trong view hien tai"),
-            (u"", u"Run C# Code",           u"chay code C# trong Revit de lay ten project"),
-            (u"", u"Store Project Data",    u"luu metadata project hien tai vao database"),
-        ],
-    }
-
-    _active_cmd_cat = "export"   # current palette category
-
-    def cmd_palette_toggle_clicked(self, sender, e):
-        """Toggle the command palette panel.
-
-        Reachable from the composer's grid button and Ctrl+K. Until 2026-07-27
-        nothing called this, so the whole palette — panel, category tabs and
-        the _COMMANDS table — was unreachable dead UI.
-        """
-        try:
-            if self.cmd_palette.Visibility == Visibility.Visible:
-                self.cmd_palette.Visibility = Visibility.Collapsed
-            else:
-                self.cmd_palette.Visibility = Visibility.Visible
-                # Build initial category if panel was never opened
-                if not self.cmd_cards_panel.Children.Count:
-                    self._build_cmd_cards(self._active_cmd_cat)
-        except Exception as ex:
-            logger.debug("cmd_palette_toggle_clicked error: {}".format(ex))
-
-    def cmd_palette_close_clicked(self, sender, e):
-        self.cmd_palette.Visibility = Visibility.Collapsed
-
-    def cmd_cat_clicked(self, sender, e):
-        """Switch the active category tab and rebuild the cards panel."""
-        try:
-            tag = sender.Tag
-            if tag:
-                self._active_cmd_cat = tag
-                self._set_active_cmd_cat(sender)
-                self._build_cmd_cards(tag)
-        except Exception as ex:
-            logger.debug("cmd_cat_clicked error: {}".format(ex))
-
-    def _set_active_cmd_cat(self, active_btn):
-        """Update category tab backgrounds/foregrounds."""
-        try:
-            from System.Windows.Media import SolidColorBrush, Color
-            _DARK = SolidColorBrush(Color.FromRgb(24, 24, 27))
-            _LITE = SolidColorBrush(Color.FromRgb(244, 244, 246))
-            _WHITE = SolidColorBrush(Color.FromRgb(255, 255, 255))
-            _INK  = SolidColorBrush(Color.FromRgb(39, 39, 42))
-
-            for btn in (self.btn_cat_export, self.btn_cat_tools,
-                        self.btn_cat_query, self.btn_cat_create, self.btn_cat_modify,
-                        self.btn_cat_ai):
-                if btn is active_btn:
-                    btn.Background = _DARK
-                    btn.Foreground = _WHITE
-                else:
-                    btn.Background = _LITE
-                    btn.Foreground = _INK
-        except Exception as ex:
-            logger.debug("_set_active_cmd_cat error: {}".format(ex))
-
-    def _build_cmd_cards(self, category):
-        """Populate cmd_cards_panel with command cards for the given category."""
-        try:
-            self.cmd_cards_panel.Children.Clear()
-            for icon, name, example in self._COMMANDS.get(category, []):
-                card = self._make_cmd_card(icon, name, example)
-                self.cmd_cards_panel.Children.Add(card)
-        except Exception as ex:
-            logger.debug("_build_cmd_cards error: {}".format(ex))
-
-    def _make_cmd_card(self, icon, name, example):
-        """Create a single clickable command card."""
-        import System.Windows.Controls as WC
-        import System.Windows as SW
-        from System.Windows.Media import SolidColorBrush, Color, FontFamily
-        from System.Windows.Input import Cursors
-
-        _BG        = SolidColorBrush(Color.FromRgb(248, 250, 252))
-        _BG_HOVER  = SolidColorBrush(Color.FromRgb(239, 246, 255))
-        _BORDER    = SolidColorBrush(Color.FromRgb(226, 232, 240))
-        _ACCENT    = SolidColorBrush(Color.FromRgb(59, 130, 246))
-        _INK       = SolidColorBrush(Color.FromRgb(39, 39, 42))
-        _MUTED     = SolidColorBrush(Color.FromRgb(100, 116, 139))
-
-        card = WC.Border()
-        card.Width            = 186
-        card.Margin           = SW.Thickness(0, 0, 8, 8)
-        card.Padding          = SW.Thickness(11, 9, 11, 9)
-        card.CornerRadius     = SW.CornerRadius(10)
-        card.Background       = _BG
-        card.BorderBrush      = _BORDER
-        card.BorderThickness  = SW.Thickness(1)
-        card.Cursor           = Cursors.Hand
-        card.Tag              = example
-
-        sp = WC.StackPanel()
-
-        # Icon row
-        icon_row = WC.StackPanel()
-        icon_row.Orientation = WC.Orientation.Horizontal
-        icon_row.Margin      = SW.Thickness(0, 0, 0, 5)
-
-        icon_tb = WC.TextBlock()
-        icon_tb.Text       = icon
-        icon_tb.FontFamily = FontFamily(u"Segoe MDL2 Assets")
-        icon_tb.FontSize   = 13
-        icon_tb.Foreground = _ACCENT
-        icon_tb.Margin     = SW.Thickness(0, 0, 7, 0)
-        icon_tb.VerticalAlignment = SW.VerticalAlignment.Center
-
-        name_tb = WC.TextBlock()
-        name_tb.Text          = name
-        name_tb.FontSize      = 11
-        name_tb.FontWeight    = SW.FontWeights.SemiBold
-        name_tb.Foreground    = _INK
-        name_tb.FontFamily    = FontFamily(u"Hanken Grotesk")
-        name_tb.TextWrapping  = SW.TextWrapping.Wrap
-
-        icon_row.Children.Add(icon_tb)
-        icon_row.Children.Add(name_tb)
-
-        # Example phrase
-        ex_tb = WC.TextBlock()
-        ex_tb.Text         = u'"' + example + u'"'
-        ex_tb.FontSize     = 10
-        ex_tb.Foreground   = _MUTED
-        ex_tb.FontFamily   = FontFamily(u"Inter")
-        ex_tb.TextWrapping = SW.TextWrapping.Wrap
-
-        sp.Children.Add(icon_row)
-        sp.Children.Add(ex_tb)
-        card.Child = sp
-
-        card.MouseLeftButtonUp += self._cmd_card_clicked
-        card.MouseEnter += lambda s, ev: setattr(s, 'Background', _BG_HOVER)
-        card.MouseLeave += lambda s, ev: setattr(s, 'Background', _BG)
-
-        return card
-
-    def _cmd_card_clicked(self, sender, e):
-        """Insert the example phrase into the chat input and close the palette."""
-        try:
-            phrase = sender.Tag
-            if phrase:
-                self.chat_input.Text = phrase
-                self.chat_input.Focus()
-                self.chat_input.CaretIndex = len(phrase)
-            self.cmd_palette.Visibility = Visibility.Collapsed
-        except Exception as ex:
-            logger.debug("_cmd_card_clicked error: {}".format(ex))
 
     # ─── Turn termination (cancel / error) ────────────────────────────────────
 
@@ -2741,24 +2437,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if len(one_line) > 400:
                 one_line = one_line[:400] + u"…"
             self._log_activity(u"Assistant: {}".format(one_line))
-
-    # ─── Window-level shortcuts ───────────────────────────────────────────────
-
-    def _window_preview_keydown(self, sender, e):
-        """Ctrl+K toggles the command palette; Esc closes it."""
-        try:
-            from System.Windows.Input import Key, Keyboard, ModifierKeys
-            if (e.Key == Key.K and
-                    (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control):
-                self.cmd_palette_toggle_clicked(sender, e)
-                e.Handled = True
-                return
-            if (e.Key == Key.Escape and
-                    self.cmd_palette.Visibility == Visibility.Visible):
-                self.cmd_palette.Visibility = Visibility.Collapsed
-                e.Handled = True
-        except Exception as ex:
-            logger.debug("_window_preview_keydown error: {}".format(ex))
 
     # ─── File attachment ──────────────────────────────────────────────────────
 
@@ -3355,18 +3033,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     def _project_row_subtitle(self, ps, pid):
         """Content hint for a project popup row: 'N files · instructions ✓'.
-        Only the project's own files dir is counted (cheap, local)."""
+
+        Uses the store's cached counter. This ran once per project while
+        building the popup, so with the old private os.walk + its own
+        get_project() a popup open cost 2N JSON reads and N directory walks on
+        the UI thread.
+        """
         try:
             meta = ps.get_project(pid) or {}
-            n = 0
-            for _r, _sub, _fs in os.walk(
-                    os.path.join(ps.project_dir(pid), 'files')):
-                n += len(_fs)
-                if n > 99:
-                    break
+            n, n_dirs, _docs, _un = ps.count_documents(pid, cap=99)
             has_instr = bool((meta.get('instructions') or u'').strip())
-            return u"{} file{} · {}".format(
+            return u"{} file{}{} · {}".format(
                 u"99+" if n > 99 else n, u"" if n == 1 else u"s",
+                u" +{} linked".format(n_dirs) if n_dirs else u"",
                 u"instructions ✓" if has_instr else u"no instructions")
         except Exception:
             return None
@@ -3459,16 +3138,26 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
+    def _edit_project_in_settings(self, pid):
+        """Close the panel and open LLMs Setting → Projects on this project."""
+        try:
+            self.project_panel_overlay.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
+        self._open_llm_settings(tab='projects', select_pid=pid)
+
     def _build_project_panel(self, pid):
-        """Render the Instructions / Memory / Context / Scheduled sections
-        into project_panel_host. UI THREAD. The whole panel is rebuilt after
-        every edit — content is tiny, correctness beats diffing."""
+        """Render a READ-ONLY overview of the project scope into
+        project_panel_host. UI THREAD.
+
+        Everything editable moved to LLMs Setting → Projects (single edit
+        surface). What is left here answers "what does this project scope
+        actually cover right now", including the linked external folders the
+        old version never showed."""
         from System.Windows.Controls import (Border, Button, Grid as WGrid,
-                                             ColumnDefinition, Orientation,
-                                             ScrollBarVisibility, StackPanel,
-                                             TextBlock, TextBox)
+                                             ColumnDefinition, TextBlock)
         from System.Windows import (Thickness, TextWrapping, GridLength,
-                                    HorizontalAlignment, TextDecorations)
+                                    TextDecorations)
         from System.Windows.Media import SolidColorBrush, Color
         from System.Windows.Input import Cursors
         from config.project_store import ProjectStore
@@ -3483,13 +3172,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
         _font  = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-        _mdl2  = System.Windows.Media.FontFamily("Segoe MDL2 Assets")
         _ink   = SolidColorBrush(Color.FromRgb(24, 24, 27))     # #18181B
         _muted = SolidColorBrush(Color.FromRgb(113, 113, 122))  # #71717A
         _faint = SolidColorBrush(Color.FromRgb(161, 161, 170))  # #A1A1AA
         _blue  = SolidColorBrush(Color.FromRgb(59, 130, 246))   # #3B82F6
         _red   = SolidColorBrush(Color.FromRgb(239, 68, 68))    # #EF4444
-        _inbrd = SolidColorBrush(Color.FromRgb(203, 213, 225))  # #CBD5E1
 
         def _tb(text, size=12, fg=None, bold=False, wrap=True, margin=None):
             t = TextBlock()
@@ -3504,19 +3191,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if margin is not None:
                 t.Margin = margin
             return t
-
-        def _glyph_btn(glyph, handler, tip=None, fg=None):
-            g = TextBlock()
-            g.Text = glyph
-            g.FontFamily = _mdl2
-            g.FontSize = 11
-            g.Foreground = fg or _muted
-            g.Cursor = Cursors.Hand
-            g.Margin = Thickness(10, 2, 2, 0)
-            if tip:
-                g.ToolTip = tip
-            g.MouseLeftButtonUp += handler
-            return g
 
         def _two_col(left, right=None, top=6):
             g = WGrid()
@@ -3557,259 +3231,116 @@ class T3LabAssistantWindow(forms.WPFWindow):
             b.Click += handler
             return b
 
-        def _input_box(text=u"", multiline=False):
-            tbx = TextBox()
-            tbx.Text = text
-            tbx.FontSize = 12
-            tbx.FontFamily = _font
-            tbx.Padding = Thickness(8, 5, 8, 5)
-            tbx.BorderBrush = _inbrd
-            if multiline:
-                tbx.AcceptsReturn = True
-                tbx.TextWrapping = TextWrapping.Wrap
-                tbx.MinHeight = 74
-                tbx.MaxHeight = 150
-                tbx.VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            return tbx
+        # Read-only by design. Editing a project lives in ONE place — LLMs
+        # Setting → Projects — so the two surfaces can no longer write the same
+        # project.json in different shapes (this panel patched `instructions`
+        # alone while the dialog always rewrote name/instructions/provider/model
+        # together) or race each other's whole-file rewrites.
 
         # ── 1. Instructions ────────────────────────────────────────────────
-        instr = meta.get('instructions') or u''
-        ed_panel = StackPanel()
-        ed_panel.Visibility = Visibility.Collapsed
-        ed_panel.Margin = Thickness(0, 8, 0, 0)
-        ed_box = _input_box(instr, multiline=True)
-        ed_panel.Children.Add(ed_box)
-
-        def _save_instr(s, ev):
-            try:
-                ProjectStore().update_project(
-                    pid, {'instructions': (ed_box.Text or u'').strip()})
-            except Exception:
-                pass
-            self._build_project_panel(pid)
-
-        _instr_row = StackPanel()
-        _instr_row.Orientation = Orientation.Horizontal
-        _instr_row.HorizontalAlignment = HorizontalAlignment.Right
-        _instr_row.Margin = Thickness(0, 6, 0, 0)
-        _instr_row.Children.Add(_small_btn(u"Save", _save_instr,
-                                           primary=True))
-        ed_panel.Children.Add(_instr_row)
-
-        def _toggle_instr(s, ev):
-            ed_panel.Visibility = (
-                Visibility.Collapsed
-                if ed_panel.Visibility == Visibility.Visible
-                else Visibility.Visible)
-
+        instr = (meta.get('instructions') or u'').strip()
         _section(u"Instructions",
-                 _glyph_btn(u"" if instr.strip() else u"",
-                            _toggle_instr, tip=u"Edit instructions"))
-        if instr.strip():
+                 _small_btn(u"Edit in LLMs Setting",
+                            lambda s, ev: self._edit_project_in_settings(pid)))
+        if instr:
             _prev = u" ".join(instr.split())
-            if len(_prev) > 220:
-                _prev = _prev[:219] + u"…"
+            if len(_prev) > 260:
+                _prev = _prev[:259] + u"\u2026"
             host.Children.Add(_tb(_prev, size=11.5, fg=_muted,
-                                  margin=Thickness(0, 4, 0, 0)))
+                                  margin=Thickness(0, 6, 0, 0)))
         else:
             host.Children.Add(_tb(
-                u"Add instructions to tailor the assistant's replies in "
-                u"this project.", size=11.5, fg=_faint,
-                margin=Thickness(0, 4, 0, 0)))
-        host.Children.Add(ed_panel)
+                u"None yet \u2014 instructions steer every reply in this project.",
+                size=11.5, fg=_faint, margin=Thickness(0, 6, 0, 0)))
+
         _sep()
 
         # ── 2. Memory (project-scope facts) ────────────────────────────────
+        # Read-only here too; forgetting a fact now lives in the Projects tab.
         _section(u"Memory")
-        _mem_rows = 0
         try:
             from Intelligence import assistant_memory as _am
-            for _i, (_scope, _f) in enumerate(_am.list_facts(pid)):
-                if _scope != _am.PROJECT_SCOPE:
-                    continue
-                _mem_rows += 1
+            _facts = _am.list_facts(pid)
+            _proj = [f for _s, f in _facts if _s == _am.PROJECT_SCOPE]
+            _glob = len(_facts) - len(_proj)
+            if _proj:
+                for _f in _proj[:8]:
+                    host.Children.Add(_tb(
+                        u"\u2022 " + (_f.get('text') or u''), size=11.5,
+                        fg=_muted, margin=Thickness(0, 4, 0, 0)))
+                if len(_proj) > 8:
+                    host.Children.Add(_tb(
+                        u"\u2026 and {} more".format(len(_proj) - 8),
+                        size=11, fg=_faint, margin=Thickness(0, 4, 0, 0)))
+            else:
+                host.Children.Add(_tb(
+                    u'No project facts yet \u2014 say "remember \u2026" in chat.',
+                    size=11.5, fg=_faint, margin=Thickness(0, 6, 0, 0)))
+            if _glob:
+                host.Children.Add(_tb(
+                    u"+ {} global fact(s) apply to every project.".format(_glob),
+                    size=10.5, fg=_faint, margin=Thickness(0, 6, 0, 0)))
+        except Exception as _mex:
+            logger.debug("panel memory error: {}".format(_mex))
 
-                def _rm_fact(s, ev, _n=_i + 1):
-                    try:
-                        from Intelligence import assistant_memory as _am2
-                        _am2.remove_fact(_n, pid)
-                    except Exception:
-                        pass
-                    self._build_project_panel(pid)
-
-                host.Children.Add(_two_col(
-                    _tb(u"• {}".format(_f.get('text') or u''),
-                        size=11.5, fg=_muted),
-                    _glyph_btn(u"", _rm_fact, tip=u"Forget")))
-        except Exception:
-            pass
-        if not _mem_rows:
-            host.Children.Add(_tb(
-                u'Project memory will show here — say "remember ..." in '
-                u'chat and facts land in this list.', size=11.5, fg=_faint,
-                margin=Thickness(0, 4, 0, 0)))
         _sep()
 
-        # ── 3. Context (knowledge files the RAG index answers from) ───────
-        def _add_files(s, ev):
-            try:
-                import clr
-                clr.AddReference('System.Windows.Forms')
-                from System.Windows.Forms import OpenFileDialog, DialogResult
-                dlg = OpenFileDialog()
-                dlg.Multiselect = True
-                dlg.Title = "Add documents to this project"
-                dlg.Filter = ("Documents|*.pdf;*.docx;*.txt;*.md;*.csv;"
-                              "*.xlsx|All files|*.*")
-                if dlg.ShowDialog() == DialogResult.OK:
-                    import shutil as _sh
-                    dst = os.path.join(ps.project_dir(pid), 'files')
-                    if not os.path.isdir(dst):
-                        os.makedirs(dst)
-                    for f in dlg.FileNames:
-                        try:
-                            _sh.copy2(f, os.path.join(
-                                dst, os.path.basename(f)))
-                        except Exception:
-                            pass
-                    self._kick_knowledge_scan()
-                    self._build_project_panel(pid)
-            except Exception as _ex:
-                logger.debug("panel add files error: {}".format(_ex))
-
-        _section(u"Context", _glyph_btn(u"", _add_files,
-                                        tip=u"Add documents"))
-        files = []
+        # ── 3. Knowledge (what the RAG index answers from) ─────────────────
+        _section(u"Knowledge")
         try:
-            for _r, _sub, _fs in os.walk(
-                    os.path.join(ps.project_dir(pid), 'files')):
-                for _f in _fs:
-                    files.append(os.path.join(_r, _f))
-                if len(files) > 60:
-                    break
+            host.Children.Add(_tb(ps.describe_documents(pid), size=11.5,
+                                  fg=_muted, margin=Thickness(0, 6, 0, 0)))
         except Exception:
             pass
-        if files:
-            for fp in files[:12]:
-                _sz = None
-                try:
-                    _sz = _tb(u"{:.0f} KB".format(
-                        os.path.getsize(fp) / 1024.0),
-                        size=10.5, fg=_faint, wrap=False)
-                except Exception:
-                    pass
-                host.Children.Add(_two_col(
-                    _tb(os.path.basename(fp), size=11.5, fg=_muted,
-                        wrap=False), _sz, top=5))
-            if len(files) > 12:
-                host.Children.Add(_tb(
-                    u"… and {} more".format(len(files) - 12),
-                    size=10.5, fg=_faint, margin=Thickness(0, 5, 0, 0)))
-        else:
-            host.Children.Add(_tb(
-                u"Add PDFs, documents, or other text to reference in this "
-                u"project.", size=11.5, fg=_faint,
-                margin=Thickness(0, 4, 0, 0)))
 
-        lnk = _tb(u"Open knowledge folder", size=11, fg=_blue, wrap=False,
+        # Linked external folders were never shown here, so the document list
+        # looked empty for projects whose knowledge lives on a share.
+        try:
+            for _d in (ps.get_knowledge_dirs(pid) or [])[:8]:
+                _missing = not os.path.isdir(_d)
+                _row = _tb(u"\U0001F517 " + (os.path.basename(_d.rstrip(u"\\/")) or _d)
+                           + (u"  (not found)" if _missing else u""),
+                           size=11, fg=_red if _missing else _faint,
+                           margin=Thickness(0, 4, 0, 0))
+                _row.ToolTip = _d
+                host.Children.Add(_row)
+        except Exception:
+            pass
+
+        lnk = _tb(u"Open knowledge folder", size=11.5, fg=_blue,
                   margin=Thickness(0, 8, 0, 0))
         lnk.Cursor = Cursors.Hand
         lnk.TextDecorations = TextDecorations.Underline
         lnk.MouseLeftButtonUp += (
             lambda s, ev: self._open_active_project_folder())
         host.Children.Add(lnk)
+
         _sep()
 
         # ── 4. Scheduled (daily prompts while the window is open) ─────────
-        sched = [t for t in (meta.get('scheduled') or []) if t]
-        add_panel = StackPanel()
-        add_panel.Visibility = Visibility.Collapsed
-        add_panel.Margin = Thickness(0, 8, 0, 0)
-        add_panel.Children.Add(_tb(u"PROMPT TO RUN", size=9, fg=_faint,
-                                   bold=True, margin=Thickness(2, 0, 0, 4)))
-        p_box = _input_box()
-        add_panel.Children.Add(p_box)
-        add_panel.Children.Add(_tb(u"DAILY AT (HH:MM)", size=9, fg=_faint,
-                                   bold=True, margin=Thickness(2, 8, 0, 4)))
-        t_box = _input_box(u"09:00")
-        t_box.Width = 80
-        t_box.HorizontalAlignment = HorizontalAlignment.Left
-        add_panel.Children.Add(t_box)
-
-        def _add_sched(s, ev):
-            try:
-                import time as _t
-                _p = (p_box.Text or u'').strip()
-                _m = re.match(r'^(\d{1,2}):(\d{2})$',
-                              (t_box.Text or u'').strip())
-                if not _p or not _m or int(_m.group(1)) > 23 \
-                        or int(_m.group(2)) > 59:
-                    (t_box if _p else p_box).BorderBrush = _red
-                    return
-                _items = list((ProjectStore().get_project(pid) or {})
-                              .get('scheduled') or [])
-                _items.append({
-                    'id': u's_{}'.format(int(_t.time() * 1000)),
-                    'prompt': _p,
-                    'time': u"{:02d}:{}".format(int(_m.group(1)),
-                                                _m.group(2)),
-                    'enabled': True,
-                    'last_run': u''})
-                ProjectStore().update_project(pid, {'scheduled': _items})
-            except Exception as _ex:
-                logger.debug("panel add schedule error: {}".format(_ex))
-            self._build_project_panel(pid)
-
-        _sched_row = StackPanel()
-        _sched_row.Orientation = Orientation.Horizontal
-        _sched_row.HorizontalAlignment = HorizontalAlignment.Right
-        _sched_row.Margin = Thickness(0, 8, 0, 0)
-        _sched_row.Children.Add(_small_btn(u"Add task", _add_sched,
-                                           primary=True))
-        add_panel.Children.Add(_sched_row)
-
-        def _toggle_sched(s, ev):
-            add_panel.Visibility = (
-                Visibility.Collapsed
-                if add_panel.Visibility == Visibility.Visible
-                else Visibility.Visible)
-
-        _section(u"Scheduled", _glyph_btn(u"", _toggle_sched,
-                                          tip=u"New scheduled task"))
-        if sched:
-            for it in sched:
+        _section(u"Scheduled prompts")
+        _sched = meta.get('scheduled') or []
+        if _sched:
+            for it in _sched:
                 _pv = u" ".join((it.get('prompt') or u'').split())
                 if len(_pv) > 70:
-                    _pv = _pv[:69] + u"…"
-
-                def _rm_sched(s, ev, _tid=it.get('id')):
-                    try:
-                        _items = [t for t in
-                                  ((ProjectStore().get_project(pid) or {})
-                                   .get('scheduled') or [])
-                                  if t.get('id') != _tid]
-                        ProjectStore().update_project(
-                            pid, {'scheduled': _items})
-                    except Exception:
-                        pass
-                    self._build_project_panel(pid)
-
-                host.Children.Add(_two_col(
-                    _tb(u"{} daily — {}".format(it.get('time') or u'?',
-                                                _pv),
-                        size=11.5, fg=_muted),
-                    _glyph_btn(u"", _rm_sched, tip=u"Remove")))
+                    _pv = _pv[:69] + u"\u2026"
+                _on = bool(it.get('enabled', True))
+                host.Children.Add(_tb(
+                    u"{} daily \u2014 {}{}".format(
+                        it.get('time') or u'?', _pv,
+                        u"" if _on else u"   (paused)"),
+                    size=11.5, fg=_muted if _on else _faint,
+                    margin=Thickness(0, 4, 0, 0)))
             host.Children.Add(_tb(
                 u"Runs once per day at the set time while the assistant "
                 u"window is open (skipped while a request is busy).",
                 size=10.5, fg=_faint, margin=Thickness(0, 8, 0, 0)))
         else:
             host.Children.Add(_tb(
-                u"Set up recurring daily prompts for this project — e.g. "
-                u'"get model warnings", "check chính tả". They run while '
-                u"the assistant window is open.", size=11.5, fg=_faint,
-                margin=Thickness(0, 4, 0, 0)))
-        host.Children.Add(add_panel)
+                u"None yet \u2014 add recurring daily prompts in LLMs Setting "
+                u"\u2192 Projects.", size=11.5, fg=_faint,
+                margin=Thickness(0, 6, 0, 0)))
 
     # ─── Scheduled prompts runner ─────────────────────────────────────────────
 
@@ -3828,12 +3359,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("_start_schedule_timer error: {}".format(ex))
 
     def _schedule_tick(self, sender, e):
-        """Fire at most ONE due scheduled prompt per tick. A task is due
-        when enabled, not yet run today and its HH:MM has passed. last_run
-        is stamped BEFORE sending so a slow request never double-fires."""
+        """Fire at most ONE due scheduled prompt per tick.
+
+        A task is due when enabled, not yet run today, and its HH:MM has
+        passed. The due test itself lives in ProjectStore.due_schedule so it is
+        testable without WPF and cannot drift from the settings UI.
+        """
         try:
             if self._busy:
                 return
+            # The tick drives the real composer: _process_input() snapshots
+            # staged attachments and the forced /skill, then clears both. Firing
+            # now would send the user's files with the scheduled prompt and wipe
+            # their chips. Wait for the next tick instead.
+            if getattr(self, '_attached_files', None):
+                return
+            if getattr(self, '_forced_skill_id', None):
+                return
+            if (self.chat_input.Text or u"").strip():
+                # A half-typed message would be swapped out and back; leave the
+                # user alone until the composer is idle.
+                return
+
             from config.project_store import ProjectStore
             import time as _t
             ps = ProjectStore()
@@ -3843,60 +3390,53 @@ class T3LabAssistantWindow(forms.WPFWindow):
             items = (ps.get_project(pid) or {}).get('scheduled') or []
             if not items:
                 return
-            now_hm = _t.strftime('%H:%M')
-            today = _t.strftime('%Y-%m-%d')
-            fired = None
-            for it in items:
-                if not it.get('enabled', True):
-                    continue
-                if it.get('last_run') == today:
-                    continue
-                if (it.get('time') or u'99:99') <= now_hm:
-                    it['last_run'] = today
-                    fired = it
-                    break
+            fired = ps.due_schedule(items, _t.strftime('%H:%M'),
+                                    _t.strftime('%Y-%m-%d'))
             if not fired:
                 return
-            ps.update_project(pid, {'scheduled': items})
-            draft = self.chat_input.Text
+
             self.chat_input.Text = fired.get('prompt') or u''
+            _before = self._request_id
             self._process_input()
-            try:
-                self.chat_input.Text = draft
-                self.chat_input.CaretIndex = len(draft or u"")
-            except Exception:
-                pass
+            # Stamp last_run ONLY if the turn actually started. It used to be
+            # written before sending, so a _process_input that returned early
+            # (busy re-check, an exception) marked the task done for the day
+            # without it ever reaching the model.
+            if self._request_id != _before:
+                ps.update_project(pid, {'scheduled': [
+                    dict(t, last_run=_t.strftime('%Y-%m-%d'))
+                    if t.get('id') == fired.get('id') else t
+                    for t in items]})
+            else:
+                self.chat_input.Text = u""
         except Exception as ex:
             logger.debug("_schedule_tick error: {}".format(ex))
-
     def _open_active_project_folder(self):
         """Open the active project's knowledge folder (files/) in Explorer —
         the drop target for PDF/DOCX/MD the RAG index answers from."""
         d = u""
         try:
-            import System.Diagnostics
             from config.project_store import ProjectStore
             ps = ProjectStore()
             pid = ps.get_active_project_id()
             if not pid:
+                self._append_bot_message(
+                    u"No active project — pick one from the project chip first.",
+                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
                 return
             d = os.path.join(ps.project_dir(pid), 'files')
-            if not os.path.isdir(d):
-                os.makedirs(d)
-            # explorer.exe + quoted path, never a bare Process.Start(dir):
-            # Revit 2025+ runs .NET 8 where UseShellExecute defaults to False,
-            # so passing a directory raises Win32Exception and the button
-            # silently does nothing (same trap as activity_log_clicked below).
-            System.Diagnostics.Process.Start(
-                u"explorer.exe", u'"{}"'.format(d))
+            # Shared opener: carries the .NET 8 UseShellExecute fallback this
+            # copy used to be missing.
+            if _open_in_explorer(d):
+                return
         except Exception as ex:
             logger.debug("_open_active_project_folder error: {}".format(ex))
-            try:
-                self._append_bot_message(
-                    u"Couldn't open the knowledge folder:\n`{}`".format(d),
-                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
-            except Exception:
-                pass
+        try:
+            self._append_bot_message(
+                u"Couldn't open the knowledge folder:\n`{}`".format(d),
+                icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+        except Exception:
+            pass
 
     def _project_popup_open_folder(self):
         try:
@@ -4096,22 +3636,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pid = ps.get_active_project_id()
             path = ps.activity_log_path(pid)
             folder = os.path.dirname(path)
-            if not os.path.isdir(folder):
-                try:
-                    os.makedirs(folder)
-                except Exception:
-                    pass
+            # Shared openers — both carry the shell fallbacks.
             if os.path.isfile(path):
-                System.Diagnostics.Process.Start(
-                    u"notepad.exe", u'"{}"'.format(path))
-            else:
-                System.Diagnostics.Process.Start(
-                    u"explorer.exe", u'"{}"'.format(folder))
+                if _open_file_shell(path):
+                    return
+            elif _open_in_explorer(folder):
+                return
+            raise RuntimeError(u"shell refused {}".format(path))
         except Exception as ex:
-            logger.error("activity_log_clicked error: {}".format(ex))
+            logger.error("activity_log_clicked error: {}".format(_exc_text(ex)))
             try:
                 self._append_bot_message(
-                    u"Could not open the activity log: {}".format(ex),
+                    u"Could not open the activity log.",
                     icon=_ICON_WARNING, icon_color=_ICON_AMBER)
             except Exception:
                 pass
@@ -4654,12 +4190,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             provider = router.get_active_provider()
             agent = KnowledgeAgent(embedder=embedder)
 
-            proj_instructions = u''
-            try:
-                from config.project_store import ProjectStore
-                proj_instructions = ProjectStore().get_active_prompt_addendum()
-            except Exception:
-                pass
+            # Same grounding as every other path. Remembered facts are project
+            # conventions ("sheet prefix is WH-"), so a knowledge answer must
+            # respect them too — this path only ever got the instructions half.
+            _p_instr, _p_mem = self._project_prompt_blocks()
+            proj_instructions = u"\n\n".join(
+                [b for b in (_p_instr, _p_mem) if b])
 
             skills_block = u''
             try:
@@ -4771,10 +4307,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._finish_cancelled(_rid)
                 return True
 
+            # Resolving a markup comment usually means applying THIS project's
+            # naming/annotation conventions, so the comment agent needs the
+            # same project grounding every other path gets. extra_context is
+            # already appended to its BỐI CẢNH block.
+            _p_instr, _p_mem = self._project_prompt_blocks()
+            _extra = u"\n\n".join([b for b in (_p_instr, _p_mem) if b])
+
             report = agent.analyze(
                 pdf_path, srv._execute_tool, provider, router,
                 progress_cb=self._safe_update_typing_text,
-                skills_block=skills_block)
+                skills_block=skills_block,
+                extra_context=_extra)
 
             # True, not False: False falls through to normal document analysis,
             # which would start fresh work right after the user pressed Stop.
@@ -5335,6 +4879,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             logger.debug("Failed to list server tools: {}".format(tool_err))
 
                         system_prompt = _build_system_prompt(revit_context=_ctx_block)
+                        # Project instructions + remembered facts. This path is
+                        # reached whenever the user attaches a document or RAG
+                        # returns a lot of context (see the native/legacy gate
+                        # above) — precisely when the project's conventions
+                        # matter — yet it carried NEITHER block until now.
+                        system_prompt = self._apply_project_blocks(system_prompt)
                         if server_tools_str:
                             system_prompt += server_tools_str
                         if _legacy_skills_block:
@@ -6284,12 +5834,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-        _proj_instructions = u""
-        try:
-            from config.project_store import ProjectStore
-            _proj_instructions = ProjectStore().get_active_prompt_addendum()
-        except Exception:
-            pass
+        _proj_instructions, _mem_block = self._project_prompt_blocks()
         _skills_block = u""
         try:
             if skill_ids:
@@ -6319,15 +5864,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # Persistent memory — facts saved in previous chats steer BOTH the
         # specialist and the default prompt path.
-        try:
-            from Intelligence import assistant_memory
-            from config.project_store import ProjectStore as _PS_mem
-            _mem_block = assistant_memory.build_memory_block(
-                _PS_mem().get_active_project_id())
-            if _mem_block:
-                system_prompt += u"\n\n" + _mem_block
-        except Exception:
-            pass
+        if _mem_block:
+            system_prompt += u"\n\n" + _mem_block
 
         # Project-knowledge grounding — inject a compact reference block so the
         # tool agent's ANSWERS and ACTIONS follow documented standards, not just

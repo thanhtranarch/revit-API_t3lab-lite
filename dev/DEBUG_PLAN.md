@@ -322,7 +322,21 @@ cú pháp py3-only, pyflakes, đối chiếu XAML handler ↔ Python (2 chiều)
 | B11–B17 | Dialog LLMs Setting: `Dispatcher.Invoke` cuối thread không guard (đóng window giữa lúc probe → crash); probe nền **ghi đè API key user đang dán**; nút Save Key **im lặng** khi ô đang hiện mask; đổi provider trong ~8s đầu không nạp model; cờ busy latch vĩnh viễn nếu thread không start; `-=`/`+=` handler không guard | `_ui_invoke`/`_start_worker` dùng chung; dirty-tracking (counter, không phải bool) + `force_fields`; Save Key re-validate key đã lưu; `_probe_pending` xếp hàng; un-latch khi start fail; `_prov_guard` thay cho detach/attach |
 | C18–C22 | Ollama hỏng đầu-cuối khi không dùng host mặc định: `set_host` chỉ ghi RAM; `get_active_model` đi qua `OLLAMA_HOST` module-level nên hỏi localhost (dot xanh "Ready" nhưng Test báo "No model selected"); `_get_text`/`_post_json` **bỏ qua tham số timeout** (WebClient không có timeout → ~100s .NET mặc định); `format:"json"` **hardcode cho MỌI call**; `get_status_instant` gọi HTTP **trên UI thread** | Lưu `Ollama_Host` (đối xứng LM Studio); `pick_best()` thuần + `_probe_tags` đúng host; `HttpWebRequest` có `.Timeout`; `format` **opt-in** theo `response_format`; `get_status_instant` đọc settings, không I/O |
 | D23–D29 | Router/settings: `probe_provider` không set `_status_ts`; `get_status` báo remote "available" chỉ vì **có key** (mâu thuẫn với `check_health` trong cùng dialog); 5 thread ghi dict chung không lock (IronPython không có GIL); `set_model` không refresh cache → chip model hiện model cũ; 4 setter ghi đè cả file từ dict cũ → **2 phiên Revit xoá key của nhau**; `_load_settings` fallback defaults với **mọi** lỗi đọc → 1 lần bật toggle trên file settings.json bị cụt là **mất sạch API key**; project override ghi đè provider mặc định toàn cục | TTL chỉ arm khi cache đủ provider; `check_health` thật + cờ `probed` (dot "Checking…"); lock cục bộ; refresh cache; `_update(mutator)` reload→patch→save cho mọi setter; phân biệt *thiếu file* / *parse lỗi* (quarantine `settings.corrupt-<stamp>.json`, giữ nguyên bytes) / *không đọc được* (từ chối ghi); `switch_provider(persist=False)` |
-| E30–E33 | `AssistantPaneController` (~350 dòng) + `AssistantPane.xaml` (~1370 dòng) là **code chết** — `SetupDockablePane` nạp thẳng full window nên `get_pane_controller()` luôn `None`; `show_assistant_pane` vẫn trả `{'success': True}` nên agent tưởng đã gửi message; Command Palette (~170 dòng XAML + bảng 50 lệnh) **không có nút nào mở được**; log context-menu ghi **mỗi lần right-click**, đồng bộ trên UI thread, không giới hạn dung lượng | Xoá code chết (user chốt); `message_injected: False` + note trung thực; **mở** Command Palette (nút composer + Ctrl+K); log tắt mặc định (`T3LAB_CTXMENU_DEBUG=1`) + cap 256KB |
+| E30–E33 | `AssistantPaneController` (~350 dòng) + `AssistantPane.xaml` (~1370 dòng) là **code chết** — `SetupDockablePane` nạp thẳng full window nên `get_pane_controller()` luôn `None`; `show_assistant_pane` vẫn trả `{'success': True}` nên agent tưởng đã gửi message; Command Palette (~170 dòng XAML + bảng 50 lệnh) **không có nút nào mở được**; log context-menu ghi **mỗi lần right-click**, đồng bộ trên UI thread, không giới hạn dung lượng | Xoá code chết (user chốt); `message_injected: False` + note trung thực; **xoá** Command Palette (xem ghi chú dưới); log tắt mặc định (`T3LAB_CTXMENU_DEBUG=1`) + cap 256KB |
+
+### Ghi chú — Command Palette: mở rồi xoá (2026-07-27)
+
+Ban đầu user chọn **mở** palette (thêm nút composer + Ctrl+K, commit `9da4b81`), sau đó
+đổi ý và yêu cầu **xoá hẳn khỏi khung chat**. Đã gỡ trọn bộ: khối XAML `cmd_palette`
+(~173 dòng) + `RowDefinition` của row 1 (thanh input lên `Grid.Row="1"`), nút
+`btn_cmd_palette`, bảng `_COMMANDS` (~50 lệnh) và 7 method palette, cùng
+`_window_preview_keydown` (chỉ phục vụ Ctrl+K/Esc của palette).
+
+Lý do kỹ thuật ủng hộ việc xoá: `_COMMANDS` là danh sách câu ví dụ **hardcode**, ngược
+hướng với `d8cdebd` ("Refactor capability overview with live registry validation") vốn
+đã thay catalog cứng bằng truy vấn registry sống — giữ lại sẽ lệch khỏi registry thật
+ngay lần đầu đổi tên tool. XAML và Python **phải xoá cùng commit**, vì `audit_tools.py`
+check #3 đối chiếu `Click=` ↔ method Python theo cả hai chiều.
 
 ### KHÔNG phải lỗi (đã kiểm tra — đừng "sửa")
 
@@ -346,51 +360,93 @@ log right-click ngừng phình.
 
 ---
 
-## 9. Đợt debug logic T3Lab Assistant (2026-07-28)
+## 9. Enhance Project + liên kết & tối ưu (2026-07-27)
 
-> Phạm vi user chốt: **tính logic của tool assistant và các vấn đề liên quan** — catalog tool,
-> launcher, định tuyến, ngôn ngữ, side effect lúc khởi động. Không đụng XAML.
+> Yêu cầu user: *"enhance project trong llms setting và toàn bộ khung chat t3lab
+> assistant, đảm bảo tính liên kết của các chức năng, và tối ưu hoá chúng"*.
+> Mức độ user chốt: **liên kết + tối ưu + lấp phần dở dang, không thêm năng lực
+> hoàn toàn mới**. Hướng: **LLMs Setting là nơi sửa duy nhất**.
 
-### Vì sao audit tĩnh không bắt được (lần nữa)
+### Phát hiện nặng nhất: phạm vi project không tới được model đúng lúc cần
 
-3 audit + 5 test suite đều xanh trước đợt này. Cả 4 nhóm lỗi dưới đây đều là **dữ liệu
-tĩnh nói dối về thực tế trên đĩa** — không có lỗi cú pháp, không có import hỏng, không có
-handler thiếu. Chỉ đối chiếu từng đường dẫn với `os.path.exists()` mới lộ ra.
+Cả 5 provider đều `SUPPORTS_NATIVE_TOOLS = True`, nên đường **legacy** JSON không
+phải fallback hiếm cho model local — nó được chọn khi **có attachment** hoặc
+`rag_context` lớn. Mà đường legacy dựng system prompt **không có** project
+instructions lẫn memory (đường native thì có cả hai). Tức là: **đính kèm tài liệu
+dự án → mất sạch quy ước của project**, đúng ngay lúc chúng quan trọng nhất.
 
-### Nhóm lỗi đã sửa
+Đã gộp về một helper `_project_prompt_blocks()` và tiêm vào **mọi** đường:
+legacy, native, knowledge agent (trước chỉ có instructions, thiếu memory) và
+comment agent (trước không có gì). Test khoá lại: chỉ còn **một** chỗ gọi
+`get_active_prompt_addendum()` trong toàn file.
 
-| # | Lỗi | Sửa |
-|---|-----|-----|
-| G1 | **Catalog tool nói dối**: 10 intent mở tool được quảng cáo cho LLM; 7 trỏ tới pushbutton **không còn tồn tại** (ParaSync, ProjectName, Workset, DimText, UpperAll, Reset Overrides, Beam), `open_grids` không có launcher nào, `open_loadfamily_cloud` trùng khít `open_loadfamily` (`show_family_manager` chỉ có tab 0/1, không có tab cloud). Catalog bị nhân bản ở **10 bảng trong 5 module**, không bảng nào đối chiếu với đĩa | `TOOL_LAUNCHERS` giữ BatchOut + Family Loader, phần còn lại sinh từ registry `tool_discovery`, loại mọi intent không có script trên đĩa và ghi vào activity log. `_BUILTIN_TOOLS`, bảng trigger/threshold/label/message của `nlu_engine`, `AVAILABLE_INTENTS` của `t3lab_agent`, prompt local model — đều rút về 2 launcher đặc biệt + đọc registry |
-| G2 | **`make_generic_launcher` báo thành công dối** — đường đi của **mọi** tool auto-discovered: nạp script bằng `imp.load_source` tên `_auto_<title>`, nên khối `if __name__ == '__main__':` mà **36/42 pushbutton** dùng không bao giờ chạy; vẫn `return True`. Kèm 4 launcher hardcode chỉ `import` rồi `return mod is not None` | `run_tool_script()` exec source với `__name__='__main__'` (đọc **bytes** — Python 2 từ chối coding declaration trong unicode source), trả `(ok, error_text)`; nhánh `imp` chỉ tính thành công khi **thật sự** `ShowDialog()` được; `SystemExit` = thành công |
-| G3 | `_SKIP_BUTTONS` loại `PropertyLine.pushbutton` với lý do "đã hardcode trong TOOL_LAUNCHERS" — nhưng nó **tồn tại thật** và **chưa bao giờ** có trong `TOOL_LAUNCHERS` → assistant hoàn toàn không với tới được. `discover_new_tools` chỉ thêm, không bao giờ xoá → pushbutton bị đổi tên/xoá nằm lại registry vĩnh viễn | Skip list còn đúng hạ tầng + 2 launcher đặc biệt; `discover_new_tools` prune entry không còn script |
-| G4 | **Song ngữ chết một nửa**: `_is_viet_text` khoá `return False` (2026-07-18) khiến 57 nhánh `if viet:` chỉ chạy vế Anh — nhưng chuỗi tiếng Việt viết KHÔNG có nhánh vẫn hiện (`/memory`, thông báo tải model, toàn bộ `AssistantCards`, xác nhận spellcheck). Một nhánh `if/else` có **hai vế giống hệt nhau**. Prompt cũng mâu thuẫn: `agent_loop` ép tiếng Anh trong khi ví dụ của `t3lab_assistant` phát ra tiếng Việt; prompt knowledge agent viết bằng tiếng Việt kèm dòng "always answer in English" | Setting `agents.reply_language` (`auto`/`vi`/`en`, mặc định auto-detect); `_note_user_language` ghi nhớ ngôn ngữ mỗi lượt để chuỗi không thuộc lượt nào (card, thông báo nền) đi theo; `AssistantCards` có đủ 2 biến thể; `build_agent_system_prompt` / `build_specialist_prompt` / `KnowledgeAgent.answer` / prompt pane nhận cùng tham số ngôn ngữ |
-| G5 | **Khởi động chạy ngầm không xin phép**: `_bg_startup_probe` spawn `ollama serve` bằng `subprocess.Popen` và POST `/api/pull` tải `qwen2.5:1.5b` (timeout 600s) — tiến trình nền + ~1 GB tải về, không hỏi, không huỷ được, mọi lỗi nuốt trong `except Exception: logger.debug`. Ngay bên dưới, nhánh knowledge embeddings đã ghi đúng chuẩn ("the ~270 MB pull is never triggered silently") | `_offer_local_engine` chỉ **mời**, hành động nằm sau cú click; từ chối được nhớ (`agents.local_engine_declined`); không mời khi đã có cloud provider hoặc chưa cài Ollama. `_append_action_chips` gọi thẳng handler (khác `_append_quick_replies` vốn đẩy text qua LLM). Lỗi của các bước còn lại ra activity log |
-| G6 | `_exec_tool` closure lên `doc_guard` được gán **sau 50 dòng** — chạy được chỉ nhờ thứ tự gọi; đổi thứ tự là `NameError` ngay tool call đầu tiên | Khai báo `doc_guard` trước `_exec_tool` |
-| G7 | **Carryover quá lỏng**: `'?' in last_bot[-250:] and len(raw) <= 80` — dấu hỏi ở **bất kỳ đâu** trong 250 ký tự cuối đều tính, và 80 ký tự đủ chứa một lệnh mới. "tô vàng sàn" (13 ký tự) qua cả hai, chỉ còn escape hatch keyword chặn — một lớp duy nhất | `routing.is_continuation()`: tin cuối của bot phải **kết thúc** bằng câu hỏi, và câu trả lời phải **có dạng câu trả lời** (số thứ tự, chọn phương án, từ đồng ý, hoặc cụm danh từ ngắn không mang động từ hành động — lấy bảng động từ từ chính dispatcher) |
-| G8 | Learned pattern (Jaccard ≥ 0.8) chạy **trước** NLU và cướp lượt vô điều kiện → mapping cũ thắng cả khi NLU đọc đúng catalog hiện tại; mapping học cho tool đã đổi tên vẫn thắng | Tính NLU trước, `routing.learned_pattern_wins()` phân xử: pattern chỉ thắng khi NLU không có ý kiến hoặc cả hai đồng ý |
+### Liên kết (một nguồn sự thật)
+
+| Trước | Sau |
+|---|---|
+| Sửa project được ở **2 nơi** với hình dạng ghi khác nhau (panel patch riêng `instructions`; dialog luôn ghi đè cả `name/instructions/provider/model`) | Panel khung chat **chỉ-xem** + nút "Edit in LLMs Setting"; mọi chỉnh sửa dồn về tab Projects |
+| Memory facts **chỉ** quản lý được trong panel | Chuyển vào tab Projects (`_render_project_memory`) — panel read-only nên phải có nhà mới |
+| Panel chỉ `os.walk` `files/` → **sai lệch** khi project có linked folder | Panel hiện cả linked folders |
+| 3 đường đổi scope reset 3 tập state khác nhau; `_activate_project` để lại `_stream_row`/`_typing_row` mồ côi (đúng lỗi đã sửa cho `reset_chat_clicked` đợt trước) | Một `_reset_session_state()` dùng chung cho cả 3 |
+| Xoá project đang hoạt động trong dialog → `_persist_message` kế tiếp **ghi transcript cũ vào lịch sử global** | `_refresh_after_settings(scope_before=...)` phát hiện đổi scope → re-scope history + rebuild panel |
+| Override provider của project chỉ áp lúc kích hoạt; rời project **không hoàn nguyên** | `_apply_project_provider()` nhớ provider trước đó và khôi phục khi rời |
+| 4 bản `os.walk` đếm tài liệu, 3 ngưỡng khác nhau, chỉ 1 bản tính linked folder | `ProjectStore.count_documents()` / `describe_documents()` dùng chung, có cache |
+| 2 bảng màu brand provider, 2 bản mở Explorer (**bản khung chat thiếu fallback .NET 8** → nút chết trên Revit 2025+) | `lib/GUI/AssistantShared.py` |
+| Lịch: regex + sinh id + record shape nhân bản ở 2 nơi | `ProjectStore.validate_schedule_time/add/remove/set_enabled/due_schedule` (`due_schedule` thuần → test được không cần WPF) |
+
+### Tối ưu I/O
+
+`get_project()` đọc `project.json` **mỗi lần gọi** (18 call site), `list_projects()`
+đọc **toàn bộ** project.json mỗi lần gọi. Thêm cache theo `(mtime, size)`:
+
+- **50× `get_project` → 1 lần đọc đĩa** (trước: 50); **10× `list_projects` → 0**.
+- Vẫn thấy sửa từ session Revit khác (key theo mtime), và trả về **bản sao** —
+  caller có mutate (tick đóng dấu `last_run`) cũng không bẩn cache.
+- Chữa luôn: tick 30 giây đọc đĩa trên UI thread, mở popup project (2N đọc JSON +
+  N `os.walk`), ≥3 lần đọc lặp mỗi lượt chat.
+- `_root()` mkdir một lần; `_store_cache` invalidate khi `update_project`
+  (trước KnowledgeStore giữ `source_dirs` cũ).
+
+### Lấp phần dở dang
+
+- **`skills_disabled`**: ghi vào mọi `project.json` từ khi có project nhưng
+  **không ai đọc**. Nối vào `skills_engine._disabled()` theo kiểu **hợp nhất**
+  global ∪ project — project được thu hẹp, không được bật lại thứ user đã tắt.
+- **`scheduled[].enabled`**: tick có đọc nhưng **không UI nào ghi** → thêm toggle
+  trong tab Projects.
+- **`last_run`**: trước đóng dấu **trước** khi gửi, nên `_process_input` thoát sớm
+  là task bị coi như đã chạy mà chưa tới model. Nay chỉ đóng dấu khi lượt đã thực
+  sự bắt đầu (`_request_id` đổi), và hiện `last_run` trong tab.
+- **Tick cướp input**: `_process_input` snapshot attachment + `/skill` rồi xoá →
+  lịch chạy lúc user đang stage file sẽ gửi kèm file của họ. Nay hoãn tick khi
+  composer có attachment / forced skill / text đang gõ.
+- **Lịch chỉ chạy cho project đang hoạt động** nhưng tab cho thêm vào bất kỳ
+  project → thêm cảnh báo rõ trong tab.
+- **`created`**: lưu mà chưa bao giờ hiện → tooltip ô tên project.
+- **`PROJECT_CONTEXT.md`** được ghi vào `files/` mà `files/` **chính là nguồn RAG**
+  → bản tóm tắt LLM tự sinh bị index lại thành "bằng chứng dự án" và tự trích dẫn
+  chính nó. Thêm `GENERATED_DOCS` loại trừ khỏi `scan()` và khỏi `count_documents`.
+- **`skills_engine`** đọc thẳng `settings.get_active_project()`, bỏ qua kiểm tra
+  id chết → đi qua `ProjectStore.get_active_project_id()`.
+
+### Sửa lỗi sai sự thật
+
+`_project_overview_text` nói chats + attachments + logs đều "separate per Revit
+document". Thực tế **chỉ chats** theo document (`history_path`); attachments và
+logs theo **ngày**. Câu này hiện tách đúng hai ý.
 
 ### Regression
 
-Thêm `dev/test_assistant_routing.py` (99 check, CPython3): launcher chạy thật, catalog khớp
-đĩa, phát hiện ngôn ngữ, thang định tuyến, và **các cặp tranh chấp precedence của dispatcher**
-(`đổi model` → multi_doc chứ không phải action; `bản vẽ` không tính là động từ `vẽ`; `tô đỏ`
-chỉ khớp khi có dấu) — trước đây hoàn toàn không có test, sửa bảng từ khoá là âm thầm phá tuning.
-Kèm một **drift check** fail ngay khi bất kỳ prompt tĩnh nào nhắc một intent `open_*` không phải
-launcher đặc biệt, không có trong registry, và cũng không phải tool MCP.
+`dev/test_assistant_llm.py` lên **7 nhóm test mới** (tổng 44 → 76 check): cache
+meta + invalidate + copy-semantics + external edit, API lịch + `due_schedule`,
+đếm tài liệu, loại trừ `PROJECT_CONTEXT.md`, `skills_disabled` + stale id, cả hai
+đường prompt mang project scope, và một-nơi-sửa-duy-nhất. Test cuối **bắt được
+lỗi thật**: `_run_knowledge_agent` vẫn lấy instructions riêng và thiếu memory.
 
-`dev/test_knowledge.py` khẳng định prompt knowledge chỉ-tiếng-Việt cũ → đã cập nhật cho cả 2 ngôn ngữ.
-Toàn bộ 5 test suite + 3 audit xanh.
+3 audit + 3 test suite xanh.
 
-### Còn lại cần QA trong Revit (không tự bịa kết quả — chờ user xác nhận)
-
-1. `mở workset` → mở **ManaWorkset** thật, không phải lỗi console.
-2. `mở property line` → mở PropertyLine (trước đợt này hoàn toàn không với tới được).
-3. `mở parasync` → trả lời trung thực "không có tool này" + gợi ý tool gần nhất.
-4. **Mọi tool auto-discovered giờ CHẠY THẬT** thay vì no-op im lặng — cần smoke test vài tool;
-   một số có thể lộ lỗi vốn bị che.
-5. Gõ tiếng Việt → toàn bộ reply (kể cả tool card, confirm card) tiếng Việt; gõ tiếng Anh → toàn Anh.
-6. Máy chưa cài/chưa chạy Ollama → thấy lời mời có nút, **không** tự tải model.
-7. Assistant hỏi lại → trả lời ngắn ("1", "toàn bộ project") → tiếp đúng mạch;
-   gõ lệnh mới ngay sau câu hỏi → route mới, không lặp lại việc cũ.
-8. Undo hoàn tác trọn TransactionGroup sau một lệnh sửa model.
+**Cần QA trong Revit**: đính kèm PDF khi có project → trả lời tôn trọng project
+instructions · panel chỉ-xem + nút Edit mở đúng tab/project · đổi project giữa lúc
+chat không để lại bubble mồ côi · xoá project đang hoạt động rồi gửi tin → không
+ghi transcript cũ vào lịch sử global · toggle bật/tắt lịch · lịch không cướp
+attachment đang stage · mở popup project với nhiều project phải tức thì.

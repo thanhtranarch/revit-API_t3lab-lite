@@ -1473,6 +1473,16 @@
                                     Content="Open knowledge folder" Click="project_open_folder_clicked"
                                     ToolTip="Open the project's knowledge folder in Explorer"/>
 
+                            <!-- Remembered facts (project scope).
+                                 Moved here from the chat window's project panel
+                                 when that panel became read-only — this is now
+                                 the only place a project is edited. -->
+                            <TextBlock Text="REMEMBERED FACTS" Style="{StaticResource FieldLabel}"/>
+                            <TextBlock Text="Facts the assistant recalls in this project. Say &quot;remember ...&quot; in chat to add one."
+                                       FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
+                                       Margin="1,0,0,6"/>
+                            <StackPanel x:Name="project_memory_panel" Margin="0,0,0,14"/>
+
                             <!-- Scheduled daily prompts -->
                             <TextBlock Text="SCHEDULED (DAILY PROMPTS)" Style="{StaticResource FieldLabel}"/>
                             <TextBlock Text="Run automatically at the set time while the assistant window is open."

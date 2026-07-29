@@ -45,43 +45,10 @@ except Exception:
         return ''
 
 
-def _open_in_explorer(path):
-    """Open a folder in Explorer. Returns True on success.
-
-    NEVER use a bare Process.Start(folder) here: Revit 2025+ runs on .NET 8,
-    where ProcessStartInfo.UseShellExecute defaults to FALSE, so handing it a
-    directory (or any non-executable) raises Win32Exception instead of asking
-    the shell to open it. Under Revit 2023 (.NET Framework 4.8) the same call
-    works, which is why this looks machine-specific. Combined with a
-    `except Exception: logger.debug(...)`, the button silently did nothing —
-    the exact failure already documented for the activity-log button in
-    T3LabAssistant/script.py.
-
-    explorer.exe always exists and takes a quoted path on both runtimes.
-    """
-    try:
-        import System.Diagnostics as _diag
-        if not path:
-            return False
-        if not os.path.isdir(path):
-            try:
-                os.makedirs(path)
-            except Exception:
-                return False
-        _diag.Process.Start(u"explorer.exe", u'"{}"'.format(path))
-        return True
-    except Exception as ex:
-        logger.debug("_open_in_explorer({}) failed: {}".format(path, ex))
-    # last resort: shell-execute the path explicitly
-    try:
-        import System.Diagnostics as _diag
-        psi = _diag.ProcessStartInfo(path)
-        psi.UseShellExecute = True
-        _diag.Process.Start(psi)
-        return True
-    except Exception as ex:
-        logger.debug("_open_in_explorer fallback failed: {}".format(ex))
-    return False
+# Shared with the chat window — one implementation, so the .NET 8 shell
+# fallback can never be present in one surface and missing in the other.
+from GUI.AssistantShared import (open_in_explorer as _open_in_explorer,
+                                 PROVIDER_COLORS as _SHARED_PROVIDER_COLORS)
 
 
 def _brush(r, g, b):
@@ -94,17 +61,16 @@ _MUTED  = _brush(161, 161, 170)
 _GREEN  = _brush(16, 185, 129)
 _RED    = _brush(239, 68, 68)
 
+# Segoe MDL2 Assets "Cancel" (U+E711) — the remove/forget glyph on project
+# rows. Named because it renders BLANK in a terminal, which has already led
+# to it being mistaken for an empty string and "fixed" away.
+_GLYPH_CANCEL = u""
+
 
 class LLMSettingWindow(forms.WPFWindow):
     """Standalone dialog for LLM provider / model / API key / connection setup."""
 
-    _BRAND_COLORS = {
-        "claude":   (217, 119,  87),
-        "openai":   ( 16, 163, 127),
-        "deepseek": ( 37,  99, 235),
-        "ollama":   ( 59, 130, 246),
-        "lmstudio": (124,  58, 237),
-    }
+    _BRAND_COLORS = _SHARED_PROVIDER_COLORS
     _PROV_INDEX = {"claude": 0, "openai": 1, "deepseek": 2, "ollama": 3, "lmstudio": 4}
 
     _KEY_PROVIDERS = ("claude", "openai", "deepseek")
@@ -1023,8 +989,18 @@ class LLMSettingWindow(forms.WPFWindow):
                     self.project_model_box.Text = meta.get('model') or u''
                 except Exception:
                     pass
+                # `created` has been stored since projects existed but was
+                # never shown anywhere — put it on the name field's tooltip.
+                try:
+                    _c = meta.get('created') or u''
+                    self.project_name_box.ToolTip = (
+                        u"Created {}".format(_c.replace(u'T', u' '))
+                        if _c else None)
+                except Exception:
+                    pass
                 self._update_project_files_status(pid)
                 self._render_project_dirs(pid)
+                self._render_project_memory(pid)
                 self._render_project_sched(pid)
             else:
                 self.project_edit_panel.Visibility = Visibility.Collapsed
@@ -1108,40 +1084,13 @@ class LLMSettingWindow(forms.WPFWindow):
         return d
 
     def _update_project_files_status(self, pid):
+        """One shared, cached counter — no private os.walk, and the linked
+        folders' digest sidecars are read once per refresh instead of once here
+        and again for every row in _render_project_dirs."""
         try:
-            n = 0
-            for _r, _s, _fs in os.walk(self._project_files_dir(pid)):
-                n += len(_fs)
-                if n > 99:
-                    break
-            txt = u"{} file{} in the knowledge folder".format(
-                u"99+" if n > 99 else n, u"" if n == 1 else u"s")
-            # Linked folders are NOT walked here (they may be big network
-            # shares and this runs on the UI thread) — the exact document
-            # count is read back from each folder's context/ digest instead.
-            try:
-                from config.project_store import ProjectStore
-                from Intelligence.knowledge import context_digest
-                dirs = ProjectStore().get_knowledge_dirs(pid)
-                if dirs:
-                    docs = 0
-                    unscanned = 0
-                    for d in dirs:
-                        st = context_digest.read_context_stats(d)
-                        if st.get('exists'):
-                            docs += st.get('files') or 0
-                        else:
-                            unscanned += 1
-                    txt += u" + {} linked folder{}".format(
-                        len(dirs), u"" if len(dirs) == 1 else u"s")
-                    if docs:
-                        txt += u" ({} doc{} indexed)".format(
-                            docs, u"" if docs == 1 else u"s")
-                    if unscanned:
-                        txt += u" · {} not scanned yet".format(unscanned)
-            except Exception:
-                pass
-            self.project_files_status.Text = txt
+            from config.project_store import ProjectStore
+            self.project_files_status.Text = (
+                ProjectStore().describe_documents(pid, cap=99))
         except Exception as ex:
             logger.debug("_update_project_files_status error: {}".format(ex))
 
@@ -1545,6 +1494,82 @@ class LLMSettingWindow(forms.WPFWindow):
 
     # ── Projects: scheduled daily prompts ────────────────────────────────────
 
+    def _render_project_memory(self, pid):
+        """Remembered facts for this project, with a per-row forget button.
+
+        The chat window's project panel used to be the ONLY place these could
+        be managed; it is read-only now, so this is their home.
+        """
+        try:
+            from System.Windows.Controls import (Grid, ColumnDefinition,
+                                                 TextBlock)
+            from System.Windows import Thickness, GridLength, TextWrapping
+            from System.Windows.Input import Cursors
+            from Intelligence import assistant_memory as _am
+
+            panel = self.project_memory_panel
+            panel.Children.Clear()
+            facts = _am.list_facts(pid)
+            proj = [(i + 1, f) for i, (s, f) in enumerate(facts)
+                    if s == _am.PROJECT_SCOPE]
+            n_global = len(facts) - len(proj)
+
+            if not proj:
+                t = TextBlock()
+                t.Text = u"No facts remembered for this project yet."
+                t.FontSize = 11
+                t.Foreground = _MUTED
+                t.Margin = Thickness(1, 0, 0, 4)
+                panel.Children.Add(t)
+            for number, f in proj:
+                g = Grid()
+                g.Margin = Thickness(1, 2, 0, 2)
+                g.ColumnDefinitions.Add(ColumnDefinition())
+                c1 = ColumnDefinition()
+                c1.Width = GridLength.Auto
+                g.ColumnDefinitions.Add(c1)
+
+                lbl = TextBlock()
+                lbl.Text = f.get('text') or u''
+                lbl.FontSize = 12
+                lbl.Foreground = _brush(82, 82, 91)
+                lbl.TextWrapping = TextWrapping.Wrap
+                g.Children.Add(lbl)
+
+                x = TextBlock()
+                x.Text = _GLYPH_CANCEL
+                x.FontFamily = System.Windows.Media.FontFamily(
+                    "Segoe MDL2 Assets")
+                x.FontSize = 10
+                x.Foreground = _MUTED
+                x.Cursor = Cursors.Hand
+                x.Margin = Thickness(10, 2, 2, 0)
+                x.ToolTip = u"Forget this fact"
+
+                def _forget(s, ev, _n=number, _pid=pid):
+                    try:
+                        from Intelligence import assistant_memory as _m
+                        _m.remove_fact(_n, _pid)
+                    except Exception as fex:
+                        logger.debug("forget fact error: {}".format(fex))
+                    self._render_project_memory(_pid)
+
+                x.MouseLeftButtonUp += _forget
+                Grid.SetColumn(x, 1)
+                g.Children.Add(x)
+                panel.Children.Add(g)
+
+            if n_global:
+                t = TextBlock()
+                t.Text = (u"+ {} global fact(s) apply to every project."
+                          .format(n_global))
+                t.FontSize = 10.5
+                t.Foreground = _MUTED
+                t.Margin = Thickness(1, 6, 0, 0)
+                panel.Children.Add(t)
+        except Exception as ex:
+            logger.debug("_render_project_memory error: {}".format(ex))
+
     def _render_project_sched(self, pid):
         """Rebuild the scheduled-prompt rows for the selected project."""
         try:
@@ -1566,21 +1591,77 @@ class LLMSettingWindow(forms.WPFWindow):
                 t.Margin = Thickness(1, 0, 0, 4)
                 panel.Children.Add(t)
                 return
+            # Scheduled prompts only ever run for the ACTIVE project — the
+            # tick lives in the chat window and reads only the active id. This
+            # tab edits any project, so say so rather than let the user believe
+            # an inactive project's schedule will fire.
+            try:
+                if ProjectStore().get_active_project_id() != pid:
+                    note = TextBlock()
+                    note.Text = (u"These run only while this project is the "
+                                 u"active one, with the assistant open.")
+                    note.FontSize = 10.5
+                    note.Foreground = _brush(217, 119, 87)
+                    note.TextWrapping = TextWrapping.Wrap
+                    note.Margin = Thickness(1, 0, 0, 6)
+                    panel.Children.Add(note)
+            except Exception:
+                pass
+
+            from System.Windows.Controls import CheckBox
             for it in items:
                 g = Grid()
                 g.Margin = Thickness(1, 2, 0, 2)
+                c_on = ColumnDefinition()
+                c_on.Width = GridLength.Auto
+                g.ColumnDefinitions.Add(c_on)
                 g.ColumnDefinitions.Add(ColumnDefinition())
                 c1 = ColumnDefinition()
                 c1.Width = GridLength.Auto
                 g.ColumnDefinitions.Add(c1)
+
+                _on = bool(it.get('enabled', True))
+
+                # `enabled` was read by the schedule tick but nothing could
+                # ever write it — this toggle is what makes the field real.
+                cb = CheckBox()
+                cb.IsChecked = _on
+                cb.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                cb.Margin = Thickness(0, 0, 8, 0)
+                cb.ToolTip = u"Enable / pause this scheduled prompt"
+                try:
+                    cb.Style = self.FindResource("T3ToggleSwitch")
+                    cb.LayoutTransform = System.Windows.Media.ScaleTransform(
+                        0.6, 0.6)
+                except Exception:
+                    pass
+
+                def _toggle(s, ev, _tid=it.get('id'), _pid=pid):
+                    try:
+                        from config.project_store import ProjectStore as _PS
+                        _PS().set_schedule_enabled(_pid, _tid,
+                                                   bool(s.IsChecked))
+                    except Exception as tex:
+                        logger.debug("sched toggle error: {}".format(tex))
+                    self._render_project_sched(_pid)
+                cb.Checked += _toggle
+                cb.Unchecked += _toggle
+                Grid.SetColumn(cb, 0)
+                g.Children.Add(cb)
+
                 _pv = u" ".join((it.get('prompt') or u'').split())
                 if len(_pv) > 60:
-                    _pv = _pv[:59] + u"…"
+                    _pv = _pv[:59] + u"\u2026"
+                _last = it.get('last_run') or u''
                 lbl = TextBlock()
-                lbl.Text = u"{} — {}".format(it.get('time') or u'?', _pv)
+                lbl.Text = u"{} \u2014 {}{}".format(
+                    it.get('time') or u'?', _pv,
+                    u"   (last run {})".format(_last) if _last else u"")
                 lbl.FontSize = 12
-                lbl.Foreground = _brush(82, 82, 91)
+                lbl.Foreground = _brush(82, 82, 91) if _on else _MUTED
                 lbl.TextWrapping = TextWrapping.Wrap
+                lbl.VerticalAlignment = System.Windows.VerticalAlignment.Center
+                Grid.SetColumn(lbl, 1)
                 g.Children.Add(lbl)
 
                 x = TextBlock()
@@ -1596,17 +1677,13 @@ class LLMSettingWindow(forms.WPFWindow):
                 def _rm(s, ev, _tid=it.get('id'), _pid=pid):
                     try:
                         from config.project_store import ProjectStore as _PS
-                        _items = [t2 for t2 in
-                                  ((_PS().get_project(_pid) or {})
-                                   .get('scheduled') or [])
-                                  if t2.get('id') != _tid]
-                        _PS().update_project(_pid, {'scheduled': _items})
-                    except Exception:
-                        pass
+                        _PS().remove_schedule(_pid, _tid)
+                    except Exception as rex:
+                        logger.debug("sched remove error: {}".format(rex))
                     self._render_project_sched(_pid)
 
                 x.MouseLeftButtonUp += _rm
-                Grid.SetColumn(x, 1)
+                Grid.SetColumn(x, 2)
                 g.Children.Add(x)
                 panel.Children.Add(g)
         except Exception as ex:
@@ -1618,28 +1695,26 @@ class LLMSettingWindow(forms.WPFWindow):
             pid = self._selected_project_id()
             if not pid:
                 return
-            import re as _re
-            import time as _time
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
             prompt = (self.project_sched_prompt_box.Text or u'').strip()
-            m = _re.match(r'^(\d{1,2}):(\d{2})$',
-                          (self.project_sched_time_box.Text or u'').strip())
-            if not prompt or not m or int(m.group(1)) > 23 \
-                    or int(m.group(2)) > 59:
+            time_txt = (self.project_sched_time_box.Text or u'').strip()
+            # Validation + record shape live in the store, so the chat window
+            # and this tab can never drift apart on what a schedule looks like.
+            hhmm = ps.validate_schedule_time(time_txt)
+            if not prompt or not hhmm:
                 (self.project_sched_time_box if prompt
                  else self.project_sched_prompt_box).BorderBrush = _RED
+                self.project_files_status.Text = (
+                    u"Enter a prompt and a time as HH:MM (00:00–23:59)."
+                    if prompt else u"Enter the prompt to run.")
                 return
             self.project_sched_prompt_box.BorderBrush = _brush(203, 213, 225)
             self.project_sched_time_box.BorderBrush = _brush(203, 213, 225)
-            from config.project_store import ProjectStore
-            items = list((ProjectStore().get_project(pid) or {})
-                         .get('scheduled') or [])
-            items.append({
-                'id': u's_{}'.format(int(_time.time() * 1000)),
-                'prompt': prompt,
-                'time': u"{:02d}:{}".format(int(m.group(1)), m.group(2)),
-                'enabled': True,
-                'last_run': u''})
-            ProjectStore().update_project(pid, {'scheduled': items})
+            if ps.add_schedule(pid, prompt, hhmm) is None:
+                self.project_files_status.Text = (
+                    u"Could not save the scheduled prompt.")
+                return
             self.project_sched_prompt_box.Text = u''
             self._render_project_sched(pid)
         except Exception as ex:
