@@ -3,8 +3,11 @@
 [![Revit Version](https://img.shields.io/badge/Revit-2020%2B-blue.svg)](https://www.autodesk.com/products/revit/overview)
 [![pyRevit](https://img.shields.io/badge/pyRevit-4.8%2B-orange.svg)](https://github.com/eirannejad/pyRevit)
 [![IronPython](https://img.shields.io/badge/IronPython-2.7-lightgrey.svg)](https://ironpython.net/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-T3Lab is an advanced BIM Automation and Intelligence framework for Autodesk Revit, built on the **T3Lab Master Architecture System (MAS)**. It bridges traditional BIM workflows with modern AI and batch automation.
+T3Lab is a BIM automation and intelligence framework for Autodesk Revit, built on the **T3Lab Master Architecture System (MAS)**. It bridges traditional BIM workflows with AI assistance and batch automation.
+
+Tools are consolidated rather than scattered: instead of dozens of single-purpose buttons, related workflows are merged into unified `Mana*` managers (ManaAnno, ManaSelect, ManaSheets, …) — one window, tabbed modes, shared state.
 
 ---
 
@@ -14,98 +17,81 @@ Three layers form a self-sustaining ecosystem for architectural intelligence:
 
 | Layer | Description |
 |-------|-------------|
-| **Intelligence** | T3Lab Assistant with NLU engine, local LLM (Ollama), and RAG processing |
-| **Execution** | Ribbon-integrated tools organized by discipline (Annotation, Project, Export) |
-| **Data Fabric** | Vercel cloud API for family management and metadata; hybrid local/cloud storage |
+| **Intelligence** | T3Lab Assistant with NLU engine, multi-provider LLM routing (Claude, OpenAI, DeepSeek, Ollama, LM Studio) and RAG over Revit API knowledge |
+| **Execution** | Ribbon-integrated tools organized by discipline across 7 panels |
+| **Data Fabric** | MCP server bridge for external agents; Vercel cloud API for family metadata; hybrid local/cloud storage |
 
 ---
 
-## Tools by Panel
+## Ribbon: T3Lab Tab
 
-### AI Connection Panel
+The tab exposes **7 panels**. Buttons marked *(DQT)* were developed in collaboration with Dang Quoc Truong.
+
+### Standard
 
 | Tool | Description |
 |------|-------------|
-| **T3Lab Assistant** | Natural language AI assistant — control Revit via Vietnamese/English chat, powered by Claude API or Ollama. |
-| **Start MCP** | Starts the thread-safe local MCP server with dynamic port allocation (starting at `48884`) and pyRevit routes integration. |
-| **Stop MCP** | Stops the running MCP server and deactivates pyRevit routes. |
-| **Settings** | Configure API keys, backend options, and copy dynamically-updating Claude Desktop/Cline JSON config snippets. |
+| **Auto Work** | Automation recorder & player — quick click at a fixed coordinate, or record and replay a full mouse sequence with timing. |
+| **UI Showcase** | Reference window for the T3Lab Lumina design standard (palette, typography, buttons, inputs). |
 
----
+### Annotation & Select
 
-### Annotation Panel
+| Tool | Description |
+|------|-------------|
+| **Mana Anno** | Unified Find / Remove / Rename manager for Dimensions and Text Notes. *(DQT)* |
+| **Auto Dimension** | Automatic dimension chains for walls, columns, doors, lifts and grids in the active or a chosen view. |
+| **Mana DWG** | CAD import and CAD link manager — list, rename and delete DWG imports/links. *(DQT)* |
+| **Mana Select** | Consolidated selection manager: Quick Select by parameter/text, Select Similar by type/family/category, and linked-element selection. |
 
-#### Graphic Stack
-- **Auto Dimension**: Consolidated wall/column grid dimensioning (collaborative tool by T3Lab & Dang Quoc Truong).
-- **Snap Dimension**: Quick-snap dimensioning tool for model alignments (from Dang Quoc Truong).
-- **Grids** (Pulldown): Save Grids, Restore Grids, Restore All Grids.
-- **Reset Overrides**: Reset visual and graphic overrides in the active view.
+### Modeling & Datum
 
-#### SmartAlign Stack
-- Smart-alignment buttons: Align Top/Bottom/Left/Right, Align Center H/V, Distribute H/V.
+| Tool | Description |
+|------|-------------|
+| **CAD to BIM** (pulldown) | **CAD to Elements** (map DWG layers → Walls / Floors / Beams), **Point Cloud to Model** (Scan-to-BIM wizard detecting walls, floors, ceilings, doors, windows, columns, stairs, roofs), **Room To Floor**, **Door Threshold**, **Image to Drafting**, **Text to Element**. |
+| **Property Line** | Build a closed property-line loop from Lightbox parcel data with computed bearings and distances. |
+| **Tile Layout** | 3-step wizard: extract floor boundaries, pick a tile pattern per floor, generate and place a tiled layout. |
+| **Element Adjust** (pulldown) | **Auto Join** (rule-based joining, Shift+Click for defaults) *(DQT)*, **Split Elements** at levels, **Wall Cut Profile** from linked-model intersections, **Auto Adj Base Offset**. |
+| **FamiGen** | Family generator — from CAD blocks (DWG → .rfa), from a JSON schema, or from built-in batch presets. |
+| **Mana Fami** | Family manager — browse by category, search/filter, and load families from disk. *(DQT)* |
 
-#### Smart Selection (Pulldown)
-- Material Select, Quick Element Select, Select Linked, and Select (Category/Family/Type).
+### Views & Sheets
 
-#### Text Stack
-- **Annotation Manager**: Consolidated Dimension and Text Note type and instance managers (collaborative tool by T3Lab & Dang Quoc Truong).
-- **Text & Tagging** (Pulldown): Text Note Type tools.
-- **Renumbering**: Renumber elements sequentially.
-- **Tag Checker**: Tag checkers and auto-openings tagging.
+| Tool | Description |
+|------|-------------|
+| **BatchOut** | Batch export sheets to PDF, DWG, NWD and IFC with revision tracking and advanced options. |
+| **Mana Views** | View manager — rename views, batch rename, apply and update view templates. |
+| **Mana Sheets** | Sheet manager — Excel sync, view placement, sheet sets, re-numbering. |
+| **SheetGen** | Generate floor-plan views from a room list via a WPF selection interface. |
 
-#### Other
-- **DWG Management**: Unified CAD import and link manager with sheet selection capabilities (collaborative tool by T3Lab & Dang Quoc Truong).
+### Data & IFC-SG
 
----
+| Tool | Description |
+|------|-------------|
+| **Mana Sched** | Schedule manager — export to Excel with formatting, import values back, duplicate schedules. |
+| **Mana Para** | Parameter manager — transfer values by rule, Text-to-Element assignment, values-to-filled-region. |
+| **Mana Contains** | Spatial containment — find elements inside Rooms/Areas/Spaces/Zones/Masses/Scope Boxes, push container values down or aggregate element data up. |
+| **BCF Reader** | Modeless BCF issue browser (IFC Delta Viewer exports) — click an issue to navigate the view. |
+| **Foundation Volume** | Write computed volume of Structural Foundations into a chosen shared parameter. |
+| **IFC-SG Suite** | Subtype Assigner (Excel mapping → IFC Export Class & Predefined Type) + Compliance Checker against CORENET X rules. |
 
-### Project Panel
+### Standards & Settings
 
-- **Auto Join**: Rule-based automatic elements joiner (collaborative tool by T3Lab & Dang Quoc Truong).
-- **Room to Area**: Convert room boundaries to area elements (collaborative tool by T3Lab & Dang Quoc Truong).
-- **Create** (Stack):
-  - **Create Elements** (Pulldown): CAD to Beam, CAD to Wall, CAD to Floor, Point Cloud to Model, Door Threshold, Room to Floor, Property Line, Image to Drafting.
-  - **Datum** (Pulldown): Save/Restore Levels and Grids.
-- **Element Adjust** (Pulldown): Split elements, Wall Cut Profile, Wall Adjust Base.
-- **Family Work** (Stack): Load Family, CAD to Family (DWG block exporter), JSON to Family, Family Management (collaborative tool by T3Lab & Dang Quoc Truong).
-- **Workset** (Stack): Workset Manager, Central File (Sync).
+| Tool | Description |
+|------|-------------|
+| **Mana Styles** | Fill patterns, line styles, line patterns and visual colour-splashing in one window. |
+| **Mana Workset** | Enable worksharing, create/delete/purge worksets, generate workset view filters. |
+| **Mana Loca** | Modeless element location editor — read and edit XYZ in a grid, commit in one transaction. |
+| **Model Auditor** | Consolidated model health check, warnings, in-place models and material audit. |
 
----
+### Support
 
-### Views & Sheets Panel
-
-- **View Manager** (Pulldown): ViewManager Advanced, ViewTemplate, Create Room Plan.
-- **Sheet Manager** (Pulldown): SheetManager Advanced, Sheet re-number, Tile Layout.
-- **Linked Element Box**: Generate 3D Section Box around selected linked elements.
-
----
-
-### Data Panel
-
-- **Excel Schedules** (Pulldown): Schedule Export/Import Pro, Schedule Copy.
-- **Parameter Tools** (Pulldown): Transfer Parameters, Text to Element, Values to Filled Region.
-- **Model Audits** (Pulldown): Room Data Collector, Foundation Volume.
-- **BCF Reader**: BIM Collaboration Format Reader.
-- **IFC-SG Submission** (Pulldown): Parameter Loader, Auto Assign, Manual Assign, IFCSG Subtype Definer, IFCSG Checker.
-
----
-
-### Settings Panel
-
-- **Family Audit**: Clean, purge, and size-audit families in the active model.
-- **Style Editors** (Pulldown): Line Style Edit, Line Pattern, Hatching.
-- **Parameter Config**: ParaManager (advanced parameter configuration).
-- **Color Splasher**: Audits elements visually by mapping colors to parameters.
-- **Model Health** (Pulldown): ModelChecker, HealthCheck, Warnings, In-Place Models check, Location Manager, Material List.
-
----
-
-### Support Panel
-
-- **BatchOut**: Bulk PDF, DWG, NWD, and IFC exporter with revision tracking.
-- **UI Customizer** (Pulldown): Background Theme, Ribbon Names, Tab Manager.
-- **Cloud Links** (Pulldown): Autodesk Forma, Autodesk Health, Bluebeam Status.
-- **Auto Work**: Automation recorder & player.
-- **Help & Feedback**: Send Feedback, Documentation.
+| Tool | Description |
+|------|-------------|
+| **T3Lab Assistant** | Natural-language AI assistant — drive T3Lab tools via Vietnamese/English chat. |
+| **PDF Import** | Import PDF pages into selected Revit views sequentially. |
+| **Assistant Tools** (stack) | **MCP Control** (start/stop the MCP server, connection settings), **LLMs Setting** (provider, model, API key), **Feedback**. |
+| **UI Theme & Tabs** (stack) | **BG Theme** (HSV picker with eyedropper, gradient 3D backgrounds, Light/Dark UI for Revit 2024+), **Mana Tabs** (hide/show ribbon tabs), **Ribbon Names** (shorten/restore tab names). |
+| **Cloud Links** (stack) | Autodesk Forma, Autodesk Health, Bluebeam Status. |
 
 ---
 
@@ -115,32 +101,34 @@ Three layers form a self-sustaining ecosystem for architectural intelligence:
 t3lab-revit-api/
 ├── T3Lab.extension/
 │   ├── T3Lab.tab/
-│   │   ├── AI Connection.panel/
-│   │   ├── Annotation.panel/
-│   │   ├── ViewsSheets.panel/
-│   │   ├── Data.panel/
-│   │   ├── Project.panel/
-│   │   ├── Settings.panel/
+│   │   ├── Standard.panel/
+│   │   ├── Annotation & Select.panel/
+│   │   ├── Modeling & Datum.panel/
+│   │   ├── Views & Sheets.panel/
+│   │   ├── Data & IFC-SG.panel/
+│   │   ├── Standards & Settings.panel/
 │   │   └── Support.panel/
 │   ├── lib/
 │   │   ├── GUI/                    # WPF dialogs (XAML + Python classes)
-│   │   │   ├── Tools/              # Consolidated window views
+│   │   │   ├── Tools/              # 50+ tool window views (.xaml)
 │   │   │   └── Resources/          # Shared WPF styles (WPF_styles.xaml)
-│   │   ├── Intelligence/           # AI engine: NLU, RAG, Ollama local LLM
-│   │   ├── Renaming/               # Renaming engine classes
+│   │   ├── Intelligence/           # AI engine: NLU, routing, RAG, LLM providers, skills
+│   │   ├── Services/               # Exporters, MCP service, spell checker, tool discovery
 │   │   ├── Selection/              # Element selection helpers
-│   │   ├── Services/               # Exporters & tool discovery
+│   │   ├── Renaming/               # Renaming engine classes
 │   │   ├── Snippets/               # 19 reusable Revit API code snippets
 │   │   ├── Utils/                  # CAD/family helpers
-│   │   ├── config/                 # Configurations, tool registry
-│   │   ├── core/                   # MCP Server & ExternalEvents bridge
-│   │   └── ui/                     # Button states and general settings
+│   │   ├── config/                 # Settings, project store, user profile
+│   │   ├── core/                   # MCP server, ExternalEvent bridge, registry, paths
+│   │   └── ui/                     # Button states, settings dialog
 │   ├── checks/                     # Model checker script validations
-│   └── commands/                   # Standalone command scripts
-├── api/                            # Cloud serverless functions
-├── dev/                            # Dev utilities (sync_wpf_styles.py)
+│   ├── commands/                   # Standalone command scripts
+│   ├── hooks/                      # pyRevit event hooks
+│   └── startup.py                  # Extension startup
+├── api/                            # Cloud serverless functions (family metadata)
+├── dev/                            # Dev utilities, audits, plans, tests
 ├── docs/                           # Documentation
-└── scripts/                        # Reload and cache-clearing scripts
+└── scripts/                        # Reload, cache-clearing, icon generation
 ```
 
 ---
@@ -149,15 +137,22 @@ t3lab-revit-api/
 
 ### `lib/Intelligence/`
 - `t3lab_assistant.py` — main AI assistant engine
+- `t3lab_agent.py` / `agent_loop.py` — agentic tool-calling loop
 - `nlu_engine.py` — Natural Language Understanding for Vietnamese / English
-- `rag_processor.py` — Retrieval-Augmented Generation for Revit API context
-- `local_llm.py` — Offline LLM support via Ollama
+- `routing.py` / `llm_router.py` — testable routing ladder and provider selection
+- `claude_provider.py`, `openai_provider.py`, `deepseek_provider.py`,
+  `ollama_provider.py`, `lmstudio_provider.py` — pluggable LLM backends
+  ([setting flow](docs/assistant-llms-setting-flow.md))
+- `rag_processor.py` — Retrieval-Augmented Generation over Revit API context
 - `skills_engine.py` — instruction packs that activate on a request
 - `skill_installer.py` — installs Claude-format skills from a GitHub repo link
   ([docs](docs/assistant-skills-from-github.md))
 
+### `lib/core/`
+`server.py` and `bridge.py` implement the thread-safe local MCP server (dynamic port allocation from `48884`) and the ExternalEvent bridge that marshals agent calls onto the Revit API thread.
+
 ### `lib/Snippets/`
-19 reusable IronPython patterns covering: annotations, bounding boxes, context managers, unit conversion, element manipulation, Excel integration, filtered element collectors, groups, lines, graphics overrides, revisions, selection, sheets, text, views, and more.
+19 reusable IronPython patterns covering annotations, bounding boxes, context managers, unit conversion, element manipulation, Excel integration, filtered element collectors, filters, groups, lines, graphic overrides, revisions, selection, sheets, text and views.
 
 ### `lib/GUI/Resources/WPF_styles.xaml`
 Single source of truth for all shared button styles (T3Lab Lumina design system). Propagated to every tool XAML with `python3 dev/sync_wpf_styles.py`.
@@ -169,6 +164,7 @@ Single source of truth for all shared button styles (T3Lab Lumina design system)
 | `modelchecker_Warnings_check.py` | Warning-specific validation |
 | `refplanes_check.py` | Reference plane validation |
 | `schedules_not_on_sheet_check.py` | Identifies schedules not placed on sheets |
+| `badgeometry_check.py` | Detects problematic element geometry |
 
 ---
 
@@ -180,20 +176,32 @@ Single source of truth for all shared button styles (T3Lab Lumina design system)
    ```
 2. Ensure **pyRevit 4.8+** is installed.
 3. Reload pyRevit — the **T3Lab** tab will appear in the Revit ribbon.
-4. Configure AI settings under **AI Connection → Settings**.
+4. Configure the LLM provider and API key under **Support → Assistant Tools → LLMs Setting**.
 
 ---
 
 ## Development
 
-| Script | Purpose |
-|--------|---------|
-| `dev/sync_wpf_styles.py` | Propagate shared button styles to all tool XAML files |
-| `dev/sync_wpf_styles.py --check` | Verify all tool XAML files match the master styles |
+| Command | Purpose |
+|---------|---------|
+| `python3 dev/sync_wpf_styles.py` | Propagate shared button styles to all tool XAML files |
+| `python3 dev/sync_wpf_styles.py --check` | Verify all tool XAML files match the master styles |
+| `python3 dev/audit_tools.py --quiet` | Audit pushbutton bundles and script structure |
+| `python3 dev/audit_ui.py --quiet` | Audit XAML files against the Lumina UI standard |
 | `scripts/clear_pyrevit_cache.ps1` | Clear pyRevit compiled cache |
 | `scripts/fix_pyrevit_reload.ps1` | Fix pyRevit reload issues |
 
-UI design standard: `.claude/rules/ui-design-standard.md` (T3Lab Lumina palette — deep slate `#0F172A` + accent blue `#3B82F6`)
+- UI design standard: `.claude/rules/ui-design-standard.md` (T3Lab Lumina — deep slate `#0F172A` + accent blue `#3B82F6`)
+- Contributor / agent guide: [`AGENTS.md`](AGENTS.md) · Design notes: [`DESIGN.md`](DESIGN.md)
+- Debug & QA plans: `dev/plan/`
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE) — © 2026 Tran Tien Thanh (T3Lab).
+
+Autodesk® and Revit® are registered trademarks of Autodesk, Inc. This project is not affiliated with or endorsed by Autodesk.
 
 ---
 
