@@ -120,14 +120,42 @@ except Exception as e:
 # ─── Tool discovery module ────────────────────────────────────────────────────
 try:
     from Services.tool_discovery import (discover_new_tools, get_registered_tools,
-                                         make_generic_launcher)
+                                         make_generic_launcher, make_launcher_for)
     HAS_DISCOVERY = True
 except Exception as e:
     logger.warning("Could not import tool_discovery: {}".format(e))
     HAS_DISCOVERY = False
     def discover_new_tools(): return []
     def get_registered_tools(): return []
-    def make_generic_launcher(script_path, title): return lambda: False
+    def make_generic_launcher(script_path, title, url=None): return lambda: False
+    def make_launcher_for(entry): return lambda: False
+
+# ─── Revit API context runner ─────────────────────────────────────────────────
+# Tool scripts are written to run as Revit commands (ExternalEvent.Create,
+# Transaction, ...). The assistant's WPF callbacks run while Revit is IDLE,
+# which is NOT an API context — see Services/revit_context.py.
+try:
+    from Services.revit_context import (ensure_api_context, run_in_api_context)
+    HAS_API_CONTEXT = True
+except Exception as e:
+    logger.warning("Could not import revit_context: {}".format(e))
+    HAS_API_CONTEXT = False
+    def ensure_api_context(): return False, u"revit_context unavailable"
+    def run_in_api_context(func, on_done=None):
+        try:
+            res = func()
+            if res is None:
+                ok, err = True, u""
+            elif isinstance(res, tuple):
+                ok = bool(res[0]) if res else False
+                err = res[1] if len(res) > 1 else u""
+            else:
+                ok, err = bool(res), u""
+        except Exception as ex:
+            ok, err = False, _exc_text(ex)
+        if on_done:
+            on_done(ok, err or u"")
+        return 'inline'
 
 # ─── Context Scout (BIM Context) ────────────────────────────────────────────────
 try:
@@ -538,15 +566,18 @@ def _register_discovered_launchers(tools):
     for tool in tools:
         intent = tool.get('intent')
         path   = tool.get('script_path')
+        url    = tool.get('url')
         if not intent or intent in _SPECIAL_LAUNCHERS:
             continue
-        if not path or not os.path.exists(path):
+        # A urlbutton (Autodesk Forma / Health, Bluebeam Status) has no
+        # script.py — its hyperlink IS its target.
+        if not url and not (path and os.path.exists(path)):
             DROPPED_TOOLS.append((intent, path or u"<no path>"))
             TOOL_LAUNCHERS.pop(intent, None)
             TOOL_TITLES.pop(intent, None)
             continue
         title = tool.get('title') or intent
-        TOOL_LAUNCHERS[intent] = make_generic_launcher(path, title)
+        TOOL_LAUNCHERS[intent] = make_launcher_for(tool)
         TOOL_TITLES[intent] = title
 
     # Inject all registered tools (new + old) into the NLP system prompt
@@ -871,6 +902,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 logger.debug("MCP ExternalEvent init failed: {}".format(_ee_err))
         except Exception as _ex:
             logger.debug("MCP ExternalEvent init error: {}".format(_ex))
+
+        # ── Register the tool-launch ExternalEvent, same constraint ───────────
+        # Without it every ribbon tool the assistant opens runs in Revit's IDLE
+        # context, where ExternalEvent.Create and Transaction are illegal —
+        # BCF Reader / ManaLoca / BatchOut threw "Attempting to create an
+        # ExternalEvent outside of a standard API execution" and never opened.
+        try:
+            _ok, _ctx_err = ensure_api_context()
+            if not _ok:
+                logger.debug("API context init failed: {}".format(_ctx_err))
+        except Exception as _ex:
+            logger.debug("API context init error: {}".format(_ex))
 
         # Update AI badge, pre-load models cache, and warm up router status in background
         def _bg_startup_probe():
@@ -5459,10 +5502,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             confirm = message or u"Opening {}...".format(get_tool_title(intent))
             _bot(confirm)
             _learn(confirm)
-            ok, err = TOOL_LAUNCHERS[intent]()
-            if not ok:
-                self._append_bot_message(self._launch_failure_text(intent, err))
-            self._set_busy(False)
+            self._launch_tool(intent, TOOL_LAUNCHERS[intent])
             return
 
         # ── MCP Revit intents ─────────────────────────────────────────────────
@@ -5509,11 +5549,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                            else u"Opening {}...".format(label))
                 _bot(confirm)
                 learn_pattern(raw, _match['intent'], {}, confirm)
-                ok, err = TOOL_LAUNCHERS[_match['intent']]()
-                if not ok:
-                    self._append_bot_message(
-                        self._launch_failure_text(_match['intent'], err))
-                self._set_busy(False)
+                self._launch_tool(_match['intent'],
+                                  TOOL_LAUNCHERS[_match['intent']])
                 return
             # Nothing resolved — name the tools that DO exist rather than
             # leaving the user with a dead intent name. `_cands` comes from
@@ -5534,6 +5571,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _bot(message)
         else:
             _bot(u"Tool `{}` does not exist — check the name or describe what you need.".format(intent))
+        self._set_busy(False)
+
+    def _launch_tool(self, intent, launcher):
+        """Open a ribbon tool from chat. UI THREAD.
+
+        The launcher is marshalled into a real Revit API context instead of
+        being called here. `_execute_result` runs on the WPF dispatcher, i.e.
+        Revit's main thread while Revit is IDLE — and idle is not a "standard
+        API execution": a tool that creates an ExternalEvent (BCF Reader,
+        ManaLoca, BatchOut) or opens a Transaction threw as soon as its window
+        was built, after the assistant had already said it was opening.
+
+        The hop is ASYNCHRONOUS by necessity — Revit fires external events
+        from this very thread's message loop, so waiting for the result here
+        would deadlock. Busy is therefore released immediately (the tool has
+        been handed over) and only a FAILURE gets reported afterwards.
+        """
+        def _report(ok, err):
+            if ok:
+                return
+            self._ui_invoke(
+                lambda: self._append_bot_message(
+                    self._launch_failure_text(intent, err)))
+
+        try:
+            run_in_api_context(launcher, _report)
+        except Exception as ex:
+            _report(False, _exc_text(ex))
         self._set_busy(False)
 
     def _launch_failure_text(self, intent, err):
@@ -5774,11 +5839,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._add_to_history("assistant", default_msg)
         launcher = TOOL_LAUNCHERS.get(intent)
         if launcher:
-            ok, err = launcher()
-            if not ok:
-                self._append_bot_message(self._launch_failure_text(intent, err))
-        else:
-            self._append_bot_message(self._unknown_tool_text(intent, default_msg))
+            # Same API-context hop as the chat path — a quick button is still
+            # a WPF click, not a Revit command. See _launch_tool.
+            self._launch_tool(intent, launcher)
+            return
+        self._append_bot_message(self._unknown_tool_text(intent, default_msg))
         self._set_busy(False)
 
     # ─── Native agentic loop (function calling) ────────────────────────────────

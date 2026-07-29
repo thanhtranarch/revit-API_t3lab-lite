@@ -26,6 +26,143 @@ _MODE_ALL_IN_ONE = 1   # all pages → single view, placed in a horizontal strip
 _GAP_FT = 0.15         # gap between images in all-in-one mode (feet, ~46 mm)
 _FALLBACK_W_FT = 1.5   # fallback image width when Width property unavailable
 
+_MAX_PAGES = 300       # hard cap for the all-in-one page loop
+
+# Revit version gates for the image/PDF API used here:
+#   2020 — ImageTypeOptions(path, useRelativePath, ImageTypeSource),
+#          ImageType.Create(doc, options), ImageTypeOptions.PageNumber
+#   2021 — ImageTypeOptions.Resolution, ImageType.Width / WidthInPixels
+# Verified identical from Revit 2023 through Revit 2026 (RevitAPI.xml).
+_MIN_VERSION_PDF   = 2020
+_MIN_VERSION_DPI   = 2021
+
+
+# ── Revit host / version compatibility ────────────────────────────────────────
+#
+# Everything below deliberately avoids `revit.doc` as the single source of
+# truth. `revit.doc` is HOST_APP.doc → uiapp.ActiveUIDocument.Document, which
+# is None whenever the code runs outside a plain ribbon-button engine — most
+# notably when the T3Lab Assistant launches this tool by exec'ing script.py
+# inside its modeless pane engine. On Revit 2026 that path reliably yields
+# None and the view collector then fails with:
+#   The input argument "document" of function FilteredElementCollector ... is null
+
+
+def _injected_uiapp():
+    """The UIApplication pyRevit injects as the `__revit__` builtin, or None."""
+    try:
+        import __builtin__ as _b       # IronPython 2.7
+    except ImportError:
+        import builtins as _b          # CPython 3 engine
+    return getattr(_b, '__revit__', None)
+
+
+def _host_uiapp():
+    """Best available UIApplication: pyRevit HOST_APP first, then `__revit__`."""
+    try:
+        from pyrevit import HOST_APP
+        if HOST_APP.uiapp is not None:
+            return HOST_APP.uiapp
+    except Exception:
+        pass
+    return _injected_uiapp()
+
+
+def get_revit_version():
+    """Revit release year as int (e.g. 2026), or 0 when it cannot be read."""
+    uiapp = _host_uiapp()
+    try:
+        return int(uiapp.Application.VersionNumber)
+    except Exception:
+        pass
+    try:
+        return int(revit.doc.Application.VersionNumber)
+    except Exception:
+        return 0
+
+
+def resolve_doc():
+    """Return (doc, error_text) — the document this tool should work on.
+
+    Fallback chain, most-specific first:
+      1. pyrevit revit.doc          — correct inside a normal pushbutton engine
+      2. uiapp.ActiveUIDocument     — direct API read, works when HOST_APP is stale
+      3. the single open non-linked document — unambiguous, so safe to assume
+    Anything else is a genuine "no target" situation and gets an actionable
+    message instead of a null-document crash deeper in the call stack.
+    """
+    try:
+        doc = revit.doc
+        if doc is not None:
+            return doc, None
+    except Exception:
+        pass
+
+    uiapp = _host_uiapp()
+    if uiapp is None:
+        return None, (u"Cannot reach the Revit application from this engine. "
+                      u"Open PDF Import from the T3Lab ribbon button.")
+
+    try:
+        uidoc = uiapp.ActiveUIDocument
+        if uidoc is not None and uidoc.Document is not None:
+            return uidoc.Document, None
+    except Exception:
+        pass
+
+    try:
+        docs = [d for d in uiapp.Application.Documents if not d.IsLinked]
+    except Exception:
+        docs = []
+
+    if len(docs) == 1:
+        return docs[0], None
+    if not docs:
+        return None, u"No project is open — open a Revit project first."
+    return None, (u"No active document — {} projects are open but none has "
+                  u"focus. Click a project tab in Revit, then reopen PDF "
+                  u"Import.".format(len(docs)))
+
+
+def make_image_type_options(pdf_path, resolution, page_num, version):
+    """Build ImageTypeOptions, setting only the properties this Revit exposes."""
+    if version and version < _MIN_VERSION_PDF:
+        raise RuntimeError(
+            u"PDF import needs Revit {} or newer (this is Revit {}).".format(
+                _MIN_VERSION_PDF, version))
+
+    options = DB.ImageTypeOptions(pdf_path, False, DB.ImageTypeSource.Import)
+
+    # Resolution only exists from Revit 2021; on older builds the PDF is
+    # rasterised at Revit's default dpi instead of failing the whole import.
+    if (not version or version >= _MIN_VERSION_DPI) and hasattr(options, 'Resolution'):
+        options.Resolution = resolution
+    options.PageNumber = page_num
+    return options
+
+
+def image_width_ft(img_type, resolution):
+    """Horizontal size of an ImageType in feet, with a pixel-based fallback.
+
+    ImageType.Width (Revit 2021+) is in internal units (feet). When it is
+    missing or non-positive, derive it from WidthInPixels / dpi so all-in-one
+    placement still spaces pages correctly instead of stacking them.
+    """
+    try:
+        w = float(getattr(img_type, 'Width', 0) or 0)
+        if w > 0:
+            return w
+    except Exception:
+        pass
+    try:
+        px  = float(getattr(img_type, 'WidthInPixels', 0) or 0)
+        dpi = float(resolution or 0) or 300.0
+        if px > 0:
+            return px / dpi / 12.0      # pixels → inches → feet
+    except Exception:
+        pass
+    return _FALLBACK_W_FT
+
 
 class ViewItem(INotifyPropertyChanged):
     """One row in the view grid.
@@ -103,6 +240,14 @@ class PDFImportDialog(forms.WPFWindow):
         self._loading   = False
         self._oc        = None   # ObservableCollection bound once, updated in-place
         self._mode      = _MODE_SEQUENTIAL
+
+        # Resolve the target document and the Revit release ONCE, here — every
+        # later step reuses them. Reading revit.doc again at import time was
+        # the second half of the same bug: a dialog that managed to list views
+        # could still hand a null document to ImageType.Create.
+        self._version           = get_revit_version()
+        self._doc, self._doc_err = resolve_doc()
+
         forms.WPFWindow.__init__(self, _XAML)
 
         # Bind the persistent ObservableCollection and populate the grid
@@ -135,8 +280,17 @@ class PDFImportDialog(forms.WPFWindow):
     def _load_views(self):
         items = []
         load_error = None
+        doc = self._doc
+        if doc is None:
+            # No document — bail out before the collector, which would throw
+            # 'The input argument "document" ... is null' instead of telling
+            # the user what to actually do about it.
+            self.pnl_loading.Visibility = Visibility.Collapsed
+            self._all_items = []
+            self._refresh_list()
+            self.txt_status.Text = self._doc_err or u"No active Revit document."
+            return
         try:
-            doc = revit.doc
             for v in DB.FilteredElementCollector(doc).OfClass(DB.ViewPlan):
                 try:
                     if v.IsTemplate: continue
@@ -163,7 +317,10 @@ class PDFImportDialog(forms.WPFWindow):
         self._all_items = items
         self._refresh_list()
         if load_error:
-            self.txt_status.Text = u"Could not read views: {}".format(load_error)
+            # Version is part of the message on purpose — this tool has already
+            # behaved differently across Revit releases once.
+            self.txt_status.Text = u"Could not read views (Revit {}): {}".format(
+                self._version or u"?", load_error)
 
     def _refresh_list(self):
         q = self.txt_search.Text.strip().lower()
@@ -237,9 +394,13 @@ class PDFImportDialog(forms.WPFWindow):
 
         self.txt_view_count.Text     = u"{} views".format(total)
         self.txt_selected_count.Text = u"{} selected".format(n_sel)
-        self.btn_import.IsEnabled    = bool(self._pdf_path and n_sel > 0)
+        self.btn_import.IsEnabled    = bool(self._doc and self._pdf_path and n_sel > 0)
 
-        if not self._pdf_path:
+        if self._doc is None:
+            # Keep the actionable "no document" message on screen — a search or
+            # sort must not overwrite it with a generic prompt.
+            self.txt_status.Text = self._doc_err or u"No active Revit document."
+        elif not self._pdf_path:
             self.txt_status.Text = u"Select a PDF file and choose target views"
         elif n_sel == 0:
             self.txt_status.Text = u"Select at least one target view"
@@ -396,8 +557,25 @@ class PDFImportDialog(forms.WPFWindow):
             forms.alert(u"No views selected.", title="PDF Import")
             return
 
+        # Re-resolve in case the user switched project tabs while the dialog
+        # was open; fall back to the document the views were listed from.
+        doc, doc_err = resolve_doc()
+        if doc is None:
+            doc = self._doc
+        if doc is None:
+            forms.alert(doc_err or self._doc_err or u"No active Revit document.",
+                        title="PDF Import")
+            return
+
+        if self._version and self._version < _MIN_VERSION_PDF:
+            forms.alert(
+                u"PDF import requires Revit {} or newer.\n"
+                u"This session is running Revit {}.".format(
+                    _MIN_VERSION_PDF, self._version),
+                title="PDF Import")
+            return
+
         resolution = RESOLUTION_MAP.get(self.cmb_resolution.SelectedIndex, 300)
-        doc        = revit.doc
 
         self._set_ui_busy(True)
         self.pnl_progress.Visibility = Visibility.Visible
@@ -434,12 +612,10 @@ class PDFImportDialog(forms.WPFWindow):
         for item in selected:
             page_num = item.PageNumber if item.PageNumber > 0 else 1
             try:
-                with revit.Transaction("PDF Import"):
-                    view     = doc.GetElement(item.view_id)
-                    options  = DB.ImageTypeOptions(
-                        self._pdf_path, False, DB.ImageTypeSource.Import)
-                    options.Resolution = resolution
-                    options.PageNumber = page_num
+                with revit.Transaction("PDF Import", doc=doc):
+                    view      = doc.GetElement(item.view_id)
+                    options   = make_image_type_options(
+                        self._pdf_path, resolution, page_num, self._version)
                     img_type  = DB.ImageType.Create(doc, options)
                     placement = DB.ImagePlacementOptions()
                     placement.Location = DB.XYZ.Zero
@@ -465,31 +641,36 @@ class PDFImportDialog(forms.WPFWindow):
 
         view = doc.GetElement(target_item.view_id)
 
-        while True:
+        while page_num <= _MAX_PAGES:
+            past_end = False
             try:
                 with revit.Transaction(
-                        u"PDF Import — page {}".format(page_num)):
-                    options = DB.ImageTypeOptions(
-                        self._pdf_path, False, DB.ImageTypeSource.Import)
-                    options.Resolution = resolution
-                    options.PageNumber = page_num
-                    img_type  = DB.ImageType.Create(doc, options)
+                        u"PDF Import — page {}".format(page_num), doc=doc):
+                    options  = make_image_type_options(
+                        self._pdf_path, resolution, page_num, self._version)
+                    img_type = DB.ImageType.Create(doc, options)
 
-                    # Width is in Revit internal units (feet).
-                    try:
-                        img_w = float(img_type.Width)
-                        if img_w <= 0:
-                            img_w = _FALLBACK_W_FT
-                    except Exception:
-                        img_w = _FALLBACK_W_FT
+                    # End-of-PDF detection that needs neither an English error
+                    # message nor a specific Revit release: ImageType.PageNumber
+                    # reports the page Revit actually used. When a build clamps
+                    # to the last page instead of raising, this catches it —
+                    # otherwise that page would be re-imported forever.
+                    actual = getattr(img_type, 'PageNumber', page_num)
+                    if actual and int(actual) != page_num:
+                        past_end = True
+                        doc.Delete(img_type.Id)
+                    else:
+                        img_w     = image_width_ft(img_type, resolution)
+                        placement = DB.ImagePlacementOptions()
+                        placement.Location = DB.XYZ(x_offset, 0, 0)
+                        DB.ImageInstance.Create(doc, view, img_type.Id, placement)
 
-                    placement = DB.ImagePlacementOptions()
-                    placement.Location = DB.XYZ(x_offset, 0, 0)
-                    DB.ImageInstance.Create(doc, view, img_type.Id, placement)
+                        x_offset += img_w + _GAP_FT
+                        imported += 1
+                        page_num += 1
 
-                    x_offset += img_w + _GAP_FT
-                    imported += 1
-                    page_num += 1
+                if past_end:
+                    break
 
             except Exception as ex:
                 msg = str(ex)
@@ -499,6 +680,10 @@ class PDFImportDialog(forms.WPFWindow):
                     break
                 errors.append(u"Page {}: {}".format(page_num, msg[:120]))
                 break  # unexpected error — stop
+
+        if page_num > _MAX_PAGES:
+            errors.append(
+                u"Stopped at the {}-page safety limit.".format(_MAX_PAGES))
 
         return imported, errors
 

@@ -1,17 +1,24 @@
 {
   "patterns": {
-    "english spellcheck": {
-      "hits": 12, 
-      "last_raw": "/english-spellcheck", 
+    "import pdf": {
+      "intent": "open_pdf_import", 
+      "last_raw": "m\u1edf pdf import", 
+      "hits": 2, 
       "params": {}, 
+      "last_message": "\u0110ang m\u1edf PDF Import..."
+    }, 
+    "english spellcheck": {
       "intent": "check_spelling", 
+      "last_raw": "/english-spellcheck", 
+      "hits": 12, 
+      "params": {}, 
       "last_message": "Scanning model Text Notes for English spelling errors..."
     }, 
     "batchout": {
-      "hits": 1, 
-      "last_raw": "m\u1edf batchout", 
-      "params": {}, 
       "intent": "open_batchout", 
+      "last_raw": "m\u1edf batchout", 
+      "hits": 1, 
+      "params": {}, 
       "last_message": "\u0110ang m\u1edf BatchOut..."
     }
   }

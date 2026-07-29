@@ -140,6 +140,69 @@ def test_launcher_treats_exitscript_as_success():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_api_context_runner_normalises_every_launcher_shape():
+    """Launchers return (ok, err), a bare bool, or None. run_in_api_context is
+    the single place that folds all three into (ok, error_text) — and it must
+    never raise, because the caller is a WPF click handler with no handler
+    above it."""
+    from Services.revit_context import run_in_api_context, ensure_api_context
+
+    seen = []
+    def _done(ok, err):
+        seen.append((ok, err))
+
+    run_in_api_context(lambda: (True, u''), _done)
+    run_in_api_context(lambda: (False, u'no window'), _done)
+    run_in_api_context(lambda: True, _done)
+    run_in_api_context(lambda: None, _done)
+
+    def _boom():
+        raise ValueError('boom')
+    run_in_api_context(_boom, _done)
+
+    check('tuple success', seen[0] == (True, u''), seen[0])
+    check('tuple failure keeps the reason', seen[1] == (False, u'no window'), seen[1])
+    check('bare True is success', seen[2][0] is True, seen[2])
+    check('None is success', seen[3][0] is True, seen[3])
+    check('an exception is a reported failure, not a crash',
+          seen[4][0] is False and 'boom' in seen[4][1], seen[4])
+
+    ok, err = ensure_api_context()
+    check('ensure_api_context degrades quietly outside Revit',
+          ok is False and bool(err), err)
+
+
+def test_tools_are_launched_through_the_api_context():
+    """Drift lock for the crash that made every tool unopenable from chat.
+
+    A pushbutton script is a Revit command: it may call ExternalEvent.Create
+    or open a Transaction. The assistant's callbacks run while Revit is IDLE,
+    which is not a "standard API execution", so calling a launcher directly
+    threw
+
+        Attempting to create an ExternalEvent outside of a standard API execution
+
+    right after the assistant had announced it was opening the tool (BCF
+    Reader, ManaLoca, BatchOut). Every launcher call must go through
+    _launch_tool → run_in_api_context."""
+    import re as _re
+    path = os.path.join(TAB, 'Support.panel', 'T3LabAssistant.pushbutton',
+                        'script.py')
+    with io.open(path, encoding='utf-8') as f:
+        src = f.read()
+
+    direct = []
+    for lineno, line in enumerate(src.splitlines(), 1):
+        if line.lstrip().startswith('#'):
+            continue
+        if _re.search(r'TOOL_LAUNCHERS\s*(\[[^\]]+\]|\.get\([^)]*\))\s*\(\s*\)', line):
+            direct.append(lineno)
+    check('no launcher is invoked outside the API context hop', not direct, direct)
+    check('_launch_tool marshals through run_in_api_context',
+          _re.search(r'def _launch_tool[\s\S]{0,1400}?run_in_api_context', src)
+          is not None)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Tool catalog matches what is actually installed
 # ─────────────────────────────────────────────────────────────────────────────
@@ -156,12 +219,15 @@ def _fresh_registry():
 def test_every_registered_tool_exists_on_disk():
     """The catalog must never advertise an intent the assistant cannot honour.
     Eight intents (ParaSync, ProjectName, Workset, DimText, UpperAll, Reset
-    Overrides, Grids, LoadFamilyCloud) pointed at deleted pushbuttons."""
+    Overrides, Grids, LoadFamilyCloud) pointed at deleted pushbuttons.
+
+    A urlbutton has no script.py at all — its hyperlink is the target."""
     _td, tools = _fresh_registry()
     check('registry is not empty', len(tools) > 10, '{} tools'.format(len(tools)))
     missing = [t.get('intent') for t in tools
-               if not (t.get('script_path') and os.path.exists(t['script_path']))]
-    check('every registered intent has a script on disk', not missing, missing)
+               if not (t.get('url')
+                       or (t.get('script_path') and os.path.exists(t['script_path'])))]
+    check('every registered intent has a launchable target', not missing, missing)
 
 
 def test_propertyline_is_reachable():
@@ -232,6 +298,89 @@ def test_renamed_tools_resolve_to_real_tools():
     match, _c = resolve_tool('manaviews')
     check('manaviews resolves', bool(match) and 'view' in (match.get('intent') or ''),
           match)
+
+
+def test_every_ribbon_button_is_openable():
+    """Full coverage lock: every launchable button on the ribbon must be in the
+    registry, except the ones with a dedicated launcher (BatchOut, ManaFami)
+    and the assistant itself.
+
+    Before this, `.urlbutton` folders were not scanned at all — "open Autodesk
+    Forma" answered that no such tool existed while the button sat on the
+    ribbon two panels away."""
+    td, tools = _fresh_registry()
+    on_disk = set(t['button'] for t in td.scan_all_buttons())
+    registered = set(t['button'] for t in tools)
+    gap = sorted(on_disk - registered - set(td._SKIP_BUTTONS))
+    check('every ribbon button is registered', not gap, gap)
+    check('url buttons are discoverable',
+          any(t.get('kind') == 'url' for t in tools),
+          sorted(t['button'] for t in tools if t.get('kind') == 'url'))
+
+
+def test_skipped_buttons_are_pruned_from_an_old_registry():
+    """_SKIP_BUTTONS was applied only when REGISTERING. ManaFami was registered
+    before it was added to the list, so the stale entry survived every rescan
+    and collided with the open_loadfamily special launcher — "Family Manager",
+    "Mana Fami" and "ManaFami" all resolved to nothing (two exact matches =
+    ambiguous)."""
+    td, _tools = _fresh_registry()
+    reg = td.load_registry()
+    skipped = sorted(td._SKIP_BUTTONS)[0]
+    reg['tools'][skipped] = {
+        'button': skipped, 'intent': 'open_stale', 'title': 'Stale',
+        'script_path': os.path.join(TAB, 'Views & Sheets.panel',
+                                    'BatchOut.pushbutton', 'script.py'),
+    }
+    td.save_registry(reg)
+    td.discover_new_tools()
+    check('a skipped button is pruned even when already registered',
+          skipped not in td.load_registry().get('tools', {}))
+
+
+def _bundle_title(button_dir):
+    """The ribbon label from bundle.yaml, or None."""
+    import re as _re
+    path = os.path.join(button_dir, 'bundle.yaml')
+    if not os.path.exists(path):
+        return None
+    with io.open(path, encoding='utf-8') as f:
+        for line in f:
+            m = _re.match(r'\s*title\s*:\s*(.+)', line)
+            if m:
+                return (m.group(1).strip().strip('"\'')
+                        .replace('\\n', ' ').strip())
+    return None
+
+
+def test_every_tool_resolves_by_every_name_it_shows():
+    """A tool must be openable by each name the user can see: its script
+    __title__, its folder name, and the RIBBON LABEL.
+
+    The ribbon label is not always the script title — the Wall_Adjust Base
+    button reads "Auto Adj Base Offset" on the ribbon and "Auto Adjust Base
+    Offset" in its script — and typing what the ribbon showed resolved to
+    nothing at all."""
+    td, tools = _fresh_registry()
+    from Intelligence.nlu_engine import resolve_tool
+
+    by_button = dict((t['button'], t) for t in tools)
+    misses = []
+    for scanned in td.scan_all_buttons():
+        entry = by_button.get(scanned['button'])
+        if not entry:
+            continue                      # skip-listed: covered by its own test
+        names = [entry['title'], td._strip_suffix(scanned['button'])]
+        label = _bundle_title(scanned['path'])
+        if label:
+            names.append(label)
+        for name in names:
+            for phrase in (name, u'open ' + name, u'mở ' + name):
+                match, cands = resolve_tool(phrase)
+                if not match or match.get('intent') != entry['intent']:
+                    misses.append(u'{!r} → {} (want {})'.format(
+                        phrase, match and match.get('intent'), entry['intent']))
+    check('every tool resolves by every name it shows', not misses, misses[:6])
 
 
 def _server_tool_names():
@@ -495,6 +644,174 @@ def test_spellcheck_fix_detection():
               not R.wants_spellcheck_fix(args), args)
 
 
+def _cap_answer(q, viet):
+    from Intelligence import nlu_engine as N
+    return N.answer_capability_question(q, viet)['message']
+
+
+def _is_overview(msg):
+    return (u'directly on the Revit model' in msg
+            or u'trực tiếp trên model Revit' in msg)
+
+
+def test_capability_scope_is_not_a_predicate():
+    """A capability question is FRAME(PREDICATE [SCOPE]). The scope names WHERE
+    the work happens ("with this project", "trong model này") and must never
+    select a tool on its own — "what can you do with this project" used to be
+    answered with Family Loader, whose doc merely reads "…vào project"."""
+    for q in (u"what can you do with this project",
+              u"what can you do in this model",
+              u"what can you do in revit",
+              u"what can you do here",
+              u"what can you do",
+              u"what tools do you have"):
+        check(u'"{}" → overview'.format(q), _is_overview(_cap_answer(q, False)))
+    for q in (u"bạn làm được gì với dự án này",
+              u"t3lab hỗ trợ gì trong model này",
+              u"hiện tại bạn hỗ trợ gì",
+              u"có tool nào không",
+              u"bạn làm được gì"):
+        check(u'"{}" → overview'.format(q), _is_overview(_cap_answer(q, True)))
+
+
+def test_capability_predicate_still_finds_tools():
+    """Stripping the scope must not blunt real asks — a question that carries a
+    predicate still resolves against the catalog, in either language."""
+    for q, viet, expect in (
+            (u"is there a tool to load family",     False, u'Family Loader'),
+            (u"is there a tool for dwg",            False, u'DWG'),
+            (u"what can you do with dwg files",     False, u'DWG'),
+            (u"do you have a tool for point cloud", False, u'Point Cloud'),
+            (u"any tool for tile layout",           False, u'Tile Layout'),
+            (u"có tool nào để xuất pdf không",      True,  u'BatchOut'),
+            (u"có tool nào check model không",      True,  u'Model Auditor'),
+            (u"có tool nào quản lý workset không",  True,  u'Workset'),
+            # "in" is a homograph: Vietnamese print, English preposition
+            (u"có tool nào để in sheet không",      True,  u'BatchOut')):
+        msg = _cap_answer(q, viet)
+        check(u'"{}" → {}'.format(q, expect),
+              expect in msg and not _is_overview(msg), msg[:80])
+
+
+def test_vietnamese_capability_verbs_reach_the_english_catalog():
+    """The catalog is named in English, so a Vietnamese ask for the same
+    capability used to find nothing ("đổi tên view" → "chưa có tool")."""
+    for q, expect in ((u"có tool nào để đổi tên view không", u'View Manager'),
+                      (u"có tool nào quản lý dwg không",     u'DWG Manager'),
+                      (u"có tool nào quản lý workset không", u'Workset Manager'),
+                      (u"có tool nào quản lý thư viện family không",
+                       u'Family Loader')):
+        msg = _cap_answer(q, True)
+        check(u'"{}" → {}'.format(q, expect), expect in msg, msg[:80])
+
+
+def test_ubiquitous_word_cannot_name_a_tool():
+    """"manager" is in 16 of 44 tool names — it selects nothing. A request whose
+    only evidence is such a word must not answer with three arbitrary managers
+    (and must not claim no tool exists either): the honest reply is the
+    overview. Rarity may damp evidence, never manufacture it."""
+    msg = _cap_answer(u"có tool nào quản lý project không", True)
+    check(u'"quản lý project" → overview, not 3 arbitrary managers',
+          _is_overview(msg), msg[:80])
+    # …while the same word plus a selective one still resolves precisely
+    msg = _cap_answer(u"có tool nào quản lý workset không", True)
+    check(u'"quản lý workset" still resolves precisely',
+          u'Workset Manager' in msg and not _is_overview(msg), msg[:80])
+
+
+def test_capability_ignores_implementation_jargon():
+    """Docstrings are written for developers ("v2 - pyRevit WPFWindow
+    modeless"). Those words describe the implementation, never a capability, so
+    they must not name a tool to the user."""
+    msg = _cap_answer(u"is there a tool for modeless windows", False)
+    check(u'"modeless windows" names no tool',
+          msg.startswith(u'❌'), msg[:80])
+
+
+def test_abbrev_expansion_respects_word_boundaries():
+    """A multi-word abbreviation must not eat into the following word.
+    "what are you" → "capabilities query" used to fire inside "what are YOUR
+    capabilities", producing the nonsense "capabilities queryr capabilities".
+    Single-token stems keep substring semantics on purpose ("images" → "imgs").
+    """
+    from Intelligence import nlu_engine as N
+    exp = lambda q: N._expand(N._norm(q))
+    check(u'"what are your capabilities" survives expansion',
+          exp(u"what are your capabilities") == u"what are your capabilities",
+          exp(u"what are your capabilities"))
+    check(u'"what can you do" still collapses',
+          exp(u"what can you do") == u"capabilities query")
+    check(u'single-token stem still expands plurals',
+          exp(u"export images") == u"export imgs", exp(u"export images"))
+    check(u'space-padded shorthand still expands',
+          exp(u"bo sheet") == u"batchout sheet", exp(u"bo sheet"))
+
+
+def test_capability_frames_cover_productive_forms():
+    """The frame detector must recognise the ability question in its productive
+    forms, and stay out of superficially similar questions that are not."""
+    from Intelligence import nlu_engine as N
+    ask = lambda q: N.is_capability_question(N._expand(N._norm(q)))
+    for q in (u"what else can you do", u"what are your capabilities",
+              u"list your features", u"show me all your tools",
+              u"tôi có thể làm gì với t3lab", u"bạn xử lý được gì"):
+        check(u'"{}" is a capability question'.format(q), ask(q))
+    for q in (u"what do you think about this wall",
+              u"what can you tell me about walls",
+              u"tôi phải làm gì bây giờ", u"list all sheets",
+              u"what can I do to fix it"):
+        check(u'"{}" is not a capability question'.format(q), not ask(q))
+
+
+def test_pronoun_vs_determiner():
+    """"nó/it/this" is anaphora only when it stands IN PLACE OF the noun. As a
+    determiner ("this project", "that view") it must not bind to the last tool
+    in the history, or an unrelated request silently opens that tool."""
+    from Intelligence import nlu_engine as N
+    exp = lambda q: N._expand(N._norm(q))
+
+    for q in (u"mở nó", u"nó là gì", u"cái này là gì", u"open it",
+              u"what is that"):
+        check(u'"{}" is anaphora'.format(q), N._is_pronoun_query(exp(q)))
+    for q in (u"what can you do with this project", u"that view is wrong",
+              u"this project needs cleanup",
+              u"nó không quan trọng bằng việc kiểm tra toàn bộ sheet"):
+        check(u'"{}" is not anaphora'.format(q),
+              not N._is_pronoun_query(exp(q)))
+
+
+def test_history_referent_is_a_real_tool_mention():
+    """The referent for "nó" is the tool the conversation acted on — the
+    assistant's own "Opening X..." line, or a message that IS a tool request.
+    A name merely appearing inside prose must not bind it."""
+    from Intelligence import nlu_engine as N
+
+    def intent(hist, q):
+        r = N.classify(q, history=[{'role': 'assistant', 'content': h}
+                                   for h in hist])
+        return (r or {}).get('intent')
+
+    check(u'"Opening BatchOut..." + "nó là gì" → BatchOut',
+          intent([u"Đang mở BatchOut..."], u"nó là gì") == 'open_batchout')
+    check(u'spaced title resolves ("Đang mở DWG Manager...")',
+          intent([u"Đang mở DWG Manager..."], u"cái này là gì") == 'open_manadwg')
+    check(u'a name inside prose does not bind the pronoun',
+          intent([u"thanks for the feedback"], u"mở nó") is None)
+    check(u'small talk leaves the pronoun unresolved',
+          intent([u"Xin chào!"], u"mở nó") is None)
+
+
+def test_capability_question_beats_anaphora():
+    """An explicit capability frame states its own subject — resolving its
+    pronoun against the history would open a tool instead of answering."""
+    from Intelligence import nlu_engine as N
+    r = N.classify(u"what can you do with this project",
+                   history=[{'role': 'assistant', 'content': u'Đang mở BatchOut...'}])
+    check(u'capability frame is answered, not routed to the last tool',
+          r and r.get('intent') == 'help' and _is_overview(r.get('message', '')),
+          (r or {}).get('intent'))
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────
@@ -504,11 +821,16 @@ TESTS = [
         test_launcher_runs_main_guard,
         test_launcher_reports_failure_honestly,
         test_launcher_treats_exitscript_as_success,
+        test_api_context_runner_normalises_every_launcher_shape,
+        test_tools_are_launched_through_the_api_context,
     ]),
     ('catalog', [
         test_every_registered_tool_exists_on_disk,
+        test_every_ribbon_button_is_openable,
+        test_every_tool_resolves_by_every_name_it_shows,
         test_propertyline_is_reachable,
         test_registry_prunes_vanished_buttons,
+        test_skipped_buttons_are_pruned_from_an_old_registry,
         test_skip_list_only_hides_real_buttons,
         test_builtin_tools_are_installed,
         test_renamed_tools_resolve_to_real_tools,
@@ -530,6 +852,18 @@ TESTS = [
         test_learned_pattern_defers_to_nlu,
         test_dispatcher_precedence_conflicts,
         test_spellcheck_fix_detection,
+    ]),
+    ('semantics', [
+        test_abbrev_expansion_respects_word_boundaries,
+        test_capability_frames_cover_productive_forms,
+        test_capability_scope_is_not_a_predicate,
+        test_capability_predicate_still_finds_tools,
+        test_vietnamese_capability_verbs_reach_the_english_catalog,
+        test_ubiquitous_word_cannot_name_a_tool,
+        test_capability_ignores_implementation_jargon,
+        test_pronoun_vs_determiner,
+        test_history_referent_is_a_real_tool_mention,
+        test_capability_question_beats_anaphora,
     ]),
 ]
 

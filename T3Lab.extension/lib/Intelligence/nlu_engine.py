@@ -217,6 +217,29 @@ _ABBREVS = [
     ("who are you",             "capabilities query"),
     ("what are you",            "capabilities query"),
 
+    # ── Vietnamese → English capability verbs ────────────────────────────────
+    # The tool catalog is named in English ("DWG Manager", "rename"), so a
+    # Vietnamese ask for the same capability found nothing: "có tool nào quản
+    # lý project không" and "đổi tên view" both answered "chưa có tool".
+    # Placed AFTER the specific phrases above ("quan ly workset" → workset,
+    # "quan ly luoi" → grids), which are consumed first and keep their meaning.
+    # Deliberately verbs only — object nouns are left alone because their
+    # diacritic-folded forms collide ("cua" = door AND the possessive "của",
+    # "san" = floor AND "sản"), and a wrong noun rewrite corrupts whole
+    # sentences instead of just missing a match.
+    ("quan ly",         "manager"),
+    ("quan li",         "manager"),
+    ("doi ten",         "rename"),
+    ("thay ten",        "rename"),
+    ("dat ten",         "rename"),
+    ("thu vien",        "library"),
+    ("sao chep",        "copy"),
+    ("di chuyen",       "move"),
+    ("thong ke",        "schedule"),
+    (" tao ",           " create "),
+    (" chon ",          " select "),
+    (" loc ",           " filter "),
+
     # ── Greeting shortcuts ────────────────────────────────────────────────────
     ("chao buoi sang",  "chao"),
     ("chao buoi chieu", "chao"),
@@ -281,12 +304,33 @@ _ABBREVS = [
 ]
 
 
+# Multi-word abbreviations are applied on WORD BOUNDARIES; single-token ones
+# keep plain substring semantics because several are deliberate stems ("image"
+# must also rewrite "images") or already carry their own padding (" batcho ").
+#
+# Without the boundary, a phrase key ate into the next word: "what are you"
+# rewrote the start of "what are your capabilities" and left the nonsense
+# "capabilities queryr capabilities", so the capability frame no longer matched
+# and the question fell through to the LLM.
+_ABBREV_RULES = []
+for _src, _dst in _ABBREVS:
+    if ' ' in _src.strip() and _src[-1:].isalnum() and _src[:1].isalnum():
+        _ABBREV_RULES.append((re.compile(r'(?<![a-z0-9])' + re.escape(_src)
+                                         + r'(?![a-z0-9])'), _dst, True))
+    else:
+        _ABBREV_RULES.append((_src, _dst, False))
+
+
 def _expand(text):
     """Apply abbreviation / synonym substitutions to normalised text."""
     # Pad with spaces to allow boundary matching
     t = " " + text + " "
-    for src, dst in _ABBREVS:
-        t = t.replace(src, dst)
+    for src, dst, is_re in _ABBREV_RULES:
+        if is_re:
+            # lambda replacement: keeps backslashes in `dst` literal
+            t = src.sub(lambda m, _d=dst: _d, t)
+        else:
+            t = t.replace(src, dst)
     return t.strip()
 
 
@@ -732,8 +776,15 @@ def _extract_slots(raw):
 
 # ─── Context / pronoun resolution ─────────────────────────────────────────────
 
-# Pronouns that refer to the most-recently-mentioned tool
-_PRONOUNS = {"no", "no ay", "cai do", "cai nay", "tool do", "it", "that", "this"}
+# Pronouns that can refer back to the most-recently-mentioned tool.
+# Split by shape because they are matched differently (see _is_pronoun_query):
+# a single word is anaphoric only when NO noun follows it, while these phrases
+# are unambiguous references on their own. The old flat set mixed both and was
+# matched by token intersection, so the multi-word entries could never fire
+# while bare "this"/"that" fired inside ordinary determiner phrases.
+_PRONOUN_WORDS   = {"no", "it", "that", "this"}
+_PRONOUN_PHRASES = ("cai nay", "cai do", "cai ay", "no ay",
+                    "tool nay", "tool do", "tool ay")
 
 # Intent → tool label, for pronoun-resolution messages ("mở nó" → "BatchOut").
 # Only the intents with a dedicated launcher are fixed; every other label comes
@@ -757,26 +808,9 @@ def _tool_label(intent):
     return intent
 
 
-def _tool_keywords():
-    """keyword → intent, for spotting the last-mentioned tool in history.
-
-    Built from the live catalog (joined names such as "manaworkset",
-    "cadtoelements") instead of a hardcoded table, so a renamed or newly added
-    pushbutton is picked up without editing this file.
-    """
-    out = {
-        "batchout":   "open_batchout",
-        "loadfamily": "open_loadfamily",
-        "manafami":   "open_loadfamily",
-    }
-    for t in _tool_catalog():
-        intent = t.get('intent')
-        if not intent or intent in ('open_batchout', 'open_loadfamily'):
-            continue
-        for joined in (t.get('joined') or ()):
-            if len(joined) >= 4:
-                out.setdefault(joined, intent)
-    return out
+# NOTE: the old `_tool_keywords()` (joined-name → intent, scanned as substrings
+# over the chat history) was removed — `_last_tool_from_history` now resolves
+# the referent through the catalog resolver instead. See its docstring.
 
 
 # ─── Deterministic tool resolver ─────────────────────────────────────────────
@@ -851,12 +885,34 @@ def _name_variants(text):
     return joined, words
 
 
+# Words that describe the IMPLEMENTATION, not the capability. Tool docstrings
+# are written for developers ("DQT BCF Reader (v2 - pyRevit WPFWindow
+# modeless)"), and every one of those words used to be a matchable capability
+# topic — so "modeless"/"window"/"script" could name a tool to the user.
+_DESC_NOISE = {
+    "py", "pyrevit", "ironpython", "wpf", "wpfwindow", "window", "modeless",
+    "modal", "script", "dialog", "form", "gui", "ui", "xaml", "class",
+    "module", "version", "tool", "revit", "button", "pushbutton", "panel",
+    "dqt", "t3lab", "todo", "wip", "deprecated",
+}
+
+# Prose glue kept OUT of _STOPWORDS on the query side (Vietnamese "in" = print)
+# but meaningless inside an English description ("in-place models", "into").
+_DESC_PREPS = {"in", "into", "onto", "over", "under", "per", "via", "within"}
+
+
 def _desc_words(desc):
-    """Normalised word set from a function description (for capability Q&A)."""
+    """Normalised word set from a function description (for capability Q&A).
+
+    Implementation jargon and prose glue are dropped: a description word is
+    only useful here if it names WHAT the tool does for the user.
+    """
     out = set()
     for w in re.findall(r'[a-z0-9]+', _norm(_camel_split(desc or ''))):
-        if w not in _STOPWORDS and len(w) >= 2:
-            out.add(_singularise(w))
+        if (len(w) < 2 or w in _STOPWORDS or w in _DESC_NOISE
+                or w in _DESC_PREPS or re.match(r'^v?\d+$', w)):
+            continue
+        out.add(_singularise(w))
     return out
 
 
@@ -873,44 +929,69 @@ def _tool_entry(intent, title, names, desc='', panel='', extra_words=None):
         if w and frozenset(w) not in variants:
             variants.append(frozenset(w))
         union |= w
-    dwords = _desc_words(desc)
-    if extra_words:
-        dwords |= set(extra_words)
+    # Two evidence tiers for capability matching:
+    #   identity = the names the tool goes by + its curated registry keywords
+    #              → a hit here IDENTIFIES the tool
+    #   topic    = words from its description → prose can mention anything, so
+    #              a hit here is only weak evidence
     return {'intent': intent, 'title': title, 'desc': (desc or '').strip(),
             'panel': panel, 'joined': joined_all, 'variants': variants,
-            'words': union, 'desc_words': dwords}
+            'words': union, 'kw_words': set(extra_words or ()),
+            'desc_words': _desc_words(desc)}
+
+
+# Building the catalog runs every tool name through _name_variants/_expand, so
+# it is far too expensive to redo several times per chat turn (resolve_tool,
+# the capability answer and the history referent all need it). Cached against a
+# signature of the live registry, so a rebuilt/renamed registry still refreshes.
+_CATALOG_CACHE = {"sig": None, "value": None}
 
 
 def _tool_catalog():
     """Return every known tool — builtin + auto-discovered — with all its
     names (title / button folder / XAML / aliases) unified per tool."""
+    try:
+        from Services.tool_discovery import get_registered_tools
+        tools = get_registered_tools()
+    except Exception:
+        tools = []
+
+    sig = tuple(sorted(u"{}|{}".format(t.get('intent') or '',
+                                       t.get('title') or '') for t in tools))
+    if _CATALOG_CACHE["value"] is not None and _CATALOG_CACHE["sig"] == sig:
+        return _CATALOG_CACHE["value"]
+
     catalog = []
     for intent, title, joined, aliases, desc in _BUILTIN_TOOLS:
         e = _tool_entry(intent, title, [title] + list(aliases), desc,
                         panel=u"Core")
         e['joined'].add(joined)
         catalog.append(e)
-    try:
-        from Services.tool_discovery import get_registered_tools
-        tools = get_registered_tools()
-    except Exception:
-        tools = []
     for t in tools:
-        title = ((t.get('title') or '')
-                 .replace('&amp;', ' ').replace('&', ' ').strip())
-        btn   = (t.get('button') or '').replace('.pushbutton', '')
-        names = [title, btn] + list(t.get('xaml') or [])
+        # The ampersand-stripped form is a MATCHING name only. Displaying it
+        # printed "Visual   Styles" back at the user for "Visual & Styles".
+        raw_title = (t.get('title') or '').strip()
+        title = raw_title.replace('&amp;', ' ').replace('&', ' ').strip()
+        btn   = re.sub(r'\.(push|smart|url)button$', '', t.get('button') or '')
+        # `aliases` carries the RIBBON label when it differs from the script's
+        # __title__ ("Auto Adj Base Offset" vs "Auto Adjust Base Offset") —
+        # the user types what the ribbon shows them.
+        names = ([raw_title, title, btn] + list(t.get('xaml') or [])
+                 + list(t.get('aliases') or []))
         kw_words = set()
         for kw in (t.get('keywords') or []):
             for w in re.findall(r'[a-z0-9]+', _norm(kw)):
                 if w not in _STOPWORDS and len(w) >= 2:
                     kw_words.add(_singularise(w))
-        e = _tool_entry(t.get('intent'), title or btn, names,
+        e = _tool_entry(t.get('intent'), raw_title or btn, names,
                         t.get('doc') or '',
                         panel=(t.get('panel') or '').replace('.panel', ''),
                         extra_words=kw_words)
         if e['words'] or e['joined']:
             catalog.append(e)
+
+    _CATALOG_CACHE["sig"] = sig
+    _CATALOG_CACHE["value"] = catalog
     return catalog
 
 
@@ -1006,6 +1087,19 @@ _CAP_RES = [
     re.compile(r'\bho tro gi\b'),
     re.compile(r'\bbiet lam gi\b'),
     re.compile(r'\bgiup duoc gi\b'),
+    # Productive forms the fixed _ABBREVS phrases can't cover ("what ELSE can
+    # you do"). Deliberately anchored on the ability verb: "what can you DO" is
+    # a capability question, "what can you tell me about walls" is not, and
+    # "what DO you think" must stay out of here entirely.
+    re.compile(r'\b(?:what|which)\s+(?:\w+\s+){0,2}(?:can|could)'
+               r'\s+(?:you|u|t3lab|this|it)\s+do\b'),
+    re.compile(r'\bwhat\s+are\s+your\s+(?:capabilit|feature|function|skill)'),
+    re.compile(r'\b(?:list|show)\s+(?:me\s+)?(?:(?:your|all|the|my)\s+){1,2}'
+               r'(?:tool|feature|capabilit|function|skill)'),
+    # Vietnamese, subject-anchored so "tôi phải làm gì bây giờ" stays out
+    re.compile(r'\bco\s+the\s+lam\s+(?:duoc\s+)?gi\b'),
+    re.compile(r'\b(?:ban|t3lab|assistant)\s+(?:co\s+the\s+)?'
+               r'(?:lam|ho tro|giup|xu ly)\s+(?:duoc\s+)?(?:nhung\s+)?gi\b'),
 ]
 
 # Question boilerplate stripped before matching the FUNCTION words
@@ -1017,6 +1111,72 @@ _CAP_BOILERPLATE = {
     "gi", "giup", "ho", "tro", "lam", "duoc", "thuc", "hien", "does",
     "function", "feature", "help", "the",
 }
+
+# ─── Semantic roles inside a question ────────────────────────────────────────
+# A capability question decomposes as   FRAME( PREDICATE [ SCOPE ] ):
+#   FRAME      "có tool nào để … không", "is there a tool for …", "what can you do"
+#   PREDICATE  the function asked about — "xuất pdf", "load family", "đổi tên"
+#   SCOPE      where it applies — "with this project", "trong model này", "in Revit"
+# Only the PREDICATE may select a tool. SCOPE names the working environment, not
+# an operation, so it must never justify a match on its own: that role confusion
+# is what answered "what can you do with this project" with "Family Loader"
+# (whose doc merely reads "…vào project"), and what made the Vietnamese form
+# ("bạn làm được gì với dự án này") reply "no such tool".
+#
+# Scope is stripped on the QUERY side only. On the TOOL side "model"/"project"
+# stay meaningful (Model Auditor, Project Name) — the asymmetry is deliberate.
+_SCOPE_PHRASES = (
+    # Multi-word scope, stripped before tokenising so a homograph inside them
+    # ("tại" in "hiện tại" vs "tải" = load) can't leak in as a predicate word.
+    "hien tai", "hien nay", "luc nay", "bay gio", "o day", "trong nay",
+    "du an", "right now", "at the moment",
+)
+
+_SCOPE_WORDS = {
+    # environment nouns — the container the work happens in
+    "project", "model", "file", "revit", "document", "doc",
+    # demonstratives / deixis
+    "this", "these", "that", "those", "here", "current",
+    "nay", "day", "kia",
+}
+
+# Determiners — a pronoun followed by one of these (or by a scope noun) is
+# being used as a DETERMINER ("this project"), not as anaphora ("mở nó").
+_DETERMINERS = {
+    "the", "a", "an", "this", "that", "these", "those",
+    "my", "our", "your", "its", "cac", "nhung",
+}
+
+
+def _predicate_words(expanded):
+    """Content words naming the FUNCTION the user is asking about.
+
+    Strips the question frame, open verbs, stopwords and the scope phrase from
+    already-`_expand`ed text, so what remains is only what the user wants DONE.
+    An empty result means the question carried no predicate at all — i.e. it is
+    the generic "what can you do?", whatever scope was appended to it.
+    """
+    padded = u" " + u" ".join(
+        re.sub(r'[^a-z0-9\s]', ' ', expanded).split()) + u" "
+    for phrase in _SCOPE_PHRASES:
+        padded = padded.replace(u" " + phrase + u" ", u" ")
+    tokens = padded.split()
+
+    out = set()
+    for i, w in enumerate(tokens):
+        if (len(w) < 2 or w in _STOPWORDS or w in _CAP_BOILERPLATE
+                or w in _SCOPE_WORDS or w in _OPEN_VERBS):
+            continue
+        # "in" is a homograph: Vietnamese "in" = print (a real predicate —
+        # "có tool nào để in sheet không"), English "in" = the preposition that
+        # introduces the scope ("in this model"). It is the preposition exactly
+        # when a determiner or a scope noun follows it.
+        if w == "in":
+            nxt = tokens[i + 1] if i + 1 < len(tokens) else None
+            if nxt and (nxt in _DETERMINERS or nxt in _SCOPE_WORDS):
+                continue
+        out.add(_singularise(w))
+    return out
 
 
 def is_capability_question(expanded):
@@ -1169,10 +1329,44 @@ _CAP_MAP = [
 ]
 
 
+def _ribbon_tools_section(viet):
+    """Every openable ribbon tool, grouped by its panel.
+
+    Named in full, not counted: "I can open 44 ribbon tools" told the user
+    nothing about WHICH ones, so the only way to find a tool was to guess its
+    name at the prompt. Built from the same live catalog the resolver uses, so
+    the list and what actually opens can never disagree.
+    """
+    groups, order = {}, []
+    for tool in _tool_catalog():
+        panel = (tool.get('panel') or u"").strip() or (u"Khác" if viet else u"Other")
+        title = (tool.get('title') or u"").strip()
+        if not title:
+            continue
+        if panel not in groups:
+            groups[panel] = []
+            order.append(panel)
+        if title not in groups[panel]:
+            groups[panel].append(title)
+    if not groups:
+        return u""
+
+    total = sum(len(v) for v in groups.values())
+    head = (u"\n📂 **{} tool trên ribbon** mình mở được — gõ *mở <tên tool>*:"
+            if viet else
+            u"\n📂 **{} ribbon tools** I can open — type *open <tool name>*:")
+    lines = [head.format(total)]
+    # "Core" (BatchOut / Family Loader) first, then panels alphabetically.
+    for panel in sorted(order, key=lambda p: (p != u"Core", p.lower())):
+        lines.append(u"• **{}** — {}".format(
+            panel, u", ".join(sorted(groups[panel], key=lambda s: s.lower()))))
+    return u"\n".join(lines)
+
+
 def _capabilities_overview(viet):
     """Practical, workflow-grouped overview of what the assistant can DO on the
     live model — curated notes validated against the MCP registry, plus live
-    skills and a compact pointer to the openable ribbon tools. See _CAP_MAP."""
+    skills and the full list of openable ribbon tools. See _CAP_MAP."""
     live = _live_tool_names()   # empty set when offline → show every line
 
     if viet:
@@ -1224,16 +1418,16 @@ def _capabilities_overview(viet):
                             else u"• …+{} more: {}").format(len(rest), names))
         out.append(u"\n".join(s_lines))
 
-    # ── Compact pointer to the openable ribbon tools + quick affordances ─────
-    total_open = len(_tool_catalog())
+    # ── Every openable ribbon tool, by panel + quick affordances ─────────────
+    ribbon = _ribbon_tools_section(viet)
+    if ribbon:
+        out.append(ribbon)
     if viet:
-        out.append(u"\n📂 Ngoài ra mình mở được **{} tool trên ribbon** — gõ "
-                   u"*mở <tên tool>*, hỏi *có tool nào để … không?*, hoặc xuất "
-                   u"nhanh *xuất pdf G sheet*.".format(total_open))
+        out.append(u"\nCũng có thể hỏi *có tool nào để … không?* hoặc xuất "
+                   u"nhanh *xuất pdf G sheet*.")
     else:
-        out.append(u"\n📂 I can also open **{} ribbon tools** — type "
-                   u"*open <tool name>*, ask *is there a tool for …?*, or quick-"
-                   u"export *export pdf G sheets*.".format(total_open))
+        out.append(u"\nYou can also ask *is there a tool for …?* or quick-"
+                   u"export *export pdf G sheets*.")
 
     return u"\n".join(out)
 
@@ -1246,54 +1440,84 @@ def answer_capability_question(user_input, viet):
     the catalog is the ground truth for what tools exist.
     """
     expanded = _expand(_norm(user_input))
-    clean = re.sub(r'[^a-z0-9\s]', ' ', expanded)
-    func = set()
-    for w in clean.split():
-        if (w in _STOPWORDS or w in _CAP_BOILERPLATE or w in _OPEN_VERBS
-                or len(w) < 2):
-            continue
-        func.add(_singularise(w))
+    pred = _predicate_words(expanded)
 
-    # No function words left → generic capability question → full overview
-    if not func:
+    # Frame + scope only, no predicate → the user asked what the assistant can
+    # do AT ALL ("what can you do with this project", "bạn làm được gì với dự
+    # án này") → the full overview, never a keyword guess off the scope noun.
+    if not pred:
         msg = _capabilities_overview(viet)
         return {"intent": "help", "params": {"answer": msg}, "message": msg,
                 "_nlu": True, "_authoritative": True}
 
+    # ── Evidence-tiered matching ─────────────────────────────────────────────
+    # An identity hit (tool name / curated keyword) IDENTIFIES a tool; a topic
+    # hit (description prose) is weak — prose can mention anything.
+    #
+    # Each hit is damped by how widely the word is shared: "manager" sits in
+    # 16 of 44 tool names, so "quản lý project" must NOT confidently answer
+    # with the first three managers in the catalog. Note this is the INVERSE of
+    # the old rule, which read a low document frequency as proof of
+    # distinctiveness — on a catalog this small that made "project" (one single
+    # description) look like a precise request. Rarity may only damp evidence
+    # here, never manufacture it.
     catalog = _tool_catalog()
-    # Document frequency — words appearing in ≤2 tools are distinctive
     df = {}
-    vocabs = []
     for tool in catalog:
-        vocab = tool['words'] | tool['desc_words']
-        vocabs.append(vocab)
-        for w in vocab:
+        for w in (tool['words'] | tool['kw_words'] | tool['desc_words']):
             df[w] = df.get(w, 0) + 1
+    size = float(max(1, len(catalog)))
+
+    def rarity(w):
+        share = df.get(w, 1) / size
+        if share <= 0.05:                 # names a couple of tools → selective
+            return 1.0
+        if share <= 0.12:
+            return 0.6
+        if share <= 0.25:
+            return 0.25
+        return 0.05                       # "manager", "element" → says nothing
 
     matches, near = [], []
-    for tool, vocab in zip(catalog, vocabs):
-        inter = func & vocab
-        if not inter:
+    for tool in catalog:
+        id_hits    = pred & (tool['words'] | tool['kw_words'])
+        topic_hits = (pred & tool['desc_words']) - id_hits
+        hits = id_hits | topic_hits
+        if not hits:
             continue
-        score  = len(inter) / float(len(func))
-        strong = any(df.get(w, 99) <= 2 and len(w) >= 3 for w in inter)
-        if score >= 0.5 or strong:
-            matches.append((score + (0.5 if strong else 0.0), tool))
+        coverage = len(hits) / float(len(pred))
+        evidence = (2.0 * sum(rarity(w) for w in id_hits)
+                    + sum(rarity(w) for w in topic_hits))
+        strong_enough = (evidence >= 0.5
+                         and (id_hits or len(topic_hits) >= 2
+                              or coverage >= 0.5))
+        if strong_enough:
+            matches.append((evidence + coverage, bool(id_hits), coverage, tool))
         else:
-            near.append((score, tool))
+            near.append((coverage, tool))
     matches.sort(key=lambda x: -x[0])
     near.sort(key=lambda x: -x[0])
 
+    # Nothing selective survived, yet every predicate word IS in the catalog —
+    # the ask is real but too generic to pin down ("quản lý project"). The
+    # honest answer is the whole overview, not three arbitrary managers and not
+    # "no such tool".
+    if not matches and pred and all(w in df and rarity(w) <= 0.05 for w in pred):
+        msg = _capabilities_overview(viet)
+        return {"intent": "help", "params": {"answer": msg}, "message": msg,
+                "_nlu": True, "_authoritative": True}
+
     if matches:
-        # "bạn có thể mở X không?" — exact tool named + open verb → just open
-        if _has_open_verb(expanded) and matches[0][0] >= 1.4:
-            top = matches[0][1]
+        # "bạn có thể mở X không?" — the tool is named outright (identity hit
+        # covering the whole predicate) and an open verb is present → just open.
+        top_score, top_is_id, top_cov, top = matches[0]
+        if _has_open_verb(expanded) and top_is_id and top_cov >= 0.999:
             msg = (u"Đang mở {}...".format(top['title']) if viet
                    else u"Opening {}...".format(top['title']))
             return {"intent": top['intent'], "params": {}, "message": msg,
                     "_nlu": True, "_authoritative": True}
         lines = []
-        for s, t in matches[:3]:
+        for s, _is_id, _cov, t in matches[:3]:
             d = (t.get('desc') or u'').strip()
             lines.append(u"• **{}**{}".format(t['title'],
                                               u" — " + d if d else u""))
@@ -1319,23 +1543,97 @@ def answer_capability_question(user_input, viet):
             "_nlu": True, "_authoritative": True}
 
 
+# The assistant's own tool line ("Đang mở BatchOut..." / "Opening BatchOut...").
+# Matched on _norm()-only text (no _expand, which would rewrite "mở" → "open"
+# and mangle the title that follows). What the assistant actually DID is the
+# strongest referent for a later "nó" / "it".
+_OPENED_LINE_RE = re.compile(r'(?:opening|dang mo)\s+([a-z0-9][a-z0-9 ]*)')
+
+
+def _tool_by_title(text):
+    """Catalog entry whose TITLE is exactly `text` (normalised), else None.
+
+    Used for the assistant's own "Opening <title>..." line, where the title is
+    printed verbatim — so it resolves even when two tools share an alias and
+    the generic resolver has to call the name ambiguous.
+    """
+    key = u" ".join(_norm(text).split())
+    if not key:
+        return None
+    for tool in _tool_catalog():
+        if u" ".join(_norm(tool['title']).split()) == key:
+            return tool
+    return None
+
+
 def _last_tool_from_history(history):
-    """Scan recent conversation history and return the last tool intent mentioned."""
+    """Intent of the tool the conversation last actually referred to.
+
+    Two sources, most-recent entry first:
+      1. the assistant's own "Opening X..." line — the tool it really launched;
+      2. a message that IS a tool request ("mở dwg management", "batchout"),
+         resolved through the catalog's exact matcher.
+
+    Both require the whole message (minus open verbs) to be about that tool.
+    The old test was a bare substring scan for concatenated names, which bound
+    "nó" to any tool whose name merely appeared inside prose ("thanks for the
+    feedback" → Send Feedback) while missing every spaced name ("DWG Manager").
+    """
     if not history:
         return None
-    keywords = _tool_keywords()
     for entry in reversed(history[-6:]):
-        content = _norm(_expand(_norm(entry.get("content", ""))))
-        for kw, intent in keywords.items():
-            if kw in content:
-                return intent
+        raw = entry.get("content", "") or ""
+        content = _norm(raw)
+
+        m = _OPENED_LINE_RE.search(content)
+        if m:
+            named = m.group(1).strip()
+            tool = _tool_by_title(named)
+            if tool:
+                return tool['intent']
+            tool, _ = resolve_tool(named, exact_only=True)
+            if tool:
+                return tool['intent']
+
+        tool, _ = resolve_tool(raw, exact_only=True)
+        if tool:
+            return tool['intent']
     return None
 
 
 def _is_pronoun_query(normed_expanded):
-    """Return True if the input looks like a pronoun reference (e.g., 'nó là gì?')."""
-    tokens = set(normed_expanded.split())
-    return bool(tokens & _PRONOUNS)
+    """True when the input REFERS BACK to the tool just discussed — anaphora
+    ("mở nó", "nó là gì?", "cái này là gì", "what is it") — so the pipeline may
+    resolve it against the conversation history.
+
+    A pronoun word is only anaphoric when it stands IN PLACE OF the noun. In
+    "what can you do with this project" / "that view is wrong", the same word is
+    a DETERMINER in front of a noun, and resolving it to the last-opened tool
+    silently hijacks a request that was never about that tool. The old check was
+    a bare set intersection, so every sentence containing "this"/"that" was
+    treated as a reference to whatever tool the history last mentioned.
+
+    Also bounded in length: anaphora is short. A long sentence that happens to
+    contain "nó" carries its own subject and does not need the history.
+    """
+    tokens = re.sub(r'[^a-z0-9\s]', ' ', normed_expanded).split()
+    if not tokens or len(tokens) > 6:
+        return False
+
+    padded = u" " + u" ".join(tokens) + u" "
+    if any((u" " + p + u" ") in padded for p in _PRONOUN_PHRASES):
+        return True
+
+    for i, w in enumerate(tokens):
+        if w not in _PRONOUN_WORDS:
+            continue
+        nxt = tokens[i + 1] if i + 1 < len(tokens) else None
+        # Followed by a content word → determiner ("this project"), not anaphora.
+        if nxt and len(nxt) >= 2 and nxt not in _STOPWORDS \
+                and nxt not in _CAP_BOILERPLATE:
+            continue
+        return True
+    return False
 
 
 # ─── Scoring ──────────────────────────────────────────────────────────────────
@@ -1575,6 +1873,13 @@ def classify(user_input, history=None):
     normed   = _norm(user_input)
     expanded = _expand(normed)
 
+    # ── Capability questions → answered from the real catalog ────────────────
+    # Checked BEFORE anaphora: an explicit capability frame states its own
+    # subject ("what can this do", "cái này làm được gì"), so resolving its
+    # pronoun against the history would open a tool instead of answering.
+    if is_capability_question(expanded):
+        return answer_capability_question(user_input, viet)
+
     # ── Pronoun resolution ───────────────────────────────────────────────────
     if _is_pronoun_query(expanded) and history:
         last_tool = _last_tool_from_history(history)
@@ -1598,12 +1903,6 @@ def classify(user_input, history=None):
                else u"Opening {}...".format(_tool['title']))
         return {"intent": _tool['intent'], "params": {}, "message": msg,
                 "_nlu": True}
-
-    # ── Capability questions → answered from the real catalog ────────────────
-    # "Có tool nào để X không?" gets a truthful yes (with the matching tools)
-    # or a truthful no — never an LLM guess.
-    if is_capability_question(expanded):
-        return answer_capability_question(user_input, viet)
 
     # ── Tokenise ─────────────────────────────────────────────────────────────
     unigrams, bigrams = _tokenise(expanded)

@@ -5,4 +5,4 @@ description: |
   Imports each PDF page into the corresponding view in order.
   Supports resolution control (150 / 300 / 600 DPI).
 author: "Tran Tien Thanh"
-version: "2.0.0"
+version: "2.1.0"

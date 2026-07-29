@@ -27,8 +27,16 @@ _TAB_DIR      = os.path.join(_EXT_DIR, 'T3Lab.tab')
 REGISTRY_FILE = os.path.join(_LIB_DIR, 'config', 'tool_registry.json')
 
 # Bump when the entry schema changes — a mismatched on-disk registry is
-# rebuilt from scratch so every entry carries the new fields (doc, xaml).
-REGISTRY_VERSION = 2
+# rebuilt from scratch so every entry carries the new fields (doc, xaml,
+# aliases, url, kind).
+REGISTRY_VERSION = 3
+
+# Button folder suffixes that carry a launchable tool. `.urlbutton` entries
+# (Autodesk Forma / Health, Bluebeam Status) have no script.py at all — they
+# open a web page — and used to be invisible to the assistant, so "open
+# Autodesk Forma" answered that no such tool existed while the button sat on
+# the ribbon.
+_BUTTON_SUFFIXES = ('.pushbutton', '.smartbutton', '.urlbutton')
 
 # ── Buttons that must not be auto-registered ─────────────────────────────────
 # Keep this list to what genuinely cannot be auto-derived. It used to also
@@ -54,13 +62,17 @@ _SKIP_BUTTONS = {
 # Scanning helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def scan_all_pushbuttons():
+def scan_all_buttons():
     """
-    Walk T3Lab_Lite.tab and return a list of dicts for every *.pushbutton
-    that has a script.py, at any nesting depth (panel/pushbutton,
-    panel/stack/pushbutton, panel/pulldown/stack/pushbutton, etc.).
+    Walk T3Lab.tab and return a list of dicts for every launchable ribbon
+    button, at any nesting depth (panel/button, panel/stack/button,
+    panel/pulldown/stack/button, etc.).
 
-    Each dict: {button, panel, script_path, title}
+    A button qualifies when it has a script.py (pushbutton / smartbutton) or
+    a bundle.yaml `hyperlink` (urlbutton).
+
+    Each dict: {button, panel, script_path, url, kind, title, doc, xamls,
+                aliases}
     """
     results = []
     if not os.path.isdir(_TAB_DIR):
@@ -73,22 +85,80 @@ def scan_all_pushbuttons():
             continue
         for root, dirs, files in os.walk(panel_dir):
             btn = os.path.basename(root)
-            if not btn.endswith('.pushbutton'):
+            if not btn.endswith(_BUTTON_SUFFIXES):
                 continue
             script = os.path.join(root, 'script.py')
-            if not os.path.exists(script):
+            has_script = os.path.exists(script)
+            b_title, b_doc, url = _read_bundle(root)
+            if not has_script and not url:
                 continue
-            title, doc, xamls = _read_meta(script)
-            title = title or btn.replace('.pushbutton', '')
+            title, doc, xamls = _read_meta(script) if has_script else (None, '', [])
+            # The ribbon label is the name the USER sees and types. It is not
+            # always the script's __title__ ("Auto Adj Base Offset" on the
+            # ribbon vs "Auto Adjust Base Offset" in the script), and the
+            # difference was enough for "open auto adj base offset" to resolve
+            # to nothing.
+            title = title or b_title or _strip_suffix(btn)
             results.append({
                 'button':      btn,
                 'panel':       panel,
-                'script_path': script,
+                'path':        root,
+                'script_path': script if has_script else '',
+                'url':         url,
+                'kind':        'url' if (url and not has_script) else 'script',
                 'title':       title,
-                'doc':         doc,
+                'doc':         doc or b_doc,
                 'xamls':       xamls,
+                'aliases':     [a for a in (b_title,) if a and a != title],
             })
     return results
+
+
+# Historic name — kept so external callers/tests keep working.
+scan_all_pushbuttons = scan_all_buttons
+
+
+def _strip_suffix(btn_name):
+    """'Tile Layout.pushbutton' → 'Tile Layout'."""
+    for suf in _BUTTON_SUFFIXES:
+        if btn_name.endswith(suf):
+            return btn_name[:-len(suf)]
+    return btn_name
+
+
+def _read_bundle(button_dir):
+    """Extract (title, tooltip, hyperlink) from a button's bundle.yaml.
+
+    Deliberately a line scanner, not a YAML parse: pyRevit bundles are flat
+    and PyYAML is not guaranteed to be importable under IronPython 2.7.
+    """
+    path = os.path.join(button_dir, 'bundle.yaml')
+    if not os.path.exists(path):
+        return None, '', ''
+    title, tip, url = None, '', ''
+    try:
+        with io.open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                m = re.match(r'\s*(title|tooltip|hyperlink)\s*:\s*(.+)$', line)
+                if not m:
+                    continue
+                key = m.group(1)
+                val = m.group(2).strip().strip('"\'').strip()
+                # pyRevit wraps ribbon labels with a literal "\n" for the
+                # second line — it is layout, not part of the name.
+                val = val.replace('\\n', ' ').replace('\n', ' ')
+                val = re.sub(r'\s+', ' ', val).strip()
+                if not val:
+                    continue
+                if key == 'title' and title is None:
+                    title = val
+                elif key == 'tooltip' and not tip:
+                    tip = val[:140]
+                elif key == 'hyperlink' and not url:
+                    url = val
+    except Exception:
+        pass
+    return title, tip, url
 
 
 def _read_meta(script_path):
@@ -178,7 +248,7 @@ def _button_to_intent(btn_name):
     'LoadFamily(Cloud).pushbutton'  →  'open_loadfamily_cloud'
     'Reset Overrides.pushbutton'    →  'open_reset_overrides'
     """
-    name = btn_name.replace('.pushbutton', '')
+    name = _strip_suffix(btn_name)
     name = re.sub(r'[\s\(\)\-\[\]]', '_', name)
     name = re.sub(r'_+', '_', name).strip('_')
     return 'open_' + name.lower()
@@ -189,21 +259,23 @@ def _camel_split(text):
     return re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', text)
 
 
-def _gen_keywords(title, btn_name, xamls=None):
+def _gen_keywords(title, btn_name, xamls=None, aliases=None):
     """
-    Generate lowercase keyword hints from the button name, title, and any
-    XAML basenames the script references. Returns a deduplicated list
-    sorted by length desc.
+    Generate lowercase keyword hints from the button name, title, the ribbon
+    label, and any XAML basenames the script references. Returns a
+    deduplicated list sorted by length desc.
     """
-    base = btn_name.replace('.pushbutton', '')
+    base = _strip_suffix(btn_name)
     parts = [base, _camel_split(base), title]
-    for x in (xamls or []):
+    for x in list(xamls or []) + list(aliases or []):
         parts.append(x)
         parts.append(_camel_split(x))
     combined = ' '.join(parts).lower()
     words = re.findall(r'[a-z][a-z0-9]*', combined)
     # Add the raw names as extra hints
-    extras = [base.lower(), title.lower()] + [x.lower() for x in (xamls or [])]
+    extras = ([base.lower(), title.lower()]
+              + [x.lower() for x in (xamls or [])]
+              + [a.lower() for a in (aliases or [])])
     all_kw = list(set(words + extras))
     all_kw = [k for k in all_kw if len(k) > 1]
     return sorted(all_kw, key=len, reverse=True)
@@ -227,18 +299,28 @@ def discover_new_tools():
     if reg.get('version') != REGISTRY_VERSION:
         reg = {'version': REGISTRY_VERSION, 'tools': {}}
 
-    # Prune entries whose script.py is gone. Registration was append-only, so a
-    # renamed or deleted pushbutton stayed in the registry forever and kept
-    # being offered to the model as an openable tool.
-    stale = [btn for btn, e in (reg.get('tools') or {}).items()
-             if not (e.get('script_path') and os.path.exists(e['script_path']))]
+    # Prune entries the registry must not keep. Registration was append-only,
+    # so a renamed or deleted pushbutton stayed in the registry forever and
+    # kept being offered to the model as an openable tool.
+    #   • no launchable target left (script.py deleted, url button emptied)
+    #   • the button was ADDED to _SKIP_BUTTONS after it was registered —
+    #     ManaFami sat here, so "Family Manager" matched both the generic
+    #     open_manafami entry and the open_loadfamily special launcher, and
+    #     resolve_tool called every one of its names ambiguous.
+    stale = []
+    for btn, e in (reg.get('tools') or {}).items():
+        if btn in _SKIP_BUTTONS:
+            stale.append(btn)
+        elif not (e.get('url')
+                  or (e.get('script_path') and os.path.exists(e['script_path']))):
+            stale.append(btn)
     for btn in stale:
         reg['tools'].pop(btn, None)
 
     known = set(reg.get('tools', {}).keys())
 
     new_tools = []
-    for tool in scan_all_pushbuttons():
+    for tool in scan_all_buttons():
         btn = tool['button']
         if btn in _SKIP_BUTTONS or btn in known:
             continue
@@ -247,11 +329,15 @@ def discover_new_tools():
             'button':      btn,
             'panel':       tool['panel'],
             'script_path': tool['script_path'],
+            'url':         tool.get('url', ''),
+            'kind':        tool.get('kind', 'script'),
             'title':       tool['title'],
             'doc':         tool.get('doc', ''),
             'xaml':        tool.get('xamls', []),
+            'aliases':     tool.get('aliases', []),
             'intent':      intent,
-            'keywords':    _gen_keywords(tool['title'], btn, tool.get('xamls')),
+            'keywords':    _gen_keywords(tool['title'], btn, tool.get('xamls'),
+                                         tool.get('aliases')),
         }
         reg.setdefault('tools', {})[btn] = entry
         new_tools.append(entry)
@@ -351,12 +437,45 @@ def run_tool_script(script_path, title=None):
         os.path.basename(script_path))
 
 
-def make_generic_launcher(script_path, title):
-    """Build a zero-argument launcher for a tool. Returns callable () → (ok, err)."""
+def open_tool_url(url, title=None):
+    """Open a urlbutton's hyperlink in the default browser.
+
+    Returns (ok, error_text) — same contract as run_tool_script.
+    """
+    if not url:
+        return False, u"No link configured for {}".format(title or u"this button")
+    try:
+        import webbrowser
+        webbrowser.open(url)
+        return True, u""
+    except Exception as ex:
+        first = _err_text(ex)
+    try:                                     # IronPython fallback
+        from System.Diagnostics import Process
+        Process.Start(url)
+        return True, u""
+    except Exception:
+        return False, first
+
+
+def make_generic_launcher(script_path, title, url=None):
+    """Build a zero-argument launcher for a tool. Returns callable () → (ok, err).
+
+    A urlbutton (`url` set, no script) opens its hyperlink instead.
+    """
     def _launcher():
+        if url and not script_path:
+            return open_tool_url(url, title)
         return run_tool_script(script_path, title)
 
     return _launcher
+
+
+def make_launcher_for(entry):
+    """Zero-argument launcher for a registry entry dict."""
+    return make_generic_launcher(entry.get('script_path') or '',
+                                 entry.get('title') or '',
+                                 entry.get('url') or '')
 
 
 def build_system_prompt_section(tools):

@@ -12,7 +12,7 @@ Mail: trantienthanh909@gmail.com
 
 __title__   = "PDF\nImport"
 __author__  = "Tran Tien Thanh"
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 # IMPORTS
 # ==============================================================================
