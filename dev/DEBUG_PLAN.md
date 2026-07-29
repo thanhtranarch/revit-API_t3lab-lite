@@ -78,7 +78,7 @@ Khi debug các tool này, lỗi thật sẽ bị nuốt im lặng → phải t�
 - Kiểm tra thực tế: **74/76 XAML và cả file chuẩn `UIStandardShowcase.xaml` đã đặt copyright ở footer (status bar) BÊN TRÁI** từ trước (copyright → divider 1px `#DCDCE0` → status text). Tài liệu `ui-design-standard.md` cũ bắt overlay góc phải-dưới (`Grid.RowSpan="99"`) mới là thứ sai so với codebase.
 - **Đã cập nhật** `.claude/rules/ui-design-standard.md`: chuẩn chính thức = copyright ở footer, left-most element, theo snippet của `UIStandardShowcase.xaml`; Variant B không có footer dùng fallback overlay **trái**-dưới; item-template XAML (`CadtoFloorLayerItem.xaml`) được miễn trừ. `dev/audit_ui.py` đã sửa theo rule mới.
 - Việc còn lại (2 outlier, đều thuộc T3LabAssistant — gộp xử lý với F8 trong GĐ2 Ngày 3):
-  - `T3LabAssistant.xaml:~2109` — copyright đang căn **giữa** dưới ô chat input
+  - `T3LabAssistant.xaml:1766` — copyright (số dòng cũ ~2109 đã lệch sau khi file co lại còn 1982 dòng; khối copyright vẫn còn, không bị mất)
   - `AssistantPane.xaml:~1357` — copyright theo chuẩn cũ (overlay góc **phải**-dưới); đây là file duy nhất từng theo doc cũ
 - Các hạng mục UI khác đều đạt: palette Lumina (trừ F8), font, WindowChrome, glyph, shared styles, không dot-notation. KHÔNG sửa 2 file UI-locked (`DWGManagement.xaml`, `ExportManager.xaml`).
 
@@ -218,7 +218,7 @@ Ghi kết quả vào bảng mục 4 (cột Trạng thái: ⬜ chưa test / ✅ p
 | 33 | MCPControl | launcher → `MCPControlDialog.py` | 348 | Start/stop server `core/server.py`; port 48884 | Bật/tắt server; port bị chiếm | ✅ |
 | 34 | Feedback | self | 232 | Gửi feedback ra ngoài (network) | Không có mạng; nội dung unicode tiếng Việt | ✅ |
 | 35 | PDF import | self, không UI | 33 | Phụ thuộc API import PDF theo version Revit | Revit 2022+ import 1 PDF | ✅ |
-| 36 | T3LabAssistant | self | 3594 | **Tool lớn nhất**; import động (`imp`/`importlib` có guard); gọi `core.server`; UI chat | Mở UI; server chưa chạy; gửi 1 lệnh; kiểm tra fallback import trên IronPython (`importlib.util` không tồn tại → phải rơi vào nhánh `imp`) | ✅ |
+| 36 | T3LabAssistant | self | 8115 | **Tool lớn nhất**; import động (`imp`/`importlib` có guard); gọi `core.server`; UI chat | Mở UI; server chưa chạy; gửi 1 lệnh; kiểm tra fallback import trên IronPython (`importlib.util` không tồn tại → phải rơi vào nhánh `imp`) | ✅ |
 | 37 | ManaTabs | self | 147 | Thao tác UI Revit qua Windows API — dễ vỡ theo version | Revit nhiều tab; 2 bare except | ✅ |
 | 38 | Ribbon Names | self | 154 | Sửa text ribbon qua AdWindows.dll | Đổi tên; restart Revit xem persist | ✅ |
 | 39 | BG Theme | self | 122 | Đổi background/theme qua UIApplication settings | Toggle theme; Revit dark mode | ✅ |
@@ -340,8 +340,8 @@ check #3 đối chiếu `Click=` ↔ method Python theo cả hai chiều.
 
 ### KHÔNG phải lỗi (đã kiểm tra — đừng "sửa")
 
-- `_is_viet_text` trả `False` vô điều kiện — **cố ý**, có ghi chú ("UI + replies locked to English, 2026-07-18").
-- `_FAST_CONTEXT_ENABLED = False` — **cố ý** (tắt 2026-07-06 vì keyword match cướp query không liên quan).
+- ~~`_is_viet_text` trả `False` vô điều kiện — **cố ý**, có ghi chú ("UI + replies locked to English, 2026-07-18").~~ **Đã đảo lại ở §9 (2026-07-28)**: khoá này không thực sự làm UI thành tiếng Anh — các chuỗi tiếng Việt viết KHÔNG có nhánh `if viet:` vẫn hiện, nên cửa sổ lẫn hai ngôn ngữ.
+- ~~`_FAST_CONTEXT_ENABLED = False` — **cố ý** (tắt 2026-07-06 vì keyword match cướp query không liên quan).~~ **Đã xoá hẳn ở §9 (2026-07-28)**: lý do tắt vẫn đúng, nhưng giữ ~220 dòng không bao giờ chạy chỉ tạo ảo giác còn đường tắt; tầng agent đã trả lời các câu hỏi này bằng tool thật.
 - `_update_knowledge_status` là no-op hook — **cố ý** sau khi UI knowledge chuyển sang LLMs Setting.
 - `get_status(use_cache=True)` **không có caller nào** trong repo → claim "TTL chết làm probe chậm" là phóng đại; vẫn arm TTL nhưng chỉ khi cache đủ provider (arm sau probe 1 provider sẽ phục vụ snapshot thiếu 4 provider trong 30s).
 - 2 hàm knowledge/comment agent trả `False` ở except ngoài cùng là **đường degrade có chủ đích** (user vẫn nhận trả lời từ legacy path) — chỉ nâng log `debug` → `error`, không thêm bubble.

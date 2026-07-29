@@ -1601,6 +1601,18 @@
                         <Grid Margin="1,0,0,6">
                             <TextBlock Text="SKILLS" Style="{StaticResource FieldLabel}" Margin="0"/>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="install_skills_btn" Cursor="Hand" Margin="0,0,10,0"
+                                        Background="Transparent" BorderThickness="0" Padding="0"
+                                        Click="install_skills_clicked"
+                                        ToolTip="Install Claude skills from a GitHub repo link">
+                                    <TextBlock Text="Install from GitHub" FontSize="10.5" FontWeight="SemiBold" Foreground="#3B82F6"/>
+                                </Button>
+                                <Button x:Name="update_skills_btn" Cursor="Hand" Margin="0,0,10,0"
+                                        Background="Transparent" BorderThickness="0" Padding="0"
+                                        Click="update_skills_clicked"
+                                        ToolTip="Re-pull every skill installed from a repo">
+                                    <TextBlock Text="Update" FontSize="10.5" FontWeight="SemiBold" Foreground="#3B82F6"/>
+                                </Button>
                                 <Button x:Name="refresh_skills_btn" Cursor="Hand" Margin="0,0,10,0"
                                         Background="Transparent" BorderThickness="0" Padding="0"
                                         Click="refresh_skills_clicked" ToolTip="Rescan skill folders">
@@ -1614,6 +1626,9 @@
                             </StackPanel>
                         </Grid>
                         <TextBlock Text="Instruction packs that auto-activate based on your request. Toggle to enable/disable, or type /skill-name in the chat to force one."
+                                   FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
+                                   Margin="1,0,0,4" LineHeight="15"/>
+                        <TextBlock Text="Claude skills are supported as-is: paste a GitHub repo link above, or tell the assistant &quot;install skills from &lt;link&gt;&quot;. Update re-pulls them later."
                                    FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
                                    Margin="1,0,0,8" LineHeight="15"/>
                         <StackPanel x:Name="skills_list_panel"/>

@@ -177,6 +177,24 @@ except Exception as e:
     def get_global_store(): return None
     def get_active_store(): return None
 
+# ─── Routing decisions (pure, testable — see lib/Intelligence/routing.py) ─────
+try:
+    from Intelligence import routing
+except Exception as e:
+    logger.warning("Could not import routing: {}".format(e))
+
+    class routing(object):
+        """Degradation stub: keep the previous turn's behaviour, never carry
+        over, and let learned patterns act as they did before."""
+        @staticmethod
+        def is_continuation(*a, **kw): return False
+
+        @staticmethod
+        def learned_pattern_wins(learned, nlu_result): return bool(learned)
+
+        @staticmethod
+        def wants_spellcheck_fix(args): return False
+
 # ─── Multi-agent dispatcher (specialist routing) ──────────────────────────────
 try:
     from Intelligence.agents.dispatcher import AgentDispatcher
@@ -199,7 +217,8 @@ except Exception as e:
     def get_spec(name): return None
     def build_specialist_prompt(spec, ctx, **kw):
         from Intelligence.agent_loop import build_agent_system_prompt
-        return build_agent_system_prompt(ctx)
+        return build_agent_system_prompt(ctx, local=kw.get('local', False),
+                                         lang=kw.get('lang', 'auto'))
 
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
@@ -257,15 +276,18 @@ def _load_batchout_mod():
 
 
 def launch_batchout():
-    """Open the BatchOut export dialog (no pre-configuration)."""
+    """Open the BatchOut export dialog (no pre-configuration).
+
+    Zero-arg launchers return (ok, error_text) — see TOOL_LAUNCHERS.
+    """
     try:
         mod = _load_batchout_mod()
         window = mod.ExportManagerWindow()
         window.ShowDialog()
-        return True
+        return True, u""
     except Exception as ex:
-        logger.error("Error launching BatchOut: {}".format(ex))
-        return False
+        logger.error("Error launching BatchOut: {}".format(_exc_text(ex)))
+        return False, _exc_text(ex)
 
 
 def launch_batchout_configured(config, progress_cb=None):
@@ -321,113 +343,26 @@ def launch_export_direct(config, progress_cb=None):
         return False
 
 
-def launch_parasync():
-    """Open the ParaSync parameter sync tool."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'ParaSync.pushbutton')
-        mod = _load_script('parasync_script', script_path)
-        if mod is None:
-            raise RuntimeError("Could not load ParaSync module from: {}".format(script_path))
-        window = mod.ParaSyncWindow()
-        window.ShowDialog()
-        return True
-    except Exception as ex:
-        logger.error("Error launching ParaSync: {}".format(ex))
-        return False
-
-
 def launch_loadfamily():
-    """Open the Load Family dialog."""
+    """Open the Family Manager on its Loader tab."""
     try:
         from GUI.ManaFamiDialog import show_family_manager
         show_family_manager(default_tab=0)
-        return True
+        return True, u""
     except Exception as ex:
-        logger.error("Error launching LoadFamily: {}".format(ex))
-        return False
+        logger.error("Error launching LoadFamily: {}".format(_exc_text(ex)))
+        return False, _exc_text(ex)
 
 
-def launch_loadfamily_cloud():
-    """Open the Load Family (Cloud) dialog."""
-    try:
-        from GUI.ManaFamiDialog import show_family_manager
-        show_family_manager(default_tab=0)
-        return True
-    except Exception as ex:
-        logger.error("Error launching LoadFamily Cloud: {}".format(ex))
-        return False
-
-
-def launch_projectname():
-    """Open the Project Name tool."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'ProjectName.pushbutton')
-        mod = _load_script('projectname_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching ProjectName: {}".format(ex))
-        return False
-
-
-def launch_workset():
-    """Open the Workset manager."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'Workset.pushbutton')
-        mod = _load_script('workset_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching Workset: {}".format(ex))
-        return False
-
-
-def launch_dimtext():
-    """Run the Dim Text tool on current selection."""
-    try:
-        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Text.stack', 'TextTagTools.pulldown', 'DimText.pushbutton')
-        mod = _load_script('dimtext_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching DimText: {}".format(ex))
-        return False
-
-
-def launch_upperall():
-    """Run the Upper All Text tool on current selection."""
-    try:
-        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Text.stack', 'TextTagTools.pulldown', 'UpperAll.pushbutton')
-        mod = _load_script('upperall_script', script_path)
-        if mod and hasattr(mod, 'main'):
-            mod.main()
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching UpperAll: {}".format(ex))
-        return False
-
-
-def launch_resetoverrides():
-    """Run the Reset Overrides tool on the active view."""
-    try:
-        script_path = _get_tool_script_dir('Annotation & Select.panel', 'Graphic 2.stack', 'Reset Overrides.pushbutton')
-        mod = _load_script('resetoverrides_script', script_path)
-        return mod is not None
-    except Exception as ex:
-        logger.error("Error launching Reset Overrides: {}".format(ex))
-        return False
-
-
-def launch_cadtobeam():
-    """Open the CAD to Beam tool."""
-    try:
-        script_path = _get_tool_script_dir('Modeling & Datum.panel', 'Create.stack', 'Create Elements.pulldown', 'Beam.pushbutton')
-        mod = _load_script('cadtobeam_script', script_path)
-        if mod:
-            window = mod.CADtoBeamWindow()
-            window.ShowDialog()
-            return True
-        return False
-    except Exception as ex:
-        logger.error("Error launching CADtoBeam: {}".format(ex))
-        return False
+# NOTE — 2026-07-28. Seven hardcoded launchers (ParaSync, ProjectName,
+# Workset, DimText, UpperAll, Reset Overrides, Beam) were removed here: every
+# one pointed at a pushbutton directory that no longer exists, so they always
+# failed, while still being advertised to the model. `open_grids` and
+# `open_loadfamily_cloud` went with them — Grids.pushbutton never existed, and
+# the "cloud" launcher was a byte-for-byte duplicate of launch_loadfamily
+# (show_family_manager only has tabs 0/1, Loader and Management — no cloud
+# tab). Everything except BatchOut and the Family Manager now comes from the
+# tool_discovery registry, validated against disk. See _build_tool_launchers.
 
 
 # Map intent → launcher function
@@ -471,43 +406,116 @@ def _exc_text(exc):
         return u"<unprintable error>"
 
 
+_VIET_CHARS = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
+               u"ụủứừửữựỳỵỷỹ")
+
+
+def _reply_language():
+    """User's language preference: 'auto' | 'vi' | 'en'. Never raises."""
+    try:
+        from config.settings import get_settings
+        return get_settings().get_reply_language()
+    except Exception:
+        return 'auto'
+
+
 def _is_viet_text(text):
-    # UI + replies locked to English (2026-07-18): every bilingual branch
-    # now renders its English variant. Detection kept below for re-enable.
-    return False
-    viet_chars = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
-                  u"ụủứừửữựỳỵỷỹ")
-    return any(c in viet_chars for c in text.lower())
+    """True when the assistant should answer this turn in Vietnamese.
+
+    Between 2026-07-18 and 2026-07-28 this was hard-wired to `return False`
+    with the detection left unreachable below it. That did not make the UI
+    English: the ~57 `if viet:` branches all took their English arm, but the
+    Vietnamese strings that were written WITHOUT a branch (the /memory
+    replies, the local-model download notices, the spell-check confirmation,
+    every label in AssistantCards) still rendered — so the window mixed both
+    languages. The setting now decides, and 'auto' detects from the text.
+    """
+    lang = _reply_language()
+    if lang == 'vi':
+        return True
+    if lang == 'en':
+        return False
+    if not text:
+        return _ui_viet()
+    viet = any(c in _VIET_CHARS for c in text.lower())
+    if viet:
+        # Remember it: messages that belong to no particular turn (startup
+        # notices, card labels) should follow the language the user is
+        # actually typing in.
+        global _LAST_USER_VIET
+        _LAST_USER_VIET = True
+    return viet
 
 
-TOOL_LAUNCHERS = {
-    "open_batchout":         launch_batchout,
-    "open_parasync":         launch_parasync,
-    "open_loadfamily":       launch_loadfamily,
-    "open_loadfamily_cloud": launch_loadfamily_cloud,
-    "open_projectname":      launch_projectname,
-    "open_workset":          launch_workset,
-    "open_dimtext":          launch_dimtext,
-    "open_upperdimtext":     launch_upperall,
-    "open_resetoverrides":   launch_resetoverrides,
-    "open_cad_to_beam":      launch_cadtobeam,
+# Language of the most recent user message, for strings that are not tied to
+# one turn. None until the user has typed something.
+_LAST_USER_VIET = None
+
+
+def _note_user_language(text):
+    """Record the language of a user message. Call once per submitted turn."""
+    global _LAST_USER_VIET
+    if text:
+        _LAST_USER_VIET = any(c in _VIET_CHARS for c in text.lower())
+
+
+def _ui_viet():
+    """Language for UI strings with no user text of their own."""
+    lang = _reply_language()
+    if lang == 'vi':
+        return True
+    if lang == 'en':
+        return False
+    return bool(_LAST_USER_VIET)
+
+
+# Tools whose launcher needs arguments or a non-script entry point. Every
+# OTHER intent is generated from the tool_discovery registry — see
+# _register_discovered_launchers. Keeping this list to what genuinely cannot
+# be auto-derived is the point: the previous hardcoded map drifted until 8 of
+# its 10 intents pointed at pushbuttons that had been deleted or renamed.
+_SPECIAL_LAUNCHERS = {
+    "open_batchout":   launch_batchout,
+    "open_loadfamily": launch_loadfamily,
 }
+
+TOOL_LAUNCHERS = dict(_SPECIAL_LAUNCHERS)
+
+# intent → display title, for user-facing "Opening X..." messages.
+TOOL_TITLES = {
+    "open_batchout":   u"BatchOut",
+    "open_loadfamily": u"Family Loader",
+}
+
+# Registry entries dropped because their script.py is not on disk. Surfaced in
+# the activity log instead of silently shipping a broken intent to the model.
+DROPPED_TOOLS = []
 
 
 def _register_discovered_launchers(tools):
-    """
-    For each auto-discovered tool, add a generic launcher to TOOL_LAUNCHERS
-    and update the NLP module's system prompt.
+    """Rebuild TOOL_LAUNCHERS from the registry, validating each against disk.
+
+    An intent only survives when its script.py actually exists — an intent the
+    assistant cannot honour must never reach the model, because the model will
+    happily promise to open it.
 
     Args:
         tools: list of tool dicts from discover_new_tools() / get_registered_tools()
     """
+    del DROPPED_TOOLS[:]
     for tool in tools:
         intent = tool.get('intent')
-        if not intent or intent in TOOL_LAUNCHERS:
+        path   = tool.get('script_path')
+        if not intent or intent in _SPECIAL_LAUNCHERS:
             continue
-        launcher = make_generic_launcher(tool['script_path'], tool['title'])
-        TOOL_LAUNCHERS[intent] = launcher
+        if not path or not os.path.exists(path):
+            DROPPED_TOOLS.append((intent, path or u"<no path>"))
+            TOOL_LAUNCHERS.pop(intent, None)
+            TOOL_TITLES.pop(intent, None)
+            continue
+        title = tool.get('title') or intent
+        TOOL_LAUNCHERS[intent] = make_generic_launcher(path, title)
+        TOOL_TITLES[intent] = title
 
     # Inject all registered tools (new + old) into the NLP system prompt
     if HAS_NLP:
@@ -515,6 +523,13 @@ def _register_discovered_launchers(tools):
             inject_discovered_tools(get_registered_tools())
         except Exception:
             pass
+
+
+def get_tool_title(intent):
+    """Display label for an intent; falls back to a readable form of the id."""
+    if intent in TOOL_TITLES:
+        return TOOL_TITLES[intent]
+    return (intent or u"").replace('open_', '').replace('_', ' ').strip().title()
 
 
 # ─── Chat history persistence ─────────────────────────────────────────────────
@@ -832,6 +847,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 time.sleep(0.5)   # let window render first
 
                 # ─── 1. Auto-start Revit MCP Server & File Watcher ───
+                # In-process infrastructure: nothing is downloaded and nothing
+                # outlives Revit, so this still runs unattended — but a failure
+                # is no longer invisible. It used to vanish into logger.debug,
+                # and every tool call would then fail for no stated reason.
                 try:
                     from Services.mcp_service import MCPService
                     # Start MCP HTTP Server if stopped
@@ -844,60 +863,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         MCPService.start_watcher()
                 except Exception as ex:
                     logger.debug("Auto-start MCP/watcher failed: {}".format(ex))
+                    self._log_activity(
+                        u"MCP server/watcher did not start: {}".format(
+                            _exc_text(ex)))
 
-                # ─── 2. Auto-start Ollama Local Engine ───
+                # ─── 2. Local engine: OFFER, never start or download ───────
+                # This used to spawn `ollama serve` with subprocess.Popen and
+                # then POST /api/pull for qwen2.5:1.5b with a 600 s timeout —
+                # launching a background process and pulling ~1 GB onto the
+                # user's machine, with no consent, no cancel and every failure
+                # swallowed. The knowledge-embeddings step below already held
+                # the right line ("the ~270 MB pull is never triggered
+                # silently from startup"); this now follows it.
                 try:
-                    from Intelligence import local_llm
-                    if not local_llm.is_running():
-                        import subprocess
-                        import os
-                        user_profile = os.environ.get('USERPROFILE', '')
-                        ollama_paths = [
-                            "ollama",
-                            os.path.join(user_profile, "AppData", "Local", "Programs", "Ollama", "ollama.exe")
-                        ]
-                        launched = False
-                        for path in ollama_paths:
-                            try:
-                                # Start Ollama server in background (no console window)
-                                if os.path.exists(path) or path == "ollama":
-                                    subprocess.Popen([path, "serve"], 
-                                                     creationflags=0x08000000) # CREATE_NO_WINDOW
-                                    launched = True
-                                    break
-                            except Exception:
-                                pass
-                        
-                        if launched:
-                            # Wait for server to boot up
-                            for _ in range(10):
-                                time.sleep(0.5)
-                                if local_llm.is_running():
-                                    break
+                    self._offer_local_engine()
                 except Exception as ex:
-                    logger.debug("Ollama launch failed: {}".format(ex))
-
-                # ─── 3. Auto-download Default Model if empty ───
-                try:
-                    from Intelligence import local_llm
-                    if local_llm.is_running():
-                        models = local_llm.list_models()
-                        if not models:
-                            # Notify user in the chat panel
-                            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
-                                u"Không tìm thấy mô hình AI cục bộ nào. Đang tự động tải mô hình mặc định (qwen2.5:1.5b) về máy bạn. Quá trình này chạy ngầm và có thể mất vài phút...",
-                                icon=_ICON_SYNC, icon_color=_ICON_SLATE
-                            )))
-
-                            payload = {"name": "qwen2.5:1.5b", "stream": False}
-                            local_llm._post_json(local_llm.get_host() + "/api/pull", payload, timeout=600)
-
-                            self.Dispatcher.Invoke(Action(lambda: self._append_bot_message(
-                                u"Tải thành công mô hình AI qwen2.5:1.5b! Bạn có thể sử dụng T3Lab Assistant ngoại tuyến.",
-                                icon=_ICON_SUCCESS, icon_color=_ICON_GREEN
-                            )))
-                except Exception as ex:
-                    logger.debug("Auto-pull model failed: {}".format(ex))
+                    logger.debug("Local engine offer failed: {}".format(ex))
 
                 # ─── 3.4 Skills registry scan ───
                 try:
@@ -906,6 +887,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     logger.debug("Skills scanned: {}".format(_n_skills))
                 except Exception as ex:
                     logger.debug("Skills scan failed: {}".format(ex))
+                    self._log_activity(
+                        u"Skills scan failed: {}".format(_exc_text(ex)))
 
                 # ─── 3.5 Knowledge index: incremental scan + vectors ───
                 # Scans %APPDATA%/T3LabAI/knowledge/ plus user dirs; only
@@ -931,6 +914,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 Action(self._update_knowledge_status))
                 except Exception as ex:
                     logger.debug("Knowledge scan failed: {}".format(ex))
+                    self._log_activity(
+                        u"Knowledge scan failed: {}".format(_exc_text(ex)))
 
                 from Intelligence.llm_router import LLMRouter
                 router = LLMRouter()
@@ -976,9 +961,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     no_provider = not has_api_key() and not has_local_llm()
                     if already_onboarded and fresh_chat and no_provider:
                         def _nudge():
-                            self._append_bot_message(get_setup_guidance_message(True),
-                                                     icon=_ICON_INFO, icon_color=_ICON_SLATE)
-                            self._add_to_history("assistant", get_setup_guidance_message(True))
+                            _guide = get_setup_guidance_message(_ui_viet())
+                            self._append_bot_message(_guide, icon=_ICON_INFO,
+                                                     icon_color=_ICON_SLATE)
+                            self._add_to_history("assistant", _guide)
                         self.Dispatcher.Invoke(Action(_nudge))
                 except Exception:
                     pass
@@ -1140,16 +1126,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not HAS_DISCOVERY:
                 return
 
-            # ── Discover (writes registry) ────────────────────────────────────
+            # ── Discover (writes registry, drops vanished buttons) ───────────
             new_tools = discover_new_tools()
 
             # ── Register launchers + inject into NLP ─────────────────────────
-            _register_discovered_launchers(new_tools)
+            # ONE pass over the full registry: _register_discovered_launchers
+            # rebuilds the catalog and validates every script path, so calling
+            # it with just the new tools first would only reset the drop list.
+            _register_discovered_launchers(get_registered_tools())
 
-            # Also register launchers for tools already in registry from previous runs
-            all_tools = get_registered_tools()
-            if all_tools:
-                _register_discovered_launchers(all_tools)
+            # A registry entry whose script has since been deleted never
+            # reaches the model — but it should not vanish silently either.
+            if DROPPED_TOOLS:
+                self._log_activity(
+                    u"Tool catalog: skipped {} intent(s) with no script on "
+                    u"disk — {}".format(
+                        len(DROPPED_TOOLS),
+                        u", ".join(i for i, _p in DROPPED_TOOLS[:8])))
 
             # ── Chat notification for NEW tools only ──────────────────────────
             if new_tools:
@@ -2776,6 +2769,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                           'description': (u'View or manage what the '
                                           u'assistant remembers'),
                           'source': None, 'enabled': True})
+        # Same deal for /skills — install or update Claude skills from a
+        # GitHub repo link (routes to _try_skills_command).
+        if u'skills'.startswith(q):
+            items.append({'id': u'skills', 'name': u'Skills',
+                          'description': (u'Install or update skills from a '
+                                          u'GitHub repo'),
+                          'source': None, 'enabled': True})
         if not items:
             self._close_skills_popup()
             return
@@ -3672,226 +3672,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
-    # DB-only fast path (no LLM round-trip). DISABLED 2026-07-06: keyword
-    # matching hijacks unrelated queries (e.g. "check lỗi tiếng Anh trong dự
-    # án" → project info) — every query now goes through the NLP/LLM pipeline.
-    _FAST_CONTEXT_ENABLED = False
-
-    # Keyword groups for the DB-only fast path (no LLM round-trip)
-    _FAST_CTX_PROJECT = (
-        u"thông tin dự án", u"thong tin du an", u"thông tin project", u"thông tin model",
-        u"thong tin model", u"dự án này", u"du an nay", u"project info",
-        u"project information", u"about project", u"model info", u"project", u"dự án", u"du an",
-    )
-    _FAST_CTX_VIEW = (
-        u"view hiện tại", u"view hien tai", u"thông tin view", u"thong tin view",
-        u"current view", u"active view", u"view đang mở", u"view dang mo",
-        u"activeview", u"currentview", u"view",
-    )
-    _FAST_CTX_SELECTION = (
-        u"đang chọn", u"dang chon", u"đang được chọn", u"dang duoc chon",
-        u"selected element", u"selection", u"đã chọn", u"da chon",
-        u"bao nhiêu element", u"how many selected", u"sel", u"selected",
-        u"đang chọn gì", u"dang chon gi",
-    )
-    # Action verbs and terms that prevent fast-path routing (exact word-level match)
-    _FAST_CTX_EXCLUDE_WORDS = {
-        u"tạo", u"create", u"mở", u"open", u"xuất", u"export", u"in", u"print",
-        u"ẩn", u"hide", u"color", u"màu", u"xoá", u"delete", u"remove",
-        u"vẽ", u"draw", u"tag", u"add", u"thêm", u"sửa", u"edit", u"update",
-        u"chạy", u"run", u"c#", u"csharp", u"load", u"tải", u"nap",
-        u"batchout", u"parasync", u"dim", u"override", u"isolate", u"highlight"
-    }
-
-    # Substrings that prevent fast-path routing
-    _FAST_CTX_EXCLUDE_SUBS = (
-        u"batchout", u"parasync", u"override", u"isolate", u"highlight"
-    )
-
-    # Specific Revit element type and query keywords that prevent generic fast-path hijacking
-    _FAST_CTX_ELEMENT_WORDS = {
-        u"tường", u"wall", u"cửa", u"door", u"sàn", u"floor", u"mái", u"roof",
-        u"phòng", u"room", u"dầm", u"beam", u"cột", u"column", u"trần", u"ceiling",
-        u"family", u"type", u"vật liệu", u"material", u"level", u"tầng", u"grid",
-        u"lưới", u"sheet", u"bản vẽ", u"ban ve", u"parameter", u"tham số", u"tham so",
-        u"khối lượng", u"khoi luong", u"quantity", u"count", u"nhiêu", u"nhieu",
-        u"bao nhiêu", u"bao nhieu", u"how many", u"list", u"danh sách", u"danh sach"
-    }
-
-    _FAST_CTX_ELEMENT_MAP = {
-        u"tường": ([DB.BuiltInCategory.OST_Walls], u"Tường", u"Walls"),
-        u"wall": ([DB.BuiltInCategory.OST_Walls], u"Tường", u"Walls"),
-        u"cửa": ([DB.BuiltInCategory.OST_Doors], u"Cửa đi", u"Doors"),
-        u"door": ([DB.BuiltInCategory.OST_Doors], u"Cửa đi", u"Doors"),
-        u"sàn": ([DB.BuiltInCategory.OST_Floors], u"Sàn", u"Floors"),
-        u"floor": ([DB.BuiltInCategory.OST_Floors], u"Sàn", u"Floors"),
-        u"mái": ([DB.BuiltInCategory.OST_Roofs], u"Mái", u"Roofs"),
-        u"roof": ([DB.BuiltInCategory.OST_Roofs], u"Mái", u"Roofs"),
-        u"phòng": ([DB.BuiltInCategory.OST_Rooms], u"Phòng", u"Rooms"),
-        u"room": ([DB.BuiltInCategory.OST_Rooms], u"Phòng", u"Rooms"),
-        u"dầm": ([DB.BuiltInCategory.OST_StructuralFraming], u"Dầm", u"Beams"),
-        u"beam": ([DB.BuiltInCategory.OST_StructuralFraming], u"Dầm", u"Beams"),
-        u"cột": ([DB.BuiltInCategory.OST_StructuralColumns, DB.BuiltInCategory.OST_Columns], u"Cột", u"Columns"),
-        u"column": ([DB.BuiltInCategory.OST_StructuralColumns, DB.BuiltInCategory.OST_Columns], u"Cột", u"Columns"),
-        u"trần": ([DB.BuiltInCategory.OST_Ceilings], u"Trần", u"Ceilings"),
-        u"ceiling": ([DB.BuiltInCategory.OST_Ceilings], u"Trần", u"Ceilings"),
-        u"cửa sổ": ([DB.BuiltInCategory.OST_Windows], u"Cửa sổ", u"Windows"),
-        u"window": ([DB.BuiltInCategory.OST_Windows], u"Cửa sổ", u"Windows"),
-        u"lưới": ([DB.BuiltInCategory.OST_Grids], u"Lưới trục", u"Grids"),
-        u"grid": ([DB.BuiltInCategory.OST_Grids], u"Lưới trục", u"Grids"),
-        u"level": ([DB.BuiltInCategory.OST_Levels], u"Tầng", u"Levels"),
-        u"tầng": ([DB.BuiltInCategory.OST_Levels], u"Tầng", u"Levels"),
-    }
-
-    def _count_elements(self, category_list, in_active_view=False):
-        try:
-            from Autodesk.Revit import DB as _DB
-            total = 0
-            for bic in category_list:
-                if in_active_view and self.doc.ActiveView:
-                    collector = _DB.FilteredElementCollector(self.doc, self.doc.ActiveView.Id)
-                else:
-                    collector = _DB.FilteredElementCollector(self.doc)
-                collector.OfCategory(bic).WhereElementIsNotElementType()
-                total += collector.GetElementCount()
-            return total
-        except Exception as ex:
-            logger.debug("_count_elements error: {}".format(ex))
-            return 0
-
-    def _try_fast_context_answer(self, raw):
-        """Answer project/view/selection questions directly from Revit (no LLM).
-
-        Returns a formatted message string if the query matches a known context
-        question, else None (so the normal NLP/LLM pipeline runs).
-        """
-        try:
-            if not self._FAST_CONTEXT_ENABLED:
-                return None
-            if not raw:
-                return None
-            low = raw.lower().strip()
-
-            # Check for fast element count query
-            count_kws = [u"bao nhiêu", u"bao nhieu", u"đếm", u"dem", u"số lượng", u"so luong", u"count", u"how many", u"tổng số", u"tong so"]
-            want_count = any(k in low for k in count_kws)
-            target_cats = []
-            cat_display_vn = u""
-            cat_display_en = u""
-            
-            if want_count:
-                for kw, (bics, vn_name, en_name) in self._FAST_CTX_ELEMENT_MAP.items():
-                    if re.search(r'\b' + re.escape(kw) + r'\b', low):
-                        target_cats = bics
-                        cat_display_vn = vn_name
-                        cat_display_en = en_name
-                        break
-            
-            if want_count and target_cats:
-                in_view = any(k in low for k in [u"trong view", u"view này", u"view dang mo", u"view đang mở", u"view hiện tại", u"view hien tai", u"in view", u"active view", u"current view"])
-                count = self._count_elements(target_cats, in_active_view=in_view)
-                
-                viet = _is_viet_text(raw)
-                lines = []
-                lines.append(u"⚡ **Phản hồi tức thì từ Revit DB**")
-                lines.append(u"")
-                if viet:
-                    scope_str = u"trong view hiện tại" if in_view else u"trong toàn bộ dự án"
-                    lines.append(u"📋 **Thống kê cấu kiện**")
-                    lines.append(u"- Số lượng {}: **{}** ({})".format(cat_display_vn, count, scope_str))
-                else:
-                    scope_str = u"in active view" if in_view else u"in entire project"
-                    lines.append(u"📋 **Element Statistics**")
-                    lines.append(u"- Number of {}: **{}** ({})".format(cat_display_en, count, scope_str))
-                return u"\n".join(lines)
-
-            # Word-level and substring-level checks to prevent hijacking commands
-            words = set(low.split())
-            if (any(w in words for w in self._FAST_CTX_EXCLUDE_WORDS) 
-                    or any(s in low for s in self._FAST_CTX_EXCLUDE_SUBS)
-                    or any(e in words for e in self._FAST_CTX_ELEMENT_WORDS)):
-                return None
-
-            want_project   = any(k in low for k in self._FAST_CTX_PROJECT)
-            want_view      = any(k in low for k in self._FAST_CTX_VIEW)
-            want_selection = any(k in low for k in self._FAST_CTX_SELECTION)
-            if not (want_project or want_view or want_selection):
-                return None
-
-            ctx = ContextScout.get_active_context()
-            if not ctx or "error" in ctx:
-                return None
-
-            viet = _is_viet_text(raw)
-            lines = []
-
-            # Add premium visual badge
-            if viet:
-                lines.append(u"⚡ **Phản hồi tức thì từ Revit DB**")
-            else:
-                lines.append(u"⚡ **Instant Revit DB Answer**")
-            lines.append(u"")
-
-            if want_project:
-                p = ctx.get("project", {})
-                r = ctx.get("revit", {})
-                if viet:
-                    lines.append(u"📋 **Thông tin dự án**")
-                    lines.append(u"- Tên file: {}".format(p.get("title") or u"—"))
-                    lines.append(u"- Tên dự án: {}".format(p.get("name") or u"—"))
-                    lines.append(u"- Mã số: {}".format(p.get("number") or u"—"))
-                    lines.append(u"- Khu vực: {}".format(p.get("region") or u"—"))
-                    lines.append(u"- Revit: {}".format(r.get("version") or u"—"))
-                else:
-                    lines.append(u"📋 **Project information**")
-                    lines.append(u"- File: {}".format(p.get("title") or u"—"))
-                    lines.append(u"- Name: {}".format(p.get("name") or u"—"))
-                    lines.append(u"- Number: {}".format(p.get("number") or u"—"))
-                    lines.append(u"- Region: {}".format(p.get("region") or u"—"))
-                    lines.append(u"- Revit: {}".format(r.get("version") or u"—"))
-
-            if want_view:
-                v = ctx.get("active_view", {})
-                if len(lines) > 2:
-                    lines.append(u"")
-                if viet:
-                    lines.append(u"🖼️ **View hiện tại**")
-                    lines.append(u"- Tên: {}".format(v.get("name") or u"—"))
-                    lines.append(u"- Loại: {}".format(v.get("type") or u"—"))
-                    lines.append(u"- Tỷ lệ: {}".format(v.get("scale") or u"—"))
-                    lines.append(u"- Bộ môn: {}".format(v.get("discipline") or u"—"))
-                else:
-                    lines.append(u"🖼️ **Active view**")
-                    lines.append(u"- Name: {}".format(v.get("name") or u"—"))
-                    lines.append(u"- Type: {}".format(v.get("type") or u"—"))
-                    lines.append(u"- Scale: {}".format(v.get("scale") or u"—"))
-                    lines.append(u"- Discipline: {}".format(v.get("discipline") or u"—"))
-
-            if want_selection:
-                s = ctx.get("selection", {})
-                cnt = s.get("count", 0)
-                details = s.get("details", [])
-                if len(lines) > 2:
-                    lines.append(u"")
-                if viet:
-                    lines.append(u"🎯 **Đối tượng đang chọn: {}**".format(cnt))
-                    if details:
-                        for idx, d in enumerate(details):
-                            lines.append(u"  {}. {} (Category: {}) [ID: {}]".format(idx + 1, d["name"], d["category"], d["id"]))
-                        if cnt > len(details):
-                            lines.append(u"  *... và {} đối tượng khác.*".format(cnt - len(details)))
-                else:
-                    lines.append(u"🎯 **Selected elements: {}**".format(cnt))
-                    if details:
-                        for idx, d in enumerate(details):
-                            lines.append(u"  {}. {} (Category: {}) [ID: {}]".format(idx + 1, d["name"], d["category"], d["id"]))
-                        if cnt > len(details):
-                            lines.append(u"  *... and {} more item(s).*".format(cnt - len(details)))
-
-            return u"\n".join(lines) if len(lines) > 2 else None
-        except Exception as ex:
-            logger.debug("_try_fast_context_answer error: {}".format(ex))
-            return None
+    # NOTE — 2026-07-28: the DB-only fast path was deleted here.
+    # _FAST_CONTEXT_ENABLED had been False since 2026-07-06 (its keyword
+    # matching hijacked unrelated queries — "check lỗi tiếng Anh trong dự án"
+    # answered with project info), so _try_fast_context_answer, _count_elements
+    # and their keyword tables were ~220 lines of unreachable code. The agent
+    # path answers these questions from real tool results instead, under the
+    # "NUMBERS MUST COME FROM TOOLS" rule in agent_loop._AGENT_PROMPT.
 
     # ─── Persistent memory: /memory command + "remember ..." triggers ─────────
 
@@ -4006,6 +3793,108 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug('_try_memory_command error: {}'.format(ex))
             return False
 
+    def _try_skills_command(self, raw):
+        """Install / update skills from a GitHub repo. WORKER THREAD.
+
+        Handles both the explicit command family (`/skills`,
+        `/skills install <url>`, `/skills update`, `/skills remove <id>`) and
+        the natural request ("cài skill từ https://github.com/owner/repo").
+        Deterministic — no LLM round-trip, so it works with no provider
+        configured. Returns True when the request was fully handled here.
+        """
+        try:
+            text = (raw or u'').strip()
+            if not text:
+                return False
+            from Intelligence import skill_installer as installer
+            parsed = installer.parse_skills_command(text)
+            if not parsed:
+                return False
+            action, arg = parsed
+            viet = _is_viet_text(text)
+
+            if action == 'help':
+                msg = (u'Lệnh skills: `/skills` · '
+                       u'`/skills install <link GitHub>` · `/skills update` · '
+                       u'`/skills remove <id>`\nHoặc chỉ cần nói: "cài skill '
+                       u'từ https://github.com/owner/repo".' if viet else
+                       u'Skills commands: `/skills` · '
+                       u'`/skills install <github link>` · `/skills update` · '
+                       u'`/skills remove <id>`\nOr just say: "install skills '
+                       u'from https://github.com/owner/repo".')
+                self._post_bot(msg, _ICON_INFO, _ICON_SLATE)
+                return True
+
+            if action == 'list':
+                msg = installer.format_inventory(
+                    installer.list_installed(), viet)
+                self._post_bot(msg, _ICON_LIST, _ICON_SLATE)
+                return True
+
+            if action == 'remove':
+                if not arg:
+                    self._post_bot(
+                        u'Cần id skill: `/skills remove <id>`' if viet else
+                        u'Missing skill id: `/skills remove <id>`',
+                        _ICON_WARNING, _ICON_AMBER)
+                    return True
+                ok, note = installer.remove_installed(arg)
+                self._rescan_skills()
+                self._post_bot(note,
+                               _ICON_SUCCESS if ok else _ICON_WARNING,
+                               _ICON_GREEN if ok else _ICON_AMBER)
+                return True
+
+            # ── install / update: network work, so say so first ───────────
+            if action == 'install':
+                notice = (u'Đang tải skill từ {}…'.format(arg.get('url'))
+                          if viet else
+                          u'Downloading skills from {}…'.format(arg.get('url')))
+            else:
+                notice = (u'Đang cập nhật các skill đã cài…' if viet else
+                          u'Updating installed skills…')
+            self._log_activity(u'Skills: {}'.format(text))
+
+            def _notice(_m=notice):
+                self._append_bot_message(_m, icon=_ICON_SYNC,
+                                         icon_color=_ICON_SLATE)
+            self.Dispatcher.Invoke(Action(_notice))
+
+            if action == 'install':
+                report = installer.install_from_github(arg)
+            else:
+                report = installer.update_all()
+
+            self._rescan_skills()
+            self._post_bot(installer.format_report(report, viet),
+                           _ICON_SUCCESS if (report.get('installed') or
+                                             report.get('updated'))
+                           else _ICON_WARNING,
+                           _ICON_GREEN if (report.get('installed') or
+                                           report.get('updated'))
+                           else _ICON_AMBER)
+            return True
+        except Exception as ex:
+            logger.debug('_try_skills_command error: {}'.format(ex))
+            return False
+
+    def _rescan_skills(self):
+        """Re-read the skill folders so new skills reach /slash immediately."""
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            get_skills_engine().scan()
+        except Exception as ex:
+            logger.debug('_rescan_skills error: {}'.format(ex))
+
+    def _post_bot(self, msg, icon, color):
+        """Finish a deterministic turn: show `msg`, record it, release busy."""
+        def _show():
+            self._hide_typing_indicator()
+            self._append_bot_message(msg, icon=icon, icon_color=color)
+            self._add_to_history('assistant', msg)
+            self._set_busy(False)
+        self.Dispatcher.Invoke(Action(_show))
+
     def _process_input(self):
         """Read input (+ any attachments), dispatch to NLP or keyword fallback."""
         try:
@@ -4015,6 +3904,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Must have text OR attachments
             if not raw and not attached:
                 return
+
+            # Language of THIS turn steers every string the assistant emits
+            # while handling it, including ones with no text of their own
+            # (tool cards, confirm cards, background notices).
+            _note_user_language(raw)
 
             # ── Concurrency: queue instead of reject ──────────────────────────
             # Runs BEFORE the slash parse below — a queued "/skill" message
@@ -4332,7 +4226,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             result = agent.answer(raw, history, _chat,
                                   project_instructions=proj_instructions,
-                                  skills_block=skills_block)
+                                  skills_block=skills_block,
+                                  viet=_is_viet_text(raw))
 
             # Every cancel exit from this function returns True. Returning
             # False makes _route_input fall through to the normal LLM path,
@@ -4450,7 +4345,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             on_note=lambda item, setter:
                                 self._execute_comment_item(item, setter, 'note'),
                             on_skip=lambda item, setter:
-                                self._skip_comment_item(item, setter))
+                                self._skip_comment_item(item, setter),
+                            viet=_ui_viet())
                         self.chat_history_panel.Children.Add(card)
                         self._scroll_to_bottom()
                         rendered = True
@@ -4480,10 +4376,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return False
 
     def _skip_comment_item(self, item, setter):
-        """'Bỏ qua' button — mark only. UI THREAD."""
+        """Skip button on a comment row — mark only. UI THREAD."""
         try:
+            _v = _ui_viet()
             item['status'] = 'skipped'
-            setter(u"Skipped", False)
+            setter(u"Đã bỏ qua" if _v else u"Skipped", False)
         except Exception:
             pass
 
@@ -4491,18 +4388,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
         """Run/Note button on a comment row. UI THREAD entry — spawns the
         standard revit_action specialist on a worker thread."""
         try:
+            _v = _ui_viet()
             if self._busy:
-                setter(u"Busy — wait for the current request", False)
+                setter(u"Đang bận — chờ yêu cầu hiện tại" if _v
+                       else u"Busy — wait for the current request", False)
                 return
             agent = getattr(self, '_comment_agent', None)
             report = getattr(self, '_comment_report', None)
             if agent is None or report is None:
-                setter(u"This report is no longer valid", False)
+                setter(u"Báo cáo này không còn hiệu lực" if _v
+                       else u"This report is no longer valid", False)
                 return
             instruction = (agent.build_run_instruction(item, report)
                            if mode == 'run'
                            else agent.build_note_instruction(item, report))
-            setter(u"Running...", False)
+            setter(u"Đang chạy..." if _v else u"Running...", False)
             self._set_busy(True)
 
             def _work():
@@ -4522,10 +4422,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if handled:
                             item['status'] = ('done' if mode == 'run'
                                               else 'noted')
-                            setter(u"Done" if mode == 'run'
-                                   else u"Noted", True)
+                            if mode == 'run':
+                                setter(u"Xong" if _v else u"Done", True)
+                            else:
+                                setter(u"Đã ghi chú" if _v else u"Noted", True)
                         else:
-                            setter(u"Failed — try again", False)
+                            setter(u"Thất bại — thử lại" if _v
+                                   else u"Failed — try again", False)
                             self._set_busy(False)
                     except Exception:
                         pass
@@ -4558,6 +4461,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # answered instantly here — before learned patterns or NLU can
             # hijack the wording.
             if not attached and raw and self._try_memory_command(raw):
+                return
+
+            # ── Skill packs from GitHub (deterministic, no LLM) ────────────
+            # "/skills …" and "cài skill từ <repo link>" install or refresh
+            # Claude-format skills. Answered here so it works offline-ish
+            # (network for the download only) and can never be re-read as a
+            # Revit command by the NLU.
+            if not attached and raw and self._try_skills_command(raw):
                 return
 
             # ── PDF markup-comment workflow (R4) ───────────────────────────
@@ -4609,19 +4520,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             use_claude       = HAS_NLP and has_api_key()   # True for any configured provider
             _active_provider = get_active_provider_name()  # "claude" | "openai" | "ollama"
 
-            # ── 0. Fast context answer (DB-only, no LLM) — disabled via
-            #      _FAST_CONTEXT_ENABLED, see class attribute above ────────
-            if self._FAST_CONTEXT_ENABLED and HAS_SCOUT and not has_attach:
-                fast = self._try_fast_context_answer(raw)
-                if fast:
-                    def _show_fast(_fast=fast):
-                        self._hide_typing_indicator()
-                        self._append_bot_message(_fast)
-                        self._add_to_history("assistant", _fast)
-                        self._set_busy(False)
-                    self.Dispatcher.Invoke(Action(_show_fast))
-                    return
-
             # An explicit /slash skill invocation must reach the agent with
             # its playbook — the learned-pattern and NLU stages would hijack
             # it (e.g. "/english-spellcheck" text matches the deterministic
@@ -4638,12 +4536,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # set_parameter / rename_element.
             if _skill_forced and self._forced_skill_id == 'english-spellcheck':
                 _args = getattr(self, '_forced_skill_args', u'') or u''
-                _fix_req = bool(re.search(
-                    r'\b(fix|apply|correct|rename|update|replace|change)\b',
-                    _args, re.I)) or any(
-                    k in _args.lower() for k in (
-                        u'sửa', u'sua lai', u'sua loi', u'thay', u'đổi',
-                        u'doi ten', u'cập nhật', u'cap nhat'))
+                _fix_req = routing.wants_spellcheck_fix(_args)
                 if not _fix_req:
                     def _run_spell():
                         self._execute_result({'intent': 'check_spelling',
@@ -4666,68 +4559,59 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if _h.get('role') == 'assistant':
                             _last_bot = u'{}'.format(_h.get('content') or u'')
                             break
-                    _continuation = (u'?' in _last_bot[-250:]
-                                     and len((raw or u'').strip()) <= 80)
-                    # A generic closing question ("Bạn có muốn thực hiện một
-                    # hành động khác không?" / "Anything else?") is NOT a
-                    # clarifying question — the task is finished, so whatever
-                    # the user types next is a NEW request, not an answer.
-                    if _continuation:
-                        _tail = _last_bot[-250:].lower()
-                        _closers = (u'hành động khác', u'hanh dong khac',
-                                    u'gì khác', u'gi khac', u'gì nữa',
-                                    u'gi nua', u'cần gì thêm', u'can gi them',
-                                    u'giúp gì thêm', u'giup gi them',
-                                    u'hỗ trợ gì thêm', u'ho tro gi them',
-                                    u'anything else', u'else i can help',
-                                    u'need anything', u'can i help',
-                                    u'tiếp theo không', u'tiep theo khong',
-                                    u'next step?', u'what next')
-                        if any(c in _tail for c in _closers):
-                            _continuation = False
                     # An input that independently matches a command pattern
                     # (action verb, tô/bôi color phrase, export/build/QA
                     # keywords...) is a NEW command even right after a real
                     # clarifying question — "tô vàng sàn" typed after "tô đỏ
                     # tường" finished must route fresh; riding the old thread
                     # here replayed the completed red-walls task.
-                    if _continuation and HAS_AGENTS:
+                    _fresh_kw = False
+                    if HAS_AGENTS:
                         _fresh = AgentDispatcher().classify(
                             raw, allow_llm=False)
-                        if _fresh and _fresh.get('source') == 'keyword':
-                            _continuation = False
+                        _fresh_kw = bool(_fresh
+                                         and _fresh.get('source') == 'keyword')
+                    _continuation = routing.is_continuation(
+                        _last_bot, raw, _prev_dec, fresh_keyword_hit=_fresh_kw)
                 except Exception:
                     _continuation = False
             if _continuation:
                 logger.debug("carryover: continuing {} / {}".format(
                     _prev_dec.get('specialist'), _prev_dec.get('skill')))
 
-            # ── 1. Learned patterns (skip if attachments present) ─────────────
-            if HAS_NLP and not has_attach and not _skill_forced \
-                    and not _continuation:
-                learned = find_learned_match(raw)
-                if learned:
-                    def _run_learned(_r=learned):
-                        self._execute_result(_r)
-                    self.Dispatcher.Invoke(Action(_run_learned))
-                    return
-
-            # ── 2. Built-in NLU (skip for RAG / attachment queries) ───────────
+            # ── 1/2. Deterministic stages: NLU first, learned patterns second ─
+            # find_learned_match() used to run BEFORE the NLU and take the turn
+            # outright on a Jaccard >= 0.8 phrasing match. That let a
+            # remembered mapping outrank a confident read of the real tool
+            # catalog — and learned mappings go stale, so a phrase learned for
+            # a tool that has since been renamed kept winning. The NLU is
+            # computed first now and routing.learned_pattern_wins() arbitrates.
             nlu_result = None
-            if HAS_NLP and not has_attach and not _skill_forced \
-                    and not _continuation:
+            learned = None
+            _deterministic = (HAS_NLP and not has_attach and not _skill_forced
+                              and not _continuation)
+            if _deterministic:
                 nlu_result = parse_command_nlu(captured, history)
-                if nlu_result and nlu_result.get("intent") not in (None, "unknown"):
-                    # _authoritative = answered from the real tool catalog
-                    # (capability questions, ambiguity clarifications) — the
-                    # LLM must not get a chance to override it with a guess.
-                    if nlu_result["intent"] not in ("chat", "help") \
-                            or nlu_result.get("_authoritative") \
-                            or not (use_local or use_claude):
-                        def _run_nlu(_r=nlu_result):
-                            self._execute_result(_r)
-                        self.Dispatcher.Invoke(Action(_run_nlu))
-                        return
+                learned = find_learned_match(raw)
+
+            if learned and routing.learned_pattern_wins(learned, nlu_result):
+                def _run_learned(_r=learned):
+                    self._execute_result(_r)
+                self.Dispatcher.Invoke(Action(_run_learned))
+                return
+
+            if _deterministic and nlu_result \
+                    and nlu_result.get("intent") not in (None, "unknown"):
+                # _authoritative = answered from the real tool catalog
+                # (capability questions, ambiguity clarifications) — the
+                # LLM must not get a chance to override it with a guess.
+                if nlu_result["intent"] not in ("chat", "help") \
+                        or nlu_result.get("_authoritative") \
+                        or not (use_local or use_claude):
+                    def _run_nlu(_r=nlu_result):
+                        self._execute_result(_r)
+                    self.Dispatcher.Invoke(Action(_run_nlu))
+                    return
 
             # ── 2.5 Specialist dispatch (multi-agent layer) ────────────────
             # Keyword stage always; one tiny LLM classify call only for
@@ -5465,9 +5349,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if conv.get("intent") in ("greet", "chat", "help") and conv.get("message"):
                     reply = conv["message"]
                 elif _is_viet_text(raw):
-                    reply = u"Hello! I'm T3Lab Assistant.\nWhat would you like to do today?"
+                    reply = (u"Xin chào! Tôi là T3Lab Assistant.\n"
+                             u"Hôm nay bạn muốn làm gì?")
                 else:
-                    reply = u"Hello! I'm T3Lab Assistant.\nWhat would you like to do today?"
+                    reply = (u"Hello! I'm T3Lab Assistant.\n"
+                             u"What would you like to do today?")
                 _bot(reply)
                 self._set_busy(False)
                 return
@@ -5524,12 +5410,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         # ── Simple tool launchers ─────────────────────────────────────────────
         if intent in TOOL_LAUNCHERS:
-            confirm = message or u"Opening the tool..."
+            confirm = message or u"Opening {}...".format(get_tool_title(intent))
             _bot(confirm)
             _learn(confirm)
-            ok = TOOL_LAUNCHERS[intent]()
+            ok, err = TOOL_LAUNCHERS[intent]()
             if not ok:
-                self._append_bot_message(u"Could not open the tool. Check the console.")
+                self._append_bot_message(self._launch_failure_text(intent, err))
             self._set_busy(False)
             return
 
@@ -5577,9 +5463,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                            else u"Opening {}...".format(label))
                 _bot(confirm)
                 learn_pattern(raw, _match['intent'], {}, confirm)
-                ok = TOOL_LAUNCHERS[_match['intent']]()
+                ok, err = TOOL_LAUNCHERS[_match['intent']]()
                 if not ok:
-                    self._append_bot_message(u"Could not open the tool. Check the console.")
+                    self._append_bot_message(
+                        self._launch_failure_text(_match['intent'], err))
+                self._set_busy(False)
+                return
+            # Nothing resolved — name the tools that DO exist rather than
+            # leaving the user with a dead intent name. `_cands` comes from
+            # resolve_tool's ambiguity list (top 3 plausible tools).
+            if intent not in TOOL_LAUNCHERS:
+                _bot(self._unknown_tool_text(intent, raw))
                 self._set_busy(False)
                 return
 
@@ -5595,6 +5489,44 @@ class T3LabAssistantWindow(forms.WPFWindow):
         else:
             _bot(u"Tool `{}` does not exist — check the name or describe what you need.".format(intent))
         self._set_busy(False)
+
+    def _launch_failure_text(self, intent, err):
+        """Honest failure message for a launcher that did not open its tool.
+
+        Replaces the old "Could not open the tool. Check the console." — the
+        console is not where a Revit user looks, and the message named neither
+        the tool nor the reason.
+        """
+        title = get_tool_title(intent)
+        if err:
+            return u"Could not open **{}**: {}".format(title, err)
+        return u"Could not open **{}** — the tool reported no reason.".format(title)
+
+    def _unknown_tool_text(self, intent, raw):
+        """Message for an intent that resolves to no installed tool.
+
+        Lists real alternatives from the live catalog so the user is not left
+        guessing. The old code advertised intents whose pushbuttons had been
+        deleted, so this path used to be reached constantly.
+        """
+        lines = [u"There is no tool called `{}` in this extension.".format(intent)]
+        names = []
+        try:
+            from Intelligence.nlu_engine import resolve_tool
+            _m, cands = resolve_tool(raw or u"")
+            for c in (cands or [])[:3]:
+                t = c.get('title') or c.get('intent')
+                if t and t not in names:
+                    names.append(t)
+        except Exception:
+            pass
+        if names:
+            lines.append(u"Closest matches: {}.".format(
+                u", ".join(u"**{}**".format(n) for n in names)))
+        else:
+            lines.append(u"Type `/` or open the command palette to see what is "
+                         u"available.")
+        return u"\n\n".join(lines)
 
     def _run_spellcheck(self, raw):
         """Collect every TextNote, proofread them in batches via the LLM,
@@ -5796,9 +5728,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._add_to_history("assistant", default_msg)
         launcher = TOOL_LAUNCHERS.get(intent)
         if launcher:
-            ok = launcher()
+            ok, err = launcher()
             if not ok:
-                self._append_bot_message(u"Could not open the tool. Check the console.")
+                self._append_bot_message(self._launch_failure_text(intent, err))
+        else:
+            self._append_bot_message(self._unknown_tool_text(intent, default_msg))
         self._set_busy(False)
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
@@ -5909,12 +5843,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
+        # The model must answer in the same language the window renders in,
+        # otherwise a Vietnamese turn gets Vietnamese tool cards wrapped
+        # around an English answer.
+        _lang = _reply_language()
+        if _lang == 'auto':
+            _lang = 'vi' if _is_viet_text(captured) else 'en'
+
         if spec is not None and HAS_SPECIALISTS:
             system_prompt = build_specialist_prompt(
                 spec, ctx, project_instructions=_proj_instructions,
-                skills_block=_skills_block, local=_is_local)
+                skills_block=_skills_block, local=_is_local, lang=_lang)
         else:
-            system_prompt = build_agent_system_prompt(ctx, local=_is_local)
+            system_prompt = build_agent_system_prompt(ctx, local=_is_local,
+                                                      lang=_lang)
             if _proj_instructions:
                 system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
             if _skills_block:
@@ -5996,6 +5938,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             '__begin_action_group', '__end_action_group',
         ))
 
+        # ── D1: cancel the loop when the USER switches documents mid-request ──
+        # Agent-initiated document changes (switch_active_document /
+        # open_document / close_document called by the model for a multi-doc
+        # workflow) DISARM the guard for the rest of the request instead of
+        # tripping it — the agent is deliberately working across models.
+        #
+        # Declared HERE, above _exec_tool, because _exec_tool closes over it.
+        # It used to be assigned ~50 lines further down and only worked
+        # because nothing called _exec_tool in between; any reordering would
+        # have turned that into a NameError at the first tool call.
+        doc_guard = {"key": _get_doc_key(), "armed": True}
+
         def _exec_tool(name, args):
             args = dict(args or {})
             if name == tool_schema.MEMORY_TOOL_NAME:
@@ -6050,13 +6004,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     doc_guard["armed"] = False
             return res
-
-        # ── D1: cancel the loop when the USER switches documents mid-request ──
-        # Agent-initiated document changes (switch_active_document /
-        # open_document / close_document called by the model for a multi-doc
-        # workflow) DISARM the guard for the rest of the request instead of
-        # tripping it — the agent is deliberately working across models.
-        doc_guard = {"key": _get_doc_key(), "armed": True}
 
         def _guard_check():
             try:
@@ -7247,8 +7194,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         text = _re.sub(r'\n{3,}', u'\n\n', u'\n'.join(lines_out))
         return text.strip()
 
-    # Legacy colored emoji markers (still produced by older message-builders
-    # like _try_fast_context_answer) mapped to a minimal MDL2 glyph + Lumina
+    # Legacy colored emoji markers (still reachable through chat history saved
+    # before the fast-context path was removed) mapped to a minimal MDL2 glyph
+    # + Lumina
     # color — converted at render time so no caller needs to change its
     # markdown text, only this one renderer.
     _MD_ICON_MARKERS = [

@@ -367,19 +367,6 @@ _TRIGGERS = {
         ("open",                3),
     ],
 
-    "open_parasync": [
-        ("parasync",           30),
-        ("open parasync",      35),
-        ("mo parasync",        35),
-        ("open",                2),
-    ],
-
-    "open_loadfamily_cloud": [
-        ("loadfamilycloud",    35),
-        ("open loadfamilycloud", 40),
-        ("mo loadfamilycloud", 40),
-    ],
-
     "open_loadfamily": [
         ("loadfamily",         30),
         ("open loadfamily",    35),
@@ -388,50 +375,14 @@ _TRIGGERS = {
         ("open",                2),
     ],
 
-    "open_projectname": [
-        ("projectname",        30),
-        ("open projectname",   35),
-        ("mo projectname",     35),
-        ("project",             8),
-        ("open",                2),
-    ],
-
-    "open_workset": [
-        ("workset",            30),
-        ("open workset",       35),
-        ("mo workset",         35),
-        ("open",                2),
-    ],
-
-    "open_upperdimtext": [
-        ("upperdimtext",       30),
-        ("open upperdimtext",  35),
-        ("mo upperdimtext",    35),
-        ("upper",               8),
-    ],
-
-    "open_dimtext": [
-        ("dimtext",            28),
-        ("open dimtext",       35),
-        ("mo dimtext",         35),
-        ("dim",                10),
-    ],
-
-    "open_resetoverrides": [
-        ("resetoverrides",     30),
-        ("open resetoverrides",35),
-        ("mo resetoverrides",  35),
-        ("reset",              12),
-        ("override",           12),
-    ],
-
-    "open_grids": [
-        ("grids",              30),
-        ("open grids",         35),
-        ("mo grids",           35),
-        ("grid",               12),
-        ("luoi",               12),
-    ],
+    # NOTE — 2026-07-28: trigger blocks for open_parasync,
+    # open_loadfamily_cloud, open_projectname, open_workset,
+    # open_upperdimtext, open_dimtext, open_resetoverrides and open_grids were
+    # removed. Their pushbuttons no longer exist, and because these triggers
+    # scored high they beat resolve_tool() for the tools that replaced them —
+    # "mo workset" matched open_workset (35) and never reached ManaWorkset.
+    # Only tools with a dedicated launcher belong here; auto-discovered tools
+    # are resolved from the registry by resolve_tool().
 
     "check_spelling": [
         # Proofread all Text Notes in the model (diacritics stripped by _norm:
@@ -644,10 +595,6 @@ _PENALTIES = {
     # open_batchout loses if there's no "open" at all (pure export wins)
     "open_batchout":             [("export", -8)],
     "open_batchout_configured":  [("export", -8)],
-    # Avoid lower-precedence dimtext when upper is present
-    "open_dimtext":              [("upper", -20)],
-    # Avoid loadfamily if cloud is there
-    "open_loadfamily":           [("cloud", -20), ("loadfamilycloud", -30)],
     # Create/delete verbs mean the user wants to WRITE notes, not proofread
     "check_spelling":            [("tao", -25), ("create", -25), ("them", -20),
                                   ("add", -20), ("xoa", -25), ("delete", -25),
@@ -659,15 +606,7 @@ _THRESHOLDS = {
     "open_batchout":             18,
     "export_direct":             18,
     "open_batchout_configured":  25,   # needs both open+batchout+params
-    "open_parasync":             18,
-    "open_loadfamily_cloud":     25,
     "open_loadfamily":           18,
-    "open_projectname":          18,
-    "open_workset":              18,
-    "open_upperdimtext":         22,
-    "open_dimtext":              18,
-    "open_resetoverrides":       18,
-    "open_grids":                18,
     # ≥ 28 so "text note"(12) + "tieng anh"(15) alone can't fire it —
     # needs a real proofread cue (spelling / chinh ta / loi tieng anh ...)
     "check_spelling":            28,
@@ -796,35 +735,48 @@ def _extract_slots(raw):
 # Pronouns that refer to the most-recently-mentioned tool
 _PRONOUNS = {"no", "no ay", "cai do", "cai nay", "tool do", "it", "that", "this"}
 
-# Maps intent → tool label (for pronoun resolution messages)
+# Intent → tool label, for pronoun-resolution messages ("mở nó" → "BatchOut").
+# Only the intents with a dedicated launcher are fixed; every other label comes
+# from the live registry via _tool_label(). The hardcoded rest used to name
+# eight tools that had been deleted from the extension.
 _TOOL_LABELS = {
-    "open_batchout":          "BatchOut",
-    "export_direct":          "BatchOut",
-    "open_batchout_configured":"BatchOut",
-    "open_parasync":          "ParaSync",
-    "open_loadfamily":        "Load Family",
-    "open_loadfamily_cloud":  "Load Family Cloud",
-    "open_projectname":       "Project Name",
-    "open_workset":           "Workset",
-    "open_dimtext":           "Dim Text",
-    "open_upperdimtext":      "Upper Dim Text",
-    "open_resetoverrides":    "Reset Overrides",
-    "open_grids":             "Grids",
+    "open_batchout":            "BatchOut",
+    "export_direct":            "BatchOut",
+    "open_batchout_configured": "BatchOut",
+    "open_loadfamily":          "Family Loader",
 }
 
-# Tool keywords used to detect last-mentioned tool in history
-_TOOL_KEYWORDS = {
-    "batchout":       "open_batchout",
-    "parasync":       "open_parasync",
-    "loadfamilycloud":"open_loadfamily_cloud",
-    "loadfamily":     "open_loadfamily",
-    "projectname":    "open_projectname",
-    "workset":        "open_workset",
-    "upperdimtext":   "open_upperdimtext",
-    "dimtext":        "open_dimtext",
-    "resetoverrides": "open_resetoverrides",
-    "grids":          "open_grids",
-}
+
+def _tool_label(intent):
+    """Display label for an intent — fixed map first, then the live registry."""
+    if intent in _TOOL_LABELS:
+        return _TOOL_LABELS[intent]
+    for t in _tool_catalog():
+        if t.get('intent') == intent:
+            return t.get('title') or intent
+    return intent
+
+
+def _tool_keywords():
+    """keyword → intent, for spotting the last-mentioned tool in history.
+
+    Built from the live catalog (joined names such as "manaworkset",
+    "cadtoelements") instead of a hardcoded table, so a renamed or newly added
+    pushbutton is picked up without editing this file.
+    """
+    out = {
+        "batchout":   "open_batchout",
+        "loadfamily": "open_loadfamily",
+        "manafami":   "open_loadfamily",
+    }
+    for t in _tool_catalog():
+        intent = t.get('intent')
+        if not intent or intent in ('open_batchout', 'open_loadfamily'):
+            continue
+        for joined in (t.get('joined') or ()):
+            if len(joined) >= 4:
+                out.setdefault(joined, intent)
+    return out
 
 
 # ─── Deterministic tool resolver ─────────────────────────────────────────────
@@ -839,37 +791,23 @@ _TOOL_KEYWORDS = {
 #   (intent, title, joined-name, [name aliases], function description)
 # Aliases cover every name a tool goes by: button folder, XAML file, old
 # names — so "mở export manager" (BatchOut's XAML) opens the right tool.
+# Tools that are NOT auto-discovered because script.py launches them through a
+# dedicated entry point (_SPECIAL_LAUNCHERS). Everything else reaches the
+# resolver via the tool_discovery registry in _tool_catalog() below.
+#
+# 2026-07-28: eight entries were removed from this table (ParaSync,
+# LoadFamilyCloud, ProjectName, Workset, DimText, UpperDimText, ResetOverrides,
+# Grids). Their pushbuttons had been deleted or renamed, but the resolver kept
+# offering them, so the assistant confidently answered "Opening ParaSync..." for
+# a tool that no longer shipped. Do not add a tool here unless it genuinely has
+# a special launcher — an auto-discovered tool needs no entry.
 _BUILTIN_TOOLS = [
     ("open_batchout", "BatchOut", "batchout",
      ["Batch Out", "Export Manager"],
      u"Xuất sheet hàng loạt sang PDF / DWG / DWF / IFC (batch export sheets)"),
-    ("open_parasync", "ParaSync", "parasync",
-     ["Para Sync", "Parameter Sync"],
-     u"Đồng bộ tham số giữa các element (sync parameters)"),
-    ("open_loadfamily", "Load Family", "loadfamily",
-     ["Family Loader"],
+    ("open_loadfamily", "Family Loader", "loadfamily",
+     ["Load Family", "Family Manager", "ManaFami"],
      u"Tải family từ thư viện vào project (load family from library)"),
-    ("open_loadfamily_cloud", "Load Family Cloud", "loadfamilycloud",
-     ["Family Loader Cloud", "Load Fam Cloud"],
-     u"Tải family từ thư viện cloud (load family from cloud library)"),
-    ("open_projectname", "Project Name", "projectname",
-     ["Rename Project"],
-     u"Đổi tên / quản lý thông tin project (rename project)"),
-    ("open_workset", "Workset", "workset",
-     ["Workset Management"],
-     u"Quản lý workset (manage worksets)"),
-    ("open_dimtext", "Dim Text", "dimtext",
-     ["Dimension Text"],
-     u"Chỉnh sửa dimension text (edit dimension text)"),
-    ("open_upperdimtext", "Upper Dim Text", "upperdimtext",
-     ["Upper All", "Upper Dimension Text"],
-     u"Chuyển dimension text thành chữ hoa (uppercase dimension text)"),
-    ("open_resetoverrides", "Reset Overrides", "resetoverrides",
-     ["Reset Graphic Overrides"],
-     u"Xóa graphic override trong view (reset graphic overrides)"),
-    ("open_grids", "Grids", "grids",
-     ["Grid Manager"],
-     u"Quản lý lưới trục (manage grids)"),
 ]
 
 # Verbs that signal "open this tool" (post-_expand, so "mở/bật" → open).
@@ -1385,9 +1323,10 @@ def _last_tool_from_history(history):
     """Scan recent conversation history and return the last tool intent mentioned."""
     if not history:
         return None
+    keywords = _tool_keywords()
     for entry in reversed(history[-6:]):
         content = _norm(_expand(_norm(entry.get("content", ""))))
-        for kw, intent in _TOOL_KEYWORDS.items():
+        for kw, intent in keywords.items():
             if kw in content:
                 return intent
     return None
@@ -1491,25 +1430,20 @@ def _disambiguate(scores, unigrams, bigrams, slots):
 
 # ─── Message builder ──────────────────────────────────────────────────────────
 
+# Per-intent canned messages. Only intents WITHOUT a registry entry need one —
+# an auto-discovered tool gets "Đang mở <title>..." / "Opening <title>..."
+# built from its live title in _build_message().
 _MESSAGES_VI = {
     "open_batchout":          u"Đang mở BatchOut...",
     "open_batchout_configured": u"Mở BatchOut đã cấu hình...",
-    "open_parasync":          u"Đang mở ParaSync...",
-    "open_loadfamily":        u"Đang mở Load Family...",
-    "open_loadfamily_cloud":  u"Đang mở Load Family (Cloud)...",
-    "open_projectname":       u"Đang mở Project Name...",
-    "open_workset":           u"Đang mở Workset...",
-    "open_dimtext":           u"Đang mở Dim Text...",
-    "open_upperdimtext":      u"Đang mở Upper Dim Text...",
-    "open_resetoverrides":    u"Đang mở Reset Overrides...",
-    "open_grids":             u"Đang mở Grids...",
+    "open_loadfamily":        u"Đang mở Family Loader...",
     "check_spelling":         u"Đang quét Text Note trong model để kiểm tra chính tả tiếng Anh...",
     "greet":  u"Xin chào! Tôi là T3Lab Assistant 👋\nBạn muốn làm gì hôm nay?",
     "farewell": u"Tạm biệt! Gặp lại bạn sau nhé 👋",
     "chat":   u"Không có gì! Cần gì cứ hỏi tôi nhé.",
     "help":   (u"Tôi có thể giúp bạn:\n"
                u"• Xuất sheet: 'xuất pdf G sheet', 'in tất cả sang dwg'\n"
-               u"• Mở tool: 'mở batchout', 'parasync', 'load family'\n"
+               u"• Mở tool: 'mở batchout', 'load family', 'mở manaviews'\n"
                u"• Cấu hình nhanh: 'mở batchout G sheet pdf'\n"
                u"Gõ tên tool hoặc mô tả điều bạn muốn làm!"),
 }
@@ -1517,22 +1451,14 @@ _MESSAGES_VI = {
 _MESSAGES_EN = {
     "open_batchout":          "Opening BatchOut...",
     "open_batchout_configured": "Opening BatchOut (pre-configured)...",
-    "open_parasync":          "Opening ParaSync...",
-    "open_loadfamily":        "Opening Load Family...",
-    "open_loadfamily_cloud":  "Opening Load Family (Cloud)...",
-    "open_projectname":       "Opening Project Name...",
-    "open_workset":           "Opening Workset...",
-    "open_dimtext":           "Opening Dim Text...",
-    "open_upperdimtext":      "Opening Upper Dim Text...",
-    "open_resetoverrides":    "Opening Reset Overrides...",
-    "open_grids":             "Opening Grids...",
+    "open_loadfamily":        "Opening Family Loader...",
     "check_spelling":         "Scanning model Text Notes for English spelling errors...",
     "greet":   "Hello! I'm T3Lab Assistant 👋\nWhat would you like to do today?",
     "farewell": "Goodbye! See you later 👋",
     "chat":    "You're welcome! Let me know if you need anything.",
     "help":    ("I can help you:\n"
                 "• Export sheets: 'export pdf G sheet', 'print all to dwg'\n"
-                "• Open tools: 'open batchout', 'parasync', 'load family'\n"
+                "• Open tools: 'open batchout', 'load family', 'open manaviews'\n"
                 "• Quick config: 'open batchout G sheet pdf'\n"
                 "Type a tool name or describe what you want to do!"),
 }
@@ -1612,9 +1538,19 @@ def _build_message(intent, slots, viet, raw_input=""):
             return (u"Cảm ơn bạn hỏi thăm! Tôi ổn 😊 Bạn cần tôi giúp gì không?"
                     if viet else "Thanks for asking! I'm fine 😊 How can I help?")
 
-    if viet:
-        return _MESSAGES_VI.get(intent, u"Đang xử lý...")
-    return _MESSAGES_EN.get(intent, "Processing...")
+    table = _MESSAGES_VI if viet else _MESSAGES_EN
+    if intent in table:
+        return table[intent]
+
+    # Auto-discovered tools have no canned message — build it from the live
+    # registry title so a newly added pushbutton reads correctly without a
+    # matching entry in the tables above.
+    if intent and intent.startswith("open_"):
+        label = _tool_label(intent)
+        return (u"Đang mở {}...".format(label) if viet
+                else u"Opening {}...".format(label))
+
+    return u"Đang xử lý..." if viet else "Processing..."
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
@@ -1644,7 +1580,7 @@ def classify(user_input, history=None):
         last_tool = _last_tool_from_history(history)
         if last_tool:
             slots = _extract_slots(user_input)
-            label = _TOOL_LABELS.get(last_tool, last_tool)
+            label = _tool_label(last_tool)
             msg = (u"Đang mở {}...".format(label) if viet
                    else "Opening {}...".format(label))
             return {"intent": last_tool, "params": {}, "message": msg,
