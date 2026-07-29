@@ -1,0 +1,18 @@
+# T3Lab spell-check — YOUR OWN whitelist
+# ---------------------------------------------------------------------------
+# Put here any word /english-spellcheck flags that is actually correct:
+# project names, client/product/brand names, room codes spelt in mixed case,
+# supplier terms... One term per line, lowercase. Blank lines and lines
+# starting with '#' are ignored.
+#
+# Words listed here are:
+#   1. never reported as a spelling error, and
+#   2. usable as a correction target for a real typo of that word.
+#
+# The file is read at run time — just add the word and run the scan again,
+# no rebuild needed. (Bundled trade vocabulary lives in
+# construction_terms.txt; keep this file for what is specific to you.)
+# ---------------------------------------------------------------------------
+
+# example (delete or replace):
+# wohhup

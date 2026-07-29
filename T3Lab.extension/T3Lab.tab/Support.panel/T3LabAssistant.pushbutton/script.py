@@ -406,6 +406,38 @@ def _exc_text(exc):
         return u"<unprintable error>"
 
 
+def _get_uiapp():
+    """The live UIApplication, or None.
+
+    `HOST_APP.uiapp` is None on this pyRevit build: pyRevit only keeps a
+    UIApplication when the `__revit__` builtin *is* one, and here `__revit__`
+    is a DB.Application — so `HOST_APP.uiapp` (and `HOST_APP.uidoc`) stay None
+    and every `HOST_APP.uiapp.X` call died with
+    `AttributeError: 'NoneType' object has no attribute 'X'`.
+    UIApplication has a public constructor taking a DB.Application, which is
+    the supported way back to the UI layer from there.
+    """
+    try:
+        from pyrevit import HOST_APP
+        uiapp = getattr(HOST_APP, 'uiapp', None)
+        if uiapp is not None:
+            return uiapp
+    except Exception:
+        pass
+    try:
+        import __builtin__
+        from Autodesk.Revit.UI import UIApplication
+        rvt = getattr(__builtin__, '__revit__', None)
+        if rvt is None:
+            return None
+        if isinstance(rvt, UIApplication):
+            return rvt
+        return UIApplication(rvt)
+    except Exception as ex:
+        logger.debug("_get_uiapp failed: {}".format(_exc_text(ex)))
+        return None
+
+
 _VIET_CHARS = (u"àáâãèéêìíòóôõùúýăđơưạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợ"
                u"ụủứừửữựỳỵỷỹ")
 
@@ -1094,16 +1126,30 @@ class T3LabAssistantWindow(forms.WPFWindow):
         did nothing at all and said nothing about it. Undo is a POSTABLE UI
         command: it must go through UIApplication.PostCommand, and PostCommand
         takes a RevitCommandId, not the PostableCommand enum value.
+
+        The UIApplication must come from _get_uiapp(), NOT from
+        `HOST_APP.uiapp` — that is None here, so the button always fell into
+        the "Undo is unavailable" branch.
         """
         try:
-            from pyrevit import HOST_APP
             from Autodesk.Revit.UI import RevitCommandId, PostableCommand
+            uiapp = _get_uiapp()
+            if uiapp is None:
+                raise AttributeError("no UIApplication available")
             cid = RevitCommandId.LookupPostableCommandId(PostableCommand.Undo)
-            HOST_APP.uiapp.PostCommand(cid)
+            # CanPostCommand is the "can Revit take this right now" query:
+            # False while a modal dialog or another command owns the UI.
+            if not uiapp.CanPostCommand(cid):
+                self._append_bot_message(
+                    u"Revit is busy (a dialog or command is open) — "
+                    u"close it and press Undo again.",
+                    icon=_ICON_WARNING, icon_color=_ICON_AMBER)
+                return
+            uiapp.PostCommand(cid)
             # PostCommand is asynchronous — Revit runs it on the next input
-            # cycle — so this must not claim the undo already happened. There
-            # is also no public "is anything undoable" query; when there is
-            # nothing to undo Revit simply no-ops.
+            # cycle — so this must not claim the undo already happened. Revit
+            # no-ops when the undo stack is empty, and CanPostCommand does not
+            # report that, so the wording stays neutral.
             self._append_bot_message(u"Undo sent to Revit.")
         except Exception as ex:
             # Not _report_error: this is a standalone button, not a chat turn —
@@ -7754,10 +7800,14 @@ if __name__ == '__main__':
         from Autodesk.Revit.UI import DockablePaneId
         from System import Guid
         from GUI.AssistantPaneControl import ASSISTANT_PANE_GUID
-        from pyrevit import HOST_APP
 
         pane_id = DockablePaneId(ASSISTANT_PANE_GUID)
-        uiapp = HOST_APP.uiapp
+        # Same defect as undo_clicked: HOST_APP.uiapp is None here, so this
+        # threw AttributeError every time and the pane silently degraded to
+        # the floating-window fallback below.
+        uiapp = _get_uiapp()
+        if uiapp is None:
+            raise AttributeError("no UIApplication available")
         pane = uiapp.GetDockablePane(pane_id)
         if pane:
             if pane.IsShown():

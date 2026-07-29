@@ -36,6 +36,7 @@ _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 _FREQ_FILE = os.path.join(_DATA_DIR, "en_freq.json.gz")
 _CONFUSABLES_FILE = os.path.join(_DATA_DIR, "confusables.json")
 _TERMS_FILE = os.path.join(_DATA_DIR, "construction_terms.txt")
+_CUSTOM_FILE = os.path.join(_DATA_DIR, "custom_words.txt")
 
 _WORDS = None            # {word(lower): frequency}
 _DOMAIN = None           # set(single-word lowercase construction terms)
@@ -45,7 +46,12 @@ _LOAD_ERROR = None       # remembered so callers can surface a real failure
 
 def _load_words():
     """Load and cache the frequency dictionary. Returns {} on failure (the
-    caller treats an empty dictionary as 'engine unavailable')."""
+    caller treats an empty dictionary as 'engine unavailable').
+
+    The word list bundled in the .gz is merged at load time with the plain-text
+    term files (construction_terms.txt + custom_words.txt) so a word added
+    there takes effect on the next run — no rebuild of the .gz asset needed.
+    """
     global _WORDS, _LOAD_ERROR
     if _WORDS is not None:
         return _WORDS
@@ -59,30 +65,47 @@ def _load_words():
     except Exception as ex:
         _LOAD_ERROR = u"{}".format(ex)
         _WORDS = {}
+    if _WORDS:
+        for term in _load_domain():
+            if _WORDS.get(term, 0) < _DOMAIN_FLOOR:
+                _WORDS[term] = _DOMAIN_FLOOR
     return _WORDS
 
 
+def _read_terms(path):
+    """Lowercase terms from a '# comment' + one-word-per-line text file.
+    Hyphen/slash compounds contribute both the whole term and its parts."""
+    terms = set()
+    try:
+        fh = open(path, "rb")
+        try:
+            raw = fh.read()
+        finally:
+            fh.close()
+        for line in raw.decode("utf-8").splitlines():
+            w = line.strip().lower()
+            if not w or w.startswith(u"#"):
+                continue
+            if len(w) >= _MIN_LEN and w.replace(u"-", u"").replace(u"/", u"").isalpha():
+                terms.add(w)
+            for part in re.split(u"[-/ ]", w):        # split compounds
+                if len(part) >= _MIN_LEN and part.isalpha():
+                    terms.add(part)
+    except Exception:
+        pass
+    return terms
+
+
 def _load_domain():
-    """Single-word construction/architecture terms. Used to break ties in the
-    correction ranking: on a construction drawing a typo one edit from a trade
-    term (SETING -> SETTING) should win over a more frequent general word
-    (SEEING), which raw corpus frequency would otherwise pick."""
+    """Single-word construction/architecture terms (bundled list + the user's
+    own custom_words.txt). They are accepted as correctly spelled AND used to
+    break ties in the correction ranking: on a construction drawing a typo one
+    edit from a trade term (SETING -> SETTING) should win over a more frequent
+    general word (SEEING), which raw corpus frequency would otherwise pick."""
     global _DOMAIN
     if _DOMAIN is not None:
         return _DOMAIN
-    terms = set()
-    try:
-        with open(_TERMS_FILE, "rb") as fh:
-            for line in fh.read().decode("utf-8").splitlines():
-                w = line.strip().lower()
-                if not w or w.startswith(u"#"):
-                    continue
-                for part in re.split(u"[-/]", w):     # split compounds
-                    if len(part) >= _MIN_LEN:
-                        terms.add(part)
-    except Exception:
-        terms = set()
-    _DOMAIN = terms
+    _DOMAIN = _read_terms(_TERMS_FILE) | _read_terms(_CUSTOM_FILE)
     return _DOMAIN
 
 
@@ -128,7 +151,11 @@ def load_error():
 # A token is a run of letters with optional internal apostrophes. Digits,
 # hyphens and slashes act as separators, so "SETTING-OUT" -> SETTING, OUT and
 # "100THK" -> THK (the digits never enter a token).
-_TOKEN_RE = re.compile(u"[A-Za-z]+(?:['’][A-Za-z]+)*", re.UNICODE)
+# The class is Unicode-aware on purpose: with a plain [A-Za-z]+ an accented or
+# Vietnamese letter acts as a separator and shreds the word into fake tokens
+# ("Façades" -> "Fa" + "ades" -> flagged as "ades" -> "ages"). Non-ASCII tokens
+# are then skipped wholesale by _ignorable() — this is an English checker.
+_TOKEN_RE = re.compile(u"[^\\W\\d_]+(?:['’][^\\W\\d_]+)*", re.UNICODE)
 _ROMAN_RE = re.compile(u"^m{0,4}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$",
                        re.IGNORECASE)
 _ALPHABET = u"abcdefghijklmnopqrstuvwxyz"
@@ -143,6 +170,62 @@ _ACRONYM_MAX = 5
 # product code); above the hard cap we skip the token entirely.
 _EDITS2_MAX = 15
 _HARD_MAX = 28
+# Frequency floor given to bundled domain terms, and the minimum frequency each
+# half of a compound must have before the compound is accepted (see
+# _is_compound). Tuned on 2085 synthetic single-edit typos: at this floor the
+# rule accepts every realistic compound in the test list (COUNTERTOP,
+# BACKSPLASH, STORMWATER, WORKTOP, ...) while wrongly accepting 1.2% of typos.
+_DOMAIN_FLOOR = 8000
+_COMPOUND_MIN_FREQ = 8000
+_COMPOUND_MIN_PART = 3
+# Productive prefixes: PREFINISHED, NON-SLIP written NONSLIP, SUBFRAME...
+# The remainder must be at least _PREFIX_MIN_REST letters so that a genuine
+# typo whose tail happens to be a short word (PRESURE -> pre + "sure") is
+# still reported.
+_PREFIXES = (u"pre", u"re", u"un", u"non", u"anti", u"semi", u"sub", u"super",
+             u"over", u"under", u"multi", u"inter", u"intra", u"micro",
+             u"mini", u"mid", u"co", u"de", u"dis", u"mis", u"out", u"up",
+             u"post", u"self", u"cross", u"counter", u"back", u"down", u"off",
+             u"bi", u"tri")
+_PREFIX_MIN_REST = 5
+
+
+def _is_compound(word, vocab):
+    """True when the word is a closed compound of two common words, e.g.
+    COUNTERTOP = counter + top, BACKSPLASH = back + splash, STORMWATER.
+    Such compounds are absent from a general corpus but are perfectly correct
+    on a drawing, and edit-distance would 'fix' them into nonsense
+    (COUNTERTOP -> COUNTERTYPE, BACKSPLASH -> BACKSLASH)."""
+    n = len(word)
+    for i in range(_COMPOUND_MIN_PART, n - _COMPOUND_MIN_PART + 1):
+        if (vocab.get(word[:i], 0) >= _COMPOUND_MIN_FREQ
+                and vocab.get(word[i:], 0) >= _COMPOUND_MIN_FREQ):
+            return True
+    return False
+
+
+def _is_prefixed(word, vocab):
+    """True when the word is a productive prefix + a known word
+    (PREFINISHED, REGLAZING, INTERLAYER, DOWNLIGHT...)."""
+    for p in _PREFIXES:
+        if word.startswith(p) and len(word) - len(p) >= _PREFIX_MIN_REST:
+            if word[len(p):] in vocab:
+                return True
+    return False
+
+
+def _is_wellformed(word, vocab, _depth=0):
+    """True when the word is spelled correctly: in the dictionary, or built by
+    ordinary English word-formation from dictionary words. Everything the
+    checker reports has failed this test."""
+    if word in vocab:
+        return True
+    if _is_compound(word, vocab) or _is_prefixed(word, vocab):
+        return True
+    # simple plural of an otherwise well-formed form (COUNTERTOPS, DOWNLIGHTS)
+    if _depth == 0 and len(word) > 4 and word.endswith(u"s"):
+        return _is_wellformed(word[:-1], vocab, 1)
+    return False
 
 
 def _looks_like_code(token):
@@ -156,11 +239,20 @@ def _looks_like_code(token):
     return False
 
 
+def _has_non_ascii(token):
+    for ch in token:
+        if ord(ch) > 127:
+            return True
+    return False
+
+
 def _ignorable(token):
     """True when the token should never be treated as a spelling error,
     regardless of whether it is in the dictionary."""
     if len(token) < _MIN_LEN or len(token) > _HARD_MAX:
         return True
+    if _has_non_ascii(token):
+        return True                       # foreign / accented word, not English
     if _ROMAN_RE.match(token):
         return True
     if token.isupper() and len(token) <= _ACRONYM_MAX:
@@ -207,7 +299,7 @@ def correction(word):
     """Best correction for a lowercase word, or the word itself when the engine
     has nothing confident to offer."""
     vocab = _load_words()
-    if not vocab or word in vocab:
+    if not vocab or _is_wellformed(word, vocab):
         return word
     domain = _load_domain()
     e1 = _known(_edits1(word), vocab)
@@ -241,7 +333,7 @@ def check_text(text):
             if _ignorable(token):
                 continue
             low = token.lower().replace(u"’", u"'")
-            if low in vocab:
+            if _is_wellformed(low, vocab):
                 continue
             best = correction(low)
             if best == low:

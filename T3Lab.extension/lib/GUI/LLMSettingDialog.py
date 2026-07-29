@@ -51,6 +51,39 @@ from GUI.AssistantShared import (open_in_explorer as _open_in_explorer,
                                  PROVIDER_COLORS as _SHARED_PROVIDER_COLORS)
 
 
+def _show_dialog_owned(window, dlg):
+    """Show a WinForms common dialog (folder/file picker) owned by `window`.
+
+    Without an explicit owner, FolderBrowserDialog/OpenFileDialog parent
+    themselves on whatever Win32 reports as the active window. Inside Revit
+    that resolves to Revit's main window, NOT this modal WPF dialog — so the
+    picker opens BEHIND the settings window while ShowDialog() keeps pumping
+    messages on the UI thread. The result looks exactly like a dead button:
+    nothing appears and the window stops responding.
+
+    NativeWindow is the ready-made IWin32Window wrapper around an HWND, which
+    avoids having to implement the interface from IronPython.
+    """
+    clr.AddReference('System.Windows.Forms')
+    from System.Windows.Forms import NativeWindow
+    from System.Windows.Interop import WindowInteropHelper
+    try:
+        hwnd = WindowInteropHelper(window).Handle
+    except Exception:
+        hwnd = System.IntPtr.Zero
+    if hwnd == System.IntPtr.Zero:
+        return dlg.ShowDialog()
+    owner = NativeWindow()
+    owner.AssignHandle(hwnd)
+    try:
+        return dlg.ShowDialog(owner)
+    finally:
+        try:
+            owner.ReleaseHandle()
+        except Exception:
+            pass
+
+
 def _brush(r, g, b):
     return SolidColorBrush(Color.FromRgb(r, g, b))
 
@@ -111,6 +144,17 @@ class LLMSettingWindow(forms.WPFWindow):
         self._kn_scan_busy = False
         self._ctx_busy = False   # guards concurrent context-digest rebuilds
 
+        # Tabs are filled on first visit, not at construction: the projects,
+        # knowledge and skills loaders all walk disk (and, for a project with a
+        # linked network share, block on SMB) — doing that for five tabs before
+        # the window is even shown is what made this dialog slow to open.
+        self._tabs_loaded = set()
+        # Per-project CONTEXT block cache + a generation counter so a slow
+        # worker cannot repaint a project the user has already switched away
+        # from.
+        self._ctx_cache = {}
+        self._ctx_gen = 0
+
         # Dirty-tracking for the two editable text fields. A background probe
         # calls _apply_provider_chrome, which used to overwrite whatever the
         # user was typing — paste a key, wait ~5s, watch it turn back into the
@@ -134,10 +178,10 @@ class LLMSettingWindow(forms.WPFWindow):
             logger.debug("dirty-tracking wiring failed: {}".format(ex))
 
         self._update_instant()
+        # General is cheap (settings reads) and Models is the tab that opens
+        # first, so those two are eager; the rest load on first click.
         self._load_general_tab()
-        self._load_projects_tab()
-        self._load_knowledge_tab()
-        self._load_skills_tab()
+        self._tabs_loaded.update(('general', 'provider'))
         self._ui_ready = True
         self._probe_all_async()
 
@@ -211,8 +255,28 @@ class LLMSettingWindow(forms.WPFWindow):
             for key in panels:
                 panels[key].Visibility = (
                     Visibility.Visible if key == tag else Visibility.Collapsed)
+            self._ensure_tab_loaded(tag)
         except Exception as ex:
             logger.debug("tab_changed error: {}".format(ex))
+
+    def _ensure_tab_loaded(self, tag):
+        """Fill a tab the first time it is shown (see __init__ for why)."""
+        if tag in self._tabs_loaded:
+            return
+        self._tabs_loaded.add(tag)
+        loader = {
+            'projects':  self._load_projects_tab,
+            'knowledge': self._load_knowledge_tab,
+            'skills':    self._load_skills_tab,
+        }.get(tag)
+        if loader is None:
+            return
+        try:
+            loader()
+        except Exception as ex:
+            # Never leave a tab permanently marked as loaded after a failure.
+            self._tabs_loaded.discard(tag)
+            logger.debug("load tab {} error: {}".format(tag, ex))
 
     # ─── Chrome ─────────────────────────────────────────────────────────────
 
@@ -938,6 +1002,14 @@ class LLMSettingWindow(forms.WPFWindow):
     def _load_projects_tab(self, select_pid=None):
         """Fill the project combo (edit scope only — activation happens in
         the chat composer's project chip, never here)."""
+        # Callers outside _ensure_tab_loaded (the chat window preselects a
+        # project with select_pid before showing the dialog) must also latch
+        # this, or the first click on the Projects pill reloads the tab and
+        # throws the preselection away.
+        try:
+            self._tabs_loaded.add('projects')
+        except Exception:
+            pass
         try:
             from System.Windows.Controls import ComboBoxItem
             from config.project_store import ProjectStore
@@ -998,10 +1070,11 @@ class LLMSettingWindow(forms.WPFWindow):
                         if _c else None)
                 except Exception:
                     pass
-                self._update_project_files_status(pid)
-                self._render_project_dirs(pid)
+                # Cheap, local-JSON renders stay inline; the CONTEXT block
+                # (files walk + linked shares) refreshes off-thread.
                 self._render_project_memory(pid)
                 self._render_project_sched(pid)
+                self._refresh_project_context(pid)
             else:
                 self.project_edit_panel.Visibility = Visibility.Collapsed
         except Exception as ex:
@@ -1066,11 +1139,19 @@ class LLMSettingWindow(forms.WPFWindow):
             if res != MessageBoxResult.Yes:
                 return
             ps.delete_project(pid)
+            self._ctx_cache.pop(pid, None)
             self._load_projects_tab()
         except Exception as ex:
             logger.debug("project_delete_clicked error: {}".format(ex))
 
     # ── Projects: context files ──────────────────────────────────────────────
+
+    def _set_project_status(self, text):
+        """Write one line to the CONTEXT status label. UI THREAD, never raises."""
+        try:
+            self.project_files_status.Text = text
+        except Exception:
+            pass
 
     def _project_files_dir(self, pid):
         """projects/<pid>/files — created on demand."""
@@ -1083,22 +1164,110 @@ class LLMSettingWindow(forms.WPFWindow):
                 pass
         return d
 
-    def _update_project_files_status(self, pid):
-        """One shared, cached counter — no private os.walk, and the linked
-        folders' digest sidecars are read once per refresh instead of once here
-        and again for every row in _render_project_dirs."""
+    # ── Projects: CONTEXT block (counter line + linked-folder rows) ─────────
+    #
+    # Everything that touches disk for this block runs on a worker: the files/
+    # walk, and — the expensive one — os.path.isdir + the digest sidecar read
+    # of every linked folder. Those folders are routinely network shares, and a
+    # share that is down makes isdir() block for the SMB timeout, which used to
+    # freeze the whole dialog just for picking another project in the combo.
+
+    def _refresh_project_context(self, pid, force=False, keep_status=False):
+        """Repaint the CONTEXT counter + linked-folder rows for `pid`.
+
+        Serves the per-project cache instantly when there is one (switching
+        back and forth in the combo is then free) and refreshes from disk in
+        the background. `force` drops the cache after an edit; `keep_status`
+        leaves the status line alone when the caller has already written a
+        more useful message there (e.g. the rescan summary).
+        """
+        if not pid:
+            return
+        self._ctx_gen += 1
+        gen = self._ctx_gen
+        if force:
+            self._ctx_cache.pop(pid, None)
+
+        cached = self._ctx_cache.get(pid)
+        if cached is not None:
+            # Instant repaint from the last read; the worker below still runs
+            # and silently corrects it if anything changed on disk.
+            self._paint_project_context(cached, keep_status=keep_status)
+        else:
+            # Placeholder from cached metadata only, so the panel is never
+            # blank or stale while the worker reads the shares.
+            try:
+                from config.project_store import ProjectStore
+                dirs = ProjectStore().get_knowledge_dirs(pid)
+            except Exception:
+                dirs = []
+            self._paint_project_context(
+                {'summary': u"Reading knowledge folder…",
+                 'rows': [{'path': p, 'missing': False, 'stats': None}
+                          for p in dirs],
+                 'pid': pid},
+                keep_status=keep_status)
+
+        def _apply(_info):
+            # Cache even when the user has moved on — the read was valid for
+            # this pid, so coming back to it stays instant.
+            prev = self._ctx_cache.get(pid)
+            self._ctx_cache[pid] = _info
+            if gen != self._ctx_gen:
+                return    # another project is on screen now; don't repaint
+            if _info == prev:
+                return    # nothing changed — don't rebuild the rows for free
+            self._paint_project_context(_info, keep_status=keep_status)
+
+        def _work():
+            _info = self._collect_project_context(pid)
+
+            def _ui():
+                _apply(_info)
+            try:
+                self.Dispatcher.BeginInvoke(Action(_ui))
+            except Exception:
+                pass
+
+        if not self._start_worker(_work) and cached is None:
+            # Better a brief freeze than a panel stuck on "Reading…".
+            _apply(self._collect_project_context(pid))
+
+    def _collect_project_context(self, pid):
+        """Read the counter + one digest-stats dict per linked folder.
+
+        BACKGROUND THREAD — must not touch any WPF element.
+        """
+        info = {'pid': pid, 'summary': u'', 'rows': []}
+        ps = None
+        dirs = []
         try:
             from config.project_store import ProjectStore
-            self.project_files_status.Text = (
-                ProjectStore().describe_documents(pid, cap=99))
+            ps = ProjectStore()
+            info['summary'] = ps.describe_documents(pid, cap=99)
+            dirs = ps.get_knowledge_dirs(pid)
         except Exception as ex:
-            logger.debug("_update_project_files_status error: {}".format(ex))
+            logger.debug("_collect_project_context error: {}".format(ex))
+        for path in dirs:
+            row = {'path': path, 'stats': None,
+                   'missing': not os.path.isdir(path)}
+            # linked_dir_stats is the same TTL-cached read describe_documents
+            # just did, so the rows cost no extra share round trips.
+            if ps is not None and not row['missing']:
+                try:
+                    row['stats'] = ps.linked_dir_stats(path)
+                except Exception:
+                    pass
+            info['rows'].append(row)
+        return info
 
     def project_add_files_clicked(self, sender, e):
         """Copy picked documents into the project's knowledge folder."""
         try:
             pid = self._selected_project_id()
             if not pid:
+                self._set_project_status(
+                    u"Select (or create) a project first, then add files.")
                 return
             clr.AddReference('System.Windows.Forms')
             from System.Windows.Forms import OpenFileDialog, DialogResult
@@ -1107,7 +1276,7 @@ class LLMSettingWindow(forms.WPFWindow):
             dlg.Title = "Add documents to this project"
             dlg.Filter = ("Documents|*.pdf;*.docx;*.txt;*.md;*.csv;*.xlsx|"
                           "All files|*.*")
-            if dlg.ShowDialog() != DialogResult.OK:
+            if _show_dialog_owned(self, dlg) != DialogResult.OK:
                 return
             import shutil
             dst = self._project_files_dir(pid)
@@ -1116,7 +1285,7 @@ class LLMSettingWindow(forms.WPFWindow):
                     shutil.copy2(f, os.path.join(dst, os.path.basename(f)))
                 except Exception:
                     pass
-            self._update_project_files_status(pid)
+            self._refresh_project_context(pid, force=True)
             # Editing the ACTIVE project → refresh its RAG index now;
             # other projects get indexed on activation.
             try:
@@ -1151,21 +1320,32 @@ class LLMSettingWindow(forms.WPFWindow):
 
     # ── Projects: linked external knowledge folders ─────────────────────────
 
-    def _render_project_dirs(self, pid):
-        """Rebuild the linked-folder rows for the selected project. UI THREAD."""
+    def _paint_project_context(self, info, keep_status=False):
+        """Draw the CONTEXT block from an already-collected `info` dict.
+
+        UI THREAD, but pure rendering — no disk access at all, which is what
+        keeps combo switching instant.
+        """
         try:
             from System.Windows.Controls import (Border, Button, Grid,
                                                  ColumnDefinition, TextBlock)
             from System.Windows import Thickness, CornerRadius, GridLength
-            from config.project_store import ProjectStore
+
+            pid = info.get('pid')
+            if not keep_status:
+                try:
+                    self.project_files_status.Text = info.get('summary') or u''
+                except Exception:
+                    pass
 
             panel = self.project_dirs_panel
             panel.Children.Clear()
-            dirs = ProjectStore().get_knowledge_dirs(pid)
-            if not dirs:
+            rows = info.get('rows') or []
+            if not rows:
                 return
 
-            for path in dirs:
+            for _row in rows:
+                path = _row.get('path') or u''
                 row = Border()
                 row.Background = SolidColorBrush(Color.FromRgb(255, 255, 255))
                 row.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
@@ -1185,17 +1365,18 @@ class LLMSettingWindow(forms.WPFWindow):
                 grid.ColumnDefinitions.Add(c1)
                 grid.ColumnDefinitions.Add(c2)
 
-                missing = not os.path.isdir(path)
-                # exact counts come from the folder's own context/ digest —
-                # no walking of a possibly-remote share on the UI thread
-                try:
-                    from Intelligence.knowledge import context_digest
-                    st = context_digest.read_context_stats(path)
-                except Exception:
+                missing = bool(_row.get('missing'))
+                # exact counts come from the folder's own context/ digest,
+                # read on the worker in _collect_project_context
+                st = _row.get('stats')
+                pending = st is None
+                if pending:
                     st = {'exists': False, 'files': 0, 'updated': '', 'llm': 0}
 
                 if missing:
                     note = u"  (not found)"
+                elif pending:
+                    note = u"  · reading…"
                 elif not st.get('exists'):
                     note = u"  · not scanned yet"
                 else:
@@ -1273,10 +1454,11 @@ class LLMSettingWindow(forms.WPFWindow):
                 def _make_unlink(_p, _pid):
                     def _unlink(s, ev):
                         try:
-                            ProjectStore().remove_knowledge_dir(_pid, _p)
-                            self._render_project_dirs(_pid)
-                            self._update_project_files_status(_pid)
-                            if ProjectStore().get_active_project_id() == _pid:
+                            from config.project_store import ProjectStore
+                            ps = ProjectStore()
+                            ps.remove_knowledge_dir(_pid, _p)
+                            self._refresh_project_context(_pid, force=True)
+                            if ps.get_active_project_id() == _pid:
                                 self._kick_knowledge_scan()
                         except Exception as uex:
                             logger.debug("unlink dir error: {}".format(uex))
@@ -1288,31 +1470,43 @@ class LLMSettingWindow(forms.WPFWindow):
                 row.Child = grid
                 panel.Children.Add(row)
         except Exception as ex:
-            logger.debug("_render_project_dirs error: {}".format(ex))
+            logger.debug("_paint_project_context error: {}".format(ex))
 
     def project_link_folder_clicked(self, sender, e):
         """Link an external folder as project knowledge, write its CONTEXT.md
-        digest, then re-index. UI THREAD (digest+scan run in background)."""
+        digest, then re-index. UI THREAD (digest+scan run in background).
+
+        Every early exit says why on the status line: this used to `return`
+        silently on no-project and on a failed save, which is indistinguishable
+        from a dead button.
+        """
         try:
             pid = self._selected_project_id()
             if not pid:
+                self._set_project_status(
+                    u"Select (or create) a project first, then link a folder.")
                 return
             clr.AddReference('System.Windows.Forms')
             from System.Windows.Forms import FolderBrowserDialog, DialogResult
             dlg = FolderBrowserDialog()
             dlg.Description = ("Chon thu muc BEP / tieu chuan / tai lieu de "
                                "lien ket vao project")
-            if dlg.ShowDialog() != DialogResult.OK or not dlg.SelectedPath:
+            if _show_dialog_owned(self, dlg) != DialogResult.OK \
+                    or not dlg.SelectedPath:
                 return
             from config.project_store import ProjectStore
             ps = ProjectStore()
             if ps.add_knowledge_dir(pid, dlg.SelectedPath) is None:
+                self._set_project_status(
+                    u"Could not save the link — the project file may be "
+                    u"read-only or in use.")
                 return
-            self._render_project_dirs(pid)
-            self._update_project_files_status(pid)
+            self._refresh_project_context(pid, force=True)
             self._build_context_digest([dlg.SelectedPath], pid)
         except Exception as ex:
             logger.debug("project_link_folder_clicked error: {}".format(ex))
+            self._set_project_status(
+                u"Link folder failed: {}".format(ex))
 
     def _build_context_digest(self, folders, pid=None, project_ctx=True):
         """Rebuild <folder>/context/CONTEXT.md for each folder on a background
@@ -1449,9 +1643,15 @@ class LLMSettingWindow(forms.WPFWindow):
                             u"Nothing indexable found in the linked folder(s).")
                     if pid:
                         from config.project_store import ProjectStore
+                        # the digests were just rewritten — drop the TTL cache
+                        # so the rows show the new counts immediately
+                        ProjectStore().invalidate_dir_stats()
                         if ProjectStore().get_active_project_id() == pid:
                             self._kick_knowledge_scan()
-                        self._render_project_dirs(pid)
+                        # keep_status: the summary written just above is more
+                        # useful than the plain file counter.
+                        self._refresh_project_context(pid, force=True,
+                                                      keep_status=True)
                 except Exception as dex:
                     logger.debug("digest done error: {}".format(dex))
             try:
@@ -1486,7 +1686,7 @@ class LLMSettingWindow(forms.WPFWindow):
                 if ProjectStore().get_active_project_id() == pid:
                     self._kick_knowledge_scan()
                 else:
-                    self._update_project_files_status(pid)
+                    self._refresh_project_context(pid, force=True)
                 return
             self._build_context_digest(dirs, pid)
         except Exception as ex:
@@ -1881,13 +2081,19 @@ class LLMSettingWindow(forms.WPFWindow):
             from System.Windows.Forms import FolderBrowserDialog, DialogResult
             dlg = FolderBrowserDialog()
             dlg.Description = "Chon thu muc tai lieu (PDF/TXT/MD) de index"
-            if dlg.ShowDialog() == DialogResult.OK and dlg.SelectedPath:
+            if _show_dialog_owned(self, dlg) == DialogResult.OK \
+                    and dlg.SelectedPath:
                 from config.settings import get_settings
                 get_settings().add_knowledge_dir(dlg.SelectedPath)
                 self._refresh_knowledge_dirs_panel()
                 self._kick_knowledge_scan()
         except Exception as ex:
             logger.debug("add_knowledge_dir_clicked error: {}".format(ex))
+            try:
+                self.knowledge_index_status.Text = (
+                    u"Add folder failed: {}".format(ex))
+            except Exception:
+                pass
 
     def reindex_clicked(self, sender, e):
         # A raw WPF click handler must never let an exception escape.

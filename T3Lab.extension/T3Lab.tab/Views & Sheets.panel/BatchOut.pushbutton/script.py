@@ -618,7 +618,9 @@ class ExportManagerWindow(forms.WPFWindow):
             self.profiles = []
             if os.path.exists(self.profiles_folder):
                 for filename in os.listdir(self.profiles_folder):
-                    if filename == self.LATEST_SETUP_FILENAME:
+                    # Internal bookkeeping files (latest setup, crash marker,
+                    # crash history) share this folder but are not profiles.
+                    if filename.startswith('_'):
                         continue
                     if filename.endswith('.json'):
                         filepath = os.path.join(self.profiles_folder, filename)
@@ -628,7 +630,7 @@ class ExportManagerWindow(forms.WPFWindow):
                                 profile = ExportProfile.from_dict(data)
                                 self.profiles.append(profile)
                         except Exception as file_ex:
-                            logger.warning("Could not load profile {}: {}".format(filename, file_ex))
+                            logger.debug("Could not load profile {}: {}".format(filename, file_ex))
 
             # Update profiles listview (only if dialog is open)
             if hasattr(self, 'profiles_listview') and self.profiles_listview:
@@ -1778,7 +1780,9 @@ class ExportManagerWindow(forms.WPFWindow):
             else:
                 msg = "Previous export crashed on sheet '{}' ({}, a different model).".format(
                     sheet, fmt)
-            logger.warning(msg)
+            # Surfaced in the status bar only — a logger.warning here forces the
+            # pyRevit output window open every time the tool starts.
+            logger.debug(msg)
             try:
                 self.status_text.Text = msg
             except Exception:

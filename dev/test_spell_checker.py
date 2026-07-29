@@ -67,7 +67,27 @@ NEGATIVE = [
     u"SANITARYWARE BY OWNER",
     u"75x50 SKIRTING",
     u"Ø32 DOWNPIPE",
+    # ── false positives reported from a real scan (2026-07-29) ─────────────
+    # closed compounds / prefixed words absent from the general corpus; the
+    # engine used to "correct" them into nonsense
+    u"SOLID SURFACE COUNTERTOP TO WET AREA",      # was -> COUNTERTYPE
+    u"CERAMIC TILE BACKSPLASH ABOVE COUNTER",     # was -> BACKSLASH
+    u"PREFINISHED ALUMINIUM CAPPING",             # was -> REFINISHED
+    u"STORMWATER DOWNPIPE TO DISCHARGE",
+    u"DOWNLIGHTS AND UPLIGHTS TO CEILING",
+    u"NON-SLIP HOMOGENEOUS TILE",
+    u"WATERTIGHT SUBFRAME WITH TOPCOAT",
+    # brand / software names
+    u"MODEL PREPARED IN REVIT 2023",              # was -> REFIT
+    u"EXPORTED FROM AUTOCAD AND NAVISWORKS",
+    # non-ASCII text must not be shredded into fake ASCII tokens
+    u"ALUMINIUM FAÇADES PANEL SYSTEM",            # was -> "ades" -> "ages"
+    u"Tường gạch nhẹ 100mm hoàn thiện sơn nước",
 ]
+
+# ── Corrections that must survive the well-formedness relaxation ────────────
+# (a typo whose tail happens to be a real word must still be reported)
+POSITIVE.append((u"CONCRETE PRESURE TEST", u"presure", u"pressure"))
 
 
 def main():

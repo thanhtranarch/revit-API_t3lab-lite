@@ -77,6 +77,7 @@ class ProjectStore(object):
         # an edit made by another Revit session is still picked up.
         self._meta_cache = {}
         self._count_cache = {}     # (pid, cap) -> (files_mtime, own_count)
+        self._dir_stats_cache = {}  # linked path -> (read_at, stats)
         self._meta_lock = threading.Lock()
         self._root_ready = None    # _root() only needs to mkdir once per path
         self._initialized = True
@@ -306,18 +307,46 @@ class ProjectStore(object):
         dirs = self.get_knowledge_dirs(pid)
         linked_docs = 0
         unscanned = 0
-        if dirs:
-            try:
-                from Intelligence.knowledge import context_digest
-                for d in dirs:
-                    st = context_digest.read_context_stats(d)
-                    if st.get('exists'):
-                        linked_docs += st.get('files') or 0
-                    else:
-                        unscanned += 1
-            except Exception:
-                unscanned = len(dirs)
+        for d in dirs:
+            st = self.linked_dir_stats(d)
+            if st.get('exists'):
+                linked_docs += st.get('files') or 0
+            else:
+                unscanned += 1
         return own, len(dirs), linked_docs, unscanned
+
+    def linked_dir_stats(self, path, max_age=10.0):
+        """context/ digest stats for one linked folder, cached for max_age s.
+
+        Linked folders are typically network shares, and every surface that
+        shows a project (this counter, the settings dialog's folder rows, the
+        chat project popup) read the same sidecar again — several SMB round
+        trips per repaint. The TTL is deliberately short so a rescan finished
+        elsewhere still surfaces on its own; call invalidate_dir_stats() to
+        drop it immediately.
+        """
+        now = time.time()
+        with self._meta_lock:
+            hit = self._dir_stats_cache.get(path)
+            if hit is not None and (now - hit[0]) <= max_age:
+                return hit[1]
+        try:
+            from Intelligence.knowledge import context_digest
+            st = context_digest.read_context_stats(path)
+        except Exception:
+            st = {'files': 0, 'skipped': 0, 'llm': 0, 'updated': '',
+                  'path': '', 'exists': False}
+        with self._meta_lock:
+            self._dir_stats_cache[path] = (now, st)
+        return st
+
+    def invalidate_dir_stats(self, path=None):
+        """Drop cached digest stats (one folder, or all when path is None)."""
+        with self._meta_lock:
+            if path is None:
+                self._dir_stats_cache.clear()
+            else:
+                self._dir_stats_cache.pop(path, None)
 
     def describe_documents(self, pid, cap=200):
         """Human-readable one-liner for the counts above (shared wording)."""

@@ -1084,6 +1084,41 @@
             <Setter Property="Foreground" Value="#9A9AA2"/>
             <Setter Property="Margin" Value="1,0,0,6"/>
         </Style>
+
+        <!-- Window-local helper text under a FieldLabel -->
+        <Style x:Key="SectionHint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#71717A"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight" Value="15"/>
+            <Setter Property="Margin" Value="1,0,0,6"/>
+        </Style>
+
+        <!-- Window-local grouping card (Projects tab sections) -->
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background" Value="#FCFCFD"/>
+            <Setter Property="BorderBrush" Value="#E6E6EA"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+
+        <!-- Window-local quiet destructive button (outline, red on hover) -->
+        <Style x:Key="DangerGhostButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="Foreground" Value="#D23B3B"/>
+            <Setter Property="BorderBrush" Value="#F1C9C9"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FDECEC"/>
+                    <Setter Property="BorderBrush" Value="#F87171"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#D23B3B"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
@@ -1391,124 +1426,150 @@
                             </Button>
                         </Grid>
                         <TextBlock Text="A project scopes chat history, custom instructions and its own knowledge folder. Switch the ACTIVE project from the chat composer — here you edit them."
-                                   FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
-                                   Margin="1,0,0,8" LineHeight="15"/>
+                                   Style="{StaticResource SectionHint}" Margin="1,0,0,8"/>
                         <ComboBox x:Name="project_combo" Style="{StaticResource T3ComboBox}"
-                                  Margin="0,0,0,12" SelectionChanged="project_changed"/>
+                                  Margin="0,0,0,14" SelectionChanged="project_changed"/>
 
                         <StackPanel x:Name="project_edit_panel" Visibility="Collapsed">
-                            <TextBlock Text="PROJECT NAME" Style="{StaticResource FieldLabel}"/>
-                            <TextBox x:Name="project_name_box" Style="{StaticResource T3InputField}"
-                                     Margin="0,0,0,12"/>
-                            <TextBlock Text="CUSTOM INSTRUCTIONS" Style="{StaticResource FieldLabel}"/>
-                            <TextBlock Text="Applied to every reply while this project is active."
-                                       FontSize="11" Foreground="#71717A" Margin="1,0,0,6"/>
-                            <TextBox x:Name="project_instructions_box"
-                                     Height="110" Margin="0,0,0,12"
-                                     FontFamily="Hanken Grotesk" FontSize="12"
-                                     Padding="10,8" BorderBrush="#CBD5E1"
-                                     BorderThickness="1" Background="White"
-                                     TextWrapping="Wrap" AcceptsReturn="True"
-                                     VerticalScrollBarVisibility="Auto"/>
 
-                            <!-- Default AI provider/model applied on activation -->
-                            <TextBlock Text="DEFAULT AI (OPTIONAL)" Style="{StaticResource FieldLabel}"/>
-                            <TextBlock Text="Applied automatically whenever this project is activated. Model id is optional (blank = provider default)."
-                                       FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
-                                       Margin="1,0,0,6"/>
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="project_provider_combo" Grid.Column="0"
-                                          Style="{StaticResource T3ComboBox}">
-                                    <ComboBoxItem Content="Follow global setting" Tag=""
-                                                  IsSelected="True"/>
-                                    <ComboBoxItem Content="Claude — Anthropic" Tag="claude"/>
-                                    <ComboBoxItem Content="GPT — OpenAI" Tag="openai"/>
-                                    <ComboBoxItem Content="DeepSeek" Tag="deepseek"/>
-                                    <ComboBoxItem Content="Ollama — Local" Tag="ollama"/>
-                                    <ComboBoxItem Content="LM Studio — Local" Tag="lmstudio"/>
-                                </ComboBox>
-                                <TextBox x:Name="project_model_box" Grid.Column="2"
-                                         Style="{StaticResource T3InputField}"
-                                         ToolTip="Optional model id, e.g. claude-sonnet-5"/>
-                            </Grid>
+                            <!-- ── Card 1: identity + default AI ──────────────────── -->
+                            <Border Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="PROJECT NAME" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="project_name_box" Style="{StaticResource T3InputField}"
+                                             Margin="0,0,0,14"/>
 
-                            <!-- Context (knowledge files of this project) -->
-                            <TextBlock Text="CONTEXT (KNOWLEDGE FILES)" Style="{StaticResource FieldLabel}"/>
-                            <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="project_files_status" Grid.Column="0"
-                                           Text="0 files" FontSize="12" Foreground="#71717A"
-                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <Button x:Name="project_add_files_btn" Grid.Column="2"
-                                        Style="{StaticResource SecondaryButton}" Height="30"
-                                        Content="Add files…" Click="project_add_files_clicked"
-                                        ToolTip="Copy PDF/DOCX/TXT/MD into this project's knowledge folder"/>
-                                <Button x:Name="project_link_folder_btn" Grid.Column="4"
-                                        Style="{StaticResource SecondaryButton}" Height="30"
-                                        Content="Link folder" Click="project_link_folder_clicked"
-                                        ToolTip="Link an external folder (BEP, standards, network share) as project knowledge — indexed in place, a CONTEXT.md digest is written inside it"/>
-                                <Button x:Name="project_rescan_btn" Grid.Column="6"
-                                        Style="{StaticResource SecondaryButton}" Height="30"
-                                        Content="↻ Rescan" Click="project_rescan_clicked"
-                                        ToolTip="Re-read every linked folder, rebuild its CONTEXT.md and refresh the search index — run this after the BEP or standards are updated"/>
-                            </Grid>
-                            <!-- Linked external knowledge folders -->
-                            <StackPanel x:Name="project_dirs_panel" Margin="0,0,0,6"/>
-                            <Button x:Name="project_open_folder_btn"
-                                    Style="{StaticResource SecondaryButton}" Height="28"
-                                    HorizontalAlignment="Left" Margin="0,0,0,0"
-                                    Content="Open knowledge folder" Click="project_open_folder_clicked"
-                                    ToolTip="Open the project's knowledge folder in Explorer"/>
+                                    <TextBlock Text="CUSTOM INSTRUCTIONS" Style="{StaticResource FieldLabel}"
+                                               Margin="1,0,0,2"/>
+                                    <TextBlock Text="Applied to every reply while this project is active."
+                                               Style="{StaticResource SectionHint}"/>
+                                    <TextBox x:Name="project_instructions_box"
+                                             Height="96" Margin="0,0,0,14"
+                                             FontFamily="Hanken Grotesk" FontSize="12"
+                                             Padding="10,8" BorderBrush="#CBD5E1"
+                                             BorderThickness="1" Background="White"
+                                             TextWrapping="Wrap" AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto"/>
 
-                            <!-- Remembered facts (project scope).
-                                 Moved here from the chat window's project panel
-                                 when that panel became read-only — this is now
-                                 the only place a project is edited. -->
-                            <TextBlock Text="REMEMBERED FACTS" Style="{StaticResource FieldLabel}"/>
-                            <TextBlock Text="Facts the assistant recalls in this project. Say &quot;remember ...&quot; in chat to add one."
-                                       FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
-                                       Margin="1,0,0,6"/>
-                            <StackPanel x:Name="project_memory_panel" Margin="0,0,0,14"/>
+                                    <!-- Default AI provider/model applied on activation -->
+                                    <TextBlock Text="DEFAULT AI (OPTIONAL)" Style="{StaticResource FieldLabel}"
+                                               Margin="1,0,0,2"/>
+                                    <TextBlock Text="Applied automatically whenever this project is activated. Model id is optional (blank = provider default)."
+                                               Style="{StaticResource SectionHint}"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="project_provider_combo" Grid.Column="0"
+                                                  Style="{StaticResource T3ComboBox}">
+                                            <ComboBoxItem Content="Follow global setting" Tag=""
+                                                          IsSelected="True"/>
+                                            <ComboBoxItem Content="Claude — Anthropic" Tag="claude"/>
+                                            <ComboBoxItem Content="GPT — OpenAI" Tag="openai"/>
+                                            <ComboBoxItem Content="DeepSeek" Tag="deepseek"/>
+                                            <ComboBoxItem Content="Ollama — Local" Tag="ollama"/>
+                                            <ComboBoxItem Content="LM Studio — Local" Tag="lmstudio"/>
+                                        </ComboBox>
+                                        <TextBox x:Name="project_model_box" Grid.Column="2"
+                                                 Style="{StaticResource T3InputField}"
+                                                 ToolTip="Optional model id, e.g. claude-sonnet-5"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
 
-                            <!-- Scheduled daily prompts -->
-                            <TextBlock Text="SCHEDULED (DAILY PROMPTS)" Style="{StaticResource FieldLabel}"/>
-                            <TextBlock Text="Run automatically at the set time while the assistant window is open."
-                                       FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
-                                       Margin="1,0,0,6"/>
-                            <StackPanel x:Name="project_sched_panel" Margin="0,0,0,6"/>
-                            <Grid Margin="0,0,0,14">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="64"/>
-                                    <ColumnDefinition Width="8"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="project_sched_prompt_box" Grid.Column="0"
-                                         Style="{StaticResource T3InputField}"
-                                         ToolTip="Prompt to run, e.g. 'get model warnings'"/>
-                                <TextBox x:Name="project_sched_time_box" Grid.Column="2"
-                                         Style="{StaticResource T3InputField}" Text="09:00"
-                                         ToolTip="Daily time (HH:MM)"/>
-                                <Button x:Name="project_sched_add_btn" Grid.Column="4"
-                                        Style="{StaticResource SecondaryButton}" Height="30"
-                                        Content="Add" Click="project_sched_add_clicked"/>
-                            </Grid>
+                            <!-- ── Card 2: context / knowledge files ──────────────── -->
+                            <Border Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="CONTEXT (KNOWLEDGE FILES)" Style="{StaticResource FieldLabel}"
+                                               Margin="1,0,0,4"/>
+                                    <!-- Counter + progress/error line. Wraps instead of
+                                         being trimmed: the rescan writes real sentences
+                                         here, not just a file count. -->
+                                    <TextBlock x:Name="project_files_status"
+                                               Text="—" FontSize="12" Foreground="#52525B"
+                                               TextWrapping="Wrap" LineHeight="16"
+                                               Margin="1,0,0,8"/>
+                                    <!-- WrapPanel, not a Grid of Auto columns: the
+                                         window goes down to MinWidth 460, where a
+                                         fixed four-column row would clip the last
+                                         button instead of moving it to line two. -->
+                                    <WrapPanel Margin="0,0,0,2">
+                                        <Button x:Name="project_add_files_btn"
+                                                Style="{StaticResource SecondaryButton}" Height="34"
+                                                Margin="0,0,8,8"
+                                                Content="Add files…" Click="project_add_files_clicked"
+                                                ToolTip="Copy PDF/DOCX/TXT/MD into this project's knowledge folder"/>
+                                        <Button x:Name="project_link_folder_btn"
+                                                Style="{StaticResource SecondaryButton}" Height="34"
+                                                Margin="0,0,8,8"
+                                                Content="Link folder" Click="project_link_folder_clicked"
+                                                ToolTip="Link an external folder (BEP, standards, network share) as project knowledge — indexed in place, a CONTEXT.md digest is written inside it"/>
+                                        <Button x:Name="project_rescan_btn"
+                                                Style="{StaticResource SecondaryButton}" Height="34"
+                                                Margin="0,0,8,8"
+                                                Content="↻ Rescan" Click="project_rescan_clicked"
+                                                ToolTip="Re-read every linked folder, rebuild its CONTEXT.md and refresh the search index — run this after the BEP or standards are updated"/>
+                                        <Button x:Name="project_open_folder_btn"
+                                                Style="{StaticResource GhostButton}" Height="34"
+                                                Margin="0,0,0,8"
+                                                Content="Open folder" Click="project_open_folder_clicked"
+                                                ToolTip="Open the project's knowledge folder in Explorer"/>
+                                    </WrapPanel>
+                                    <!-- Linked external knowledge folders -->
+                                    <StackPanel x:Name="project_dirs_panel"/>
+                                </StackPanel>
+                            </Border>
 
-                            <Grid>
+                            <!-- ── Card 3: remembered facts ───────────────────────── -->
+                            <!-- Moved here from the chat window's project panel when
+                                 that panel became read-only — this is now the only
+                                 place a project is edited. -->
+                            <Border Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="REMEMBERED FACTS" Style="{StaticResource FieldLabel}"
+                                               Margin="1,0,0,2"/>
+                                    <TextBlock Text="Facts the assistant recalls in this project. Say &quot;remember ...&quot; in chat to add one."
+                                               Style="{StaticResource SectionHint}"/>
+                                    <StackPanel x:Name="project_memory_panel"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ── Card 4: scheduled daily prompts ────────────────── -->
+                            <Border Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="SCHEDULED (DAILY PROMPTS)" Style="{StaticResource FieldLabel}"
+                                               Margin="1,0,0,2"/>
+                                    <TextBlock Text="Run automatically at the set time while the assistant window is open."
+                                               Style="{StaticResource SectionHint}"/>
+                                    <StackPanel x:Name="project_sched_panel" Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="80"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="project_sched_prompt_box" Grid.Column="0"
+                                                 Style="{StaticResource T3InputField}"
+                                                 ToolTip="Prompt to run, e.g. 'get model warnings'"/>
+                                        <!-- 80px + centred: at 64px the padding ate the
+                                             minutes and 09:00 rendered as "09". -->
+                                        <TextBox x:Name="project_sched_time_box" Grid.Column="2"
+                                                 Style="{StaticResource T3InputField}" Text="09:00"
+                                                 Padding="4,0" TextAlignment="Center"
+                                                 ToolTip="Daily time (HH:MM)"/>
+                                        <Button x:Name="project_sched_add_btn" Grid.Column="4"
+                                                Style="{StaticResource SecondaryButton}" Height="34"
+                                                Width="64" Content="Add" Click="project_sched_add_clicked"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ── Action bar ─────────────────────────────────────── -->
+                            <Grid Margin="0,2,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="8"/>
@@ -1520,8 +1581,8 @@
                                         HorizontalContentAlignment="Center"
                                         Click="project_save_clicked"/>
                                 <Button x:Name="project_delete_btn" Grid.Column="2"
-                                        Style="{StaticResource DangerButton}"
-                                        Content="Delete" Height="34" Width="72"
+                                        Style="{StaticResource DangerGhostButton}"
+                                        Content="Delete" Height="34" Width="84"
                                         Click="project_delete_clicked"
                                         ToolTip="Delete this project (index + chat history)"/>
                             </Grid>
