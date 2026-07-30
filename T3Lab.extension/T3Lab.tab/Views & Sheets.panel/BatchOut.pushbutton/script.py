@@ -548,6 +548,9 @@ class ExportManagerWindow(forms.WPFWindow):
             self._crash_history = self._read_crash_history()
             self._pending_crash = self._promote_crash_marker()
             self._skipped_fatal = []
+            # Items exported under safe mode — reported at the end, because such
+            # a file is NOT what a normal export would have produced.
+            self._safe_applied = []
             self._safe_mode = False
             # Known-fatal items are exported anyway by default — a silently
             # missing file is worse than a crash the user was warned about.
@@ -1511,6 +1514,13 @@ class ExportManagerWindow(forms.WPFWindow):
                 'format': fmt,
                 'raster': level,
                 'safe_level': safe_level,
+                # Rung NAME as well as its index: the index is only meaningful
+                # against the SAFE_LADDER of the build that wrote it, and this
+                # file is read by a later session (and by humans debugging a
+                # crash journal).
+                'safe_rung': (self.SAFE_LADDER[safe_level]
+                              if safe_level is not None
+                              and 0 <= safe_level < len(self.SAFE_LADDER) else None),
                 'doc': self.doc.Title,
                 'time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
@@ -1591,17 +1601,29 @@ class ExportManagerWindow(forms.WPFWindow):
         DB.BuiltInCategory.OST_Furniture,
     )
 
-    # Mitigations applied cumulatively, weakest-but-most-faithful first. Each
-    # rung preserves less of the drawing, so we only climb when the rung below
-    # has been PROVEN to still crash (recorded in the crash history).
+    # Mitigations applied cumulatively, ordered by HOW MUCH OF THE DRAWING THEY
+    # DESTROY — least first. We only climb when the rung below has been PROVEN
+    # to still crash (recorded in the crash history), and every failed rung
+    # costs the user a whole Revit session plus a cloud-model reopen, so the
+    # order is chosen to reach a working export in as few attempts as possible.
     #
-    # 'wireframe' is deliberately last but is the one most likely to work: every
-    # fatal signature in the journals — facetFaceWithSpecifiedAlgorithm,
-    # Silhouette moved outside face envelope, Cannot compute silhouette edges,
-    # SilSolver::eval — comes from hidden-line removal and face tessellation,
-    # which the Wireframe display style does not perform. It also hides nothing,
-    # so every remaining line still reaches the sheet.
-    SAFE_LADDER = ('elements', 'categories', 'links', 'coarse', 'wireframe')
+    # 'wireframe' sits second, not last: it hides NOTHING (every line still
+    # reaches the sheet, it only loses the hidden-line cleanup) and it is the
+    # rung most likely to work, because every fatal signature in the journals —
+    # facetFaceWithSpecifiedAlgorithm "long, thin face",  Silhouette moved
+    # outside face envelope, Cannot compute silhouette edges, SilSolver::eval —
+    # comes from hidden-line removal and face tessellation, which the Wireframe
+    # display style does not perform. Putting the category/link hides ahead of
+    # it meant an interior elevation (30-Jul crash: SPH ELEVATIONS 3, 4 —
+    # LIVING HALL / DRY KITCHEN) would have exported with its Furniture,
+    # Casework and Plumbing Fixtures stripped out — i.e. an empty drawing that
+    # still looks like a successful export.
+    #
+    # NOTE: crash history stores this as an INDEX (`safe_level`), so reordering
+    # invalidates previously recorded levels. Safe to do here — no entry in the
+    # history carries a non-null safe_level yet. Markers also record the rung
+    # NAME (`safe_rung`) from now on so the record stays readable if it moves.
+    SAFE_LADDER = ('elements', 'wireframe', 'coarse', 'categories', 'links')
 
     def _next_safe_level(self, sheet_number, fmt):
         """Rung to start on for this sheet+format: one above the highest rung
@@ -1624,7 +1646,7 @@ class ExportManagerWindow(forms.WPFWindow):
         """True once every rung has crashed — nothing left to try automatically."""
         return self._next_safe_level(sheet_number, fmt) >= len(self.SAFE_LADDER)
 
-    def _begin_safe_mode(self, sheet, level):
+    def _begin_safe_mode(self, sheet, level, fmt=None):
         """Open a TransactionGroup, apply every mitigation up to and including
         `level` on the SAFE_LADDER, and return (group, level_used) so the caller
         can roll it back. Returns (None, level) if nothing could be changed.
@@ -1677,6 +1699,11 @@ class ExportManagerWindow(forms.WPFWindow):
 
             logger.warning("Safe mode L{} on '{}': {} (rolled back after export).".format(
                 level_used, sheet.SheetNumber, ", ".join(applied)))
+            # Surface it in the completion dialog too: a safe-mode export can be
+            # missing content (categories/links rungs) or missing its hidden-line
+            # cleanup (wireframe), and a log line nobody opens is not a warning.
+            self._note_safe_mode(sheet.SheetNumber, fmt,
+                                 self.SAFE_LADDER[level_used], applied)
             return group, level_used
         except Exception as ex:
             logger.error("Could not enter safe mode: {}".format(ex))
@@ -1784,11 +1811,11 @@ class ExportManagerWindow(forms.WPFWindow):
                     logger.debug("DetailLevel not settable on {}: {}".format(view.Id, ex))
 
         elif rung == 'wireframe':
-            # Last resort, and the one that targets the crash most directly:
-            # Wireframe skips hidden-line removal and face tessellation, which
-            # is where every fatal signature in the journals originates. Unlike
-            # every rung above it this hides NOTHING — the drawing loses its
-            # hidden-line cleanup, not its content.
+            # The rung that targets the crash most directly: Wireframe skips
+            # hidden-line removal and face tessellation, which is where every
+            # fatal signature in the journals originates. Unlike the rungs below
+            # it this hides NOTHING — the drawing loses its hidden-line cleanup,
+            # not its content — which is why it is tried before them.
             for view in views:
                 try:
                     if view.DisplayStyle != DB.DisplayStyle.Wireframe:
@@ -1882,12 +1909,13 @@ class ExportManagerWindow(forms.WPFWindow):
         self._skip_fatal = False
         RUNG_LABEL = {
             'elements':   "hide the exact elements the Bad Geometry check flagged",
-            'categories': "hide the categories carrying the bad geometry "
-                          "(also reaches geometry inside links)",
-            'links':      "hide the RVT links in those views",
-            'coarse':     "drop those views to Coarse detail level",
-            'wireframe':  "switch those views to Wireframe — hides nothing, but "
+            'wireframe':  "switch those views to Wireframe — hides NOTHING, but "
                           "skips the hidden-line pass that crashes",
+            'coarse':     "drop those views to Coarse detail level",
+            'categories': "hide the categories carrying the bad geometry "
+                          "(also reaches geometry inside links) — the drawing "
+                          "WILL lose that content",
+            'links':      "hide the RVT links in those views",
         }
 
         recoverable, exhausted, no_safe_mode = [], [], []
@@ -1950,6 +1978,21 @@ class ExportManagerWindow(forms.WPFWindow):
             # SAFE_OPT, or the dialog was dismissed (returns False): default to
             # the safest choice that still exports everything.
             self._safe_mode = bool(recoverable)
+
+    # Rungs that REMOVE content from the drawing. 'wireframe' and 'coarse' are
+    # deliberately not in here: they change how the view is drawn, not what it
+    # contains, so they do not need the stronger "check this file" warning.
+    LOSSY_RUNGS = ('categories', 'links')
+
+    def _note_safe_mode(self, sheet_number, fmt, rung, applied):
+        """Record that a sheet was exported under safe mode, for the completion
+        dialog. Every one of these files differs from a normal export."""
+        label = "{}{} -> {}".format(
+            sheet_number, " ({})".format(fmt) if fmt else "", ", ".join(applied))
+        if rung in self.LOSSY_RUNGS:
+            label += "   [CONTENT HIDDEN - check this file]"
+        if label not in self._safe_applied:
+            self._safe_applied.append(label)
 
     def _note_skipped_fatal(self, sheet_number, fmt):
         """Record + surface a sheet skipped because it previously killed Revit."""
@@ -3753,6 +3796,7 @@ class ExportManagerWindow(forms.WPFWindow):
             self._overall_total = len(self.export_items)
             self._overall_counter = 0
             self._skipped_fatal = []  # reset: this window can export more than once
+            self._safe_applied = []
             self._reset_run_state()
 
             # Known-fatal sheets: offer safe mode once, before anything runs.
@@ -3837,6 +3881,17 @@ class ExportManagerWindow(forms.WPFWindow):
                     "let BatchOut try them again.".format(
                         "\n  ".join(self._skipped_fatal), self._crash_history_file))
 
+            # Safe-mode files look like ordinary exports but are not: they were
+            # produced with views temporarily simplified (and the change rolled
+            # back afterwards), so they have to be named before the user files
+            # them as final issue drawings.
+            safe_note = ""
+            if self._safe_applied:
+                safe_note = (
+                    "\n\nSAFE MODE was used for:\n  {}\n\nThe model itself was "
+                    "left untouched (rolled back). Review these files before "
+                    "issuing them.".format("\n  ".join(self._safe_applied)))
+
             # Anything that produced no file must be named — a quietly missing
             # export is the one failure mode the user cannot see for themselves.
             fail_note = ""
@@ -3851,8 +3906,8 @@ class ExportManagerWindow(forms.WPFWindow):
                               "(e.g. a schedule to DWG) and will always fail here.")
 
             # Ask if user wants to open output folder
-            if forms.alert("Export complete!{}{}\n\nDo you want to open the output folder?".format(
-                              fail_note, skip_note),
+            if forms.alert("Export complete!{}{}{}\n\nDo you want to open the output folder?".format(
+                              fail_note, safe_note, skip_note),
                           title="Export Complete",
                           yes=True, no=True):
                 os.startfile(output_folder)
@@ -3968,7 +4023,8 @@ class ExportManagerWindow(forms.WPFWindow):
                         if self._safe_mode and not self._safe_ladder_exhausted(
                                 item.SheetNumber, "DWG"):
                             safe_group, safe_level = self._begin_safe_mode(
-                                element, self._next_safe_level(item.SheetNumber, "DWG"))
+                                element, self._next_safe_level(item.SheetNumber, "DWG"),
+                                fmt="DWG")
                         if safe_group is None:
                             logger.warning(
                                 "'{}' crashed Revit's DWG exporter before and is "
@@ -4356,7 +4412,8 @@ class ExportManagerWindow(forms.WPFWindow):
                             if self._safe_mode and not self._safe_ladder_exhausted(
                                     item.SheetNumber, "PDF"):
                                 safe_group, safe_level = self._begin_safe_mode(
-                                    element, self._next_safe_level(item.SheetNumber, "PDF"))
+                                    element, self._next_safe_level(item.SheetNumber, "PDF"),
+                                    fmt="PDF")
                             if safe_group is None:
                                 logger.warning(
                                     "'{}' crashed Revit's PDF exporter before and "

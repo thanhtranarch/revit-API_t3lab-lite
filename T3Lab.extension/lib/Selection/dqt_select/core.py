@@ -12,12 +12,7 @@ Dang Quoc Truong - DQT (c) 2026
 
 from pyrevit import forms
 
-import Autodesk.Revit.DB as DB
-from Autodesk.Revit.DB import (
-    FilteredElementCollector,
-    FamilyInstance,
-    BuiltInCategory,
-)
+from Autodesk.Revit.DB import FilteredElementCollector
 
 try:
     from dqt_select.compat import eid_int, to_element_id_list, notify
@@ -62,55 +57,14 @@ def _set_selection(uidoc, ids):
 # Some elements have no meaningful "Type", so "Select Similar Type" should
 # fall back to matching by Category. These categories are matched by
 # BuiltInCategory rather than by GetTypeId().
-_CATEGORY_ONLY_BICS = {
-    BuiltInCategory.OST_Lines,
-    BuiltInCategory.OST_SketchLines,
-    BuiltInCategory.OST_CLines,                 # Reference / detail lines
-    BuiltInCategory.OST_Grids,
-    BuiltInCategory.OST_Levels,
-    BuiltInCategory.OST_Rooms,
-    BuiltInCategory.OST_Areas,
-    BuiltInCategory.OST_MEPSpaces,
-    BuiltInCategory.OST_RoomSeparationLines,
-    BuiltInCategory.OST_AreaSchemeLines,
-    BuiltInCategory.OST_SectionBox,
-    BuiltInCategory.OST_VolumeOfInterest,       # Scope Boxes
-    BuiltInCategory.OST_RvtLinks,
-    BuiltInCategory.OST_Cameras,
-}
-
-try:
-    _CATEGORY_ONLY_BICS.add(BuiltInCategory.OST_IOSModelGroups)
-except AttributeError:
-    pass
-
-
-def _bic_of(element):
-    """Safe BuiltInCategory of an element, or None."""
-    try:
-        cat = element.Category
-        if cat is None:
-            return None
-        # Revit 2023+: Category.BuiltInCategory ; older: derive from Id
-        try:
-            return cat.BuiltInCategory
-        except AttributeError:
-            # Legacy Revit (<=2022): map the (negative) category id to the enum.
-            try:
-                return BuiltInCategory(eid_int(cat.Id))
-            except Exception:
-                return None
-    except Exception:
-        return None
-
-
-def _is_category_only(element):
-    """True if this element should be matched by Category rather than Type."""
-    bic = _bic_of(element)
-    if bic is None:
-        # No category -> sketch elements, lines, etc. Match by python class.
-        return True
-    return bic in _CATEGORY_ONLY_BICS
+#
+# The rules themselves live in Snippets/_similar.py so the MCP server's
+# operate_element(select_similar) shares them — this module can't be imported
+# from the server (it calls __revit__ at module scope and pulls pyrevit.forms).
+from Snippets._similar import (                                  # noqa: E402
+    is_category_only as _is_category_only,
+    family_id_of as _shared_family_id_of,
+)
 
 
 # ----------------------------------------------------------------------------
@@ -199,32 +153,12 @@ def select_similar_family(mode='view'):
 def _family_id_of(element, doc):
     """Return the Family ElementId of an element, or None.
 
-    Works for FamilyInstance (loadable & in-place), and also for system
-    family hosts (Walls, Floors etc.) by reading the type's FamilyName is
-    not reliable, so for those we return None and let the caller fall back
-    to category matching.
+    Works for FamilyInstance (loadable & in-place), and also for annotation
+    types that expose a Family. System family hosts (Walls, Floors etc.) have
+    no reliable Family, so those return None and the caller falls back to
+    category matching. Implementation shared with the MCP server.
     """
-    # Loadable / in-place family instances
-    try:
-        if isinstance(element, FamilyInstance):
-            sym = element.Symbol
-            if sym is not None and sym.Family is not None:
-                return sym.Family.Id
-    except Exception:
-        pass
-
-    # FamilySymbol-hosted types via GetTypeId().Family (some annotation fams)
-    try:
-        type_id = element.GetTypeId()
-        if type_id is not None and eid_int(type_id) != -1:
-            etype = doc.GetElement(type_id)
-            fam = getattr(etype, 'Family', None)
-            if fam is not None:
-                return fam.Id
-    except Exception:
-        pass
-
-    return None
+    return _shared_family_id_of(element, doc)
 
 
 # ----------------------------------------------------------------------------

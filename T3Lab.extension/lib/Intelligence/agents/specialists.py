@@ -38,6 +38,11 @@ READ_TOOLS = frozenset([
 MODIFY_TOOLS = frozenset([
     "set_parameter", "bulk_set_parameter", "rename_element",
     "select_elements", "color_elements", "revit_override_color",
+    # operate_element carries hide/isolate/unhide/reset_color AND pin/unpin.
+    # Leaving it out of this subset left the ACTION specialist with no way to
+    # pin or hide anything, and the model answered "pin all walls" with the
+    # nearest tool it COULD see (revit_override_color) — a silent wrong action.
+    "operate_element",
     "set_active_view", "create_text_note", "tag_elements",
     "tag_all_rooms", "tag_all_walls", "move_elements", "delete_element",
     "create_sheet", "add_view_to_sheet", "duplicate_view",
@@ -157,7 +162,11 @@ SPECIALISTS = {
             "tools to resolve the exact target element ids, (2) apply the "
             "change, (3) report WHAT changed — counts + element ids. Never "
             "guess ids; if the target is ambiguous, ask ONE clarifying "
-            "question instead of acting."
+            "question instead of acting. Perform the EXACT action asked: "
+            "pin/ghim/khoá and hide/isolate/select are `operate_element` "
+            "operations, only tô màu/color/highlight is an override color. "
+            "If no tool does what was asked, say so — never do a different "
+            "thing to the model and report it as done."
         ),
         few_shot=(
             "## Examples\n"
@@ -168,7 +177,11 @@ SPECIALISTS = {
             "what to APPLY, not a filter value) -> revit_override_color "
             "(category \"Walls\", color \"red\" — ONE call, the server "
             "collects ALL walls itself, no limit) -> reply \"Đã tô đỏ "
-            "128 tường trong view hiện tại.\""
+            "128 tường trong view hiện tại.\"\n"
+            "User: \"pin toàn bộ tường trong view\" (= LOCK the walls — a "
+            "pin is NOT a color) -> operate_element (operation \"pin\", "
+            "category \"Walls\" — ONE call, no ids) -> reply \"Đã pin 54 "
+            "tường trong view.\""
         ),
     ),
 

@@ -116,6 +116,7 @@ ESSENTIAL_TOOL_NAMES = frozenset([
     # Modify
     "set_parameter", "bulk_set_parameter", "rename_element",
     "select_elements", "color_elements", "revit_override_color",
+    "operate_element",   # hide / isolate / unhide / reset_color / pin / unpin
     "set_active_view", "create_text_note", "tag_elements",
     "tag_all_rooms", "tag_all_walls", "move_elements", "delete_element",
     "create_sheet", "add_view_to_sheet", "duplicate_view",

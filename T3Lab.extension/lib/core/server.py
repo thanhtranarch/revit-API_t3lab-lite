@@ -804,7 +804,8 @@ class T3LabAIServer(object):
                     'properties': {
                         'element_type': {
                             'type': 'string',
-                            'description': 'Type: "floor", "ceiling", or "roof"'
+                            'description': 'What to create from the boundary.',
+                            'enum': ['floor', 'ceiling', 'roof']
                         },
                         'boundary_points': {
                             'type': 'array',
@@ -915,22 +916,50 @@ class T3LabAIServer(object):
             },
             'operate_element': {
                 'name': 'operate_element',
-                'description': 'Operate on elements in the active view: select, hide, isolate, unhide, reset_color. Pass category to operate on ALL elements of that category (no ids needed, no count limit), or element_ids for a specific subset.',
+                'description': 'Act on elements IN THE ACTIVE VIEW without changing the model itself: select, hide, isolate, unhide, reset_color, pin, unpin, halftone, unhalftone, transparency, hide_category, unhide_category, reset_temporary, select_similar. This is the ONLY tool that pins/locks elements ("pin", "ghim", "khoá tường") and the ONLY way back out of isolate ("reset_temporary") — none of these are color operations. Pass category to act on ALL elements of that category (no ids needed, no count limit), or element_ids for a specific subset. To CHANGE the model (mirror, swap type, group) use edit_elements instead.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
                         'operation': {
                             'type': 'string',
-                            'description': 'Operation: "select", "hide", "isolate", "unhide", "reset_color"'
+                            'description': (
+                                'What to do: "select" · "hide" · "isolate" (temporary) · '
+                                '"unhide" · "reset_temporary" (exit temporary hide/isolate — '
+                                'the way back from isolate, needs no target) · '
+                                '"hide_category"/"unhide_category" (whole category in the '
+                                'view V/G, needs `category`) · "reset_color" (clear graphic '
+                                'overrides) · "pin"/"unpin" (lock elements in place) · '
+                                '"halftone"/"unhalftone" · "transparency" (needs '
+                                '`transparency` 0-100) · "select_similar" (select everything '
+                                'matching the seed elements, see `match`/`scope`)'),
+                            'enum': ['select', 'hide', 'isolate', 'unhide',
+                                     'reset_color', 'pin', 'unpin',
+                                     'halftone', 'unhalftone', 'transparency',
+                                     'hide_category', 'unhide_category',
+                                     'reset_temporary', 'select_similar']
                         },
                         'category': {
                             'type': 'string',
-                            'description': 'Optional category name (Walls, Floors, Doors, ...). When given and element_ids is omitted, the operation applies to EVERY element of this category visible in the active view — no count limit.'
+                            'description': 'Optional category name (Walls, Floors, Doors, StructuralFoundations, Ducts, ...). When given and element_ids is omitted, the operation applies to EVERY element of this category visible in the active view — no count limit. REQUIRED for hide_category / unhide_category.'
                         },
                         'element_ids': {
                             'type': 'array',
                             'items': {'type': 'integer'},
-                            'description': 'Element IDs for a specific subset (omit when using category)'
+                            'description': 'Element IDs for a specific subset (omit when using category). For select_similar these are the SEED elements; omit to seed from the current selection.'
+                        },
+                        'transparency': {
+                            'type': 'integer',
+                            'description': 'For operation "transparency": 0 (opaque) to 100 (invisible).'
+                        },
+                        'match': {
+                            'type': 'string',
+                            'description': 'For select_similar: what counts as "similar". Default "type".',
+                            'enum': ['category', 'family', 'type']
+                        },
+                        'scope': {
+                            'type': 'string',
+                            'description': 'For select_similar: search the active view only or the whole model. Default "view".',
+                            'enum': ['view', 'model']
                         }
                     },
                     'required': ['operation']
@@ -1019,7 +1048,8 @@ class T3LabAIServer(object):
                     'properties': {
                         'data_type': {
                             'type': 'string',
-                            'description': '"project" or "rooms"'
+                            'description': 'Which stored dataset to read back.',
+                            'enum': ['project', 'rooms']
                         }
                     },
                     'required': ['data_type']
@@ -1149,17 +1179,20 @@ class T3LabAIServer(object):
             # ── View management ───────────────────────────────────────────────
             'create_view': {
                 'name': 'create_view',
-                'description': 'Create a new view: floor plan, ceiling plan, or 3D isometric view',
+                'description': 'Create a new view: plan (floor / ceiling / structural / area), 3D isometric, section, elevation, drafting view or legend.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
                         'view_type': {
                             'type': 'string',
-                            'description': '"floor_plan", "ceiling_plan", or "3d"'
+                            'description': 'What kind of view to create. "legend" duplicates an existing legend (Revit cannot create one from scratch); "area_plan" needs an Area Scheme in the project.',
+                            'enum': ['floor_plan', 'ceiling_plan', 'structural_plan',
+                                     'drafting', '3d', 'section', 'elevation',
+                                     'area_plan', 'legend']
                         },
                         'level_name': {
                             'type': 'string',
-                            'description': 'Level name (required for floor/ceiling plan)'
+                            'description': 'Level name — used by floor / ceiling / structural / area plans, and to pick the host plan for an elevation. Defaults to the first level.'
                         },
                         'name': {'type': 'string', 'description': 'Name for the new view'}
                     },
@@ -1450,7 +1483,9 @@ class T3LabAIServer(object):
                     'type': 'object',
                     'properties': {
                         'view_id': {'type': 'integer', 'description': 'View element ID to duplicate'},
-                        'mode': {'type': 'string', 'description': '"plain" (default), "with_detailing", or "dependent"'},
+                        'mode': {'type': 'string',
+                                 'description': 'How to duplicate. Default "plain".',
+                                 'enum': ['plain', 'with_detailing', 'dependent']},
                         'name': {'type': 'string', 'description': 'Name for the new view (optional)'}
                     },
                     'required': ['view_id']
@@ -1685,7 +1720,8 @@ class T3LabAIServer(object):
                     'properties': {
                         'action': {
                             'type': 'string',
-                            'description': '"show" (default) or "hide"'
+                            'description': 'Show or hide the pane. Default "show".',
+                            'enum': ['show', 'hide']
                         },
                         'message': {
                             'type': 'string',
@@ -2271,52 +2307,202 @@ class T3LabAIServer(object):
             return self._execute_tool_in_context(tool_name, arguments)
 
     # ── Shared tool helpers ────────────────────────────────────────────────
+
+    # Human-facing category name → BuiltInCategory MEMBER NAME (a string, or a
+    # tuple of candidate names tried in order — Revit renames members between
+    # releases, e.g. OST_StructuralFoundation vs ...Foundations).
+    #
+    # Deliberately NOT `B.OST_x` attribute access in a dict literal: Revit adds
+    # and removes BuiltInCategory members between versions (OST_Toposolid is
+    # 2024+; several *Tags moved in 2024), and one missing member in a literal
+    # raises at MAP-CONSTRUCTION time — which would take down all nine
+    # category-accepting tools at once on Revit 2023. _bic_map() resolves every
+    # entry through getattr() and silently drops what this Revit doesn't have,
+    # so the same source runs on 2023.1 and 2026.4 with different coverage.
+    _BIC_NAMES = {
+        # Architectural
+        'Walls': 'OST_Walls', 'Floors': 'OST_Floors', 'Ceilings': 'OST_Ceilings',
+        'Roofs': 'OST_Roofs', 'Doors': 'OST_Doors', 'Windows': 'OST_Windows',
+        'Columns': 'OST_Columns', 'Stairs': 'OST_Stairs',
+        'Railings': 'OST_StairsRailing', 'Ramps': 'OST_Ramps',
+        'CurtainPanels': 'OST_CurtainWallPanels',
+        'CurtainWallMullions': 'OST_CurtainWallMullions',
+        'CurtainSystems': ('OST_Curtain_Systems', 'OST_CurtainSystems'),
+        'Furniture': 'OST_Furniture', 'FurnitureSystems': 'OST_FurnitureSystems',
+        'Casework': 'OST_Casework', 'GenericModel': 'OST_GenericModel',
+        'SpecialityEquipment': 'OST_SpecialityEquipment',
+        'Entourage': 'OST_Entourage', 'Planting': 'OST_Planting',
+        'PlantingArea': 'OST_Planting',      # legacy alias — keep, was public
+        'Parking': 'OST_Parking', 'Site': 'OST_Site',
+        'Topography': 'OST_Topography',      # 2023 + 2026 (deprecated, present)
+        'Toposolid': 'OST_Toposolid',        # 2024+ ONLY — the guard's reason
+        'Mass': 'OST_Mass', 'Parts': 'OST_Parts', 'Assemblies': 'OST_Assemblies',
+        'Roads': 'OST_Roads',
+        # Structural
+        'Beams': 'OST_StructuralFraming',
+        'StructuralFraming': 'OST_StructuralFraming',
+        'StructuralColumns': 'OST_StructuralColumns',
+        'StructuralFoundations': ('OST_StructuralFoundation',
+                                  'OST_StructuralFoundations'),
+        'StructuralTrusses': ('OST_StructuralTruss', 'OST_StructuralTrusses'),
+        'StructuralStiffeners': ('OST_StructuralStiffener',
+                                 'OST_StructuralStiffeners'),
+        'StructuralConnections': ('OST_StructConnections',
+                                  'OST_StructuralConnections'),
+        'Rebar': 'OST_Rebar',
+        # MEP — piping
+        'Pipes': 'OST_PipeCurves', 'FlexPipes': 'OST_FlexPipeCurves',
+        'PipeFittings': 'OST_PipeFitting', 'PipeAccessories': 'OST_PipeAccessory',
+        'PipeInsulations': 'OST_PipeInsulations',
+        'PlumbingFixtures': 'OST_PlumbingFixtures', 'Sprinklers': 'OST_Sprinklers',
+        # MEP — ducting
+        'Ducts': 'OST_DuctCurves', 'FlexDucts': 'OST_FlexDuctCurves',
+        'DuctFittings': 'OST_DuctFitting', 'DuctAccessories': 'OST_DuctAccessory',
+        'DuctInsulations': 'OST_DuctInsulations',
+        'AirTerminals': 'OST_DuctTerminal',
+        'MechanicalEquipment': 'OST_MechanicalEquipment',
+        # MEP — electrical
+        'CableTrays': 'OST_CableTray', 'CableTrayFittings': 'OST_CableTrayFitting',
+        'Conduits': 'OST_Conduit', 'ConduitFittings': 'OST_ConduitFitting',
+        'Wires': 'OST_Wire', 'LightingFixtures': 'OST_LightingFixtures',
+        'LightingDevices': 'OST_LightingDevices',
+        'ElectricalFixtures': 'OST_ElectricalFixtures',
+        'ElectricalEquipment': 'OST_ElectricalEquipment',
+        'CommunicationDevices': 'OST_CommunicationDevices',
+        'DataDevices': 'OST_DataDevices',
+        'FireAlarmDevices': 'OST_FireAlarmDevices',
+        'SecurityDevices': 'OST_SecurityDevices',
+        'TelephoneDevices': 'OST_TelephoneDevices',
+        'NurseCallDevices': 'OST_NurseCallDevices',
+        # Spatial — NOTE these are SpatialElements: a collector returns UNPLACED
+        # rooms/areas/spaces too (Area == 0). Colour/tag paths should skip those.
+        'Rooms': 'OST_Rooms', 'Areas': 'OST_Areas', 'Spaces': 'OST_MEPSpaces',
+        'RoomSeparationLines': 'OST_RoomSeparationLines',
+        'AreaSchemeLines': 'OST_AreaSchemeLines',
+        # Datum / view / organisation
+        'Grids': 'OST_Grids', 'Levels': 'OST_Levels',
+        'ReferencePlanes': 'OST_CLines',
+        'ScopeBoxes': 'OST_VolumeOfInterest',
+        'Sheets': 'OST_Sheets', 'Views': 'OST_Views', 'Viewports': 'OST_Viewports',
+        'Materials': 'OST_Materials', 'RevitLinks': 'OST_RvtLinks',
+        # Annotation
+        'TextNotes': 'OST_TextNotes', 'Dimensions': 'OST_Dimensions',
+        'GenericAnnotations': 'OST_GenericAnnotation',
+        'RevisionClouds': 'OST_RevisionClouds',
+        'DetailItems': 'OST_DetailComponents',
+        'Lines': 'OST_Lines',
+        'DoorTags': 'OST_DoorTags', 'WindowTags': 'OST_WindowTags',
+        'RoomTags': 'OST_RoomTags', 'AreaTags': 'OST_AreaTags',
+        'SpaceTags': 'OST_MEPSpaceTags', 'WallTags': 'OST_WallTags',
+        'FloorTags': 'OST_FloorTags', 'CeilingTags': 'OST_CeilingTags',
+        'StructuralFramingTags': 'OST_StructuralFramingTags',
+        'StructuralColumnTags': 'OST_StructuralColumnTags',
+        'GenericModelTags': 'OST_GenericModelTags',
+        'MultiCategoryTags': 'OST_MultiCategoryTags',
+        'KeynoteTags': 'OST_KeynoteTags',
+    }
+
+    # Vietnamese (and a few loose English) synonyms → canonical key above.
+    # Kept OUT of _BIC_NAMES so the canonical list (and the `did_you_mean`
+    # suggestions) stay clean, while "tô đỏ móng" / "ẩn hết dầm" still resolve.
+    # Matched lowercase.
+    _BIC_ALIASES = {
+        'tường': 'Walls', 'tuong': 'Walls', 'sàn': 'Floors', 'san': 'Floors',
+        'trần': 'Ceilings', 'tran': 'Ceilings', 'mái': 'Roofs', 'mai': 'Roofs',
+        'cửa': 'Doors', 'cua': 'Doors', 'cửa đi': 'Doors',
+        'cửa sổ': 'Windows', 'cua so': 'Windows',
+        'cột': 'Columns', 'cot': 'Columns',
+        'cột kết cấu': 'StructuralColumns', 'cot ket cau': 'StructuralColumns',
+        'dầm': 'Beams', 'dam': 'Beams',
+        'móng': 'StructuralFoundations', 'mong': 'StructuralFoundations',
+        'thép': 'Rebar', 'thep': 'Rebar', 'cốt thép': 'Rebar',
+        'phòng': 'Rooms', 'phong': 'Rooms',
+        'diện tích': 'Areas', 'dien tich': 'Areas',
+        'cầu thang': 'Stairs', 'cau thang': 'Stairs',
+        'lan can': 'Railings', 'dốc': 'Ramps',
+        'nội thất': 'Furniture', 'noi that': 'Furniture',
+        'tủ': 'Casework', 'tu': 'Casework',
+        'đèn': 'LightingFixtures', 'den': 'LightingFixtures',
+        'thiết bị vệ sinh': 'PlumbingFixtures', 'tbvs': 'PlumbingFixtures',
+        'ống': 'Pipes', 'ong': 'Pipes', 'ống nước': 'Pipes',
+        'ống gió': 'Ducts', 'ong gio': 'Ducts', 'gió': 'Ducts',
+        'lưới trục': 'Grids', 'luoi truc': 'Grids', 'trục': 'Grids',
+        'cao độ': 'Levels', 'cao do': 'Levels', 'tầng': 'Levels',
+        'vách kính': 'CurtainPanels', 'kính': 'CurtainPanels',
+        'chú thích': 'TextNotes', 'ghi chú': 'TextNotes',
+        'kích thước': 'Dimensions', 'kich thuoc': 'Dimensions',
+        'link': 'RevitLinks', 'vật liệu': 'Materials',
+        'column': 'Columns', 'wall': 'Walls', 'floor': 'Floors',
+        'door': 'Doors', 'window': 'Windows', 'room': 'Rooms',
+        'beam': 'Beams', 'foundation': 'StructuralFoundations',
+        'foundations': 'StructuralFoundations',
+    }
+
     def _bic_map(self):
-        """Human-facing category name → BuiltInCategory. Superset of the inline
-        maps scattered through the older tools, used by the newer bulk/select/
-        tag/filter tools so they all accept the same category vocabulary."""
+        """Human-facing category name → BuiltInCategory, for THIS Revit version.
+
+        Built once per server instance from _BIC_NAMES; entries whose member
+        doesn't exist in the running Revit are dropped rather than raising.
+        Used by every category-accepting tool (override_color, operate_element,
+        color_elements, ai_element_filter, select_elements, bulk_set_parameter,
+        tag_elements, set_element_workset, create_schedule) so they all speak
+        one vocabulary.
+        """
+        cached = getattr(self, '_bic_cache', None)
+        if cached is not None:
+            return cached
         from Autodesk.Revit.DB import BuiltInCategory as B
-        return {
-            'Walls': B.OST_Walls, 'Floors': B.OST_Floors, 'Doors': B.OST_Doors,
-            'Windows': B.OST_Windows, 'Rooms': B.OST_Rooms, 'Columns': B.OST_Columns,
-            'StructuralColumns': B.OST_StructuralColumns, 'Beams': B.OST_StructuralFraming,
-            'StructuralFraming': B.OST_StructuralFraming, 'Ceilings': B.OST_Ceilings,
-            'Roofs': B.OST_Roofs, 'Furniture': B.OST_Furniture, 'Casework': B.OST_Casework,
-            'Grids': B.OST_Grids, 'Levels': B.OST_Levels, 'Sheets': B.OST_Sheets,
-            'Stairs': B.OST_Stairs, 'Railings': B.OST_StairsRailing,
-            'Pipes': B.OST_PipeCurves, 'Ducts': B.OST_DuctCurves,
-            'GenericModel': B.OST_GenericModel,
-            'PlumbingFixtures': B.OST_PlumbingFixtures,
-            'LightingFixtures': B.OST_LightingFixtures,
-            'ElectricalFixtures': B.OST_ElectricalFixtures,
-            'MechanicalEquipment': B.OST_MechanicalEquipment,
-            'Parking': B.OST_Parking, 'PlantingArea': B.OST_Planting,
-            'CurtainPanels': B.OST_CurtainWallPanels,
-            'GenericAnnotations': B.OST_GenericAnnotation,
-            'TextNotes': B.OST_TextNotes,
-            'Dimensions': B.OST_Dimensions,
-        }
+        out = {}
+        for label, members in self._BIC_NAMES.items():
+            if isinstance(members, tuple):
+                candidates = members
+            else:
+                candidates = (members,)
+            for member in candidates:
+                bic = getattr(B, member, None)
+                if bic is not None:
+                    out[label] = bic
+                    break
+        self._bic_cache = out
+        return out
 
     def _resolve_bic(self, cat_arg):
         """Category name -> (bic, canonical_name, error_dict). Exactly one of
-        bic / error_dict is non-None. Case-insensitive; unknown names get the
-        supported list + retry hint. Shared by every tool that accepts a
-        `category` argument so they all speak the same vocabulary and return
-        the same unknown-category contract."""
+        bic / error_dict is non-None. Case-insensitive, and accepts the
+        Vietnamese synonyms in _BIC_ALIASES ("móng" -> StructuralFoundations).
+        Unknown names get the CLOSEST matches + retry hint. Shared by every tool
+        that accepts a `category` argument so they all speak the same vocabulary
+        and return the same unknown-category contract."""
         CATEGORY_MAP = self._bic_map()
         bic = CATEGORY_MAP.get(cat_arg)
         name = cat_arg
-        if bic is None and cat_arg:
+        raw = u'{}'.format(cat_arg or u'').strip()
+        low = raw.lower()
+        if bic is None and raw:
             for _k in CATEGORY_MAP:
-                if _k.lower() == u'{}'.format(cat_arg).lower():
+                if _k.lower() == low:
                     bic = CATEGORY_MAP[_k]
                     name = _k
                     break
+        if bic is None and low:
+            # Synonym layer (Vietnamese / singular English) → canonical key.
+            alias = self._BIC_ALIASES.get(low)
+            if alias:
+                bic = CATEGORY_MAP.get(alias)
+                name = alias
         if bic is None:
+            # The full list is ~90 names — dumping it on every typo costs
+            # hundreds of tokens per retry, so send the near misses instead.
+            keys = sorted(CATEGORY_MAP.keys())
+            near = [k for k in keys if low and (low in k.lower()
+                                                or k.lower().startswith(low[:4]))]
             return None, cat_arg, {
                 'error': "Unknown category '{}'.".format(cat_arg),
-                'supported_categories': sorted(CATEGORY_MAP.keys()),
-                'hint': 'Retry with one of supported_categories.'}
+                'did_you_mean': near[:8],
+                'total_supported': len(keys),
+                'hint': ('Retry with one of did_you_mean, or another standard '
+                         'Revit category name (Walls, StructuralFoundations, '
+                         'Ducts, Areas, ...).')}
         return bic, name, None
 
     def _parse_color(self, color_str):
@@ -3615,6 +3801,13 @@ class T3LabAIServer(object):
             type_name = arguments.get('type_name')
             M2FT = 3.28084
 
+            # Only 'ceiling' and 'roof' get their own branch below; without this
+            # guard every other value (including a typo) silently made a FLOOR.
+            if elem_type not in ('floor', 'ceiling', 'roof'):
+                return {'error': "Unknown element_type '{}'.".format(elem_type),
+                        'supported_element_types': ['floor', 'ceiling', 'roof'],
+                        'hint': 'Retry with one of supported_element_types.'}
+
             if len(boundary) < 3:
                 return {'error': 'boundary_points must have at least 3 points'}
 
@@ -4007,6 +4200,144 @@ class T3LabAIServer(object):
             ids     = arguments.get('element_ids', [])
             cat_arg = arguments.get('category')
             view    = doc.ActiveView
+
+            # ── View-level operations ────────────────────────────────────────
+            # Handled BEFORE the element-collection block below: reset_temporary
+            # has no element target by definition, and hide_category acts on the
+            # Category object rather than on the elements in it — running them
+            # through the collector would fail with "no elements visible" on
+            # exactly the views where they are most useful (everything hidden).
+            if op == 'reset_temporary':
+                from Autodesk.Revit.DB import TemporaryViewMode
+                t = Transaction(doc, 'T3Lab AI Reset Temporary View Mode')
+                t.Start()
+                try:
+                    view.DisableTemporaryViewMode(
+                        TemporaryViewMode.TemporaryHideIsolate)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op, 'view': view.Name,
+                        'note': 'Temporary hide/isolate cleared in this view.'}
+
+            if op in ('hide_category', 'unhide_category'):
+                from Autodesk.Revit.DB import Category
+                if not cat_arg:
+                    return {'error': "Operation '{}' requires a `category` "
+                                     "argument.".format(op)}
+                bic, cat_name, _cat_err = self._resolve_bic(cat_arg)
+                if _cat_err:
+                    return _cat_err
+                cat = Category.GetCategory(doc, bic)
+                if cat is None:
+                    return {'error': "Category '{}' is not available in this "
+                                     "document.".format(cat_name)}
+                hide = (op == 'hide_category')
+                # Same guard sequence the BatchOut safe-export ladder uses.
+                if not view.CanCategoryBeHidden(cat.Id):
+                    return {'error': "Category '{}' cannot be hidden in view "
+                                     "'{}'.".format(cat_name, view.Name)}
+                if view.GetCategoryHidden(cat.Id) == hide:
+                    return {'success': True, 'operation': op,
+                            'category': cat_name, 'changed': False,
+                            'view': view.Name, 'note': 'Already in that state.'}
+                t = Transaction(doc, 'T3Lab AI {} Category'.format(
+                    'Hide' if hide else 'Unhide'))
+                t.Start()
+                try:
+                    view.SetCategoryHidden(cat.Id, hide)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op, 'category': cat_name,
+                        'changed': True, 'view': view.Name}
+
+            if op == 'select_similar':
+                from System.Collections.Generic import List
+                # Shared with the ribbon's Select Similar so both agree on what
+                # "similar" means (see Snippets/_similar.py for why the ribbon
+                # module itself can't be imported here).
+                from Snippets._similar import is_category_only, family_id_of
+                match = (arguments.get('match') or 'type').lower()
+                scope = (arguments.get('scope') or 'view').lower()
+                if match not in ('category', 'family', 'type'):
+                    return {'error': "Unknown match '{}'.".format(match),
+                            'supported_match': ['category', 'family', 'type'],
+                            'hint': 'Retry with one of supported_match.'}
+                if scope not in ('view', 'model'):
+                    return {'error': "Unknown scope '{}'.".format(scope),
+                            'supported_scope': ['view', 'model'],
+                            'hint': 'Retry with one of supported_scope.'}
+                if ids:
+                    seed_ids = [make_eid(int(i)) for i in ids]
+                else:
+                    seed_ids = list(uidoc.Selection.GetElementIds())
+                seeds = [doc.GetElement(i) for i in seed_ids]
+                seeds = [e for e in seeds if e is not None]
+                if not seeds:
+                    return {'error': 'select_similar needs seed elements — pass '
+                                     'element_ids, or select something in Revit '
+                                     'first.'}
+
+                def _cat_id(el):
+                    try:
+                        return eid_value(el.Category.Id) if el.Category else None
+                    except Exception:
+                        return None
+
+                seed_cats, fam_ids, type_ids, fallback_cats = set(), set(), set(), set()
+                for e in seeds:
+                    c = _cat_id(e)
+                    if c is not None:
+                        seed_cats.add(c)
+                    if match == 'family':
+                        fid = family_id_of(e, doc)
+                        if fid is not None:
+                            fam_ids.add(eid_value(fid))
+                        elif c is not None:
+                            # System families (walls, floors) have no Family —
+                            # fall back to category, same as the ribbon tool.
+                            fallback_cats.add(c)
+                    elif match == 'type':
+                        if is_category_only(e):
+                            if c is not None:
+                                fallback_cats.add(c)
+                            continue
+                        tid = e.GetTypeId()
+                        if tid is not None and eid_value(tid) != -1:
+                            type_ids.add(eid_value(tid))
+
+                collector = (FilteredElementCollector(doc, view.Id)
+                             if scope == 'view' else FilteredElementCollector(doc))
+                hits = []
+                for e in collector.WhereElementIsNotElementType().ToElements():
+                    try:
+                        c = _cat_id(e)
+                        if match == 'category':
+                            if c is not None and c in seed_cats:
+                                hits.append(e.Id)
+                            continue
+                        if c is not None and c in fallback_cats:
+                            hits.append(e.Id)
+                            continue
+                        if match == 'family':
+                            fid = family_id_of(e, doc)
+                            if fid is not None and eid_value(fid) in fam_ids:
+                                hits.append(e.Id)
+                        else:
+                            tid = e.GetTypeId()
+                            if tid is not None and eid_value(tid) in type_ids:
+                                hits.append(e.Id)
+                    except Exception:
+                        continue
+
+                uidoc.Selection.SetElementIds(List[ElementId](hits))
+                return {'success': True, 'operation': op, 'match': match,
+                        'scope': scope, 'seed_count': len(seeds),
+                        'count': len(hits)}
+
             # Whole-category path: "select/hide all floors" collects every
             # matching element in the active view server-side — no id
             # ferrying, no count cap (same contract as revit_override_color).
@@ -4047,6 +4378,78 @@ class T3LabAIServer(object):
                     t.RollBack()
                     return {'error': str(e)}
 
+            elif op in ('pin', 'unpin'):
+                # Element.Pinned is a plain property, but not every element
+                # accepts it (group members, some view-owned elements) — a
+                # single throw must not abort the whole batch, so failures are
+                # counted per element instead of rolling the transaction back.
+                want = (op == 'pin')
+                t = Transaction(doc, 'T3Lab AI {} Elements'.format(op.title()))
+                t.Start()
+                changed = already = skipped = 0
+                try:
+                    for eid_obj in elem_ids:
+                        el = doc.GetElement(eid_obj)
+                        if el is None:
+                            skipped += 1
+                            continue
+                        try:
+                            if el.Pinned == want:
+                                already += 1
+                                continue
+                            el.Pinned = want
+                            changed += 1
+                        except Exception:
+                            skipped += 1
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op, 'count': changed,
+                        'already_in_state': already, 'skipped': skipped,
+                        'total_targeted': len(elem_ids)}
+
+            elif op in ('halftone', 'unhalftone', 'transparency'):
+                level = None
+                if op == 'transparency':
+                    try:
+                        level = int(arguments.get('transparency'))
+                    except (TypeError, ValueError):
+                        return {'error': "Operation 'transparency' requires a "
+                                         "`transparency` value from 0 (opaque) "
+                                         "to 100 (invisible)."}
+                    if level < 0 or level > 100:
+                        return {'error': 'transparency must be 0-100, got '
+                                         '{}.'.format(level)}
+                t = Transaction(doc, 'T3Lab AI {}'.format(op.title()))
+                t.Start()
+                changed = skipped = 0
+                try:
+                    for eid_obj in elem_ids:
+                        try:
+                            # Read-modify-write. Building a fresh
+                            # OverrideGraphicSettings here would silently wipe an
+                            # existing colour override, so "make the red walls
+                            # halftone" has to keep them red.
+                            ogs = view.GetElementOverrides(eid_obj)
+                            if op == 'transparency':
+                                ogs.SetSurfaceTransparency(level)
+                            else:
+                                ogs.SetHalftone(op == 'halftone')
+                            view.SetElementOverrides(eid_obj, ogs)
+                            changed += 1
+                        except Exception:
+                            skipped += 1
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                out = {'success': True, 'operation': op, 'count': changed,
+                       'skipped': skipped, 'total_targeted': len(elem_ids)}
+                if level is not None:
+                    out['transparency'] = level
+                return out
+
             elif op == 'reset_color':
                 from Autodesk.Revit.DB import OverrideGraphicSettings, Transaction
                 t = Transaction(doc, 'T3Lab AI Reset Color')
@@ -4061,7 +4464,14 @@ class T3LabAIServer(object):
                     t.RollBack()
                     return {'error': str(e)}
 
-            return {'error': 'Unknown operation: {}'.format(op)}
+            return {'error': 'Unknown operation: {}'.format(op),
+                    'supported_operations': ['select', 'hide', 'isolate',
+                                             'unhide', 'reset_temporary',
+                                             'hide_category', 'unhide_category',
+                                             'reset_color', 'pin', 'unpin',
+                                             'halftone', 'unhalftone',
+                                             'transparency', 'select_similar'],
+                    'hint': 'Retry with one of supported_operations.'}
 
         # ── color_elements ───────────────────────────────────────────────────
         elif tool_name == 'color_elements':
@@ -4304,7 +4714,13 @@ class T3LabAIServer(object):
         # ── query_stored_data ────────────────────────────────────────────────
         elif tool_name == 'query_stored_data':
             import json as _json
-            data_type = arguments.get('data_type', 'project')
+            data_type = (arguments.get('data_type') or 'project').lower()
+            # Anything that wasn't 'project' used to fall through to the rooms
+            # file — a typo silently returned the wrong dataset.
+            if data_type not in ('project', 'rooms'):
+                return {'error': "Unknown data_type '{}'.".format(data_type),
+                        'supported_data_types': ['project', 'rooms'],
+                        'hint': 'Retry with one of supported_data_types.'}
             out_dir   = os.path.join(os.path.dirname(doc.PathName) if doc.PathName else os.path.expanduser('~'), 'T3Lab_AI_Data')
             fname     = 'project_data.json' if data_type == 'project' else 'room_data.json'
             fpath     = os.path.join(out_dir, fname)
@@ -4574,58 +4990,37 @@ class T3LabAIServer(object):
         # ── create_view ──────────────────────────────────────────────────────
         elif tool_name == 'create_view':
             try:
-                from Autodesk.Revit.DB import (Transaction, FilteredElementCollector,
-                                               ViewFamilyType, ViewFamily,
-                                               ViewPlan, View3D, Level)
+                from Autodesk.Revit.DB import Transaction
+                # Shared with the ManaViews bulk creator, so both know the same
+                # nine view types. The old inline version handled only plans and
+                # silently produced a 3D view for everything else — asking for a
+                # section quietly got you an isometric.
+                from core.advanced_view_manager import (create_single_view,
+                                                        canonical_view_type,
+                                                        SUPPORTED_VIEW_TYPES)
                 vtype = (arguments.get('view_type') or 'floor_plan').lower()
                 name  = arguments.get('name')
                 level_name = arguments.get('level_name')
 
-                vfts = FilteredElementCollector(doc).OfClass(ViewFamilyType).ToElements()
-
-                def find_vft(family):
-                    for v in vfts:
-                        if v.ViewFamily == family:
-                            return v
-                    return None
+                if canonical_view_type(vtype) is None:
+                    return {'error': "Unknown view_type '{}'.".format(vtype),
+                            'supported_view_types': SUPPORTED_VIEW_TYPES,
+                            'hint': 'Retry with one of supported_view_types.'}
 
                 t = Transaction(doc, 'T3Lab AI Create View')
                 t.Start()
                 try:
-                    if vtype in ('floor_plan', 'ceiling_plan'):
-                        family = ViewFamily.FloorPlan if vtype == 'floor_plan' else ViewFamily.CeilingPlan
-                        vft = find_vft(family)
-                        if not vft:
-                            t.RollBack()
-                            return {'error': 'No ViewFamilyType for {}'.format(vtype)}
-                        # Find level
-                        lvl = None
-                        if level_name:
-                            levels = FilteredElementCollector(doc).OfClass(Level).ToElements()
-                            for l in levels:
-                                if l.Name == level_name:
-                                    lvl = l
-                                    break
-                        if not lvl:
-                            lvl = FilteredElementCollector(doc).OfClass(Level).FirstElement()
-                        if not lvl:
-                            t.RollBack()
-                            return {'error': 'No level found'}
-                        view = ViewPlan.Create(doc, vft.Id, lvl.Id)
-                    else:
-                        vft = find_vft(ViewFamily.ThreeDimensional)
-                        if not vft:
-                            t.RollBack()
-                            return {'error': 'No 3D ViewFamilyType found'}
-                        view = View3D.CreateIsometric(doc, vft.Id)
-
-                    if name:
-                        view.Name = name
+                    view, err = create_single_view(doc, vtype, name=name,
+                                                   level_name=level_name)
+                    if err:
+                        t.RollBack()
+                        return {'error': err, 'view_type': vtype}
                     t.Commit()
-                    return {'success': True, 'view_id': eid_value(view.Id), 'view_name': view.Name, 'view_type': vtype}
                 except Exception as e:
                     t.RollBack()
                     return {'error': str(e)}
+                return {'success': True, 'view_id': eid_value(view.Id),
+                        'view_name': view.Name, 'view_type': vtype}
             except Exception as e:
                 return {'error': str(e)}
 
@@ -5353,7 +5748,11 @@ class T3LabAIServer(object):
             try:
                 from System import Guid as SysGuid
                 from Autodesk.Revit.UI import DockablePaneId
-                action  = arguments.get('action', 'show').lower()
+                action  = (arguments.get('action') or 'show').lower()
+                if action not in ('show', 'hide'):
+                    return {'error': "Unknown action '{}'.".format(action),
+                            'supported_actions': ['show', 'hide'],
+                            'hint': 'Retry with one of supported_actions.'}
                 message = arguments.get('message', '')
                 pane_guid = SysGuid('7F3A9B2E-C4D1-4E8F-A6B5-1234567890AB')
                 pane_id   = DockablePaneId(pane_guid)
@@ -6064,6 +6463,11 @@ class T3LabAIServer(object):
                 if not isinstance(view, View):
                     return {'error': 'view_id does not refer to a view.'}
                 mode = (arguments.get('mode') or 'plain').lower()
+                if mode not in ('plain', 'with_detailing', 'dependent'):
+                    return {'error': "Unknown mode '{}'.".format(mode),
+                            'supported_modes': ['plain', 'with_detailing',
+                                                'dependent'],
+                            'hint': 'Retry with one of supported_modes.'}
                 opt = ViewDuplicateOption.Duplicate
                 if mode == 'with_detailing':
                     opt = ViewDuplicateOption.WithDetailing

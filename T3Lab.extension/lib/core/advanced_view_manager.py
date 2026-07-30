@@ -15,7 +15,7 @@ from Autodesk.Revit.DB import (
     FilteredElementCollector, View, ViewPlan, ViewDrafting, View3D, ViewSection,
     Level, ViewFamilyType, ViewFamily, AreaScheme, ViewType, ElementId,
     BuiltInParameter, Viewport, ViewDetailLevel, StorageType, Transaction,
-    BoundingBoxXYZ, Transform, XYZ
+    BoundingBoxXYZ, Transform, XYZ, ElevationMarker
 )
 
 # =====================================================
@@ -444,6 +444,209 @@ def _apply_crop_box(view, vd):
         pass
 
 
+# =====================================================
+# SINGLE VIEW CREATION (shared with the MCP `create_view` tool)
+# =====================================================
+# The branch table below is the single source of truth for "what view types can
+# this extension create". It used to live inline inside create_views_from_defs,
+# so the assistant's create_view tool had its own two-case version that fell
+# through to a 3D view for anything else — asking for a section silently
+# produced an isometric. Both callers now go through create_single_view.
+
+_VIEW_TYPE_CANON = {
+    'floor plan': 'Floor Plan', 'floor_plan': 'Floor Plan',
+    'floorplan': 'Floor Plan', 'plan': 'Floor Plan',
+    'ceiling plan': 'Ceiling Plan', 'ceiling_plan': 'Ceiling Plan',
+    'rcp': 'Ceiling Plan',
+    'structural plan': 'Structural Plan', 'structural_plan': 'Structural Plan',
+    'drafting view': 'Drafting View', 'drafting': 'Drafting View',
+    'drafting_view': 'Drafting View',
+    '3d view': '3D View', '3d': '3D View', '3d_view': '3D View',
+    'three_dimensional': '3D View', 'threedimensional': '3D View',
+    'section': 'Section',
+    'elevation': 'Elevation',
+    'area plan': 'Area Plan', 'area_plan': 'Area Plan',
+    'legend': 'Legend',
+}
+
+# The vocabulary advertised to the LLM (schema enum) — keep in step with the
+# branch table below; never advertise a type create_single_view can't build.
+SUPPORTED_VIEW_TYPES = ['floor_plan', 'ceiling_plan', 'structural_plan',
+                        'drafting', '3d', 'section', 'elevation',
+                        'area_plan', 'legend']
+
+_TYPE_TO_FAMILY = {
+    'Floor Plan': ViewFamily.FloorPlan,
+    'Ceiling Plan': ViewFamily.CeilingPlan,
+    'Structural Plan': ViewFamily.StructuralPlan,
+    'Drafting View': ViewFamily.Drafting,
+    '3D View': ViewFamily.ThreeDimensional,
+    'Section': ViewFamily.Section,
+    'Elevation': ViewFamily.Elevation,
+    'Area Plan': ViewFamily.AreaPlan,
+    'Legend': ViewFamily.Legend,
+}
+
+_PLAN_VIEW_TYPES = ('Floor Plan', 'Ceiling Plan', 'Structural Plan')
+
+
+def canonical_view_type(view_type):
+    """Normalise a user/LLM view-type string to a canonical label, or None."""
+    return _VIEW_TYPE_CANON.get(u'{}'.format(view_type or '').strip().lower())
+
+
+def _resolve_level(doc, level_name):
+    """Level by exact then case-insensitive name; first level as fallback."""
+    levels = list(FilteredElementCollector(doc).OfClass(Level))
+    if level_name:
+        hint = u'{}'.format(level_name).strip()
+        for lvl in levels:
+            if lvl.Name == hint:
+                return lvl
+        for lvl in levels:
+            if lvl.Name.lower() == hint.lower():
+                return lvl
+    return levels[0] if levels else None
+
+
+def _duplicate_existing_plan(doc, canon, level):
+    """Fallback when ViewPlan.Create refuses because a plan already exists for
+    this level+type — duplicate that plan instead. Returns a View or None."""
+    target_vt = {'Floor Plan': ViewType.FloorPlan,
+                 'Ceiling Plan': ViewType.CeilingPlan,
+                 'Structural Plan': ViewType.EngineeringPlan}.get(canon)
+    for v in FilteredElementCollector(doc).OfClass(ViewPlan):
+        try:
+            if (v.ViewType == target_vt and not v.IsTemplate
+                    and getattr(v, 'GenLevel', None) is not None
+                    and v.GenLevel.Id == level.Id):
+                return doc.GetElement(v.Duplicate(DB.ViewDuplicateOption.Duplicate))
+        except Exception:
+            continue
+    return None
+
+
+def create_single_view(doc, view_type, name=None, level_name=None):
+    """Create ONE view. Returns (view, error_message) — exactly one is None.
+
+    Opens NO transaction: the caller owns it, so this composes both inside
+    create_views_from_defs' bulk loop and inside the MCP tool's own transaction.
+    """
+    canon = canonical_view_type(view_type)
+    if canon is None:
+        return None, "Unsupported view type '{}'. Supported: {}".format(
+            view_type, ', '.join(SUPPORTED_VIEW_TYPES))
+
+    vf_types = {}
+    for vft in FilteredElementCollector(doc).OfClass(ViewFamilyType):
+        fam = vft.ViewFamily
+        if fam not in vf_types:
+            vf_types[fam] = vft
+    vft = vf_types.get(_TYPE_TO_FAMILY[canon])
+    if vft is None:
+        return None, "No ViewFamilyType available for {}.".format(canon)
+
+    new_view = None
+    if canon in _PLAN_VIEW_TYPES:
+        level = _resolve_level(doc, level_name)
+        if level is None:
+            return None, 'No Level found in this project.'
+        try:
+            new_view = ViewPlan.Create(doc, vft.Id, level.Id)
+        except Exception:
+            new_view = _duplicate_existing_plan(doc, canon, level)
+            if new_view is None:
+                return None, ("Cannot create {} for Level '{}' — a plan of that "
+                              "type may already exist for this level, and no "
+                              "existing plan could be duplicated.".format(
+                                  canon, level.Name))
+
+    elif canon == 'Drafting View':
+        new_view = ViewDrafting.Create(doc, vft.Id)
+
+    elif canon == '3D View':
+        new_view = View3D.CreateIsometric(doc, vft.Id)
+
+    elif canon == 'Section':
+        bb = BoundingBoxXYZ()
+        bb.Min = XYZ(-10, -10, -10)
+        bb.Max = XYZ(10, 10, 10)
+        transform = Transform.Identity
+        transform.Origin = XYZ(0, 0, 0)
+        transform.BasisX = XYZ(1, 0, 0)
+        transform.BasisY = XYZ(0, 0, 1)
+        transform.BasisZ = XYZ(0, -1, 0)
+        bb.Transform = transform
+        new_view = ViewSection.CreateSection(doc, vft.Id, bb)
+
+    elif canon == 'Elevation':
+        # An elevation cannot stand alone: its marker has to be placed IN a
+        # plan view, so find one (preferring the level the caller named).
+        host = None
+        level = _resolve_level(doc, level_name)
+        for v in FilteredElementCollector(doc).OfClass(ViewPlan):
+            try:
+                if v.IsTemplate:
+                    continue
+                gen = getattr(v, 'GenLevel', None)
+                if level is not None and gen is not None and gen.Id == level.Id:
+                    host = v
+                    break
+                if host is None:
+                    host = v
+            except Exception:
+                continue
+        if host is None:
+            return None, ('Elevation views need a plan view to place the '
+                          'elevation marker in; this project has none.')
+        try:
+            scale = host.Scale or 100
+        except Exception:
+            scale = 100
+        marker = ElevationMarker.CreateElevationMarker(
+            doc, vft.Id, XYZ(0, 0, 0), scale)
+        new_view = marker.CreateElevation(doc, host.Id, 0)
+
+    elif canon == 'Area Plan':
+        level = _resolve_level(doc, level_name)
+        if level is None:
+            return None, 'No Level found in this project.'
+        scheme_id = None
+        try:
+            for scheme in FilteredElementCollector(doc).OfClass(AreaScheme):
+                scheme_id = scheme.Id
+                break
+        except Exception:
+            pass
+        if scheme_id is None:
+            return None, 'No Area Scheme in this project, so no area plan can be created.'
+        new_view = ViewPlan.CreateAreaPlan(doc, scheme_id, level.Id)
+
+    elif canon == 'Legend':
+        # Revit has no Legend creation API — the only way is to duplicate one.
+        for v in FilteredElementCollector(doc).OfClass(View):
+            try:
+                if v.ViewType == ViewType.Legend and not v.IsTemplate:
+                    new_view = doc.GetElement(
+                        v.Duplicate(DB.ViewDuplicateOption.Duplicate))
+                    break
+            except Exception:
+                continue
+        if new_view is None:
+            return None, ('Revit cannot create a Legend from scratch and this '
+                          'project has no existing Legend to duplicate.')
+
+    if new_view is None:
+        return None, 'Could not create a {} view.'.format(canon)
+
+    if name:
+        try:
+            new_view.Name = name
+        except Exception:
+            pass   # duplicate/invalid name — the view itself is still valid
+    return new_view, None
+
+
 def create_views_from_defs(doc, view_defs):
     """Create views from list of definitions.
     Returns (created_count, skipped_count, failed_list)
@@ -460,23 +663,10 @@ def create_views_from_defs(doc, view_defs):
     for lvl in FilteredElementCollector(doc).OfClass(Level):
         levels[lvl.Name] = lvl
     
-    vf_types = {}
-    for vft in FilteredElementCollector(doc).OfClass(ViewFamilyType):
-        fam = vft.ViewFamily
-        if fam not in vf_types:
-            vf_types[fam] = vft
-    
     templates = {}
     for v in FilteredElementCollector(doc).OfClass(View).WhereElementIsNotElementType():
         if v.IsTemplate:
             templates[v.Name] = v.Id
-    
-    area_schemes = {}
-    try:
-        for scheme in FilteredElementCollector(doc).OfClass(AreaScheme):
-            area_schemes[scheme.Name] = scheme.Id
-    except:
-        pass
     
     t = Transaction(doc, "DQT - Create Views from Excel")
     t.Start()
@@ -491,17 +681,6 @@ def create_views_from_defs(doc, view_defs):
         'Fine': ViewDetailLevel.Fine
     }
     
-    type_to_family = {
-        "Floor Plan": ViewFamily.FloorPlan,
-        "Ceiling Plan": ViewFamily.CeilingPlan,
-        "Structural Plan": ViewFamily.StructuralPlan,
-        "Drafting View": ViewFamily.Drafting,
-        "3D View": ViewFamily.ThreeDimensional,
-        "Section": ViewFamily.Section,
-        "Area Plan": ViewFamily.AreaPlan,
-        "Legend": ViewFamily.Legend,
-    }
-    
     try:
         for vd in view_defs:
             view_name = vd['name']
@@ -512,21 +691,14 @@ def create_views_from_defs(doc, view_defs):
                 continue
             
             try:
-                new_view = None
-                vf = type_to_family.get(view_type)
-                
-                if vf is None:
-                    failed.append((view_name, "Unsupported type: {}".format(view_type)))
-                    continue
-                
-                vft = vf_types.get(vf)
-                if vft is None:
-                    failed.append((view_name, "No ViewFamilyType for {}".format(view_type)))
-                    continue
-                
-                if view_type in ["Floor Plan", "Ceiling Plan", "Structural Plan"]:
-                    matched_level = None
-                    level_hint = vd.get('level', '').strip()
+                # Level resolution stays HERE, not in create_single_view: it
+                # uses match_level(), which infers the level from the view NAME
+                # — a spreadsheet convenience that the general single-view API
+                # has no business doing.
+                matched_level = None
+                level_hint = vd.get('level', '').strip()
+                if view_type in ("Floor Plan", "Ceiling Plan",
+                                 "Structural Plan", "Area Plan"):
                     if level_hint:
                         matched_level = levels.get(level_hint)
                         if matched_level is None:
@@ -534,112 +706,27 @@ def create_views_from_defs(doc, view_defs):
                                 if lvl_name.lower() == level_hint.lower():
                                     matched_level = lvl
                                     break
-                    
+
                     if matched_level is None:
                         matched_level = match_level(view_name, levels)
-                    
+
                     if matched_level is None:
                         available_levels = ", ".join(sorted(levels.keys()))
-                        failed.append((view_name, 
+                        failed.append((view_name,
                             "No matching Level found.\n"
                             "    Level hint: '{}'\n"
                             "    Available levels: {}".format(
                                 level_hint or "(empty)", available_levels)))
                         continue
-                    
-                    try:
-                        new_view = ViewPlan.Create(doc, vft.Id, matched_level.Id)
-                    except:
-                        # Fallback: duplicate existing view of same type+level
-                        existing_plan = None
-                        target_vt = {
-                            "Floor Plan": ViewType.FloorPlan,
-                            "Ceiling Plan": ViewType.CeilingPlan,
-                            "Structural Plan": ViewType.EngineeringPlan,
-                        }.get(view_type)
-                        
-                        for v in FilteredElementCollector(doc).OfClass(ViewPlan):
-                            try:
-                                if (v.ViewType == target_vt 
-                                    and not v.IsTemplate 
-                                    and hasattr(v, 'GenLevel') 
-                                    and v.GenLevel is not None
-                                    and v.GenLevel.Id == matched_level.Id):
-                                    existing_plan = v
-                                    break
-                            except:
-                                continue
-                        
-                        if existing_plan:
-                            try:
-                                new_id = existing_plan.Duplicate(DB.ViewDuplicateOption.Duplicate)
-                                new_view = doc.GetElement(new_id)
-                            except Exception as dup_ex:
-                                failed.append((view_name, 
-                                    "Cannot create (plan already exists for Level '{}') "
-                                    "and Duplicate also failed: {}".format(
-                                        matched_level.Name, str(dup_ex))))
-                                continue
-                        else:
-                            failed.append((view_name, 
-                                "Cannot create {} for Level '{}'. "
-                                "A plan may already exist for this level+type combination.".format(
-                                    view_type, matched_level.Name)))
-                            continue
-                
-                elif view_type == "Drafting View":
-                    new_view = ViewDrafting.Create(doc, vft.Id)
-                
-                elif view_type == "3D View":
-                    new_view = View3D.CreateIsometric(doc, vft.Id)
-                
-                elif view_type == "Section":
-                    bb = BoundingBoxXYZ()
-                    bb.Min = XYZ(-10, -10, -10)
-                    bb.Max = XYZ(10, 10, 10)
-                    transform = Transform.Identity
-                    transform.Origin = XYZ(0, 0, 0)
-                    transform.BasisX = XYZ(1, 0, 0)
-                    transform.BasisY = XYZ(0, 0, 1)
-                    transform.BasisZ = XYZ(0, -1, 0)
-                    bb.Transform = transform
-                    new_view = ViewSection.CreateSection(doc, vft.Id, bb)
-                
-                elif view_type == "Area Plan":
-                    matched_level = None
-                    level_hint = vd.get('level', '').strip()
-                    if level_hint:
-                        matched_level = levels.get(level_hint)
-                        if matched_level is None:
-                            for lvl_name, lvl in levels.items():
-                                if lvl_name.lower() == level_hint.lower():
-                                    matched_level = lvl
-                                    break
-                    if matched_level is None:
-                        matched_level = match_level(view_name, levels)
-                    if matched_level is None:
-                        failed.append((view_name, "No matching Level."))
-                        continue
-                    scheme_id = list(area_schemes.values())[0] if area_schemes else None
-                    if scheme_id:
-                        new_view = ViewPlan.CreateAreaPlan(doc, scheme_id, matched_level.Id)
-                    else:
-                        failed.append((view_name, "No Area Scheme in project."))
-                        continue
-                
-                elif view_type == "Legend":
-                    existing_legend = None
-                    for v in FilteredElementCollector(doc).OfClass(View):
-                        if v.ViewType == ViewType.Legend and not v.IsTemplate:
-                            existing_legend = v
-                            break
-                    if existing_legend:
-                        new_id = existing_legend.Duplicate(DB.ViewDuplicateOption.Duplicate)
-                        new_view = doc.GetElement(new_id)
-                    else:
-                        failed.append((view_name, "No Legend to duplicate."))
-                        continue
-                
+
+                new_view, create_err = create_single_view(
+                    doc, view_type, name=view_name,
+                    level_name=(matched_level.Name if matched_level
+                                else level_hint))
+                if create_err:
+                    failed.append((view_name, create_err))
+                    continue
+
                 if new_view:
                     try:
                         new_view.Name = view_name
