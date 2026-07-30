@@ -41,6 +41,14 @@ The following XAML files are **UI-locked** — their visual design is finalized 
 |------|--------|
 | `T3Lab.extension/lib/GUI/Tools/DWGManagement.xaml` | Finalized custom design — UI locked |
 | `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` | Finalized custom design (BatchOut) — UI locked |
+| `T3Lab.extension/lib/GUI/Tools/T3LabAssistant.xaml` | Chat surface, not a tool dialog — warm "paper" palette + Revit light/dark theme instead of Lumina. See `docs/assistant-revit-ui.md` |
+
+> **T3LabAssistant.xaml — do NOT re-apply the Lumina palette.** Its colours come
+> from `lib/GUI/RevitTheme.py` and follow Revit's own UI theme; every surface is
+> bound with `{DynamicResource T3Theme<Token>}`. Hardcoding hexes back into it,
+> or replacing the nested `<ScrollViewer.Resources>` thin-scrollbar overrides,
+> breaks dark mode. The copyright amber `#F59E0B` and the shared style block are
+> unchanged and still audited.
 
 **All agents** (`@ui-agent`, `@ui-police-agent`, `@tool-builder-agent`, `@script-frame-agent`) must skip these files entirely during any UI-related task. Do not run `sync_wpf_styles.py` against them. Do not include them in bulk XAML audits.
 

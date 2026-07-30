@@ -40,6 +40,38 @@ for _p in (_LIB_DIR, _EXT_DIR):
 # ─── Shared pane GUID (must match startup.py) ──────────────────────────────────
 ASSISTANT_PANE_GUID = Guid('7F3A9B2E-C4D1-4E8F-A6B5-1234567890AB')
 
+
+# ─── Initial dock position ─────────────────────────────────────────────────────
+
+def _apply_initial_dock_state(data):
+    """Dock the pane to the right, tabbed behind the Project Browser.
+
+    Revit only honours InitialState the FIRST time a pane is shown on a given
+    machine; after that the user's own docking is remembered, which is the
+    behaviour we want — this only decides where it lands out of the box.
+
+    Everything here is best-effort. TabBehind is the part most likely to be
+    refused (a host where the Project Browser has been closed or re-docked),
+    and it must not take the plain DockPosition down with it, so the two are
+    set in separate guarded steps rather than one.
+    """
+    try:
+        from Autodesk.Revit.UI import DockPosition
+        state = DockablePaneState()
+        state.DockPosition = DockPosition.Right
+        try:
+            from Autodesk.Revit.UI import DockablePanes
+            state.TabBehind = DockablePanes.BuiltInDockablePanes.ProjectBrowser
+        except Exception:
+            pass
+        data.InitialState = state
+        return True
+    except Exception as ex:
+        import logging
+        logging.getLogger("T3LabAssistant").debug(
+            "InitialState not applied: %s", ex)
+        return False
+
 # ─── IDockablePaneProvider ─────────────────────────────────────────────────────
 
 class AssistantPaneProvider(IDockablePaneProvider):
@@ -67,16 +99,26 @@ class AssistantPaneProvider(IDockablePaneProvider):
                 if hasattr(mod, 'T3LabAssistantWindow'):
                     # Instantiate on UI thread as docked
                     win = mod.T3LabAssistantWindow(is_docked=True)
-                    
+
                     # Detach visual content
                     content = win.Content
                     win.Content = None
-                    
+
                     # Keep the window class instance alive
                     self._win_ref = win
-                    
+
                     data.FrameworkElement = content
-                    
+
+                    # Dock the pane where Revit's own panels live instead of
+                    # letting it come up floating in the middle of the screen.
+                    # Without an InitialState, Revit's default for a new pane
+                    # is a free-floating window — which is precisely the
+                    # "separate application bolted onto Revit" impression the
+                    # rest of this work removes. Tabbed behind the Project
+                    # Browser puts the assistant in the same tab strip as the
+                    # panel users already keep open on the right.
+                    _apply_initial_dock_state(data)
+
                     from Autodesk.Revit.UI import EditorInteraction, EditorInteractionType
                     data.EditorInteraction = EditorInteraction(EditorInteractionType.KeepAlive)
                     return

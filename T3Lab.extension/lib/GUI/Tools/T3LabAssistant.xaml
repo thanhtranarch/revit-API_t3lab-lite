@@ -6,7 +6,7 @@
        WindowStartupLocation="CenterScreen"
        ResizeMode="CanResizeWithGrip"
        ShowInTaskbar="True"
-       Background="#E4E4E7"
+       Background="{DynamicResource T3ThemeAppBg}"
        FontFamily="Hanken Grotesk">
 
         <WindowChrome.WindowChrome>
@@ -1079,6 +1079,137 @@
 
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
+        <!-- ═══════════════════════════════════════════════════════════════
+             THEME TOKENS — warm "paper" chat palette, light defaults.
+             GUI/RevitTheme.py rewrites every one of these at runtime to match
+             Revit's own UI theme (Light/Dark, Revit 2024+), so anything bound
+             with DynamicResource re-skins with the host instead of glaring as
+             a foreign window inside the dockable pane.
+             Values here = the light palette, so the window still looks right
+             if the theme module is ever unavailable.
+        ═══════════════════════════════════════════════════════════════ -->
+        <SolidColorBrush x:Key="T3ThemeAppBg"          Color="#FAF9F5"/>
+        <SolidColorBrush x:Key="T3ThemeChatBg"         Color="#FAF9F5"/>
+        <SolidColorBrush x:Key="T3ThemeComposerBg"     Color="#FAF9F5"/>
+        <SolidColorBrush x:Key="T3ThemeCardBg"         Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="T3ThemeCardBorder"     Color="#E5E3DA"/>
+        <SolidColorBrush x:Key="T3ThemeDivider"        Color="#EAE8E0"/>
+        <SolidColorBrush x:Key="T3ThemePaneEdge"       Color="#DCDAD1"/>
+        <SolidColorBrush x:Key="T3ThemeUserBubbleBg"   Color="#F0EEE6"/>
+        <SolidColorBrush x:Key="T3ThemeUserBubbleText" Color="#282722"/>
+        <SolidColorBrush x:Key="T3ThemeBotText"        Color="#3D3C38"/>
+        <SolidColorBrush x:Key="T3ThemeInk"            Color="#1F1E1D"/>
+        <SolidColorBrush x:Key="T3ThemeMuted"          Color="#6F6E68"/>
+        <SolidColorBrush x:Key="T3ThemeFaint"          Color="#A3A199"/>
+        <SolidColorBrush x:Key="T3ThemeAccent"         Color="#D97757"/>
+        <SolidColorBrush x:Key="T3ThemeAccentSoft"     Color="#F6E7DF"/>
+        <SolidColorBrush x:Key="T3ThemeBlue"           Color="#3B82F6"/>
+        <SolidColorBrush x:Key="T3ThemeSuccess"        Color="#0B8A5A"/>
+        <SolidColorBrush x:Key="T3ThemeDanger"         Color="#D23B3B"/>
+        <SolidColorBrush x:Key="T3ThemeAmber"          Color="#F59E0B"/>
+        <SolidColorBrush x:Key="T3ThemeIconFg"         Color="#8B8981"/>
+        <SolidColorBrush x:Key="T3ThemeIconFgHover"    Color="#3D3C38"/>
+        <SolidColorBrush x:Key="T3ThemeIconHoverBg"    Color="#EFEDE5"/>
+        <SolidColorBrush x:Key="T3ThemeInputText"      Color="#1F1E1D"/>
+        <SolidColorBrush x:Key="T3ThemeInputCaret"     Color="#1F1E1D"/>
+        <SolidColorBrush x:Key="T3ThemeCodeBg"         Color="#F3F1E9"/>
+        <SolidColorBrush x:Key="T3ThemeCodeFg"         Color="#1F1E1D"/>
+        <SolidColorBrush x:Key="T3ThemeScrollThumb"    Color="#CFCCC2"/>
+        <SolidColorBrush x:Key="T3ThemeSelectedBg"     Color="#EFEDE5"/>
+
+        <!-- ── Revit-thin scrollbar ────────────────────────────────────────
+             Revit's own panes use a hairline scrollbar: no arrow buttons, no
+             chrome, just a slim rounded thumb that thickens under the cursor.
+             The shared style block already ships a 4px bar, but it is keyed
+             implicitly (TargetType, no x:Key) and lives inside the auto-synced
+             region — so this one is x:Key'd and applied through a NESTED
+             ScrollViewer.Resources on each scrolling surface, which overrides
+             the inherited implicit style for that subtree only. No hand-edit
+             inside the sync markers, no change to the other 52 tool windows.
+             8px hit target, 5px visible thumb (7px on hover).
+        ── -->
+        <Style x:Key="RevitThinThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="IsTabStop" Value="false"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="Transparent">
+                            <Border x:Name="thumb"
+                                    Width="5" CornerRadius="2.5"
+                                    HorizontalAlignment="Center"
+                                    Background="{DynamicResource T3ThemeScrollThumb}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="thumb" Property="Width" Value="7"/>
+                                <Setter TargetName="thumb" Property="Background"
+                                        Value="{DynamicResource T3ThemeMuted}"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="true">
+                                <Setter TargetName="thumb" Property="Width" Value="7"/>
+                                <Setter TargetName="thumb" Property="Background"
+                                        Value="{DynamicResource T3ThemeMuted}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="RevitThinScrollBar" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background"  Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="MinWidth"    Value="0"/>
+            <Setter Property="MinHeight"   Value="0"/>
+            <Setter Property="Width"       Value="8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="true">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource RevitThinThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ── Message action button (Claude-style icon row under a reply) ──
+             Muted line icon, no chrome at rest; a soft rounded plate appears
+             on hover and the glyph darkens. Sized 26x26 so a row of five sits
+             comfortably under a message without competing with it. -->
+        <Style x:Key="MsgActionBtn" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width"           Value="26"/>
+            <Setter Property="Height"          Value="26"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background"
+                                        Value="{DynamicResource T3ThemeIconHoverBg}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                                <Setter Property="Cursor"  Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ── Send button style (pill corner radius matching input) ── -->
         <Style x:Key="SendButtonStyle" TargetType="Button">
             <Setter Property="Background"      Value="#18181B"/>
@@ -1112,12 +1243,12 @@
 
         <!-- ── Attachment chip button ── -->
         <Style x:Key="AttachChipBtn" TargetType="Button">
-            <Setter Property="Background"      Value="#F4F4F6"/>
-            <Setter Property="Foreground"      Value="#27272A"/>
+            <Setter Property="Background"      Value="{DynamicResource T3ThemeSelectedBg}"/>
+            <Setter Property="Foreground"      Value="{DynamicResource T3ThemeInk}"/>
             <Setter Property="Padding"         Value="8,3"/>
             <Setter Property="FontSize"        Value="11"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="BorderBrush"     Value="#E6E6EA"/>
+            <Setter Property="BorderBrush"     Value="{DynamicResource T3ThemeCardBorder}"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Margin"          Value="0,0,5,0"/>
             <Setter Property="Template">
@@ -1133,10 +1264,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background"  Value="#ECECEF"/>
+                                <Setter TargetName="bd" Property="Background"
+                                        Value="{DynamicResource T3ThemeIconHoverBg}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#18181B"/>
+                                <Setter TargetName="bd" Property="Background"
+                                        Value="{DynamicResource T3ThemeAccentSoft}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1147,7 +1280,7 @@
         <!-- ── Composer chip button (project / model pickers, Claude-style) ── -->
         <Style x:Key="ComposerChipBtn" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
-            <Setter Property="Foreground"      Value="#52525B"/>
+            <Setter Property="Foreground"      Value="{DynamicResource T3ThemeMuted}"/>
             <Setter Property="FontFamily"      Value="Hanken Grotesk"/>
             <Setter Property="FontSize"        Value="11.5"/>
             <Setter Property="FontWeight"      Value="SemiBold"/>
@@ -1165,10 +1298,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="chip_bg" Property="Background" Value="#F1F5F9"/>
+                                <Setter TargetName="chip_bg" Property="Background"
+                                        Value="{DynamicResource T3ThemeIconHoverBg}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="chip_bg" Property="Background" Value="#E2E8F0"/>
+                                <Setter TargetName="chip_bg" Property="Background"
+                                        Value="{DynamicResource T3ThemeSelectedBg}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1176,9 +1311,13 @@
             </Setter>
         </Style>
 
-        <!-- ── Composer round send button (Claude-style arrow-up circle) ── -->
+        <!-- ── Composer round send button (Claude-style arrow-up circle) ──
+             Coral rather than near-black: the accent is the one constant
+             across both themes, so the send target stays the same object
+             whether Revit is light or dark (a near-black circle would need
+             to invert to near-white in dark mode and swallow its own arrow). -->
         <Style x:Key="ComposerSendBtn" TargetType="Button">
-            <Setter Property="Background"      Value="#18181B"/>
+            <Setter Property="Background"      Value="{DynamicResource T3ThemeAccent}"/>
             <Setter Property="Foreground"      Value="White"/>
             <Setter Property="Width"           Value="30"/>
             <Setter Property="Height"          Value="30"/>
@@ -1194,10 +1333,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="send_bg" Property="Background" Value="#27272A"/>
+                                <Setter TargetName="send_bg" Property="Background" Value="#C2603F"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="send_bg" Property="Background" Value="#E6E6EA"/>
+                                <Setter TargetName="send_bg" Property="Background"
+                                        Value="{DynamicResource T3ThemeSelectedBg}"/>
                                 <Setter Property="Cursor" Value="Arrow"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -1209,6 +1349,7 @@
         <!-- ── Icon-only button (attach) ── -->
         <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{DynamicResource T3ThemeIconFg}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor"          Value="Hand"/>
             <Setter Property="Padding"         Value="6,4"/>
@@ -1223,7 +1364,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#ECECEF"/>
+                                <Setter TargetName="bd" Property="Background"
+                                        Value="{DynamicResource T3ThemeIconHoverBg}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.4"/>
@@ -1236,21 +1378,23 @@
 
         <!-- Chip button style (used for Quick Actions) -->
         <Style x:Key="T3ChipButton" TargetType="Button">
-            <Setter Property="Background" Value="#E4E4E7"/>
-            <Setter Property="Foreground" Value="#27272A"/>
+            <Setter Property="Background" Value="{DynamicResource T3ThemeSelectedBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource T3ThemeInk}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Margin" Value="0,0,6,0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="chip_bd" Background="{TemplateBinding Background}" CornerRadius="12" Padding="12,5" BorderBrush="#D4D4D8" BorderThickness="1">
+                        <Border x:Name="chip_bd" Background="{TemplateBinding Background}" CornerRadius="12" Padding="12,5"
+                                BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.FontSize="11" TextBlock.FontWeight="SemiBold"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#18181B"/>
+                                <Setter Property="Background" Value="{DynamicResource T3ThemeAccent}"/>
                                 <Setter Property="Foreground" Value="White"/>
-                                <Setter TargetName="chip_bd" Property="BorderBrush" Value="#18181B"/>
+                                <Setter TargetName="chip_bd" Property="BorderBrush"
+                                        Value="{DynamicResource T3ThemeAccent}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1261,7 +1405,14 @@
     </Window.Resources>
 
     
-    <Border BorderBrush="#A1A1AA" BorderThickness="1.5" CornerRadius="22" ClipToBounds="True" Background="#E4E4E7">
+    <!-- Root chrome. Floating: rounded card with a hairline edge. Docked:
+         script.py flattens this to CornerRadius 0 / no border so the assistant
+         fills the Revit pane edge-to-edge instead of sitting inside it as a
+         pasted-in card with the host background showing through the corners. -->
+    <Border x:Name="root_chrome"
+            BorderBrush="{DynamicResource T3ThemePaneEdge}" BorderThickness="1.5"
+            CornerRadius="22" ClipToBounds="True"
+            Background="{DynamicResource T3ThemeAppBg}">
 <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>    <!-- Chat area      -->
@@ -1278,8 +1429,11 @@
             <ScrollViewer x:Name="chat_scroll"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
-                          Background="#F4F4F6"
-                          Padding="16,12,16,8">
+                          Background="{DynamicResource T3ThemeChatBg}"
+                          Padding="16,12,10,8">
+                <ScrollViewer.Resources>
+                    <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource RevitThinScrollBar}"/>
+                </ScrollViewer.Resources>
                 <StackPanel x:Name="chat_history_panel" Margin="0,0,0,4">
 
                     <!-- Dynamic Welcome Greeting -->
@@ -1287,7 +1441,8 @@
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock x:Name="welcome_greeting_text" Text="Good afternoon, Thạnh"
-                                           FontSize="20" Foreground="#27272A" FontFamily="Georgia"
+                                           FontSize="20" Foreground="{DynamicResource T3ThemeInk}"
+                                           FontFamily="Georgia"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
@@ -1324,8 +1479,9 @@
         <!-- ═══════════════════════════════════════════════════════════
              INPUT BAR & ACTION CENTER
         ═══════════════════════════════════════════════════════════ -->
-        <Border Grid.Row="1" Background="#F4F4F6"
-                BorderBrush="#DCDCE0" BorderThickness="0,1,0,0"
+        <Border x:Name="composer_bar" Grid.Row="1"
+                Background="{DynamicResource T3ThemeComposerBg}"
+                BorderBrush="{DynamicResource T3ThemeDivider}" BorderThickness="0,1,0,0"
                 Padding="16,8,16,10">
             <StackPanel>
 
@@ -1335,34 +1491,72 @@
 
                 <Border x:Name="attachment_preview_border"
                         Visibility="Collapsed"
-                        Background="#F4F4F6"
-                        BorderBrush="#E6E6EA" BorderThickness="1"
+                        Background="{DynamicResource T3ThemeSelectedBg}"
+                        BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1"
                         CornerRadius="3"
                         Padding="8,6"
                         Margin="0,0,0,6">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                             <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="10"
-                                       Foreground="#27272A" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                       Foreground="{DynamicResource T3ThemeInk}"
+                                       VerticalAlignment="Center" Margin="0,0,4,0"/>
                             <TextBlock Text="Attached:" FontSize="10" FontWeight="Bold"
-                                       Foreground="#27272A" VerticalAlignment="Center"/>
+                                       Foreground="{DynamicResource T3ThemeInk}" VerticalAlignment="Center"/>
                             <Button x:Name="btn_clear_attachments"
                                     Style="{StaticResource IconButton}"
                                     Click="clear_attachments_clicked"
                                     ToolTip="Remove all attachments"
                                     Margin="6,0,0,0"
                                     Padding="3,1">
-                                <TextBlock Text="✕ Clear all" FontSize="9" Foreground="#D23B3B"/>
+                                <TextBlock Text="✕ Clear all" FontSize="9"
+                                           Foreground="{DynamicResource T3ThemeDanger}"/>
                             </Button>
                         </StackPanel>
                         <WrapPanel x:Name="attachment_chips_panel"/>
                     </StackPanel>
                 </Border>
 
+                <!-- ── Revit context line ────────────────────────────────────
+                     What the assistant is looking at, in Revit's own terms:
+                     active view + live selection count. Deliberately quiet —
+                     no fill, no border, muted 10.5px on the paper — so it
+                     reads as part of the surface rather than as a toolbar.
+                     Refreshed on a slow timer and on window activation; click
+                     to re-read immediately. Filled by _update_revit_context().
+                ── -->
+                <Button x:Name="revit_ctx_btn"
+                        Style="{StaticResource ComposerChipBtn}"
+                        HorizontalAlignment="Left"
+                        Margin="2,0,0,4" Padding="4,2"
+                        Visibility="Collapsed"
+                        Click="revit_ctx_clicked"
+                        ToolTip="What the assistant sees in Revit right now — click to refresh">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="M12 2 2 7l10 5 10-5Z M2 17l10 5 10-5 M2 12l10 5 10-5"
+                              Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              Width="11" Height="11" Stretch="Uniform"
+                              VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock x:Name="revit_ctx_view" Text=""
+                                   FontSize="10.5" FontWeight="Normal"
+                                   Foreground="{DynamicResource T3ThemeMuted}"
+                                   FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center"
+                                   MaxWidth="240" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="revit_ctx_sel" Text=""
+                                   FontSize="10.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource T3ThemeAccent}"
+                                   FontFamily="Hanken Grotesk"
+                                   VerticalAlignment="Center" Margin="7,0,0,0"/>
+                    </StackPanel>
+                </Button>
+
                 <!-- ── Composer card (Claude-style) ── -->
                 <Border x:Name="composer_card"
-                        BorderBrush="#DCDCE0" BorderThickness="1"
-                        CornerRadius="14" Background="White">
+                        BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1"
+                        CornerRadius="14" Background="{DynamicResource T3ThemeCardBg}">
                     <Border.Effect>
                         <DropShadowEffect ShadowDepth="1" Direction="270"
                                           Color="#18181B" Opacity="0.05" BlurRadius="6"/>
@@ -1377,14 +1571,14 @@
                                      BorderThickness="0"
                                      Background="Transparent"
                                      FontSize="13.5"
-                                     Foreground="#18181B"
-                                     CaretBrush="#18181B"
+                                     Foreground="{DynamicResource T3ThemeInputText}"
+                                     CaretBrush="{DynamicResource T3ThemeInputCaret}"
                                      VerticalContentAlignment="Center"
                                      KeyDown="input_keydown"
                                      TextChanged="input_text_changed"/>
                             <TextBlock x:Name="composer_placeholder"
                                        Text="Type a request — press / for skills"
-                                       FontSize="13.5" Foreground="#A1A1AA"
+                                       FontSize="13.5" Foreground="{DynamicResource T3ThemeFaint}"
                                        FontFamily="Hanken Grotesk"
                                        VerticalAlignment="Center"
                                        IsHitTestVisible="False"/>
@@ -1407,7 +1601,7 @@
                                     Click="attach_clicked"
                                     ToolTip="Attach PDF / images — or Ctrl+V / drag &amp; drop into the chat. Auto-saved to the project folder by date">
                                 <Path Data="M5 12h14 M12 5v14"
-                                      Stroke="#52525B" StrokeThickness="1.6"
+                                      Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.6"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       Width="15" Height="15" Stretch="Uniform"
                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -1420,7 +1614,7 @@
                                     Click="settings_btn_clicked"
                                     ToolTip="Settings — provider, model, projects, knowledge &amp; skills">
                                 <Path Data="M21 4h-5 M12 4H3 M21 12h-9 M8 12H3 M21 20h-7 M10 20H3 M16 2v4 M8 10v4 M14 18v4"
-                                      Stroke="#52525B" StrokeThickness="1.6"
+                                      Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.6"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       Width="15" Height="15" Stretch="Uniform"
                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
@@ -1438,14 +1632,14 @@
                                     ToolTip="Choose AI provider / model">
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse x:Name="model_chip_dot" Width="7" Height="7"
-                                             Fill="#A1A1AA" VerticalAlignment="Center"
+                                             Fill="{DynamicResource T3ThemeFaint}" VerticalAlignment="Center"
                                              Margin="0,0,6,0"/>
                                     <TextBlock x:Name="model_chip_text" Text="AI"
                                                FontSize="11.5" FontWeight="SemiBold"
-                                               Foreground="#52525B" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource T3ThemeMuted}" VerticalAlignment="Center"
                                                FontFamily="Hanken Grotesk"/>
                                     <Path Data="M5 8 L10 13 L15 8"
-                                          Stroke="#A1A1AA" StrokeThickness="1.5"
+                                          Stroke="{DynamicResource T3ThemeFaint}" StrokeThickness="1.5"
                                           StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                           StrokeLineJoin="Round"
                                           Width="9" Height="9" Stretch="Uniform"
@@ -1485,17 +1679,17 @@
                                 ToolTip="Choose a project (workspace)">
                             <StackPanel Orientation="Horizontal">
                                 <Path Data="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
-                                      Stroke="#71717A" StrokeThickness="1.6"
+                                      Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.6"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round"
                                       Width="12" Height="12" Stretch="Uniform"
                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <TextBlock x:Name="project_chip_text" Text="Project"
                                            FontSize="11.5" FontWeight="SemiBold"
-                                           Foreground="#52525B" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource T3ThemeMuted}" VerticalAlignment="Center"
                                            FontFamily="Hanken Grotesk"/>
                                 <Path Data="M5 8 L10 13 L15 8"
-                                      Stroke="#A1A1AA" StrokeThickness="1.5"
+                                      Stroke="{DynamicResource T3ThemeFaint}" StrokeThickness="1.5"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round"
                                       Width="9" Height="9" Stretch="Uniform"
@@ -1512,14 +1706,14 @@
                             <StackPanel Orientation="Horizontal">
                                 <Path x:Name="action_mode_icon"
                                       Data="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"
-                                      Stroke="#71717A" StrokeThickness="1.6"
+                                      Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.6"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                       StrokeLineJoin="Round"
                                       Width="11" Height="11" Stretch="Uniform"
                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
                                 <TextBlock x:Name="action_mode_text" Text="Auto"
                                            FontSize="11.5" FontWeight="SemiBold"
-                                           Foreground="#52525B" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource T3ThemeMuted}" VerticalAlignment="Center"
                                            FontFamily="Hanken Grotesk"/>
                             </StackPanel>
                         </Button>
@@ -1533,7 +1727,7 @@
                                 Click="undo_clicked"
                                 ToolTip="Undo last Revit action">
                             <Path Data="M9 14 4 9l5-5 M4 9h10.5a5.5 5.5 0 0 1 0 11H11"
-                                  Stroke="#52525B" StrokeThickness="1.6"
+                                  Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.6"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   StrokeLineJoin="Round"
                                   Width="14" Height="14" Stretch="Uniform"
@@ -1545,7 +1739,7 @@
                                 Click="reset_chat_clicked"
                                 ToolTip="New conversation">
                             <Path Data="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"
-                                  Stroke="#52525B" StrokeThickness="1.6"
+                                  Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.6"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   StrokeLineJoin="Round"
                                   Width="14" Height="14" Stretch="Uniform"
@@ -1557,7 +1751,7 @@
                                 Click="activity_log_clicked"
                                 ToolTip="Today&#39;s activity log (daily log in the project folder)">
                             <Path Data="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5 M12 7v5l4 2"
-                                  Stroke="#52525B" StrokeThickness="1.6"
+                                  Stroke="{DynamicResource T3ThemeIconFg}" StrokeThickness="1.6"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round"
                                   StrokeLineJoin="Round"
                                   Width="14" Height="14" Stretch="Uniform"
@@ -1576,15 +1770,15 @@
                     <TextBlock Grid.Column="0" Text="© Copyright by T3Lab"
                                FontSize="11" Foreground="#F59E0B"
                                VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1"
+                    <TextBlock x:Name="footer_disclaimer" Grid.Column="1"
                                Text="T3Lab AI can make mistakes. Please double-check responses."
-                               FontSize="10.5" Foreground="#A1A1AA"
+                               FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
                                FontFamily="Hanken Grotesk"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" Margin="10,0"/>
-                    <TextBlock Grid.Column="2"
+                    <TextBlock x:Name="footer_hint" Grid.Column="2"
                                Text="/ for skills  ·  Shift+Enter = new line"
-                               FontSize="10.5" Foreground="#A1A1AA"
+                               FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
                                FontFamily="Hanken Grotesk"
                                VerticalAlignment="Center"/>
                 </Grid>
@@ -1595,7 +1789,7 @@
                        Placement="Top" VerticalOffset="-6"
                        AllowsTransparency="True" StaysOpen="True"
                        PopupAnimation="Fade">
-                    <Border Background="White" BorderBrush="#E6E6EA"
+                    <Border Background="{DynamicResource T3ThemeCardBg}" BorderBrush="{DynamicResource T3ThemeCardBorder}"
                             BorderThickness="1" CornerRadius="12"
                             MinWidth="340" MaxWidth="480" Margin="0,0,8,8">
                         <Border.Effect>
@@ -1606,12 +1800,15 @@
                             <ScrollViewer x:Name="skills_popup_scroll" MaxHeight="250"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
+                                          <ScrollViewer.Resources>
+                                              <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource RevitThinScrollBar}"/>
+                                          </ScrollViewer.Resources>
                                 <StackPanel x:Name="skills_popup_panel" Margin="5"/>
                             </ScrollViewer>
-                            <Border BorderBrush="#F1F1F3" BorderThickness="0,1,0,0"
+                            <Border BorderBrush="{DynamicResource T3ThemeDivider}" BorderThickness="0,1,0,0"
                                     Padding="12,6">
                                 <TextBlock Text="↑↓ navigate  ·  Enter/Tab use skill  ·  Esc close"
-                                           FontSize="10" Foreground="#A1A1AA"
+                                           FontSize="10" Foreground="{DynamicResource T3ThemeFaint}"
                                            FontFamily="Hanken Grotesk"/>
                             </Border>
                         </StackPanel>
@@ -1624,7 +1821,7 @@
                        Placement="Top" VerticalOffset="-6"
                        AllowsTransparency="True" StaysOpen="False"
                        PopupAnimation="Fade">
-                    <Border Background="White" BorderBrush="#E6E6EA"
+                    <Border Background="{DynamicResource T3ThemeCardBg}" BorderBrush="{DynamicResource T3ThemeCardBorder}"
                             BorderThickness="1" CornerRadius="12"
                             MinWidth="260" MaxWidth="360" Margin="0,0,8,8">
                         <Border.Effect>
@@ -1634,6 +1831,9 @@
                         <ScrollViewer MaxHeight="280"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
+                                      <ScrollViewer.Resources>
+                                          <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource RevitThinScrollBar}"/>
+                                      </ScrollViewer.Resources>
                             <StackPanel x:Name="project_popup_panel" Margin="5"/>
                         </ScrollViewer>
                     </Border>
@@ -1645,7 +1845,7 @@
                        Placement="Top" VerticalOffset="-6"
                        AllowsTransparency="True" StaysOpen="False"
                        PopupAnimation="Fade">
-                    <Border Background="White" BorderBrush="#E6E6EA"
+                    <Border Background="{DynamicResource T3ThemeCardBg}" BorderBrush="{DynamicResource T3ThemeCardBorder}"
                             BorderThickness="1" CornerRadius="12"
                             MinWidth="260" MaxWidth="360" Margin="0,0,8,8">
                         <Border.Effect>
@@ -1655,6 +1855,9 @@
                         <ScrollViewer MaxHeight="280"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
+                                      <ScrollViewer.Resources>
+                                          <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource RevitThinScrollBar}"/>
+                                      </ScrollViewer.Resources>
                             <StackPanel x:Name="model_popup_panel" Margin="5"/>
                         </ScrollViewer>
                     </Border>
@@ -1669,33 +1872,33 @@
                 Grid.Row="0" Grid.RowSpan="99" Grid.Column="0" Grid.ColumnSpan="99"
                 Panel.ZIndex="997" Background="#CC18181B">
             <Border Width="392" VerticalAlignment="Center" HorizontalAlignment="Center"
-                    Background="White" CornerRadius="16" Padding="28,26"
-                    BorderBrush="#E6E6EA" BorderThickness="1">
+                    Background="{DynamicResource T3ThemeCardBg}" CornerRadius="16" Padding="28,26"
+                    BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1">
                 <StackPanel>
                     <!-- Brand row -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                         <TextBlock Text="T3Lab Assistant" FontSize="13" FontWeight="Bold"
-                                   Foreground="#18181B" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource T3ThemeInk}" VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <TextBlock x:Name="onboarding_greeting" Text="Welcome"
-                               FontSize="24" FontWeight="Bold" Foreground="#18181B"
+                               FontSize="24" FontWeight="Bold" Foreground="{DynamicResource T3ThemeInk}"
                                FontFamily="Georgia" Margin="0,6,0,2"/>
                     <TextBlock Text="Let's set up your profile so I can tailor things to you."
-                               FontSize="12.5" Foreground="#71717A" TextWrapping="Wrap"
+                               FontSize="12.5" Foreground="{DynamicResource T3ThemeMuted}" TextWrapping="Wrap"
                                Margin="0,0,0,18"/>
 
                     <!-- Name -->
                     <TextBlock Text="YOUR NAME" FontSize="9" FontWeight="SemiBold"
-                               Foreground="#A1A1AA" Margin="2,0,0,6"/>
+                               Foreground="{DynamicResource T3ThemeFaint}" Margin="2,0,0,6"/>
                     <TextBox x:Name="onboarding_name_box" Height="38" FontSize="13"
-                             Padding="11,0" BorderBrush="#CBD5E1" BorderThickness="1"
-                             Background="White" VerticalContentAlignment="Center"
+                             Padding="11,0" BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1"
+                             Background="{DynamicResource T3ThemeCardBg}" VerticalContentAlignment="Center"
                              Margin="0,0,0,14"/>
 
                     <!-- Provider -->
                     <TextBlock Text="AI PROVIDER" FontSize="9" FontWeight="SemiBold"
-                               Foreground="#A1A1AA" Margin="2,0,0,6"/>
+                               Foreground="{DynamicResource T3ThemeFaint}" Margin="2,0,0,6"/>
                     <ComboBox x:Name="onboarding_provider_combo" Height="38" FontSize="13"
                               Padding="9,0" VerticalContentAlignment="Center"
                               Margin="0,0,0,14"
@@ -1711,13 +1914,13 @@
                     <StackPanel x:Name="onboarding_key_panel">
                         <TextBlock x:Name="onboarding_key_label" Text="API KEY"
                                    FontSize="9" FontWeight="SemiBold"
-                                   Foreground="#A1A1AA" Margin="2,0,0,6"/>
+                                   Foreground="{DynamicResource T3ThemeFaint}" Margin="2,0,0,6"/>
                         <TextBox x:Name="onboarding_key_box" Height="38" FontSize="12"
-                                 Padding="11,0" BorderBrush="#CBD5E1" BorderThickness="1"
-                                 Background="White" VerticalContentAlignment="Center"
+                                 Padding="11,0" BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1"
+                                 Background="{DynamicResource T3ThemeCardBg}" VerticalContentAlignment="Center"
                                  Margin="0,0,0,4"/>
                         <TextBlock Text="Optional — you can add this later in Settings."
-                                   FontSize="10.5" Foreground="#A1A1AA" Margin="2,0,0,16"/>
+                                   FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}" Margin="2,0,0,16"/>
                     </StackPanel>
 
                     <!-- Actions -->
@@ -1747,8 +1950,8 @@
                 Grid.Row="0" Grid.RowSpan="99" Grid.Column="0" Grid.ColumnSpan="99"
                 Panel.ZIndex="996" Background="#7F18181B">
             <Border Width="432" MaxHeight="600" VerticalAlignment="Center"
-                    HorizontalAlignment="Center" Background="White"
-                    CornerRadius="16" BorderBrush="#E6E6EA" BorderThickness="1">
+                    HorizontalAlignment="Center" Background="{DynamicResource T3ThemeCardBg}"
+                    CornerRadius="16" BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -1763,10 +1966,10 @@
                         <StackPanel Grid.Column="0">
                             <TextBlock x:Name="project_panel_title" Text="Project"
                                        FontSize="15" FontWeight="Bold"
-                                       Foreground="#0F172A"
+                                       Foreground="{DynamicResource T3ThemeInk}"
                                        FontFamily="Hanken Grotesk"/>
                             <TextBlock Text="Instructions · Memory · Context · Scheduled"
-                                       FontSize="10.5" Foreground="#A1A1AA"
+                                       FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
                                        FontFamily="Hanken Grotesk" Margin="0,2,0,0"/>
                         </StackPanel>
                         <Button x:Name="project_panel_close_btn" Grid.Column="1"
@@ -1780,6 +1983,9 @@
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled"
                                   Margin="10,0,10,16">
+                                  <ScrollViewer.Resources>
+                                      <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource RevitThinScrollBar}"/>
+                                  </ScrollViewer.Resources>
                         <StackPanel x:Name="project_panel_host" Margin="14,0"/>
                     </ScrollViewer>
                 </Grid>
