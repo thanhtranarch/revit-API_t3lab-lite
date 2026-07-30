@@ -15,7 +15,8 @@ T3Lab UI consistency audit theo chuẩn Lumina (CPython 3, chạy ngoài Revit).
   7. Glyph chrome sai (Unicode minus/white square thay vì Segoe MDL2).
   8. Thiếu block shared styles.
 
-File UI-locked (DWGManagement, ExportManager) chỉ báo info, không tính vi phạm.
+File UI-locked (DWGManagement, ExportManager, T3LabAssistant) chỉ báo info,
+không tính vi phạm.
 
 Usage:
     python3 dev/audit_ui.py           # báo cáo đầy đủ
@@ -37,7 +38,11 @@ TOOLS = os.path.join(REPO, "T3Lab.extension", "lib", "GUI", "Tools")
 
 QUIET = "--quiet" in sys.argv
 
-UI_LOCKED = {"DWGManagement.xaml", "ExportManager.xaml"}
+UI_LOCKED = {"DWGManagement.xaml", "ExportManager.xaml",
+             # Chat surface, không phải tool dialog: dùng bảng màu "paper" ấm
+             # + theme sáng/tối theo Revit (GUI/RevitTheme.py) thay cho Lumina.
+             # Xem docs/assistant-revit-ui.md.
+             "T3LabAssistant.xaml"}
 
 # Item-template XAML (root là list-row <Border>/<DataTemplate>, không phải cửa sổ)
 # — chuẩn miễn trừ copyright cho các file này.

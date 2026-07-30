@@ -57,6 +57,58 @@ lib_dir = os.path.join(extension_dir, 'lib')
 if lib_dir not in sys.path:
     sys.path.insert(0, lib_dir)
 
+# ─── Theme: follow Revit's own UI theme ───────────────────────────────────────
+# Every colour the chat surface paints comes from here rather than from a hex
+# literal typed at the call site, so the window can re-skin itself when Revit
+# flips between Light and Dark (Revit 2024+). See GUI/RevitTheme.py.
+try:
+    from GUI import RevitTheme as _theme
+
+    def _tb(token):
+        """SolidColorBrush for a theme token."""
+        return _theme.brush(token)
+
+    def _trgb(token):
+        """(r, g, b) for a theme token."""
+        return _theme.rgb(token)
+
+    def _theme_color(token):
+        """System.Windows.Media.Color for a theme token."""
+        return _theme.color(token)
+except Exception as _theme_ex:                       # pragma: no cover
+    logger.warning("RevitTheme unavailable, using light defaults: {}".format(
+        _theme_ex))
+    _theme = None
+    _LIGHT_FALLBACK = {
+        'AppBg': (250, 249, 245), 'ChatBg': (250, 249, 245),
+        'ComposerBg': (250, 249, 245), 'CardBg': (255, 255, 255),
+        'CardBorder': (229, 227, 218), 'Divider': (234, 232, 224),
+        'PaneEdge': (220, 218, 209), 'UserBubbleBg': (240, 238, 230),
+        'UserBubbleText': (40, 39, 34), 'BotText': (61, 60, 56),
+        'Ink': (31, 30, 29), 'Muted': (111, 110, 104), 'Faint': (163, 161, 153),
+        'Accent': (217, 119, 87), 'AccentSoft': (246, 231, 223),
+        'Blue': (59, 130, 246), 'Success': (11, 138, 90), 'Danger': (210, 59, 59),
+        'Amber': (245, 158, 11), 'IconFg': (139, 137, 129),
+        'IconFgHover': (61, 60, 56), 'IconHoverBg': (239, 237, 229),
+        'InputText': (31, 30, 29), 'InputCaret': (31, 30, 29),
+        'CodeBg': (243, 241, 233), 'CodeFg': (31, 30, 29),
+        'ScrollThumb': (207, 204, 194), 'SelectedBg': (239, 237, 229),
+    }
+
+    def _trgb(token):
+        return _LIGHT_FALLBACK.get(token, _LIGHT_FALLBACK['Ink'])
+
+    def _tb(token):
+        from System.Windows.Media import SolidColorBrush, Color
+        r, g, b = _trgb(token)
+        return SolidColorBrush(Color.FromRgb(r, g, b))
+
+    def _theme_color(token):
+        from System.Windows.Media import Color
+        r, g, b = _trgb(token)
+        return Color.FromRgb(r, g, b)
+
+
 # ─── Shared with the LLMs Setting dialog ──────────────────────────────────────
 # Provider brand colours and the shell folder/file openers live in one place;
 # the chat window's private copies of the openers lacked the .NET 8
@@ -698,10 +750,13 @@ _ICON_ATTACH  = u""   # Attach (paperclip)
 _ICON_ANALYZE = u""   # Analyze — fast-context "instant DB answer" badge
 _ICON_LIST    = u""   # List/reference — stats & selection section headers
 
-_ICON_BLUE  = (59, 130, 246)     # #3B82F6 accent — info/discovery
-_ICON_AMBER = (245, 158, 11)     # #F59E0B — warning
-_ICON_GREEN = (16, 185, 129)     # #10B981 — success
-_ICON_SLATE = (100, 116, 139)    # #64748B — neutral/muted
+# Inline message-icon colours, read from the theme at import. The old fixed
+# slate #64748B was a cool grey that read as slightly blue against the warm
+# paper background, and turned near-invisible on a dark host.
+_ICON_BLUE  = _trgb('Blue')      # info / discovery
+_ICON_AMBER = _trgb('Amber')     # warning
+_ICON_GREEN = _trgb('Success')   # success
+_ICON_SLATE = _trgb('Muted')     # neutral / muted
 
 
 # ─── Persistent memory: explicit "remember ..." save trigger ───────────────────
@@ -736,6 +791,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.error("Could not load T3LabAssistant XAML: {}".format(ex))
             raise
 
+        # Skin the window to the host BEFORE anything renders — theme brushes,
+        # pane chrome, compact layout. Doing it later means one frame of the
+        # wrong theme flashing inside the Revit pane.
+        try:
+            self._apply_revit_skin()
+        except Exception as ex:
+            logger.debug("_apply_revit_skin error: {}".format(ex))
+
         self.doc = revit.doc
 
         # ── Session state ─────────────────────────────────────────────────────
@@ -762,8 +825,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._typing_elapsed   = 0
 
         # ── Live streaming bubble state ───────────────────────────────────────
-        self._stream_row       = None           # Grid row of the live reply bubble
+        self._stream_row       = None           # Grid row of the live reply
         self._stream_tb        = None           # TextBlock being filled token-by-token
+        self._stream_host      = None           # StackPanel holding body + action row
+
+        # ── Claude-style message actions ──────────────────────────────────────
+        # Set while a "Try again" is in flight: the answer it produces is filed
+        # as another version of that row instead of appended as a new reply,
+        # and the user's original message is not echoed a second time.
+        self._retry_target_row   = None
+        self._suppress_user_echo = False
 
         # ── Native agent loop state ───────────────────────────────────────────
         self._agent_loop        = None    # running AgentLoop (native tools path)
@@ -1059,13 +1130,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug("onboarding check error: {}".format(ex))
 
-        # Hide the floating window-chrome cluster when hosted inside a
-        # Dockable Pane (the pane provides its own title bar / close button)
-        if self.is_docked:
-            try:
-                self.float_ctrls_panel.Visibility = Visibility.Collapsed
-            except Exception:
-                pass
+        # Live Revit context strip (active view + selection) under the chat.
+        # Started last so a host that refuses the read costs nothing during
+        # window construction.
+        try:
+            self._update_revit_context()
+            self._start_context_timer()
+        except Exception as ex:
+            logger.debug("revit context strip unavailable: {}".format(ex))
 
         # Persist window geometry/sidebar on close (custom X button was removed)
         try:
@@ -1076,6 +1148,229 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def setup_icon(self):
         """Override pyRevit's setup_icon to remove the window icon from the title bar."""
         pass
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # REVIT INTEGRATION — chrome, theme, live context
+    # The assistant is not a guest application that happens to float over
+    # Revit; hosted in the dockable pane it should read as one of Revit's own
+    # panels. That means three things: no floating-card chrome inside the
+    # pane, colours that follow the host's Light/Dark theme, and a layout that
+    # survives a 320px-wide dock.
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _apply_revit_skin(self):
+        """Make the window sit inside Revit instead of on top of it."""
+        self._current_skin = None
+        self._sync_theme(force=True)
+
+        if self.is_docked:
+            self._flatten_chrome_for_pane()
+
+        # Revit's theme can change while the pane is open (Options ▸ User
+        # Interface, or the BG Theme tool in this very extension), so re-read
+        # it whenever the window is activated rather than only at startup.
+        try:
+            self.Activated += self._on_window_activated
+        except Exception:
+            pass
+
+        try:
+            self.SizeChanged += self._on_size_changed
+        except Exception:
+            pass
+        self._compact = None
+        try:
+            self._apply_compact_layout(self.ActualWidth or self.Width)
+        except Exception:
+            pass
+
+    def _flatten_chrome_for_pane(self):
+        """Strip the floating-card chrome so the pane is filled edge to edge.
+
+        Floating, the window is a rounded card with a hairline edge. Docked,
+        that same card sits *inside* Revit's pane with the host background
+        showing through its 22px corners — the single strongest visual cue
+        that the assistant is a foreign window. Docked mode squares it off.
+        """
+        try:
+            from System.Windows import CornerRadius, Thickness
+            self.root_chrome.CornerRadius    = CornerRadius(0)
+            self.root_chrome.BorderThickness = Thickness(0)
+        except Exception as ex:
+            logger.debug("_flatten_chrome_for_pane: {}".format(ex))
+
+        # The floating min/max cluster belongs to a window, not to a pane —
+        # Revit already provides the pane's own close/undock affordances.
+        try:
+            self.float_ctrls_panel.Visibility = Visibility.Collapsed
+        except Exception:
+            pass
+
+    def _sync_theme(self, force=False):
+        """Repaint the shell in Revit's current theme (Light / Dark).
+
+        Everything bound with DynamicResource — window, chat surface, composer,
+        popups, scrollbars, chips — follows immediately. Message bodies already
+        on screen keep the colours they were rendered with; they pick up the
+        new theme as new messages arrive, or in full on the next New
+        conversation / pane reopen. Rebuilding a live transcript mid-flight
+        would mean replaying rows while a stream may be writing into one.
+        """
+        if _theme is None:
+            return None
+        try:
+            theme = _theme.current_theme()
+            if theme == getattr(self, '_current_skin', None) and not force:
+                return theme
+            self._current_skin = theme
+            _theme.apply(self, theme)
+            return theme
+        except Exception as ex:
+            logger.debug("_sync_theme error: {}".format(ex))
+            return None
+
+    def _on_window_activated(self, sender, e):
+        self._sync_theme()
+        self._update_revit_context()
+
+    # ─── Compact layout for narrow docks ─────────────────────────────────────
+
+    #: Below this width the pane is too narrow for the full composer furniture.
+    COMPACT_WIDTH = 400
+
+    def _on_size_changed(self, sender, e):
+        try:
+            if e.WidthChanged:
+                self._apply_compact_layout(e.NewSize.Width)
+        except Exception:
+            pass
+
+    def _apply_compact_layout(self, width):
+        """Tighten padding and drop optional footer text on a narrow dock.
+
+        A pane docked beside the Project Browser is routinely 300–340px. At
+        that width the 16px gutters plus the three-part footer leave the
+        composer with barely half the pane, so both give way — the copyright
+        stays (it is required), the disclaimer and the shortcut hint do not.
+        """
+        try:
+            compact = bool(width) and width < self.COMPACT_WIDTH
+        except Exception:
+            return
+        if compact == getattr(self, '_compact', None):
+            return
+        self._compact = compact
+
+        from System.Windows import Thickness
+        try:
+            if compact:
+                self.composer_bar.Padding = Thickness(9, 6, 9, 8)
+                self.chat_scroll.Padding  = Thickness(10, 10, 5, 6)
+            else:
+                self.composer_bar.Padding = Thickness(16, 8, 16, 10)
+                self.chat_scroll.Padding  = Thickness(16, 12, 10, 8)
+        except Exception:
+            pass
+
+        vis = Visibility.Collapsed if compact else Visibility.Visible
+        for name in ('footer_disclaimer', 'footer_hint'):
+            try:
+                getattr(self, name).Visibility = vis
+            except Exception:
+                pass
+
+    # ─── Live Revit context ──────────────────────────────────────────────────
+
+    def _start_context_timer(self):
+        """Poll the active view / selection so the strip stays live.
+
+        Reads only — no transaction, no ExternalEvent — which is legal outside
+        an API context. Three consecutive failures (closed document, a modal
+        dialog holding the API, an unexpected host state) stop the timer for
+        good rather than logging once per tick forever.
+        """
+        try:
+            from System.Windows.Threading import DispatcherTimer
+            from System import TimeSpan
+            self._ctx_failures = 0
+            self._ctx_timer = DispatcherTimer()
+            self._ctx_timer.Interval = TimeSpan.FromSeconds(2)
+            self._ctx_timer.Tick += self._on_context_tick
+            self._ctx_timer.Start()
+        except Exception as ex:
+            logger.debug("context timer unavailable: {}".format(ex))
+
+    def _on_context_tick(self, sender, e):
+        try:
+            if not self.IsVisible:
+                return          # docked pane hidden — nothing to refresh
+        except Exception:
+            pass
+        if not self._update_revit_context():
+            self._ctx_failures = getattr(self, '_ctx_failures', 0) + 1
+            if self._ctx_failures >= 3:
+                try:
+                    self._ctx_timer.Stop()
+                except Exception:
+                    pass
+        else:
+            self._ctx_failures = 0
+
+    def _read_revit_context(self):
+        """(view_name, selection_count) for the active document, or None."""
+        uiapp = _get_uiapp()
+        if uiapp is None:
+            return None
+        uidoc = getattr(uiapp, 'ActiveUIDocument', None)
+        if uidoc is None:
+            return None
+        doc = getattr(uidoc, 'Document', None)
+        if doc is None:
+            return None
+        view_name = u""
+        try:
+            view = doc.ActiveView
+            if view is not None:
+                view_name = view.Name
+        except Exception:
+            pass
+        count = 0
+        try:
+            count = uidoc.Selection.GetElementIds().Count
+        except Exception:
+            pass
+        return (view_name, count)
+
+    def _update_revit_context(self):
+        """Refresh the context strip. Returns False if Revit could not be read."""
+        try:
+            ctx = self._read_revit_context()
+        except Exception as ex:
+            logger.debug("_read_revit_context: {}".format(ex))
+            ctx = None
+        if ctx is None:
+            try:
+                self.revit_ctx_btn.Visibility = Visibility.Collapsed
+            except Exception:
+                pass
+            return False
+
+        view_name, count = ctx
+        try:
+            self.revit_ctx_view.Text = view_name or u"No active view"
+            if count:
+                self.revit_ctx_sel.Text = (u"· 1 selected" if count == 1
+                                           else u"· {} selected".format(count))
+            else:
+                self.revit_ctx_sel.Text = u""
+            self.revit_ctx_btn.Visibility = Visibility.Visible
+        except Exception:
+            return False
+        return True
+
+    def revit_ctx_clicked(self, sender, e):
+        """Re-read Revit immediately instead of waiting for the next tick."""
+        self._update_revit_context()
 
     # ─── Window state persistence ─────────────────────────────────────────────
 
@@ -1147,6 +1442,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # session — reopening the assistant leaked another one.
         try:
             self._typing_timer.Stop()
+        except Exception:
+            pass
+        # And the Revit context poller, for exactly the same reason: it reads
+        # the active document every 2s and would keep doing so — against a
+        # dead window — for the rest of the session.
+        try:
+            self._ctx_timer.Stop()
         except Exception:
             pass
         self._stop_stop_watchdog()
@@ -1955,7 +2257,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             engine = get_skills_engine()
             row = StackPanel()
             row.Orientation = Orientation.Horizontal
-            row.Margin = Thickness(34, 0, 0, 6)
+            row.Margin = Thickness(0, 0, 8, 8)
             added = False
             for sid in skill_ids:
                 meta = None
@@ -1965,8 +2267,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     pass
                 name = (meta or {}).get('name', sid)
                 chip = Border()
-                chip.Background = SolidColorBrush(Color.FromRgb(244, 244, 246))
-                chip.BorderBrush = SolidColorBrush(Color.FromRgb(230, 230, 234))
+                chip.Background = _tb('SelectedBg')
+                chip.BorderBrush = _tb('CardBorder')
                 chip.BorderThickness = Thickness(1)
                 chip.CornerRadius = CornerRadius(9)
                 chip.Padding = Thickness(8, 2, 8, 3)
@@ -1975,7 +2277,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 tb.Text = u"⚡ " + name
                 tb.FontSize = 10
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-                tb.Foreground = SolidColorBrush(Color.FromRgb(82, 82, 91))
+                tb.Foreground = _tb('Muted')
                 chip.Child = tb
                 chip.ToolTip = u"Skill applied to this reply"
                 row.Children.Add(chip)
@@ -2006,14 +2308,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             texts = list(send_texts) if send_texts else list(labels)
             row = StackPanel()
             row.Orientation = Orientation.Horizontal
-            row.Margin = Thickness(34, 2, 0, 10)
+            row.Margin = Thickness(0, 2, 8, 12)
 
-            _bg      = Color.FromRgb(0xEF, 0xF6, 0xFF)   # blue-50
-            _bg_hov  = Color.FromRgb(0xDB, 0xEA, 0xFE)   # blue-100
+            _bg      = _theme_color('AccentSoft')
+            _bg_hov  = _theme_color('IconHoverBg')
             for i, label in enumerate(labels):
                 chip = Border()
                 chip.Background = SolidColorBrush(_bg)
-                chip.BorderBrush = SolidColorBrush(Color.FromRgb(0xBF, 0xDB, 0xFE))
+                chip.BorderBrush = _tb('AccentSoft')
                 chip.BorderThickness = Thickness(1)
                 chip.CornerRadius = CornerRadius(12)
                 chip.Padding = Thickness(11, 4, 11, 5)
@@ -2024,7 +2326,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 tb.FontSize = 11.5
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
                 tb.FontWeight = System.Windows.FontWeights.SemiBold
-                tb.Foreground = SolidColorBrush(Color.FromRgb(0x1D, 0x4E, 0xD8))
+                tb.Foreground = _tb('Accent')
                 chip.Child = tb
 
                 def _click(s, ev, _t=texts[i] if i < len(texts) else label):
@@ -2218,6 +2520,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Freeze avatar spins — rotation is the "thinking" indicator,
             # so a finished turn must leave every icon standing still.
             self._stop_avatar_spins()
+            # A "Try again" whose turn ended without a plain reply (it ran a
+            # tool, or was stopped) must not leave the target armed — the next
+            # unrelated answer would be filed as a version of an old message.
+            self._retry_target_row = None
 
         # Auto-send the next queued message once this request is fully done.
         # BeginInvoke lets the current finish-handler stack unwind first.
@@ -2270,12 +2576,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from System.Windows.Input import Cursors
 
             row = Border()
-            row.Background = SolidColorBrush(Color.FromRgb(0xF1, 0xF5, 0xF9))
-            row.BorderBrush = SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0))
+            row.Background = _tb('SelectedBg')
+            row.BorderBrush = _tb('CardBorder')
             row.BorderThickness = Thickness(1)
             row.CornerRadius = CornerRadius(10)
             row.Padding = Thickness(10, 4, 10, 5)
-            row.Margin = Thickness(34, 0, 60, 6)
+            row.Margin = Thickness(40, 0, 0, 8)
             row.HorizontalAlignment = System.Windows.HorizontalAlignment.Right
             row.Cursor = Cursors.Hand
             row.ToolTip = (u"Will send automatically when the current "
@@ -2285,7 +2591,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tb.Text = u"Queued: {}".format(_short)
             tb.FontSize = 11
             tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-            tb.Foreground = SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B))
+            tb.Foreground = _tb('Muted')
             tb.TextTrimming = TextTrimming.CharacterEllipsis
             row.Child = tb
             item = {'text': raw, 'row': row}
@@ -2464,13 +2770,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
     def _make_typing_row(self):
-        """Build the typing indicator WPF element with text description."""
-        from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
-        from System.Windows import Thickness, CornerRadius, GridLength, HorizontalAlignment
-        from System.Windows.Media import SolidColorBrush, Color
+        """Build the typing indicator: spinning brand mark + muted status text.
+
+        Replies themselves no longer carry an avatar (see _append_bot_message),
+        so the spinning T3Lab mark — the "working right now" signal — lives
+        here instead: ONE animated mark for the turn, shown exactly where the
+        answer will appear and removed the moment it arrives. Same role the
+        animated logo plays in the reference chat UI.
+        """
+        from System.Windows.Controls import TextBlock, Grid, ColumnDefinition
+        from System.Windows import Thickness, GridLength, VerticalAlignment
 
         row = Grid()
-        row.Margin = Thickness(0, 0, 60, 6)
+        row.Margin = Thickness(0, 0, 8, 12)
 
         col_av = ColumnDefinition()
         col_av.Width = GridLength.Auto
@@ -2479,28 +2791,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
         row.ColumnDefinitions.Add(col_av)
         row.ColumnDefinitions.Add(col_msg)
 
-        av = self._make_avatar("T3")
+        av = self._make_avatar("T3", size=24)
+        av.Margin = Thickness(0, 0, 9, 0)
+        av.VerticalAlignment = VerticalAlignment.Center
         Grid.SetColumn(av, 0)
         row.Children.Add(av)
 
-        bubble = Border()
-        bubble.Background      = SolidColorBrush(Color.FromRgb(255, 255, 255))
-        bubble.CornerRadius    = CornerRadius(3, 8, 8, 8)
-        bubble.Padding         = Thickness(14, 10, 14, 10)
-        bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))  # #BDC3C7
-        bubble.BorderThickness = Thickness(1)
-        bubble.HorizontalAlignment = HorizontalAlignment.Left
-
         dots = TextBlock()
-        dots.Text      = u"● ● ●"
-        dots.FontSize  = 12
-        dots.Foreground = SolidColorBrush(Color.FromRgb(127, 140, 141))  # #7F8C8D
-        
+        dots.Text       = u"● ● ●"
+        dots.FontSize   = 12.5
+        dots.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+        dots.Foreground = _tb('Muted')
+        dots.VerticalAlignment = VerticalAlignment.Center
+
         self._typing_text_block = dots
 
-        bubble.Child = dots
-        Grid.SetColumn(bubble, 1)
-        row.Children.Add(bubble)
+        Grid.SetColumn(dots, 1)
+        row.Children.Add(dots)
         return row
 
 
@@ -2906,7 +3213,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _slash_highlight(self):
         """Paint the highlighted popup row. UI THREAD."""
         from System.Windows.Media import Brushes, SolidColorBrush, Color
-        sel_bg = SolidColorBrush(Color.FromRgb(0xF1, 0xF5, 0xF9))
+        sel_bg = _tb('SelectedBg')
         for i, row in enumerate(self._slash_rows):
             row.Background = sel_bg if i == self._slash_sel \
                 else Brushes.Transparent
@@ -3018,7 +3325,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             lead.Text = icon
             lead.FontFamily = FontFamily(u"Segoe MDL2 Assets")
             lead.FontSize = 11
-            lead.Foreground = SolidColorBrush(Color.FromRgb(0x71, 0x71, 0x7A))
+            lead.Foreground = _tb('Muted')
             lead.VerticalAlignment = VerticalAlignment.Center
             lead.Margin = Thickness(0, 1, 8, 0)
         if lead is not None:
@@ -3031,7 +3338,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         t.FontSize = 12
         t.FontFamily = FontFamily(u"Hanken Grotesk")
         t.FontWeight = System.Windows.FontWeights.SemiBold
-        t.Foreground = SolidColorBrush(Color.FromRgb(0x18, 0x18, 0x1B))
+        t.Foreground = _tb('Ink')
         t.TextTrimming = TextTrimming.CharacterEllipsis
         body.Children.Add(t)
         if subtitle:
@@ -3039,7 +3346,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             st.Text = subtitle
             st.FontSize = 10.5
             st.FontFamily = FontFamily(u"Hanken Grotesk")
-            st.Foreground = SolidColorBrush(Color.FromRgb(0x71, 0x71, 0x7A))
+            st.Foreground = _tb('Muted')
             st.TextTrimming = TextTrimming.CharacterEllipsis
             st.Margin = Thickness(0, 1, 0, 0)
             body.Children.Add(st)
@@ -3051,7 +3358,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             chk.Text = u""
             chk.FontFamily = FontFamily(u"Segoe MDL2 Assets")
             chk.FontSize = 11
-            chk.Foreground = SolidColorBrush(Color.FromRgb(0x3B, 0x82, 0xF6))
+            chk.Foreground = _tb('Blue')
             chk.VerticalAlignment = VerticalAlignment.Center
             chk.Margin = Thickness(10, 0, 0, 0)
             Grid.SetColumn(chk, 2)
@@ -3060,7 +3367,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         row.Child = g
 
         if hover:
-            hover_bg = SolidColorBrush(Color.FromRgb(0xF4, 0xF4, 0xF6))
+            hover_bg = _tb('IconHoverBg')
 
             def _enter(s, ev):
                 row.Background = hover_bg
@@ -3079,7 +3386,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         from System.Windows.Media import SolidColorBrush, Color
         sep = Border()
         sep.Height = 1
-        sep.Background = SolidColorBrush(Color.FromRgb(0xF1, 0xF1, 0xF3))
+        sep.Background = _tb('Divider')
         sep.Margin = Thickness(6, 5, 6, 5)
         return sep
 
@@ -3094,11 +3401,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if meta:
                 self.project_chip_text.Text = meta.get('name') or u"Project"
                 self.project_chip_text.Foreground = SolidColorBrush(
-                    Color.FromRgb(0x1D, 0x4E, 0xD8))
+                    _theme_color('Accent'))
             else:
                 self.project_chip_text.Text = u"Project"
                 self.project_chip_text.Foreground = SolidColorBrush(
-                    Color.FromRgb(0x52, 0x52, 0x5B))
+                    _theme_color('Muted'))
         except Exception as ex:
             logger.debug("_update_composer_chips project error: {}".format(ex))
         try:
@@ -3261,11 +3568,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
         _font  = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-        _ink   = SolidColorBrush(Color.FromRgb(24, 24, 27))     # #18181B
-        _muted = SolidColorBrush(Color.FromRgb(113, 113, 122))  # #71717A
-        _faint = SolidColorBrush(Color.FromRgb(161, 161, 170))  # #A1A1AA
-        _blue  = SolidColorBrush(Color.FromRgb(59, 130, 246))   # #3B82F6
-        _red   = SolidColorBrush(Color.FromRgb(239, 68, 68))    # #EF4444
+        _ink   = _tb('Ink')     # #18181B
+        _muted = _tb('Muted')  # #71717A
+        _faint = _tb('Faint')  # #A1A1AA
+        _blue  = _tb('Blue')   # #3B82F6
+        _red   = _tb('Danger')    # #EF4444
 
         def _tb(text, size=12, fg=None, bold=False, wrap=True, margin=None):
             t = TextBlock()
@@ -3302,7 +3609,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         def _sep():
             b = Border()
             b.Height = 1
-            b.Background = SolidColorBrush(Color.FromRgb(241, 245, 249))
+            b.Background = _tb('SelectedBg')
             b.Margin = Thickness(0, 14, 0, 14)
             host.Children.Add(b)
 
@@ -3697,17 +4004,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if confirm:
                 self.action_mode_text.Text = u"Ask before edits"
                 self.action_mode_text.Foreground = SolidColorBrush(
-                    Color.FromRgb(0x1D, 0x4E, 0xD8))
+                    _theme_color('Accent'))
                 self.action_mode_icon.Data = Geometry.Parse(_SHIELD)
                 self.action_mode_icon.Stroke = SolidColorBrush(
-                    Color.FromRgb(0x3B, 0x82, 0xF6))
+                    _theme_color('Blue'))
             else:
                 self.action_mode_text.Text = u"Auto"
                 self.action_mode_text.Foreground = SolidColorBrush(
-                    Color.FromRgb(0x52, 0x52, 0x5B))
+                    _theme_color('Muted'))
                 self.action_mode_icon.Data = Geometry.Parse(_ZAP)
                 self.action_mode_icon.Stroke = SolidColorBrush(
-                    Color.FromRgb(0x71, 0x71, 0x7A))
+                    _theme_color('Muted'))
         except Exception as ex:
             logger.debug("_update_action_mode_chip error: {}".format(ex))
 
@@ -3990,8 +4297,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
             raw = self.chat_input.Text.strip()
             attached = list(self._attached_files)   # snapshot
 
+            # Read-and-clear: the echo suppression set by "Try again" is a
+            # ONE-SHOT for this call. Left on the instance it would survive
+            # every early return below (empty input, busy queue) and silently
+            # swallow the next real message the user typed.
+            suppress_echo = self._suppress_user_echo
+            self._suppress_user_echo = False
+
             # Must have text OR attachments
             if not raw and not attached:
+                self._retry_target_row = None
                 return
 
             # Language of THIS turn steers every string the assistant emits
@@ -4095,10 +4410,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._last_raw = raw or u"[attached documents]"
 
             # ── Show user message in chat ──────────────────────────────────────
+            # A "Try again" re-sends the SAME prompt, so the message is already
+            # on screen — echoing it again would grow a wall of duplicates.
             display_text     = raw
             attachment_note  = summarize_attachments(attached) if attached else None
-            self._append_user_message(display_text, attachment_note=attachment_note)
+            if not suppress_echo:
+                # A normal send also drops any stale retry target, so an
+                # abandoned "Try again" can never capture an unrelated answer.
+                self._retry_target_row = None
+                self._append_user_message(display_text,
+                                          attachment_note=attachment_note)
             # History/LLM context still gets plain text — no raw icon glyph.
+            # A retry records the prompt again on purpose: the conversation
+            # must keep alternating user/assistant roles (Anthropic rejects two
+            # assistant turns in a row), and "…user X, assistant Y, user X" is
+            # exactly the shape that asks the model to answer X afresh.
             history_text = (u"{}\n[attached: {}]".format(display_text, attachment_note)
                             if attachment_note else display_text)
             self._add_to_history("user", history_text)
@@ -6414,13 +6740,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from System.Windows.Media import SolidColorBrush, Color, FontFamily
 
             card = Border()
-            card.Background      = SolidColorBrush(Color.FromRgb(248, 250, 252))  # #F8FAFC
-            card.BorderBrush     = SolidColorBrush(Color.FromRgb(226, 232, 240))  # #E2E8F0
+            card.Background      = _tb('SelectedBg')  # #F8FAFC
+            card.BorderBrush     = _tb('CardBorder')
             card.BorderThickness = Thickness(1)
             card.CornerRadius    = CornerRadius(8)
             card.Padding         = Thickness(12, 8, 12, 8)
             # Left margin lines the card up with bot bubbles (avatar 36 + 10).
-            card.Margin          = Thickness(46, 0, 60, 8)
+            card.Margin          = Thickness(0, 0, 8, 10)
 
             panel = StackPanel()
 
@@ -6431,7 +6757,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             status.Text       = u""   # MDL2 Sync — running
             status.FontFamily = FontFamily(u"Segoe MDL2 Assets")
             status.FontSize   = 12
-            status.Foreground = SolidColorBrush(Color.FromRgb(59, 130, 246))      # #3B82F6
+            status.Foreground = _tb('Blue')      # #3B82F6
             status.Margin     = Thickness(0, 1, 8, 0)
 
             title = TextBlock()
@@ -6439,12 +6765,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             title.FontFamily = FontFamily(u"Consolas")
             title.FontSize   = 12
             title.FontWeight = System.Windows.FontWeights.SemiBold
-            title.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))          # #0F172A
+            title.Foreground = _tb('Ink')          # #0F172A
 
             dur = TextBlock()
             dur.Text       = u"running…"
             dur.FontSize   = 11
-            dur.Foreground = SolidColorBrush(Color.FromRgb(148, 163, 184))         # #94A3B8
+            dur.Foreground = _tb('Faint')         # #94A3B8
             dur.Margin     = Thickness(8, 1, 0, 0)
 
             head.Children.Add(status)
@@ -6461,14 +6787,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             args_tb = TextBlock()
             args_tb.Text         = args_s
             args_tb.FontSize     = 11
-            args_tb.Foreground   = SolidColorBrush(Color.FromRgb(100, 116, 139))   # #64748B
+            args_tb.Foreground   = _tb('Muted')   # #64748B
             args_tb.TextWrapping = TextWrapping.Wrap
             args_tb.Margin       = Thickness(20, 2, 0, 0)
             panel.Children.Add(args_tb)
 
             result_tb = TextBlock()
             result_tb.FontSize     = 11
-            result_tb.Foreground   = SolidColorBrush(Color.FromRgb(51, 65, 85))    # #334155
+            result_tb.Foreground   = _tb('BotText')    # #334155
             result_tb.TextWrapping = TextWrapping.Wrap
             result_tb.Margin       = Thickness(20, 3, 0, 0)
             result_tb.Visibility   = Visibility.Collapsed
@@ -6493,10 +6819,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             status = handle["status"]
             if ok:
                 status.Text       = u""   # MDL2 CheckMark
-                status.Foreground = SolidColorBrush(Color.FromRgb(16, 185, 129))   # #10B981
+                status.Foreground = _tb('Success')   # #10B981
             else:
                 status.Text       = u""   # MDL2 Cancel
-                status.Foreground = SolidColorBrush(Color.FromRgb(239, 68, 68))    # #EF4444
+                status.Foreground = _tb('Danger')    # #EF4444
 
             handle["dur"].Text = u"{0:.1f}s".format(seconds)
 
@@ -6528,7 +6854,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         tb = TextBlock()
                         tb.Text           = label
                         tb.FontSize       = 11
-                        tb.Foreground     = SolidColorBrush(Color.FromRgb(59, 130, 246))  # #3B82F6
+                        tb.Foreground     = _tb('Blue')  # #3B82F6
                         tb.TextDecorations = TextDecorations.Underline
                         tb.Cursor         = Cursors.Hand
                         tb.Margin         = Thickness(0, 0, 10, 0)
@@ -6725,7 +7051,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             card.BorderThickness = Thickness(1)
             card.CornerRadius    = CornerRadius(8)
             card.Padding         = Thickness(12, 9, 12, 10)
-            card.Margin          = Thickness(34, 0, 60, 10)
+            card.Margin          = Thickness(0, 0, 8, 12)
 
             panel = StackPanel()
 
@@ -6973,7 +7299,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         card.BorderThickness = Thickness(1)
         card.CornerRadius    = CornerRadius(8)
         card.Padding         = Thickness(12, 10, 12, 10)
-        card.Margin          = Thickness(46, 0, 60, 8)
+        card.Margin          = Thickness(0, 0, 8, 10)
 
         panel = StackPanel()
 
@@ -6999,7 +7325,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         body.Text         = u"`{}` — {}".format(name, args_s)
         body.FontSize     = 11.5
         body.TextWrapping = TextWrapping.Wrap
-        body.Foreground   = SolidColorBrush(Color.FromRgb(51, 65, 85))         # #334155
+        body.Foreground   = _tb('BotText')         # #334155
         body.Margin       = Thickness(0, 4, 0, 8)
         panel.Children.Add(body)
 
@@ -7008,7 +7334,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         status_tb = TextBlock()
         status_tb.FontSize   = 11.5
-        status_tb.Foreground = SolidColorBrush(Color.FromRgb(100, 116, 139))   # #64748B
+        status_tb.Foreground = _tb('Muted')   # #64748B
         status_tb.Margin     = Thickness(10, 5, 0, 0)
         status_tb.Visibility = Visibility.Collapsed
 
@@ -7026,9 +7352,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return b
 
         ok_btn = _mk_btn(u"Confirm" if viet else u"Confirm",
-                         Color.FromRgb(239, 68, 68), Color.FromRgb(255, 255, 255))
+                         _theme_color('Danger'), _theme_color('CardBg'))
         no_btn = _mk_btn(u"Cancel" if viet else u"Cancel",
-                         Color.FromRgb(241, 245, 249), Color.FromRgb(15, 23, 42))
+                         _theme_color('SelectedBg'), _theme_color('Ink'))
 
         def _seal(msg):
             try:
@@ -7152,12 +7478,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
         self._live_avatar_spins = []
 
-    def _make_avatar(self, letter, _unused_start=None, _unused_end=None):
+    def _make_avatar(self, letter, size=36):
         """Create a circular avatar showing the tool's real icon.png.
 
         Falls back to a plain initials badge (BatchOut blue #3498DB) only if
-        the icon file can't be loaded — the app must never crash a chat
-        bubble over a missing/locked icon asset.
+        the icon file can't be loaded — the app must never crash a chat row
+        over a missing/locked icon asset.
         """
         from System.Windows.Controls import Border, TextBlock
         from System.Windows import Thickness, CornerRadius
@@ -7165,17 +7491,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
         from System.Windows import HorizontalAlignment, VerticalAlignment
 
         av = Border()
-        av.Width = 36
-        av.Height = 36
-        av.CornerRadius = CornerRadius(18)
+        av.Width = size
+        av.Height = size
+        av.CornerRadius = CornerRadius(size / 2.0)
         av.Margin = Thickness(0, 2, 10, 0)
         av.VerticalAlignment = VerticalAlignment.Top
 
         # Spin the avatar ONLY while the assistant is thinking (user request
-        # 2026-07-22, replacing the earlier permanent rotation): a bubble
-        # created during a busy turn spins, and _set_busy(False) freezes
-        # every live spin — so a moving icon always means "working right
-        # now". 30fps cap keeps concurrent animations cheap.
+        # 2026-07-22, replacing the earlier permanent rotation). Since replies
+        # went bubble-less the only avatar left is the one in the typing row,
+        # which exists exactly for the duration of a busy turn — so a moving
+        # mark still means "working right now", and _set_busy(False) freezing
+        # live spins remains the belt-and-braces stop. 30fps cap keeps the
+        # animation cheap.
         if getattr(self, '_busy', False):
             try:
                 from System.Windows.Media import RotateTransform
@@ -7235,8 +7563,311 @@ class T3LabAssistantWindow(forms.WPFWindow):
         text_block.Inlines.Add(icon_run)
         text_block.Inlines.Add(Run(u"  "))
 
+    # ─── Claude-style message actions ────────────────────────────────────────
+    # Line-art glyphs for the icon row that sits under every assistant reply.
+    # Same geometry language as the composer icons (1.5px round-capped strokes
+    # on a 24x24 viewbox), so the whole surface reads as one icon set.
+
+    _ACT_COPY  = (u"M8 8h11a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2Z "
+                  u"M4 16a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2")
+    _ACT_CHECK = u"M20 6 9 17l-5-5"
+    _ACT_RETRY = u"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8 M3 3v5h5"
+    _ACT_UP    = (u"M7 10v12 M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4"
+                  u"a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z")
+    _ACT_DOWN  = (u"M17 14V2 M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20"
+                  u"a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z")
+    _ACT_PREV  = u"M15 18l-6-6 6-6"
+    _ACT_NEXT  = u"M9 18l6-6-6-6"
+
+    def _make_action_icon(self, data, tooltip, handler, token='IconFg'):
+        """One muted icon button for the message action row."""
+        from System.Windows.Controls import Button
+        from System.Windows.Shapes import Path
+        from System.Windows.Media import Geometry, Stretch, PenLineCap, PenLineJoin
+
+        p = Path()
+        p.Data             = Geometry.Parse(data)
+        p.Stroke           = _tb(token)
+        p.StrokeThickness  = 1.5
+        p.StrokeStartLineCap = PenLineCap.Round
+        p.StrokeEndLineCap   = PenLineCap.Round
+        p.StrokeLineJoin     = PenLineJoin.Round
+        p.Width  = 13.5
+        p.Height = 13.5
+        p.Stretch = Stretch.Uniform
+
+        btn = Button()
+        try:
+            btn.Style = self.Resources["MsgActionBtn"]
+        except Exception:
+            pass
+        btn.Content = p
+        btn.ToolTip = tooltip
+        if handler is not None:
+            btn.Click += handler
+        return btn
+
+    def _make_message_actions(self, row):
+        """The icon row under an assistant reply — copy · retry · 👍 · 👎 · ‹ n/m ›.
+
+        Reads its state from ``row.Tag`` (a plain dict), which is where the
+        reply's text and any regenerated versions live. IronPython cannot add
+        attributes to CLR objects, so ``Tag`` is the carrier.
+
+        The version arrows only render once a row actually HAS more than one
+        version (i.e. after Try again produced an alternative), matching how
+        the reference UI hides "1/1".
+        """
+        from System.Windows.Controls import StackPanel, Orientation, TextBlock
+        from System.Windows import Thickness, VerticalAlignment
+
+        state = row.Tag or {}
+        versions = state.get('versions') or []
+        idx      = state.get('index', 0)
+
+        bar = StackPanel()
+        bar.Orientation = Orientation.Horizontal
+        bar.Margin = Thickness(-4, 2, 0, 0)
+
+        bar.Children.Add(self._make_action_icon(
+            self._ACT_COPY, u"Copy", self._msg_copy_clicked))
+        bar.Children.Add(self._make_action_icon(
+            self._ACT_RETRY, u"Try again", self._msg_retry_clicked))
+
+        liked = state.get('vote')
+        bar.Children.Add(self._make_action_icon(
+            self._ACT_UP, u"Good response", self._msg_vote_up_clicked,
+            token=('Accent' if liked == 'up' else 'IconFg')))
+        bar.Children.Add(self._make_action_icon(
+            self._ACT_DOWN, u"Bad response", self._msg_vote_down_clicked,
+            token=('Accent' if liked == 'down' else 'IconFg')))
+
+        if len(versions) > 1:
+            prev_btn = self._make_action_icon(
+                self._ACT_PREV, u"Previous version", self._msg_prev_clicked)
+            prev_btn.IsEnabled = idx > 0
+            prev_btn.Margin = Thickness(4, 0, 0, 0)
+            bar.Children.Add(prev_btn)
+
+            counter = TextBlock()
+            counter.Text = u"{} / {}".format(idx + 1, len(versions))
+            counter.FontSize = 10.5
+            counter.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
+            counter.Foreground = _tb('Faint')
+            counter.VerticalAlignment = VerticalAlignment.Center
+            counter.Margin = Thickness(1, 0, 1, 0)
+            bar.Children.Add(counter)
+
+            next_btn = self._make_action_icon(
+                self._ACT_NEXT, u"Next version", self._msg_next_clicked)
+            next_btn.IsEnabled = idx < len(versions) - 1
+            bar.Children.Add(next_btn)
+
+        return bar
+
+    @staticmethod
+    def _owning_reply_row(sender):
+        """Walk up from a clicked action icon to the reply row that owns it."""
+        from System.Windows.Media import VisualTreeHelper
+        node = sender
+        for _ in range(12):
+            try:
+                node = VisualTreeHelper.GetParent(node)
+            except Exception:
+                return None
+            if node is None:
+                return None
+            tag = getattr(node, 'Tag', None)
+            if isinstance(tag, dict) and 'versions' in tag:
+                return node
+        return None
+
+    def _refresh_reply_row(self, row):
+        """Re-render a reply row's body + action bar from its Tag state."""
+        from System.Windows.Controls import TextBlock
+        from System.Windows import TextWrapping
+
+        state = row.Tag or {}
+        versions = state.get('versions') or [u""]
+        idx = max(0, min(state.get('index', 0), len(versions) - 1))
+        text = versions[idx]
+
+        host = state.get('host')
+        if host is None:
+            return
+        host.Children.Clear()
+        try:
+            body = self._render_md_blocks(text, icon=state.get('icon'),
+                                          icon_color=state.get('icon_color'))
+        except Exception:
+            body = TextBlock()
+            body.FontSize     = 13.5
+            body.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+            body.Foreground   = _tb('BotText')
+            body.TextWrapping = TextWrapping.Wrap
+            body.LineHeight   = 21
+            body.Text         = text
+        host.Children.Add(body)
+        host.Children.Add(self._make_message_actions(row))
+
+    # ─── Action handlers ─────────────────────────────────────────────────────
+
+    def _msg_copy_clicked(self, sender, e):
+        """Copy the reply to the clipboard, with the icon flashing a check."""
+        row = self._owning_reply_row(sender)
+        if row is None:
+            return
+        state = row.Tag or {}
+        versions = state.get('versions') or [u""]
+        text = versions[max(0, min(state.get('index', 0), len(versions) - 1))]
+        try:
+            from System.Windows import Clipboard
+            try:
+                Clipboard.SetText(text)
+            except Exception:
+                # Another process can hold the clipboard open; SetDataObject
+                # with copy=True retries through the shell instead of throwing.
+                Clipboard.SetDataObject(text, True)
+        except Exception as ex:
+            logger.debug("copy to clipboard failed: {}".format(ex))
+            return
+
+        try:
+            from System.Windows.Media import Geometry
+            from System.Windows.Threading import DispatcherTimer
+            from System import TimeSpan
+            glyph = sender.Content
+            glyph.Data = Geometry.Parse(self._ACT_CHECK)
+            glyph.Stroke = _tb('Success')
+            sender.ToolTip = u"Copied"
+
+            timer = DispatcherTimer()
+            timer.Interval = TimeSpan.FromMilliseconds(1200)
+
+            def _restore(s, ev):
+                timer.Stop()
+                try:
+                    glyph.Data = Geometry.Parse(self._ACT_COPY)
+                    glyph.Stroke = _tb('IconFg')
+                    sender.ToolTip = u"Copy"
+                except Exception:
+                    pass
+            timer.Tick += _restore
+            timer.Start()
+        except Exception:
+            pass
+
+    def _msg_retry_clicked(self, sender, e):
+        """Regenerate this reply from the prompt that produced it.
+
+        The reply is NOT replaced: the new answer is filed as another version
+        of the same row, so the arrows let the user compare instead of losing
+        the first answer. The user's own message is not echoed a second time.
+        """
+        if self._busy:
+            return
+        row = self._owning_reply_row(sender)
+        if row is None:
+            return
+        prompt = (row.Tag or {}).get('prompt') or u""
+        if not prompt.strip():
+            self._append_bot_message(
+                u"Nothing to try again — the original request for this reply "
+                u"is no longer in this session.",
+                icon=_ICON_INFO, icon_color=_ICON_SLATE)
+            return
+        self._retry_target_row  = row
+        self._suppress_user_echo = True
+        try:
+            self.chat_input.Text = prompt
+            self._process_input()
+        except Exception as ex:
+            self._retry_target_row   = None
+            self._suppress_user_echo = False
+            logger.debug("retry failed: {}".format(ex))
+
+    def _msg_vote_up_clicked(self, sender, e):
+        self._record_vote(sender, 'up')
+
+    def _msg_vote_down_clicked(self, sender, e):
+        self._record_vote(sender, 'down')
+
+    def _record_vote(self, sender, vote):
+        """Latch a thumbs up/down on a reply and write it to the activity log.
+
+        Clicking the latched side again clears the vote, so a mis-click is
+        undoable rather than permanent.
+        """
+        row = self._owning_reply_row(sender)
+        if row is None:
+            return
+        state = row.Tag or {}
+        state['vote'] = None if state.get('vote') == vote else vote
+        row.Tag = state
+        self._refresh_reply_row(row)
+        if state['vote']:
+            versions = state.get('versions') or [u""]
+            text = versions[max(0, min(state.get('index', 0), len(versions) - 1))]
+            preview = u" ".join((text or u"").split())[:200]
+            self._log_activity(u"Feedback: {} — “{}”".format(
+                u"good response" if vote == 'up' else u"bad response", preview))
+
+    def _msg_prev_clicked(self, sender, e):
+        self._step_version(sender, -1)
+
+    def _msg_next_clicked(self, sender, e):
+        self._step_version(sender, +1)
+
+    def _step_version(self, sender, delta):
+        row = self._owning_reply_row(sender)
+        if row is None:
+            return
+        state = row.Tag or {}
+        versions = state.get('versions') or []
+        idx = state.get('index', 0) + delta
+        if idx < 0 or idx >= len(versions):
+            return
+        state['index'] = idx
+        row.Tag = state
+        self._refresh_reply_row(row)
+
+    def _adopt_retry_version(self, text, icon=None, icon_color=None):
+        """File `text` as another version of the row Try again was pressed on.
+
+        Returns True when the text was adopted (so the caller must NOT also
+        append a new row). Any failure returns False and the reply lands as a
+        normal new message — a broken regenerate must never swallow an answer.
+        """
+        row = getattr(self, '_retry_target_row', None)
+        if row is None:
+            return False
+        self._retry_target_row = None
+        try:
+            state = row.Tag or {}
+            versions = state.get('versions')
+            if not isinstance(versions, list):
+                return False
+            versions.append(text)
+            state['versions']   = versions
+            state['index']      = len(versions) - 1
+            state['icon']       = icon
+            state['icon_color'] = icon_color
+            state['vote']       = None
+            row.Tag = state
+            self._refresh_reply_row(row)
+            self._scroll_to_bottom()
+            return True
+        except Exception as ex:
+            logger.debug("_adopt_retry_version failed: {}".format(ex))
+            return False
+
     def _append_user_message(self, text, attachment_note=None):
-        """Add a right-aligned user bubble (BatchOut #3498DB).
+        """Add the user's message as a right-aligned warm-grey bubble.
+
+        The bubble is the only filled surface in the transcript — assistant
+        replies sit directly on the paper background (see _append_bot_message),
+        which is the split the reference chat UI uses: colour marks *who is
+        speaking*, and only one of the two speakers needs marking.
 
         attachment_note, if given, renders as its own line with a minimal
         Attach glyph — replaces the old baked-in "📎 filename" text so the
@@ -7246,23 +7877,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
             from System.Windows.Documents import Run, LineBreak
             from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength, HorizontalAlignment
-            from System.Windows.Media import SolidColorBrush, Color
 
             row = Grid()
-            row.Margin = Thickness(60, 0, 0, 10)
+            row.Margin = Thickness(40, 4, 0, 14)
             col0 = ColumnDefinition()
             col0.Width = GridLength(1, System.Windows.GridUnitType.Star)
             row.ColumnDefinitions.Add(col0)
 
             bubble = Border()
-            bubble.Background   = SolidColorBrush(Color.FromRgb(52, 152, 219))   # #3498DB
-            bubble.CornerRadius = CornerRadius(8, 3, 8, 8)
-            bubble.Padding      = Thickness(12, 8, 12, 8)
+            bubble.Background   = _tb('UserBubbleBg')
+            bubble.CornerRadius = CornerRadius(14)
+            bubble.Padding      = Thickness(15, 10, 15, 10)
             bubble.HorizontalAlignment = HorizontalAlignment.Right
 
             msg_text = TextBlock()
-            msg_text.FontSize    = 13
-            msg_text.Foreground  = SolidColorBrush(Color.FromRgb(255, 255, 255))
+            msg_text.FontSize    = 13.5
+            msg_text.FontFamily  = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
+            msg_text.Foreground  = _tb('UserBubbleText')
+            msg_text.LineHeight  = 21
             msg_text.TextWrapping = TextWrapping.Wrap
             if text:
                 msg_text.Inlines.Add(Run(text))
@@ -7341,7 +7973,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     r.FontWeight = FontWeights.SemiBold
                 if c_idx % 2 == 1:              # inside `code`
                     r.FontFamily = _WpfFontFamily(u"Consolas")
-                    r.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))
+                    r.Foreground = _tb('CodeFg')
                 text_block.Inlines.Add(r)
 
     @staticmethod
@@ -7387,11 +8019,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 from System.Windows.Media import SolidColorBrush, Color
                 bar = Run()
                 bar.Text       = u'▏ '   # ▏ left one-eighth block
-                bar.Foreground = SolidColorBrush(Color.FromRgb(148, 163, 184))  # #94A3B8
+                bar.Foreground = _tb('Faint')
                 text_block.Inlines.Add(bar)
                 quote = Run()
                 quote.Text       = stripped[2:]
-                quote.Foreground = SolidColorBrush(Color.FromRgb(100, 116, 139))  # #64748B
+                quote.Foreground = _tb('Muted')
                 quote.FontStyle  = System.Windows.FontStyles.Italic
                 text_block.Inlines.Add(quote)
                 continue
@@ -7457,9 +8089,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if ncols < 2:
                 return None
 
-            _line  = Color.FromRgb(226, 232, 240)   # #E2E8F0 divider
-            _inkhd = Color.FromRgb(15, 23, 42)      # #0F172A header ink
-            _ink   = Color.FromRgb(39, 39, 42)      # #27272A body ink
+            _line  = _theme_color('Divider')
+            _inkhd = _theme_color('Ink')
+            _ink   = _theme_color('BotText')
 
             g = Grid()
             for _c in range(ncols):
@@ -7479,7 +8111,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         1 if ri < len(rows) - 1 else 0)
                     cell.Padding = Thickness(8, 4, 8, 4)
                     if is_head:
-                        cell.Background = SolidColorBrush(Color.FromRgb(248, 250, 252))  # #F8FAFC
+                        cell.Background = _tb('SelectedBg')
 
                     tb = TextBlock()
                     tb.FontSize     = 12 if is_head else 12.5
@@ -7516,7 +8148,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         tb.Text       = u"\n".join(code_lines).rstrip(u"\n")
         tb.FontFamily = FontFamily(u"Consolas")
         tb.FontSize   = 12
-        tb.Foreground = SolidColorBrush(Color.FromRgb(15, 23, 42))    # #0F172A
+        tb.Foreground = _tb('Ink')
 
         sv = ScrollViewer()
         sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
@@ -7524,8 +8156,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         sv.Content = tb
 
         card = Border()
-        card.Background      = SolidColorBrush(Color.FromRgb(241, 245, 249))  # #F1F5F9
-        card.BorderBrush     = SolidColorBrush(Color.FromRgb(226, 232, 240))  # #E2E8F0
+        card.Background      = _tb('CodeBg')
+        card.BorderBrush     = _tb('CardBorder')  # #E2E8F0
         card.BorderThickness = Thickness(1)
         card.CornerRadius    = CornerRadius(6)
         card.Padding         = Thickness(10, 8, 10, 8)
@@ -7540,7 +8172,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         from System.Windows.Media import SolidColorBrush, Color
         hr = Border()
         hr.Height     = 1
-        hr.Background  = SolidColorBrush(Color.FromRgb(226, 232, 240))  # #E2E8F0
+        hr.Background  = _tb('Divider')
         hr.Margin      = Thickness(0, 8, 0, 8)
         return hr
 
@@ -7564,7 +8196,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tb = TextBlock()
             tb.FontSize     = 13
             tb.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-            tb.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))   # #27272A
+            tb.Foreground   = _tb('BotText')
             tb.TextWrapping = TextWrapping.Wrap
             tb.LineHeight   = 20
             return tb
@@ -7642,44 +8274,57 @@ class T3LabAssistantWindow(forms.WPFWindow):
             panel.Children.Add(_new_tb())
         return panel
 
-    def _append_bot_message(self, text, icon=None, icon_color=None):
-        """Add a left-aligned bot bubble with avatar and basic markdown rendering.
+    def _append_bot_message(self, text, icon=None, icon_color=None, actions=True):
+        """Add an assistant reply — plain text on the paper, no bubble.
 
-        icon/icon_color: optional Segoe MDL2 glyph + Lumina RGB tuple rendered
-        before the text, in its own FontFamily run — the minimal-icon
-        replacement for the old baked-in colored emoji prefixes.
+        Only the user's turn carries a filled bubble; the assistant's answer
+        renders straight onto the chat background, full width, with the
+        Claude-style action row (copy · try again · 👍 · 👎) underneath. In a
+        docked pane barely 320px wide, dropping the bubble border and the
+        avatar gutter is not only the reference look — it is the difference
+        between a readable answer and a column of two-word lines.
+
+        icon/icon_color: optional Segoe MDL2 glyph + RGB tuple rendered before
+        the text, in its own FontFamily run — the minimal-icon replacement for
+        the old baked-in colored emoji prefixes.
         """
-        # Never render an empty bubble — a blank assistant row looks like a
-        # broken reply (observed with agent turns whose text was consumed
+        # Never render an empty reply — a blank assistant row looks like a
+        # broken answer (observed with agent turns whose text was consumed
         # elsewhere).
         if not (text or u"").strip() and icon is None:
             return
+
+        # A pending "Try again" folds this answer into the row it was fired
+        # from instead of stacking a second copy underneath it.
+        if getattr(self, '_retry_target_row', None) is not None:
+            if self._adopt_retry_version(text, icon=icon, icon_color=icon_color):
+                return
+
         try:
-            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
-            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
-            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Controls import TextBlock, Grid, StackPanel, ColumnDefinition
+            from System.Windows import Thickness, TextWrapping, GridLength
 
             row = Grid()
-            row.Margin = Thickness(0, 0, 60, 10)
-            col_av = ColumnDefinition()
-            col_av.Width = GridLength.Auto
+            row.Margin = Thickness(0, 0, 8, 16)
             col_msg = ColumnDefinition()
             col_msg.Width = GridLength(1, System.Windows.GridUnitType.Star)
-            row.ColumnDefinitions.Add(col_av)
             row.ColumnDefinitions.Add(col_msg)
 
-            # Avatar
-            av = self._make_avatar("T3")
-            Grid.SetColumn(av, 0)
-            row.Children.Add(av)
+            host = StackPanel()
+            Grid.SetColumn(host, 0)
+            row.Children.Add(host)
 
-            # Bubble
-            bubble = Border()
-            bubble.Background      = SolidColorBrush(Color.FromRgb(255, 255, 255))
-            bubble.CornerRadius    = CornerRadius(3, 8, 8, 8)
-            bubble.Padding         = Thickness(14, 10, 14, 10)
-            bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))
-            bubble.BorderThickness = Thickness(1)
+            # State for the action row: the text itself, any regenerated
+            # versions, and the prompt that produced it (for Try again).
+            row.Tag = {
+                'versions':   [text],
+                'index':      0,
+                'icon':       icon,
+                'icon_color': icon_color,
+                'vote':       None,
+                'host':       host,
+                'prompt':     getattr(self, '_last_raw', u"") or u"",
+            }
 
             # Block renderer: paragraphs + real table grids. Falls back to a
             # plain TextBlock if anything in the renderer throws.
@@ -7687,16 +8332,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 content = self._render_md_blocks(text, icon=icon, icon_color=icon_color)
             except Exception:
                 content = TextBlock()
-                content.FontSize     = 13
+                content.FontSize     = 13.5
                 content.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-                content.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))   # #27272A
+                content.Foreground   = _tb('BotText')
                 content.TextWrapping = TextWrapping.Wrap
-                content.LineHeight   = 20
+                content.LineHeight   = 21
                 content.Text         = text
+            host.Children.Add(content)
 
-            bubble.Child = content
-            Grid.SetColumn(bubble, 1)
-            row.Children.Add(bubble)
+            if actions:
+                try:
+                    host.Children.Add(self._make_message_actions(row))
+                except Exception as ex:
+                    logger.debug("message actions skipped: {}".format(ex))
+
             self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
@@ -7705,53 +8354,45 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ─── Live streaming bubble ────────────────────────────────────────────────
 
     def _begin_stream_bubble(self):
-        """Create an empty bot bubble that will be filled token-by-token.
+        """Create an empty assistant row that will be filled token-by-token.
 
-        Stores references in self._stream_row / self._stream_tb. UI thread only.
+        Same bubble-less shape as a finished reply (see _append_bot_message),
+        so text does not visibly re-flow when streaming ends and the markdown
+        renderer takes over. Stores references in self._stream_row /
+        self._stream_tb / self._stream_host. UI thread only.
         """
         try:
-            from System.Windows.Controls import Border, TextBlock, Grid, ColumnDefinition
-            from System.Windows import Thickness, CornerRadius, TextWrapping, GridLength
-            from System.Windows.Media import SolidColorBrush, Color
+            from System.Windows.Controls import TextBlock, Grid, StackPanel, ColumnDefinition
+            from System.Windows import Thickness, TextWrapping, GridLength
 
             row = Grid()
-            row.Margin = Thickness(0, 0, 60, 10)
-            col_av = ColumnDefinition()
-            col_av.Width = GridLength.Auto
+            row.Margin = Thickness(0, 0, 8, 16)
             col_msg = ColumnDefinition()
             col_msg.Width = GridLength(1, System.Windows.GridUnitType.Star)
-            row.ColumnDefinitions.Add(col_av)
             row.ColumnDefinitions.Add(col_msg)
 
-            av = self._make_avatar("T3")
-            Grid.SetColumn(av, 0)
-            row.Children.Add(av)
-
-            bubble = Border()
-            bubble.Background      = SolidColorBrush(Color.FromRgb(255, 255, 255))
-            bubble.CornerRadius    = CornerRadius(3, 8, 8, 8)
-            bubble.Padding         = Thickness(14, 10, 14, 10)
-            bubble.BorderBrush     = SolidColorBrush(Color.FromRgb(189, 195, 199))
-            bubble.BorderThickness = Thickness(1)
+            host = StackPanel()
+            Grid.SetColumn(host, 0)
+            row.Children.Add(host)
 
             tb = TextBlock()
-            tb.FontSize     = 13
+            tb.FontSize     = 13.5
             tb.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-            tb.Foreground   = SolidColorBrush(Color.FromRgb(39, 39, 42))
+            tb.Foreground   = _tb('BotText')
             tb.TextWrapping = TextWrapping.Wrap
-            tb.LineHeight   = 20
+            tb.LineHeight   = 21
+            host.Children.Add(tb)
 
-            bubble.Child = tb
-            Grid.SetColumn(bubble, 1)
-            row.Children.Add(bubble)
             self.chat_history_panel.Children.Add(row)
-            self._stream_row = row
-            self._stream_tb  = tb
+            self._stream_row  = row
+            self._stream_tb   = tb
+            self._stream_host = host
             self._scroll_to_bottom()
         except Exception as ex:
             logger.debug("_begin_stream_bubble error: {}".format(ex))
-            self._stream_row = None
-            self._stream_tb  = None
+            self._stream_row  = None
+            self._stream_tb   = None
+            self._stream_host = None
 
     def _finalize_stream_bubble(self, text):
         """Re-render the live bubble with full markdown once streaming is done.
@@ -7764,10 +8405,30 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tb = self._stream_tb
             if tb is None:
                 return
-            try:
-                bubble = tb.Parent          # the bubble Border hosting the stream
-                bubble.Child = self._render_md_blocks(text)
-            except Exception:
+            row  = self._stream_row
+            host = getattr(self, '_stream_host', None)
+
+            # A pending "Try again" folds the streamed answer into the row it
+            # was fired from — the throwaway stream row goes away entirely.
+            if getattr(self, '_retry_target_row', None) is not None:
+                if self._adopt_retry_version(text):
+                    self._remove_stream_bubble()
+                    return
+
+            if host is not None and row is not None:
+                # Promote the streaming row to a full reply row: markdown body
+                # + the action icons, identical to _append_bot_message output.
+                row.Tag = {
+                    'versions':   [text],
+                    'index':      0,
+                    'icon':       None,
+                    'icon_color': None,
+                    'vote':       None,
+                    'host':       host,
+                    'prompt':     getattr(self, '_last_raw', u"") or u"",
+                }
+                self._refresh_reply_row(row)
+            else:
                 tb.Inlines.Clear()
                 try:
                     self._build_md_inlines(tb, text)
@@ -7775,22 +8436,30 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     tb.Text = text
             self._scroll_to_bottom()
         except Exception:
-            pass
+            # Last resort: leave the plain streamed text in place rather than
+            # losing an answer the user already watched arrive.
+            try:
+                if self._stream_tb is not None:
+                    self._stream_tb.Text = text
+            except Exception:
+                pass
 
     def _remove_stream_bubble(self):
-        """Discard the live bubble (used when an action renders its own reply)."""
+        """Discard the live row (used when an action renders its own reply)."""
         try:
             if self._stream_row is not None:
                 self.chat_history_panel.Children.Remove(self._stream_row)
         except Exception:
             pass
-        self._stream_row = None
-        self._stream_tb  = None
+        self._stream_row  = None
+        self._stream_tb   = None
+        self._stream_host = None
 
     def _clear_stream_refs(self):
-        """Detach references so the bubble persists but is no longer 'live'."""
-        self._stream_row = None
-        self._stream_tb  = None
+        """Detach references so the row persists but is no longer 'live'."""
+        self._stream_row  = None
+        self._stream_tb   = None
+        self._stream_host = None
 
     def _stream_llm_turn(self, provider, router, history, system_prompt,
                          query, max_tokens=1200, **kwargs):
