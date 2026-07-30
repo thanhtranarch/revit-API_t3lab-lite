@@ -334,8 +334,8 @@ class ProjectStore(object):
             from Intelligence.knowledge import context_digest
             st = context_digest.read_context_stats(path)
         except Exception:
-            st = {'files': 0, 'skipped': 0, 'llm': 0, 'updated': '',
-                  'path': '', 'exists': False}
+            st = {'files': 0, 'skipped': 0, 'llm': 0, 'pages': 0,
+                  'updated': '', 'path': '', 'exists': False}
         with self._meta_lock:
             self._dir_stats_cache[path] = (now, st)
         return st

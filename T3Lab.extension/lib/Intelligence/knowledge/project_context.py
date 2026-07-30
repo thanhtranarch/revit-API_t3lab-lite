@@ -33,58 +33,73 @@ import time
 OUT_NAME = 'PROJECT_CONTEXT.md'
 
 _TOP_K = 8
-_EXCERPT_CHARS = 1100
-_MAX_CTX_CHARS = 12000
+_EXCERPT_CHARS = 2400
+_MAX_CTX_CHARS = 40000
+# A discipline-code table alone is ~700 tokens, so the old 700-token cap cut
+# answers off mid-table. Same root cause as the CONTEXT.md truncation.
+_MAX_TOKENS = 3000
 
 
 # (section title, retrieval query). The query is deliberately keyword-rich:
 # BM25 needs the vocabulary that actually appears in BIM standards, while the
 # semantic channel handles paraphrases.
 BIM_TOPICS = [
-    (u"Đặt tên file & model",
+    (u"File & model naming",
      u"file naming convention model file name code prefix discipline code "
      u"project code originator volume level type role number example"),
-    (u"Đánh số bản vẽ & tài liệu",
+    (u"Drawing & document numbering",
      u"drawing number sheet number document numbering series revision "
      u"suitability status code P01 C01 S0 S1 A1 example"),
-    (u"Cấu trúc thư mục & CDE",
+    (u"Folder structure & CDE",
      u"folder structure directory project BIM folder central model link model "
      u"CDE common data environment WIP shared published archived"),
-    (u"Cấu trúc model & phân chia",
+    (u"Model structure & splitting",
      u"model structure model split zone volume strategy discipline model "
      u"federated central file worksharing unit"),
-    (u"Workset & worksharing",
+    (u"Worksets & worksharing",
      u"workset naming worksets worksharing allocation link workset grid level"),
-    (u"LOD / LOI / mức độ chi tiết",
+    (u"LOD / LOI / level of detail",
      u"LOD level of development level of detail LOI LOIN 100 200 300 350 400 "
      u"500 stage matrix element"),
-    (u"Clash & phối hợp",
+    (u"Clash detection & coordination",
      u"clash detection matrix tolerance clash report coordination meeting "
      u"priority hard soft clearance"),
-    (u"Quy trình giao nộp & submission",
+    (u"Submission & delivery workflow",
      u"submission workflow deliverable milestone approval RFA submit review "
      u"process step responsible"),
-    (u"Định dạng xuất & giao nộp file",
+    (u"Export formats & deliverables",
      u"export format PDF DWG IFC NWD file format version deliverable naming "
      u"sheet size plot"),
-    (u"Thuộc tính & tham số đối tượng",
+    (u"Object properties & parameters",
      u"parameter attribute shared parameter object attribute matrix property "
      u"COBie data field"),
 ]
 
+_NO_INFO = u'NO_USEFUL_INFO'
+
 _SYSTEM = (
-    u"Bạn là BIM Manager, đang lập bản tra cứu tiêu chuẩn cho MỘT dự án.\n"
-    u"NGUYÊN TẮC BẮT BUỘC:\n"
-    u"- CHỈ dùng thông tin trong các TRÍCH ĐOẠN được cung cấp. Tuyệt đối không "
-    u"suy diễn, không thêm kiến thức ngoài, không lấy chuẩn của công ty khác.\n"
-    u"- Sau MỖI quy tắc, ghi chỉ số nguồn dạng [n] đúng với trích đoạn đã dùng.\n"
-    u"- Giữ nguyên mã, ký hiệu, con số, ví dụ y hệt bản gốc (không dịch mã).\n"
-    u"- Nếu các trích đoạn KHÔNG chứa thông tin cho chủ đề này, trả lời đúng "
-    u"một dòng: KHONG_CO_THONG_TIN\n"
-    u"- Nếu hai tài liệu mâu thuẫn, nêu cả hai kèm [n] và ưu tiên bản có "
-    u"version/ngày mới hơn.\n"
-    u"- Trình bày gạch đầu dòng hoặc bảng markdown, ngắn gọn, tối đa ~220 từ. "
-    u"Không mở bài, không kết luận."
+    u"You are a BIM Manager compiling a standards quick-reference for ONE "
+    u"project.\n"
+    u"MANDATORY RULES:\n"
+    u"- Use ONLY the information in the EXCERPTS provided. Never infer, never "
+    u"add outside knowledge, never import another company's standard.\n"
+    u"- After EACH rule, cite the source as [n], matching the excerpt used.\n"
+    u"- Reproduce codes, symbols, numbers and examples exactly as written "
+    u"(never translate a code).\n"
+    u"- Write in ENGLISH even when the excerpts are in another language, but "
+    u"keep codes, identifiers and proper names verbatim.\n"
+    u"- If the excerpts hold NOTHING on this topic, reply with exactly one "
+    u"line: " + _NO_INFO + u"\n"
+    u"- Where two documents conflict, give both with their [n] and prefer the "
+    u"newer version/date.\n"
+    u"- Reproduce code tables IN FULL — never abbreviate, never write '...', "
+    u"never stop partway. Completeness matters more than brevity.\n"
+    u"- NEVER guess what a code stands for. Give a meaning only where the "
+    u"excerpts state it.\n"
+    u"- Omit placeholder lines ('Not specified', 'Not mentioned', 'None') "
+    u"entirely — an absent heading already means absent.\n"
+    u"- Markdown bullets or tables. Length is not capped. No preamble, no "
+    u"conclusion."
 )
 
 
@@ -92,9 +107,9 @@ def _fmt_excerpts(hits):
     lines = []
     for i, h in enumerate(hits, start=1):
         page = h.get('page') or 0
-        where = u"{}{}".format(h.get('file') or u'?',
-                               u" — trang {}".format(page) if page else u"")
-        lines.append(u"[{}] {}:\n{}".format(
+        where = u"{0}{1}".format(h.get('file') or u'?',
+                                 u" — page {0}".format(page) if page else u"")
+        lines.append(u"[{0}] {1}:\n{2}".format(
             i, where, (h.get('text') or u'')[:_EXCERPT_CHARS]))
     return u"\n\n".join(lines)
 
@@ -146,11 +161,19 @@ def build_project_context(store, chat_fn, embedder=None, topics=None,
             user = (u"CHỦ ĐỀ CẦN TỔNG HỢP: {}\n\nTRÍCH ĐOẠN TÀI LIỆU:\n{}"
                     .format(title, _fmt_excerpts(hits)[:_MAX_CTX_CHARS]))
             try:
-                answer = chat_fn(_SYSTEM, user, 700)
+                answer = chat_fn(_SYSTEM, user, _MAX_TOKENS)
             except Exception:
                 answer = None
         answer = (answer or u'').strip()
-        if not answer or 'KHONG_CO_THONG_TIN' in answer.upper().replace(' ', '_'):
+        try:
+            from Intelligence.knowledge.context_digest import strip_filler
+            answer = strip_filler(answer)
+        except Exception:
+            pass
+        flat = answer.upper().replace(' ', '_')
+        # old Vietnamese sentinel still honoured for prompts/caches predating
+        # the switch to English context files
+        if not answer or _NO_INFO in flat or 'KHONG_CO_THONG_TIN' in flat:
             continue
         found += 1
         src = _sources_line(hits, used_only=True, text=answer)
@@ -159,25 +182,28 @@ def build_project_context(store, chat_fn, embedder=None, topics=None,
         for h in hits:
             if h.get('file'):
                 all_sources.add(h['file'])
-        blocks.append(u"## {}\n\n{}\n\n*Nguồn:* {}\n".format(title, answer, src))
+        blocks.append(u"## {0}\n\n{1}\n\n*Sources:* {2}\n".format(
+            title, answer, src))
 
     header = [
         u"# Project BIM Context",
         u"",
-        u"> Tổng hợp tự động từ TOÀN BỘ tài liệu đã link vào project "
-        u"(tìm kiếm hybrid từ khoá + ngữ nghĩa, trả lời chỉ dựa trên trích "
-        u"đoạn, có dẫn nguồn trang). **Không sửa tay** — sẽ bị ghi đè khi "
-        u"quét lại. Luôn mở file gốc để xác nhận trước khi áp dụng.",
+        u"> Consolidated automatically from ALL documents linked to this "
+        u"project (hybrid keyword + semantic retrieval; answers drawn only "
+        u"from the retrieved excerpts, with page citations). **Do not edit by "
+        u"hand** — a rescan overwrites this file. Always open the source "
+        u"document to confirm before applying anything here.",
         u"",
-        u"- Chủ đề có dữ liệu: **{}/{}**".format(found, len(topics)),
-        u"- Tài liệu được trích: **{}**".format(len(all_sources)),
-        u"- Cập nhật: {}".format(time.strftime('%Y-%m-%d %H:%M:%S')),
+        u"- Topics with data: **{0}/{1}**".format(found, len(topics)),
+        u"- Documents cited: **{0}**".format(len(all_sources)),
+        u"- Updated: {0}".format(time.strftime('%Y-%m-%d %H:%M:%S')),
         u"",
     ]
     if not blocks:
-        header.append(u"_Chưa trích được nội dung tiêu chuẩn nào. Kiểm tra "
-                      u"rằng thư mục đã được link và quét (Rescan), và tài "
-                      u"liệu có lớp text (PDF scan cần OCR)._")
+        header.append(u"_No standards content could be extracted. Check that "
+                      u"the folder is linked and scanned (Rescan), and see "
+                      u"the 'Documents that could NOT be read' section of "
+                      u"each folder's CONTEXT.md for per-file reasons._")
     return {
         'markdown': u"\n".join(header + blocks),
         'topics_found': found,

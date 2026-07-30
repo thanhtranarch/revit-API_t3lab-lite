@@ -132,26 +132,22 @@ class KnowledgeStore(object):
     def _extract_chunks(self, path):
         """Return (chunks, meta) for a file, or (None, reason) if unusable."""
         ext = os.path.splitext(path)[1].lower()
+        if ext not in INDEXABLE_EXTS:
+            return None, 'unsupported'
+        # Shared with context_digest via pdf_cache: a Rescan builds CONTEXT.md
+        # and then indexes the same folder, and reading + inflating 46 MB off
+        # an SMB share twice cost ~3 minutes of the wall clock for nothing.
+        from Intelligence.knowledge import pdf_cache
+        pages, reason = pdf_cache.get_pages(path)
+        if not pages:
+            return None, (reason or 'no_text')
         if ext == PDF_EXT:
-            from Intelligence import rag_processor
-            pages = rag_processor.extract_pdf_pages(path)
-            if not pages:
-                return None, 'no_text'
             partial = (len(pages) == 1 and pages[0][0] == 0)
             return chunker.chunk_pages(pages), {
                 'kind': 'pdf', 'pages': len(pages),
                 'status': 'partial' if partial else 'ok'}
-        if ext in TEXT_EXTS:
-            try:
-                with io.open(path, 'r', encoding='utf-8', errors='replace') as f:
-                    text = f.read()
-            except Exception:
-                return None, 'unreadable'
-            if not (text or '').strip():
-                return None, 'no_text'
-            return chunker.chunk_text(text), {
-                'kind': ext.lstrip('.'), 'pages': 1, 'status': 'ok'}
-        return None, 'unsupported'
+        return chunker.chunk_text(pages[0][1]), {
+            'kind': ext.lstrip('.'), 'pages': 1, 'status': 'ok'}
 
     def _index_one_locked(self, path, scope):
         """Extract + index a single file. Callers hold self._lock.

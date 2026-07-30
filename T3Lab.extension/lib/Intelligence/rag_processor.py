@@ -97,21 +97,44 @@ def extract_pdf_pages(pdf_path, max_pages=200):
         size = 0
     if size == 0 or size > MAX_PDF_BYTES:
         return []
+    return extract_pdf_pages_ex(pdf_path, max_pages)[0]
+
+
+def extract_pdf_pages_ex(pdf_path, max_pages=200):
+    """extract_pdf_pages plus a diagnosis: ([(page_no, text)], reason).
+
+    `reason` is '' on success, otherwise a human-readable cause taken from the
+    pure-Python parser ('encrypted and needs a user password', 'no text layer
+    (image-only - needs OCR)', ...). Collapsing every failure into "no text"
+    is what made an owner-password-protected manual look like a scan.
+    """
+    if not os.path.isfile(pdf_path):
+        return [], 'file not found'
+    try:
+        size = os.path.getsize(pdf_path)
+    except Exception:
+        size = 0
+    if size == 0:
+        return [], 'empty file (0 bytes)'
+    if size > MAX_PDF_BYTES:
+        return [], 'larger than the {0} MB limit'.format(
+            MAX_PDF_BYTES // (1024 * 1024))
 
     pages = _itextsharp_pages(pdf_path, max_pages)
     if pages:
-        return pages
+        return pages, ''
+    reason = ''
     try:
         from Intelligence.knowledge import pdf_text as _pt
-        pages = _pt.extract_pages(pdf_path, max_pages=max_pages)
+        pages, reason = _pt.extract_pages_ex(pdf_path, max_pages=max_pages)
         if pages:
-            return pages
-    except Exception:
-        pass
+            return pages, ''
+    except Exception as ex:
+        reason = 'parser error ({0})'.format(ex)
     text = _fallback_byte_scan(pdf_path)
     if text and _looks_like_text(text):
-        return [(0, text)]
-    return []
+        return [(0, text)], ''
+    return [], reason or 'no extractable text'
 
 
 # Very common words. Real prose is ~10-25% of these; compressed-binary noise

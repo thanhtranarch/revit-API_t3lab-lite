@@ -55,6 +55,27 @@ _RE_FONT_ENTRY = re.compile(br'/([A-Za-z0-9_.\-]+)\s+(\d+)\s+(\d+)\s+R')
 _RE_TOUNICODE = re.compile(br'/ToUnicode\s+(\d+)\s+(\d+)\s+R')
 _RE_RESOURCES_REF = re.compile(br'/Resources\s+(\d+)\s+(\d+)\s+R')
 
+# Indexing a bytearray yields an INT on both runtimes, but `int in b'...'` is a
+# TypeError on IronPython 2.7 ("'in <bytes>' requires string or bytes as left
+# operand, not int") while being perfectly legal on py3. That asymmetry silently
+# killed render_content() for EVERY page inside Revit — extract_pages() caught
+# the error per page and returned [], so every PDF looked like a scan with no
+# text layer. Compare against sets of ints instead: identical on both runtimes.
+_DELIMS = frozenset(bytearray(b' \t\r\n/[]<>(){}'))
+
+
+def _ascii(chunk):
+    """bytes/bytearray → native text, for numeric parsing.
+
+    `float(bytes(bytearray(b'12.5')))` works on py2 (bytes IS str) but raises
+    TypeError on py3 — the mirror image of the _DELIMS problem, which quietly
+    dropped every number and so wrecked the Td/Tm line-break logic there.
+    """
+    try:
+        return bytearray(chunk).decode('ascii', 'ignore')
+    except Exception:
+        return ''
+
 
 def _inflate(data):
     """zlib-inflate, tolerating raw-deflate and trailing junk. b'' on failure."""
@@ -71,11 +92,34 @@ def _inflate(data):
 class _Pdf(object):
     """Minimal object store for one PDF file."""
 
-    def __init__(self, raw):
+    def __init__(self, raw, password=b''):
         self.raw = bytearray(raw)
         self.objs = {}        # obj_num -> (body_bytes, stream_bytes_or_None)
+        self.crypt = None     # pdf_crypt.Decryptor when the file is encrypted
+        self.crypt_reason = ''
         self._scan_objects()
+        self._setup_crypt(password)
         self._expand_object_streams()
+
+    def _setup_crypt(self, password):
+        """Owner-password-protected PDFs encrypt every stream on disk; without
+        this the inflate yields noise and the file looks like an image-only
+        scan. Must run AFTER _scan_objects (the /Encrypt dict is itself
+        unencrypted and read through the object table) and BEFORE object
+        streams are expanded, since those streams need decrypting first."""
+        try:
+            from Intelligence.knowledge import pdf_crypt
+            dec = pdf_crypt.build(bytes(self.raw),
+                                  lambda n: self.objs.get(n, (b'', None))[0],
+                                  password=password)
+        except Exception:
+            return
+        if dec is None:
+            return
+        if dec.usable:
+            self.crypt = dec
+        else:
+            self.crypt_reason = dec.reason or 'encrypted'
 
     # ── object scanning ───────────────────────────────────────────────────
 
@@ -119,7 +163,7 @@ class _Pdf(object):
             body, stream = self.objs[num]
             if stream is None or br'/ObjStm' not in body:
                 continue
-            data = self._decode_stream(body, stream)
+            data = self._decode_stream(body, stream, num)
             if not data:
                 continue
             try:
@@ -140,9 +184,15 @@ class _Pdf(object):
                        if i + 3 < len(header) else len(data))
                 self.objs[onum] = (data[first + off:nxt], None)
 
-    def _decode_stream(self, body, stream):
+    def _decode_stream(self, body, stream, num=None):
+        """Decrypt (if needed) then inflate one stream. Order matters: the
+        compressed bytes are what got encrypted."""
         if not stream:
             return b''
+        if self.crypt is not None and num is not None \
+                and br'/Type/XRef' not in body.replace(b' ', b''):
+            # the cross-reference stream is never encrypted
+            stream = self.crypt.decrypt(stream, num)
         if br'/FlateDecode' in body:
             return _inflate(stream)
         return bytes(stream)
@@ -164,7 +214,7 @@ class _Pdf(object):
 
     def stream_of(self, num):
         body, stream = self.get(num)
-        return self._decode_stream(body, stream)
+        return self._decode_stream(body, stream, num)
 
     # ── page tree ─────────────────────────────────────────────────────────
 
@@ -390,7 +440,7 @@ def render_content(data, font_maps):
         # name /Xxx
         if c == 0x2F:
             j = i + 1
-            while j < n and buf[j] not in b' \t\r\n/[]<>(){}':
+            while j < n and buf[j] not in _DELIMS:
                 j += 1
             pending.append(('n', bytes(buf[i + 1:j])))
             i = j; continue
@@ -400,7 +450,7 @@ def render_content(data, font_maps):
             while j < n and ((0x30 <= buf[j] <= 0x39) or buf[j] in (0x2D, 0x2B, 0x2E)):
                 j += 1
             try:
-                pending.append(('#', float(bytes(buf[i:j]))))
+                pending.append(('#', float(_ascii(buf[i:j]))))
             except Exception:
                 pass
             i = j; continue
@@ -470,22 +520,34 @@ def render_content(data, font_maps):
 
 def extract_pages(path, max_pages=MAX_PAGES):
     """Return [(page_no, text)] for a PDF, or [] when nothing is extractable."""
+    return extract_pages_ex(path, max_pages=max_pages)[0]
+
+
+def extract_pages_ex(path, max_pages=MAX_PAGES, password=b''):
+    """extract_pages plus a diagnosis: ([(page_no, text)], reason).
+
+    `reason` is '' on success and otherwise says WHY nothing came out —
+    'encrypted and needs a user password', 'no text layer (image-only —
+    needs OCR)', 'not a PDF' … Callers surface it verbatim, because
+    "0 pages" alone sent us chasing OCR for a file that was merely
+    owner-password protected.
+    """
     try:
         with open(path, 'rb') as f:
             raw = f.read()
-    except Exception:
-        return []
+    except Exception as ex:
+        return [], 'cannot be read ({0})'.format(ex)
     if not raw[:1024].lstrip()[:5] == b'%PDF-' and b'%PDF-' not in raw[:1024]:
-        return []
+        return [], 'not a PDF (no %PDF- header)'
     try:
-        pdf = _Pdf(raw)
-    except Exception:
-        return []
-    pages = []
+        pdf = _Pdf(raw, password=password)
+    except Exception as ex:
+        return [], 'malformed PDF ({0})'.format(ex)
     try:
         nums = pdf.page_objects()
     except Exception:
-        return []
+        nums = []
+    pages = []
     for idx, num in enumerate(nums[:max_pages], start=1):
         try:
             txt = pdf.page_text(num)
@@ -493,4 +555,10 @@ def extract_pages(path, max_pages=MAX_PAGES):
             txt = ''
         if txt and txt.strip():
             pages.append((idx, txt.strip()))
-    return pages
+    if pages:
+        return pages, ''
+    if pdf.crypt_reason:
+        return [], pdf.crypt_reason
+    if not nums:
+        return [], 'no page objects found (damaged cross-reference table)'
+    return [], 'no text layer (image-only — needs OCR)'

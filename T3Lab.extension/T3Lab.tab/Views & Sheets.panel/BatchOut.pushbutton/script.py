@@ -24,6 +24,7 @@ import os
 import sys
 import clr
 import json
+import time
 from datetime import datetime
 from collections import defaultdict
 
@@ -90,6 +91,61 @@ except:
 # ==================================================
 logger = script.get_logger()
 output = script.get_output()
+
+
+def _build_view_type_labels():
+    """Display label per ViewType.
+
+    Built with getattr so a member missing from an older/newer Revit API can
+    never break module import. The first ten labels must keep their exact
+    wording — they are the hard-coded items of `view_type_filter` in the
+    UI-locked ExportManager.xaml.
+    """
+    labels = {}
+    for name, label in (
+            ("FloorPlan", "Floor Plan"),
+            ("CeilingPlan", "Ceiling Plan"),
+            ("Elevation", "Elevation"),
+            ("Section", "Section"),
+            ("ThreeD", "3D View"),
+            ("Schedule", "Schedule"),
+            ("DraftingView", "Drafting"),
+            ("Legend", "Legend"),
+            ("EngineeringPlan", "Engineering"),
+            ("AreaPlan", "Area Plan"),
+            ("Detail", "Detail"),
+            ("Rendering", "Rendering"),
+            ("Walkthrough", "Walkthrough"),
+            ("Report", "Report"),
+            ("ColumnSchedule", "Column Schedule"),
+            ("PanelSchedule", "Panel Schedule"),
+            ("CostReport", "Cost Report"),
+            ("LoadsReport", "Loads Report"),
+            ("PresureLossReport", "Pressure Loss Report"),
+    ):
+        member = getattr(ViewType, name, None)
+        if member is not None:
+            labels[member] = label
+    return labels
+
+
+def _build_non_exportable_view_types():
+    """ViewTypes that are not user output and must stay out of the Views list:
+    Revit's internal/browser pseudo-views and sheets (sheets have their own
+    mode). Everything else — legends, schedules, detail views, renderings — is a
+    real view a user can ask BatchOut to export, so it must be listed instead of
+    being silently dropped."""
+    types = []
+    for name in ("Internal", "ProjectBrowser", "SystemBrowser",
+                 "Undefined", "DrawingSheet"):
+        member = getattr(ViewType, name, None)
+        if member is not None:
+            types.append(member)
+    return set(types)
+
+
+VIEW_TYPE_LABELS = _build_view_type_labels()
+NON_EXPORTABLE_VIEW_TYPES = _build_non_exportable_view_types()
 
 
 def detect_persistent_engine():
@@ -195,18 +251,7 @@ class SheetItem(forms.Reactive):
 class ViewItem(forms.Reactive):
     """Represents a view item in the list - optimized for performance."""
 
-    _VIEW_TYPE_MAP = {
-        ViewType.FloorPlan: "Floor Plan",
-        ViewType.CeilingPlan: "Ceiling Plan",
-        ViewType.Elevation: "Elevation",
-        ViewType.Section: "Section",
-        ViewType.ThreeD: "3D View",
-        ViewType.Schedule: "Schedule",
-        ViewType.DraftingView: "Drafting",
-        ViewType.Legend: "Legend",
-        ViewType.EngineeringPlan: "Engineering",
-        ViewType.AreaPlan: "Area Plan",
-    }
+    _VIEW_TYPE_MAP = VIEW_TYPE_LABELS
 
     def __init__(self, view, is_selected=False, lazy=False):
         self.View = view
@@ -504,6 +549,17 @@ class ExportManagerWindow(forms.WPFWindow):
             self._pending_crash = self._promote_crash_marker()
             self._skipped_fatal = []
             self._safe_mode = False
+            # Known-fatal items are exported anyway by default — a silently
+            # missing file is worse than a crash the user was warned about.
+            # Only an explicit choice in the pre-export prompt turns this on.
+            self._skip_fatal = False
+            # Every selected item+format that produced NO file, with the reason.
+            # Surfaced in the completion dialog so an export can never go
+            # missing quietly.
+            self._failed_items = []
+            # Filenames already written during THIS run (see _reserve_filename).
+            self._used_filenames = set()
+            self._verify_misses = 0
 
             # Performance optimization: caches for batch loading
             self._titleblock_size_cache = {}  # Sheet ID -> (width_mm, height_mm)
@@ -1381,8 +1437,9 @@ class ExportManagerWindow(forms.WPFWindow):
     # reliable lever. The fatal is uncatchable from Python, so instead we leave a
     # durable marker naming the sheet+format we are about to hand to Revit. If the
     # process dies, that marker survives; the next session promotes it into a
-    # crash history and skips that one combination so the rest of the batch can
-    # finish instead of walking into the same wall again.
+    # crash history, which is used to queue that combination LAST and to offer
+    # safe mode for it — not to drop it. Skipping is only ever the user's
+    # explicit choice in the pre-export prompt.
 
     def _read_crash_marker(self):
         """Return the in-flight crash-marker dict from a prior aborted export."""
@@ -1478,9 +1535,12 @@ class ExportManagerWindow(forms.WPFWindow):
 
     def _is_known_fatal(self, sheet_number, fmt):
         """True if this document+sheet+format has already hard-crashed Revit.
-        Such a combination is skipped rather than retried: the crash is inside
-        Revit's own renderer, so a retry costs the user the whole session and
-        the rest of the batch. Clearing the history file re-enables it."""
+
+        Such a combination is still exported — it is queued last, safe mode is
+        offered for it, and the user is warned up front — because a file that
+        goes missing without a word is worse than a crash they chose to risk.
+        Skipping only happens if the user explicitly asks for it in that prompt.
+        """
         try:
             title = self.doc.Title
             for entry in self._crash_history:
@@ -1517,10 +1577,31 @@ class ExportManagerWindow(forms.WPFWindow):
             logger.debug("Could not read bad-geometry list: {}".format(ex))
             return []
 
+    # Categories that carry the curved, spline-driven solids behind the
+    # "Singular point in SilSolver::eval ... Hermite surface" crashes on the
+    # SPH bath sheets. Used by the 'categories' rung when the Bad Geometry
+    # check has not pinned down individual elements — and it is the only
+    # mitigation short of dropping the whole link that reaches geometry living
+    # INSIDE a link, since linked element ids cannot be passed to HideElements.
+    SUSPECT_CATEGORIES = (
+        DB.BuiltInCategory.OST_PlumbingFixtures,
+        DB.BuiltInCategory.OST_SpecialityEquipment,
+        DB.BuiltInCategory.OST_GenericModel,
+        DB.BuiltInCategory.OST_Casework,
+        DB.BuiltInCategory.OST_Furniture,
+    )
+
     # Mitigations applied cumulatively, weakest-but-most-faithful first. Each
     # rung preserves less of the drawing, so we only climb when the rung below
     # has been PROVEN to still crash (recorded in the crash history).
-    SAFE_LADDER = ('elements', 'links', 'coarse')
+    #
+    # 'wireframe' is deliberately last but is the one most likely to work: every
+    # fatal signature in the journals — facetFaceWithSpecifiedAlgorithm,
+    # Silhouette moved outside face envelope, Cannot compute silhouette edges,
+    # SilSolver::eval — comes from hidden-line removal and face tessellation,
+    # which the Wireframe display style does not perform. It also hides nothing,
+    # so every remaining line still reaches the sheet.
+    SAFE_LADDER = ('elements', 'categories', 'links', 'coarse', 'wireframe')
 
     def _next_safe_level(self, sheet_number, fmt):
         """Rung to start on for this sheet+format: one above the highest rung
@@ -1635,6 +1716,38 @@ class ExportManagerWindow(forms.WPFWindow):
                     except Exception as ex:
                         logger.debug("HideElements failed on {}: {}".format(view.Id, ex))
 
+        elif rung == 'categories':
+            # Category-level hide. Two reasons this rung exists between the
+            # surgical and the blunt ones:
+            #   * it reaches geometry inside a RevitLink — linked element ids
+            #     belong to another document and cannot be passed to
+            #     HideElements, but category visibility does propagate;
+            #   * it still works when the Bad Geometry check has never been run.
+            # Prefer the categories the check actually named; fall back to the
+            # known-suspect list only when it has nothing to say.
+            cat_ids = self._bad_geometry_category_ids()
+            if not cat_ids:
+                cat_ids = []
+                for bic in self.SUSPECT_CATEGORIES:
+                    try:
+                        category = DB.Category.GetCategory(self.doc, bic)
+                        if category is not None:
+                            cat_ids.append(category.Id)
+                    except Exception:
+                        continue
+            for view in views:
+                for cat_id in cat_ids:
+                    try:
+                        if not view.CanCategoryBeHidden(cat_id):
+                            continue
+                        if view.GetCategoryHidden(cat_id):
+                            continue
+                        view.SetCategoryHidden(cat_id, True)
+                        changed += 1
+                    except Exception as ex:
+                        logger.debug("SetCategoryHidden failed on {}: {}".format(
+                            view.Id, ex))
+
         elif rung == 'links':
             # Every crash journal shows RVT-link graphics regenerating right
             # before death, so drop the links out of the render entirely.
@@ -1670,7 +1783,53 @@ class ExportManagerWindow(forms.WPFWindow):
                 except Exception as ex:
                     logger.debug("DetailLevel not settable on {}: {}".format(view.Id, ex))
 
+        elif rung == 'wireframe':
+            # Last resort, and the one that targets the crash most directly:
+            # Wireframe skips hidden-line removal and face tessellation, which
+            # is where every fatal signature in the journals originates. Unlike
+            # every rung above it this hides NOTHING — the drawing loses its
+            # hidden-line cleanup, not its content.
+            for view in views:
+                try:
+                    if view.DisplayStyle != DB.DisplayStyle.Wireframe:
+                        view.DisplayStyle = DB.DisplayStyle.Wireframe
+                        changed += 1
+                except Exception as ex:
+                    logger.debug("DisplayStyle not settable on {}: {}".format(view.Id, ex))
+
         return changed
+
+    def _bad_geometry_category_ids(self):
+        """Category ids of the elements the Bad Geometry check flagged for THIS
+        model. Lets the 'categories' rung hide exactly the categories that are
+        actually implicated rather than the generic suspect list."""
+        ids = []
+        try:
+            if not os.path.exists(self.BAD_GEOMETRY_FILE):
+                return ids
+            with open(self.BAD_GEOMETRY_FILE, 'r') as f:
+                data = json.load(f)
+            if data.get('doc') and data.get('doc') != self.doc.Title:
+                return ids
+            seen = set()
+            for entry in data.get('elements', []):
+                eid = entry.get('id')
+                if eid is None:
+                    continue
+                try:
+                    element = self.doc.GetElement(make_eid(eid))
+                    if element is None or element.Category is None:
+                        continue
+                    cat_id = element.Category.Id
+                    key = str(cat_id)
+                    if key not in seen:
+                        seen.add(key)
+                        ids.append(cat_id)
+                except Exception:
+                    continue
+        except Exception as ex:
+            logger.debug("Could not read bad-geometry categories: {}".format(ex))
+        return ids
 
     def _end_safe_mode(self, group):
         """Always roll back — safe mode must never leave the model modified."""
@@ -1681,25 +1840,62 @@ class ExportManagerWindow(forms.WPFWindow):
         except Exception as ex:
             logger.error("Safe-mode rollback FAILED: {} — undo manually".format(ex))
 
-    def _ask_safe_mode(self, selected_items):
-        """If any selected sheet+format is known-fatal, ask ONCE up front
-        whether to attempt safe mode or just skip them."""
-        self._safe_mode = False
-        RUNG_LABEL = {
-            'elements': "hide the exact elements the Bad Geometry check flagged",
-            'links':    "hide the RVT links in those views",
-            'coarse':   "drop those views to Coarse detail level",
-        }
-        boxes = (("DWG", self.export_dwg), ("PDF", self.export_pdf),
-                 ("DGN", self.export_dgn), ("DWF", self.export_dwf),
-                 ("NWC", self.export_nwd), ("IMG", self.export_img))
+    def _format_checkboxes(self):
+        """(format, checkbox) pairs for the formats crash history tracks."""
+        return (("DWG", self.export_dwg), ("PDF", self.export_pdf),
+                ("DGN", self.export_dgn), ("DWF", self.export_dwf),
+                ("NWC", self.export_nwd), ("IMG", self.export_img))
 
-        recoverable, exhausted, skip_only = [], [], []
+    def _is_risky_item(self, item):
+        """True if this item hard-crashed Revit before in any checked format."""
+        label = getattr(item, 'SheetNumber', None)
+        if not label:
+            return False
+        for fmt, box in self._format_checkboxes():
+            try:
+                if box.IsChecked and self._is_known_fatal(label, fmt):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def _order_risky_last(self, items):
+        """Move items with a crash history to the END of the queue.
+
+        They are still exported — nothing is dropped by default — but if Revit
+        does die on one, every other selected sheet/view is already on disk.
+        """
+        safe, risky = [], []
+        for item in items:
+            (risky if self._is_risky_item(item) else safe).append(item)
+        if risky:
+            logger.warning("{} item(s) with a crash history queued last: {}".format(
+                len(risky), ", ".join(str(getattr(i, 'SheetNumber', '?')) for i in risky)))
+        return safe + risky
+
+    def _ask_safe_mode(self, selected_items):
+        """If any selected item+format is known-fatal, ask ONCE up front how to
+        handle it. Both export choices export everything; only an explicit
+        "Skip them" leaves files out, and skipped items are then listed in the
+        completion dialog."""
+        self._safe_mode = False
+        self._skip_fatal = False
+        RUNG_LABEL = {
+            'elements':   "hide the exact elements the Bad Geometry check flagged",
+            'categories': "hide the categories carrying the bad geometry "
+                          "(also reaches geometry inside links)",
+            'links':      "hide the RVT links in those views",
+            'coarse':     "drop those views to Coarse detail level",
+            'wireframe':  "switch those views to Wireframe — hides nothing, but "
+                          "skips the hidden-line pass that crashes",
+        }
+
+        recoverable, exhausted, no_safe_mode = [], [], []
         for item in selected_items:
             number = getattr(item, 'SheetNumber', None)
             if not number:
                 continue
-            for fmt, box in boxes:
+            for fmt, box in self._format_checkboxes():
                 try:
                     if not box.IsChecked or not self._is_known_fatal(number, fmt):
                         continue
@@ -1707,7 +1903,7 @@ class ExportManagerWindow(forms.WPFWindow):
                     continue
                 if fmt not in ("DWG", "PDF"):
                     # Safe mode is only wired into these two loops.
-                    skip_only.append("{} ({})".format(number, fmt))
+                    no_safe_mode.append("{} ({})".format(number, fmt))
                 elif self._safe_ladder_exhausted(number, fmt):
                     exhausted.append("{} ({})".format(number, fmt))
                 else:
@@ -1715,31 +1911,45 @@ class ExportManagerWindow(forms.WPFWindow):
                     recoverable.append("{} ({}) -> {}".format(
                         number, fmt, RUNG_LABEL.get(rung, rung)))
 
-        if not (recoverable or exhausted or skip_only):
+        if not (recoverable or exhausted or no_safe_mode):
             return
 
-        if not recoverable:
-            message = "These crashed Revit before and will be SKIPPED:\n  {}".format(
-                "\n  ".join(exhausted + skip_only))
-            if exhausted:
-                message += ("\n\nEvery safe-mode mitigation has already been tried "
-                            "on these and Revit still crashed. The geometry itself "
-                            "has to be fixed.")
-            forms.alert(message, title="Sheets that crashed Revit")
-            return
+        message = "These crashed Revit's exporter on an earlier run:\n  {}".format(
+            "\n  ".join(recoverable + exhausted + no_safe_mode))
+        message += ("\n\nThey are queued LAST, so everything else is already on "
+                    "disk before Revit gets to them.")
+        if exhausted or no_safe_mode:
+            message += ("\n\nNo mitigation left for:\n  {}\n  (these go out at "
+                        "full fidelity — the geometry itself has to be fixed)".format(
+                            "\n  ".join(exhausted + no_safe_mode)))
+        if recoverable:
+            message += ("\n\nSafe mode applies the change above, exports, then "
+                        "rolls it back so your model is left untouched. Each rung "
+                        "is tried once; if it still crashes the next run "
+                        "escalates automatically.")
+        try:
+            if self.export_pdf.IsChecked and self.combine_pdf.IsChecked:
+                message += ("\n\nNote: Combine PDF puts every sheet in ONE native "
+                            "call, so a crash there loses the whole combined file. "
+                            "Uncheck Combine to export these individually.")
+        except Exception:
+            pass
 
-        message = "These crashed Revit before. Safe mode will next try:\n  {}".format(
-            "\n  ".join(recoverable))
-        if exhausted or skip_only:
-            message += "\n\nSkipped (no mitigation left):\n  {}".format(
-                "\n  ".join(exhausted + skip_only))
-        message += ("\n\nSafe mode applies the change, exports, then rolls it back "
-                    "so your model is left untouched. Each rung is only tried once "
-                    "-- if it still crashes, the next run escalates automatically."
-                    "\n\nTry safe mode? (No = skip them as before)")
+        SAFE_OPT = "Export them with safe mode (recommended)"
+        FULL_OPT = "Export them at full fidelity"
+        SKIP_OPT = "Skip them (files will be missing)"
+        options = ([SAFE_OPT] if recoverable else []) + [FULL_OPT, SKIP_OPT]
 
-        self._safe_mode = bool(forms.alert(
-            message, title="Sheets that crashed Revit", yes=True, no=True))
+        choice = forms.alert(message, title="Items that crashed Revit before",
+                             options=options)
+        if choice == SKIP_OPT:
+            self._skip_fatal = True
+        elif choice == FULL_OPT:
+            self._safe_mode = False
+        else:
+            # SAFE_OPT, or the dialog was dismissed (returns False): default to
+            # the safest choice that still exports everything.
+            self._safe_mode = bool(recoverable)
 
     def _note_skipped_fatal(self, sheet_number, fmt):
         """Record + surface a sheet skipped because it previously killed Revit."""
@@ -1776,7 +1986,8 @@ class ExportManagerWindow(forms.WPFWindow):
             same_doc = (not pc.get('doc')) or pc.get('doc') == self.doc.Title
             if same_doc:
                 msg = ("Revit crashed last time on sheet '{}' during {} export. "
-                       "That sheet+format will be SKIPPED this run.").format(sheet, fmt)
+                       "It will be exported LAST this run — you'll be asked "
+                       "whether to use safe mode.").format(sheet, fmt)
             else:
                 msg = "Previous export crashed on sheet '{}' ({}, a different model).".format(
                     sheet, fmt)
@@ -1789,6 +2000,122 @@ class ExportManagerWindow(forms.WPFWindow):
                 pass
         except Exception as ex:
             logger.debug("Could not surface previous crash: {}".format(ex))
+
+    # ── Nothing exports silently ───────────────────────────────────────────
+    # Two independent ways an item used to vanish without a word:
+    #   1. filename collision — Revit allows a Floor Plan and a Ceiling Plan to
+    #      both be named "Level 1", and a view-based naming pattern collapses
+    #      them onto one file, so the second export overwrote the first.
+    #   2. the verification check missing the file Revit actually wrote, which
+    #      only dropped the success count — but the same branch is now the one
+    #      that declares a failure, so it must not produce false negatives.
+
+    def _reset_run_state(self):
+        """Clear per-run bookkeeping (filenames used, failures recorded)."""
+        self._used_filenames = set()
+        self._failed_items = []
+        self._verify_misses = 0
+
+    def _reserve_filename(self, folder, base, ext):
+        """Return a filename in `folder` that no earlier item in this run has
+        already claimed, suffixing " (2)", " (3)", … on collision."""
+        if not hasattr(self, '_used_filenames'):
+            self._used_filenames = set()
+        base = base.strip() or "Unnamed"
+        candidate = base
+        counter = 1
+        while True:
+            key = os.path.join(folder, candidate + ext).lower()
+            if key not in self._used_filenames:
+                self._used_filenames.add(key)
+                if candidate != base:
+                    logger.warning(
+                        "Filename collision: '{}{}' was already written in this "
+                        "run — this item goes to '{}{}' instead.".format(
+                            base, ext, candidate, ext))
+                return candidate
+            counter += 1
+            candidate = "{} ({})".format(base, counter)
+
+    def _verify_export(self, expected_file, prev_mtime, started_at, ext):
+        """True when the export produced a file.
+
+        Falls back to looking for a file this run did not reserve that was
+        written after `started_at` — some Revit exporters decorate the name
+        themselves, and reporting a successful export as missing would be as
+        misleading as losing it.
+
+        Export() is synchronous, so the file is normally on disk before the
+        first check and the wait only covers sync lag. Once a couple of items in
+        a row have produced nothing, the wait is cut short: a format that is
+        failing across the board would otherwise add minutes of dead polling
+        over a large selection.
+        """
+        timeout = 0.5 if getattr(self, '_verify_misses', 0) >= 2 else 3.0
+        if self._wait_for_export_file(expected_file, prev_mtime, timeout):
+            self._verify_misses = 0
+            return True
+        try:
+            import glob as _glob
+            folder = os.path.dirname(expected_file)
+            for path in _glob.glob(os.path.join(folder, "*" + ext)):
+                if path.lower() in self._used_filenames:
+                    continue  # belongs to another item of this run
+                try:
+                    if os.path.getmtime(path) >= started_at - 1:
+                        logger.warning("'{}' landed as '{}' (Revit renamed it).".format(
+                            os.path.basename(expected_file), os.path.basename(path)))
+                        self._verify_misses = 0
+                        return True
+                except Exception:
+                    continue
+        except Exception as ex:
+            logger.debug("Export verification fallback failed: {}".format(ex))
+        self._verify_misses = getattr(self, '_verify_misses', 0) + 1
+        return False
+
+    def _note_failure(self, label, fmt, reason):
+        """Record + surface an item that produced no file."""
+        reason = str(reason)
+        if len(reason) > 160:
+            reason = reason[:157] + "..."
+        entry = "{} ({}) — {}".format(label, fmt, reason)
+        if entry not in self._failed_items:
+            self._failed_items.append(entry)
+        logger.error("NOT exported: {}".format(entry))
+        try:
+            self.update_export_item_progress(label, fmt, 0, "Failed")
+        except Exception:
+            pass
+
+    def _sync_item_labels(self, items, fmt):
+        """Refresh each row's cached sheet number / view name from Revit.
+
+        Per-item try/except on purpose: this used to be one bare loop around the
+        whole list, so a single unreadable row (deleted element, closed workset)
+        raised out of the export function and every other selected item was
+        dropped with nothing but a log line.
+        """
+        for item in items:
+            try:
+                if hasattr(item, 'Sheet'):
+                    item.SheetNumber = item.Sheet.SheetNumber
+                    item.SheetName = item.Sheet.Name
+                elif hasattr(item, 'View'):
+                    item.SheetNumber = item.View.Name
+                    item.ViewName = item.View.Name
+            except Exception as ex:
+                self._note_failure(str(getattr(item, 'SheetNumber', 'Unknown')),
+                                   fmt, "could not be read from the model: {}".format(ex))
+
+    def _element_of(self, item):
+        """(element, display_name) for a SheetItem or ViewItem; (None, label) if
+        the row is neither — which is itself reported, never skipped quietly."""
+        if hasattr(item, 'Sheet'):
+            return item.Sheet, item.Sheet.SheetNumber
+        if hasattr(item, 'View'):
+            return item.View, item.View.Name
+        return None, str(getattr(item, 'SheetNumber', 'Unknown'))
 
     def _wait_for_export_file(self, path, prev_mtime, timeout=8.0):
         """Poll for a freshly-written export file instead of globbing the whole
@@ -2047,23 +2374,47 @@ class ExportManagerWindow(forms.WPFWindow):
         self._lazy_load_init()
 
     def load_views(self):
-        """Load all views — Phase 1: instant display, Phase 2: chunked lazy loading."""
+        """Load all views — Phase 1: instant display, Phase 2: chunked lazy loading.
+
+        Collected with OfClass(View), NOT OfCategory(OST_Views): schedules sit
+        under OST_Schedules and several view kinds carry no category at all, so
+        the category filter hid them. The old isinstance whitelist
+        (ViewPlan/ViewSection/View3D/ViewSchedule/ViewDrafting) additionally
+        dropped every Legend view — they are plain `View` instances — even though
+        the Views filter dropdown offers a "Legend" entry. Both made views
+        silently un-exportable because they never appeared in the list.
+        """
         try:
             views_collector = FilteredElementCollector(self.doc)\
-                .OfCategory(BuiltInCategory.OST_Views)\
+                .OfClass(View)\
                 .WhereElementIsNotElementType()
 
             views = []
+            excluded = 0
             for v in views_collector:
-                if v.IsTemplate:
-                    continue
-                if isinstance(v, ViewSheet):
-                    continue
-                if not isinstance(v, (ViewPlan, ViewSection, View3D, ViewSchedule, ViewDrafting)):
-                    continue
-                views.append(v)
+                try:
+                    if v.IsTemplate:
+                        continue
+                    if isinstance(v, ViewSheet):
+                        continue  # sheets are handled by the Sheets mode
+                    if v.ViewType in NON_EXPORTABLE_VIEW_TYPES:
+                        excluded += 1
+                        continue
+                    # A revision schedule belongs to a titleblock, not to the
+                    # browser — it is not a standalone exportable view.
+                    if isinstance(v, ViewSchedule) and \
+                            getattr(v, 'IsTitleblockRevisionSchedule', False):
+                        excluded += 1
+                        continue
+                    views.append(v)
+                except Exception as view_ex:
+                    excluded += 1
+                    logger.debug("Skipping unreadable view: {}".format(view_ex))
 
             views.sort(key=lambda x: x.Name)
+            if excluded:
+                logger.debug("Views list: {} exportable, {} internal/system views "
+                             "excluded".format(len(views), excluded))
 
             # lazy=True: skip Phase/ViewTemplate lookups for instant display
             self.all_views = [ViewItem(view, False, lazy=True) for view in views]
@@ -3388,14 +3739,27 @@ class ExportManagerWindow(forms.WPFWindow):
             self.back_button.IsEnabled = False
             self.status_text.Text = "Exporting..."
 
+            # The Queue rows carry each item's status column, and _overall_total
+            # is read from them. Rebuild if they are missing (Queue tab never
+            # opened) so no item exports without a visible row.
+            if not self.export_items:
+                try:
+                    self.build_export_preview()
+                except Exception as preview_ex:
+                    logger.debug("Could not build export preview: {}".format(preview_ex))
+
             # Export to each format — overall progress tracked per-sheet via _overall_counter
             total_exported = 0
             self._overall_total = len(self.export_items)
             self._overall_counter = 0
             self._skipped_fatal = []  # reset: this window can export more than once
+            self._reset_run_state()
 
             # Known-fatal sheets: offer safe mode once, before anything runs.
             self._ask_safe_mode(selected_items)
+
+            # Risky items last so a native crash cannot cost the rest of the batch
+            selected_items = self._order_risky_last(selected_items)
 
             if self.export_dwg.IsChecked:
                 folder = os.path.join(output_folder, "DWG") if split_by_format else output_folder
@@ -3452,6 +3816,8 @@ class ExportManagerWindow(forms.WPFWindow):
                 total_exported += count
 
             summary = "Export complete! {} files exported".format(total_exported)
+            if self._failed_items:
+                summary += " ({} failed)".format(len(self._failed_items))
             if self._skipped_fatal:
                 summary += " ({} skipped)".format(len(self._skipped_fatal))
             self.status_text.Text = summary
@@ -3471,8 +3837,22 @@ class ExportManagerWindow(forms.WPFWindow):
                     "let BatchOut try them again.".format(
                         "\n  ".join(self._skipped_fatal), self._crash_history_file))
 
+            # Anything that produced no file must be named — a quietly missing
+            # export is the one failure mode the user cannot see for themselves.
+            fail_note = ""
+            if self._failed_items:
+                shown = self._failed_items[:20]
+                fail_note = "\n\nNO FILE PRODUCED for:\n  {}".format("\n  ".join(shown))
+                if len(self._failed_items) > len(shown):
+                    fail_note += "\n  ...and {} more".format(
+                        len(self._failed_items) - len(shown))
+                fail_note += ("\n\nFull errors are in the pyRevit output log. Some "
+                              "view/format pairs simply cannot be exported by Revit "
+                              "(e.g. a schedule to DWG) and will always fail here.")
+
             # Ask if user wants to open output folder
-            if forms.alert("Export complete!{}\n\nDo you want to open the output folder?".format(skip_note),
+            if forms.alert("Export complete!{}{}\n\nDo you want to open the output folder?".format(
+                              fail_note, skip_note),
                           title="Export Complete",
                           yes=True, no=True):
                 os.startfile(output_folder)
@@ -3496,13 +3876,7 @@ class ExportManagerWindow(forms.WPFWindow):
         """
         try:
             # Sync cached values with live values from Revit
-            for item in items:
-                if hasattr(item, 'Sheet'):
-                    item.SheetNumber = item.Sheet.SheetNumber
-                    item.SheetName = item.Sheet.Name
-                elif hasattr(item, 'View'):
-                    item.SheetNumber = item.View.Name
-                    item.ViewName = item.View.Name
+            self._sync_item_labels(items, "DWG")
 
             # Get selected export setup (if any)
             selected_setup = None
@@ -3573,32 +3947,33 @@ class ExportManagerWindow(forms.WPFWindow):
 
             for item in items:
                 safe_group = None
+                element_name = str(getattr(item, 'SheetNumber', 'Unknown'))
                 try:
                     # Get the actual element (sheet or view)
-                    if hasattr(item, 'Sheet'):
-                        element = item.Sheet
-                        element_name = element.SheetNumber
-                    elif hasattr(item, 'View'):
-                        element = item.View
-                        element_name = element.Name
-                    else:
+                    element, element_name = self._element_of(item)
+                    if element is None:
+                        self._note_failure(element_name, "DWG",
+                                           "row is neither a sheet nor a view")
                         continue
 
                     # This sheet has hard-crashed Revit's DWG exporter before.
-                    # Safe mode neutralises the fatal geometry and still produces
-                    # the file; without it we skip, because a plain retry costs
-                    # the user the whole Revit session.
+                    # Safe mode neutralises the fatal geometry first; if it is
+                    # unavailable we still export (queued last), because a
+                    # missing file the user was never told about is worse.
                     safe_level = None
                     if self._is_known_fatal(item.SheetNumber, "DWG"):
-                        if not self._safe_mode or self._safe_ladder_exhausted(
+                        if self._skip_fatal:
+                            self._note_skipped_fatal(item.SheetNumber, "DWG")
+                            continue
+                        if self._safe_mode and not self._safe_ladder_exhausted(
                                 item.SheetNumber, "DWG"):
-                            self._note_skipped_fatal(item.SheetNumber, "DWG")
-                            continue
-                        safe_group, safe_level = self._begin_safe_mode(
-                            element, self._next_safe_level(item.SheetNumber, "DWG"))
+                            safe_group, safe_level = self._begin_safe_mode(
+                                element, self._next_safe_level(item.SheetNumber, "DWG"))
                         if safe_group is None:
-                            self._note_skipped_fatal(item.SheetNumber, "DWG")
-                            continue
+                            logger.warning(
+                                "'{}' crashed Revit's DWG exporter before and is "
+                                "being exported without mitigation.".format(
+                                    item.SheetNumber))
 
                     # Mark as in-progress (orange) before the export call
                     self.update_export_item_progress(item.SheetNumber, "DWG", 50, "Exporting...")
@@ -3613,10 +3988,15 @@ class ExportManagerWindow(forms.WPFWindow):
                     if filename.lower().endswith('.dwg'):
                         filename = filename[:-4]
 
+                    # Never reuse a name already written in this run — otherwise
+                    # two views sharing a name overwrite each other's file.
+                    filename = self._reserve_filename(output_folder, filename, ".dwg")
+
                     # Expected output + its current mtime, so a stale file left by
                     # an earlier aborted run cannot be mistaken for a fresh export.
                     expected_file = os.path.join(output_folder, filename + ".dwg")
                     prev_mtime = os.path.getmtime(expected_file) if os.path.exists(expected_file) else None
+                    started_at = time.time()
 
                     # VERSION-AWARE: Export API handling
                     # All versions 2022-2026 support ICollection<ElementId> signature
@@ -3649,7 +4029,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     # Verify a FRESH file was written (not a leftover from an
                     # earlier aborted run).
-                    if self._wait_for_export_file(expected_file, prev_mtime):
+                    if self._verify_export(expected_file, prev_mtime, started_at, ".dwg"):
                         exported_count += 1
                         self._overall_counter += 1
                         self._update_progress(
@@ -3657,9 +4037,14 @@ class ExportManagerWindow(forms.WPFWindow):
                             "Exported {} to DWG".format(element_name)
                         )
                         self.update_export_item_progress(item.SheetNumber, "DWG", 100)
+                    else:
+                        self._note_failure(item.SheetNumber, "DWG",
+                                           "Revit wrote no DWG file")
 
                 except Exception as ex:
                     logger.error("Error exporting {} to DWG: {}".format(element_name, ex))
+                    self._note_failure(str(getattr(item, 'SheetNumber', element_name)),
+                                       "DWG", ex)
                 finally:
                     # Safe mode must NEVER leave the model modified.
                     self._end_safe_mode(safe_group)
@@ -3673,32 +4058,29 @@ class ExportManagerWindow(forms.WPFWindow):
     def export_to_dgn(self, items, output_folder):
         """Export items (sheets or views) to DGN (MicroStation) format."""
         try:
-            for item in items:
-                if hasattr(item, 'Sheet'):
-                    item.SheetNumber = item.Sheet.SheetNumber
-                    item.SheetName = item.Sheet.Name
-                elif hasattr(item, 'View'):
-                    item.SheetNumber = item.View.Name
-                    item.ViewName = item.View.Name
+            # Sync cached values with live values from Revit
+            self._sync_item_labels(items, "DGN")
 
             dgn_options = DGNExportOptions()
 
             exported_count = 0
 
             for item in items:
+                element_name = str(getattr(item, 'SheetNumber', 'Unknown'))
                 try:
-                    if hasattr(item, 'Sheet'):
-                        element = item.Sheet
-                        element_name = element.SheetNumber
-                    elif hasattr(item, 'View'):
-                        element = item.View
-                        element_name = element.Name
-                    else:
+                    element, element_name = self._element_of(item)
+                    if element is None:
+                        self._note_failure(element_name, "DGN",
+                                           "row is neither a sheet nor a view")
                         continue
 
                     if self._is_known_fatal(item.SheetNumber, "DGN"):
-                        self._note_skipped_fatal(item.SheetNumber, "DGN")
-                        continue
+                        if self._skip_fatal:
+                            self._note_skipped_fatal(item.SheetNumber, "DGN")
+                            continue
+                        logger.warning(
+                            "'{}' crashed Revit's DGN exporter before — exporting "
+                            "anyway (queued last).".format(item.SheetNumber))
 
                     self.update_export_item_progress(item.SheetNumber, "DGN", 50, "Exporting...")
                     self._update_progress(
@@ -3709,16 +4091,20 @@ class ExportManagerWindow(forms.WPFWindow):
                     filename = item.CustomFilename or self.get_export_filename(item)
                     if filename.lower().endswith('.dgn'):
                         filename = filename[:-4]
+                    filename = self._reserve_filename(output_folder, filename, ".dgn")
 
                     view_ids = List[DB.ElementId]()
                     view_ids.Add(element.Id)
+
+                    expected_file = os.path.join(output_folder, filename + ".dgn")
+                    prev_mtime = os.path.getmtime(expected_file) if os.path.exists(expected_file) else None
+                    started_at = time.time()
 
                     self._write_crash_marker(item.SheetNumber, "DGN")
                     self.doc.Export(output_folder, filename, view_ids, dgn_options)
                     self._clear_crash_marker()
 
-                    expected_file = os.path.join(output_folder, filename + ".dgn")
-                    if os.path.exists(expected_file):
+                    if self._verify_export(expected_file, prev_mtime, started_at, ".dgn"):
                         exported_count += 1
                         self._overall_counter += 1
                         self._update_progress(
@@ -3726,9 +4112,14 @@ class ExportManagerWindow(forms.WPFWindow):
                             "Exported {} to DGN".format(element_name)
                         )
                         self.update_export_item_progress(item.SheetNumber, "DGN", 100)
+                    else:
+                        self._note_failure(item.SheetNumber, "DGN",
+                                           "Revit wrote no DGN file")
 
                 except Exception as ex:
                     logger.error("Error exporting {} to DGN: {}".format(element_name, ex))
+                    self._note_failure(str(getattr(item, 'SheetNumber', element_name)),
+                                       "DGN", ex)
 
             return exported_count
 
@@ -3746,13 +4137,7 @@ class ExportManagerWindow(forms.WPFWindow):
             import glob
 
             # Sync cached values with live values from Revit
-            for item in items:
-                if hasattr(item, 'Sheet'):
-                    item.SheetNumber = item.Sheet.SheetNumber
-                    item.SheetName = item.Sheet.Name
-                elif hasattr(item, 'View'):
-                    item.SheetNumber = item.View.Name
-                    item.ViewName = item.View.Name
+            self._sync_item_labels(items, "PDF")
 
             # Check if combine PDF is enabled
             combine_pdf = self.combine_pdf.IsChecked
@@ -3788,30 +4173,32 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Remove extension if present
                     if filename.lower().endswith('.pdf'):
                         filename = filename[:-4]
+                    filename = self._reserve_filename(output_folder, filename, ".pdf")
 
                     # Get list of existing PDF files before export
                     existing_pdfs = set(glob.glob(os.path.join(output_folder, "*.pdf")))
 
                     # Get all element IDs as System.Collections.Generic.List.
                     # A combined export is ONE native call, so a single fatal
-                    # sheet takes the entire job (and the Revit session) with it.
-                    # Drop known-fatal sheets from the set instead — far better
-                    # to lose one page than all of them.
+                    # sheet takes the entire job (and the Revit session) with it —
+                    # but dropping pages silently is not ours to decide. Every
+                    # selected item goes in unless the user explicitly chose to
+                    # skip the known-fatal ones in the pre-export prompt.
                     element_ids = List[DB.ElementId]()
                     for item in items:
                         number = getattr(item, 'SheetNumber', None)
-                        if number and self._is_known_fatal(number, "PDF"):
+                        if number and self._skip_fatal and self._is_known_fatal(number, "PDF"):
                             self._note_skipped_fatal(number, "PDF")
                             continue
-                        if hasattr(item, 'Sheet'):
-                            element_ids.Add(item.Sheet.Id)
-                        elif hasattr(item, 'View'):
-                            element_ids.Add(item.View.Id)
+                        element, label = self._element_of(item)
+                        if element is None:
+                            self._note_failure(label, "PDF",
+                                               "row is neither a sheet nor a view")
+                            continue
+                        element_ids.Add(element.Id)
 
                     if element_ids.Count == 0:
-                        logger.warning(
-                            "Combined PDF skipped: every selected sheet is known "
-                            "to crash Revit's PDF exporter.")
+                        logger.warning("Combined PDF skipped: nothing left to export.")
                         return 0
 
                     # Create PDF export options
@@ -3930,40 +4317,51 @@ class ExportManagerWindow(forms.WPFWindow):
                         )
                         for item in items:
                             self.update_export_item_progress(item.SheetNumber, "PDF", 100)
+                    else:
+                        # One native call for every page: if no file landed, none
+                        # of the selected items were exported. Name them all.
+                        for item in items:
+                            self._note_failure(getattr(item, 'SheetNumber', 'Unknown'),
+                                               "PDF", "combined PDF produced no file")
 
                 except Exception as ex:
                     logger.error("Error exporting combined PDF: {}".format(ex))
+                    for item in items:
+                        self._note_failure(getattr(item, 'SheetNumber', 'Unknown'),
+                                           "PDF", "combined PDF failed: {}".format(ex))
 
             else:
                 # Export each item individually
                 sheets_since_gc = 0
                 for item in items:
                     safe_group = None
+                    element_name = str(getattr(item, 'SheetNumber', 'Unknown'))
                     try:
                         # Get the actual element (sheet or view)
-                        if hasattr(item, 'Sheet'):
-                            element = item.Sheet
-                            element_name = element.SheetNumber
-                        elif hasattr(item, 'View'):
-                            element = item.View
-                            element_name = element.Name
-                        else:
+                        element, element_name = self._element_of(item)
+                        if element is None:
+                            self._note_failure(element_name, "PDF",
+                                               "row is neither a sheet nor a view")
                             continue
 
                         # This sheet has hard-crashed Revit's PDF rasteriser
-                        # before. Safe mode still produces the file; otherwise
-                        # skip so the rest of the batch survives.
+                        # before. Safe mode neutralises the geometry first when
+                        # a rung is left; otherwise it still goes out (queued
+                        # last) rather than disappearing from the output.
                         safe_level = None
                         if self._is_known_fatal(item.SheetNumber, "PDF"):
-                            if not self._safe_mode or self._safe_ladder_exhausted(
+                            if self._skip_fatal:
+                                self._note_skipped_fatal(item.SheetNumber, "PDF")
+                                continue
+                            if self._safe_mode and not self._safe_ladder_exhausted(
                                     item.SheetNumber, "PDF"):
-                                self._note_skipped_fatal(item.SheetNumber, "PDF")
-                                continue
-                            safe_group, safe_level = self._begin_safe_mode(
-                                element, self._next_safe_level(item.SheetNumber, "PDF"))
+                                safe_group, safe_level = self._begin_safe_mode(
+                                    element, self._next_safe_level(item.SheetNumber, "PDF"))
                             if safe_group is None:
-                                self._note_skipped_fatal(item.SheetNumber, "PDF")
-                                continue
+                                logger.warning(
+                                    "'{}' crashed Revit's PDF exporter before and "
+                                    "is being exported without mitigation.".format(
+                                        item.SheetNumber))
 
                         self.update_export_item_progress(item.SheetNumber, "PDF", 50, "Exporting...")
                         self._update_progress(
@@ -3977,10 +4375,15 @@ class ExportManagerWindow(forms.WPFWindow):
                         if filename.lower().endswith('.pdf'):
                             filename = filename[:-4]
 
+                        # Unique per run: a Floor Plan and a Ceiling Plan may share
+                        # a name, and the second export used to overwrite the first.
+                        filename = self._reserve_filename(output_folder, filename, ".pdf")
+
                         # Expected output path + its current mtime (one stat, not
                         # a whole-folder glob) so a fresh write can be detected.
                         expected_file = os.path.join(output_folder, filename + ".pdf")
                         prev_mtime = os.path.getmtime(expected_file) if os.path.exists(expected_file) else None
+                        started_at = time.time()
 
                         # Create PDF export options
                         pdf_options = PDFExportOptions()
@@ -4105,7 +4508,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
                         # Confirm the file landed by polling for it (no fixed
                         # sleep, no folder-wide glob — much faster on OneDrive).
-                        if self._wait_for_export_file(expected_file, prev_mtime):
+                        if self._verify_export(expected_file, prev_mtime, started_at, ".pdf"):
                             exported_count += 1
                             self._overall_counter += 1
                             self._update_progress(
@@ -4113,6 +4516,9 @@ class ExportManagerWindow(forms.WPFWindow):
                                 "Exported {} to PDF".format(element_name)
                             )
                             self.update_export_item_progress(item.SheetNumber, "PDF", 100)
+                        else:
+                            self._note_failure(item.SheetNumber, "PDF",
+                                               "Revit wrote no PDF file")
 
                         # Reclaim native raster buffers periodically (every 10
                         # sheets) rather than every sheet — a full GC on Revit's
@@ -4126,6 +4532,8 @@ class ExportManagerWindow(forms.WPFWindow):
 
                     except Exception as ex:
                         logger.error("Error exporting {} to PDF: {}".format(element_name, ex))
+                        self._note_failure(str(getattr(item, 'SheetNumber', element_name)),
+                                           "PDF", ex)
                     finally:
                         # Safe mode must NEVER leave the model modified.
                         self._end_safe_mode(safe_group)
@@ -4143,13 +4551,7 @@ class ExportManagerWindow(forms.WPFWindow):
         """
         try:
             # Sync cached values with live values from Revit
-            for item in items:
-                if hasattr(item, 'Sheet'):
-                    item.SheetNumber = item.Sheet.SheetNumber
-                    item.SheetName = item.Sheet.Name
-                elif hasattr(item, 'View'):
-                    item.SheetNumber = item.View.Name
-                    item.ViewName = item.View.Name
+            self._sync_item_labels(items, "DWF")
 
             # Create DWF export options
             dwf_options = DWFExportOptions()
@@ -4157,20 +4559,22 @@ class ExportManagerWindow(forms.WPFWindow):
             exported_count = 0
 
             for item in items:
+                element_name = str(getattr(item, 'SheetNumber', 'Unknown'))
                 try:
                     # Get the actual element (sheet or view)
-                    if hasattr(item, 'Sheet'):
-                        element = item.Sheet
-                        element_name = element.SheetNumber
-                    elif hasattr(item, 'View'):
-                        element = item.View
-                        element_name = element.Name
-                    else:
+                    element, element_name = self._element_of(item)
+                    if element is None:
+                        self._note_failure(element_name, "DWF",
+                                           "row is neither a sheet nor a view")
                         continue
 
                     if self._is_known_fatal(item.SheetNumber, "DWF"):
-                        self._note_skipped_fatal(item.SheetNumber, "DWF")
-                        continue
+                        if self._skip_fatal:
+                            self._note_skipped_fatal(item.SheetNumber, "DWF")
+                            continue
+                        logger.warning(
+                            "'{}' crashed Revit's DWF exporter before — exporting "
+                            "anyway (queued last).".format(item.SheetNumber))
 
                     self.update_export_item_progress(item.SheetNumber, "DWF", 50, "Exporting...")
                     self._update_progress(
@@ -4183,19 +4587,24 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Remove extension if present
                     if filename.lower().endswith('.dwf'):
                         filename = filename[:-4]
+                    filename = self._reserve_filename(output_folder, filename, ".dwf")
 
                     # VERSION-AWARE: Export handling
                     # Revit 2022-2026 all support ViewSet for DWF export
                     # Signature: Export(String folder, String name, ViewSet views, DWFExportOptions options)
                     view_set = DB.ViewSet()
                     view_set.Insert(element)
+
+                    expected_file = os.path.join(output_folder, filename + ".dwf")
+                    prev_mtime = os.path.getmtime(expected_file) if os.path.exists(expected_file) else None
+                    started_at = time.time()
+
                     self._write_crash_marker(item.SheetNumber, "DWF")
                     self.doc.Export(output_folder, filename, view_set, dwf_options)
                     self._clear_crash_marker()
 
-                    # Verify file was created
-                    expected_file = os.path.join(output_folder, filename + ".dwf")
-                    if os.path.exists(expected_file):
+                    # Verify a fresh file was created
+                    if self._verify_export(expected_file, prev_mtime, started_at, ".dwf"):
                         exported_count += 1
                         self._overall_counter += 1
                         self._update_progress(
@@ -4203,9 +4612,14 @@ class ExportManagerWindow(forms.WPFWindow):
                             "Exported {} to DWF".format(element_name)
                         )
                         self.update_export_item_progress(item.SheetNumber, "DWF", 100)
+                    else:
+                        self._note_failure(item.SheetNumber, "DWF",
+                                           "Revit wrote no DWF file")
 
                 except Exception as ex:
                     logger.error("Error exporting {} to DWF: {}".format(element_name, ex))
+                    self._note_failure(str(getattr(item, 'SheetNumber', element_name)),
+                                       "DWF", ex)
 
             return exported_count
 
@@ -4220,13 +4634,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
         try:
             # Sync cached values with live values from Revit
-            for item in items:
-                if hasattr(item, 'Sheet'):
-                    item.SheetNumber = item.Sheet.SheetNumber
-                    item.SheetName = item.Sheet.Name
-                elif hasattr(item, 'View'):
-                    item.SheetNumber = item.View.Name
-                    item.ViewName = item.View.Name
+            self._sync_item_labels(items, "NWC")
 
             # Create Navisworks export options
             nwd_options = NavisworksExportOptions()
@@ -4234,20 +4642,22 @@ class ExportManagerWindow(forms.WPFWindow):
             exported_count = 0
 
             for item in items:
+                element_name = str(getattr(item, 'SheetNumber', 'Unknown'))
                 try:
                     # Get the actual element (sheet or view)
-                    if hasattr(item, 'Sheet'):
-                        element = item.Sheet
-                        element_name = element.SheetNumber
-                    elif hasattr(item, 'View'):
-                        element = item.View
-                        element_name = element.Name
-                    else:
+                    element, element_name = self._element_of(item)
+                    if element is None:
+                        self._note_failure(element_name, "NWC",
+                                           "row is neither a sheet nor a view")
                         continue
 
                     if self._is_known_fatal(item.SheetNumber, "NWC"):
-                        self._note_skipped_fatal(item.SheetNumber, "NWC")
-                        continue
+                        if self._skip_fatal:
+                            self._note_skipped_fatal(item.SheetNumber, "NWC")
+                            continue
+                        logger.warning(
+                            "'{}' crashed Revit's NWC exporter before — exporting "
+                            "anyway (queued last).".format(item.SheetNumber))
 
                     self.update_export_item_progress(item.SheetNumber, "NWC", 50, "Exporting...")
                     self._update_progress(
@@ -4256,7 +4666,13 @@ class ExportManagerWindow(forms.WPFWindow):
                     )
 
                     filename = item.CustomFilename or self.get_export_filename(item)
-                    filepath = os.path.join(output_folder, filename + ".nwc")
+                    if filename.lower().endswith('.nwc'):
+                        filename = filename[:-4]
+                    filename = self._reserve_filename(output_folder, filename, ".nwc")
+
+                    expected_file = os.path.join(output_folder, filename + ".nwc")
+                    prev_mtime = os.path.getmtime(expected_file) if os.path.exists(expected_file) else None
+                    started_at = time.time()
 
                     # Export view
                     nwd_options.ExportScope = DB.NavisworksExportScope.View
@@ -4266,16 +4682,22 @@ class ExportManagerWindow(forms.WPFWindow):
                     self.doc.Export(output_folder, filename, nwd_options)
                     self._clear_crash_marker()
 
-                    exported_count += 1
-                    self._overall_counter += 1
-                    self._update_progress(
-                        int(self._overall_counter * 100.0 / max(1, self._overall_total)),
-                        "Exported {} to NWC".format(element_name)
-                    )
-                    self.update_export_item_progress(item.SheetNumber, "NWC", 100)
+                    if self._verify_export(expected_file, prev_mtime, started_at, ".nwc"):
+                        exported_count += 1
+                        self._overall_counter += 1
+                        self._update_progress(
+                            int(self._overall_counter * 100.0 / max(1, self._overall_total)),
+                            "Exported {} to NWC".format(element_name)
+                        )
+                        self.update_export_item_progress(item.SheetNumber, "NWC", 100)
+                    else:
+                        self._note_failure(item.SheetNumber, "NWC",
+                                           "Revit wrote no NWC file")
 
                 except Exception as ex:
                     logger.error("Error exporting {} to NWC: {}".format(element_name, ex))
+                    self._note_failure(str(getattr(item, 'SheetNumber', element_name)),
+                                       "NWC", ex)
 
             return exported_count
 
@@ -4290,13 +4712,7 @@ class ExportManagerWindow(forms.WPFWindow):
 
         try:
             # Sync cached values with live values from Revit
-            for item in items:
-                if hasattr(item, 'Sheet'):
-                    item.SheetNumber = item.Sheet.SheetNumber
-                    item.SheetName = item.Sheet.Name
-                elif hasattr(item, 'View'):
-                    item.SheetNumber = item.View.Name
-                    item.ViewName = item.View.Name
+            self._sync_item_labels(items, "IFC")
 
             # Create IFC export options — version read from UI
             ifc_options = IFCExportOptions()
@@ -4367,6 +4783,9 @@ class ExportManagerWindow(forms.WPFWindow):
                         self.update_export_item_progress(item.SheetNumber, "IFC", 100)
                 except Exception as ex:
                     logger.error("Error exporting to IFC: {}".format(ex))
+                    for item in items:
+                        self._note_failure(getattr(item, 'SheetNumber', 'Unknown'),
+                                           "IFC", "model IFC export failed: {}".format(ex))
 
             return exported_count
 
@@ -4381,31 +4800,27 @@ class ExportManagerWindow(forms.WPFWindow):
             import glob
 
             # Sync cached values with live values from Revit
-            for item in items:
-                if hasattr(item, 'Sheet'):
-                    item.SheetNumber = item.Sheet.SheetNumber
-                    item.SheetName = item.Sheet.Name
-                elif hasattr(item, 'View'):
-                    item.SheetNumber = item.View.Name
-                    item.ViewName = item.View.Name
+            self._sync_item_labels(items, "IMG")
 
             exported_count = 0
 
             for item in items:
+                element_name = str(getattr(item, 'SheetNumber', 'Unknown'))
                 try:
                     # Get the actual element (sheet or view)
-                    if hasattr(item, 'Sheet'):
-                        element = item.Sheet
-                        element_name = element.SheetNumber
-                    elif hasattr(item, 'View'):
-                        element = item.View
-                        element_name = element.Name
-                    else:
+                    element, element_name = self._element_of(item)
+                    if element is None:
+                        self._note_failure(element_name, "IMG",
+                                           "row is neither a sheet nor a view")
                         continue
 
                     if self._is_known_fatal(item.SheetNumber, "IMG"):
-                        self._note_skipped_fatal(item.SheetNumber, "IMG")
-                        continue
+                        if self._skip_fatal:
+                            self._note_skipped_fatal(item.SheetNumber, "IMG")
+                            continue
+                        logger.warning(
+                            "'{}' crashed Revit's image exporter before — exporting "
+                            "anyway (queued last).".format(item.SheetNumber))
 
                     self.update_export_item_progress(item.SheetNumber, "IMG", 50, "Exporting...")
                     self._update_progress(
@@ -4416,17 +4831,14 @@ class ExportManagerWindow(forms.WPFWindow):
                     filename = item.CustomFilename or self.get_export_filename(item)
 
                     # Remove extension if present
-                    if filename.lower().endswith('.png'):
-                        filename = filename[:-4]
+                    if filename.lower().endswith(('.png', '.jpg')):
+                        filename = filename.rsplit('.', 1)[0]
 
                     # Clean filename - remove invalid chars and extra spaces
                     invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
                     for char in invalid_chars:
                         filename = filename.replace(char, '_')
                     filename = filename.strip()
-
-                    # Get list of existing image files before export
-                    existing_images = set(glob.glob(os.path.join(output_folder, "*.png")))
 
                     # Read image options from UI
                     use_fit_to_page = not (hasattr(self, 'img_zoom_to') and self.img_zoom_to.IsChecked)
@@ -4457,6 +4869,24 @@ class ExportManagerWindow(forms.WPFWindow):
                     shaded_fmt = ImageFileType.JPEGLossless if shaded_idx == 1 else ImageFileType.PNG
                     nonshaded_fmt = ImageFileType.JPEGLossless if nonshaded_idx == 1 else ImageFileType.PNG
 
+                    # Revit picks the shaded or non-shaded file type per view, so
+                    # both extensions have to be watched. Globbing only "*.png"
+                    # missed every JPEG export: the file stayed under Revit's own
+                    # decorated name and the item was reported as not exported.
+                    img_exts = set()
+                    for fmt in (shaded_fmt, nonshaded_fmt):
+                        img_exts.add('.jpg' if fmt == ImageFileType.JPEGLossless else '.png')
+
+                    reserved = filename
+                    for ext in sorted(img_exts):
+                        reserved = self._reserve_filename(output_folder, reserved, ext)
+                    filename = reserved
+
+                    existing_images = set()
+                    for ext in img_exts:
+                        existing_images |= set(glob.glob(
+                            os.path.join(output_folder, "*" + ext)))
+
                     # Create image export options for each sheet
                     img_options = ImageExportOptions()
                     if use_fit_to_page:
@@ -4485,23 +4915,27 @@ class ExportManagerWindow(forms.WPFWindow):
                     # Wait briefly for file system to update
                     time.sleep(0.3)
 
-                    # Get list of image files after export
-                    current_images = set(glob.glob(os.path.join(output_folder, "*.png")))
+                    # Get list of image files after export (both extensions)
+                    current_images = set()
+                    for ext in img_exts:
+                        current_images |= set(glob.glob(
+                            os.path.join(output_folder, "*" + ext)))
                     new_images = current_images - existing_images
 
-                    # Verify file was created
-                    expected_file = os.path.join(output_folder, filename + ".png")
-
-                    # Handle Revit's automatic filename modification
-                    # Revit adds " - Sheet - " or similar to filenames, so we need to rename
+                    # Handle Revit's automatic filename modification: it appends
+                    # " - Sheet - A101 - ..." decorations, so rename back to the
+                    # requested name — keeping whichever extension Revit chose.
+                    expected_file = None
                     if new_images:
-                        # Get the actual file created by Revit
-                        actual_file = list(new_images)[0]
-
-                        # If the actual file is different from expected, rename it
-                        if actual_file != expected_file:
+                        actual_file = sorted(new_images)[0]
+                        actual_ext = os.path.splitext(actual_file)[1].lower()
+                        expected_file = os.path.join(output_folder, filename + actual_ext)
+                        if os.path.normcase(actual_file) != os.path.normcase(expected_file):
                             try:
-                                # Rename to the expected filename
+                                # Target is the name this run reserved for this
+                                # item, so replacing it is the intended overwrite.
+                                if os.path.exists(expected_file):
+                                    os.remove(expected_file)
                                 os.rename(actual_file, expected_file)
                             except Exception as rename_ex:
                                 logger.warning("Could not rename {} to {}: {}".format(
@@ -4509,8 +4943,9 @@ class ExportManagerWindow(forms.WPFWindow):
                                     os.path.basename(expected_file),
                                     rename_ex
                                 ))
+                                expected_file = actual_file
 
-                    if os.path.exists(expected_file):
+                    if expected_file and os.path.exists(expected_file):
                         exported_count += 1
                         self._overall_counter += 1
                         self._update_progress(
@@ -4518,9 +4953,14 @@ class ExportManagerWindow(forms.WPFWindow):
                             "Exported {} to Image".format(element_name)
                         )
                         self.update_export_item_progress(item.SheetNumber, "IMG", 100)
+                    else:
+                        self._note_failure(item.SheetNumber, "IMG",
+                                           "Revit wrote no image file")
 
                 except Exception as ex:
                     logger.error("Error exporting {} to Image: {}".format(element_name, ex))
+                    self._note_failure(str(getattr(item, 'SheetNumber', element_name)),
+                                       "IMG", ex)
 
             return exported_count
 

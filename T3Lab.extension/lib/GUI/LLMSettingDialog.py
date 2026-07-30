@@ -1383,8 +1383,12 @@ class LLMSettingWindow(forms.WPFWindow):
                     note = u"  · {} doc{}".format(
                         st.get('files') or 0,
                         u"" if (st.get('files') or 0) == 1 else u"s")
+                    if st.get('pages'):
+                        note += u" · {} pages".format(st['pages'])
                     if st.get('llm'):
                         note += u" (LLM {})".format(st['llm'])
+                    if st.get('skipped'):
+                        note += u" · {} unread".format(st['skipped'])
                     if st.get('updated'):
                         note += u" · {}".format(st['updated'][:16])
 
@@ -1628,10 +1632,19 @@ class LLMSettingWindow(forms.WPFWindow):
                     if results:
                         docs = sum(r.get('files') or 0 for r in results)
                         n_llm = sum(r.get('llm') or 0 for r in results)
-                        msg = (u"Context rebuilt: {} doc(s) in {} folder(s){}"
-                               .format(docs, len(results),
+                        n_pg = sum(r.get('pages') or 0 for r in results)
+                        n_bad = sum(r.get('skipped') or 0 for r in results)
+                        n_re = sum(r.get('reused') or 0 for r in results)
+                        msg = (u"Context rebuilt: {} doc(s), {} page(s) read "
+                               u"in {} folder(s){}"
+                               .format(docs, n_pg, len(results),
                                        u" · LLM {}".format(n_llm) if n_llm
                                        else u" · excerpt only (no LLM)"))
+                        if n_re:
+                            msg += u" · {} unchanged (reused)".format(n_re)
+                        if n_bad:
+                            msg += u" · {} unreadable (see CONTEXT.md)".format(
+                                n_bad)
                         if ctx_info:
                             c = ctx_info[0]
                             msg += u" · PROJECT_CONTEXT {}/{} topics".format(

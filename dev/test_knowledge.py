@@ -14,8 +14,10 @@ Covers modules that must be importable OUTSIDE Revit (guarded clr imports):
 """
 from __future__ import unicode_literals
 
+import io
 import json
 import os
+import re
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -309,6 +311,478 @@ def test_knowledge_store():
                               embedder=FakeEmbedder())
         check('hybrid search works', hits3 and hits3[0]['file'] == 'standard.md',
               hits3 and hits3[0]['file'])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ─── pdf_crypt + py2 byte-semantics guard ─────────────────────────────────────
+
+def test_pdf_crypt():
+    print('[pdf_crypt]')
+    import hashlib, struct
+    from Intelligence.knowledge import pdf_crypt as pc
+
+    # RC4 against the RFC 6229 / classic test vector
+    ct = pc.rc4(b'Key', b'Plaintext')
+    check('rc4 known vector',
+          ct == bytes(bytearray.fromhex('bbf316e8d940af0ad3')), repr(ct))
+    check('rc4 involutive', pc.rc4(b'Key', ct) == b'Plaintext')
+    check('rc4 empty key passthrough', pc.rc4(b'', b'abc') == b'abc')
+
+    # PDF literal-string escapes: \r must become 0x0D, not 'r'. Getting this
+    # wrong corrupts /O and /U, so the empty-password check rejects a valid key.
+    body = br'/O (a\rb\bc\)d\\e\101f)'
+    got = pc._pdf_string(body, b'O')
+    check('pdf string escapes',
+          got == b'a\rb\x08c)d\\e' + b'A' + b'f', repr(got))
+    check('pdf string hex form',
+          pc._pdf_string(br'/U <4142 43>', b'U') == b'ABC',
+          repr(pc._pdf_string(br'/U <4142 43>', b'U')))
+
+    # /CF sub-dictionary must not shadow the top-level /Length (bits vs bytes)
+    enc = (br'<< /CF << /StdCF << /CFM /V2 /Length 16 /Type /CryptFilter >> >>'
+           br' /Filter /Standard /Length 128 /P -3904 /R 4 /V 4 >>')
+    top, cf = pc._split_cf(enc)
+    check('split_cf removes nested dict', b'/CryptFilter' not in top, top)
+    check('split_cf keeps top Length',
+          pc._int(pc._RE_LEN, top, 0) == 128, pc._int(pc._RE_LEN, top, 0))
+    check('split_cf returns cf block', b'/CFM' in cf, cf)
+
+    # unencrypted file → no decryptor at all
+    check('build None when unencrypted',
+          pc.build(b'%PDF-1.4\ntrailer<</Root 1 0 R>>', lambda n: b'') is None)
+
+    # end-to-end: derive the key for a synthetic R4/RC4 doc and round-trip it
+    pad = bytes(pc._PAD)
+    o_val = bytes(bytearray(range(32)))
+    doc_id = b'0123456789abcdef'
+    h = hashlib.md5()
+    h.update(pad)
+    h.update(o_val)
+    h.update(struct.pack(b'<i', -3904))
+    h.update(doc_id)
+    key = h.digest()
+    for _ in range(50):
+        key = hashlib.md5(key[:16]).digest()
+    key = key[:16]
+    val = hashlib.md5(pad + doc_id).digest()
+    val = pc.rc4(key, val)
+    for i in range(1, 20):
+        val = pc.rc4(bytes(bytearray((b ^ i) & 0xFF for b in bytearray(key))),
+                     val)
+    u_val = val + pad[:16]
+
+    def _hexlit(b):
+        return b'<' + bytearray(b).hex().encode('ascii') + b'>' \
+            if hasattr(bytearray(b), 'hex') else b''
+
+    enc_dict = (b'<< /Filter /Standard /V 4 /R 4 /Length 128 /P -3904 '
+                b'/EncryptMetadata true /CF << /StdCF << /CFM /V2 '
+                b'/Length 16 >> >> /O ' + _hexlit(o_val) +
+                b' /U ' + _hexlit(u_val) + b' >>')
+    raw = (b'%PDF-1.7\n/Encrypt 3 0 R\n/ID [<'
+           + bytearray(doc_id).hex().encode('ascii') + b'> <00>]\n')
+    dec = pc.build(raw, lambda n: enc_dict)
+    check('build accepts empty user password',
+          dec is not None and dec.usable, dec and dec.reason)
+    check('derived key matches',
+          dec is not None and bytes(dec.key) == key,
+          dec and bytes(dec.key) != key)
+    if dec and dec.usable:
+        blob = b'stream payload that was encrypted' * 3
+        enc_blob = dec.decrypt(blob, 7, 0)      # RC4 is symmetric
+        check('per-object round-trip', dec.decrypt(enc_blob, 7, 0) == blob)
+        check('wrong object number differs', dec.decrypt(enc_blob, 8, 0) != blob)
+
+    # a wrong password must be reported, never silently mis-decrypted
+    bad = pc.build(raw, lambda n: enc_dict, password=b'nope')
+    check('wrong password reported',
+          bad is not None and not bad.usable and 'password' in bad.reason,
+          bad and bad.reason)
+
+
+def test_py2_byte_semantics():
+    """Guard the exact construct that made every PDF unreadable in Revit.
+
+    `int in b'...'` is legal on py3 and a TypeError on IronPython 2.7, so a
+    CPython-only test suite cannot catch it by running the code. Assert on the
+    source instead — the byte-scanning modules must compare against int sets.
+    """
+    print('[py2_byte_semantics]')
+    import io as _io
+    lib = os.path.join(LIB, 'Intelligence', 'knowledge')
+    pat = re.compile(r'\[[^\]]*\]\s*(?:not\s+)?in\s+b[\'"]')
+    for name in ('pdf_text.py', 'pdf_crypt.py', 'pdf_cache.py'):
+        path = os.path.join(lib, name)
+        with _io.open(path, 'r', encoding='utf-8') as f:
+            src = f.read()
+        hits = []
+        for i, line in enumerate(src.splitlines(), start=1):
+            code = line.split('#', 1)[0]
+            if pat.search(code):
+                hits.append('%s:%d %s' % (name, i, code.strip()))
+        check('%s has no "int in bytes" test' % name, not hits,
+              ' | '.join(hits))
+
+    # and the semantics the fix relies on
+    from Intelligence.knowledge.pdf_text import _DELIMS
+    buf = bytearray(b'/F1 Tf')
+    check('_DELIMS holds ints', all(isinstance(d, int) for d in _DELIMS))
+    check('_DELIMS matches a space', buf[3] in _DELIMS, buf[3])
+    check('_DELIMS rejects a letter', buf[1] not in _DELIMS, buf[1])
+
+
+# ─── pdf_cache (one extraction per file, shared by all consumers) ─────────────
+
+def test_pdf_cache():
+    print('[pdf_cache]')
+    import tempfile, shutil, time as _time
+    from Intelligence.knowledge import pdf_cache as pcache
+
+    tmp = tempfile.mkdtemp()
+    try:
+        p = os.path.join(tmp, 'doc.md')
+        with open(p, 'wb') as f:
+            f.write(b'Naming code WH-ARC-01 applies to all sheets.')
+
+        pcache.clear()
+        pages1, why1 = pcache.get_pages(p)
+        check('cache first read', pages1 and why1 == '', (pages1, why1))
+
+        # a second read must NOT touch the file: make it unreadable-by-content
+        # and confirm the cached text still comes back
+        with open(p, 'wb') as f:
+            f.write(b'')                      # now empty on disk...
+        os.utime(p, (1000000, 1000000))       # ...but fingerprint changes too
+        pages_new, why_new = pcache.get_pages(p)
+        check('changed file re-extracted',
+              not pages_new and 'empty' in why_new, (pages_new, why_new))
+
+        # restore content, then prove the in-memory hit is used
+        with open(p, 'wb') as f:
+            f.write(b'Restored text with code WH-STR-02.')
+        pages2, _w = pcache.get_pages(p)
+        calls = {'n': 0}
+        real_extract = pcache._extract
+
+        def counting_extract(path):
+            calls['n'] += 1
+            return real_extract(path)
+
+        pcache._extract = counting_extract
+        try:
+            pages3, _w3 = pcache.get_pages(p)
+            check('unchanged file not re-extracted', calls['n'] == 0, calls['n'])
+            check('cached pages identical', pages3 == pages2)
+
+            # disk cache survives a cleared memory cache (the second consumer
+            # in a fresh process — this is what knowledge_store.scan() hits)
+            pcache._mem.clear()
+            del pcache._mem_order[:]
+            pages4, _w4 = pcache.get_pages(p)
+            check('disk cache serves fresh process', calls['n'] == 0, calls['n'])
+            check('disk cached pages identical', pages4 == pages2)
+
+            # use_cache=False always re-extracts
+            pcache.get_pages(p, use_cache=False)
+            check('use_cache=False bypasses', calls['n'] == 1, calls['n'])
+        finally:
+            pcache._extract = real_extract
+
+        # fingerprint must react to size as well as mtime
+        fp_before = pcache.fingerprint(p)
+        with open(p, 'ab') as f:
+            f.write(b' extra')
+        os.utime(p, (1000000, 1000000))
+        fp_after = pcache.fingerprint(p)
+        check('fingerprint tracks size', not pcache._same(fp_before, fp_after),
+              (fp_before, fp_after))
+        check('fingerprint missing file', pcache.fingerprint(
+            os.path.join(tmp, 'nope.pdf')) is None)
+
+        check('prune returns count', isinstance(pcache.prune(), int))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ─── context_digest (full-document rescan) ────────────────────────────────────
+
+def test_context_digest():
+    print('[context_digest]')
+    import tempfile, shutil
+    from Intelligence.knowledge import context_digest as cd
+
+    # ── windowing: every page lands in a window, none is dropped ──────────
+    pages = [(i, 'page {} '.format(i) + 'x' * 900) for i in range(1, 21)]
+    wins, used, trunc = cd._windows(pages, size=3000)
+    check('windows cover all pages', used == 20, used)
+    check('windows not truncated', trunc is False)
+    joined = ' '.join(w['text'] for w in wins)
+    check('every page present in windows',
+          all('page {} '.format(i) in joined for i in range(1, 21)))
+    check('window page range', wins[0]['first'] == 1 and wins[-1]['last'] == 20,
+          (wins[0]['first'], wins[-1]['last']))
+    check('window respects size', all(len(w['text']) <= 3000 + 950
+                                      for w in wins))
+
+    # a single oversized page is split, not swallowed whole
+    big = [(1, 'A' * 2000 + '\n' + 'B' * 2000 + '\n' + 'C' * 2000)]
+    bwins, _u, _t = cd._windows(big, size=2500)
+    check('oversized page split', len(bwins) >= 2, len(bwins))
+    check('oversized page keeps tail',
+          'C' * 1000 in ' '.join(w['text'] for w in bwins))
+
+    # max_windows is a reported cap, never a silent one
+    twins, _u2, ttrunc = cd._windows(pages, size=1000, max_windows=2)
+    check('truncation flagged', ttrunc is True and len(twins) == 2, len(twins))
+
+    # ── map-reduce: EVERY window is sent, partials merged ─────────────────
+    seen = []
+
+    def fake_chat(system, user, max_tokens=700):
+        seen.append(user)
+        if system == cd._MERGE_SYSTEM:
+            # proportionate to its input, or the anti-compression guard
+            # (rightly) rejects it and keeps the parts verbatim instead
+            return 'MERGED ' + ('z' * int(len(user) * 0.8))
+        # each window reports the marker it contains
+        for i in range(1, 21):
+            if 'MARK{}'.format(i) in user:
+                return '- rule from MARK{}'.format(i)
+        return 'KHONG_CO_THONG_TIN'
+
+    mpages = [(i, 'MARK{} '.format(i) + 'y' * 900) for i in range(1, 11)]
+    got = cd.extract_document(fake_chat, 'bep.pdf', mpages, window_chars=3000)
+    n_win = len(cd._windows(mpages, size=3000)[0])
+    check('all windows extracted', got['windows_used'] == n_win,
+          (got['windows_used'], n_win))
+    check('pages counted', got['pages'] == 10, got['pages'])
+    check('merge ran on multi-part', got['summary'].startswith('MERGED')
+          or got['windows'] == 1, got['summary'][:40])
+
+    # single-window doc skips the merge call
+    seen[:] = []
+    one = cd.extract_document(fake_chat, 'one.pdf', [(1, 'MARK3 short')])
+    check('single window no merge', one['summary'] == '- rule from MARK3'
+          and len(seen) == 1, (one['summary'], len(seen)))
+
+    # a failed merge keeps the partials instead of losing them
+    def merge_dies(system, user, max_tokens=700):
+        if system == cd._MERGE_SYSTEM:
+            raise RuntimeError('provider down')
+        return '- rule A' if 'MARK1' in user else '- rule B'
+
+    kept = cd.extract_document(merge_dies, 'x.pdf',
+                               [(1, 'MARK1 ' + 'z' * 2000),
+                                (2, 'MARK2 ' + 'z' * 2000)],
+                               window_chars=2500)
+    check('failed merge keeps partials',
+          'rule A' in kept['summary'] and 'rule B' in kept['summary'],
+          kept['summary'][:60])
+
+    # ── filler stripping (231 such lines polluted one real digest) ────────
+    noisy = '\n'.join([
+        '**Naming & codes**',
+        '* `FJX_C_WH_ARC_SD_PJW_L1_0201_0` (real example)',
+        '* **Software versions**: Not explicitly mentioned.',
+        '* Sheet sizes: Not specified',
+        '* Clash tolerances: Not mentioned.',
+        'Not present in the text.',
+        '#### Company/Originator Codes',
+        'N/A',
+        '* No specific examples provided in the text.',
+        '**Code tables**',
+        '| Code | Meaning |',
+        '| --- | --- |',
+        '| ARC | Architectural |',
+        '| AA | Not specified |',
+    ])
+    clean = cd.strip_filler(noisy)
+    check('filler: keeps real content',
+          'FJX_C_WH_ARC_SD_PJW_L1_0201_0' in clean)
+    check('filler: drops "Not explicitly mentioned"',
+          'Software versions' not in clean, clean)
+    check('filler: drops "Not specified"', 'Sheet sizes' not in clean, clean)
+    check('filler: drops "Not mentioned"',
+          'Clash tolerances' not in clean, clean)
+    check('filler: drops bare "Not present in the text."',
+          'Not present in the text' not in clean, clean)
+    check('filler: drops N/A', not any(
+        l.strip() == 'N/A' for l in clean.splitlines()), clean)
+    check('filler: never touches table rows',
+          '| AA | Not specified |' in clean and '| ARC | Architectural |'
+          in clean, clean)
+    check('filler: keeps headings', '**Code tables**' in clean)
+    check('filler: empty input safe', cd.strip_filler('') == '')
+
+    # ── the merge must never compress content away ────────────────────────
+    big_parts = [(i, 'MARK{0} '.format(i) + 'q' * 20000) for i in range(1, 8)]
+
+    def compressing_chat(system, user, max_tokens=700):
+        if system == cd._MERGE_SYSTEM:
+            return 'tiny summary that threw the tables away'
+        return '- rule with a long table ' + 'r' * 3000
+
+    res_big = cd.extract_document(compressing_chat, 'huge.pdf', big_parts,
+                                  window_chars=20000)
+    check('merge skipped when input too large',
+          res_big['merge_skipped'] is True, res_big['merge_skipped'])
+    check('all parts kept verbatim when merge skipped',
+          all('rule with a long table' in res_big['summary']
+              for _ in (0,)) and res_big['summary'].count('####') >= 2,
+          res_big['summary'][:80])
+
+    def shrinking_chat(system, user, max_tokens=700):
+        if system == cd._MERGE_SYSTEM:
+            return 'lost most of it'
+        return '- detailed rule ' + 's' * 400
+
+    res_shrink = cd.extract_document(shrinking_chat, 'shrink.pdf',
+                                     [(1, 'a' * 900), (2, 'b' * 900)],
+                                     window_chars=1000)
+    check('over-compressing merge rejected',
+          res_shrink['merge_skipped'] is True
+          and 'lost most of it' not in res_shrink['summary'],
+          res_shrink['summary'][:60])
+
+    # a faithful merge IS accepted
+    def faithful_chat(system, user, max_tokens=700):
+        if system == cd._MERGE_SYSTEM:
+            return 'MERGED ' + 'm' * 900
+        return '- rule ' + 'n' * 400
+
+    res_ok = cd.extract_document(faithful_chat, 'ok.pdf',
+                                 [(1, 'a' * 900), (2, 'b' * 900)],
+                                 window_chars=1000)
+    check('faithful merge accepted',
+          res_ok['summary'].startswith('MERGED')
+          and res_ok['merge_skipped'] is False, res_ok['summary'][:40])
+
+    # ── end-to-end digest over a folder ───────────────────────────────────
+    tmp = tempfile.mkdtemp()
+    try:
+        with open(os.path.join(tmp, 'iep.md'), 'wb') as f:
+            f.write(('MARK1 naming code WH-ARC-01\n' + 'w' * 30000
+                     + '\nMARK2 deep rule LOD 350').encode('utf-8'))
+        with open(os.path.join(tmp, 'empty.txt'), 'wb') as f:
+            f.write(b'   ')
+
+        res = cd.build_context_file(tmp, chat_fn=fake_chat)
+        check('digest written', res and os.path.isfile(res['path']), res)
+        check('digest counts doc', res and res['files'] == 1, res)
+        check('digest reports unreadable', res and res['skipped'] == 1, res)
+        check('digest counts pages', res and res['pages'] >= 1, res)
+
+        with io.open(res['path'], 'r', encoding='utf-8') as f:
+            md = f.read()
+        check('unreadable section listed',
+              'could NOT be read' in md and 'empty.txt' in md)
+        check('unreadable reason is specific',
+              'empty file' in md, md[md.find('could NOT be read'):][:120])
+        check('digest markdown is english',
+              'Documents processed' in md and 'Detail per document' in md)
+        check('deep content reached the LLM',
+              any('MARK2' in u for u in seen))
+
+        stats = cd.read_context_stats(tmp)
+        check('sidecar round-trip', stats['exists'] and stats['files'] == 1
+              and stats['skipped'] == 1, stats)
+        check('sidecar pages', stats['pages'] == res['pages'], stats)
+
+        # rerun must not summarise its own CONTEXT.md back into itself
+        docs = [os.path.basename(p) for p in cd.iter_documents(tmp)]
+        check('generated docs excluded',
+              'CONTEXT.md' not in docs and 'PROJECT_CONTEXT.md' not in docs,
+              docs)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_context_digest_incremental():
+    """A rescan with nothing changed must cost zero LLM calls."""
+    print('[context_digest: incremental]')
+    import tempfile, shutil
+    from Intelligence.knowledge import context_digest as cd
+    from Intelligence.knowledge import pdf_cache as pcache
+
+    calls = {'n': 0}
+
+    def chat(system, user, max_tokens=700):
+        calls['n'] += 1
+        if system == cd._SUMMARY_SYSTEM:
+            return 'OVERVIEW TEXT'
+        return '- rule from ' + ('A' if 'alpha' in user else 'B')
+
+    tmp = tempfile.mkdtemp()
+    try:
+        pcache.clear()
+        a = os.path.join(tmp, 'a.md')
+        b = os.path.join(tmp, 'b.md')
+        with open(a, 'wb') as f:
+            f.write(b'alpha naming code WH-ARC-01')
+        with open(b, 'wb') as f:
+            f.write(b'beta folder structure rule')
+
+        r1 = cd.build_context_file(tmp, chat_fn=chat)
+        first = calls['n']
+        check('first pass calls the LLM', first >= 3, first)
+        check('first pass reuses nothing', r1['reused'] == 0, r1['reused'])
+
+        calls['n'] = 0
+        r2 = cd.build_context_file(tmp, chat_fn=chat)
+        check('unchanged rescan makes no LLM call', calls['n'] == 0, calls['n'])
+        check('unchanged rescan reuses all', r2['reused'] == 2, r2['reused'])
+        check('counts unchanged', (r2['files'], r2['pages'], r2['llm'])
+              == (r1['files'], r1['pages'], r1['llm']),
+              (r1['files'], r1['pages'], r1['llm'],
+               r2['files'], r2['pages'], r2['llm']))
+        with io.open(r2['path'], 'r', encoding='utf-8') as f:
+            md2 = f.read()
+        check('overview reused verbatim', 'OVERVIEW TEXT' in md2)
+        check('reuse reported in digest', 'unchanged, reused' in md2)
+
+        # editing ONE file must re-extract only that file
+        with open(a, 'wb') as f:
+            f.write(b'alpha naming code WH-ARC-01 REVISED with LOD 350')
+        calls['n'] = 0
+        r3 = cd.build_context_file(tmp, chat_fn=chat)
+        check('edited file reprocessed', calls['n'] >= 1, calls['n'])
+        check('other file still reused', r3['reused'] == 1, r3['reused'])
+        check('both files still present', r3['files'] == 2, r3['files'])
+
+        # a new file is picked up
+        with open(os.path.join(tmp, 'c.md'), 'wb') as f:
+            f.write(b'gamma clash tolerance 25 mm')
+        r4 = cd.build_context_file(tmp, chat_fn=chat)
+        check('new file indexed', r4['files'] == 3, r4['files'])
+        check('existing files reused', r4['reused'] == 2, r4['reused'])
+
+        # force=True redoes everything
+        calls['n'] = 0
+        r5 = cd.build_context_file(tmp, chat_fn=chat, force=True)
+        check('force reuses nothing', r5['reused'] == 0, r5['reused'])
+        check('force calls the LLM again', calls['n'] >= 3, calls['n'])
+
+        # a PROMPT_VERSION bump must invalidate stored summaries
+        old_v = cd.PROMPT_VERSION
+        try:
+            cd.PROMPT_VERSION = old_v + 1
+            calls['n'] = 0
+            r6 = cd.build_context_file(tmp, chat_fn=chat)
+            check('prompt bump invalidates cache', r6['reused'] == 0,
+                  r6['reused'])
+            check('prompt bump re-runs the LLM', calls['n'] >= 3, calls['n'])
+        finally:
+            cd.PROMPT_VERSION = old_v
+
+        # an unreadable file stays reported across an incremental rescan
+        with open(os.path.join(tmp, 'blank.txt'), 'wb') as f:
+            f.write(b'   ')
+        r7 = cd.build_context_file(tmp, chat_fn=chat)
+        r8 = cd.build_context_file(tmp, chat_fn=chat)
+        check('unreadable persists when reused',
+              r7['skipped'] == 1 and r8['skipped'] == 1,
+              (r7['skipped'], r8['skipped']))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -827,6 +1301,11 @@ def main():
     test_bm25()
     test_embeddings()
     test_knowledge_store()
+    test_pdf_crypt()
+    test_py2_byte_semantics()
+    test_pdf_cache()
+    test_context_digest()
+    test_context_digest_incremental()
     test_dispatcher()
     test_specialists()
     test_skills()

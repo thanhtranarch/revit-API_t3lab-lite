@@ -60,8 +60,30 @@ TINY_AREA = 1e-7
 # ruled surface" the faceter chokes on.
 ZERO_NORMAL = 1e-9
 
-# UV grid resolution for normal probing (N x N samples per curved face).
-UV_SAMPLES = 5
+# |dP/du x dP/dv| below this is a SINGULAR POINT — the surface has no usable
+# normal there. This is precisely what Revit logs as
+#     Singular point in SilSolver::eval. ... surface type = Hermite surface
+# immediately before the 0xc0000005, so it is the highest-value signature we
+# can look for. Checking the derivatives directly is far more reliable than
+# ComputeNormal(), which may normalise garbage instead of returning a zero.
+SINGULAR_TOL = 1e-9
+
+# Where to sample, as fractions of the face's UV domain.
+#
+# The journal shows the silhouette solver blowing up at NEGATIVE uv — -0.005233
+# against a [0, 29.5358] envelope (-1.8e-4 of the domain) and -0.000483 against
+# [0, 1] (-4.8e-4 of the domain). Those are *just* outside the boundary, so a
+# plain inside-the-domain grid reports these faces as perfectly clean, and a
+# single fixed margin can just as easily overshoot the bad spot.
+#
+# Instead: probe the exact boundary, then step outside it at several orders of
+# magnitude, plus a coarse interior grid. Singularities on these surfaces sit
+# on the domain edges and corners, which is exactly what this concentrates on.
+SAMPLE_FRACTIONS = (-0.01, -0.001, -0.0001, 0.0, 0.5, 1.0, 1.0001, 1.001, 1.01)
+
+# A parameter domain more lopsided than this is pathological. The crashing
+# faces report envelope ([0,0], [29.535822627398, 1.0]) — a ~29.5:1 domain.
+DOMAIN_ASPECT = 20.0
 
 # Call Face.Triangulate() too. This IS the code path that crashes Revit —
 # leave it False for a first pass; the breadcrumb will name the element if it
@@ -70,6 +92,11 @@ DEEP_PROBE = False
 
 DIAG_FOLDER = os.path.join(os.path.expanduser('~'), 'Documents', 'T3Lab_Diagnostics')
 MARKER_FILE = os.path.join(DIAG_FOLDER, '_geometry_scan_marker.json')
+
+# Elements already probed in an earlier (possibly crashed) run, so a scan that
+# brings Revit down can be resumed instead of restarted. Cleared when a scan
+# completes normally.
+PROGRESS_FILE = os.path.join(DIAG_FOLDER, '_geometry_scan_progress.json')
 
 # Findings are written here so BatchOut's safe-mode export can hide exactly
 # these elements while exporting the sheets they poison.
@@ -88,6 +115,14 @@ def eid_value(element_id):
             return int(element_id.IntegerValue)   # Revit 2023 and earlier
         except Exception:
             return -1
+
+
+def make_eid_safe(value):
+    """ElementId from an int, version-safe. None when it cannot be built."""
+    try:
+        return DB.ElementId(int(value))
+    except Exception:
+        return None
 
 
 def elem_name(element):
@@ -143,6 +178,77 @@ def read_marker():
     return None
 
 
+# ── Resumable scan state ──────────────────────────────────────────────────
+# DEEP_PROBE (and, rarely, the normal probe) can take the process down. Losing
+# an hour of scanning to that is worse than the crash itself, so every probed
+# element id and every finding is persisted as we go. A resumed scan skips what
+# it already knows and — crucially — skips the element that killed the last
+# session, so consecutive runs make progress instead of dying in the same spot.
+
+def read_progress(doc):
+    """(probed_ids set, findings list, fatal_ids list) carried over from an
+    unfinished scan of THIS model. Empty when there is nothing to resume."""
+    try:
+        if not os.path.exists(PROGRESS_FILE):
+            return set(), [], []
+        with open(PROGRESS_FILE, 'r') as fh:
+            data = json.load(fh)
+        if data.get('doc') != doc.Title:
+            return set(), [], []
+        return (set(data.get('probed', [])),
+                data.get('findings', []),
+                data.get('fatal', []))
+    except Exception:
+        return set(), [], []
+
+
+def write_progress(doc, probed, findings, fatal):
+    """Checkpoint the scan. Findings are stored without the live ElementId
+    (not JSON-serialisable) — it is rebuilt from id_value on resume."""
+    try:
+        if not os.path.exists(DIAG_FOLDER):
+            os.makedirs(DIAG_FOLDER)
+        slim = []
+        for finding in findings:
+            slim.append({k: v for k, v in finding.items() if k != 'id'})
+        payload = {
+            'doc': doc.Title,
+            'updated': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'probed': sorted(probed),
+            'findings': slim,
+            'fatal': fatal,
+        }
+        with open(PROGRESS_FILE, 'w') as fh:
+            json.dump(payload, fh)
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def clear_progress():
+    try:
+        if os.path.exists(PROGRESS_FILE):
+            os.remove(PROGRESS_FILE)
+    except Exception:
+        pass
+
+
+def surface_kind(face):
+    """Underlying surface type name, e.g. 'HermiteSurface' / 'RuledSurface'.
+    Falls back to the Face subclass when GetSurface() is unavailable."""
+    try:
+        return type(face.GetSurface()).__name__
+    except Exception:
+        try:
+            return type(face).__name__
+        except Exception:
+            return "<unknown surface>"
+
+
 def write_findings(doc, findings):
     """Publish the suspect element ids for BatchOut's safe-mode export to hide.
     Only elements with a hard signature are published — sliver-only hits are
@@ -154,10 +260,13 @@ def write_findings(doc, findings):
         publishable = []
         for finding in findings:
             joined = " ".join(finding['problems'])
-            if ("ZERO NORMAL" in joined
+            if ("SINGULAR POINT" in joined
+                    or "DEGENERATE UV DOMAIN" in joined
+                    or "ZERO NORMAL" in joined
                     or "zero-area" in joined
                     or "Triangulate() failed" in joined
-                    or "ComputeNormal failed" in joined):
+                    or "ComputeNormal failed" in joined
+                    or "FATAL" in joined):
                 publishable.append({
                     'id': finding['id_value'],
                     'category': finding['category'],
@@ -213,11 +322,14 @@ def probe_face(face):
             problems.append("sliver face (mean thickness {:.3f} mm)".format(
                 mean_thickness / FT_PER_MM))
 
-    # 3. Zero / unevaluable surface normals. Planar faces have a constant
-    #    normal and never generate silhouettes, so only curved faces matter —
-    #    those are exactly what RuledSurf.cpp / Silhouettes.cpp operate on.
+    # 3. Zero normals / singular points. Planar faces have a constant normal
+    #    and never generate silhouettes, so only curved faces matter — those
+    #    are exactly what RuledSurf.cpp / Silhouettes.cpp / SilSolver operate
+    #    on.
     if isinstance(face, DB.PlanarFace):
         return problems
+
+    kind = surface_kind(face)
 
     try:
         bbox = face.GetBoundingBox()
@@ -227,28 +339,78 @@ def probe_face(face):
         problems.append("no UV bounding box: {}".format(ex))
         return problems
 
+    du_span = abs(u1 - u0)
+    dv_span = abs(v1 - v0)
+
+    # 3a. Pathological parameter domain. The crashing faces in the journal
+    #     report envelope ([0,0], [29.5358, 1.0]) — one direction ~29.5x the
+    #     other. That lopsidedness is what drives the silhouette solver off
+    #     the domain in the first place.
+    if du_span > 0 and dv_span > 0:
+        aspect = max(du_span / dv_span, dv_span / du_span)
+        if aspect >= DOMAIN_ASPECT:
+            problems.append(
+                "DEGENERATE UV DOMAIN on {} -- aspect {:.1f}:1 "
+                "(envelope u=[{:.3f}, {:.3f}] v=[{:.3f}, {:.3f}])".format(
+                    kind, aspect, u0, u1, v0, v1))
+
+    # 3b. Sample the domain edges, several magnitudes just outside them, and a
+    #     coarse interior. The journal's fatal evaluations are at negative uv,
+    #     so an inside-only grid would report this face as clean.
     zero_normals = 0
     failed_normals = 0
-    for i in range(UV_SAMPLES):
-        for j in range(UV_SAMPLES):
-            fu = u0 + (u1 - u0) * (i / float(UV_SAMPLES - 1)) if UV_SAMPLES > 1 else u0
-            fv = v0 + (v1 - v0) * (j / float(UV_SAMPLES - 1)) if UV_SAMPLES > 1 else v0
+    singular = 0
+    singular_uv = None
+    outside_only = True
+
+    for fi in SAMPLE_FRACTIONS:
+        for fj in SAMPLE_FRACTIONS:
+            fu = u0 + (u1 - u0) * fi
+            fv = v0 + (v1 - v0) * fj
+            inside = (0.0 <= fi <= 1.0) and (0.0 <= fj <= 1.0)
+            uv = DB.UV(fu, fv)
+
+            # Singular point: the two surface tangents are parallel or one
+            # collapses, so their cross product — the unnormalised normal —
+            # vanishes. This is the SilSolver::eval signature.
             try:
-                normal = face.ComputeNormal(DB.UV(fu, fv))
+                derivs = face.ComputeDerivatives(uv)
+                d_u = derivs.BasisX
+                d_v = derivs.BasisY
+                cross = d_u.CrossProduct(d_v)
+                if cross.GetLength() < SINGULAR_TOL:
+                    singular += 1
+                    if singular_uv is None:
+                        singular_uv = (fu, fv, inside)
+                    if inside:
+                        outside_only = False
+            except Exception:
+                pass
+
+            try:
+                normal = face.ComputeNormal(uv)
                 length = math.sqrt(normal.X ** 2 + normal.Y ** 2 + normal.Z ** 2)
                 if length < ZERO_NORMAL:
                     zero_normals += 1
             except Exception:
                 failed_normals += 1
 
+    total = len(SAMPLE_FRACTIONS) ** 2
+    if singular:
+        problems.append(
+            "SINGULAR POINT on {} at {}/{} sample points, first at "
+            "uv=({:.6f}, {:.6f}){} -- matches 'Singular point in "
+            "SilSolver::eval'".format(
+                kind, singular, total, singular_uv[0], singular_uv[1],
+                " JUST OUTSIDE the domain" if outside_only else ""))
     if zero_normals:
         problems.append(
             "ZERO NORMAL VECTOR at {}/{} sample points -- matches "
             "'Zero normal vector for ruled surface'".format(
-                zero_normals, UV_SAMPLES * UV_SAMPLES))
+                zero_normals, total))
     if failed_normals:
         problems.append("ComputeNormal failed at {}/{} sample points".format(
-            failed_normals, UV_SAMPLES * UV_SAMPLES))
+            failed_normals, total))
 
     # 4. Optional: the actual crash path.
     if DEEP_PROBE:
@@ -340,6 +502,38 @@ def views_to_scan(doc, output):
     return targets
 
 
+def report_links(doc, view, view_label, output):
+    """List the RevitLinkInstances drawing into `view`.
+
+    Every crash journal for this model shows RVT-link graphics regenerating
+    immediately before death, and `FilteredElementCollector(doc, view.Id)` does
+    not return elements that live inside a link — so without this the scan can
+    come back clean while the real culprit sits in a linked file. Individual
+    linked elements cannot be hidden through `View.HideElements` (the ids belong
+    to another document), so the mitigations that reach them are the whole-link
+    rung or a category hide.
+    """
+    try:
+        links = DB.FilteredElementCollector(doc, view.Id) \
+                  .OfClass(DB.RevitLinkInstance) \
+                  .ToElements()
+    except Exception:
+        return
+    if not links:
+        return
+    names = []
+    for link in links:
+        try:
+            link_doc = link.GetLinkDocument()
+            names.append(link_doc.Title if link_doc is not None
+                         else "{} (not loaded)".format(elem_name(link)))
+        except Exception:
+            names.append(elem_name(link))
+    output.print_md(
+        "- `{}` draws **{}** link(s) not covered by this element scan: {}".format(
+            view_label, len(names), ", ".join("`{}`".format(n) for n in names)))
+
+
 class SheetOption(object):
     """forms.SelectFromList wrapper so the list shows number + name."""
 
@@ -358,15 +552,39 @@ def checkModel(doc, output):
         "Hunting the geometry that defeats Revit's faceter and hard-crashes "
         "PDF / DWG export.")
 
+    # Resume state first: a scan that crashed left both a breadcrumb naming the
+    # killer and a checkpoint of everything already probed.
+    probed, findings, fatal_ids = read_progress(doc)
+    for finding in findings:
+        finding['id'] = make_eid_safe(finding.get('id_value'))
+
     stale = read_marker()
     if stale:
+        killer_id = stale.get('element_id')
         output.print_md(
-            "> **A previous scan did not finish.** Revit died while probing "
-            "element `{}` (id {}) in view `{}` at {}. That element is your "
-            "prime suspect.".format(
-                stale.get('element'), stale.get('element_id'),
-                stale.get('view'), stale.get('time')))
+            "> ### Previous scan was killed by this element\n"
+            "> `{}` (id **{}**) in view `{}` at {}.\n"
+            "> It is recorded as **FATAL** and will be skipped from here on, so "
+            "this run continues past it instead of dying in the same place."
+            .format(stale.get('element'), killer_id,
+                    stale.get('view'), stale.get('time')))
+        if killer_id is not None and killer_id not in fatal_ids:
+            fatal_ids.append(killer_id)
+            findings.append({
+                'view': stale.get('view', '<unknown>'),
+                'id': make_eid_safe(killer_id),
+                'id_value': killer_id,
+                'category': (stale.get('element') or ':').split(':')[0].strip(),
+                'name': (stale.get('element') or ': ').split(':')[-1].strip(),
+                'problems': ["FATAL -- hard-crashed Revit while being probed"],
+            })
+        probed.add(killer_id)
         clear_marker()
+
+    if probed:
+        output.print_md(
+            "Resuming: **{}** element(s) already probed, **{}** known fatal."
+            .format(len(probed), len(fatal_ids)))
 
     targets = views_to_scan(doc, output)
     if not targets:
@@ -376,8 +594,8 @@ def checkModel(doc, output):
     output.print_md("Scanning **{}** views. DEEP_PROBE = `{}`.".format(
         len(targets), DEEP_PROBE))
 
-    findings = []
     scanned = 0
+    since_checkpoint = 0
     for sheet_number, view in targets:
         view_label = "{} / {}".format(sheet_number, elem_name(view))
         try:
@@ -388,19 +606,30 @@ def checkModel(doc, output):
             output.print_md("- Could not collect from `{}`: {}".format(view_label, ex))
             continue
 
+        # Linked geometry renders through the host view but is NOT returned by
+        # the collector above, so report the links carrying content into this
+        # view — they cannot be hidden element-by-element, only as a whole
+        # instance or by category.
+        report_links(doc, view, view_label, output)
+
         for element in elements:
+            element_id = eid_value(element.Id)
+            if element_id in probed:
+                continue
+
             try:
                 category = element.Category.Name if element.Category else "<no category>"
             except Exception:
                 category = "<no category>"
 
             description = "{} : {}".format(category, elem_name(element))
-            element_id = eid_value(element.Id)
 
             write_marker(view_label, element_id, description)
             problems = probe_element(element, view)
             clear_marker()
             scanned += 1
+            probed.add(element_id)
+            since_checkpoint += 1
 
             if problems:
                 findings.append({
@@ -412,35 +641,54 @@ def checkModel(doc, output):
                     'problems': problems,
                 })
 
+            # Checkpoint periodically so a crash costs at most 25 elements of
+            # re-probing rather than the whole scan.
+            if since_checkpoint >= 25:
+                write_progress(doc, probed, findings, fatal_ids)
+                since_checkpoint = 0
+
     output.print_md("---")
     output.print_md("Probed **{}** elements across **{}** views.".format(
         scanned, len(targets)))
+
+    # The scan finished without taking Revit down — drop the resume state so
+    # the next run starts clean.
+    clear_progress()
 
     if not findings:
         output.print_md(
             "**No degenerate geometry found.** Re-run with `DEEP_PROBE = True` "
             "at the top of this file to exercise the actual tessellation path "
             "(that probe can crash Revit - the breadcrumb will name the "
-            "element if it does).")
+            "element and the scan will resume past it).")
         return
 
-    # Worst first: zero normals are the exact journal signature.
+    # Worst first. A confirmed process-killer outranks everything; after that,
+    # the singular point is the exact SilSolver signature from the journal.
     def severity(finding):
         joined = " ".join(finding['problems'])
-        if "ZERO NORMAL" in joined:
+        if "FATAL" in joined:
             return 0
-        if "Triangulate() failed" in joined or "zero-area" in joined:
+        if "SINGULAR POINT" in joined:
             return 1
-        if "sliver" in joined:
+        if "ZERO NORMAL" in joined:
             return 2
-        return 3
+        if "Triangulate() failed" in joined or "zero-area" in joined:
+            return 3
+        if "DEGENERATE UV DOMAIN" in joined:
+            return 4
+        if "sliver" in joined:
+            return 5
+        return 6
 
     findings.sort(key=severity)
 
     output.print_md("## {} suspect element(s)".format(len(findings)))
     for finding in findings:
+        link = (output.linkify(finding['id']) if finding.get('id') is not None
+                else finding.get('id_value'))
         output.print_md("**{}** - {} (id {})".format(
-            finding['category'], finding['name'], output.linkify(finding['id'])))
+            finding['category'], finding['name'], link))
         output.print_md("  - view: `{}`".format(finding['view']))
         for problem in finding['problems']:
             output.print_md("  - {}".format(problem))
@@ -449,16 +697,22 @@ def checkModel(doc, output):
 
     output.print_md("---")
     output.print_md(
-        "**Fix order:** elements reporting *ZERO NORMAL VECTOR* first - that is "
-        "literally what `RuledSurf.cpp` logs before the crash. In the family, "
-        "look for a blend / swept blend whose two profiles collapse to a point, "
-        "or a revolve with a zero-radius edge. Rebuilding that one solid "
-        "usually clears the whole crash.")
+        "**Fix order:** *FATAL* first (it already killed a session), then "
+        "*SINGULAR POINT* - that is literally what `SilSolver::eval` logs "
+        "before the crash - then *ZERO NORMAL VECTOR*. In the family, look for "
+        "a blend / swept blend whose two profiles collapse to a point, a "
+        "revolve with a zero-radius edge, or a spline-driven sweep. Rebuilding "
+        "that one solid usually clears the whole crash.")
     if published:
         output.print_md(
             "**{} element(s) published to** `{}` - BatchOut safe mode will hide "
             "exactly these while exporting the sheets they poison, then roll the "
             "change back.".format(published, FINDINGS_FILE))
+    else:
+        output.print_md(
+            "Nothing met the auto-hide bar (sliver-only hits are reported but "
+            "not published, since slivers are common and usually harmless). "
+            "If a sheet still crashes, use BatchOut's safe-mode ladder.")
 
 
 class ModelChecker(PreflightTestCase):
