@@ -33,7 +33,7 @@ __title__  = "Agent Loop"
 import json
 import time
 
-from Intelligence.tool_schema import LAUNCHER_TOOL_NAME
+from Intelligence.tool_schema import LAUNCHER_TOOL_NAME, MEMORY_TOOL_NAME
 
 
 # ─── Result truncation ─────────────────────────────────────────────────────────
@@ -51,6 +51,18 @@ def _result_to_json(result):
     if len(s) > _MAX_RESULT_CHARS:
         s = s[:_MAX_RESULT_CHARS] + u"... [truncated {} chars]".format(len(s) - _MAX_RESULT_CHARS)
     return s
+
+
+def _call_key(name, args):
+    """Canonical identity of one tool call, for the duplicate guard.
+
+    Shared by the guard itself and by the read-batching prefetch so the two
+    can never disagree about what counts as "already done".
+    """
+    try:
+        return (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
+    except Exception:
+        return (name, u"{}".format(args))
 
 
 def _sanitize_history(history, limit=24):
@@ -83,10 +95,16 @@ class AgentLoop(object):
 
     def __init__(self, provider, execute_tool, tools, callbacks=None,
                  max_iterations=10, max_tokens=1500, time_budget_sec=240,
-                 turn_timer=None):
+                 turn_timer=None, execute_tools_batch=None,
+                 is_write_tool=None):
         self._provider       = provider
         self._execute_tool   = execute_tool
         self._tools          = tools
+        # Optional read-batching seam. Both must be supplied for it to engage;
+        # without them every call goes through execute_tool one at a time,
+        # exactly as before.
+        self._execute_batch  = execute_tools_batch
+        self._is_write_tool  = is_write_tool
         self._cb             = callbacks or {}
         self._max_iterations = max_iterations
         self._max_tokens     = max_tokens
@@ -147,6 +165,62 @@ class AgentLoop(object):
             self._timer.tool_roundtrip(n_calls)
         except Exception:
             pass
+
+    # ── Read batching ─────────────────────────────────────────────────────────
+
+    def leading_read_run(self, calls, done_calls=None):
+        """Indices of the LEADING run of batchable read-only calls.
+
+        Stops at the first call that is not a plain read — a write, the
+        terminal launcher, the locally-executed memory tool, or a duplicate
+        the loop will refuse anyway. Stopping there is what preserves
+        read-after-write ordering: a read placed after a write must see the
+        model as the write left it, so it can never be hoisted into the batch.
+
+        A run of one is not worth a batch; the caller falls back to the
+        sequential path.
+        """
+        if self._execute_batch is None or self._is_write_tool is None:
+            return []
+        done = done_calls or set()
+        idxs = []
+        for i, tc in enumerate(calls or []):
+            name = tc.get("name", "")
+            if not name or name in (LAUNCHER_TOOL_NAME, MEMORY_TOOL_NAME):
+                break
+            try:
+                if self._is_write_tool(name):
+                    break
+            except Exception:
+                break
+            if _call_key(name, tc.get("args") or {}) in done:
+                break
+            idxs.append(i)
+        return idxs if len(idxs) > 1 else []
+
+    def _prefetch_reads(self, calls, done_calls):
+        """Execute the leading read run in ONE Revit round-trip.
+
+        Returns {index: result}. Results are handed back to the normal
+        sequential loop below, which still emits on_tool_start/on_tool_done
+        per call and still applies its guards — only the crossing is shared,
+        so the UI and the transcript are indistinguishable from before.
+
+        Any failure falls back silently to per-call execution.
+        """
+        idxs = self.leading_read_run(calls, done_calls)
+        if not idxs:
+            return {}
+        batch = [(calls[i].get("name", ""), calls[i].get("args") or {})
+                 for i in idxs]
+        try:
+            results = self._execute_batch(batch)
+        except Exception:
+            return {}
+        if not isinstance(results, list) or len(results) != len(idxs):
+            return {}
+        self._note_roundtrip(len(idxs))
+        return dict(zip(idxs, results))
 
     # ── Text tool-call rescue ─────────────────────────────────────────────────
 
@@ -267,10 +341,18 @@ class AgentLoop(object):
                 return self._finish("done", last_text, None, iteration, tool_runs)
 
             # ── Execute tool calls sequentially (Revit is single-threaded) ──
+            # One exception: the LEADING run of read-only calls is fetched in a
+            # single crossing to Revit's main thread first (each crossing costs
+            # an ExternalEvent raise plus a wait for Revit to go idle, and the
+            # model routinely asks for several reads at once). The loop below
+            # is otherwise untouched — it still emits a card per call and still
+            # applies every guard; it just consumes the prefetched result
+            # instead of paying for its own round-trip.
+            prefetched    = self._prefetch_reads(calls, done_calls)
             results       = []
             launch_intent = None
             doc_changed   = False
-            for tc in calls:
+            for _idx, tc in enumerate(calls):
                 name = tc.get("name", "")
                 args = tc.get("args") or {}
 
@@ -297,11 +379,7 @@ class AgentLoop(object):
                 # already succeeded in THIS run is never executed again — the
                 # model gets an error result telling it to move on, and no
                 # tool card ever reaches the UI for the repeat.
-                try:
-                    call_key = (name, json.dumps(args, sort_keys=True,
-                                                 ensure_ascii=False))
-                except Exception:
-                    call_key = (name, u"{}".format(args))
+                call_key = _call_key(name, args)
                 if call_key in done_calls:
                     results.append({
                         "error": u"Duplicate call: `{}` with identical "
@@ -313,11 +391,15 @@ class AgentLoop(object):
 
                 self._emit("on_tool_start", name, args, iteration)
                 t0 = time.time()
-                self._note_roundtrip(1)
-                try:
-                    res = self._execute_tool(name, args)
-                except Exception as ex:
-                    res = {"error": u"{}".format(ex), "tool": name}
+                if _idx in prefetched:
+                    # Already fetched in the shared read round-trip above.
+                    res = prefetched[_idx]
+                else:
+                    self._note_roundtrip(1)
+                    try:
+                        res = self._execute_tool(name, args)
+                    except Exception as ex:
+                        res = {"error": u"{}".format(ex), "tool": name}
                 if not isinstance(res, dict):
                     res = {"result": res}
                 dt = time.time() - t0

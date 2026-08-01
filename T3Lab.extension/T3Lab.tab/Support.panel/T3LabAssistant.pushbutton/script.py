@@ -6581,6 +6581,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     doc_guard["armed"] = False
             return res
 
+        def _exec_reads_batch(batch):
+            """Run a run of read-only calls in ONE crossing to Revit.
+
+            Only reachable for plain reads (agent_loop.leading_read_run stops
+            at the first write, launcher or memory call), so none of the
+            _exec_tool preamble above — the action group, the destructive
+            confirm card, the purge dry-run forcing, the doc-guard disarm —
+            can apply to anything in here.
+            """
+            return srv.execute_tools_batch(batch)
+
         def _guard_check():
             try:
                 if not doc_guard["armed"]:
@@ -6725,7 +6736,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             },
             max_iterations=(spec.max_iterations if spec is not None else 10),
             max_tokens=(spec.max_tokens if spec is not None else 1500),
-            turn_timer=getattr(self, '_turn_timer', None))
+            turn_timer=getattr(self, '_turn_timer', None),
+            execute_tools_batch=_exec_reads_batch,
+            is_write_tool=srv.is_write_tool)
 
         self._agent_loop = loop
         if self._cancel_requested:

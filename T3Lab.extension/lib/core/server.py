@@ -2256,6 +2256,84 @@ class T3LabAIServer(object):
     # already used when no ExternalEvent exists at all.
     _READ_FALLBACK_WAIT = 2.0
 
+    def is_write_tool(self, tool_name):
+        """True if `tool_name` mutates the model / must run on the UI thread."""
+        return tool_name in self._WRITE_TOOLS
+
+    def execute_tools_batch(self, calls):
+        """Run several READ-ONLY tools in ONE crossing to Revit's main thread.
+
+        `calls` is a list of (tool_name, arguments); returns results in the
+        same order. Any write tool in the list is rejected up front — writes
+        stay on _execute_tool, one at a time, so the TransactionGroup and undo
+        semantics are untouched.
+
+        Why this helps: MCPExternalEventHandler.Execute already drains the
+        whole queue in one callback ("ExternalEvent coalesces multiple Raise()
+        calls into one Execute"). The serialization was never in the handler —
+        it was in _execute_tool, which enqueues ONE task, raises, and then
+        blocks on it, so a caller could never get a second task into the queue.
+        Enqueuing the whole batch before raising lets the existing drain loop
+        do exactly what it was already written to do. Each call keeps its own
+        _ToolTask, so claim() and _write_in_progress behave per call as before.
+        """
+        calls = list(calls or [])
+        if not calls:
+            return []
+
+        writes = [n for n, _ in calls if n in self._WRITE_TOOLS]
+        if writes:
+            raise ValueError(
+                'execute_tools_batch is read-only; got write tools: {}'
+                .format(', '.join(sorted(set(writes)))))
+
+        if not self._external_event:
+            # No event to batch onto — reads are safe on this thread anyway.
+            return [self._execute_tool_in_context(name, args)
+                    for name, args in calls]
+
+        import time   # not a module-level import in this file (see line ~306)
+
+        tasks = [_ToolTask(name, args) for name, args in calls]
+        for task in tasks:
+            self._event_handler.tasks.put(task)
+        self._external_event.Raise()
+
+        # ONE grace period for the whole batch, then the same per-task fallback
+        # a single read would have taken.
+        deadline = time.time() + self._READ_FALLBACK_WAIT
+        for task in tasks:
+            remaining = deadline - time.time()
+            if remaining > 0:
+                task.done.wait(remaining)
+
+        results = []
+        for task in tasks:
+            if not task.done.is_set():
+                if not self._write_in_progress and task.claim('fallback'):
+                    # Revit is busy — run the read here rather than hang until
+                    # it next goes idle. Reads never touch the window.
+                    try:
+                        results.append(self._execute_tool_in_context(
+                            task.tool_name, task.arguments))
+                    except Exception as e:
+                        results.append({'error': str(e),
+                                        'tool': task.tool_name})
+                    continue
+                if not task.done.wait(120):
+                    task.claim('abandoned')
+                    results.append({
+                        'error': 'Execution timed out waiting for Revit '
+                                 'thread context',
+                        'tool': task.tool_name})
+                    continue
+            if task.exception:
+                results.append({'error': str(task.exception),
+                                'tool': task.tool_name})
+            else:
+                results.append(task.result)
+        return results
+
     def _execute_tool(self, tool_name, arguments):
         """Execute a Revit tool in a thread-safe manner using External Events."""
         if self._external_event:
