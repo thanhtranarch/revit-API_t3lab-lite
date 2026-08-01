@@ -31,8 +31,11 @@ sys.path.insert(0, os.path.join(
 FAILURES = []
 
 
-def check(label, ok):
-    print('  {}  {}'.format('ok  ' if ok else 'FAIL', label))
+def check(label, ok, detail=None):
+    line = '  {}  {}'.format('ok  ' if ok else 'FAIL', label)
+    if not ok and detail is not None:
+        line += '   {!r}'.format(detail)
+    print(line)
     if not ok:
         FAILURES.append(label)
 
@@ -249,6 +252,110 @@ def test_batching_is_opt_in_and_fails_safe():
           == {})
 
 
+# ─── classification round-trip ────────────────────────────────────────────────
+
+class _CountingProvider(object):
+    """Stands in for a real provider; records whether it was called at all."""
+
+    def __init__(self, label='general'):
+        self.calls = []
+        self._label = label
+
+    def pick_fast_model(self):
+        return 'fast-model'
+
+    def chat(self, messages, system, user, **kwargs):
+        self.calls.append(kwargs)
+        return '{"label": "%s", "skill": null}' % self._label
+
+
+def test_a_strong_skill_match_skips_the_classify_call():
+    """The classification call sits IN FRONT of the real turn, so every one
+    that can be avoided is latency the user does not pay."""
+    print('[classify: skip on strong skill]')
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    from Intelligence.skills_engine import get_skills_engine
+
+    engine = get_skills_engine()
+    engine.scan()
+    disp = AgentDispatcher()
+
+    prov = _CountingProvider()
+    dec = disp.classify('shared coordinates', provider=prov,
+                        skills_engine=engine)
+    check('decided from the skill itself', dec['source'] == 'skill', dec)
+    check('the strong skill is carried', dec['skill'] == 'shared-coordinates')
+    check('specialist comes from the frontmatter',
+          dec['specialist'] in ('general', 'revit_data', 'revit_action',
+                                'knowledge', 'comment', 'multi_doc',
+                                'modeling', 'qa_check', 'export'), dec)
+    check('no model round-trip was paid', prov.calls == [])
+
+
+def test_a_weak_match_still_asks_the_model():
+    print('[classify: weak match]')
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    from Intelligence.skills_engine import get_skills_engine
+
+    engine = get_skills_engine()
+    engine.scan()
+    disp = AgentDispatcher()
+
+    prov = _CountingProvider()
+    disp.classify('cobie handover', provider=prov, skills_engine=engine)
+    check('a weak skill hit does not short-circuit', len(prov.calls) == 1)
+
+    prov2 = _CountingProvider()
+    disp.classify('thời tiết hôm nay thế nào', provider=prov2,
+                  skills_engine=engine)
+    check('an unmatched message still asks', len(prov2.calls) == 1)
+
+
+def test_classify_call_is_time_bounded():
+    """Without an explicit bound this inherited each provider's chat timeout:
+    60s on the cloud APIs, 180s on Ollama / LM Studio."""
+    print('[classify: timeout]')
+    from Intelligence.agents.dispatcher import (AgentDispatcher,
+                                                _CLASSIFY_TIMEOUT_MS)
+    from Intelligence.skills_engine import get_skills_engine
+
+    check('bound is short enough to be worth paying',
+          0 < _CLASSIFY_TIMEOUT_MS <= 10000, _CLASSIFY_TIMEOUT_MS)
+
+    engine = get_skills_engine()
+    engine.scan()
+    prov = _CountingProvider()
+    AgentDispatcher().classify('thời tiết hôm nay thế nào', provider=prov,
+                               skills_engine=engine)
+    check('the call carries the bound',
+          prov.calls and prov.calls[0].get('timeout_ms') == _CLASSIFY_TIMEOUT_MS,
+          prov.calls)
+    check('and still pins the fast model',
+          prov.calls and prov.calls[0].get('model_override') == 'fast-model')
+
+
+def test_providers_accept_a_timeout_override():
+    """Every chat() takes **kwargs, but the timeout only helps if the provider
+    actually forwards it to http_post."""
+    print('[classify: provider plumbing]')
+    import re as _re
+    for name, default in (('claude_provider', '60000'),
+                          ('openai_provider', '60000'),
+                          ('deepseek_provider', '60000'),
+                          ('ollama_provider', '180000'),
+                          ('lmstudio_provider', '180000')):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'T3Lab.extension', 'lib', 'Intelligence', name + '.py')
+        with open(path, encoding='utf-8') as f:
+            src = f.read()
+        # the chat() body must read timeout_ms from kwargs, falling back to
+        # the value that provider used before.
+        pat = r'kwargs\.get\("timeout_ms"\)\s*\n?\s*or\s*' + default
+        check('{} forwards timeout_ms (default {})'.format(name, default),
+              bool(_re.search(pat, src)))
+
+
 def main():
     print('')
     for fn in (test_turn_timer,
@@ -259,7 +366,11 @@ def main():
                test_only_leading_reads_are_batched,
                test_special_tools_never_join_a_batch,
                test_duplicates_are_left_to_the_existing_guard,
-               test_batching_is_opt_in_and_fails_safe):
+               test_batching_is_opt_in_and_fails_safe,
+               test_a_strong_skill_match_skips_the_classify_call,
+               test_a_weak_match_still_asks_the_model,
+               test_classify_call_is_time_bounded,
+               test_providers_accept_a_timeout_override):
         fn()
         print('')
 

@@ -228,7 +228,9 @@ class ClaudeProvider(BaseLLMProvider):
         }
 
         try:
-            resp_text  = http_post(CLAUDE_API_URL, payload, headers)
+            resp_text  = http_post(CLAUDE_API_URL, payload, headers,
+                                   timeout_ms=int(kwargs.get("timeout_ms")
+                                                  or 60000))
             api_result = json.loads(resp_text)
             return api_result["content"][0]["text"].strip()
         except Exception as ex:

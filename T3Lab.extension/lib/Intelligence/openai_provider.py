@@ -219,7 +219,9 @@ class OpenAIProvider(BaseLLMProvider):
         headers = {"Authorization": "Bearer {}".format(api_key)}
 
         try:
-            resp_text  = http_post(OPENAI_CHAT_URL, payload, headers)
+            resp_text  = http_post(OPENAI_CHAT_URL, payload, headers,
+                                   timeout_ms=int(kwargs.get("timeout_ms")
+                                                  or 60000))
             api_result = json.loads(resp_text)
             return api_result["choices"][0]["message"]["content"].strip()
         except Exception as ex:
