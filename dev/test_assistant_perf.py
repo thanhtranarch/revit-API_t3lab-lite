@@ -356,6 +356,107 @@ def test_providers_accept_a_timeout_override():
               bool(_re.search(pat, src)))
 
 
+# ─── conversation window + rolling summary ────────────────────────────────────
+
+def _long_history(n=30):
+    turns = []
+    for i in range(n):
+        turns.append({'role': 'user',
+                      'content': 'yêu cầu %d: đổi tên sheet A-%03d' % (i, i)})
+        turns.append({'role': 'assistant',
+                      'content': ('Đã đổi tên 12 sheet, ids [%d]' % i)
+                      if i % 2 else 'Đang kiểm tra…'})
+    return turns
+
+
+def test_history_window_is_one_number():
+    """script._add_to_history truncated to 16 while _sanitize_history took the
+    last 24, so the larger limit never bound and the continuity it documented
+    could not happen."""
+    print('[conversation: window]')
+    from Intelligence.conversation import HISTORY_LIMIT, trim_history
+    from Intelligence.agent_loop import _sanitize_history
+
+    hist = _long_history()
+    kept, _ = trim_history(hist, '')
+    check('window enforced', len(kept) == HISTORY_LIMIT)
+    check('newest turns are the ones kept', kept[-1] == hist[-1])
+    check('sanitize uses the same number',
+          len(_sanitize_history(hist)) == HISTORY_LIMIT)
+
+    short = hist[:10]
+    check('under the limit nothing is touched',
+          trim_history(short, 'keep me') == (short, 'keep me'))
+
+
+def test_dropped_turns_are_folded_not_lost():
+    print('[conversation: rolling summary]')
+    from Intelligence.conversation import trim_history, MAX_SUMMARY_CHARS
+
+    kept, summary = trim_history(_long_history(), '')
+    check('a summary was produced', bool(summary))
+    check('the start of the session survives', 'A-000' in summary, summary[:80])
+    check('it is not in the live window',
+          not any('A-000' in (t.get('content') or '') for t in kept))
+    check('concrete results are carried', 'ids [1]' in summary)
+    check('narration is dropped', 'Đang kiểm tra' not in summary)
+    check('budget respected', len(summary) <= MAX_SUMMARY_CHARS)
+
+
+def test_summary_keeps_the_recent_end_when_it_overflows():
+    print('[conversation: summary budget]')
+    from Intelligence.conversation import fold_summary, MAX_SUMMARY_CHARS
+
+    huge = [{'role': 'user', 'content': 'điều kiện số %d phải giữ' % i}
+            for i in range(400)]
+    summary = fold_summary('', huge)
+    check('bounded', len(summary) <= MAX_SUMMARY_CHARS)
+    check('the newest folded turn survives', 'số 399' in summary)
+    check('the oldest is what gets dropped', 'số 0 ' not in summary)
+
+    grown = fold_summary(summary, [{'role': 'user', 'content': 'ràng buộc mới'}])
+    check('folding again keeps the newest', 'ràng buộc mới' in grown)
+    check('still bounded', len(grown) <= MAX_SUMMARY_CHARS)
+
+
+def test_summary_block_is_labelled_and_bilingual():
+    print('[conversation: prompt block]')
+    from Intelligence.conversation import summary_block
+
+    check('no summary = no block', summary_block('') == '')
+    check('whitespace only = no block', summary_block('   \n  ') == '')
+
+    en = summary_block('User asked: rename sheets')
+    check('english heading', 'Earlier in this conversation' in en)
+    check('marked as background, not a to-do', 'NOT tasks to redo' in en)
+    check('content carried', 'rename sheets' in en)
+
+    vi = summary_block('Người dùng hỏi: đổi tên sheet', viet=True)
+    check('vietnamese heading', 'Trước đó trong hội thoại' in vi)
+    check('vietnamese note', 'KHÔNG phải việc cần làm lại' in vi)
+
+
+def test_summary_handles_every_content_shape():
+    print('[conversation: content shapes]')
+    from Intelligence.conversation import summarize_turns
+
+    lines = summarize_turns([
+        {'role': 'user', 'content': [{'type': 'text', 'text': 'xem sheet A-101'},
+                                     {'type': 'image', 'source': {}}]},
+        {'role': 'assistant', 'content': 'Đã tìm thấy 3 sheet'},
+        {'role': 'system', 'content': 'ignored'},
+        {'role': 'user', 'content': ''},
+        'not a dict',
+        {'role': 'assistant', 'content': None},
+    ])
+    check('vision turn text is mined',
+          any('A-101' in l for l in lines), lines)
+    check('concrete assistant line kept',
+          any('3 sheet' in l for l in lines), lines)
+    check('system turns ignored', not any('ignored' in l for l in lines))
+    check('empty and malformed turns are skipped', len(lines) == 2, lines)
+
+
 def main():
     print('')
     for fn in (test_turn_timer,
@@ -370,7 +471,12 @@ def main():
                test_a_strong_skill_match_skips_the_classify_call,
                test_a_weak_match_still_asks_the_model,
                test_classify_call_is_time_bounded,
-               test_providers_accept_a_timeout_override):
+               test_providers_accept_a_timeout_override,
+               test_history_window_is_one_number,
+               test_dropped_turns_are_folded_not_lost,
+               test_summary_keeps_the_recent_end_when_it_overflows,
+               test_summary_block_is_labelled_and_bilingual,
+               test_summary_handles_every_content_shape):
         fn()
         print('')
 

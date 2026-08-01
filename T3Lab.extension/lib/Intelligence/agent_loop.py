@@ -65,13 +65,24 @@ def _call_key(name, args):
         return (name, u"{}".format(args))
 
 
-def _sanitize_history(history, limit=24):
+def _sanitize_history(history, limit=None):
     """Reduce persisted chat history to plain-text user/assistant messages.
 
-    24 turns (was 16) gives the agent stronger multi-turn continuity. It stays
-    affordable: Claude re-reads the transcript prefix from the prompt cache,
-    and Ollama's num_ctx is sized to fit the actual payload per request.
+    The window size comes from Intelligence.conversation.HISTORY_LIMIT. It was
+    hardcoded to 24 here while script._add_to_history truncated to 16, so this
+    limit never actually bound and the extra continuity it claimed to give
+    could not happen. One constant now, and turns that fall past it are folded
+    into a rolling summary rather than dropped.
+
+    It stays affordable: Claude re-reads the transcript prefix from the prompt
+    cache, and Ollama's num_ctx is sized to fit the actual payload per request.
     """
+    if limit is None:
+        try:
+            from Intelligence.conversation import HISTORY_LIMIT
+            limit = HISTORY_LIMIT
+        except Exception:
+            limit = 24
     out = []
     for h in (history or [])[-limit:]:
         role    = h.get("role", "")

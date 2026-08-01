@@ -703,12 +703,13 @@ def _history_file(doc_key):
     return os.path.join(config_dir, '{}.json'.format(doc_key))
 
 
-def save_chat_history(doc_key, messages):
+def save_chat_history(doc_key, messages, summary=u""):
     """Persist the last N messages to disk for this document.
 
     Args:
         doc_key  : identifier returned by _get_doc_key()
         messages : list of {role, content, ts} dicts
+        summary  : rolling summary of turns that fell out of the window
     """
     try:
         path = _history_file(doc_key)
@@ -719,7 +720,8 @@ def save_chat_history(doc_key, messages):
         # with UnicodeEncodeError mid-write under IronPython 2.7 as soon as
         # the chat carries Vietnamese — truncating the history file to 0
         # bytes, silently (same failure class as the tool_registry.json bug).
-        data = json.dumps({"doc_key": doc_key, "messages": to_save},
+        data = json.dumps({"doc_key": doc_key, "messages": to_save,
+                           "summary": summary or u""},
                           ensure_ascii=True, indent=2)
         if isinstance(data, bytes):
             data = data.decode('ascii')
@@ -741,6 +743,24 @@ def load_chat_history(doc_key):
     except Exception as ex:
         logger.debug("Could not load chat history: {}".format(ex))
         return []
+
+
+def load_chat_summary(doc_key):
+    """Rolling summary saved alongside the messages, or u''.
+
+    A file written before summaries existed simply has no "summary" key, so
+    older histories load with an empty one rather than failing.
+    """
+    try:
+        path = _history_file(doc_key)
+        if not os.path.exists(path):
+            return u""
+        with io.open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get("summary") or u""
+    except Exception as ex:
+        logger.debug("Could not load chat summary: {}".format(ex))
+        return u""
 
 
 def clear_chat_history(doc_key):
@@ -825,6 +845,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._switching_provider = False        # guard: _switch_provider bg probe in flight
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
+        self._history_summary  = u''            # turns folded out of the window
         self._last_raw         = ''             # last user input (for learning)
         self._doc_key          = _get_doc_key() # document identifier for history
         self._persisted_msgs   = []             # flat list with timestamps, for save/load
@@ -1573,6 +1594,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _restore_history(self):
         """Load saved conversation from disk and replay bubbles + context."""
         try:
+            # Restore the rolling summary first: the replay below re-adds
+            # turns, and anything that falls back out of the window must fold
+            # onto what was already condensed rather than starting over.
+            self._history_summary = load_chat_summary(self._doc_key)
             saved = load_chat_history(self._doc_key)
             if not saved:
                 return
@@ -1609,7 +1634,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._persisted_msgs.append(
                 {"role": role, "content": content, "ts": ts}
             )
-            save_chat_history(self._doc_key, self._persisted_msgs)
+            save_chat_history(self._doc_key, self._persisted_msgs,
+                              summary=getattr(self, '_history_summary', u''))
         except Exception as ex:
             logger.debug("Could not persist message: {}".format(ex))
 
@@ -1669,6 +1695,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._queued_inputs     = []      # their chips were just removed
         # Conversation + agent carryover
         self._conversation_history = []
+        self._history_summary      = u''   # a new conversation starts blank
         self._persisted_msgs       = []
         self._prev_agent_decision  = None  # specialist choice must not carry over
         self._prev_turn_calls      = set()  # repeat guard is per-conversation
@@ -2933,10 +2960,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
     def _add_to_history(self, role, content):
-        """Add a message to conversation history and persist to disk."""
+        """Add a message to conversation history and persist to disk.
+
+        Turns leaving the window are folded into a rolling summary rather than
+        dropped — a long session used to silently forget how it started. The
+        window size comes from Intelligence.conversation so it can no longer
+        disagree with agent_loop._sanitize_history, which took the last 24
+        while this truncated to 16, making the larger number dead.
+        """
         self._conversation_history.append({"role": role, "content": content})
-        if len(self._conversation_history) > 16:
-            self._conversation_history = self._conversation_history[-16:]
+        try:
+            from Intelligence import conversation as _conv
+            self._conversation_history, self._history_summary = _conv.trim_history(
+                self._conversation_history,
+                getattr(self, '_history_summary', u''),
+                viet=_ui_viet())
+        except Exception:
+            if len(self._conversation_history) > 24:
+                self._conversation_history = self._conversation_history[-24:]
         # Persist to disk so it survives window close/reopen
         self._persist_message(role, content)
         # Daily activity journal — assistant side only (the user side is
@@ -6462,6 +6503,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # specialist and the default prompt path.
         if _mem_block:
             system_prompt += u"\n\n" + _mem_block
+
+        # Rolling summary of turns that scrolled out of the window. Static
+        # enough to belong here: it only changes when turns fall out (every
+        # few turns), so the prompt cache still hits in between — unlike live
+        # Revit state, which changes every turn and rides the user message.
+        try:
+            from Intelligence.conversation import summary_block
+            _sum_block = summary_block(
+                getattr(self, '_history_summary', u''), viet=(_lang == 'vi'))
+            if _sum_block:
+                system_prompt += u"\n\n" + _sum_block
+        except Exception:
+            pass
 
         # ── VOLATILE context (travels with the user turn) ─────────────────────
         # Project-knowledge grounding: a compact reference block so the tool
