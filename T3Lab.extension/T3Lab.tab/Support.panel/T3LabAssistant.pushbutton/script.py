@@ -270,7 +270,7 @@ except Exception as e:
         def is_continuation(*a, **kw): return False
 
         @staticmethod
-        def learned_pattern_wins(learned, nlu_result): return bool(learned)
+        def learned_pattern_wins(learned, nlu_result, raw=None): return bool(learned)
 
         @staticmethod
         def wants_spellcheck_fix(args): return False
@@ -847,6 +847,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
         self._history_summary  = u''            # turns folded out of the window
         self._last_raw         = ''             # last user input (for learning)
+        self._last_result      = None           # last parsed result (for votes)
         self._doc_key          = _get_doc_key() # document identifier for history
         self._persisted_msgs   = []             # flat list with timestamps, for save/load
         self._attached_files   = []             # list of file paths (images / PDFs)
@@ -5163,7 +5164,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 nlu_result = parse_command_nlu(captured, history)
                 learned = find_learned_match(raw)
 
-            if learned and routing.learned_pattern_wins(learned, nlu_result):
+            if learned and routing.learned_pattern_wins(learned, nlu_result,
+                                                        raw=raw):
                 def _run_learned(_r=learned):
                     self._execute_result(_r)
                 self.Dispatcher.Invoke(Action(_run_learned))
@@ -5910,6 +5912,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         message = result.get("message", "")
         params  = result.get("params", {})
         raw     = self._last_raw
+        # Kept so a 👍/👎 on the reply can act on the route that produced it
+        # (_vote_decision reads it when the reply row is built).
+        self._last_result = dict(result or {})
 
         def _bot(msg):
             """Show message and record in conversation history."""
@@ -8034,10 +8039,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._record_vote(sender, 'down')
 
     def _record_vote(self, sender, vote):
-        """Latch a thumbs up/down on a reply and write it to the activity log.
+        """Latch a thumbs up/down on a reply, log it, and LEARN from it.
 
         Clicking the latched side again clears the vote, so a mis-click is
         undoable rather than permanent.
+
+        The vote used to end at the activity log. It now also feeds the route
+        that produced the reply (captured in row.Tag['decision'] when the row
+        was built): 👍 reinforces the phrasing→intent mapping through the same
+        learn_pattern() the assistant already uses, 👎 suppresses that exact
+        pair so it can never win the turn again. Both are deliberately scoped
+        to the phrasing that was voted on — one bad answer is evidence about
+        one route, and a feedback loop that over-generalizes is worse than
+        none.
         """
         row = self._owning_reply_row(sender)
         if row is None:
@@ -8046,12 +8060,64 @@ class T3LabAssistantWindow(forms.WPFWindow):
         state['vote'] = None if state.get('vote') == vote else vote
         row.Tag = state
         self._refresh_reply_row(row)
-        if state['vote']:
-            versions = state.get('versions') or [u""]
-            text = versions[max(0, min(state.get('index', 0), len(versions) - 1))]
-            preview = u" ".join((text or u"").split())[:200]
-            self._log_activity(u"Feedback: {} — “{}”".format(
-                u"good response" if vote == 'up' else u"bad response", preview))
+        if not state['vote']:
+            return          # vote cleared — nothing to log or learn from
+
+        versions = state.get('versions') or [u""]
+        text = versions[max(0, min(state.get('index', 0), len(versions) - 1))]
+        preview = u" ".join((text or u"").split())[:200]
+        self._log_activity(u"Feedback: {} — “{}”".format(
+            u"good response" if vote == 'up' else u"bad response", preview))
+        self._apply_vote(vote, state.get('decision') or {})
+
+    def _vote_decision(self):
+        """Snapshot of how the current turn was routed, for the vote loop.
+
+        Taken when the reply row is built so a vote cast much later still
+        refers to the turn it belongs to, not to whatever is running now.
+        """
+        dec = getattr(self, '_agent_decision', None) or {}
+        last = getattr(self, '_last_result', None) or {}
+        return {
+            'raw':        getattr(self, '_last_raw', u"") or u"",
+            'intent':     last.get('intent'),
+            'params':     last.get('params') or {},
+            'message':    last.get('message') or u"",
+            'skill':      dec.get('skill'),
+            'specialist': dec.get('specialist'),
+        }
+
+    def _apply_vote(self, vote, decision):
+        """Persist one vote against the route that produced the reply.
+
+        Never raises: feedback is a nicety, and a write failure must not take
+        down the chat.
+        """
+        raw = (decision.get('raw') or u'').strip()
+        if not raw:
+            return
+        try:
+            from Intelligence import feedback
+            feedback.record_vote(vote, raw,
+                                 intent=decision.get('intent'),
+                                 skill=decision.get('skill'),
+                                 specialist=decision.get('specialist'))
+        except Exception as ex:
+            logger.debug("feedback store error: {}".format(ex))
+
+        if vote != 'up':
+            return
+        # An up-voted turn is a confirmed phrasing→intent mapping. learn_pattern
+        # already refuses small talk and non-tool intents, so this cannot
+        # record "thanks" as a command.
+        intent = decision.get('intent')
+        if not intent:
+            return
+        try:
+            learn_pattern(raw, intent, decision.get('params') or {},
+                          decision.get('message') or u'')
+        except Exception as ex:
+            logger.debug("learn_pattern from vote failed: {}".format(ex))
 
     def _msg_prev_clicked(self, sender, e):
         self._step_version(sender, -1)
@@ -8565,6 +8631,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 'vote':       None,
                 'host':       host,
                 'prompt':     getattr(self, '_last_raw', u"") or u"",
+                # What produced this reply — so a 👍/👎 can act on the route
+                # and not just be filed in the activity log.
+                'decision':   self._vote_decision(),
             }
 
             # Block renderer: paragraphs + real table grids. Falls back to a
@@ -8667,6 +8736,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     'vote':       None,
                     'host':       host,
                     'prompt':     getattr(self, '_last_raw', u"") or u"",
+                    'decision':   self._vote_decision(),
                 }
                 self._refresh_reply_row(row)
             else:

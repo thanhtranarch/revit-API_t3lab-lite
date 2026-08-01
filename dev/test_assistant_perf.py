@@ -356,6 +356,115 @@ def test_providers_accept_a_timeout_override():
               bool(_re.search(pat, src)))
 
 
+# ─── feedback loop ────────────────────────────────────────────────────────────
+
+def _sandbox_feedback():
+    """Point the feedback store at a temp file so tests never touch the
+    repo's config/ and never leak state into each other."""
+    from Intelligence import feedback
+    path = os.path.join(tempfile.mkdtemp(), 'assistant_feedback.json')
+    feedback._feedback_file = lambda: path
+    feedback._cache = None
+    return feedback
+
+
+def test_a_downvote_suppresses_exactly_one_route():
+    """Votes went to a text log and nowhere else. A route the user marked
+    wrong kept winning the turn forever."""
+    print('[feedback: down-vote]')
+    from Intelligence import routing
+    feedback = _sandbox_feedback()
+
+    learned = {'intent': 'open_batchout'}
+    check('a learned pattern wins by default',
+          routing.learned_pattern_wins(learned, None, raw='mở batchout'))
+
+    feedback.record_vote('down', 'mở batchout', intent='open_batchout',
+                         skill='export-standard')
+    feedback._cache = None
+    check('the rejected route no longer wins',
+          not routing.learned_pattern_wins(learned, None, raw='mở batchout'))
+    check('a different intent on the same phrasing is untouched',
+          routing.learned_pattern_wins({'intent': 'open_manasheets'}, None,
+                                       raw='mở batchout'))
+    check('the same intent on a different phrasing is untouched',
+          routing.learned_pattern_wins(learned, None,
+                                       raw='xuất pdf toàn bộ sheet'))
+    check('callers that pass no phrasing behave as before',
+          routing.learned_pattern_wins(learned, None))
+
+
+def test_an_upvote_clears_a_suppression():
+    print('[feedback: up-vote]')
+    from Intelligence import routing
+    feedback = _sandbox_feedback()
+
+    feedback.record_vote('down', 'mở batchout', intent='open_batchout')
+    feedback._cache = None
+    check('suppressed', feedback.is_suppressed('mở batchout', 'open_batchout'))
+
+    feedback.record_vote('up', 'mở batchout', intent='open_batchout')
+    feedback._cache = None
+    check('an up-vote lifts it',
+          not feedback.is_suppressed('mở batchout', 'open_batchout'))
+    check('and the route wins again',
+          routing.learned_pattern_wins({'intent': 'open_batchout'}, None,
+                                       raw='mở batchout'))
+
+
+def test_feedback_store_is_durable_and_forgiving():
+    print('[feedback: store]')
+    feedback = _sandbox_feedback()
+
+    check('an unknown skill scores zero', feedback.skill_score('nope') == (0, 0))
+    check('nothing is suppressed to start',
+          not feedback.is_suppressed('bất kỳ câu nào'))
+    check('an unknown vote is ignored',
+          feedback.record_vote('sideways', 'x', intent='y') is False)
+    check('an empty phrasing is ignored',
+          feedback.record_vote('down', '   ', intent='y') is False)
+
+    feedback.record_vote('up', 'kiểm tra chính tả', skill='english-spellcheck')
+    feedback.record_vote('up', 'kiểm tra chính tả', skill='english-spellcheck')
+    feedback.record_vote('down', 'đổi tên sheet', skill='english-spellcheck')
+    feedback._cache = None
+    check('skill tallies accumulate per direction',
+          feedback.skill_score('english-spellcheck') == (2, 1))
+
+    # Written and read back from disk, with Vietnamese intact.
+    feedback._cache = None
+    check('vietnamese survives the round-trip',
+          feedback.skill_score('english-spellcheck') == (2, 1))
+    check('a down-vote records the phrasing',
+          feedback.is_suppressed('đổi tên sheet'))
+    # ...but with no intent named it suppresses no ROUTE, which is what
+    # learned_pattern_wins asks about. A vote must not disable a phrasing
+    # wholesale just because one reply to it was poor.
+    check('a phrasing-only down-vote suppresses no specific route',
+          not feedback.is_suppressed('đổi tên sheet', 'rename_element'))
+
+    # Word order must not matter — the key is normalized the same way the
+    # learned-pattern store normalizes, or a suppression would miss the entry
+    # it is meant to suppress.
+    feedback.record_vote('down', 'mở cửa sổ batchout', intent='open_batchout')
+    feedback._cache = None
+    check('suppression is order-independent',
+          feedback.is_suppressed('batchout cửa sổ mở', 'open_batchout'))
+
+
+def test_corrupt_feedback_file_reads_as_empty():
+    print('[feedback: corruption]')
+    feedback = _sandbox_feedback()
+    with open(feedback._feedback_file(), 'w', encoding='utf-8') as f:
+        f.write('{ not json at all')
+    feedback._cache = None
+    check('a corrupt store never raises',
+          feedback.is_suppressed('anything') is False)
+    check('and still accepts new votes',
+          feedback.record_vote('down', 'mở batchout',
+                               intent='open_batchout') is True)
+
+
 # ─── conversation window + rolling summary ────────────────────────────────────
 
 def _long_history(n=30):
@@ -472,6 +581,10 @@ def main():
                test_a_weak_match_still_asks_the_model,
                test_classify_call_is_time_bounded,
                test_providers_accept_a_timeout_override,
+               test_a_downvote_suppresses_exactly_one_route,
+               test_an_upvote_clears_a_suppression,
+               test_feedback_store_is_durable_and_forgiving,
+               test_corrupt_feedback_file_reads_as_empty,
                test_history_window_is_one_number,
                test_dropped_turns_are_folded_not_lost,
                test_summary_keeps_the_recent_end_when_it_overflows,

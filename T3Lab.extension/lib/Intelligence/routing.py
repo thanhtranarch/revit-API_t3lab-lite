@@ -166,16 +166,28 @@ def is_continuation(last_bot, raw, prev_decision, fresh_keyword_hit=False):
 # no way for a confident NLU read to object. The NLU knows the real tool
 # catalog; a learned pattern only knows what happened to work once.
 
-def learned_pattern_wins(learned, nlu_result):
+def learned_pattern_wins(learned, nlu_result, raw=None):
     """Should the learned pattern decide this turn, given what the NLU says?
 
     The learned pattern is used when the NLU has no opinion, or when both name
     the same intent. A disagreement goes to the NLU: it is derived from the
     live tool catalog, whereas a learned pattern can be a stale mapping to a
     tool that has since been renamed or removed.
+
+    `raw` is the user's message. When supplied, a route the user explicitly
+    marked wrong with 👎 on this phrasing is never allowed to win again —
+    otherwise a bad mapping, once learned, replays forever and the down-vote
+    means nothing.
     """
     if not learned or not learned.get('intent'):
         return False
+    if raw:
+        try:
+            from Intelligence import feedback
+            if feedback.is_suppressed(raw, learned.get('intent')):
+                return False
+        except Exception:
+            pass
     if not nlu_result:
         return True
     nlu_intent = nlu_result.get('intent')
