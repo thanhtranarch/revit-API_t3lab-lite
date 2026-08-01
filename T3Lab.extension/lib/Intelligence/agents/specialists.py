@@ -294,16 +294,23 @@ def get_spec(name):
     return SPECIALISTS.get(name) or SPECIALISTS["general"]
 
 
-def build_specialist_prompt(spec, revit_context, project_instructions='',
+def build_specialist_prompt(spec, revit_context='', project_instructions='',
                             skills_block='', local=False, lang='auto'):
     """Base agent prompt + specialist role + (local-only) few-shot +
     project instructions + active-skill block.
+
+    Everything assembled here is STATIC for the session, which is what lets
+    the whole block sit behind one prompt-cache breakpoint. `revit_context` is
+    accepted (old callers pass it positionally) but no longer used: live state
+    travels with the user turn via agent_loop.build_context_block().
 
     lang ('auto' | 'vi' | 'en') is passed straight through to the base prompt
     so a specialist turn answers in the same language as the rest of the UI.
     """
     from Intelligence.agent_loop import build_agent_system_prompt
-    parts = [build_agent_system_prompt(revit_context, lang=lang)]
+    # local= is deliberately NOT forwarded: a specialist turn uses its own
+    # few-shot (appended below), not the general-path one.
+    parts = [build_agent_system_prompt(lang=lang)]
     if spec is not None and spec.prompt_intro:
         parts.append(spec.prompt_intro)
     if local and spec is not None and spec.few_shot:

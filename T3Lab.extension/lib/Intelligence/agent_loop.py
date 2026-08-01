@@ -399,7 +399,7 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 ## Efficiency (each model turn is expensive — minimize turns)
 - BATCH independent read-only calls into ONE turn: when you need e.g. levels + selection + view info, emit all those tool calls together instead of one per turn.
 - Prefer ONE bulk tool over many single calls: `bulk_set_parameter` over repeated `set_parameter`, `ai_element_filter` over per-element inspection, `tag_all_*` over per-element tags.
-- Do not re-query data that is already in this conversation (earlier tool results, the context block below) unless the model may have changed since.
+- Do not re-query data that is already in this conversation (earlier tool results, the context block in the latest user message) unless the model may have changed since.
 - Never call a tool "just to check" after a success result already told you the outcome; verify with a read tool only after LARGE modifications (20+ elements) or when a result looks suspicious.
 
 ## Working rules
@@ -411,7 +411,7 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 6. `open_t3lab_tool` opens a T3Lab window and ENDS your turn — only ever call it last, and never together with other tools.
 7. When the user refers to the current selection ("these elements", "the selected walls", "các element này", "đang chọn"), call `revit_get_selected_elements` FIRST and operate on those element ids — never guess ids.
 8. Trust tool results over assumptions: counts, names and ids come from the model, not from memory of typical projects.
-9. Scope resolution when the request names no explicit target: for CHECKING / auditing / statistics / spell-check requests the default scope is the ENTIRE PROJECT — never silently limit to the current view (limit only when the user says so, or ask ONE question when unsure). For MODIFY actions, use the "Current Revit context" block below — the user's selection first, then the active view. Never report "nothing found" from one filtered query: re-check with corrected arguments or wider scope first.
+9. Scope resolution when the request names no explicit target: for CHECKING / auditing / statistics / spell-check requests the default scope is the ENTIRE PROJECT — never silently limit to the current view (limit only when the user says so, or ask ONE question when unsure). For MODIFY actions, use the "Current Revit context" block in the latest user message — the user's selection first, then the active view. Never report "nothing found" from one filtered query: re-check with corrected arguments or wider scope first.
 10. NUMBERS MUST COME FROM TOOLS, NEVER FROM YOU. Tool results may be truncated before you see them, so counting or summing rows/elements yourself gives wrong answers. Use the exact fields the tools compute: `total_count` (ai_element_filter), `row_count` / `column_totals` (get_schedule_data), `element_counts` (analyze_model_statistics). If a statistic you need has no tool-computed field, say so — do not estimate.
 11. Color / highlight requests — "tô màu", "tô đỏ X", "bôi xanh X", "đổi màu X", "highlight X", "color X red": the color word is the OVERRIDE color to APPLY, never a parameter value to filter by (Revit elements have no "Color" or "Fill Color" parameter). For ALL elements of a category ("tô vàng sàn", "color the walls red") call `revit_override_color` with `category` + `color` directly — the server collects every matching element itself, no ids needed and NO count limit. Pass `element_ids` only for a SUBSET: the user's selection (via revit_get_selected_elements) or ids from `ai_element_filter` (category only, no parameter filter; if its `total_count` exceeds the ids returned, re-call with limit=total_count so every match is included). Use `color_elements` only when the user wants elements colored BY a parameter's values (one distinct color per value, e.g. "tô màu tường theo Type") — and its parameter_name must be a REAL parameter, never empty, never a color name.
 12. NEVER fabricate tool activity. Every action happens ONLY through a real tool call in this conversation — if you say you will use a tool, emit that tool call in the same turn, and only report results that came back from an actual tool result. Writing an invented "Result:" for a call you never made is a critical failure.
@@ -422,8 +422,8 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 ## Multiple open models
 Several documents can be open in this Revit session; every tool operates on the ACTIVE one. To work across models: `list_open_documents` → `switch_active_document` (exact title) → read/modify there → switch again as needed, then combine everything into ONE final answer stating which model each number comes from. Element ids are only valid inside their own document — never reuse ids across models. When the user names a model that is not in `list_open_documents`, it may live in a different Revit window (separate process): say so and point them to the assistant in that window — do not guess.
 
-## Current Revit context
-{context}
+## Live context
+The latest user message carries a "Current Revit context" block (active view, selection, project) and, when relevant, "Reference from project knowledge" excerpts. Read them as the state of the model RIGHT NOW — they are not something the user typed.
 """
 
 
@@ -456,16 +456,96 @@ _LANG_AUTO = (u"Reply in the SAME language the user wrote in — Vietnamese in, 
 
 
 def build_agent_system_prompt(revit_context=u"", local=False, lang="auto"):
-    """System prompt for the native tool-calling agent path.
+    """STATIC system prompt for the native tool-calling agent path.
+
+    Static is the point. The live Revit context used to be interpolated into
+    this string, which made the whole system block change on every turn (the
+    active view and selection are re-read by a 2-second timer). Since the
+    system block is one prompt-cache breakpoint — and `messages` sit after it
+    in the cache prefix — a system block that never repeats meant the cache
+    never hit across turns and the entire prompt was re-processed each time.
+    The volatile half now travels with the user turn: see
+    build_context_block() and Intelligence/telemetry.py for the measurement.
+
+    `revit_context` is accepted and ignored, so old callers keep working;
+    passing it no longer has any effect on the returned prompt.
 
     local=True appends a compact few-shot trace — small local models select
     tools far more accurately from concrete examples than from prose alone.
     lang is 'auto' | 'vi' | 'en' and must match what the UI itself renders,
     so the model's prose and the assistant's own strings agree.
     """
-    ctx = revit_context.strip() if revit_context else u"(no context snapshot available)"
     language = {'vi': _LANG_VI, 'en': _LANG_EN}.get(lang, _LANG_AUTO)
-    prompt = _AGENT_PROMPT.format(context=ctx, language=language)
+    prompt = _AGENT_PROMPT.format(language=language)
     if local:
         prompt += u"\n" + _LOCAL_GENERAL_FEWSHOT
     return prompt
+
+
+# Fence around the volatile block so the model can tell live state from the
+# user's own words, and so the block can be stripped back off a stored turn.
+CONTEXT_FENCE_OPEN  = u"<<<T3LAB_LIVE_CONTEXT"
+CONTEXT_FENCE_CLOSE = u"T3LAB_LIVE_CONTEXT>>>"
+
+
+def build_context_block(revit_context=u"", knowledge_ref=u""):
+    """The VOLATILE half of the prompt, to prepend to the current user turn.
+
+    Everything in here changes from turn to turn — the active view, the
+    selection, and knowledge excerpts retrieved for this specific question —
+    which is exactly why it must not sit in the cached system block.
+
+    Returns u"" when there is nothing live to report, so an ordinary turn
+    carries no extra tokens at all.
+    """
+    parts = []
+    ctx = (revit_context or u"").strip()
+    if ctx:
+        parts.append(u"## Current Revit context\n" + ctx)
+    ref = (knowledge_ref or u"").strip()
+    if ref:
+        parts.append(ref)
+    if not parts:
+        return u""
+    return u"{}\n{}\n{}".format(CONTEXT_FENCE_OPEN,
+                                u"\n\n".join(parts),
+                                CONTEXT_FENCE_CLOSE)
+
+
+def apply_context_block(user_content, context_block):
+    """Prepend `context_block` to a turn's user content.
+
+    Handles both content shapes the providers accept: a plain string, and the
+    Anthropic block list used when an attachment carries images (see
+    rag_processor.build_vision_content_blocks). In the list case the text goes
+    into a leading text block so image blocks keep their own positions.
+    """
+    if not context_block:
+        return user_content
+    if isinstance(user_content, list):
+        return [{"type": "text", "text": context_block}] + list(user_content)
+    return u"{}\n\n{}".format(context_block, user_content or u"")
+
+
+def strip_context_block(text):
+    """Remove any live-context fence from `text`.
+
+    History is stored from the raw user text, so this is belt-and-braces: it
+    keeps a stray fenced block from being replayed as if it were still current
+    if a caller ever persists the decorated content.
+    """
+    if not text or CONTEXT_FENCE_OPEN not in text:
+        return text
+    out = []
+    depth = 0
+    for line in text.split(u"\n"):
+        stripped = line.strip()
+        if stripped == CONTEXT_FENCE_OPEN:
+            depth += 1
+            continue
+        if stripped == CONTEXT_FENCE_CLOSE:
+            depth = max(0, depth - 1)
+            continue
+        if depth == 0:
+            out.append(line)
+    return u"\n".join(out).strip()

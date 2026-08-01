@@ -295,9 +295,9 @@ except Exception as e:
     logger.warning("Could not import specialists: {}".format(e))
     HAS_SPECIALISTS = False
     def get_spec(name): return None
-    def build_specialist_prompt(spec, ctx, **kw):
+    def build_specialist_prompt(spec, revit_context='', **kw):
         from Intelligence.agent_loop import build_agent_system_prompt
-        return build_agent_system_prompt(ctx, local=kw.get('local', False),
+        return build_agent_system_prompt(local=kw.get('local', False),
                                          lang=kw.get('lang', 'auto'))
 
 # ─── Turn telemetry (latency + token/cache accounting) ────────────────────────
@@ -6290,13 +6290,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
 
-    def _build_knowledge_reference(self, query, local=False):
+    def _build_knowledge_reference(self, query, local=False, history=None):
         """Retrieve a compact project-knowledge block to ground the tool agent.
 
         BM25-only (no embedder) so it stays fast and deterministic on every
         request — the lexical channel is exactly what carries local models.
-        Returns a system-prompt fragment or '' (nothing relevant / no index).
+        Returns a prompt fragment or '' (nothing relevant / no index).
         Budget is tighter for local models to protect their context window.
+
+        `history` lets the retriever resolve a follow-up question against what
+        was just discussed ("còn tầng 2 thì sao?" carries none of the nouns it
+        needs on its own).
         """
         if not HAS_KNOWLEDGE:
             return u''
@@ -6305,7 +6309,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 KnowledgeAgent, build_reference_block)
             agent = KnowledgeAgent(embedder=None)   # BM25-only: fast + always-on
             top_k = 2 if local else 3
-            hits = agent.retrieve(query, top_k=top_k)
+            hits = agent.retrieve(query, top_k=top_k, history=history)
             if not hits:
                 return u''
             return build_reference_block(
@@ -6403,12 +6407,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if _lang == 'auto':
             _lang = 'vi' if _is_viet_text(captured) else 'en'
 
+        # ── STATIC system prompt ──────────────────────────────────────────────
+        # Everything below is stable for the session, which is the whole point:
+        # it sits behind ONE prompt-cache breakpoint. Anything that changes per
+        # turn (live Revit state, per-question knowledge excerpts) goes into
+        # _volatile below and rides along with the user turn instead — putting
+        # it here made the system block never repeat, so the cache never hit.
         if spec is not None and HAS_SPECIALISTS:
             system_prompt = build_specialist_prompt(
-                spec, ctx, project_instructions=_proj_instructions,
+                spec, project_instructions=_proj_instructions,
                 skills_block=_skills_block, local=_is_local, lang=_lang)
         else:
-            system_prompt = build_agent_system_prompt(ctx, local=_is_local,
+            system_prompt = build_agent_system_prompt(local=_is_local,
                                                       lang=_lang)
             if _proj_instructions:
                 system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
@@ -6420,20 +6430,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if _mem_block:
             system_prompt += u"\n\n" + _mem_block
 
-        # Project-knowledge grounding — inject a compact reference block so the
-        # tool agent's ANSWERS and ACTIONS follow documented standards, not just
-        # the knowledge specialist. Retrieved from the user's request (BM25); a
+        # ── VOLATILE context (travels with the user turn) ─────────────────────
+        # Project-knowledge grounding: a compact reference block so the tool
+        # agent's ANSWERS and ACTIONS follow documented standards, not just the
+        # knowledge specialist. Retrieved from the user's request (BM25); a
         # stray hit on an unrelated command is harmless (the header tells the
         # model to ignore irrelevant excerpts). knowledge/comment specialists
         # have their own retrieval pipeline and never reach this path.
+        _kref = u""
         try:
             _spec_name = spec.name if spec is not None else 'general'
             if _spec_name not in ('knowledge', 'comment'):
-                _kref = self._build_knowledge_reference(captured, local=_is_local)
-                if _kref:
-                    system_prompt += u"\n\n" + _kref
+                _kref = self._build_knowledge_reference(
+                    captured, local=_is_local, history=history) or u""
         except Exception:
-            pass
+            _kref = u""
 
         # Harness action mode: 'confirm' = propose-then-wait before ANY
         # model-modifying tool call (chip next to the project picker).
@@ -6472,6 +6483,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     user_content = build_vision_content_blocks(captured, [shot])
                 except Exception:
                     user_content = captured
+
+        # Live state rides with THIS turn instead of the cached system block.
+        # It never reaches _conversation_history (which stores the raw user
+        # text), so it stays ephemeral and the transcript does not grow.
+        try:
+            from Intelligence.agent_loop import (build_context_block,
+                                                 apply_context_block)
+            _volatile = build_context_block(revit_context=ctx,
+                                            knowledge_ref=_kref)
+            user_content = apply_context_block(user_content, _volatile)
+        except Exception as _ctx_ex:
+            logger.debug("context block build error: {}".format(_ctx_ex))
 
         # ── B4 + B5: tool-execution wrapper ───────────────────────────────────
         # B4: the first model-mutating tool opens ONE TransactionGroup on the

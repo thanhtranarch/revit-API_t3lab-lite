@@ -75,19 +75,32 @@ class KnowledgeAgent(object):
 
     # ── retrieval ─────────────────────────────────────────────────────────
 
-    def retrieve(self, question, top_k=_TOP_K):
-        """Project store first; global store fills the remaining slots."""
+    def retrieve(self, question, top_k=_TOP_K, history=None):
+        """Project store first; global store fills the remaining slots.
+
+        `history` (optional chat turns) lets a follow-up question be searched
+        with the subject it omits — see knowledge/query_builder.py. Without it
+        the behaviour is exactly the raw-question search it always was.
+        """
+        query = question
+        if history:
+            try:
+                from Intelligence.knowledge.query_builder import (
+                    build_retrieval_query)
+                query = build_retrieval_query(question, history)
+            except Exception:
+                query = question
         hits = []
         if self.store is not None:
             try:
-                hits = self.store.search(question, top_k=top_k,
+                hits = self.store.search(query, top_k=top_k,
                                          embedder=self.embedder)
             except Exception:
                 hits = []
         if self.fallback_store is not None and len(hits) < top_k:
             try:
                 extra = self.fallback_store.search(
-                    question, top_k=top_k - len(hits), embedder=self.embedder)
+                    query, top_k=top_k - len(hits), embedder=self.embedder)
                 seen = set(h['key'] for h in hits)
                 for h in extra:
                     if h['key'] not in seen:

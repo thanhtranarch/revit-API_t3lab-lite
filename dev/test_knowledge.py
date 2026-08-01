@@ -885,17 +885,27 @@ def test_specialists():
 
     # prompt building must not need Revit — uses agent_loop's builder
     from Intelligence.agents.specialists import build_specialist_prompt
-    p = build_specialist_prompt(data, 'CTX-HERE',
+    p = build_specialist_prompt(data,
                                 project_instructions='PROJ-RULE',
                                 skills_block='## Active skill: X',
                                 local=True)
-    check('prompt has context', 'CTX-HERE' in p)
     check('prompt has role', 'DATA specialist' in p)
     check('prompt has few-shot (local)', 'Examples' in p)
     check('prompt has project rules', 'PROJ-RULE' in p)
     check('prompt has skills block', 'Active skill' in p)
-    p2 = build_specialist_prompt(data, 'CTX', local=False)
+    p2 = build_specialist_prompt(data, local=False)
     check('no few-shot on cloud', 'Examples' not in p2)
+
+    # The specialist prompt must stay STATIC: live Revit state used to be
+    # interpolated in here, which changed the system block on every turn and
+    # cost the prompt cache every hit. Passing a context is now inert.
+    p3 = build_specialist_prompt(data, 'CTX-HERE',
+                                 project_instructions='PROJ-RULE',
+                                 skills_block='## Active skill: X',
+                                 local=True)
+    check('live context never lands in the system prompt',
+          'CTX-HERE' not in p3)
+    check('same static prompt whatever the context', p3 == p)
 
 
 # ─── skills engine ────────────────────────────────────────────────────────────
