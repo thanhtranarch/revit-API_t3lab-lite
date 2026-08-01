@@ -947,6 +947,38 @@ def test_skills():
     check('comment skill match', 'comment-resolution-playbook' in hits2, hits2)
     check('no match', engine.match('chào bạn') == [])
 
+    # ── ranking ───────────────────────────────────────────────────────────
+    # match() used to iterate `sorted(self._skills)` and the caller took
+    # element 0, so which playbook reached the model was decided by the
+    # alphabet. A sheet-naming question matches both `iso19650-naming` and
+    # `sheet-naming-standard`; the old code always answered with the former
+    # purely because "i" < "s".
+    q = 'đặt tên sheet theo chuẩn ISO 19650'
+    ranked = engine.match(q)
+    check('both naming skills match', set(['iso19650-naming',
+                                           'sheet-naming-standard'])
+          <= set(ranked), ranked)
+    check('the more specific skill wins, not the alphabetical one',
+          ranked[0] == 'sheet-naming-standard', ranked)
+    check('ranking is not alphabetical', ranked != sorted(ranked), ranked)
+
+    scored = engine.match_scored(q)
+    check('scores descend',
+          all(scored[i][1] >= scored[i + 1][1] for i in range(len(scored) - 1)),
+          scored)
+    check('match() and match_scored() agree',
+          [s for s, _ in scored] == ranked)
+    check('no match scores nothing', engine.match_scored('chào bạn') == [])
+    check('empty text scores nothing', engine.match_scored('') == [])
+
+    # A longer trigger phrase is stronger evidence than a bare word.
+    long_hit = engine.match_scored('hoàn thiện cmt trên bản vẽ')
+    bare_hit = engine.match_scored('cmt')
+    check('phrase beats bare word',
+          long_hit and bare_hit
+          and long_hit[0][0] == bare_hit[0][0]
+          and long_hit[0][1] > bare_hit[0][1], (long_hit, bare_hit))
+
     body = engine.get_body('sheet-naming-standard')
     check('body loaded', 'Sheet Number' in body or 'sheet' in body.lower())
 

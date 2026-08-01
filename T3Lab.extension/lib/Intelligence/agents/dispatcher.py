@@ -261,10 +261,24 @@ class AgentDispatcher(object):
     # ── skills ────────────────────────────────────────────────────────────
 
     def _match_skill(self, text, skills_engine):
+        """Best-matching skill id, or None.
+
+        `match()` is relevance-ranked (skills_engine.match_scored), so element
+        0 is the strongest hit rather than whichever id sorts first.
+        """
+        matched = self.match_skills(text, skills_engine, limit=1)
+        return matched[0] if matched else None
+
+    def match_skills(self, text, skills_engine, limit=2):
+        """Up to `limit` skill ids, best first.
+
+        Two is the useful default: build_skills_block injects at most two
+        bodies, so asking for more only to drop them wastes nothing but is
+        also pointless.
+        """
         if skills_engine is None:
-            return None
+            return []
         try:
-            matched = skills_engine.match(text)
-            return matched[0] if matched else None
+            return list(skills_engine.match(text))[:limit]
         except Exception:
-            return None
+            return []

@@ -5291,7 +5291,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     'qa_check', 'export'):
                                 _spec = get_spec(_dec['specialist'])
                             if _dec.get('skill'):
+                                # build_skills_block injects up to two bodies;
+                                # send it the two best-ranked matches rather
+                                # than only the single winner, so a message
+                                # that legitimately spans two playbooks gets
+                                # both. A forced /slash skill stays alone.
                                 _skill_ids = [_dec['skill']]
+                                if not _dec.get('skill_forced'):
+                                    _skill_ids = self._ranked_skill_ids(
+                                        captured, _dec['skill'])
                                 # keep only skills declared for this specialist
                                 # (explicit /slash invocation skips the filter)
                                 if not _dec.get('skill_forced'):
@@ -5334,7 +5342,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if _sk_lg:
                             from Intelligence.skills_engine import (
                                 build_skills_block as _bsb)
-                            _legacy_skills_block = _bsb([_sk_lg])
+                            # Same ranked top-2 the native path gets, so the
+                            # two prompt paths cannot drift apart. A forced
+                            # /slash skill stays alone.
+                            _ids_lg = ([_sk_lg]
+                                       if getattr(self, '_forced_skill_id', None)
+                                       else self._ranked_skill_ids(captured, _sk_lg))
+                            _legacy_skills_block = _bsb(_ids_lg)
                     except Exception:
                         _legacy_skills_block = u""
 
@@ -6289,6 +6303,25 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._set_busy(False)
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
+
+    def _ranked_skill_ids(self, text, primary, limit=2):
+        """Up to `limit` skill ids for this message, best-ranked first.
+
+        `primary` is the dispatcher's own choice and always leads — the LLM
+        classification stage may have picked a skill the keyword triggers
+        never matched, and that verdict must not be discarded.
+        """
+        ids = [primary] if primary else []
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            for sid in get_skills_engine().match(text):
+                if sid not in ids:
+                    ids.append(sid)
+                if len(ids) >= limit:
+                    break
+        except Exception:
+            pass
+        return ids[:limit]
 
     def _build_knowledge_reference(self, query, local=False, history=None):
         """Retrieve a compact project-knowledge block to ground the tool agent.
