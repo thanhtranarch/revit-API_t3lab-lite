@@ -1017,6 +1017,107 @@ def test_skills():
 
 # ─── knowledge_agent ──────────────────────────────────────────────────────────
 
+def test_query_builder():
+    """Retrieval ran on the raw message, so a follow-up that carries none of
+    the words that found the document ("còn cầu thang thì sao?") searched the
+    whole corpus for two syllables and came back with noise."""
+    print('[query_builder]')
+    from Intelligence.knowledge.query_builder import (build_retrieval_query,
+                                                      is_followup,
+                                                      salient_terms)
+
+    hist = [
+        {'role': 'user',
+         'content': 'chiều cao lan can ban công theo tiêu chuẩn là bao nhiêu?'},
+        {'role': 'assistant',
+         'content': 'Theo TCVN, lan can ban công tối thiểu 1.1 m [1]'},
+    ]
+
+    check('vietnamese follow-up marker', is_followup('còn cầu thang thì sao?'))
+    check('english follow-up marker', is_followup('what about stairs?'))
+    check('bare anaphora', is_followup('nó là gì'))
+    check('a self-contained question is not a follow-up',
+          not is_followup('kiểm tra toàn bộ sheet trong dự án'))
+    check('a long message carries its own subject',
+          not is_followup('chiều cao lan can cho nhà công nghiệp có khác '
+                          'không, và áp dụng cho tầng nào'))
+    check('empty is not a follow-up', not is_followup(''))
+
+    q = build_retrieval_query('còn cầu thang thì sao?', hist)
+    check('the user words come first and survive intact',
+          q.startswith('còn cầu thang thì sao?'), q)
+    check('the previous subject is carried in',
+          'lan' in q and 'chieu' in q, q)
+    check('question scaffolding is not carried',
+          ' bao ' not in ' ' + q and ' nhieu ' not in ' ' + q, q)
+
+    check('a self-contained question is left alone',
+          build_retrieval_query('kiểm tra toàn bộ sheet trong dự án', hist)
+          == 'kiểm tra toàn bộ sheet trong dự án')
+    check('no history changes nothing',
+          build_retrieval_query('còn cầu thang thì sao?', None)
+          == 'còn cầu thang thì sao?')
+    check('empty stays empty', build_retrieval_query('', hist) == '')
+
+    # Block-list content (a vision turn) must not crash the miner.
+    blocks = [{'role': 'user',
+               'content': [{'type': 'text', 'text': 'tiêu chuẩn lan can'},
+                           {'type': 'image', 'source': {}}]}]
+    check('block-list history is mined, not crashed',
+          'lan' in build_retrieval_query('còn cầu thang thì sao?', blocks))
+
+    terms = salient_terms('chiều cao lan can ban công theo tiêu chuẩn')
+    check('terms keep appearance order', terms[0] == 'chieu', terms)
+    check('terms are de-duplicated', len(terms) == len(set(terms)), terms)
+    check('exclusions honoured',
+          'chieu' not in salient_terms('chiều cao lan can',
+                                       exclude={'chieu'}))
+
+
+def test_rerank_diversity():
+    """search() truncated to top_k straight off the ranking, so three chunks
+    of one page could take the entire budget the model ever sees."""
+    print('[rerank]')
+    from Intelligence.knowledge.rerank import diversify
+
+    hits = [
+        {'k': 'a#1', 'd': 'a', 't': 'lan can ban cong cao 1.1 m'},
+        {'k': 'a#2', 'd': 'a', 't': 'lan can ban cong toi thieu 1.1 met'},
+        {'k': 'a#3', 'd': 'a', 't': 'cau thang lan can 0.9 m'},
+        {'k': 'b#1', 'd': 'b', 't': 'cua di rong 0.8 m theo tieu chuan'},
+        {'k': 'c#1', 'd': 'c', 't': 'cau thang bo chieu rong toi thieu'},
+    ]
+    doc = lambda h: h['d']          # noqa: E731
+    txt = lambda h: h['t']          # noqa: E731
+
+    top3 = [h['k'] for h in diversify(hits, 3, doc, txt)]
+    check('one document cannot own the whole budget',
+          len([k for k in top3 if k.startswith('a#')]) <= 2, top3)
+    check('a second document gets in', 'b#1' in top3, top3)
+    check('ranking order is otherwise preserved', top3[0] == 'a#1', top3)
+
+    check('the cap is a preference, not a starvation rule',
+          len(diversify([{'k': 'a#%d' % i, 'd': 'a', 't': 'text %d' % i}
+                         for i in range(5)], 4, doc, txt)) == 4)
+    check('backfill keeps everything reachable',
+          len(diversify(hits, 9, doc, txt)) == 5)
+
+    check('no extractors = plain truncation',
+          [h['k'] for h in diversify(hits, 3)] == ['a#1', 'a#2', 'a#3'])
+    check('empty in, empty out', diversify([], 3) == [])
+    check('top_k 0 returns nothing', diversify(hits, 0) == [])
+    check('a single candidate is returned as-is',
+          len(diversify(hits[:1], 3, doc, txt)) == 1)
+
+    # A near-duplicate of an already-selected chunk adds nothing.
+    dup = [{'k': 'x#1', 'd': 'x', 't': 'chieu cao lan can toi thieu mot met'},
+           {'k': 'y#1', 'd': 'y', 't': 'chieu cao lan can toi thieu mot met'},
+           {'k': 'z#1', 'd': 'z', 't': 'chieu rong cua di hai met'}]
+    picked = [h['k'] for h in diversify(dup, 2, doc, txt)]
+    check('a near-duplicate loses to new information',
+          picked == ['x#1', 'z#1'], picked)
+
+
 def test_knowledge_agent():
     print('[knowledge_agent]')
     import tempfile, shutil
@@ -1351,6 +1452,8 @@ def main():
     test_dispatcher()
     test_specialists()
     test_skills()
+    test_query_builder()
+    test_rerank_diversity()
     test_knowledge_agent()
     test_project_store()
     test_pdf_annots()
