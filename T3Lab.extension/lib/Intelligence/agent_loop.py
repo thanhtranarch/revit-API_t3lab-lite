@@ -82,7 +82,8 @@ class AgentLoop(object):
     """One user request = one AgentLoop.run(). Cancellable between steps."""
 
     def __init__(self, provider, execute_tool, tools, callbacks=None,
-                 max_iterations=10, max_tokens=1500, time_budget_sec=240):
+                 max_iterations=10, max_tokens=1500, time_budget_sec=240,
+                 turn_timer=None):
         self._provider       = provider
         self._execute_tool   = execute_tool
         self._tools          = tools
@@ -91,6 +92,9 @@ class AgentLoop(object):
         self._max_tokens     = max_tokens
         self._time_budget    = time_budget_sec
         self._cancelled      = False
+        # Optional Intelligence.telemetry.TurnTimer. None = no accounting;
+        # every use below is guarded so the loop runs identically without it.
+        self._timer          = turn_timer
 
     # ── Cancellation ──────────────────────────────────────────────────────────
 
@@ -123,6 +127,26 @@ class AgentLoop(object):
                 fn(*args)
             except Exception:
                 pass
+
+    # ── Telemetry (optional, never raises into the loop) ──────────────────────
+
+    def _note_usage(self, usage):
+        """Accumulate one model call's token usage onto the turn timer."""
+        if self._timer is None or not usage:
+            return
+        try:
+            self._timer.add_usage(usage)
+        except Exception:
+            pass
+
+    def _note_roundtrip(self, n_calls=1):
+        """Record one crossing to Revit's main thread carrying n tool calls."""
+        if self._timer is None:
+            return
+        try:
+            self._timer.tool_roundtrip(n_calls)
+        except Exception:
+            pass
 
     # ── Text tool-call rescue ─────────────────────────────────────────────────
 
@@ -216,6 +240,8 @@ class AgentLoop(object):
                 status = "failed" if iteration == 1 else "done"
                 return self._finish(status, last_text, None, iteration, tool_runs)
 
+            self._note_usage(resp.get("usage"))
+
             text  = (resp.get("text") or u"").strip()
             calls = resp.get("tool_calls") or []
 
@@ -287,6 +313,7 @@ class AgentLoop(object):
 
                 self._emit("on_tool_start", name, args, iteration)
                 t0 = time.time()
+                self._note_roundtrip(1)
                 try:
                     res = self._execute_tool(name, args)
                 except Exception as ex:
@@ -337,6 +364,11 @@ class AgentLoop(object):
                             self._max_iterations, tool_runs)
 
     def _finish(self, status, text, launch_intent, iterations, tool_runs):
+        if self._timer is not None:
+            try:
+                self._timer.iterations = iterations
+            except Exception:
+                pass
         result = {
             "status":        status,
             "text":          text,

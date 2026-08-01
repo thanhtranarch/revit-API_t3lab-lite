@@ -300,6 +300,25 @@ except Exception as e:
         return build_agent_system_prompt(ctx, local=kw.get('local', False),
                                          lang=kw.get('lang', 'auto'))
 
+# ─── Turn telemetry (latency + token/cache accounting) ────────────────────────
+try:
+    from Intelligence import telemetry
+    HAS_TELEMETRY = True
+except Exception as e:
+    logger.warning("Could not import telemetry: {}".format(e))
+    HAS_TELEMETRY = False
+
+    class telemetry(object):
+        """Degradation stub: measuring nothing must never break a turn."""
+        @staticmethod
+        def TurnTimer(*a, **kw): return None
+
+        @staticmethod
+        def record(turn, path=None): return False
+
+        @staticmethod
+        def prune(*a, **kw): return 0
+
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
     from Intelligence.llm_provider import StreamingJSONExtractor
@@ -2472,6 +2491,98 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
         self._stop_timer = None
 
+    # ─── Turn telemetry ───────────────────────────────────────────────────────
+    # _set_busy is the one point every routing path passes through on the way
+    # in and out of a turn — deterministic answers, the native agent loop, the
+    # legacy JSON-intent loop and Stop all go through it — so the timer is
+    # started and flushed there rather than in each branch.
+
+    def _begin_turn_timer(self):
+        """Start measuring the turn about to run. UI thread. Never raises.
+
+        Everything read here must be free. Notably NOT has_local_llm(): it
+        calls provider.check_health(), which is an HTTP probe — running it at
+        the head of every turn would add exactly the latency this measures.
+        The local flag comes from the provider name instead, the same test the
+        agent path already uses (`provider.NAME in ("ollama", "lmstudio")`).
+        """
+        self._turn_timer = None
+        if not HAS_TELEMETRY:
+            return
+        try:
+            name = get_active_provider_name()
+            self._turn_timer = telemetry.TurnTimer(
+                provider=name,
+                model=self._active_model_name(),
+                local=(name in ("ollama", "lmstudio")))
+        except Exception:
+            self._turn_timer = None
+
+    def _mark_first_token(self):
+        """First streamed delta reached the UI. Any thread; idempotent."""
+        t = getattr(self, '_turn_timer', None)
+        if t is not None:
+            try:
+                t.mark_first_token()
+            except Exception:
+                pass
+
+    def _note_turn_route(self, specialist=None, skills=None):
+        """Record which specialist/skills handled the turn. Any thread."""
+        t = getattr(self, '_turn_timer', None)
+        if t is None:
+            return
+        try:
+            if specialist:
+                t.specialist = specialist
+            if skills:
+                t.skills = list(skills)
+        except Exception:
+            pass
+
+    def _end_turn_timer(self):
+        """Flush the finished turn to the telemetry log. UI thread.
+
+        The write itself is queued onto a pool thread — same reasoning as
+        _log_activity: a slow disk must never stall the window.
+        """
+        t = getattr(self, '_turn_timer', None)
+        self._turn_timer = None
+        if t is None:
+            return
+        try:
+            t.finish(u'cancelled' if self._cancelled() else u'done')
+        except Exception:
+            return
+        try:
+            from System.Threading import ThreadPool, WaitCallback
+
+            def _write(_state, _t=t):
+                try:
+                    telemetry.record(_t)
+                except Exception:
+                    pass
+            ThreadPool.QueueUserWorkItem(WaitCallback(_write))
+        except Exception:
+            try:
+                telemetry.record(t)
+            except Exception:
+                pass
+
+    def _active_model_name(self):
+        """Model id of the active provider, or ''.
+
+        Reads the provider's already-resolved model — get_active_model() is
+        documented as cache-only ("No HTTP; None until models were fetched",
+        claude_provider.pick_fast_model) — so this stays free. Never raises.
+        """
+        try:
+            from Intelligence.llm_router import get_router
+            prov = get_router().get_active_provider()
+            return u'{}'.format(prov.get_active_model() or u'')
+        except Exception:
+            return u''
+
     # ─── Session guard & UI state ─────────────────────────────────────────────
 
     def _set_busy(self, busy):
@@ -2489,8 +2600,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._request_id = getattr(self, '_request_id', 0) + 1
             self._replied    = False
             self._tool_runs  = 0
+            self._begin_turn_timer()
         else:
             self._stop_stop_watchdog()
+            self._end_turn_timer()
         try:
             self.chat_input.IsEnabled = True
             self._render_send_button(busy)
@@ -5192,6 +5305,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                                                    _spec_name)
                                     except Exception:
                                         pass
+                        self._note_turn_route(
+                            specialist=(_spec.name if _spec else 'general'),
+                            skills=_skill_ids)
                         try:
                             _handled = self._run_native_agent(
                                 _provider, list(history), captured,
@@ -6490,6 +6606,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 pass
 
         def on_text_delta(chunk):
+            self._mark_first_token()
             stream["text"] += chunk
             _push_stream(False)
 
@@ -6584,7 +6701,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 "guard_check":   _guard_check,
             },
             max_iterations=(spec.max_iterations if spec is not None else 10),
-            max_tokens=(spec.max_tokens if spec is not None else 1500))
+            max_tokens=(spec.max_tokens if spec is not None else 1500),
+            turn_timer=getattr(self, '_turn_timer', None))
 
         self._agent_loop = loop
         if self._cancel_requested:
