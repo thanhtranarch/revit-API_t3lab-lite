@@ -73,6 +73,38 @@ except ImportError:
 HAS_REVIT_UI = False
 
 
+# Vocabulary for revit_list_views' view_type filter → Revit's ViewType enum
+# member name (what str(view.ViewType) returns).
+#
+# The filter used to be compared straight against str(v.ViewType), with no enum
+# in the schema to say so. Meanwhile create_view teaches the model an entirely
+# different vocabulary ('floor_plan', '3d', 'structural_plan' — see
+# advanced_view_manager.SUPPORTED_VIEW_TYPES), so a model that had just created
+# a view and then asked to list views got back count: 0 — read as "this project
+# has no floor plans", silently and with no error.
+#
+# The first nine keys are exactly create_view's vocabulary, so the two tools
+# speak the same language. The rest are types you can only ever LIST, never
+# create through create_view; each is mapped explicitly rather than guessed.
+_VIEW_TYPE_FILTER_MAP = {
+    # shared with create_view
+    'floor_plan':      'FloorPlan',
+    'ceiling_plan':    'CeilingPlan',
+    'structural_plan': 'EngineeringPlan',
+    'area_plan':       'AreaPlan',
+    'section':         'Section',
+    'elevation':       'Elevation',
+    '3d':              'ThreeD',
+    'drafting':        'DraftingView',
+    'legend':          'Legend',
+    # list-only
+    'schedule':        'Schedule',
+    'detail':          'Detail',
+    'rendering':       'Rendering',
+    'walkthrough':     'Walkthrough',
+}
+
+
 class _ToolTask(object):
     """One tool call marshalled onto Revit's UI thread via ExternalEvent.
 
@@ -521,7 +553,22 @@ class T3LabAIServer(object):
                     'properties': {
                         'view_type': {
                             'type': 'string',
-                            'description': 'Filter by view type (optional)'
+                            'description': 'Filter by view type (optional). '
+                                           'Same vocabulary as create_view for '
+                                           'the types both tools share; '
+                                           'Revit\'s own ViewType name '
+                                           '("FloorPlan", "ThreeD"...) is also '
+                                           'accepted. Omit to list every view.',
+                            # Spelled out, not sorted(_VIEW_TYPE_FILTER_MAP):
+                            # dev/test_tool_registry.py reads this whole
+                            # registry with ast.literal_eval, which a function
+                            # call would break. test_list_views_enum_matches
+                            # _the_filter_map keeps the two in step instead.
+                            'enum': ['3d', 'area_plan', 'ceiling_plan',
+                                     'detail', 'drafting', 'elevation',
+                                     'floor_plan', 'legend', 'rendering',
+                                     'schedule', 'section', 'structural_plan',
+                                     'walkthrough']
                         }
                     },
                     'required': []
@@ -1999,6 +2046,26 @@ class T3LabAIServer(object):
         '__begin_action_group', '__end_action_group',
     ])
 
+    # Dispatch branches that are deliberately NOT public registry entries: the
+    # assistant calls them directly through _execute_tool, and none of them
+    # should ever be advertised to a model.
+    #
+    # This is the authoritative list. dev/test_tool_registry.py reads it when
+    # checking that every dispatch branch is reachable from the registry —
+    # it used to keep its own hardcoded copy, which went stale the moment a
+    # pseudo-tool was added (that is exactly how collect_spellcheck_text ended
+    # up reported as unreachable dead code).
+    _INTERNAL_TOOLS = frozenset([
+        # Open/close the one TransactionGroup that makes a whole AI request a
+        # single Undo entry.
+        '__begin_action_group', '__end_action_group',
+        # One-shot main-thread text collector behind /english-spellcheck
+        # (script.py::_run_spellcheck). Never advertised: it returns every
+        # human-authored string in the model, which is a report to proofread,
+        # not something a model should be able to ask for.
+        'collect_spellcheck_text',
+    ])
+
     # Tools that never touch the target document — they must keep working
     # when this Revit instance has NO active document (start page, or no
     # document tab focused), because they are exactly what the AI client
@@ -2757,10 +2824,19 @@ class T3LabAIServer(object):
             collector = FilteredElementCollector(doc).OfClass(View)
             views = []
             view_type_filter = arguments.get('view_type')
+            # Accept create_view's vocabulary ('floor_plan', '3d', …) as well
+            # as Revit's own ViewType member name. Anything the map does not
+            # know falls through to the original exact comparison, so callers
+            # already passing "FloorPlan" keep working.
+            wanted = None
+            if view_type_filter is not None:
+                wanted = _VIEW_TYPE_FILTER_MAP.get(
+                    u'{}'.format(view_type_filter).strip().lower(),
+                    view_type_filter)
             for v in collector:
                 if not v.IsTemplate:
                     vtype = str(v.ViewType)
-                    if view_type_filter is None or vtype == view_type_filter:
+                    if wanted is None or vtype == wanted:
                         views.append({
                             'name': v.Name,
                             'id': eid_value(v.Id),

@@ -220,9 +220,72 @@ python3 dev/audit_ui.py --quiet
 python3 dev/sync_wpf_styles.py --check
 ```
 
-> `dev/test_tool_registry.py` báo **3 lỗi có từ trước** đợt này (registry drift:
-> `collect_spellcheck_text`, `revit_list_views.view_type`, 8 giá trị enum của
-> `create_view.view_type`). Không liên quan tới các thay đổi ở đây.
+> `dev/test_tool_registry.py` từng báo **3 lỗi có từ trước** đợt này. Đã sửa —
+> xem mục 6 bên dưới.
 
 **Không có file XAML nào bị sửa** — toàn bộ đợt này là logic.
 `T3LabAssistant.xaml` vẫn UI-locked.
+
+---
+
+## 6. Dọn nốt 4 lỗi có sẵn từ trước
+
+Ba lỗi đỏ của `dev/test_tool_registry.py` **không cùng một loại** — mỗi lỗi sai
+ở một phía khác nhau:
+
+### 6.1 `revit_list_views` trả lời sai (lỗi thật)
+
+Nhánh dispatch so `str(v.ViewType)` — tên enum của Revit (`"FloorPlan"`,
+`"ThreeD"`) — trong khi schema **không khai báo enum** nào, và `create_view`
+lại dạy model một bộ từ vựng khác hẳn (`floor_plan`, `3d`…).
+
+Model vừa tạo view xong, gọi `revit_list_views(view_type='floor_plan')` và nhận
+**`count: 0`** ⇒ đọc ra thành *"dự án không có mặt bằng nào"*. Im lặng, không
+báo lỗi. `revit_list_views` nằm trong `ESSENTIAL_TOOL_NAMES` nên **model local
+cũng dùng** — chính nhóm hay đoán sai từ vựng nhất.
+
+`_VIEW_TYPE_FILTER_MAP` (module-level trong `core/server.py`) ánh xạ từ vựng
+snake_case → tên `ViewType`. Chín khoá đầu **đúng bằng** từ vựng của
+`create_view` để hai tool nói cùng thứ tiếng; phần còn lại là loại chỉ liệt kê
+được (`schedule`, `detail`, `rendering`, `walkthrough`). Giá trị không khớp map
+**vẫn rơi về so sánh cũ**, nên caller đang truyền `"FloorPlan"` không bị vỡ.
+
+### 6.2 `collect_spellcheck_text` — nguồn sự thật đặt sai chỗ
+
+Là collector nội bộ, chỉ `script.py::_run_spellcheck` gọi thẳng, **cố ý không**
+quảng cáo cho LLM (nó đổ *mọi* chuỗi trong model ra). Cùng loại với
+`__begin_action_group` / `__end_action_group` — nhưng danh sách loại trừ lại
+nằm **cứng trong test**, nên cũ đi mỗi lần thêm pseudo-tool.
+
+Nguồn sự thật chuyển về `server._INTERNAL_TOOLS`, test đọc bằng
+`_frozenset_literal()` (helper đã có sẵn).
+
+### 6.3 8 enum "mồ côi" của `create_view` — **test sai**
+
+`create_view` uỷ nhiệm cho `core.advanced_view_manager`, nơi
+`SUPPORTED_VIEW_TYPES` chính là 9 giá trị của schema. Nó **thật sự tạo được**
+section/elevation/3d/legend. Test lại quét chuỗi thô trong thân nhánh nên chỉ
+thấy `floor_plan` (giá trị duy nhất xuất hiện nguyên văn, vì là default).
+
+`_effective_branch_source()` lần thêm **một bước**: source của module trong
+extension mà chính nhánh đó import, cộng hằng số module-level của `server.py`
+có tên xuất hiện trong nhánh. Một quy tắc, xử lý cả uỷ nhiệm (`create_view`)
+lẫn bảng tra (`revit_list_views`).
+
+Đã kiểm chứng quy tắc mới **không** quá lỏng: chèn một giá trị enum bịa
+(`teleport_view`) thì test vẫn bắt được. Hai test mới khoá thêm hai chiều —
+khoá của `_VIEW_TYPE_FILTER_MAP` phải khớp enum của schema, và `create_view`
+phải giữ đủ 9 giá trị.
+
+### 6.4 `Snippets/_revisions.py` không parse được
+
+`revision_type = RevisionNumberType.None` trong chữ ký hàm — `None` là **từ
+khoá**, `X.None` là SyntaxError ⇒ file **chưa bao giờ import được**. Không file
+nào import nó nên chưa ai vấp phải. Nay default là `None`, phân giải trong thân
+hàm bằng `getattr(RevisionNumberType, 'None', None)` — cũng tránh phân giải lúc
+định nghĩa hàm, vì `NumberType` đã obsolete từ RVT 2023.
+
+Lỗi này sống lâu vì **không gì kiểm tra**: `audit_tools.py` chỉ soi pushbutton,
+`lib/Snippets/` không có test nào. Thêm `test_every_extension_file_parses` —
+`ast.parse` mọi file `.py` trong `T3Lab.extension/` (chỉ parse, **không**
+import: phần lớn cây cần Revit thật).
