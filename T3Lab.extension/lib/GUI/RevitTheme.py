@@ -68,6 +68,7 @@ _LIGHT = {
 
     # Accent + status
     'Accent':         '#D97757',   # brand coral — avatar, active states
+    'AccentHover':    '#C2603F',   # coral, pressed/hover (send button)
     'AccentSoft':     '#F6E7DF',   # coral tint fill
     'Blue':           '#3B82F6',   # links / info
     'Success':        '#0B8A5A',
@@ -84,6 +85,11 @@ _LIGHT = {
     'CodeFg':         '#1F1E1D',
     'ScrollThumb':    '#CFCCC2',
     'SelectedBg':     '#EFEDE5',
+    # Drop-shadow colour for the composer card and the popups. A shadow is
+    # what lifts a popup off the surface behind it; black does that on paper
+    # but does nothing on Revit's dark chrome, so the token darkens on light
+    # and goes near-black-but-denser on dark (see the Opacity at each use).
+    'Shadow':         '#18181B',
 }
 
 _DARK = {
@@ -108,6 +114,7 @@ _DARK = {
 
     # Accent + status
     'Accent':         '#D97757',
+    'AccentHover':    '#E08A6E',   # lighter on dark: darkening vanishes there
     'AccentSoft':     '#3A2E28',
     'Blue':           '#60A5FA',
     'Success':        '#34D399',
@@ -124,6 +131,9 @@ _DARK = {
     'CodeFg':         '#E3E1D9',
     'ScrollThumb':    '#4A4944',
     'SelectedBg':     '#3A3935',
+    # Pure black on dark chrome: the only shade that still separates a popup
+    # from a #262624 background once it is blurred.
+    'Shadow':         '#000000',
 }
 
 _PALETTES = {'light': _LIGHT, 'dark': _DARK}
@@ -224,7 +234,19 @@ def color(token, theme=None):
 # ─── Resource injection ───────────────────────────────────────────────────────
 
 def apply(element, theme=None):
-    """Write every token into ``element.Resources`` as ``T3Theme<Token>``.
+    """Write every token into ``element.Resources``.
+
+    Two keys per token:
+
+    ``T3Theme<Token>``
+        a ``SolidColorBrush`` — what almost everything binds to.
+    ``T3Theme<Token>Color``
+        the raw ``Color``. Some properties are typed ``Color``, not ``Brush``
+        — ``DropShadowEffect.Color`` above all — and a brush bound there
+        silently fails to apply. Without this the popup and composer shadows
+        had to carry a hardcoded hex, which meant they stayed paper-black on
+        Revit's dark chrome and stopped separating the popup from what was
+        behind it.
 
     Call once after the XAML loads, and again whenever the host theme changes:
     WPF re-evaluates every ``DynamicResource`` bound to these keys, so the
@@ -239,6 +261,10 @@ def apply(element, theme=None):
     for token in palette(theme):
         try:
             res[RESOURCE_PREFIX + token] = brush(token, theme)
+        except Exception:
+            pass
+        try:
+            res[RESOURCE_PREFIX + token + 'Color'] = color(token, theme)
         except Exception:
             pass
     return theme
