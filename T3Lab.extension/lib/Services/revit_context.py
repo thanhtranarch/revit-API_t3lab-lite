@@ -108,6 +108,25 @@ def _call(func):
         return False, _err_text(ex)
 
 
+def _remove_task(token):
+    """Pull the queued entry tagged `token` out, leaving every other entry in
+    the queue untouched and in order. Used only on the Raise()-failed path."""
+    remaining = []
+    found = False
+    while True:
+        try:
+            item = _TASKS.get_nowait()
+        except _queue_mod.Empty:
+            break
+        if not found and item[0] is token:
+            found = True
+            continue
+        remaining.append(item)
+    for item in remaining:
+        _TASKS.put(item)
+    return found
+
+
 # ── Revit binding ─────────────────────────────────────────────────────────────
 HAS_REVIT_UI = False
 try:
@@ -124,7 +143,7 @@ try:
             # window would otherwise sit there until something raised again.
             while True:
                 try:
-                    func, on_done = _TASKS.get_nowait()
+                    _token, func, on_done = _TASKS.get_nowait()
                 except _queue_mod.Empty:
                     break
                 ok, err = _call(func)
@@ -208,16 +227,18 @@ def run_in_api_context(func, on_done=None):
                 pass
         return 'inline'
 
-    _TASKS.put((func, on_done))
+    token = object()
+    _TASKS.put((token, func, on_done))
     try:
         _EVENT.Raise()
     except Exception as ex:
         # Raise() failed — the task would sit in the queue forever. Take it
-        # back out and run it here so the user still gets an outcome.
-        try:
-            _TASKS.get_nowait()
-        except Exception:
-            pass
+        # back out and run it here so the user still gets an outcome. With
+        # more than one assistant window this queue can hold other callers'
+        # tasks too, so pull OUR entry out by identity rather than whatever
+        # happens to be at the front — a plain get_nowait() could silently
+        # steal and discard someone else's still-good, still-queued task.
+        _remove_task(token)
         ok, err = _call(func)
         if not ok and not err:
             err = _err_text(ex)
