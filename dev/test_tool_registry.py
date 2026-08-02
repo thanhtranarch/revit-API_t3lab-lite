@@ -172,8 +172,97 @@ def _dispatch_branches():
 
 BRANCHES = _dispatch_branches()
 
-# Names that are deliberately not public registry entries.
-INTERNAL_TOOLS = {'__begin_action_group', '__end_action_group'}
+
+def _literal_assign(src, name):
+    """Value of a module- or class-level `NAME = <literal>`, or None."""
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id == name:
+                try:
+                    return ast.literal_eval(node.value)
+                except Exception:
+                    return None
+    return None
+
+
+def _dict_literal(src, name):
+    value = _literal_assign(src, name)
+    return value if isinstance(value, dict) else {}
+
+
+def _list_literal(src, name):
+    value = _literal_assign(src, name)
+    return list(value) if isinstance(value, (list, tuple)) else []
+
+
+def _module_constants(src):
+    """{name: source_segment} for every `NAME = <literal>` assignment.
+
+    Module- and class-level alike (ast.walk, same as _frozenset_literal).
+    Used to follow a branch that switches through a lookup table declared
+    outside itself.
+    """
+    out = {}
+    tree = ast.parse(src)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                try:
+                    out[target.id] = ast.get_source_segment(src, node) or ''
+                except Exception:
+                    pass
+    return out
+
+
+_SERVER_CONSTANTS = _module_constants(_SERVER_SRC)
+
+_IMPORT_RE = re.compile(r'^\s*from\s+([\w.]+)\s+import\b', re.MULTILINE)
+_NAME_RE = re.compile(r'\b[A-Za-z_][A-Za-z0-9_]*\b')
+
+
+def _effective_branch_source(tool):
+    """Branch source PLUS whatever it delegates the decision to.
+
+    A dispatch branch does not have to spell every value it accepts. Two
+    legitimate shapes defeat a plain substring scan of the branch body:
+
+      * delegation to a helper module — `create_view` imports
+        create_single_view / SUPPORTED_VIEW_TYPES from
+        core.advanced_view_manager and lets it own the nine view types;
+      * a lookup table declared outside the branch — `revit_list_views`
+        normalises through the module-level _VIEW_TYPE_FILTER_MAP.
+
+    Both were reported as advertising values the server "cannot reach", which
+    was never true. The invariant worth keeping is *is this advertised value
+    reachable at all*, so resolve one hop: the branch body, the source of any
+    in-extension module it imports, and any server.py constant it names.
+    """
+    branch = BRANCHES.get(tool, '')
+    if not branch:
+        return ''
+    parts = [branch]
+
+    for mod in _IMPORT_RE.findall(branch):
+        path = os.path.join(LIB, *mod.split('.')) + '.py'
+        if os.path.isfile(path):
+            parts.append(_read(path))
+
+    for name in set(_NAME_RE.findall(branch)):
+        if name in _SERVER_CONSTANTS:
+            parts.append(_SERVER_CONSTANTS[name])
+
+    return '\n'.join(parts)
+
+# Names that are deliberately not public registry entries. Read from the
+# server itself rather than restated here — a second copy in the test goes
+# stale the moment a pseudo-tool is added, and then reports a live internal
+# tool as unreachable dead code.
+INTERNAL_TOOLS = _frozenset_literal(_SERVER_SRC, '_INTERNAL_TOOLS')
 
 # Fields whose value the dispatch switches on. A free-text value here is how
 # "asked for a section, silently got a 3D view" happens.
@@ -243,12 +332,72 @@ def test_every_enum_value_appears_in_its_dispatch():
     keep — the model calls it and gets an unknown-operation error at best."""
     orphans = []
     for tool, field, prop in _switch_props():
-        branch = BRANCHES.get(tool, '')
+        branch = _effective_branch_source(tool)
         for value in prop.get('enum') or []:
             if "'{}'".format(value) not in branch and '"{}"'.format(value) not in branch:
                 orphans.append('{}.{}={}'.format(tool, field, value))
     check('every advertised enum value exists in the dispatch',
           not orphans, orphans)
+
+
+def test_every_extension_file_parses():
+    """A file that does not parse cannot be imported by anything, ever.
+
+    lib/Snippets/_revisions.py carried `revision_type=RevisionNumberType.None`
+    in a signature for a long time — `None` is a keyword, so `X.None` is a
+    SyntaxError — and nothing noticed, because audit_tools.py only inspects
+    pushbuttons and no test covered lib/Snippets at all.
+
+    Parse only, never import: most of this tree needs a live Revit, so
+    importing under CPython 3 proves nothing. Syntax is checkable everywhere.
+    """
+    broken = []
+    for root, dirs, files in os.walk(EXT):
+        dirs[:] = [d for d in dirs
+                   if d not in ('_archive', 'scratch', '__pycache__')]
+        for fname in files:
+            if not fname.endswith('.py'):
+                continue
+            path = os.path.join(root, fname)
+            try:
+                ast.parse(_read(path))
+            except SyntaxError as ex:
+                broken.append('{}:{}'.format(
+                    os.path.relpath(path, REPO), ex.lineno))
+    check('every .py in the extension parses', not broken, broken)
+
+
+def test_list_views_enum_matches_the_filter_map():
+    """revit_list_views advertises an enum but normalises through
+    _VIEW_TYPE_FILTER_MAP; the two are declared separately (the registry has to
+    stay ast.literal_eval-able, so the enum cannot be sorted(map)). If they
+    drift, the model is told about a filter value the dispatch cannot honour —
+    which is the original bug in a new disguise."""
+    keys = set(_dict_literal(_SERVER_SRC, '_VIEW_TYPE_FILTER_MAP'))
+    advertised = set(
+        REGISTRY['revit_list_views']['inputSchema']['properties']
+        ['view_type'].get('enum') or [])
+    check('every filter-map key is advertised', not (keys - advertised),
+          sorted(keys - advertised))
+    check('every advertised filter value is mapped', not (advertised - keys),
+          sorted(advertised - keys))
+
+
+def test_create_view_still_advertises_every_supported_type():
+    """_effective_branch_source resolves create_view's enum through
+    advanced_view_manager. That is correct but looser, so pin the count here:
+    the schema must keep advertising every type SUPPORTED_VIEW_TYPES can build,
+    and nothing else."""
+    supported = set(_list_literal(
+        _read(os.path.join(LIB, 'core', 'advanced_view_manager.py')),
+        'SUPPORTED_VIEW_TYPES'))
+    advertised = set(
+        REGISTRY['create_view']['inputSchema']['properties']
+        ['view_type'].get('enum') or [])
+    check('create_view advertises what it can build',
+          supported == advertised, sorted(supported ^ advertised))
+    check('all nine view types are still there', len(advertised) == 9,
+          sorted(advertised))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -398,6 +547,9 @@ def test_destructive_names_are_real_tools():
 
 
 TESTS = [
+    ('syntax', [
+        test_every_extension_file_parses,
+    ]),
     ('registry ↔ dispatch', [
         test_every_registry_tool_has_a_dispatch_branch,
         test_every_dispatch_branch_is_registered,
@@ -407,6 +559,8 @@ TESTS = [
     ('enum coverage', [
         test_every_switch_field_has_an_enum,
         test_every_enum_value_appears_in_its_dispatch,
+        test_list_views_enum_matches_the_filter_map,
+        test_create_view_still_advertises_every_supported_type,
     ]),
     ('transactions', [
         test_transactional_tools_are_write_tools,

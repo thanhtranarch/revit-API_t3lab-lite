@@ -1102,6 +1102,7 @@
         <SolidColorBrush x:Key="T3ThemeMuted"          Color="#6F6E68"/>
         <SolidColorBrush x:Key="T3ThemeFaint"          Color="#A3A199"/>
         <SolidColorBrush x:Key="T3ThemeAccent"         Color="#D97757"/>
+        <SolidColorBrush x:Key="T3ThemeAccentHover"    Color="#C2603F"/>
         <SolidColorBrush x:Key="T3ThemeAccentSoft"     Color="#F6E7DF"/>
         <SolidColorBrush x:Key="T3ThemeBlue"           Color="#3B82F6"/>
         <SolidColorBrush x:Key="T3ThemeSuccess"        Color="#0B8A5A"/>
@@ -1116,6 +1117,7 @@
         <SolidColorBrush x:Key="T3ThemeCodeFg"         Color="#1F1E1D"/>
         <SolidColorBrush x:Key="T3ThemeScrollThumb"    Color="#CFCCC2"/>
         <SolidColorBrush x:Key="T3ThemeSelectedBg"     Color="#EFEDE5"/>
+        <Color x:Key="T3ThemeShadowColor">#18181B</Color>
 
         <!-- ── Revit-thin scrollbar ────────────────────────────────────────
              Revit's own panes use a hairline scrollbar: no arrow buttons, no
@@ -1128,6 +1130,7 @@
              inside the sync markers, no change to the other 52 tool windows.
              8px hit target, 5px visible thumb (7px on hover).
         ── -->
+        <!-- Vertical thumb: a slim column, centred in the 8px hit target. -->
         <Style x:Key="RevitThinThumb" TargetType="{x:Type Thumb}">
             <Setter Property="OverridesDefaultStyle" Value="true"/>
             <Setter Property="IsTabStop" Value="false"/>
@@ -1156,25 +1159,76 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Horizontal thumb: the same bar lying down. Without this the
+             vertical thumb was used for both, so a horizontal scrollbar
+             rendered as a 5px-wide vertical sliver. -->
+        <Style x:Key="RevitThinThumbH" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="IsTabStop" Value="false"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="Transparent">
+                            <Border x:Name="thumb"
+                                    Height="5" CornerRadius="2.5"
+                                    VerticalAlignment="Center"
+                                    Background="{DynamicResource T3ThemeScrollThumb}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="thumb" Property="Height" Value="7"/>
+                                <Setter TargetName="thumb" Property="Background"
+                                        Value="{DynamicResource T3ThemeMuted}"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="true">
+                                <Setter TargetName="thumb" Property="Height" Value="7"/>
+                                <Setter TargetName="thumb" Property="Background"
+                                        Value="{DynamicResource T3ThemeMuted}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- IsDirectionReversed is true for a vertical track and false for a
+             horizontal one — the single hardcoded "true" the style used to
+             carry made horizontal dragging scroll the wrong way. -->
+        <ControlTemplate x:Key="RevitThinScrollBarTemplateV" TargetType="{x:Type ScrollBar}">
+            <Grid Background="Transparent">
+                <Track x:Name="PART_Track" IsDirectionReversed="true">
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource RevitThinThumb}"/>
+                    </Track.Thumb>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
+        <ControlTemplate x:Key="RevitThinScrollBarTemplateH" TargetType="{x:Type ScrollBar}">
+            <Grid Background="Transparent">
+                <Track x:Name="PART_Track" IsDirectionReversed="False">
+                    <Track.Thumb>
+                        <Thumb Style="{StaticResource RevitThinThumbH}"/>
+                    </Track.Thumb>
+                </Track>
+            </Grid>
+        </ControlTemplate>
+
         <Style x:Key="RevitThinScrollBar" TargetType="{x:Type ScrollBar}">
             <Setter Property="Background"  Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
             <Setter Property="MinWidth"    Value="0"/>
             <Setter Property="MinHeight"   Value="0"/>
             <Setter Property="Width"       Value="8"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ScrollBar}">
-                        <Grid Background="Transparent">
-                            <Track x:Name="PART_Track" IsDirectionReversed="true">
-                                <Track.Thumb>
-                                    <Thumb Style="{StaticResource RevitThinThumb}"/>
-                                </Track.Thumb>
-                            </Track>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="Template"    Value="{StaticResource RevitThinScrollBarTemplateV}"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width"    Value="Auto"/>
+                    <Setter Property="Height"   Value="8"/>
+                    <Setter Property="Template" Value="{StaticResource RevitThinScrollBarTemplateH}"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <!-- ── Message action button (Claude-style icon row under a reply) ──
@@ -1203,37 +1257,6 @@
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.35"/>
                                 <Setter Property="Cursor"  Value="Arrow"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- ── Send button style (pill corner radius matching input) ── -->
-        <Style x:Key="SendButtonStyle" TargetType="Button">
-            <Setter Property="Background"      Value="#18181B"/>
-            <Setter Property="Foreground"      Value="White"/>
-            <Setter Property="Padding"         Value="18,0"/>
-            <Setter Property="FontSize"        Value="13"/>
-            <Setter Property="FontWeight"      Value="SemiBold"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor"          Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
-                                CornerRadius="0,20,20,0"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#27272A"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Background" Value="#E6E6EA"/>
-                                <Setter Property="Cursor"     Value="Arrow"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -1333,7 +1356,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="send_bg" Property="Background" Value="#C2603F"/>
+                                <Setter TargetName="send_bg" Property="Background"
+                                        Value="{DynamicResource T3ThemeAccentHover}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="send_bg" Property="Background"
@@ -1376,32 +1400,6 @@
             </Setter>
         </Style>
 
-        <!-- Chip button style (used for Quick Actions) -->
-        <Style x:Key="T3ChipButton" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource T3ThemeSelectedBg}"/>
-            <Setter Property="Foreground" Value="{DynamicResource T3ThemeInk}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="0,0,6,0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="chip_bd" Background="{TemplateBinding Background}" CornerRadius="12" Padding="12,5"
-                                BorderBrush="{DynamicResource T3ThemeCardBorder}" BorderThickness="1">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" TextBlock.FontSize="11" TextBlock.FontWeight="SemiBold"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource T3ThemeAccent}"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter TargetName="chip_bd" Property="BorderBrush"
-                                        Value="{DynamicResource T3ThemeAccent}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
     </Window.Resources>
 
     
@@ -1414,6 +1412,26 @@
             CornerRadius="22" ClipToBounds="True"
             Background="{DynamicResource T3ThemeAppBg}">
 <Grid>
+        <!-- Every scrollbar in the window follows Revit's theme.
+             The shared style block declares an IMPLICIT ScrollBar style with
+             hardcoded greys (#A1A1AA / #71717A / #18181B), and a second
+             implicit style cannot live beside it in Window.Resources — that
+             is a duplicate-key error, which is why the thin scrollbar was
+             previously pinned onto individual ScrollViewers one at a time.
+             This dictionary is a DIFFERENT one (the root Grid's), so an
+             implicit style here is legal and simply wins for the whole visual
+             subtree. That finally covers the surfaces the per-ScrollViewer
+             approach kept missing — chat_input's own scrollbar (it is
+             MaxHeight-capped with VerticalScrollBarVisibility=Auto, so a long
+             draft scrolls) and the ComboBox dropdowns, both of which were
+             painting near-black thumbs in Revit's dark theme.
+             The per-ScrollViewer overrides below are kept: popup content is
+             hosted outside this element's visual tree, where resource lookup
+             is not guaranteed to reach here. -->
+        <Grid.Resources>
+            <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource RevitThinScrollBar}"/>
+        </Grid.Resources>
+
         <Grid.RowDefinitions>
             <RowDefinition Height="*"/>    <!-- Chat area      -->
             <RowDefinition Height="Auto"/> <!-- Input bar      -->
@@ -1559,7 +1577,7 @@
                         CornerRadius="14" Background="{DynamicResource T3ThemeCardBg}">
                     <Border.Effect>
                         <DropShadowEffect ShadowDepth="1" Direction="270"
-                                          Color="#18181B" Opacity="0.05" BlurRadius="6"/>
+                                          Color="{DynamicResource T3ThemeShadowColor}" Opacity="0.05" BlurRadius="6"/>
                     </Border.Effect>
                     <StackPanel>
 
@@ -1794,7 +1812,7 @@
                             MinWidth="340" MaxWidth="480" Margin="0,0,8,8">
                         <Border.Effect>
                             <DropShadowEffect ShadowDepth="2" Direction="270"
-                                              Color="#18181B" Opacity="0.10" BlurRadius="10"/>
+                                              Color="{DynamicResource T3ThemeShadowColor}" Opacity="0.10" BlurRadius="10"/>
                         </Border.Effect>
                         <StackPanel>
                             <ScrollViewer x:Name="skills_popup_scroll" MaxHeight="250"
@@ -1826,7 +1844,7 @@
                             MinWidth="260" MaxWidth="360" Margin="0,0,8,8">
                         <Border.Effect>
                             <DropShadowEffect ShadowDepth="2" Direction="270"
-                                              Color="#18181B" Opacity="0.10" BlurRadius="10"/>
+                                              Color="{DynamicResource T3ThemeShadowColor}" Opacity="0.10" BlurRadius="10"/>
                         </Border.Effect>
                         <ScrollViewer MaxHeight="280"
                                       VerticalScrollBarVisibility="Auto"
@@ -1850,7 +1868,7 @@
                             MinWidth="260" MaxWidth="360" Margin="0,0,8,8">
                         <Border.Effect>
                             <DropShadowEffect ShadowDepth="2" Direction="270"
-                                              Color="#18181B" Opacity="0.10" BlurRadius="10"/>
+                                              Color="{DynamicResource T3ThemeShadowColor}" Opacity="0.10" BlurRadius="10"/>
                         </Border.Effect>
                         <ScrollViewer MaxHeight="280"
                                       VerticalScrollBarVisibility="Auto"

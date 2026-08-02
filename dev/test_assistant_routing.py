@@ -438,9 +438,9 @@ def test_agent_prompt_language_follows_setting():
     contradicted the UI once the assistant's own strings followed the user."""
     from Intelligence.agent_loop import build_agent_system_prompt
 
-    en = build_agent_system_prompt(u"ctx", lang='en')
-    vi = build_agent_system_prompt(u"ctx", lang='vi')
-    auto = build_agent_system_prompt(u"ctx", lang='auto')
+    en = build_agent_system_prompt(lang='en')
+    vi = build_agent_system_prompt(lang='vi')
+    auto = build_agent_system_prompt(lang='auto')
 
     check('en pins English', 'reply in English' in en)
     check('vi pins Vietnamese', 'reply in Vietnamese' in vi)
@@ -453,8 +453,52 @@ def test_agent_prompt_language_follows_setting():
 
 def test_specialist_prompt_forwards_language():
     from Intelligence.agents.specialists import build_specialist_prompt
-    vi = build_specialist_prompt(None, u"ctx", lang='vi')
+    vi = build_specialist_prompt(None, lang='vi')
     check('specialist prompt honours lang', 'reply in Vietnamese' in vi)
+
+
+def test_system_prompt_is_static_for_prompt_cache():
+    """The whole point of P1: the system block must be byte-identical across
+    turns so Anthropic's cache breakpoint on it actually hits.
+
+    Live Revit state (active view, selection — re-read by a 2s timer) used to
+    be interpolated into the prompt, so the system block never repeated and
+    the entire prefix was re-processed every single turn.
+    """
+    from Intelligence.agent_loop import (build_agent_system_prompt,
+                                         build_context_block,
+                                         apply_context_block,
+                                         strip_context_block)
+
+    a = build_agent_system_prompt(lang='en')
+    b = build_agent_system_prompt(u"View: Level 1 | Selection: 3", lang='en')
+    check('system prompt ignores live context', a == b)
+    check('no stale context placeholder left behind', '{context}' not in a)
+
+    empty = build_context_block()
+    check('no live state = no extra tokens', empty == u"")
+
+    blk = build_context_block(revit_context=u"View: Level 1",
+                              knowledge_ref=u"## Reference\n[1] spec")
+    check('context block carries the view', 'View: Level 1' in blk)
+    check('context block carries the knowledge ref', '[1] spec' in blk)
+
+    merged = apply_context_block(u"tô đỏ tường", blk)
+    check('user text survives', merged.endswith(u"tô đỏ tường"))
+    check('context comes first', merged.startswith('<<<T3LAB_LIVE_CONTEXT'))
+    check('round-trips back to the raw turn',
+          strip_context_block(merged) == u"tô đỏ tường")
+
+    # Vision turns send a block list, not a string — the image blocks must
+    # keep their own positions with the context prepended as text.
+    blocks = apply_context_block(
+        [{"type": "text", "text": "look"}, {"type": "image", "source": {}}], blk)
+    check('block list stays a list', isinstance(blocks, list))
+    check('context prepended as its own text block',
+          blocks[0]['type'] == 'text' and 'View: Level 1' in blocks[0]['text'])
+    check('image block preserved', blocks[-1]['type'] == 'image')
+    check('no context = content untouched',
+          apply_context_block(u"hi", u"") == u"hi")
 
 
 def test_knowledge_prompt_is_single_language():
@@ -842,6 +886,9 @@ TESTS = [
         test_knowledge_prompt_is_single_language,
         test_assistant_cards_are_bilingual,
         test_reply_language_setting_roundtrip,
+    ]),
+    ('prompt cache', [
+        test_system_prompt_is_static_for_prompt_cache,
     ]),
     ('routing', [
         test_continuation_needs_a_trailing_question,

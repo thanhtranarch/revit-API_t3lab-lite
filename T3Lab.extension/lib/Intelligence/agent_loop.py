@@ -33,7 +33,7 @@ __title__  = "Agent Loop"
 import json
 import time
 
-from Intelligence.tool_schema import LAUNCHER_TOOL_NAME
+from Intelligence.tool_schema import LAUNCHER_TOOL_NAME, MEMORY_TOOL_NAME
 
 
 # ─── Result truncation ─────────────────────────────────────────────────────────
@@ -53,13 +53,36 @@ def _result_to_json(result):
     return s
 
 
-def _sanitize_history(history, limit=24):
+def _call_key(name, args):
+    """Canonical identity of one tool call, for the duplicate guard.
+
+    Shared by the guard itself and by the read-batching prefetch so the two
+    can never disagree about what counts as "already done".
+    """
+    try:
+        return (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
+    except Exception:
+        return (name, u"{}".format(args))
+
+
+def _sanitize_history(history, limit=None):
     """Reduce persisted chat history to plain-text user/assistant messages.
 
-    24 turns (was 16) gives the agent stronger multi-turn continuity. It stays
-    affordable: Claude re-reads the transcript prefix from the prompt cache,
-    and Ollama's num_ctx is sized to fit the actual payload per request.
+    The window size comes from Intelligence.conversation.HISTORY_LIMIT. It was
+    hardcoded to 24 here while script._add_to_history truncated to 16, so this
+    limit never actually bound and the extra continuity it claimed to give
+    could not happen. One constant now, and turns that fall past it are folded
+    into a rolling summary rather than dropped.
+
+    It stays affordable: Claude re-reads the transcript prefix from the prompt
+    cache, and Ollama's num_ctx is sized to fit the actual payload per request.
     """
+    if limit is None:
+        try:
+            from Intelligence.conversation import HISTORY_LIMIT
+            limit = HISTORY_LIMIT
+        except Exception:
+            limit = 24
     out = []
     for h in (history or [])[-limit:]:
         role    = h.get("role", "")
@@ -82,15 +105,25 @@ class AgentLoop(object):
     """One user request = one AgentLoop.run(). Cancellable between steps."""
 
     def __init__(self, provider, execute_tool, tools, callbacks=None,
-                 max_iterations=10, max_tokens=1500, time_budget_sec=240):
+                 max_iterations=10, max_tokens=1500, time_budget_sec=240,
+                 turn_timer=None, execute_tools_batch=None,
+                 is_write_tool=None):
         self._provider       = provider
         self._execute_tool   = execute_tool
         self._tools          = tools
+        # Optional read-batching seam. Both must be supplied for it to engage;
+        # without them every call goes through execute_tool one at a time,
+        # exactly as before.
+        self._execute_batch  = execute_tools_batch
+        self._is_write_tool  = is_write_tool
         self._cb             = callbacks or {}
         self._max_iterations = max_iterations
         self._max_tokens     = max_tokens
         self._time_budget    = time_budget_sec
         self._cancelled      = False
+        # Optional Intelligence.telemetry.TurnTimer. None = no accounting;
+        # every use below is guarded so the loop runs identically without it.
+        self._timer          = turn_timer
 
     # ── Cancellation ──────────────────────────────────────────────────────────
 
@@ -123,6 +156,82 @@ class AgentLoop(object):
                 fn(*args)
             except Exception:
                 pass
+
+    # ── Telemetry (optional, never raises into the loop) ──────────────────────
+
+    def _note_usage(self, usage):
+        """Accumulate one model call's token usage onto the turn timer."""
+        if self._timer is None or not usage:
+            return
+        try:
+            self._timer.add_usage(usage)
+        except Exception:
+            pass
+
+    def _note_roundtrip(self, n_calls=1):
+        """Record one crossing to Revit's main thread carrying n tool calls."""
+        if self._timer is None:
+            return
+        try:
+            self._timer.tool_roundtrip(n_calls)
+        except Exception:
+            pass
+
+    # ── Read batching ─────────────────────────────────────────────────────────
+
+    def leading_read_run(self, calls, done_calls=None):
+        """Indices of the LEADING run of batchable read-only calls.
+
+        Stops at the first call that is not a plain read — a write, the
+        terminal launcher, the locally-executed memory tool, or a duplicate
+        the loop will refuse anyway. Stopping there is what preserves
+        read-after-write ordering: a read placed after a write must see the
+        model as the write left it, so it can never be hoisted into the batch.
+
+        A run of one is not worth a batch; the caller falls back to the
+        sequential path.
+        """
+        if self._execute_batch is None or self._is_write_tool is None:
+            return []
+        done = done_calls or set()
+        idxs = []
+        for i, tc in enumerate(calls or []):
+            name = tc.get("name", "")
+            if not name or name in (LAUNCHER_TOOL_NAME, MEMORY_TOOL_NAME):
+                break
+            try:
+                if self._is_write_tool(name):
+                    break
+            except Exception:
+                break
+            if _call_key(name, tc.get("args") or {}) in done:
+                break
+            idxs.append(i)
+        return idxs if len(idxs) > 1 else []
+
+    def _prefetch_reads(self, calls, done_calls):
+        """Execute the leading read run in ONE Revit round-trip.
+
+        Returns {index: result}. Results are handed back to the normal
+        sequential loop below, which still emits on_tool_start/on_tool_done
+        per call and still applies its guards — only the crossing is shared,
+        so the UI and the transcript are indistinguishable from before.
+
+        Any failure falls back silently to per-call execution.
+        """
+        idxs = self.leading_read_run(calls, done_calls)
+        if not idxs:
+            return {}
+        batch = [(calls[i].get("name", ""), calls[i].get("args") or {})
+                 for i in idxs]
+        try:
+            results = self._execute_batch(batch)
+        except Exception:
+            return {}
+        if not isinstance(results, list) or len(results) != len(idxs):
+            return {}
+        self._note_roundtrip(len(idxs))
+        return dict(zip(idxs, results))
 
     # ── Text tool-call rescue ─────────────────────────────────────────────────
 
@@ -216,6 +325,8 @@ class AgentLoop(object):
                 status = "failed" if iteration == 1 else "done"
                 return self._finish(status, last_text, None, iteration, tool_runs)
 
+            self._note_usage(resp.get("usage"))
+
             text  = (resp.get("text") or u"").strip()
             calls = resp.get("tool_calls") or []
 
@@ -241,10 +352,18 @@ class AgentLoop(object):
                 return self._finish("done", last_text, None, iteration, tool_runs)
 
             # ── Execute tool calls sequentially (Revit is single-threaded) ──
+            # One exception: the LEADING run of read-only calls is fetched in a
+            # single crossing to Revit's main thread first (each crossing costs
+            # an ExternalEvent raise plus a wait for Revit to go idle, and the
+            # model routinely asks for several reads at once). The loop below
+            # is otherwise untouched — it still emits a card per call and still
+            # applies every guard; it just consumes the prefetched result
+            # instead of paying for its own round-trip.
+            prefetched    = self._prefetch_reads(calls, done_calls)
             results       = []
             launch_intent = None
             doc_changed   = False
-            for tc in calls:
+            for _idx, tc in enumerate(calls):
                 name = tc.get("name", "")
                 args = tc.get("args") or {}
 
@@ -271,11 +390,7 @@ class AgentLoop(object):
                 # already succeeded in THIS run is never executed again — the
                 # model gets an error result telling it to move on, and no
                 # tool card ever reaches the UI for the repeat.
-                try:
-                    call_key = (name, json.dumps(args, sort_keys=True,
-                                                 ensure_ascii=False))
-                except Exception:
-                    call_key = (name, u"{}".format(args))
+                call_key = _call_key(name, args)
                 if call_key in done_calls:
                     results.append({
                         "error": u"Duplicate call: `{}` with identical "
@@ -287,10 +402,15 @@ class AgentLoop(object):
 
                 self._emit("on_tool_start", name, args, iteration)
                 t0 = time.time()
-                try:
-                    res = self._execute_tool(name, args)
-                except Exception as ex:
-                    res = {"error": u"{}".format(ex), "tool": name}
+                if _idx in prefetched:
+                    # Already fetched in the shared read round-trip above.
+                    res = prefetched[_idx]
+                else:
+                    self._note_roundtrip(1)
+                    try:
+                        res = self._execute_tool(name, args)
+                    except Exception as ex:
+                        res = {"error": u"{}".format(ex), "tool": name}
                 if not isinstance(res, dict):
                     res = {"result": res}
                 dt = time.time() - t0
@@ -337,6 +457,11 @@ class AgentLoop(object):
                             self._max_iterations, tool_runs)
 
     def _finish(self, status, text, launch_intent, iterations, tool_runs):
+        if self._timer is not None:
+            try:
+                self._timer.iterations = iterations
+            except Exception:
+                pass
         result = {
             "status":        status,
             "text":          text,
@@ -367,7 +492,7 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 ## Efficiency (each model turn is expensive — minimize turns)
 - BATCH independent read-only calls into ONE turn: when you need e.g. levels + selection + view info, emit all those tool calls together instead of one per turn.
 - Prefer ONE bulk tool over many single calls: `bulk_set_parameter` over repeated `set_parameter`, `ai_element_filter` over per-element inspection, `tag_all_*` over per-element tags.
-- Do not re-query data that is already in this conversation (earlier tool results, the context block below) unless the model may have changed since.
+- Do not re-query data that is already in this conversation (earlier tool results, the context block in the latest user message) unless the model may have changed since.
 - Never call a tool "just to check" after a success result already told you the outcome; verify with a read tool only after LARGE modifications (20+ elements) or when a result looks suspicious.
 
 ## Working rules
@@ -379,7 +504,7 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 6. `open_t3lab_tool` opens a T3Lab window and ENDS your turn — only ever call it last, and never together with other tools.
 7. When the user refers to the current selection ("these elements", "the selected walls", "các element này", "đang chọn"), call `revit_get_selected_elements` FIRST and operate on those element ids — never guess ids.
 8. Trust tool results over assumptions: counts, names and ids come from the model, not from memory of typical projects.
-9. Scope resolution when the request names no explicit target: for CHECKING / auditing / statistics / spell-check requests the default scope is the ENTIRE PROJECT — never silently limit to the current view (limit only when the user says so, or ask ONE question when unsure). For MODIFY actions, use the "Current Revit context" block below — the user's selection first, then the active view. Never report "nothing found" from one filtered query: re-check with corrected arguments or wider scope first.
+9. Scope resolution when the request names no explicit target: for CHECKING / auditing / statistics / spell-check requests the default scope is the ENTIRE PROJECT — never silently limit to the current view (limit only when the user says so, or ask ONE question when unsure). For MODIFY actions, use the "Current Revit context" block in the latest user message — the user's selection first, then the active view. Never report "nothing found" from one filtered query: re-check with corrected arguments or wider scope first.
 10. NUMBERS MUST COME FROM TOOLS, NEVER FROM YOU. Tool results may be truncated before you see them, so counting or summing rows/elements yourself gives wrong answers. Use the exact fields the tools compute: `total_count` (ai_element_filter), `row_count` / `column_totals` (get_schedule_data), `element_counts` (analyze_model_statistics). If a statistic you need has no tool-computed field, say so — do not estimate.
 11. Color / highlight requests — "tô màu", "tô đỏ X", "bôi xanh X", "đổi màu X", "highlight X", "color X red": the color word is the OVERRIDE color to APPLY, never a parameter value to filter by (Revit elements have no "Color" or "Fill Color" parameter). For ALL elements of a category ("tô vàng sàn", "color the walls red") call `revit_override_color` with `category` + `color` directly — the server collects every matching element itself, no ids needed and NO count limit. Pass `element_ids` only for a SUBSET: the user's selection (via revit_get_selected_elements) or ids from `ai_element_filter` (category only, no parameter filter; if its `total_count` exceeds the ids returned, re-call with limit=total_count so every match is included). Use `color_elements` only when the user wants elements colored BY a parameter's values (one distinct color per value, e.g. "tô màu tường theo Type") — and its parameter_name must be a REAL parameter, never empty, never a color name.
 12. NEVER fabricate tool activity. Every action happens ONLY through a real tool call in this conversation — if you say you will use a tool, emit that tool call in the same turn, and only report results that came back from an actual tool result. Writing an invented "Result:" for a call you never made is a critical failure.
@@ -390,8 +515,8 @@ For a multi-step request, decide the full tool sequence BEFORE the first call an
 ## Multiple open models
 Several documents can be open in this Revit session; every tool operates on the ACTIVE one. To work across models: `list_open_documents` → `switch_active_document` (exact title) → read/modify there → switch again as needed, then combine everything into ONE final answer stating which model each number comes from. Element ids are only valid inside their own document — never reuse ids across models. When the user names a model that is not in `list_open_documents`, it may live in a different Revit window (separate process): say so and point them to the assistant in that window — do not guess.
 
-## Current Revit context
-{context}
+## Live context
+The latest user message carries a "Current Revit context" block (active view, selection, project) and, when relevant, "Reference from project knowledge" excerpts. Read them as the state of the model RIGHT NOW — they are not something the user typed.
 """
 
 
@@ -424,16 +549,96 @@ _LANG_AUTO = (u"Reply in the SAME language the user wrote in — Vietnamese in, 
 
 
 def build_agent_system_prompt(revit_context=u"", local=False, lang="auto"):
-    """System prompt for the native tool-calling agent path.
+    """STATIC system prompt for the native tool-calling agent path.
+
+    Static is the point. The live Revit context used to be interpolated into
+    this string, which made the whole system block change on every turn (the
+    active view and selection are re-read by a 2-second timer). Since the
+    system block is one prompt-cache breakpoint — and `messages` sit after it
+    in the cache prefix — a system block that never repeats meant the cache
+    never hit across turns and the entire prompt was re-processed each time.
+    The volatile half now travels with the user turn: see
+    build_context_block() and Intelligence/telemetry.py for the measurement.
+
+    `revit_context` is accepted and ignored, so old callers keep working;
+    passing it no longer has any effect on the returned prompt.
 
     local=True appends a compact few-shot trace — small local models select
     tools far more accurately from concrete examples than from prose alone.
     lang is 'auto' | 'vi' | 'en' and must match what the UI itself renders,
     so the model's prose and the assistant's own strings agree.
     """
-    ctx = revit_context.strip() if revit_context else u"(no context snapshot available)"
     language = {'vi': _LANG_VI, 'en': _LANG_EN}.get(lang, _LANG_AUTO)
-    prompt = _AGENT_PROMPT.format(context=ctx, language=language)
+    prompt = _AGENT_PROMPT.format(language=language)
     if local:
         prompt += u"\n" + _LOCAL_GENERAL_FEWSHOT
     return prompt
+
+
+# Fence around the volatile block so the model can tell live state from the
+# user's own words, and so the block can be stripped back off a stored turn.
+CONTEXT_FENCE_OPEN  = u"<<<T3LAB_LIVE_CONTEXT"
+CONTEXT_FENCE_CLOSE = u"T3LAB_LIVE_CONTEXT>>>"
+
+
+def build_context_block(revit_context=u"", knowledge_ref=u""):
+    """The VOLATILE half of the prompt, to prepend to the current user turn.
+
+    Everything in here changes from turn to turn — the active view, the
+    selection, and knowledge excerpts retrieved for this specific question —
+    which is exactly why it must not sit in the cached system block.
+
+    Returns u"" when there is nothing live to report, so an ordinary turn
+    carries no extra tokens at all.
+    """
+    parts = []
+    ctx = (revit_context or u"").strip()
+    if ctx:
+        parts.append(u"## Current Revit context\n" + ctx)
+    ref = (knowledge_ref or u"").strip()
+    if ref:
+        parts.append(ref)
+    if not parts:
+        return u""
+    return u"{}\n{}\n{}".format(CONTEXT_FENCE_OPEN,
+                                u"\n\n".join(parts),
+                                CONTEXT_FENCE_CLOSE)
+
+
+def apply_context_block(user_content, context_block):
+    """Prepend `context_block` to a turn's user content.
+
+    Handles both content shapes the providers accept: a plain string, and the
+    Anthropic block list used when an attachment carries images (see
+    rag_processor.build_vision_content_blocks). In the list case the text goes
+    into a leading text block so image blocks keep their own positions.
+    """
+    if not context_block:
+        return user_content
+    if isinstance(user_content, list):
+        return [{"type": "text", "text": context_block}] + list(user_content)
+    return u"{}\n\n{}".format(context_block, user_content or u"")
+
+
+def strip_context_block(text):
+    """Remove any live-context fence from `text`.
+
+    History is stored from the raw user text, so this is belt-and-braces: it
+    keeps a stray fenced block from being replayed as if it were still current
+    if a caller ever persists the decorated content.
+    """
+    if not text or CONTEXT_FENCE_OPEN not in text:
+        return text
+    out = []
+    depth = 0
+    for line in text.split(u"\n"):
+        stripped = line.strip()
+        if stripped == CONTEXT_FENCE_OPEN:
+            depth += 1
+            continue
+        if stripped == CONTEXT_FENCE_CLOSE:
+            depth = max(0, depth - 1)
+            continue
+        if depth == 0:
+            out.append(line)
+    return u"\n".join(out).strip()

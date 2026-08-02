@@ -238,8 +238,12 @@ class LMStudioProvider(BaseLLMProvider):
             # legitimately take minutes — the shared http_post() default
             # (60s, tuned for cloud APIs) was silently killing every slower
             # local generation, indistinguishable from "the model failed".
+            # A caller waiting only on a tiny utility answer (the dispatcher's
+            # one-label classification) passes a much shorter timeout_ms.
             resp_text = http_post(self._get_chat_endpoint(), payload,
-                                  headers=self._auth_headers(), timeout_ms=180000)
+                                  headers=self._auth_headers(),
+                                  timeout_ms=int(kwargs.get("timeout_ms")
+                                                 or 180000))
             data = json.loads(resp_text)
             msg = data.get("choices", [{}])[0].get("message", {})
 

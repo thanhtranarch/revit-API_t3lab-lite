@@ -73,6 +73,38 @@ except ImportError:
 HAS_REVIT_UI = False
 
 
+# Vocabulary for revit_list_views' view_type filter → Revit's ViewType enum
+# member name (what str(view.ViewType) returns).
+#
+# The filter used to be compared straight against str(v.ViewType), with no enum
+# in the schema to say so. Meanwhile create_view teaches the model an entirely
+# different vocabulary ('floor_plan', '3d', 'structural_plan' — see
+# advanced_view_manager.SUPPORTED_VIEW_TYPES), so a model that had just created
+# a view and then asked to list views got back count: 0 — read as "this project
+# has no floor plans", silently and with no error.
+#
+# The first nine keys are exactly create_view's vocabulary, so the two tools
+# speak the same language. The rest are types you can only ever LIST, never
+# create through create_view; each is mapped explicitly rather than guessed.
+_VIEW_TYPE_FILTER_MAP = {
+    # shared with create_view
+    'floor_plan':      'FloorPlan',
+    'ceiling_plan':    'CeilingPlan',
+    'structural_plan': 'EngineeringPlan',
+    'area_plan':       'AreaPlan',
+    'section':         'Section',
+    'elevation':       'Elevation',
+    '3d':              'ThreeD',
+    'drafting':        'DraftingView',
+    'legend':          'Legend',
+    # list-only
+    'schedule':        'Schedule',
+    'detail':          'Detail',
+    'rendering':       'Rendering',
+    'walkthrough':     'Walkthrough',
+}
+
+
 class _ToolTask(object):
     """One tool call marshalled onto Revit's UI thread via ExternalEvent.
 
@@ -521,7 +553,22 @@ class T3LabAIServer(object):
                     'properties': {
                         'view_type': {
                             'type': 'string',
-                            'description': 'Filter by view type (optional)'
+                            'description': 'Filter by view type (optional). '
+                                           'Same vocabulary as create_view for '
+                                           'the types both tools share; '
+                                           'Revit\'s own ViewType name '
+                                           '("FloorPlan", "ThreeD"...) is also '
+                                           'accepted. Omit to list every view.',
+                            # Spelled out, not sorted(_VIEW_TYPE_FILTER_MAP):
+                            # dev/test_tool_registry.py reads this whole
+                            # registry with ast.literal_eval, which a function
+                            # call would break. test_list_views_enum_matches
+                            # _the_filter_map keeps the two in step instead.
+                            'enum': ['3d', 'area_plan', 'ceiling_plan',
+                                     'detail', 'drafting', 'elevation',
+                                     'floor_plan', 'legend', 'rendering',
+                                     'schedule', 'section', 'structural_plan',
+                                     'walkthrough']
                         }
                     },
                     'required': []
@@ -1999,6 +2046,26 @@ class T3LabAIServer(object):
         '__begin_action_group', '__end_action_group',
     ])
 
+    # Dispatch branches that are deliberately NOT public registry entries: the
+    # assistant calls them directly through _execute_tool, and none of them
+    # should ever be advertised to a model.
+    #
+    # This is the authoritative list. dev/test_tool_registry.py reads it when
+    # checking that every dispatch branch is reachable from the registry —
+    # it used to keep its own hardcoded copy, which went stale the moment a
+    # pseudo-tool was added (that is exactly how collect_spellcheck_text ended
+    # up reported as unreachable dead code).
+    _INTERNAL_TOOLS = frozenset([
+        # Open/close the one TransactionGroup that makes a whole AI request a
+        # single Undo entry.
+        '__begin_action_group', '__end_action_group',
+        # One-shot main-thread text collector behind /english-spellcheck
+        # (script.py::_run_spellcheck). Never advertised: it returns every
+        # human-authored string in the model, which is a report to proofread,
+        # not something a model should be able to ask for.
+        'collect_spellcheck_text',
+    ])
+
     # Tools that never touch the target document — they must keep working
     # when this Revit instance has NO active document (start page, or no
     # document tab focused), because they are exactly what the AI client
@@ -2255,6 +2322,84 @@ class T3LabAIServer(object):
     # not hang behind that. Pure reads off the UI thread are the same path
     # already used when no ExternalEvent exists at all.
     _READ_FALLBACK_WAIT = 2.0
+
+    def is_write_tool(self, tool_name):
+        """True if `tool_name` mutates the model / must run on the UI thread."""
+        return tool_name in self._WRITE_TOOLS
+
+    def execute_tools_batch(self, calls):
+        """Run several READ-ONLY tools in ONE crossing to Revit's main thread.
+
+        `calls` is a list of (tool_name, arguments); returns results in the
+        same order. Any write tool in the list is rejected up front — writes
+        stay on _execute_tool, one at a time, so the TransactionGroup and undo
+        semantics are untouched.
+
+        Why this helps: MCPExternalEventHandler.Execute already drains the
+        whole queue in one callback ("ExternalEvent coalesces multiple Raise()
+        calls into one Execute"). The serialization was never in the handler —
+        it was in _execute_tool, which enqueues ONE task, raises, and then
+        blocks on it, so a caller could never get a second task into the queue.
+        Enqueuing the whole batch before raising lets the existing drain loop
+        do exactly what it was already written to do. Each call keeps its own
+        _ToolTask, so claim() and _write_in_progress behave per call as before.
+        """
+        calls = list(calls or [])
+        if not calls:
+            return []
+
+        writes = [n for n, _ in calls if n in self._WRITE_TOOLS]
+        if writes:
+            raise ValueError(
+                'execute_tools_batch is read-only; got write tools: {}'
+                .format(', '.join(sorted(set(writes)))))
+
+        if not self._external_event:
+            # No event to batch onto — reads are safe on this thread anyway.
+            return [self._execute_tool_in_context(name, args)
+                    for name, args in calls]
+
+        import time   # not a module-level import in this file (see line ~306)
+
+        tasks = [_ToolTask(name, args) for name, args in calls]
+        for task in tasks:
+            self._event_handler.tasks.put(task)
+        self._external_event.Raise()
+
+        # ONE grace period for the whole batch, then the same per-task fallback
+        # a single read would have taken.
+        deadline = time.time() + self._READ_FALLBACK_WAIT
+        for task in tasks:
+            remaining = deadline - time.time()
+            if remaining > 0:
+                task.done.wait(remaining)
+
+        results = []
+        for task in tasks:
+            if not task.done.is_set():
+                if not self._write_in_progress and task.claim('fallback'):
+                    # Revit is busy — run the read here rather than hang until
+                    # it next goes idle. Reads never touch the window.
+                    try:
+                        results.append(self._execute_tool_in_context(
+                            task.tool_name, task.arguments))
+                    except Exception as e:
+                        results.append({'error': str(e),
+                                        'tool': task.tool_name})
+                    continue
+                if not task.done.wait(120):
+                    task.claim('abandoned')
+                    results.append({
+                        'error': 'Execution timed out waiting for Revit '
+                                 'thread context',
+                        'tool': task.tool_name})
+                    continue
+            if task.exception:
+                results.append({'error': str(task.exception),
+                                'tool': task.tool_name})
+            else:
+                results.append(task.result)
+        return results
 
     def _execute_tool(self, tool_name, arguments):
         """Execute a Revit tool in a thread-safe manner using External Events."""
@@ -2679,10 +2824,19 @@ class T3LabAIServer(object):
             collector = FilteredElementCollector(doc).OfClass(View)
             views = []
             view_type_filter = arguments.get('view_type')
+            # Accept create_view's vocabulary ('floor_plan', '3d', …) as well
+            # as Revit's own ViewType member name. Anything the map does not
+            # know falls through to the original exact comparison, so callers
+            # already passing "FloorPlan" keep working.
+            wanted = None
+            if view_type_filter is not None:
+                wanted = _VIEW_TYPE_FILTER_MAP.get(
+                    u'{}'.format(view_type_filter).strip().lower(),
+                    view_type_filter)
             for v in collector:
                 if not v.IsTemplate:
                     vtype = str(v.ViewType)
-                    if view_type_filter is None or vtype == view_type_filter:
+                    if wanted is None or vtype == wanted:
                         views.append({
                             'name': v.Name,
                             'id': eid_value(v.Id),

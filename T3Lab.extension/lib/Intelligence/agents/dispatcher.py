@@ -26,6 +26,14 @@ SPECIALIST_NAMES = ('general', 'revit_data', 'revit_action',
                     'knowledge', 'comment',
                     'multi_doc', 'modeling', 'qa_check', 'export')
 
+# The classification call sits IN FRONT of the real turn — every second it
+# spends is a second before the user sees anything. It asks for one label in
+# 60 tokens, so it has no business taking longer than this; past the limit the
+# keyword/skill decision is a perfectly good answer. Without it the call
+# inherited each provider's chat timeout: 60s on the cloud APIs and 180s on
+# Ollama / LM Studio, whose long ceilings exist for real generations.
+_CLASSIFY_TIMEOUT_MS = 6000
+
 # ─── Keyword tables (folded lowercase) ───────────────────────────────────────
 # Phrases are matched on the folded text (substring with word boundaries),
 # single words on the token list.
@@ -140,6 +148,17 @@ class AgentDispatcher(object):
             decision['skill'] = skill
             return decision
 
+        # The keyword stage was not sure. Before paying for a model round-trip
+        # ahead of the real turn, check whether a skill matched STRONGLY — a
+        # multi-word declared trigger is evidence in its own right, and the
+        # skill's frontmatter already names the specialist to run it under.
+        strong = self._strong_skill(text, skills_engine)
+        if strong is not None:
+            sid, spec = strong
+            if spec:
+                return {'specialist': spec, 'skill': sid,
+                        'source': 'skill', 'confidence': 0.7}
+
         if allow_llm and provider is not None:
             llm = self._llm_stage(text, provider, skills_engine)
             if llm is not None:
@@ -148,6 +167,34 @@ class AgentDispatcher(object):
         return {'specialist': 'general', 'skill':
                 self._match_skill(text, skills_engine),
                 'source': 'default', 'confidence': 0.3}
+
+    # A skill scoring at least this much matched on a multi-word DECLARED
+    # trigger (10/word + 3 for being declared), not a single guessed keyword.
+    # See skills_engine.match_scored for the scale.
+    _STRONG_SKILL_SCORE = 25.0
+
+    def _strong_skill(self, text, skills_engine):
+        """(skill_id, specialist) when one skill matched decisively, else None.
+
+        Only used to skip the classification round-trip; a weak match still
+        goes to the model.
+        """
+        if skills_engine is None:
+            return None
+        try:
+            scored = skills_engine.match_scored(text)
+        except Exception:
+            return None
+        if not scored or scored[0][1] < self._STRONG_SKILL_SCORE:
+            return None
+        # An ambiguous top-2 is not decisive — let the model arbitrate.
+        if len(scored) > 1 and (scored[0][1] - scored[1][1]) < 5.0:
+            return None
+        sid = scored[0][0]
+        try:
+            return sid, skills_engine.specialist_for(sid)
+        except Exception:
+            return None
 
     # ── stage 1: keywords ─────────────────────────────────────────────────
 
@@ -234,7 +281,8 @@ class AgentDispatcher(object):
             # reply below. Cloud providers accept and ignore it.
             raw = provider.chat([], system, text or '', max_tokens=60,
                                 temperature=0.0, model_override=fast,
-                                response_format={"type": "json_object"})
+                                response_format={"type": "json_object"},
+                                timeout_ms=_CLASSIFY_TIMEOUT_MS)
         except TypeError:
             try:
                 raw = provider.chat([], system, text or '', 60)
@@ -261,10 +309,24 @@ class AgentDispatcher(object):
     # ── skills ────────────────────────────────────────────────────────────
 
     def _match_skill(self, text, skills_engine):
+        """Best-matching skill id, or None.
+
+        `match()` is relevance-ranked (skills_engine.match_scored), so element
+        0 is the strongest hit rather than whichever id sorts first.
+        """
+        matched = self.match_skills(text, skills_engine, limit=1)
+        return matched[0] if matched else None
+
+    def match_skills(self, text, skills_engine, limit=2):
+        """Up to `limit` skill ids, best first.
+
+        Two is the useful default: build_skills_block injects at most two
+        bodies, so asking for more only to drop them wastes nothing but is
+        also pointless.
+        """
         if skills_engine is None:
-            return None
+            return []
         try:
-            matched = skills_engine.match(text)
-            return matched[0] if matched else None
+            return list(skills_engine.match(text))[:limit]
         except Exception:
-            return None
+            return []
