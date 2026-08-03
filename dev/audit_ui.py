@@ -39,7 +39,7 @@ TOOLS = os.path.join(REPO, "T3Lab.extension", "lib", "GUI", "Tools")
 QUIET = "--quiet" in sys.argv
 
 UI_LOCKED = {"DWGManagement.xaml", "ExportManager.xaml",
-             # Chat surface, không phải tool dialog: dùng bảng màu "paper" ấm
+             # Chat surface, không phải tool dialog: dùng đúng màu UI của Revit
              # + theme sáng/tối theo Revit (GUI/RevitTheme.py) thay cho Lumina.
              # Xem docs/assistant-revit-ui.md.
              "T3LabAssistant.xaml"}

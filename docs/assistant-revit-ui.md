@@ -1,6 +1,6 @@
 # T3Lab Assistant — giao diện hoà làm 1 với Revit
 
-> Cập nhật 2026-08-02. File liên quan:
+> Cập nhật 2026-08-03. File liên quan:
 > `T3Lab.extension/lib/GUI/RevitTheme.py` ·
 > `T3Lab.extension/lib/GUI/Tools/T3LabAssistant.xaml` ·
 > `T3Lab.extension/lib/GUI/AssistantPaneControl.py` ·
@@ -9,22 +9,37 @@
 Mục tiêu: Assistant không còn là một cửa sổ lạ dán đè lên Revit, mà đọc như
 **một panel của chính Revit**.
 
-## 1. Bảng màu "paper" (cách chia màu kiểu chat)
+## 1. Bảng màu lấy thẳng từ Revit (2026-08-03)
 
-Assistant là **chat surface**, không phải tool dialog — nên nó dùng bảng màu
-riêng thay cho Lumina (`.claude/rules/ui-design-standard.md`). Đây là **ngoại lệ
-có chủ đích**, đã ghi vào `UI_LOCKED` của `dev/audit_ui.py` và bảng UI-Frozen
+Assistant là **chat surface**, không phải tool dialog — nên nó không dùng Lumina
+(`.claude/rules/ui-design-standard.md`). Nhưng nó cũng **không** có bảng màu
+riêng: mọi token là **màu UI của chính Revit**. Đây là **ngoại lệ có chủ đích**
+so với Lumina, đã ghi vào `UI_LOCKED` của `dev/audit_ui.py` và bảng UI-Frozen
 trong `.claude/CLAUDE.md` để các đợt sweep UI sau không "sửa" ngược lại.
+
+Neo màu theo từng theme của host:
+
+| Vùng | Revit Light | Revit Dark (2024+) |
+|---|---|---|
+| Nền pane (chrome, `AppBg`/`ComposerBg`) | `#F0F0F0` | `#2E2E2E` |
+| Nền transcript (content, `ChatBg`) | `#FFFFFF` | `#383838` |
+| Card / popup / ô nhập (`CardBg`) | `#FFFFFF` | `#414141` |
+| Viền control (`CardBorder`) | `#C4C4C4` | `#575757` |
+| Đường kẻ (`Divider`) | `#D9D9D9` | `#4A4A4A` |
+| Chữ nhãn (`Ink`) | `#000000` | `#FFFFFF` |
 
 Cách chia màu (chỉ **một** bên hội thoại được tô nền):
 
 | Thành phần | Vai trò |
 |---|---|
-| Nền chat | giấy ấm `#FAF9F5` — cả khung chat lẫn khung soạn tin dùng chung, không có đường cắt |
-| Tin của **user** | bong bóng xám ấm `#F0EEE6`, bo 14px, canh phải |
-| Trả lời của **assistant** | **không bong bóng, không viền, không avatar** — chữ nằm thẳng trên nền giấy |
-| Accent | coral `#D97757` — nút gửi, chip đang chọn, số lượng selection |
+| Tin của **user** | bong bóng xanh nhạt `#DBE8F6` (dark: `#33475A`) — đúng sắc "dòng đang chọn" của Project Browser, bo 14px, canh phải |
+| Trả lời của **assistant** | **không bong bóng, không viền, không avatar** — chữ nằm thẳng trên nền pane |
+| Accent | xanh Autodesk — nút gửi, chip đang chọn, số lượng selection. Light `#0A72B8` (đậm hơn giá trị brand `#0696D7` một bậc: accent còn dùng cho chữ 11.5px, bản sáng chỉ đạt 2.9:1 trên nền `#F0F0F0`), dark giữ `#0696D7` (sáng hơn nữa thì mũi tên trắng của nút gửi chìm) |
 | Copyright | vẫn amber `#F59E0B` theo chuẩn Lumina (audit kiểm tra) |
+
+> Trước 2026-08-03 đây là bảng "paper" ấm (`#FAF9F5` + coral `#D97757`). Nó tự
+> nó thì đẹp, nhưng có sắc riêng — cắm cạnh Project Browser thì vẫn đọc ra là
+> một app khác dán đè lên Revit, đúng thứ cần bỏ. **Đừng đưa lại.**
 
 Không token màu nào được gõ thẳng vào chỗ dùng: tất cả đi qua
 `GUI/RevitTheme.py`. XAML dùng `{DynamicResource T3Theme<Token>}`, code Python
@@ -44,9 +59,16 @@ host cũ hơn không có dark mode nên trả `light`). `RevitTheme.apply(window
   `T3Theme<Token>Color` là `Color` thô. Vài property có kiểu `Color` chứ không
   phải `Brush` — `DropShadowEffect.Color` là chính — và bind brush vào đó thì
   **im lặng không ăn**. Thiếu khoá này nên bóng đổ của popup từng phải hardcode
-  hex, và ở dark mode nó vẫn đen kiểu giấy nên popup mất tách lớp.
+  hex, và ở dark mode nó vẫn giữ giá trị của theme sáng nên popup mất tách lớp.
 - Card xác nhận thao tác phá huỷ (`#FEF2F2`) cố tình giữ nguyên đỏ sáng ở cả
-  hai theme — nó phải nổi bật.
+  hai theme — nó phải nổi bật. **Vì vậy mọi thứ nằm trên card đó cũng phải cố
+  định**: chữ mô tả, dòng trạng thái và hai nút Confirm/Cancel dùng màu chết
+  (`#3F3F3F` / `#8C6A6A` / `#C42B1C`+trắng / `#E6E6E6`+`#3F3F3F`), không dùng
+  token. Trước đây chúng bind `BotText` / `Muted` / `CardBg`, nên ở dark mode
+  là chữ gần trắng trên nền hồng nhạt — vô hình (2.1:1).
+- `Danger` ở dark (`#F08880`) chỉ dùng cho **chữ** lỗi trên nền tối; nó không
+  còn là nền của nút nào nữa (xem gạch đầu dòng trên), nên được chọn thuần theo
+  độ đọc trên `#383838`.
 
 ### Tin nhắn đã render cũng đổi màu (2026-08-02)
 
@@ -173,6 +195,13 @@ sớm và popup sẽ kẹt ở bề rộng hẹp nhất từng gặp.
 `dev/test_assistant_ui.py` giữ **các nguyên tắc mà cái lock sinh ra để bảo vệ**,
 không phải thiết kế thị giác: màu đi qua token, hai palette khớp nhau, scrollbar
 đủ hai hướng, khối auto-synced còn nguyên, không style chết, không hex lạc.
+
+Bảng màu light tồn tại **ba bản**: `RevitTheme._LIGHT` (bản chạy), bảng
+`<SolidColorBrush>` trong XAML (vẽ trước khi `apply()` chạy) và
+`_LIGHT_FALLBACK` trong `script.py` (khi không import được `RevitTheme`).
+Ba bản là một cỗ máy sinh drift — đổi màu ở một chỗ thì cửa sổ nháy bảng cũ mỗi
+lần mở, hoặc nhánh no-theme vẽ bảng đã bỏ từ lâu. `test_light_palette_is_copied_
+faithfully` ghim cả ba khớp nhau từng token.
 
 Trước đó file XAML bespoke nhất codebase **không có gì kiểm tra** — `audit_ui.py`
 bỏ qua nó vì nó UI-locked. Đó chính là lý do một style chỉ-dọc bị dùng cho thanh
