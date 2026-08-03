@@ -1,12 +1,14 @@
 # T3Lab Assistant — knowledge, skills, trí thông minh & tốc độ
 
-> Cập nhật 2026-08-02 (mục 7). Các file liên quan:
+> Cập nhật 2026-08-02 (mục 7, 8). Các file liên quan:
 > `lib/Intelligence/telemetry.py`, `conversation.py`, `feedback.py`,
 > `knowledge/query_builder.py`, `knowledge/rerank.py`,
 > `agent_loop.py`, `agents/dispatcher.py`, `skills_engine.py`,
 > `nlu_engine.py`, `core/server.py`, `Services/revit_context.py`,
+> `Intelligence/skill_installer.py`,
 > `T3Lab.tab/Support.panel/T3LabAssistant.pushbutton/script.py`,
-> `dev/test_assistant_perf.py`, `dev/test_assistant_routing.py`, `dev/bench_assistant.py`.
+> `dev/test_assistant_perf.py`, `dev/test_assistant_routing.py`,
+> `dev/test_skill_installer.py`, `dev/bench_assistant.py`.
 
 Đợt này **không thêm tính năng mới**. Cả 4 trục đều đã có sẵn cơ chế — vấn đề
 nằm ở chỗ chúng bị **nối sai**, và mỗi mục dưới đây là một khiếm khuyết đã xác
@@ -349,3 +351,48 @@ mục 1–6. `knowledge/embeddings.py` đã kiểm tra riêng: **không phải d
 knowledge-agent; đường inject ngữ cảnh của agent chính (`_build_knowledge_reference`)
 cố tình chỉ dùng BM25 để giữ tốc độ/tính tất định, đây là đánh đổi đã ghi nhận
 chứ không phải thiếu sót.
+
+---
+
+## 8. Rà soát vòng hai (2026-08-02) — phạm vi rộng hơn
+
+Vòng này soát các file chưa được vòng 7 chạm tới: `skills_engine.py`,
+`t3lab_agent.py`, `t3lab_assistant.py`, `agents/{dispatcher,task_manager,
+specialists}.py`, `Services/mcp_service.py`, `knowledge/context_digest.py`,
+`telemetry.py`, `config/project_store.py`, `skill_installer.py`, và các bảng
+tra/dispatch trong `core/server.py`. `dispatcher.py`, `specialists.py` và
+phần lớn `skills_engine.py` đã được làm chắc ở các đợt trước — không thấy gì
+mới, thật ở đó.
+
+### Đã sửa
+
+**`/skills install` / `update` có thể ghi đè một skill người dùng tự viết (`skill_installer.py`)**
+
+`remove_installed()` từ chối xoá một thư mục skill không có stamp
+`.t3lab-source.json` — coi đó là "không phải của mình, không được đụng vào".
+Nhưng `_install_one()` (đường ghi, dùng chung bởi cả install lẫn update) lại
+không có rào tương ứng: nếu người dùng tự tạo một skill thủ công và tình cờ
+trùng id/slug với một skill trong repo đang cài, lần install/update kế tiếp
+ghi đè thẳng `SKILL.md` và toàn bộ resource của họ, không cảnh báo.
+
+Đã thêm cùng một điều kiện ở đường ghi: thư mục đích đã tồn tại **và** không
+có stamp thì bị bỏ qua, đưa vào `report['skipped']` kèm lý do, không ghi gì
+vào đó. Test: `test_install_does_not_overwrite_a_hand_authored_skill` trong
+`dev/test_skill_installer.py` (fail trước bản sửa, pass sau).
+
+### Còn để lại — ưu tiên theo impact/effort
+
+| # | Vấn đề | File | Impact | Effort |
+|---|---|---|---|---|
+| 1 | Rescan tăng dần của `context_digest.py` chỉ coi là "đổi" khi **số lượng** tài liệu đổi; một tài liệu đã theo dõi mà nội dung đổi trạng thái đọc-được ↔ không-đọc-được (số lượng không đổi) bị bỏ sót, khiến "Project standards summary" cache cũ mà không ai biết | `knowledge/context_digest.py` | Trung bình | Nhỏ |
+| 2 | `get_material_quantities`'s `QTY_CATEGORY_MAP` tra thẳng dict phân biệt hoa/thường, không có alias tiếng Việt — không nhất quán với `_resolve_bic()` (không phân biệt hoa/thường + alias) mà mọi tool loại khác đều dùng; dễ báo "Unsupported category" giả | `core/server.py` | Trung bình | Nhỏ |
+| 3 | `Intelligence/agents/task_manager.py` (`AgentTaskManager`/`get_task_manager`) không có nơi nào trong repo import nó — cùng loại dead code với `api_updater.py` đã ghi ở mục 7, chỉ khác file | `agents/task_manager.py` | Thấp | Nhỏ |
+| 4 | Dữ liệu `telemetry.py` ghi lại trung thực mỗi lượt nhưng nơi duy nhất đọc lại là script offline `dev/bench_assistant.py` — không có gì ở runtime hành động dựa trên nó | `telemetry.py` | Thấp | Vừa (để dùng thật) |
+
+Không đề xuất động vào XAML (UI-locked). Không lặp lại phạm vi mục 1–7.
+`t3lab_agent.py`, `t3lab_assistant.py`, `dispatcher.py`, `specialists.py`,
+`mcp_service.py` đã được xem qua nhưng không tìm thấy khiếm khuyết mới đủ rõ để
+báo cáo — hoặc đã được làm chắc từ trước, hoặc là lớp truyền dẫn mỏng không có
+logic quyết định đáng kể để sai. Chưa soát hết toàn bộ 7361 dòng của
+`server.py` dòng-theo-dòng — vòng này chỉ nhắm bảng tra và dispatch/error-handling
+theo đúng phạm vi được giao.
