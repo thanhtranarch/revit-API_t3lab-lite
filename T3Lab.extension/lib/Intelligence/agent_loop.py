@@ -53,6 +53,109 @@ def _result_to_json(result):
     return s
 
 
+# ─── Phantom tool calls ────────────────────────────────────────────────────────
+# A model that writes {"name": "...", "parameters": {...}} as chat text is
+# trying to call a tool. When the name is real the loop executes it
+# (_text_tool_call → known); when it isn't, the blob is a dead end that must
+# never be shown as the answer — the model gets one correction per retry.
+_MAX_PHANTOM_RETRIES = 2
+
+_PHANTOM_FIXUP = (
+    u"`{}` is not a tool, and JSON written as chat text is never executed. "
+    u"An Active skill in your system prompt is a set of INSTRUCTIONS for YOU "
+    u"to carry out — \"playbook\", \"skill\" and \"apply_playbook\" are not "
+    u"tool names. Do the work NOW: use a real tool call from the tools list "
+    u"for anything that reads or edits the model, and plain prose for "
+    u"everything else. Do not output JSON as text again."
+)
+
+
+def _find_json_blob(text):
+    """(obj, start, end) for the outermost {...} in `text`, else None.
+
+    Fenced blocks are skipped on purpose: ```json ...``` is the model SHOWING
+    json because the user asked to see it, not miscalling a tool.
+    """
+    if not text or u"{" not in text or u"```" in text:
+        return None
+    try:
+        import re
+        m = re.search(r'\{[\s\S]*\}', text)
+        if not m:
+            return None
+        return json.loads(m.group()), m.start(), m.end()
+    except Exception:
+        return None
+
+
+def _tool_call_shape(obj):
+    """(name, args) if `obj` is a tool call written as JSON, else None.
+
+    Accepts the Anthropic ({"name","parameters"|"input"}), OpenAI
+    ({"function": {"name","arguments"}}) and legacy T3Lab
+    ({"intent","params"}) spellings — a model that falls out of native
+    tool-calling reproduces whichever one it was trained on.
+    """
+    if not isinstance(obj, dict):
+        return None
+    fn = obj.get("function")
+    if isinstance(fn, dict):
+        obj = fn
+    name = obj.get("name") or obj.get("tool") or obj.get("intent")
+    args = (obj.get("parameters") or obj.get("arguments")
+            or obj.get("params") or obj.get("input") or {})
+    if not name or not isinstance(args, dict):
+        return None
+    try:
+        name = name.strip()
+    except Exception:
+        return None          # name wasn't a string
+    return (name, args) if name else None
+
+
+# Keys a JSON tool call may carry. Anything else in the object means the model
+# is returning DATA that merely happens to have a "name" field (a level, a
+# family type...), which must never be mistaken for a call.
+_CALL_KEYS = frozenset((
+    "name", "tool", "intent", "function", "type", "id",
+    "parameters", "arguments", "params", "input",
+    "message", "thought", "reasoning", "explanation",
+))
+
+
+def _only_call_keys(obj):
+    try:
+        return not (set(obj.keys()) - _CALL_KEYS)
+    except Exception:
+        return False
+
+
+def is_bare_tool_call_text(content):
+    """True when `content` is nothing but a tool call written as JSON text —
+    no prose around it, e.g.
+
+        {"name": "apply_playbook", "parameters": {"playbook_name": "lod-standard"}}
+
+    AgentLoop suppresses these before they reach the chat now, but saved
+    transcripts written before that fix still carry them. Used by the
+    Assistant's history loader to prune them: replayed into the model's
+    context they are a worked example of answering with a fake tool call,
+    which is exactly the behaviour being fixed.
+    """
+    if not content:
+        return False
+    try:
+        stripped = content.strip()
+    except Exception:
+        return False
+    if not (stripped.startswith(u"{") and stripped.endswith(u"}")):
+        return False
+    found = _find_json_blob(stripped)
+    if not found:
+        return False
+    return bool(_tool_call_shape(found[0])) and _only_call_keys(found[0])
+
+
 def _call_key(name, args):
     """Canonical identity of one tool call, for the duplicate guard.
 
@@ -248,30 +351,34 @@ class AgentLoop(object):
                 pass
         return names
 
-    def _rescue_text_tool_call(self, text):
-        """Salvage a tool call the model wrote as plain text instead of a
-        native tool_call block — local models drift into JSON-in-prose like
+    def _text_tool_call(self, text):
+        """A tool call the model wrote as chat text instead of a native
+        tool_call block. Local models drift into JSON-in-prose like
         {"name": "get_material_quantities", "parameters": {...}} after
-        seeing a tool error. Returns a tool_calls-shaped list, or None."""
-        if not text or u"{" not in text:
+        seeing a tool error; hosted ones do it when a /slash skill puts a
+        playbook in the system prompt and they try to "call" the playbook.
+
+        Returns {"name", "args", "prose", "known"} or None. `prose` is the
+        message with the blob removed — the blob itself is never something
+        the user should read, whether or not the tool turns out to be real.
+        `known` says whether the name is a registered tool: True → execute
+        it, False → phantom, correct the model instead.
+        """
+        found = _find_json_blob(text)
+        if not found:
             return None
-        try:
-            import re
-            m = re.search(r'\{[\s\S]*\}', text)
-            obj = json.loads(m.group()) if m else None
-        except Exception:
+        obj, start, end = found
+        shape = _tool_call_shape(obj)
+        if not shape:
             return None
-        if not isinstance(obj, dict):
+        name, args = shape
+        known = name in self._registered_tool_names()
+        # An unregistered name is weak evidence on its own, so require the
+        # object to carry ONLY tool-call keys before suppressing it.
+        if not known and not _only_call_keys(obj):
             return None
-        name = obj.get("name") or obj.get("tool") or obj.get("intent")
-        args = (obj.get("parameters") or obj.get("arguments")
-                or obj.get("params") or {})
-        if not name or not isinstance(args, dict):
-            return None
-        if name not in self._registered_tool_names():
-            return None
-        return [{"id": "text_rescue", "name": u"{}".format(name),
-                 "args": args}]
+        return {"name": name, "args": args, "known": known,
+                "prose": (text[:start] + u" " + text[end:]).strip()}
 
     # ── Main loop ─────────────────────────────────────────────────────────────
 
@@ -293,6 +400,7 @@ class AgentLoop(object):
         tool_runs  = 0
         iteration  = 0
         done_calls = set()   # (name, canonical args) that succeeded this run
+        phantom_retries = 0  # JSON calls to tools that don't exist, corrected
 
         while iteration < self._max_iterations:
             iteration += 1
@@ -331,20 +439,50 @@ class AgentLoop(object):
             calls = resp.get("tool_calls") or []
 
             # Model wrote the tool call as JSON text instead of a native
-            # tool_call block → execute it anyway instead of ending the turn
-            # with a dead JSON blob on screen.
+            # tool_call block. Either way the blob is not an answer, so it is
+            # stripped from what the user sees; a registered name is then
+            # executed anyway rather than ending the turn on a dead blob.
             rescued = False
+            phantom  = None
             if not calls and text:
-                _rc = self._rescue_text_tool_call(text)
-                if _rc:
-                    calls = _rc
+                _tc = self._text_tool_call(text)
+                if _tc and _tc["known"]:
+                    calls   = [{"id": "text_rescue", "name": _tc["name"],
+                                "args": _tc["args"]}]
                     rescued = True
+                    text    = _tc["prose"]
+                elif _tc:
+                    phantom = _tc
+                    text    = _tc["prose"]
+
+            # Phantom: the name isn't a tool at all (`apply_playbook` is the
+            # recurring one — /slash injects a playbook and the model tries
+            # to "call" it). Correct the model and let it try again. Bounded,
+            # because a model that still does this after two corrections will
+            # not stop on the third; falling through then leaves an empty
+            # turn, which script.py already routes to the legacy JSON-intent
+            # path where a visible reply is guaranteed.
+            if phantom is not None and phantom_retries < _MAX_PHANTOM_RETRIES:
+                phantom_retries += 1
+                if text:
+                    last_text = text
+                # An open live bubble already streamed the blob — empty text
+                # drops that bubble, real text replaces its content.
+                self._emit("on_turn_text", text, False)
+                messages.append(resp["assistant_msg"])
+                messages.append({"role": "user",
+                                 "content": _PHANTOM_FIXUP.format(phantom["name"])})
+                continue
 
             if text:
                 last_text = text
                 if not turn["streamed"]:
                     self._emit("on_text_delta", text)
                 self._emit("on_turn_text", text, not calls)
+            elif rescued or phantom is not None:
+                # The turn was nothing BUT the blob. Drop the live bubble that
+                # streamed it instead of leaving the raw JSON on screen.
+                self._emit("on_turn_text", u"", False)
 
             messages.append(resp["assistant_msg"])
 

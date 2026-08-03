@@ -237,6 +237,56 @@ def test_popups_fit_a_docked_pane():
           'FrameworkElement.MinWidthProperty' in SCRIPT_SRC)
 
 
+def test_theme_survives_the_docked_detach():
+    """AssistantPaneControl hands the content to Revit and detaches it:
+
+        content = win.Content
+        win.Content = None
+        data.FrameworkElement = content
+
+    Window.Resources is where RevitTheme.apply() writes the T3Theme* brushes,
+    so after that detach it is no longer an ancestor scope of the tree that
+    binds to them. Every {DynamicResource T3Theme*} in the docked pane then
+    resolves to nothing, Background falls back to null, and the pane shows
+    Revit's black HwndSource through it while Revit itself is in Light theme.
+    The tokens must therefore also live on the content root, which travels
+    with the content.
+    """
+    print('[theme: docked pane]')
+    pane_src = _read(os.path.join(EXT, 'lib', 'GUI', 'AssistantPaneControl.py'))
+    check('the pane really does detach the content',
+          re.search(r'win\.Content\s*=\s*None', pane_src) is not None)
+
+    check('theme scopes are enumerated', 'def _theme_scopes(' in SCRIPT_SRC)
+    scopes = re.search(r'def _theme_scopes\(.*?(?=\n    def )', SCRIPT_SRC, re.S)
+    check('the content root is one of them',
+          scopes is not None and 'root_chrome' in scopes.group(), )
+    check('the window is still one of them',
+          scopes is not None and re.search(r'scopes\.append\(self\)',
+                                           scopes.group()) is not None)
+
+    sync = re.search(r'def _sync_theme\(.*?(?=\n    def )', SCRIPT_SRC, re.S)
+    check('_sync_theme applies to every scope',
+          sync is not None and '_theme_scopes()' in sync.group())
+    check('_sync_theme no longer skins the window alone',
+          sync is not None
+          and re.search(r'_theme\.apply\(self,', sync.group()) is None)
+
+
+def test_docked_pane_keeps_following_the_host():
+    """Docked, the Window is never shown and never activated: IsVisible is
+    permanently False and Activated never fires. Gating the poll on the
+    Window meant it returned early on every tick for the life of the pane,
+    so a theme change made in Options was never picked up."""
+    print('[theme: docked resync]')
+    tick = re.search(r'def _on_context_tick\(.*?(?=\n    def )', SCRIPT_SRC, re.S)
+    check('context tick found', tick is not None)
+    body = tick.group() if tick else ''
+    check('visibility is probed on the content, not the window',
+          'root_chrome' in body and not re.search(r'if not self\.IsVisible', body))
+    check('the tick re-syncs the theme', '_sync_theme()' in body)
+
+
 def test_xaml_is_well_formed():
     print('[xaml: syntax]')
     try:
@@ -259,6 +309,8 @@ def main():
                test_no_stray_hardcoded_colours,
                test_no_dead_styles,
                test_popups_fit_a_docked_pane,
+               test_theme_survives_the_docked_detach,
+               test_docked_pane_keeps_following_the_host,
                test_xaml_is_well_formed):
         fn()
         print('')
