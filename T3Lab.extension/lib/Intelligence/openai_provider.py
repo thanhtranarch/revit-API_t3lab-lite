@@ -298,7 +298,15 @@ class OpenAIProvider(BaseLLMProvider):
         api_key = self._get_api_key()
         if not api_key:
             return None
-        model = self._resolve_model(False)
+        # Agent turns can carry Claude-format image blocks (attached images,
+        # active-view snapshots). They must be converted here — openai_chat_agent
+        # forwards `messages` verbatim, so an unconverted {"type":"image"} block
+        # is a 400 from the API — and the auto-picked model must be one that can
+        # actually see them.
+        agent_msgs = self._agent_messages(messages)
+        has_vision = any(self.has_image_blocks(m.get("content"))
+                         for m in (messages or []) if isinstance(m, dict))
+        model = self._resolve_model(has_vision)
         if not model:
             return None
         try:
@@ -307,7 +315,7 @@ class OpenAIProvider(BaseLLMProvider):
                 OPENAI_CHAT_URL,
                 {"Authorization": "Bearer {}".format(api_key)},
                 model,
-                system_prompt, messages, tools, max_tokens)
+                system_prompt, agent_msgs, tools, max_tokens)
         except Exception as ex:
             self._record_error(u"chat_agent() failed: {}".format(ex))
             return None
@@ -315,6 +323,25 @@ class OpenAIProvider(BaseLLMProvider):
     agent_tool_results = staticmethod(openai_agent_tool_results)
 
     # ── Conversion helpers ─────────────────────────────────────────────────────
+
+    @classmethod
+    def _agent_messages(cls, messages):
+        """Copy an agent-loop message list with Claude image blocks converted.
+
+        Only the `content` of user/assistant turns is touched; tool_calls and
+        role:"tool" results pass through untouched, and the caller's list is
+        never mutated (the agent loop keeps appending to it across iterations).
+        Idempotent — an already-converted image_url block is left alone.
+        """
+        out = []
+        for m in (messages or []):
+            if not isinstance(m, dict) or not isinstance(m.get("content"), list):
+                out.append(m)
+                continue
+            converted = dict(m)
+            converted["content"] = cls._to_openai_content(m["content"])
+            out.append(converted)
+        return out
 
     @staticmethod
     def _to_openai_content(user_content):

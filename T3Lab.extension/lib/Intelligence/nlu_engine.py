@@ -1794,6 +1794,48 @@ def _is_viet(raw):
     return any(c in viet_chars for c in raw.lower())
 
 
+def _kw_hit(raw_input, normed_raw, keywords):
+    """Whole-word keyword test for the canned chat replies below.
+
+    These lists used to be tested with a plain `k in normed_raw` substring
+    match, which reads far more text than it should once diacritics are
+    stripped: "tạo 1 phòng ngủ 4x6" became an INSULT ("ngu" inside "ngủ"),
+    "lối đi" became an error report ("loi"), and any word containing "ty"
+    ("quantity") became a thank-you.
+
+    Two rules fix it:
+      * whole words only, never a fragment inside a longer word;
+      * when the user types WITH diacritics, matching is accent-exact — "ngủ"
+        is a bedroom, "ngu" is the insult, and stripping the accent to compare
+        destroys the only thing that tells them apart. Diacritic-stripped
+        matching is kept only for messages typed without accents at all, where
+        it is the sole way to recognise "may ngu the".
+    """
+    low     = (raw_input or u"").lower()
+    accents = _is_viet(low)
+    for kw in keywords:
+        kw = (kw or u"").strip().lower()
+        if not kw:
+            continue
+        pat = r'(?<!\w)' + re.escape(kw) + r'(?!\w)'
+        try:
+            if re.search(pat, low, re.UNICODE):
+                return True
+            if not accents and kw == _norm(kw) \
+                    and re.search(pat, normed_raw, re.UNICODE):
+                return True
+        except Exception:
+            if kw in normed_raw:            # never fail the turn on a regex
+                return True
+    return False
+
+
+# A reaction ("stupid", "great", "how are you") is a handful of words. A
+# 12-word instruction is a REQUEST that happens to contain one of those words,
+# so the reaction branches below stay out of its way.
+_REACTION_MAX_WORDS = 6
+
+
 def _build_message(intent, slots, viet, raw_input=""):
     """Build a friendly message for the given intent and extracted slots."""
     normed_raw = _norm(raw_input)
@@ -1820,17 +1862,20 @@ def _build_message(intent, slots, viet, raw_input=""):
 
     # ── Contextual chat responses ─────────────────────────────────────────────
     if intent == "chat":
+        _short = len((raw_input or u"").split()) <= _REACTION_MAX_WORDS
         # Farewell
-        farewell_kws = ["tam biet", "bye", "bai ", "see you", "hen gap", "goodbye"]
-        if any(k in normed_raw for k in farewell_kws):
+        farewell_kws = ["tam biet", "tạm biệt", "bye", "bai", "bài",
+                        "see you", "hen gap", "hẹn gặp", "goodbye"]
+        if _short and _kw_hit(raw_input, normed_raw, farewell_kws):
             return (_MESSAGES_VI if viet else _MESSAGES_EN).get("farewell",
                     u"Tạm biệt! 👋" if viet else "Goodbye! 👋")
         # Frustration / insult directed at the assistant itself — acknowledge
         # honestly instead of the generic "didn't understand" reply, and point
         # at a concrete next step (works with or without an LLM connected).
         insult_kws = ["stupid", "dumb", "useless", "garbage", "trash", "suck",
-                      "ngu", "vo dung", "te qua", "qua te"]
-        if any(k in normed_raw for k in insult_kws):
+                      "ngu", "vo dung", "vô dụng", "te qua", "tệ quá",
+                      "qua te", "quá tệ"]
+        if _short and _kw_hit(raw_input, normed_raw, insult_kws):
             if viet:
                 return (u"Xin lỗi vì trải nghiệm chưa tốt! Ở chế độ offline khả năng "
                         u"của tôi hạn chế — kết nối AI trong phần Cài đặt để trả "
@@ -1838,9 +1883,10 @@ def _build_message(intent, slots, viet, raw_input=""):
             return ("Sorry that reply wasn't good enough! Offline mode is limited — "
                     "connect an AI provider in Settings for smarter answers.")
         # Error/complaint
-        error_kws = ["loi", "bi hong", "khong chay", "khong hoat dong", "error",
-                     "broken", "not working"]
-        if any(k in normed_raw for k in error_kws):
+        error_kws = ["loi", "lỗi", "bi hong", "bị hỏng", "khong chay",
+                     "không chạy", "khong hoat dong", "không hoạt động",
+                     "error", "broken", "not working"]
+        if _kw_hit(raw_input, normed_raw, error_kws):
             if viet:
                 return (u"Xin lỗi bạn gặp vấn đề! Bạn có thể thử:\n"
                         u"• Đóng và mở lại tool\n"
@@ -1849,16 +1895,18 @@ def _build_message(intent, slots, viet, raw_input=""):
                     "• Close and reopen the tool\n"
                     "• Check the Revit console for error details")
         # Positive reaction
-        positive_kws = ["tuyet", "tot", "ngon", "perfect", "great", "awesome", "nice"]
-        if any(k in normed_raw for k in positive_kws):
+        positive_kws = ["tuyet", "tuyệt", "tot", "tốt", "ngon", "perfect",
+                        "great", "awesome", "nice"]
+        if _short and _kw_hit(raw_input, normed_raw, positive_kws):
             return u"Cảm ơn bạn! 😊 Cần gì cứ hỏi nhé." if viet else "Thank you! 😊 Let me know if you need anything."
         # Thanks
-        thanks_kws = ["cam on", "thank", "tks", "thks", "ty"]
-        if any(k in normed_raw for k in thanks_kws):
+        thanks_kws = ["cam on", "cảm ơn", "thank", "thanks", "tks", "thks"]
+        if _kw_hit(raw_input, normed_raw, thanks_kws):
             return u"Không có gì! Cần gì cứ hỏi tôi nhé." if viet else "You're welcome! Let me know if you need anything."
         # State question
-        state_kws = ["khoe", "met", "buon", "chan", "sao vay", "stress"]
-        if any(k in normed_raw for k in state_kws):
+        state_kws = ["khoe", "khỏe", "met", "mệt", "buon", "buồn", "chan",
+                     "chán", "sao vay", "sao vậy", "stress"]
+        if _short and _kw_hit(raw_input, normed_raw, state_kws):
             return (u"Cảm ơn bạn hỏi thăm! Tôi ổn 😊 Bạn cần tôi giúp gì không?"
                     if viet else "Thanks for asking! I'm fine 😊 How can I help?")
 

@@ -8,6 +8,9 @@ to the Claude API as context (Retrieval-Augmented Generation).
 Supported inputs:
   - PDF  (.pdf)  → extracted plain text via .NET or fallback byte-scan
   - Image (.png, .jpg, .jpeg, .bmp, .gif, .webp) → base64-encoded bytes
+  - Text (.txt, .md, .json, .csv, .log, .xml, .html, .ini, .yml ...) → decoded
+    text, HTML/XML stripped to prose. Covers files the user attaches directly
+    and the ones link_reader downloads from a pasted URL.
 
 Author: Tran Tien Thanh
 """
@@ -33,7 +36,14 @@ except Exception:
 IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp'}
 PDF_EXT    = '.pdf'
 
-SUPPORTED_EXTS = IMAGE_EXTS | {PDF_EXT}
+# Plain-text-ish documents. Read as-is (HTML/XML get their tags stripped) —
+# no parsing beyond decoding, so a malformed JSON still reaches the model as
+# text it can reason about instead of failing the whole turn.
+TEXT_EXTS = {'.txt', '.md', '.markdown', '.json', '.csv', '.tsv', '.log',
+             '.xml', '.html', '.htm', '.ini', '.cfg', '.yaml', '.yml',
+             '.py', '.sql', '.bat', '.ps1'}
+
+SUPPORTED_EXTS = IMAGE_EXTS | TEXT_EXTS | {PDF_EXT}
 
 # MIME map for Claude vision content blocks
 _MIME_MAP = {
@@ -49,6 +59,8 @@ _MIME_MAP = {
 MAX_IMAGE_BYTES = 5 * 1024 * 1024   # 5 MB
 MAX_PDF_BYTES   = 20 * 1024 * 1024  # 20 MB
 MAX_PDF_CHARS   = 12000             # truncate extracted text to this length
+MAX_TEXT_BYTES  = 8 * 1024 * 1024   # 8 MB on disk
+MAX_TEXT_CHARS  = 12000             # same prompt budget as a PDF
 
 
 # ─── File validation ──────────────────────────────────────────────────────────
@@ -66,6 +78,11 @@ def is_image(file_path):
 
 def is_pdf(file_path):
     return os.path.splitext(file_path)[1].lower() == PDF_EXT
+
+
+def is_text_file(file_path):
+    ext = os.path.splitext(file_path)[1].lower()
+    return ext in TEXT_EXTS
 
 
 # ─── PDF text extraction ──────────────────────────────────────────────────────
@@ -250,6 +267,82 @@ def _fallback_byte_scan(pdf_path):
         return u''
 
 
+# ─── Plain-text / JSON / HTML extraction ──────────────────────────────────────
+
+_TAG_RE     = re.compile(r'<[^>]+>')
+_SCRIPT_RE  = re.compile(r'(?is)<(script|style)[^>]*>.*?</\1>')
+_WS_RE      = re.compile(r'[ \t]*\n\s*\n\s*')
+
+
+def strip_html(html):
+    """Reduce an HTML/XML document to readable prose.
+
+    Deliberately regex-based: IronPython 2.7 has no lxml/bs4 here, and the
+    goal is only to stop tags and script bodies from eating the prompt budget.
+    """
+    if not html:
+        return u''
+    text = _SCRIPT_RE.sub(u' ', html)
+    text = _TAG_RE.sub(u' ', text)
+    for ent, ch in ((u'&nbsp;', u' '), (u'&amp;', u'&'), (u'&lt;', u'<'),
+                    (u'&gt;', u'>'), (u'&quot;', u'"'), (u'&#39;', u"'")):
+        text = text.replace(ent, ch)
+    text = re.sub(r'[ \t]{2,}', u' ', text)
+    return _WS_RE.sub(u'\n\n', text).strip()
+
+
+def extract_text_file(path):
+    """Decode a text-ish file (.txt/.md/.json/.csv/.xml/.html/...).
+
+    Tries UTF-8 (with and without BOM) before latin-1, because a JSON export
+    from Revit or a Bluebeam comment dump is UTF-8 far more often than not and
+    a silent latin-1 read turns every Vietnamese diacritic into mojibake.
+    Returns u'' when the file is missing, empty or over the size cap.
+    """
+    if not os.path.isfile(path):
+        return u''
+    try:
+        size = os.path.getsize(path)
+    except Exception:
+        size = 0
+    if size == 0 or size > MAX_TEXT_BYTES:
+        return u''
+    try:
+        with open(path, 'rb') as f:
+            raw = f.read(MAX_TEXT_BYTES)
+    except Exception:
+        return u''
+
+    text = None
+    for enc in ('utf-8-sig', 'utf-8', 'utf-16', 'latin-1'):
+        try:
+            text = raw.decode(enc)
+            break
+        except Exception:
+            continue
+    if text is None:
+        return u''
+
+    if os.path.splitext(path)[1].lower() in ('.html', '.htm', '.xml'):
+        text = strip_html(text)
+
+    text = text.strip()
+    if len(text) > MAX_TEXT_CHARS:
+        text = text[:MAX_TEXT_CHARS] + u'\n[... nội dung bị cắt ngắn ...]'
+    return text
+
+
+def _text_file_block(path):
+    """One '=== Nội dung <name> ===' section for a text-ish file."""
+    name = os.path.basename(path)
+    text = extract_text_file(path)
+    if text:
+        return u'=== Nội dung {}: {} ===\n{}\n=== Hết {} ==='.format(
+            os.path.splitext(name)[1].lstrip('.').upper() or u'FILE',
+            name, text, name)
+    return u'[Không đọc được nội dung "{}"]'.format(name)
+
+
 # ─── Image encoding ───────────────────────────────────────────────────────────
 
 def encode_image_base64(image_path):
@@ -301,6 +394,8 @@ def build_text_context(attached_files):
                 )
             else:
                 parts.append(u'[PDF "{}" không trích xuất được văn bản]'.format(name))
+        elif is_text_file(path):
+            parts.append(_text_file_block(path))
         elif is_image(path):
             parts.append(u'[Hình ảnh đính kèm: {} — xem phần vision bên dưới]'.format(name))
     return u'\n\n'.join(parts)
@@ -338,6 +433,11 @@ def build_vision_content_blocks(user_text, attached_files):
                     "type": "text",
                     "text": u'[PDF "{}" không trích xuất được văn bản — có thể là PDF scan]'.format(name)
                 })
+
+    # 1b. Text-ish files (.json / .txt / .md / .csv / .html ...)
+    for path in attached_files:
+        if is_text_file(path):
+            blocks.append({"type": "text", "text": _text_file_block(path)})
 
     # 2. Image blocks
     for path in attached_files:

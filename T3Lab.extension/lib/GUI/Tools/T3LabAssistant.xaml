@@ -1781,23 +1781,19 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- ── Footer line: copyright (left) + AI disclaimer (center) + input hint (right) ── -->
+                <!-- ── Footer line: AI disclaimer (center) + input hint (right) ── -->
                 <Grid Margin="4,6,4,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="© Copyright by T3Lab"
-                               FontSize="11" Foreground="#F59E0B"
-                               VerticalAlignment="Center"/>
-                    <TextBlock x:Name="footer_disclaimer" Grid.Column="1"
+                    <TextBlock x:Name="footer_disclaimer" Grid.Column="0"
                                Text="T3Lab AI can make mistakes. Please double-check responses."
                                FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
                                FontFamily="Hanken Grotesk"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" Margin="10,0"/>
-                    <TextBlock x:Name="footer_hint" Grid.Column="2"
+                    <TextBlock x:Name="footer_hint" Grid.Column="1"
                                Text="/ for skills  ·  Shift+Enter = new line"
                                FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
                                FontFamily="Hanken Grotesk"

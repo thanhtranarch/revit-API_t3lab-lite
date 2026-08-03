@@ -320,6 +320,15 @@ except Exception as e:
     def summarize_attachments(files): return ''
     SUPPORTED_EXTS = set()
 
+# ─── Link reader (URLs / UNC / local paths pasted into the message) ───────────
+try:
+    from Intelligence import link_reader
+    HAS_LINKS = True
+except Exception as e:
+    logger.warning("Could not import link_reader: {}".format(e))
+    link_reader = None
+    HAS_LINKS = False
+
 # ─── Knowledge stack (RAG v2: index + retrieval) ──────────────────────────────
 try:
     from Intelligence.knowledge.knowledge_store import (get_global_store,
@@ -1851,13 +1860,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._reset_session_state(clear_transcript=True)
             # Delete saved file
             clear_chat_history(self._doc_key)
+            # No "Conversation refreshed" bubble — the welcome greeting panel
+            # comes back on an empty transcript and already says the same thing.
             self._update_welcome_greeting()
-            # Show fresh welcome message
-            self._append_bot_message(
-                u"Conversation refreshed!\n"
-                u"How can I help you?",
-                icon=_ICON_REFRESH, icon_color=_ICON_SLATE
-            )
         except Exception as ex:
             logger.debug("reset_chat error: {}".format(ex))
 
@@ -2687,6 +2692,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 msg = (u"Something went wrong while handling that request — "
                        u"nothing else was changed in the model. Please try "
                        u"again; the details are in the pyRevit console.")
+                # Show the actual failure inline too. "See the console" is
+                # useless advice in a docked pane: the console is closed, the
+                # message scrolls away, and the user has nothing to report.
+                _detail = u""
+                try:
+                    _detail = u"{}".format(_exc_text(exc) or u"").strip()
+                    _detail = _detail.splitlines()[-1] if _detail else u""
+                except Exception:
+                    _detail = u""
+                if _detail:
+                    msg += u"\n\n`{}: {}`".format(where, _detail[:300])
                 if hint:
                     msg = hint + u"\n\n" + msg
                 try:
@@ -3192,9 +3208,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             clr.AddReference('System.Windows.Forms')
             from System.Windows.Forms import OpenFileDialog, DialogResult
 
-            exts = "PDF & Images|*.pdf;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp"
+            _docs  = "*.pdf;*.txt;*.md;*.json;*.csv;*.tsv;*.log;*.xml;*.html;*.htm;*.yaml;*.yml;*.ini"
+            _imgs  = "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp"
+            exts = ("Documents & Images|{};{}|"
+                    "Documents (PDF, text, JSON...)|{}|"
+                    "Images|{}|All files|*.*").format(_docs, _imgs, _docs, _imgs)
             dlg = OpenFileDialog()
-            dlg.Title  = u"Choose PDF or image files to attach"
+            dlg.Title  = u"Choose documents or images to attach"
             dlg.Filter = exts
             dlg.Multiselect = True
 
@@ -4332,14 +4352,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             new_mode = ('confirm' if settings.get_action_mode() == 'auto'
                         else 'auto')
             settings.set_agent_option('action_mode', new_mode)
+            # The chip itself renders the new state — no chat bubble, it just
+            # piled up in the transcript every time the mode was toggled.
             self._update_action_mode_chip()
-            self._append_bot_message(
-                u"**Ask before edits** is ON — I will present a plan "
-                u"and wait for your confirmation before changing the model."
-                if new_mode == 'confirm' else
-                u"**Auto** mode is ON — I execute model edits immediately "
-                u"(still asking before DELETING data).",
-                icon=_ICON_SYNC, icon_color=_ICON_SLATE)
         except Exception as ex:
             logger.debug("action_mode_clicked error: {}".format(ex))
 
@@ -4865,6 +4880,72 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # _report_error is safe and cannot deadlock.
             self._report_error(u"_process_input", ex)
 
+    def _link_cache_dir(self):
+        """Where downloaded links are stored. Project attachments folder when
+        there is an active project, otherwise a temp folder — never the user's
+        Documents root."""
+        try:
+            from config.project_store import ProjectStore
+            ps = ProjectStore()
+            d = ps.attachments_dir(ps.get_active_project_id())
+            if d:
+                return d
+        except Exception:
+            pass
+        try:
+            import tempfile
+            d = os.path.join(tempfile.gettempdir(), 'T3LabAssistant', 'links')
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            return d
+        except Exception:
+            return None
+
+    def _resolve_message_links(self, raw, attached):
+        """Fetch every link in `raw`, append the readable files to `attached`
+        (in place) and return the context block for the rest. WORKER THREAD.
+
+        Returns u"" when the message carries no links, so an ordinary turn
+        pays nothing for this.
+        """
+        try:
+            links = link_reader.find_links(raw)
+            if not links:
+                return u""
+
+            viet = _is_viet_text(raw)
+            self._safe_update_typing_text(
+                u"● ● ●  Đang đọc {} liên kết…".format(len(links)) if viet
+                else u"● ● ●  Reading {} link(s)…".format(len(links)))
+
+            res = link_reader.resolve(raw, self._link_cache_dir())
+
+            added = []
+            for path in res.get('files') or []:
+                if path not in attached:
+                    attached.append(path)
+                    added.append(path)
+
+            if added or res.get('notes'):
+                self._log_activity(u"Links ({}): {}".format(
+                    len(res.get('links') or []),
+                    u", ".join(res.get('links') or [])))
+
+            parts = []
+            header = link_reader.source_header(res.get('links') or [])
+            if header:
+                parts.append(header)
+            parts.extend(res.get('notes') or [])
+            # Files are read by _build_attachment_context; only say WHICH ones
+            # came from a link so the model can cite the source properly.
+            if added:
+                parts.append(u'[Đã tải về từ liên kết: {}]'.format(
+                    u', '.join(os.path.basename(p) for p in added)))
+            return u"\n\n".join(p for p in parts if p)
+        except Exception as ex:
+            logger.debug("_resolve_message_links error: {}".format(ex))
+            return u""
+
     def _build_attachment_context(self, raw, attached):
         """Build the attachment context string. WORKER THREAD.
 
@@ -5223,6 +5304,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         through the Dispatcher.
         """
         try:
+            attached = list(attached or [])
             # ── If attachments present and no tool-like text, go straight to RAG ─
             has_attach = bool(attached) and HAS_RAG
 
@@ -5240,6 +5322,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # Revit command by the NLU.
             if not attached and raw and self._try_skills_command(raw):
                 return
+
+            # ── Links in the message → real files ──────────────────────────
+            # A pasted URL / UNC path / local path is fetched here and pushed
+            # onto `attached`, so everything downstream treats it exactly like
+            # a dropped file: PDFs reach the knowledge index and the comment
+            # agent, images reach the vision blocks, .json/.txt/.md reach the
+            # text context. Runs AFTER the skills command above, which owns
+            # "cài skill từ <github link>" and must keep its own URL.
+            _link_ctx = u""
+            if HAS_LINKS and raw:
+                _link_ctx = self._resolve_message_links(raw, attached)
+                has_attach = bool(attached) and HAS_RAG
 
             # ── PDF markup-comment workflow (R4) ───────────────────────────
             # Route to the CommentAgent when the user asks about comments
@@ -5276,6 +5370,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             rag_context = ''
             if has_attach:
                 rag_context = self._build_attachment_context(raw, attached)
+            # Folder listings and "couldn't read that link" notes carry no file
+            # of their own, so they ride in front of the attachment context.
+            if _link_ctx:
+                rag_context = (u"{}\n\n{}".format(_link_ctx, rag_context)
+                               if rag_context else _link_ctx)
 
             # For NLP routing we use ONLY the raw user text. Prepending the
             # ContextScout model summary here poisoned the offline NLU and
@@ -5510,11 +5609,43 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     # turn 1 — e.g. an Ollama model without tool support), it
                     # returns False and the legacy JSON-intent loop below runs.
                     # Compact retrieval context (RAG v2 excerpts) no longer
-                    # blocks the native path — only vision attachments and
-                    # bulky legacy stuffing still go to the JSON-intent loop.
+                    # blocks the native path — only bulky legacy stuffing
+                    # still goes to the JSON-intent loop.
+                    #
+                    # Attached IMAGES used to force the legacy path too, and
+                    # that path can only send a string: the model received the
+                    # bare "[Hình ảnh đính kèm: x.png]" placeholder and quite
+                    # correctly answered "I can't see images". A vision-capable
+                    # provider now takes the native path and gets the real
+                    # image blocks (see _run_native_agent's image_files).
+                    _img_files = [p for p in attached if is_image(p)]
+                    _can_see = bool(_img_files) and bool(
+                        getattr(_provider, 'SUPPORTS_VISION', False))
                     _compact_rag = bool(
                         rag_context and len(rag_context) < 4000
-                        and not has_images(attached))
+                        and (not _img_files or _can_see))
+
+                    # Text-only provider (Ollama / LM Studio / DeepSeek): be
+                    # explicit about WHY the image can't be read and what to do
+                    # about it, instead of leaving the model to improvise an
+                    # excuse from a bare "[image attached]" placeholder.
+                    _rag_query = rag_context
+                    if _img_files and not _can_see:
+                        _note = (
+                            u"[System: the user attached {} image(s): {}. The "
+                            u"active model ({}) has no vision capability, so "
+                            u"you cannot see them. Say this plainly in the "
+                            u"user's language, tell them to switch to Claude "
+                            u"or OpenAI in the model picker to analyse "
+                            u"images, then answer whatever else you can.]"
+                        ).format(
+                            len(_img_files),
+                            u", ".join(os.path.basename(p) for p in _img_files),
+                            getattr(_provider, 'DISPLAY_NAME', None)
+                            or getattr(_provider, 'NAME', u'local'))
+                        _rag_query = (u"{}\n\n{}".format(_note, rag_context)
+                                      if rag_context else _note)
+
                     if (not has_attach and not rag_context) or _compact_rag:
                         _handled = False
                         # Specialist spec + matched skills from the dispatcher
@@ -5564,7 +5695,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 _provider, list(history), captured,
                                 spec=_spec, skill_ids=_skill_ids,
                                 rag_context=(rag_context if _compact_rag
-                                             else None))
+                                             else None),
+                                image_files=(_img_files if _can_see else None))
                         except Exception as _na_ex:
                             logger.debug("native agent path error: {}".format(_na_ex))
                         if _handled:
@@ -5608,8 +5740,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     _prev_calls = getattr(self, '_prev_turn_calls', None) or set()
                     _blocked_repeats = 0
 
-                    # Initial user prompt
-                    current_query = (rag_context + u"\n\n" + captured) if rag_context else captured
+                    # Initial user prompt. _rag_query == rag_context except
+                    # when a text-only provider was handed images (see above).
+                    current_query = (_rag_query + u"\n\n" + captured) if _rag_query else captured
 
                     while current_iteration < max_iterations:
                         current_iteration += 1
@@ -6598,7 +6731,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return u''
 
     def _run_native_agent(self, provider, history, captured,
-                          spec=None, skill_ids=None, rag_context=None):
+                          spec=None, skill_ids=None, rag_context=None,
+                          image_files=None):
         """Run the native tool-calling agent loop. WORKER THREAD.
 
         spec: optional SpecialistSpec — narrows the tool catalog, adds a
@@ -6607,6 +6741,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         skill_ids: optional matched skill ids injected into the prompt.
         rag_context: optional compact retrieval excerpts (attachment RAG)
         prepended to the user content only.
+        image_files: attached image paths sent as real vision blocks. The
+        caller only passes them when the provider reports SUPPORTS_VISION.
 
         Returns True when the request was fully handled (UI updated, busy
         released). Returns False so the legacy JSON-intent path can run —
@@ -6758,23 +6894,33 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         viet = _is_viet_text(captured)
 
-        # ── C2: vision — "look at this view" ships a snapshot of the active
-        # view as an image block (Claude agent path only; other providers'
-        # agent calls don't convert Claude-format blocks).
+        # ── C2: vision ────────────────────────────────────────────────────────
+        # Two sources of images, and they compose: files the user attached
+        # (paperclip / paste / drag-drop) and, for "look at this view", a
+        # snapshot of the active view. Both ship as Claude-format image
+        # blocks — claude_provider sends them natively, openai_provider
+        # converts them to image_url; providers without SUPPORTS_VISION never
+        # get here (the caller keeps them on the text path).
         user_content = captured
         if rag_context:
             user_content = rag_context + u"\n\n" + captured
+        _vision_files = list(image_files or [])
         if self._wants_view_snapshot(captured, provider):
             self._safe_update_typing_text(
                 u"● ● ●  Đang chụp active view…" if viet
                 else u"● ● ●  Capturing the active view…")
             shot = self._capture_active_view(srv)
             if shot:
-                try:
-                    from Intelligence.rag_processor import build_vision_content_blocks
-                    user_content = build_vision_content_blocks(captured, [shot])
-                except Exception:
-                    user_content = captured
+                _vision_files.append(shot)
+        if _vision_files:
+            try:
+                from Intelligence.rag_processor import build_vision_content_blocks
+                # Text goes in last (the builder's own contract), so the
+                # RAG/attachment context stays attached to the question.
+                user_content = build_vision_content_blocks(
+                    user_content, _vision_files)
+            except Exception as _vx:
+                logger.debug("vision block build error: {}".format(_vx))
 
         # Live state rides with THIS turn instead of the cached system block.
         # It never reaches _conversation_history (which stores the raw user
@@ -8388,11 +8534,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _append_user_message(self, text, attachment_note=None):
         """Add the user's message as a right-aligned bubble.
 
-        The bubble is the only filled surface in the transcript — assistant
-        replies sit directly on the pane background (see _append_bot_message):
-        colour marks *who is speaking*, and only one of the two speakers needs
-        marking. The fill is Revit's own selected-row blue tint, so it reads
-        like a highlighted row in the Project Browser rather than a chat pill.
+        No fill, no border, no shadow: the user's turn is right-aligned text on
+        the same surface as everything else. (It was Revit's selected-row blue
+        tint, then briefly a bordered + shadowed card — both read as a second
+        surface inside a pane this narrow.) Alignment alone marks the speaker.
 
         attachment_note, if given, renders as its own line with a minimal
         Attach glyph — replaces the old baked-in "📎 filename" text so the
@@ -8410,9 +8555,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             row.ColumnDefinitions.Add(col0)
 
             bubble = Border()
-            _bind_bg(bubble, 'UserBubbleBg')
-            bubble.CornerRadius = CornerRadius(14)
-            bubble.Padding      = Thickness(15, 10, 15, 10)
+            _bind_bg(bubble, 'ChatBg')
+            bubble.Padding      = Thickness(2, 0, 2, 0)
             bubble.HorizontalAlignment = HorizontalAlignment.Right
 
             msg_text = TextBlock()
