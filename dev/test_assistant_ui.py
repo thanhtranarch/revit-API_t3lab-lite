@@ -83,6 +83,50 @@ def test_palettes_stay_in_step():
               for p in pals.values() for v in p.values()))
 
 
+def test_light_palette_is_copied_faithfully():
+    """The light palette exists three times: RevitTheme._LIGHT (live),
+    the <SolidColorBrush> table in the XAML (what paints before apply() runs,
+    and if the theme module is missing) and script.py's _LIGHT_FALLBACK RGB
+    table (used when RevitTheme cannot be imported at all).
+
+    Three copies is a drift machine: retint one and the window flashes the old
+    palette on every open, or the no-theme path paints a palette that was
+    replaced months ago. The copies must agree token for token.
+    """
+    print('[theme: palette copies]')
+    light = _palettes()['_LIGHT']
+
+    xaml_tokens = dict(re.findall(
+        r'<SolidColorBrush x:Key="T3Theme(\w+)"\s+Color="(#[0-9A-Fa-f]{6})"\s*/>',
+        XAML_SRC))
+    xaml_tokens.update(dict(re.findall(
+        r'<Color x:Key="T3Theme(\w+)Color">\s*(#[0-9A-Fa-f]{6})\s*</Color>',
+        XAML_SRC)))
+    check('the XAML declares every token', not (set(light) - set(xaml_tokens)),
+          sorted(set(light) - set(xaml_tokens)))
+    check('the XAML declares no token the palette lacks',
+          not (set(xaml_tokens) - set(light)),
+          sorted(set(xaml_tokens) - set(light)))
+    drift = {k: (light[k], xaml_tokens[k]) for k in set(light) & set(xaml_tokens)
+             if light[k].upper() != xaml_tokens[k].upper()}
+    check('the XAML defaults match the light palette', not drift, drift)
+
+    fallback = {}
+    for node in ast.walk(ast.parse(SCRIPT_SRC)):
+        if (isinstance(node, ast.Assign)
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id == '_LIGHT_FALLBACK'):
+            fallback = ast.literal_eval(node.value)
+    check('the no-theme fallback table was found', bool(fallback))
+    # A subset is fine — it only needs the tokens Python actually reads through
+    # _trgb/_tb — but every entry it does carry must be the same colour.
+    check('the fallback invents no token', not (set(fallback) - set(light)),
+          sorted(set(fallback) - set(light)))
+    drift = {k: (light[k], '#%02X%02X%02X' % v) for k, v in fallback.items()
+             if k in light and light[k].upper() != '#%02X%02X%02X' % v}
+    check('the fallback RGB matches the light palette', not drift, drift)
+
+
 def test_every_token_reference_resolves():
     """A {DynamicResource T3ThemeTypo} silently paints nothing."""
     print('[theme: references]')
@@ -300,6 +344,7 @@ def test_xaml_is_well_formed():
 def main():
     print('')
     for fn in (test_palettes_stay_in_step,
+               test_light_palette_is_copied_faithfully,
                test_every_token_reference_resolves,
                test_apply_publishes_brush_and_colour,
                test_rendered_messages_follow_the_theme,
