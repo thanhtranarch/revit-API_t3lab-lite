@@ -617,6 +617,11 @@ _SKILLS_CONTRACT = """\
 1. FOLLOW THE PLAYBOOK: the active skill is the standard for this request \
 — its naming rules, thresholds, orders of steps and report formats \
 override your defaults.
+1b. A SKILL IS NOT A TOOL: it is instructions for YOU to carry out. There \
+is no `apply_playbook`, `apply_skill`, `run_playbook` or `playbook_name` \
+— those are not tool or intent names, and writing a tool call as JSON in \
+your reply text does nothing. Execute the playbook's steps using ONLY the \
+real tools available to you, and plain prose for everything else.
 2. ACT IN THIS TURN: checking/audit playbooks default to the ENTIRE \
 project and start scanning immediately — no scope questions. Playbooks \
 that MODIFY the model present the plan (targets + counts) and wait for \

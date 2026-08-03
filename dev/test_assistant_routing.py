@@ -899,6 +899,172 @@ def test_capability_question_beats_anaphora():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 6. Agent loop never shows a tool call as the answer
+# ─────────────────────────────────────────────────────────────────────────────
+# Observed 2026-08-03: /lod-standard, /parameter-management and
+# /annotation-standard each answered with the literal text
+#   {"name": "apply_playbook", "parameters": {"playbook_name": "lod-standard"}}
+# The model wrote a tool call as chat text naming a tool that does not exist;
+# the loop's rescue path rejected the unknown name and then rendered the blob
+# as the assistant's reply — and persisted it to the transcript.
+
+_PHANTOM_BLOB = ('{"name": "apply_playbook", "parameters": '
+                 '{"playbook_name": "lod-standard"}}')
+
+
+class _ScriptedProvider(object):
+    """Replays canned chat_agent turns and records the transcript it saw."""
+    SUPPORTS_NATIVE_TOOLS = True
+
+    def __init__(self, turns):
+        self.turns = list(turns)
+        self.transcripts = []
+
+    def chat_agent(self, system_prompt, messages, tools,
+                   on_delta=None, max_tokens=None):
+        self.transcripts.append(list(messages))
+        if not self.turns:
+            return None
+        t = self.turns.pop(0)
+        text = t.get('text', '')
+        if on_delta and text:
+            on_delta(text)          # the blob streams live, as in production
+        return {'text': text,
+                'tool_calls': t.get('calls', []),
+                'assistant_msg': {'role': 'assistant', 'content': text},
+                'stop_reason': 'end_turn'}
+
+    def agent_tool_results(self, calls, results):
+        return [{'role': 'user', 'content': r} for r in results]
+
+
+def _run_agent(turns, tools=None):
+    """(result, shown, tool_names, provider) for a scripted agent run.
+
+    `shown` is every on_turn_text payload — exactly what reaches a chat
+    bubble and self._add_to_history in script.py.
+    """
+    from Intelligence.agent_loop import AgentLoop
+    shown, ran = [], []
+    cb = {'on_turn_text':  lambda t, final: shown.append(t),
+          'on_text_delta': lambda c: None,
+          'on_tool_start': lambda n, a, i: ran.append(n),
+          'on_tool_done':  lambda n, r, ok, s: None}
+    prov = _ScriptedProvider(turns)
+    loop = AgentLoop(prov, lambda n, a: {'ok': True},
+                     tools if tools is not None else [{'name': 'ai_element_filter'}],
+                     callbacks=cb, max_iterations=6)
+    return loop.run([], 'sys', 'hi'), shown, ran, prov
+
+
+def test_phantom_tool_call_is_never_shown():
+    result, shown, _ran, prov = _run_agent([
+        {'text': _PHANTOM_BLOB},
+        {'text': u'LOD 300 for structure — here is the matrix.'},
+    ])
+    check('phantom blob never reaches a chat bubble',
+          not any('apply_playbook' in s for s in shown), shown)
+    check('phantom blob is not the returned answer',
+          'apply_playbook' not in (result.get('text') or ''), result.get('text'))
+    check('the real answer still lands',
+          u'LOD 300 for structure — here is the matrix.' in shown, shown)
+    corrections = [m.get('content', '') for m in prov.transcripts[-1]
+                   if m.get('role') == 'user']
+    check('model is told apply_playbook is not a tool',
+          any('`apply_playbook` is not a tool' in c for c in corrections),
+          corrections)
+
+
+def test_phantom_correction_is_bounded():
+    """A model that keeps emitting the blob must still not print it — and
+    must not spin: the loop gives up and ends the turn with no text, which
+    script.py routes to the legacy JSON-intent path for a real reply."""
+    result, shown, _ran, _p = _run_agent([{'text': _PHANTOM_BLOB}] * 6)
+    check('blob suppressed on every retry',
+          not any('apply_playbook' in s for s in shown), shown)
+    check('gives up instead of looping to max_iterations',
+          result.get('status') == 'done'
+          and result.get('iterations', 99) <= 3, result)
+    check('ends with empty text so the legacy fallback engages',
+          not (result.get('text') or '').strip(), result.get('text'))
+
+
+def test_phantom_keeps_the_prose_around_it():
+    _result, shown, _ran, _p = _run_agent([
+        {'text': u'Applying the LOD standard now.\n' + _PHANTOM_BLOB},
+        {'text': u'Done.'},
+    ])
+    check('prose survives, blob does not',
+          u'Applying the LOD standard now.' in shown
+          and not any('apply_playbook' in s for s in shown), shown)
+
+
+def test_real_tool_written_as_text_runs_without_printing_json():
+    """The rescue path already executed these; it also used to print the raw
+    JSON into the chat first."""
+    _result, shown, ran, _p = _run_agent([
+        {'text': '{"name": "ai_element_filter", "parameters": {"category": "Walls"}}'},
+        {'text': u'Found 12 walls.'},
+    ])
+    check('rescued call still executes', ran == ['ai_element_filter'], ran)
+    check('its JSON is not printed as an answer',
+          not any('ai_element_filter' in s for s in shown), shown)
+
+
+def test_json_data_answer_is_not_mistaken_for_a_tool_call():
+    """A JSON object that merely has a "name" key is DATA — suppressing it
+    would silently eat a legitimate answer."""
+    payload = '{"name": "Level 1", "elevation": 0, "id": 1234}'
+    result, shown, _ran, _p = _run_agent([{'text': u'The level is: ' + payload}])
+    check('data payload is shown verbatim', payload in (result.get('text') or ''),
+          result.get('text'))
+    check('data payload reaches the bubble', any(payload in s for s in shown), shown)
+
+
+def test_fenced_json_example_is_not_suppressed():
+    """```json fences mean the model is SHOWING json on purpose."""
+    fenced = u'Example call:\n```json\n' + _PHANTOM_BLOB + u'\n```'
+    result, _shown, _ran, _p = _run_agent([{'text': fenced}])
+    check('fenced example survives', 'apply_playbook' in (result.get('text') or ''),
+          result.get('text'))
+
+
+def test_plain_reply_is_untouched():
+    result, shown, ran, _p = _run_agent([{'text': u'Hello, how can I help?'}])
+    check('prose reply unchanged', shown == [u'Hello, how can I help?'], shown)
+    check('no tool ran', ran == [], ran)
+    check('one iteration only', result.get('iterations') == 1, result)
+
+
+def test_saved_blob_is_pruned_on_load():
+    """Transcripts written before the fix still carry the blob, and
+    _restore_history replays them into the model's context — teaching it that
+    answering with a fake tool call is what this assistant does."""
+    from Intelligence.agent_loop import is_bare_tool_call_text as stale
+
+    check('bare phantom blob is pruned', stale(_PHANTOM_BLOB))
+    check('bare real-tool blob is pruned too',
+          stale('{"intent": "ai_element_filter", "params": {"category": "Walls"}}'))
+    check('a normal answer is kept', not stale(u'LOD 300 for structure.'))
+    check('a JSON data answer is kept',
+          not stale('{"name": "Level 1", "elevation": 0}'))
+    check('an answer that merely quotes json is kept',
+          not stale(u'The call was ' + _PHANTOM_BLOB + u' — ignore it.'))
+    check('empty content is kept', not stale(u'') and not stale(None))
+
+
+def test_skills_contract_says_a_skill_is_not_a_tool():
+    """Prompt-side half of the same fix — both the native agent path and the
+    legacy JSON-intent path inject build_skills_block()."""
+    from Intelligence.skills_engine import build_skills_block
+    block = build_skills_block(['lod-standard'])
+    check('skill block was built', bool(block))
+    check('contract forbids apply_playbook',
+          'apply_playbook' in block and 'A SKILL IS NOT A TOOL' in block,
+          block[:300])
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -954,6 +1120,17 @@ TESTS = [
         test_pronoun_vs_determiner,
         test_history_referent_is_a_real_tool_mention,
         test_capability_question_beats_anaphora,
+    ]),
+    ('agent-loop', [
+        test_phantom_tool_call_is_never_shown,
+        test_phantom_correction_is_bounded,
+        test_phantom_keeps_the_prose_around_it,
+        test_real_tool_written_as_text_runs_without_printing_json,
+        test_json_data_answer_is_not_mistaken_for_a_tool_call,
+        test_fenced_json_example_is_not_suppressed,
+        test_plain_reply_is_untouched,
+        test_saved_blob_is_pruned_on_load,
+        test_skills_contract_says_a_skill_is_not_a_tool,
     ]),
 ]
 

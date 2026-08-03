@@ -802,6 +802,27 @@ def save_chat_history(doc_key, messages, summary=u""):
         logger.debug("Could not save chat history: {}".format(ex))
 
 
+def _is_stale_tool_call_blob(role, content):
+    """True for a saved assistant turn that is nothing but a tool call the
+    model wrote as chat text, e.g.
+
+        {"name": "apply_playbook", "parameters": {"playbook_name": "lod-standard"}}
+
+    AgentLoop suppresses these now, but transcripts written before that fix
+    still carry them — and they are worse than cosmetic: _restore_history
+    replays them into _conversation_history, so every later turn sees a
+    "successful" example of answering with a fake tool call and copies it.
+    Dropped on load; the rest of the conversation is kept.
+    """
+    if role != "assistant":
+        return False
+    try:
+        from Intelligence.agent_loop import is_bare_tool_call_text
+        return is_bare_tool_call_text(content)
+    except Exception:
+        return False
+
+
 def load_chat_history(doc_key):
     """Load saved messages for doc_key.  Returns [] if none / error."""
     try:
@@ -810,7 +831,9 @@ def load_chat_history(doc_key):
             return []
         with io.open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        return data.get("messages", [])
+        return [m for m in data.get("messages", [])
+                if not _is_stale_tool_call_blob(m.get("role", ""),
+                                                m.get("content", ""))]
     except Exception as ex:
         logger.debug("Could not load chat history: {}".format(ex))
         return []
