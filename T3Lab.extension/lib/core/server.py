@@ -515,13 +515,19 @@ class T3LabAIServer(object):
             },
             'revit_list_views': {
                 'name': 'revit_list_views',
-                'description': 'List all views in the current Revit document',
+                'description': 'List all views in the current Revit document, optionally filtered by view type.',
                 'inputSchema': {
                     'type': 'object',
                     'properties': {
                         'view_type': {
                             'type': 'string',
-                            'description': 'Filter by view type (optional)'
+                            'description': "Optional filter on Revit's view type. Spelling is forgiving — \"floor_plan\", \"Floor Plan\" and \"FloorPlan\" all work. An unknown value returns an error listing the view types actually present, never a silently empty list.",
+                            'enum': ['FloorPlan', 'CeilingPlan', 'ThreeD',
+                                     'Section', 'Elevation', 'Detail',
+                                     'DraftingView', 'Legend', 'Schedule',
+                                     'AreaPlan', 'EngineeringPlan', 'Rendering',
+                                     'Walkthrough', 'ColumnSchedule',
+                                     'PanelSchedule', 'Report']
                         }
                     },
                     'required': []
@@ -570,6 +576,18 @@ class T3LabAIServer(object):
                                 'type': 'integer'
                             },
                             'description': 'Optional list of Revit element IDs for a specific subset. If both this and category are omitted, applies to the currently selected elements.'
+                        },
+                        'halftone': {
+                            'type': 'boolean',
+                            'description': 'Also draw the elements halftone (faded). Optional.'
+                        },
+                        'transparency': {
+                            'type': 'integer',
+                            'description': 'Also set surface transparency, 0 (opaque) to 100 (invisible). Optional.'
+                        },
+                        'line_weight': {
+                            'type': 'integer',
+                            'description': 'Also set projection/cut line weight, 1-16. Optional.'
                         }
                     },
                     'required': ['color']
@@ -981,6 +999,407 @@ class T3LabAIServer(object):
                         }
                     },
                     'required': ['category', 'parameter_name']
+                }
+            },
+            'edit_elements': {
+                'name': 'edit_elements',
+                'description': 'Structurally EDIT elements in the model: mirror, change_type (swap to another family type), group, ungroup. Unlike operate_element (which only changes how things look in the active view) these change the model itself. Pass category to act on every element of that category in the active view, or element_ids for a specific subset.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'description': (
+                                '"mirror" (needs `axis`; set `copy` true to keep the '
+                                'original) · "change_type" (needs `type_name`, swaps '
+                                'the elements to that type — "đổi tất cả cửa sang '
+                                'type X") · "group" (make one Revit group of the '
+                                'targets) · "ungroup" (dissolve the targeted groups; '
+                                'NOT undoable by re-grouping)'),
+                            'enum': ['mirror', 'change_type', 'group', 'ungroup']
+                        },
+                        'category': {
+                            'type': 'string',
+                            'description': 'Category name — acts on EVERY element of it in the active view. Omit when passing element_ids.'
+                        },
+                        'element_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'Element IDs for a specific subset. Omit to use `category`, or omit both to use the current Revit selection.'
+                        },
+                        'axis': {
+                            'type': 'string',
+                            'description': 'For mirror: which vertical plane to mirror across. "x" flips left/right, "y" flips front/back.',
+                            'enum': ['x', 'y']
+                        },
+                        'origin': {
+                            'type': 'array',
+                            'items': {'type': 'number'},
+                            'description': 'For mirror: [x, y] in METERS the mirror plane passes through. Default [0, 0].'
+                        },
+                        'copy': {
+                            'type': 'boolean',
+                            'description': 'For mirror: true keeps the originals and creates mirrored copies. Default false (move).'
+                        },
+                        'type_name': {
+                            'type': 'string',
+                            'description': 'For change_type: the target type name, as reported by get_available_family_types.'
+                        },
+                        'family_name': {
+                            'type': 'string',
+                            'description': 'For change_type: optional family name, to disambiguate when the same type name exists in several families.'
+                        },
+                        'group_name': {
+                            'type': 'string',
+                            'description': 'For group: optional name for the new group.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'manage_view': {
+                'name': 'manage_view',
+                'description': 'Read or set view PROPERTIES: scale, detail level, discipline, crop box. Targets the active view when view_ids is omitted. To create a view use create_view; to apply a template use apply_view_template.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'description': 'What to do. "get_properties" reads them back.',
+                            'enum': ['get_properties', 'set_scale',
+                                     'set_detail_level', 'set_discipline',
+                                     'set_crop']
+                        },
+                        'view_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'View element IDs. Omit to target the ACTIVE view.'
+                        },
+                        'scale': {
+                            'type': 'integer',
+                            'description': 'For set_scale: the denominator, e.g. 100 for 1:100.'
+                        },
+                        'detail_level': {
+                            'type': 'string',
+                            'enum': ['coarse', 'medium', 'fine'],
+                            'description': 'For set_detail_level.'
+                        },
+                        'discipline': {
+                            'type': 'string',
+                            'enum': ['architectural', 'structural', 'mechanical',
+                                     'electrical', 'plumbing', 'coordination'],
+                            'description': 'For set_discipline.'
+                        },
+                        'crop_active': {
+                            'type': 'boolean',
+                            'description': 'For set_crop: turn the crop region on/off.'
+                        },
+                        'crop_visible': {
+                            'type': 'boolean',
+                            'description': 'For set_crop: show/hide the crop boundary.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'manage_view_template': {
+                'name': 'manage_view_template',
+                'description': 'Curate the view TEMPLATE library: list, rename, duplicate, delete, and check usage counts. To APPLY a template to views use apply_view_template instead — this tool manages the templates themselves.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'description': '"usage" reports how many views use each template — run it before delete.',
+                            'enum': ['list', 'usage', 'rename', 'duplicate', 'delete']
+                        },
+                        'template_name': {
+                            'type': 'string',
+                            'description': 'Template to act on (rename / duplicate / delete).'
+                        },
+                        'template_id': {
+                            'type': 'integer',
+                            'description': 'Template element ID, as an alternative to template_name.'
+                        },
+                        'new_name': {
+                            'type': 'string',
+                            'description': 'For rename / duplicate: the new template name.'
+                        },
+                        'force': {
+                            'type': 'boolean',
+                            'description': 'For delete: allow deleting a template that views still use. Default false — deleting an in-use template silently changes every view that referenced it.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'manage_links': {
+                'name': 'manage_links',
+                'description': 'Inspect and manage linked models and CAD links: list, reload, unload, delete, pin, unpin. "list" is the right tool for "có bao nhiêu link", "link nào chưa load".',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'description': '"unload" keeps the link but drops its geometry; "delete" REMOVES the link and everything that depends on it (tags, dimensions).',
+                            'enum': ['list', 'reload', 'unload', 'delete',
+                                     'pin', 'unpin']
+                        },
+                        'link_kind': {
+                            'type': 'string',
+                            'description': 'Which links to consider. Default "all".',
+                            'enum': ['revit', 'cad', 'all']
+                        },
+                        'link_names': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                            'description': 'Link names (as reported by "list"). Required for every operation except list.'
+                        },
+                        'link_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'Link type element IDs, as an alternative to link_names.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'manage_revision': {
+                'name': 'manage_revision',
+                'description': 'Manage project revisions: list them, create one, assign a revision to sheets, or mark it issued.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'enum': ['list', 'create', 'assign_to_sheets',
+                                     'set_issued'],
+                            'description': 'What to do.'
+                        },
+                        'revision_id': {
+                            'type': 'integer',
+                            'description': 'Revision element ID (assign_to_sheets / set_issued). Omit to use the most recent revision.'
+                        },
+                        'description': {
+                            'type': 'string',
+                            'description': 'For create: the revision description.'
+                        },
+                        'date': {
+                            'type': 'string',
+                            'description': 'For create: the revision date, free text as Revit stores it.'
+                        },
+                        'issued_by': {'type': 'string', 'description': 'For create / set_issued.'},
+                        'issued_to': {'type': 'string', 'description': 'For create / set_issued.'},
+                        'issued': {
+                            'type': 'boolean',
+                            'description': 'For set_issued: true marks the revision issued (Revit then locks its clouds). Default true.'
+                        },
+                        'sheet_numbers': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                            'description': 'For assign_to_sheets: sheet numbers, e.g. ["A-101", "A-102"].'
+                        },
+                        'sheet_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'For assign_to_sheets: sheet element IDs, as an alternative to sheet_numbers.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'manage_sheet': {
+                'name': 'manage_sheet',
+                'description': 'Sheet operations beyond creation: duplicate a sheet, renumber sheets, and list the saved print sets (ViewSheetSets). To create a sheet use create_sheet; to place views use add_view_to_sheet / place_views_on_sheets.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'enum': ['duplicate', 'renumber', 'list_sets'],
+                            'description': 'What to do.'
+                        },
+                        'sheet_numbers': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                            'description': 'Sheets to act on, by sheet number.'
+                        },
+                        'sheet_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'Sheets to act on, by element ID.'
+                        },
+                        'new_number': {
+                            'type': 'string',
+                            'description': 'For renumber with exactly ONE sheet: its new sheet number.'
+                        },
+                        'prefix': {
+                            'type': 'string',
+                            'description': 'For renumber of several sheets: new number = prefix + running index.'
+                        },
+                        'start_at': {
+                            'type': 'integer',
+                            'description': 'For renumber with a prefix: first index. Default 1.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'export_model': {
+                'name': 'export_model',
+                'description': 'Export the model to IFC, NWC (Navisworks), DWF or DGN. For PDF use export_sheets_pdf, for DWG use export_dwg, for PNG use export_image. IFC and NWC need their Autodesk exporter add-in installed — the tool says so plainly if it is missing.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'format': {
+                            'type': 'string',
+                            'enum': ['ifc', 'nwc', 'dwf', 'dgn'],
+                            'description': 'Export format. IFC and NWC cover the whole model; DWF and DGN export sheets or views.'
+                        },
+                        'output_folder': {
+                            'type': 'string',
+                            'description': 'Destination folder. Defaults to the folder the model lives in.'
+                        },
+                        'filename': {
+                            'type': 'string',
+                            'description': 'Base file name without extension. Defaults to the model name.'
+                        },
+                        'sheet_numbers': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                            'description': 'For dwf / dgn: which sheets to export. Defaults to the active view.'
+                        },
+                        'ifc_version': {
+                            'type': 'string',
+                            'enum': ['IFC2x3', 'IFC4'],
+                            'description': 'For ifc: schema version. Default IFC2x3.'
+                        }
+                    },
+                    'required': ['format']
+                }
+            },
+            'check_bad_geometry': {
+                'name': 'check_bad_geometry',
+                'description': 'Scan a view for DEGENERATE GEOMETRY that crashes Revit during PDF/DWG export: zero-area faces, slivers, pathological UV domains, zero normals and singular points. This is the tool for "vì sao export PDF crash", "tìm hình học lỗi". Read-only.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'view_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'Views to scan. Omit to scan the ACTIVE view.'
+                        },
+                        'category': {
+                            'type': 'string',
+                            'description': 'Optional: only probe this category, to narrow a big scan.'
+                        },
+                        'deep_probe': {
+                            'type': 'boolean',
+                            'description': 'DANGEROUS. Also calls Face.Triangulate(), which is the exact code path that crashes Revit — it can take the session down. Default false; only set it when a normal scan came back clean and the export still crashes.'
+                        },
+                        'limit': {
+                            'type': 'integer',
+                            'description': 'Maximum number of suspect elements to report. Default 40.'
+                        }
+                    },
+                    'required': []
+                }
+            },
+            'manage_material': {
+                'name': 'manage_material',
+                'description': 'Read materials: list the materials in the project, or report which materials given elements use. Read-only — to ASSIGN a material, take the material id from "list" and use bulk_set_parameter on the relevant material parameter.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'enum': ['list', 'get_element_materials'],
+                            'description': 'What to read.'
+                        },
+                        'name_filter': {
+                            'type': 'string',
+                            'description': 'For list: only materials whose name contains this text (case-insensitive).'
+                        },
+                        'element_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'For get_element_materials: which elements to inspect.'
+                        },
+                        'category': {
+                            'type': 'string',
+                            'description': 'For get_element_materials: inspect every element of this category in the active view instead of passing ids.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'create_detail_annotation': {
+                'name': 'create_detail_annotation',
+                'description': 'Draw view-specific 2D detail annotation: a filled region or a detail line. All coordinates are in METERS. These are drafting elements — they exist only in the view they are drawn in.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'enum': ['filled_region', 'detail_line'],
+                            'description': 'What to draw.'
+                        },
+                        'view_id': {
+                            'type': 'integer',
+                            'description': 'View to draw in. Omit to use the ACTIVE view.'
+                        },
+                        'boundary_points': {
+                            'type': 'array',
+                            'items': {'type': 'array', 'items': {'type': 'number'}},
+                            'description': 'For filled_region: [[x, y], ...] in METERS, at least 3 points. The loop is closed automatically.'
+                        },
+                        'start': {
+                            'type': 'array',
+                            'items': {'type': 'number'},
+                            'description': 'For detail_line: [x, y] start point in METERS.'
+                        },
+                        'end': {
+                            'type': 'array',
+                            'items': {'type': 'number'},
+                            'description': 'For detail_line: [x, y] end point in METERS.'
+                        },
+                        'type_name': {
+                            'type': 'string',
+                            'description': 'For filled_region: filled region type name. Defaults to the project default.'
+                        }
+                    },
+                    'required': ['operation']
+                }
+            },
+            'manage_document': {
+                'name': 'manage_document',
+                'description': 'Save the model, save it under a new name, or synchronise with central. sync_with_central PUBLISHES YOUR WORK TO THE WHOLE TEAM, can run for minutes and relinquishes worksets — it is disabled by default and the user must enable it in settings. Never call save_as or sync_with_central without the user asking for it in their current message.',
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'operation': {
+                            'type': 'string',
+                            'enum': ['save', 'save_as', 'sync_with_central'],
+                            'description': '"save" writes the current file. "save_as" needs `path`. "sync_with_central" needs `comment` and only works on a workshared model.'
+                        },
+                        'path': {
+                            'type': 'string',
+                            'description': 'For save_as: full destination path ending in .rvt.'
+                        },
+                        'overwrite': {
+                            'type': 'boolean',
+                            'description': 'For save_as: allow replacing an existing file. Default false.'
+                        },
+                        'comment': {
+                            'type': 'string',
+                            'description': 'For sync_with_central: the synchronisation comment. Required, and it goes into the team\'s history.'
+                        },
+                        'relinquish': {
+                            'type': 'boolean',
+                            'description': 'For sync_with_central: relinquish the worksets you own afterwards. Default true.'
+                        }
+                    },
+                    'required': ['operation']
                 }
             },
             'tag_all_walls': {
@@ -1980,6 +2399,19 @@ class T3LabAIServer(object):
         'create_point_based_element', 'create_line_based_element',
         'create_surface_based_element', 'create_grid', 'create_room',
         'create_structural_framing_system', 'delete_element', 'operate_element',
+        'edit_elements', 'manage_view', 'manage_view_template',
+        'manage_links', 'manage_revision', 'manage_sheet', 'export_model',
+        'create_detail_annotation',
+        # Save/SaveAs/SynchronizeWithCentral need the Revit main thread but
+        # must NOT be inside a TransactionGroup — also in script.py's
+        # _group_exempt.
+        'manage_document',
+        # Read-only, but this set really means "must run on Revit's main
+        # thread": check_bad_geometry evaluates surface derivatives and can
+        # tessellate faces, which is exactly the work that takes the process
+        # down. Never let it fall back onto the HTTP worker thread. It opens
+        # no transaction, so it is _group_exempt too.
+        'check_bad_geometry',
         'color_elements', 'tag_all_walls', 'tag_all_rooms', 'move_elements',
         'copy_elements', 'rotate_element', 'create_view', 'set_active_view',
         'rename_element', 'create_sheet', 'add_view_to_sheet', 'create_text_note',
@@ -1998,6 +2430,49 @@ class T3LabAIServer(object):
         # run on the Revit main thread like any other write tool.
         '__begin_action_group', '__end_action_group',
     ])
+
+    # ── Destructive-action declaration ────────────────────────────────────────
+    # The confirmation gate lives in the Assistant UI (it has to block on a
+    # dialog), but WHAT is dangerous is a property of the tool, so it is
+    # declared here next to the tool definitions. The UI calls is_destructive();
+    # dev/test_tool_registry.py checks every name below is a real tool.
+    _DESTRUCTIVE_TOOLS = frozenset([
+        'delete_element',
+    ])
+
+    # Tools that are destructive only for certain operations.
+    _DESTRUCTIVE_OPS = {
+        'edit_elements':        frozenset(['ungroup']),
+        'manage_view_template': frozenset(['delete']),
+        'manage_links':         frozenset(['delete']),
+        'manage_document':      frozenset(['save_as', 'sync_with_central']),
+        # manage_sheet has no destructive op: print-set CRUD was deliberately
+        # left out (PrintManager global state, too version-sensitive to ship
+        # untested), so there is nothing here to gate yet.
+    }
+
+    def is_destructive(self, tool_name, arguments=None):
+        """True when this call needs an explicit user confirmation first.
+
+        Covers three shapes: always-destructive tools, tools destructive only
+        for some operations, and the two argument-conditional legacy rules.
+        """
+        args = arguments or {}
+        if tool_name in self._DESTRUCTIVE_TOOLS:
+            return True
+        ops = self._DESTRUCTIVE_OPS.get(tool_name)
+        if ops:
+            op = u'{}'.format(args.get('operation') or '').lower()
+            if op in ops:
+                return True
+        # purge_unused only bites once it stops being a dry run.
+        if tool_name == 'purge_unused' and not bool(args.get('dry_run', True)):
+            return True
+        # A deep geometry probe is read-only but CAN hard-crash Revit
+        # (Face.Triangulate is the documented access-violation path).
+        if tool_name == 'check_bad_geometry' and bool(args.get('deep_probe')):
+            return True
+        return False
 
     # Tools that never touch the target document — they must keep working
     # when this Revit instance has NO active document (start page, or no
@@ -2505,6 +2980,25 @@ class T3LabAIServer(object):
                          'Ducts, Areas, ...).')}
         return bic, name, None
 
+    def _solid_fill_id(self, doc):
+        """ElementId of a solid FillPatternElement, or InvalidElementId.
+
+        Shared by revit_override_color and color_elements. NOTE the sentinel:
+        ElementId(-1) is not version-safe — Revit 2025+ dropped the Int32
+        constructor and IronPython dies with "Multiple targets could match".
+        """
+        try:
+            from Autodesk.Revit.DB import (FilteredElementCollector,
+                                           FillPatternElement, ElementId)
+            for fp in FilteredElementCollector(doc).OfClass(FillPatternElement):
+                pattern = fp.GetFillPattern()
+                if pattern and pattern.IsSolidFill:
+                    return fp.Id
+        except Exception:
+            pass
+        from Autodesk.Revit.DB import ElementId
+        return ElementId.InvalidElementId
+
     def _parse_color(self, color_str):
         """Parse a hex (#RRGGBB / #RGB) or CSS-name color into an (r, g, b)
         tuple, or None if unparseable. Mirrors the inline parser in
@@ -2677,17 +3171,33 @@ class T3LabAIServer(object):
         elif tool_name == 'revit_list_views':
             from Autodesk.Revit.DB import View
             collector = FilteredElementCollector(doc).OfClass(View)
+            raw_filter = arguments.get('view_type')
+            # The filter used to be an EXACT, case-sensitive match against
+            # str(view.ViewType) (".NET" names like "FloorPlan"), and a miss
+            # returned an empty list rather than an error — so "floor_plan" made
+            # the assistant announce the project had no floor plans. Normalise
+            # both sides, and tell the caller what actually exists on a miss.
+            def _norm(s):
+                return u'{}'.format(s or u'').replace(u'_', u'').replace(
+                    u' ', u'').replace(u'-', u'').lower()
+
+            wanted = _norm(raw_filter) if raw_filter else None
             views = []
-            view_type_filter = arguments.get('view_type')
+            present = set()
             for v in collector:
-                if not v.IsTemplate:
-                    vtype = str(v.ViewType)
-                    if view_type_filter is None or vtype == view_type_filter:
-                        views.append({
-                            'name': v.Name,
-                            'id': eid_value(v.Id),
-                            'type': vtype
-                        })
+                if v.IsTemplate:
+                    continue
+                vtype = str(v.ViewType)
+                present.add(vtype)
+                if wanted is None or _norm(vtype) == wanted:
+                    views.append({'name': v.Name, 'id': eid_value(v.Id),
+                                  'type': vtype})
+            if wanted is not None and not views:
+                return {'error': "No views of type '{}' in this document.".format(
+                            raw_filter),
+                        'available_view_types': sorted(present),
+                        'hint': ('Retry with one of available_view_types, or omit '
+                                 'view_type to list every view.')}
             return {'count': len(views), 'views': views}
 
         elif tool_name == 'revit_list_sheets':
@@ -3015,25 +3525,8 @@ class T3LabAIServer(object):
             
             from Autodesk.Revit.DB import Color, OverrideGraphicSettings, ElementId, Transaction
             revit_color = Color(r, g, b)
-            
-            # Find solid fill pattern for surface fill
-            solid_pattern_id = None
-            try:
-                from Autodesk.Revit.DB import FilteredElementCollector, FillPatternElement
-                fill_patterns = FilteredElementCollector(doc).OfClass(FillPatternElement)
-                for fp in fill_patterns:
-                    pattern = fp.GetFillPattern()
-                    if pattern and pattern.IsSolidFill:
-                        solid_pattern_id = fp.Id
-                        break
-            except Exception:
-                pass
-                
-            # ElementId(-1) is NOT version-safe: Revit 2025+ dropped the
-            # Int32 ctor and IronPython dies with "Multiple targets could
-            # match" — use the API-provided sentinel instead.
-            if solid_pattern_id is None:
-                solid_pattern_id = ElementId.InvalidElementId
+
+            solid_pattern_id = self._solid_fill_id(doc)
 
             override_settings = OverrideGraphicSettings()
             override_settings.SetProjectionLineColor(revit_color)
@@ -3045,7 +3538,38 @@ class T3LabAIServer(object):
                     override_settings.SetCutForegroundPatternColor(revit_color)
                 except Exception:
                     pass
-            
+
+            # Optional extras on the same override, so "tô đỏ và làm mờ tường"
+            # is one call. Each is independent of the colour and silently
+            # skipped when out of range rather than failing the whole call.
+            applied_extras = {}
+            _halftone = arguments.get('halftone')
+            if _halftone is not None:
+                try:
+                    override_settings.SetHalftone(bool(_halftone))
+                    applied_extras['halftone'] = bool(_halftone)
+                except Exception:
+                    pass
+            _transp = arguments.get('transparency')
+            if _transp is not None:
+                try:
+                    _tv = int(_transp)
+                    if 0 <= _tv <= 100:
+                        override_settings.SetSurfaceTransparency(_tv)
+                        applied_extras['transparency'] = _tv
+                except (TypeError, ValueError):
+                    pass
+            _lw = arguments.get('line_weight')
+            if _lw is not None:
+                try:
+                    _lwv = int(_lw)
+                    if 1 <= _lwv <= 16:
+                        override_settings.SetProjectionLineWeight(_lwv)
+                        override_settings.SetCutLineWeight(_lwv)
+                        applied_extras['line_weight'] = _lwv
+                except (TypeError, ValueError):
+                    pass
+
             view = doc.ActiveView
             t = Transaction(doc, "T3Lab AI Override Color")
             t.Start()
@@ -3065,6 +3589,8 @@ class T3LabAIServer(object):
                 'color': color_str or 'red',
                 'rgb': [r, g, b]
             }
+            if applied_extras:
+                result.update(applied_extras)
             if category_used:
                 result['category'] = category_used
                 result['scope'] = 'active_view'
@@ -4473,6 +4999,1297 @@ class T3LabAIServer(object):
                                              'transparency', 'select_similar'],
                     'hint': 'Retry with one of supported_operations.'}
 
+        # ── edit_elements ────────────────────────────────────────────────────
+        elif tool_name == 'edit_elements':
+            from Autodesk.Revit.DB import (ElementId, Transaction, XYZ, Plane,
+                                           ElementTransformUtils, Group,
+                                           ElementType)
+            from System.Collections.Generic import List
+            from Snippets._compat import elem_name
+            op      = (arguments.get('operation') or '').lower()
+            ids     = arguments.get('element_ids', [])
+            cat_arg = arguments.get('category')
+            view    = doc.ActiveView
+
+            if op not in ('mirror', 'change_type', 'group', 'ungroup'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['mirror', 'change_type',
+                                                 'group', 'ungroup'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            # Targets: explicit ids > whole category in the active view >
+            # the live Revit selection.
+            if ids:
+                elem_ids = [make_eid(int(i)) for i in ids]
+            elif cat_arg:
+                bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+                if _cat_err:
+                    return _cat_err
+                elem_ids = list(FilteredElementCollector(doc, view.Id)
+                                .OfCategory(bic).WhereElementIsNotElementType()
+                                .ToElementIds())
+                if not elem_ids:
+                    return {'error': 'No {} elements are visible in the active '
+                                     'view.'.format(cat_arg)}
+            else:
+                elem_ids = list(uidoc.Selection.GetElementIds())
+            if not elem_ids:
+                return {'error': 'No target elements — pass element_ids or '
+                                 'category, or select something in Revit first.'}
+
+            if op == 'mirror':
+                axis = (arguments.get('axis') or 'x').lower()
+                if axis not in ('x', 'y'):
+                    return {'error': "Unknown axis '{}'.".format(axis),
+                            'supported_axis': ['x', 'y'],
+                            'hint': 'Retry with one of supported_axis.'}
+                M2FT = 3.28084
+                origin = arguments.get('origin') or [0, 0]
+                try:
+                    ox = float(origin[0]) * M2FT
+                    oy = float(origin[1]) * M2FT
+                except (TypeError, ValueError, IndexError):
+                    ox = oy = 0.0
+                # Mirroring across a VERTICAL plane: "x" flips left/right, so
+                # the plane's normal points along X.
+                normal = XYZ(1, 0, 0) if axis == 'x' else XYZ(0, 1, 0)
+                plane = Plane.CreateByNormalAndOrigin(normal, XYZ(ox, oy, 0))
+                keep_original = bool(arguments.get('copy', False))
+                id_list = List[ElementId](elem_ids)
+                t = Transaction(doc, 'T3Lab AI Mirror Elements')
+                t.Start()
+                new_ids = []
+                try:
+                    try:
+                        res = ElementTransformUtils.MirrorElements(
+                            doc, id_list, plane, keep_original)
+                        if res:
+                            new_ids = [eid_value(i) for i in res]
+                    except TypeError:
+                        # Older overload without the mirrorCopies flag.
+                        ElementTransformUtils.MirrorElements(doc, id_list, plane)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op, 'axis': axis,
+                        'kept_original': keep_original,
+                        'count': len(elem_ids), 'new_element_ids': new_ids}
+
+            elif op == 'change_type':
+                type_name = (arguments.get('type_name') or '').strip()
+                fam_name  = (arguments.get('family_name') or '').strip()
+                if not type_name:
+                    return {'error': 'change_type requires `type_name`.',
+                            'hint': 'Call get_available_family_types first to '
+                                    'see which type names exist.'}
+                target = None
+                for et in FilteredElementCollector(doc).OfClass(ElementType):
+                    try:
+                        # elem_name, not .Name: ElementType hides the getter
+                        # from IronPython and raises AttributeError.
+                        if elem_name(et) != type_name:
+                            continue
+                        if fam_name and (getattr(et, 'FamilyName', '') or '') != fam_name:
+                            continue
+                        target = et
+                        break
+                    except Exception:
+                        continue
+                if target is None:
+                    return {'error': "No type named '{}'{} in this document.".format(
+                                type_name,
+                                " in family '{}'".format(fam_name) if fam_name else ''),
+                            'hint': 'Call get_available_family_types to list the '
+                                    'real type names.'}
+                t = Transaction(doc, 'T3Lab AI Change Element Type')
+                t.Start()
+                changed = skipped = 0
+                try:
+                    for eid_obj in elem_ids:
+                        el = doc.GetElement(eid_obj)
+                        if el is None:
+                            skipped += 1
+                            continue
+                        try:
+                            if eid_value(el.GetTypeId()) == eid_value(target.Id):
+                                skipped += 1
+                                continue
+                            # The return type differs across Revit versions
+                            # (void vs ICollection<ElementId>) — never iterate it.
+                            el.ChangeTypeId(target.Id)
+                            changed += 1
+                        except Exception:
+                            skipped += 1
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op,
+                        'type_name': type_name, 'type_id': eid_value(target.Id),
+                        'count': changed, 'skipped': skipped,
+                        'total_targeted': len(elem_ids)}
+
+            elif op == 'group':
+                t = Transaction(doc, 'T3Lab AI Group Elements')
+                t.Start()
+                try:
+                    grp = doc.Create.NewGroup(List[ElementId](elem_ids))
+                    gname = arguments.get('group_name')
+                    if gname:
+                        try:
+                            grp.GroupType.Name = gname
+                        except Exception:
+                            pass   # name clash — the group itself is fine
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op,
+                        'group_id': eid_value(grp.Id),
+                        'group_name': elem_name(grp.GroupType),
+                        'member_count': len(elem_ids)}
+
+            elif op == 'ungroup':
+                t = Transaction(doc, 'T3Lab AI Ungroup Elements')
+                t.Start()
+                groups = freed = skipped = 0
+                try:
+                    for eid_obj in elem_ids:
+                        el = doc.GetElement(eid_obj)
+                        if not isinstance(el, Group):
+                            skipped += 1
+                            continue
+                        try:
+                            members = el.UngroupMembers()
+                            groups += 1
+                            freed += len(list(members)) if members else 0
+                        except Exception:
+                            skipped += 1
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                if groups == 0:
+                    return {'error': 'None of the targeted elements are Groups.',
+                            'skipped': skipped,
+                            'hint': 'Pass the element_ids of the Group instances '
+                                    '(select them in Revit and use '
+                                    'revit_get_selected_elements).'}
+                return {'success': True, 'operation': op,
+                        'groups_ungrouped': groups, 'elements_freed': freed,
+                        'skipped': skipped}
+
+        # ── manage_view ──────────────────────────────────────────────────────
+        elif tool_name == 'manage_view':
+            from Autodesk.Revit.DB import (Transaction, View, ViewDetailLevel,
+                                           ViewDiscipline)
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('get_properties', 'set_scale', 'set_detail_level',
+                          'set_discipline', 'set_crop'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['get_properties', 'set_scale',
+                                                 'set_detail_level',
+                                                 'set_discipline', 'set_crop'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            raw_ids = arguments.get('view_ids') or []
+            views = []
+            if raw_ids:
+                for i in raw_ids:
+                    try:
+                        v = doc.GetElement(make_eid(int(i)))
+                    except Exception:
+                        v = None
+                    if isinstance(v, View):
+                        views.append(v)
+                if not views:
+                    return {'error': 'view_ids did not resolve to any view.'}
+            else:
+                views = [doc.ActiveView]
+
+            def _template_of(v):
+                try:
+                    tid = v.ViewTemplateId
+                    if tid is None or eid_value(tid) == -1:
+                        return None
+                    return doc.GetElement(tid)
+                except Exception:
+                    return None
+
+            if op == 'get_properties':
+                out = []
+                for v in views:
+                    info = {'id': eid_value(v.Id), 'name': v.Name,
+                            'type': str(v.ViewType), 'is_template': v.IsTemplate}
+                    for key, attr in (('scale', 'Scale'),
+                                      ('detail_level', 'DetailLevel'),
+                                      ('discipline', 'Discipline'),
+                                      ('crop_active', 'CropBoxActive'),
+                                      ('crop_visible', 'CropBoxVisible')):
+                        try:
+                            val = getattr(v, attr)
+                            info[key] = (val if isinstance(val, (bool, int))
+                                         else str(val))
+                        except Exception:
+                            info[key] = None
+                    tpl = _template_of(v)
+                    info['view_template'] = tpl.Name if tpl is not None else None
+                    out.append(info)
+                return {'count': len(out), 'views': out}
+
+            # Validate the payload BEFORE opening a transaction.
+            detail_map = {'coarse': ViewDetailLevel.Coarse,
+                          'medium': ViewDetailLevel.Medium,
+                          'fine': ViewDetailLevel.Fine}
+            disc_map = {'architectural': ViewDiscipline.Architectural,
+                        'structural': ViewDiscipline.Structural,
+                        'mechanical': ViewDiscipline.Mechanical,
+                        'electrical': ViewDiscipline.Electrical,
+                        'plumbing': ViewDiscipline.Plumbing,
+                        'coordination': ViewDiscipline.Coordination}
+            scale = detail = disc = None
+            if op == 'set_scale':
+                try:
+                    scale = int(arguments.get('scale'))
+                except (TypeError, ValueError):
+                    return {'error': 'set_scale requires an integer `scale` '
+                                     '(the denominator, e.g. 100 for 1:100).'}
+                if scale <= 0:
+                    return {'error': 'scale must be a positive integer.'}
+            elif op == 'set_detail_level':
+                key = (arguments.get('detail_level') or '').lower()
+                detail = detail_map.get(key)
+                if detail is None:
+                    return {'error': "Unknown detail_level '{}'.".format(key),
+                            'supported_detail_levels': sorted(detail_map),
+                            'hint': 'Retry with one of supported_detail_levels.'}
+            elif op == 'set_discipline':
+                key = (arguments.get('discipline') or '').lower()
+                disc = disc_map.get(key)
+                if disc is None:
+                    return {'error': "Unknown discipline '{}'.".format(key),
+                            'supported_disciplines': sorted(disc_map),
+                            'hint': 'Retry with one of supported_disciplines.'}
+            elif op == 'set_crop':
+                if (arguments.get('crop_active') is None
+                        and arguments.get('crop_visible') is None):
+                    return {'error': 'set_crop needs crop_active and/or '
+                                     'crop_visible.'}
+
+            t = Transaction(doc, 'T3Lab AI Manage View')
+            t.Start()
+            updated, failures = [], []
+            try:
+                for v in views:
+                    try:
+                        if op == 'set_scale':
+                            v.Scale = scale
+                        elif op == 'set_detail_level':
+                            v.DetailLevel = detail
+                        elif op == 'set_discipline':
+                            v.Discipline = disc
+                        elif op == 'set_crop':
+                            if arguments.get('crop_active') is not None:
+                                v.CropBoxActive = bool(arguments['crop_active'])
+                            if arguments.get('crop_visible') is not None:
+                                v.CropBoxVisible = bool(arguments['crop_visible'])
+                        updated.append({'id': eid_value(v.Id), 'name': v.Name})
+                    except Exception as ex:
+                        # Scale / DetailLevel / Discipline are READ-ONLY while a
+                        # view template controls them, and Revit's own message
+                        # doesn't say so — name the template instead.
+                        tpl = _template_of(v)
+                        msg = str(ex)
+                        if tpl is not None:
+                            msg = ("controlled by view template '{}' — change it "
+                                   "there, or detach the template from this view "
+                                   "first. (Revit said: {})".format(tpl.Name, ex))
+                        failures.append({'id': eid_value(v.Id), 'name': v.Name,
+                                         'error': msg})
+                t.Commit()
+            except Exception as e:
+                t.RollBack()
+                return {'error': str(e)}
+            res = {'success': bool(updated), 'operation': op,
+                   'updated': updated, 'updated_count': len(updated)}
+            if failures:
+                res['failed'] = failures
+            return res
+
+        # ── manage_view_template ─────────────────────────────────────────────
+        elif tool_name == 'manage_view_template':
+            from Autodesk.Revit.DB import Transaction, View
+            # rename/delete reuse core.view_template (they own their own
+            # transaction). list/usage/duplicate are inline: the shared
+            # duplicate_templates hardcodes the name to "Copy of X" and all of
+            # them return bare counts, which would lose the per-template detail
+            # the model needs to report back.
+            from core import view_template as vt_mod
+
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('list', 'usage', 'rename', 'duplicate', 'delete'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['list', 'usage', 'rename',
+                                                 'duplicate', 'delete'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            templates, views_using = {}, {}
+            for v in FilteredElementCollector(doc).OfClass(View):
+                try:
+                    if v.IsTemplate:
+                        templates[v.Name] = v
+                        continue
+                    tid = v.ViewTemplateId
+                    if tid is not None and eid_value(tid) != -1:
+                        views_using[eid_value(tid)] = views_using.get(
+                            eid_value(tid), 0) + 1
+                except Exception:
+                    continue
+
+            if op in ('list', 'usage'):
+                out = []
+                for nm, tpl in sorted(templates.items()):
+                    entry = {'name': nm, 'id': eid_value(tpl.Id)}
+                    if op == 'usage':
+                        entry['used_by_views'] = views_using.get(
+                            eid_value(tpl.Id), 0)
+                    out.append(entry)
+                return {'count': len(out), 'templates': out}
+
+            # The remaining operations need one specific template.
+            target = None
+            tpl_id = arguments.get('template_id')
+            tpl_name = (arguments.get('template_name') or '').strip()
+            if tpl_id is not None:
+                try:
+                    cand = doc.GetElement(make_eid(int(tpl_id)))
+                    if isinstance(cand, View) and cand.IsTemplate:
+                        target = cand
+                except Exception:
+                    target = None
+            elif tpl_name:
+                target = templates.get(tpl_name)
+                if target is None:
+                    for nm, tpl in templates.items():
+                        if nm.lower() == tpl_name.lower():
+                            target = tpl
+                            break
+            if target is None:
+                return {'error': "View template '{}' not found.".format(
+                            tpl_name or tpl_id),
+                        'available_templates': sorted(templates)[:20],
+                        'hint': 'Call this tool with operation "list" first.'}
+
+            if op == 'rename':
+                new_name = (arguments.get('new_name') or '').strip()
+                if not new_name:
+                    return {'error': 'rename requires `new_name`.'}
+                old = target.Name
+                try:
+                    vt_mod.rename_template(doc, target, new_name)
+                except Exception as e:
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op, 'old_name': old,
+                        'new_name': new_name, 'id': eid_value(target.Id)}
+
+            if op == 'duplicate':
+                new_name = (arguments.get('new_name') or '').strip()
+                t = Transaction(doc, 'T3Lab AI Duplicate View Template')
+                t.Start()
+                try:
+                    from Autodesk.Revit.DB import ViewDuplicateOption
+                    new_id = target.Duplicate(ViewDuplicateOption.Duplicate)
+                    new_tpl = doc.GetElement(new_id)
+                    if new_name:
+                        try:
+                            new_tpl.Name = new_name
+                        except Exception:
+                            pass
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op,
+                        'source': target.Name, 'new_name': new_tpl.Name,
+                        'new_id': eid_value(new_tpl.Id)}
+
+            # delete
+            in_use = views_using.get(eid_value(target.Id), 0)
+            if in_use and not bool(arguments.get('force')):
+                return {'error': "View template '{}' is still used by {} view(s). "
+                                 "Deleting it would silently change every one of "
+                                 "them.".format(target.Name, in_use),
+                        'used_by_views': in_use,
+                        'hint': 'Reassign those views first, or call again with '
+                                'force=true if that is really intended.'}
+            name = target.Name
+            try:
+                ok, errs = vt_mod.delete_templates(doc, [target])
+            except Exception as e:
+                return {'error': str(e)}
+            if not ok:
+                return {'error': "Could not delete view template '{}'.".format(name)}
+            return {'success': True, 'operation': op, 'deleted': name,
+                    'was_used_by_views': in_use}
+
+        # ── manage_links ─────────────────────────────────────────────────────
+        elif tool_name == 'manage_links':
+            from Autodesk.Revit.DB import (Transaction, RevitLinkType,
+                                           RevitLinkInstance, CADLinkType,
+                                           ImportInstance)
+            from Snippets._compat import elem_name
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('list', 'reload', 'unload', 'delete', 'pin', 'unpin'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['list', 'reload', 'unload',
+                                                 'delete', 'pin', 'unpin'],
+                        'hint': 'Retry with one of supported_operations.'}
+            kind = (arguments.get('link_kind') or 'all').lower()
+            if kind not in ('revit', 'cad', 'all'):
+                return {'error': "Unknown link_kind '{}'.".format(kind),
+                        'supported_link_kinds': ['revit', 'cad', 'all'],
+                        'hint': 'Retry with one of supported_link_kinds.'}
+
+            # Instance counts per type, so "list" can say what is placed.
+            rvt_instances = {}
+            for inst in FilteredElementCollector(doc).OfClass(RevitLinkInstance):
+                try:
+                    tid = eid_value(inst.GetTypeId())
+                    rvt_instances.setdefault(tid, []).append(inst)
+                except Exception:
+                    continue
+            cad_instances = {}
+            for inst in FilteredElementCollector(doc).OfClass(ImportInstance):
+                try:
+                    tid = eid_value(inst.GetTypeId())
+                    cad_instances.setdefault(tid, []).append(inst)
+                except Exception:
+                    continue
+
+            links = []
+            if kind in ('revit', 'all'):
+                for lt in FilteredElementCollector(doc).OfClass(RevitLinkType):
+                    links.append(('revit', lt))
+            if kind in ('cad', 'all'):
+                for lt in FilteredElementCollector(doc).OfClass(CADLinkType):
+                    links.append(('cad', lt))
+
+            def _describe_link(lkind, lt):
+                tid = eid_value(lt.Id)
+                insts = (rvt_instances if lkind == 'revit' else cad_instances).get(tid, [])
+                info = {'kind': lkind, 'name': elem_name(lt), 'id': tid,
+                        'instances': len(insts)}
+                try:
+                    # None for an unloaded link — that is the signal, not an error.
+                    info['loaded'] = (lt.GetLinkedFileStatus().ToString()
+                                      if hasattr(lt, 'GetLinkedFileStatus')
+                                      else None)
+                except Exception:
+                    info['loaded'] = None
+                if lkind == 'cad':
+                    try:
+                        info['is_link'] = bool(insts and insts[0].IsLinked)
+                    except Exception:
+                        pass
+                try:
+                    info['pinned'] = bool(insts[0].Pinned) if insts else None
+                except Exception:
+                    info['pinned'] = None
+                return info
+
+            if op == 'list':
+                out = [_describe_link(k, lt) for k, lt in links]
+                return {'count': len(out), 'links': out}
+
+            wanted_names = set(n.lower() for n in (arguments.get('link_names') or []))
+            wanted_ids = set()
+            for i in (arguments.get('link_ids') or []):
+                try:
+                    wanted_ids.add(int(i))
+                except (TypeError, ValueError):
+                    continue
+            if not wanted_names and not wanted_ids:
+                return {'error': "Operation '{}' needs link_names or link_ids — "
+                                 "it will not act on every link at once.".format(op),
+                        'hint': 'Call operation "list" first and pass the names '
+                                'you mean.'}
+
+            targets = [(k, lt) for k, lt in links
+                       if elem_name(lt).lower() in wanted_names
+                       or eid_value(lt.Id) in wanted_ids]
+            if not targets:
+                return {'error': 'None of those links exist in this document.',
+                        'available_links': [elem_name(lt) for _k, lt in links][:20],
+                        'hint': 'Call operation "list" for the exact names.'}
+
+            t = Transaction(doc, 'T3Lab AI Manage Links')
+            t.Start()
+            done, failed = [], []
+            try:
+                for lkind, lt in targets:
+                    name = elem_name(lt)
+                    try:
+                        if op == 'unload':
+                            lt.Unload(None)      # arg is a save-coordinates callback
+                        elif op == 'reload':
+                            lt.Reload()
+                        elif op == 'delete':
+                            doc.Delete(lt.Id)
+                        else:   # pin / unpin
+                            want = (op == 'pin')
+                            insts = (rvt_instances if lkind == 'revit'
+                                     else cad_instances).get(eid_value(lt.Id), [])
+                            if not insts:
+                                failed.append({'name': name,
+                                               'error': 'link has no placed instance'})
+                                continue
+                            for inst in insts:
+                                inst.Pinned = want
+                        done.append(name)
+                    except Exception as ex:
+                        failed.append({'name': name, 'error': str(ex)})
+                t.Commit()
+            except Exception as e:
+                t.RollBack()
+                return {'error': str(e)}
+            res = {'success': bool(done), 'operation': op, 'links': done,
+                   'count': len(done)}
+            if failed:
+                res['failed'] = failed
+            return res
+
+        # ── manage_revision ──────────────────────────────────────────────────
+        elif tool_name == 'manage_revision':
+            from Autodesk.Revit.DB import Transaction, Revision, ViewSheet
+            from System.Collections.Generic import List
+            from Autodesk.Revit.DB import ElementId
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('list', 'create', 'assign_to_sheets', 'set_issued'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['list', 'create',
+                                                 'assign_to_sheets', 'set_issued'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            def _revisions():
+                out = []
+                for r in FilteredElementCollector(doc).OfClass(Revision):
+                    out.append(r)
+                try:
+                    out.sort(key=lambda r: r.SequenceNumber)
+                except Exception:
+                    pass
+                return out
+
+            def _rev_info(r):
+                info = {'id': eid_value(r.Id)}
+                for key, attr in (('sequence', 'SequenceNumber'),
+                                  ('description', 'Description'),
+                                  ('date', 'RevisionDate'),
+                                  ('issued', 'Issued'),
+                                  ('issued_by', 'IssuedBy'),
+                                  ('issued_to', 'IssuedTo')):
+                    try:
+                        info[key] = getattr(r, attr)
+                    except Exception:
+                        info[key] = None
+                return info
+
+            if op == 'list':
+                revs = [_rev_info(r) for r in _revisions()]
+                return {'count': len(revs), 'revisions': revs}
+
+            if op == 'create':
+                t = Transaction(doc, 'T3Lab AI Create Revision')
+                t.Start()
+                try:
+                    rev = Revision.Create(doc)
+                    for attr, key in (('Description', 'description'),
+                                      ('RevisionDate', 'date'),
+                                      ('IssuedBy', 'issued_by'),
+                                      ('IssuedTo', 'issued_to')):
+                        val = arguments.get(key)
+                        if val:
+                            try:
+                                setattr(rev, attr, u'{}'.format(val))
+                            except Exception:
+                                pass
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op,
+                        'revision': _rev_info(rev)}
+
+            # assign_to_sheets / set_issued both need a target revision.
+            target = None
+            rid = arguments.get('revision_id')
+            revs = _revisions()
+            if rid is not None:
+                for r in revs:
+                    if eid_value(r.Id) == int(rid):
+                        target = r
+                        break
+            elif revs:
+                target = revs[-1]      # most recent
+            if target is None:
+                return {'error': 'No revision found.',
+                        'hint': 'Call operation "list", or "create" one first.'}
+
+            if op == 'set_issued':
+                want = arguments.get('issued')
+                want = True if want is None else bool(want)
+                t = Transaction(doc, 'T3Lab AI Set Revision Issued')
+                t.Start()
+                try:
+                    for attr, key in (('IssuedBy', 'issued_by'),
+                                      ('IssuedTo', 'issued_to')):
+                        val = arguments.get(key)
+                        if val:
+                            try:
+                                setattr(target, attr, u'{}'.format(val))
+                            except Exception:
+                                pass
+                    target.Issued = want
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op,
+                        'revision': _rev_info(target)}
+
+            # assign_to_sheets
+            wanted_nums = set(u'{}'.format(n).strip().lower()
+                              for n in (arguments.get('sheet_numbers') or []))
+            wanted_ids = set()
+            for i in (arguments.get('sheet_ids') or []):
+                try:
+                    wanted_ids.add(int(i))
+                except (TypeError, ValueError):
+                    continue
+            if not wanted_nums and not wanted_ids:
+                return {'error': 'assign_to_sheets needs sheet_numbers or sheet_ids.'}
+            sheets = []
+            for s in FilteredElementCollector(doc).OfClass(ViewSheet):
+                try:
+                    if (u'{}'.format(s.SheetNumber).strip().lower() in wanted_nums
+                            or eid_value(s.Id) in wanted_ids):
+                        sheets.append(s)
+                except Exception:
+                    continue
+            if not sheets:
+                return {'error': 'No matching sheets found.',
+                        'hint': 'Call revit_list_sheets for the exact numbers.'}
+            t = Transaction(doc, 'T3Lab AI Assign Revision To Sheets')
+            t.Start()
+            done, failed = [], []
+            try:
+                for s in sheets:
+                    try:
+                        existing = list(s.GetAdditionalRevisionIds())
+                        if target.Id not in existing:
+                            existing.append(target.Id)
+                            s.SetAdditionalRevisionIds(List[ElementId](existing))
+                        done.append(s.SheetNumber)
+                    except Exception as ex:
+                        failed.append({'sheet': s.SheetNumber, 'error': str(ex)})
+                t.Commit()
+            except Exception as e:
+                t.RollBack()
+                return {'error': str(e)}
+            res = {'success': bool(done), 'operation': op,
+                   'revision_id': eid_value(target.Id),
+                   'sheets': done, 'count': len(done)}
+            if failed:
+                res['failed'] = failed
+            return res
+
+        # ── manage_sheet ─────────────────────────────────────────────────────
+        elif tool_name == 'manage_sheet':
+            from Autodesk.Revit.DB import Transaction, ViewSheet, ViewSheetSet
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('duplicate', 'renumber', 'list_sets'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['duplicate', 'renumber',
+                                                 'list_sets'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            if op == 'list_sets':
+                # Read-only. Creating/editing print sets has to go through
+                # PrintManager global state, which is too version-sensitive to
+                # promise without testing on every supported Revit.
+                sets = []
+                for ss in FilteredElementCollector(doc).OfClass(ViewSheetSet):
+                    try:
+                        sets.append({'name': ss.Name, 'id': eid_value(ss.Id),
+                                     'view_count': len(list(ss.Views))})
+                    except Exception:
+                        continue
+                return {'count': len(sets), 'sheet_sets': sets}
+
+            wanted_nums = set(u'{}'.format(n).strip().lower()
+                              for n in (arguments.get('sheet_numbers') or []))
+            wanted_ids = set()
+            for i in (arguments.get('sheet_ids') or []):
+                try:
+                    wanted_ids.add(int(i))
+                except (TypeError, ValueError):
+                    continue
+            if not wanted_nums and not wanted_ids:
+                return {'error': "Operation '{}' needs sheet_numbers or "
+                                 "sheet_ids.".format(op)}
+            sheets = []
+            for s in FilteredElementCollector(doc).OfClass(ViewSheet):
+                try:
+                    if (u'{}'.format(s.SheetNumber).strip().lower() in wanted_nums
+                            or eid_value(s.Id) in wanted_ids):
+                        sheets.append(s)
+                except Exception:
+                    continue
+            if not sheets:
+                return {'error': 'No matching sheets found.',
+                        'hint': 'Call revit_list_sheets for the exact numbers.'}
+
+            if op == 'duplicate':
+                from Autodesk.Revit.DB import ViewDuplicateOption
+                t = Transaction(doc, 'T3Lab AI Duplicate Sheet')
+                t.Start()
+                done, failed = [], []
+                try:
+                    for s in sheets:
+                        try:
+                            new_id = s.Duplicate(ViewDuplicateOption.Duplicate)
+                            new_sheet = doc.GetElement(new_id)
+                            done.append({'from': s.SheetNumber,
+                                         'new_id': eid_value(new_id),
+                                         'new_number': new_sheet.SheetNumber})
+                        except Exception as ex:
+                            failed.append({'sheet': s.SheetNumber,
+                                           'error': str(ex)})
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                res = {'success': bool(done), 'operation': op,
+                       'duplicated': done, 'count': len(done)}
+                if failed:
+                    res['failed'] = failed
+                return res
+
+            # renumber
+            new_number = (arguments.get('new_number') or '').strip()
+            prefix = (arguments.get('prefix') or '').strip()
+            if not new_number and not prefix:
+                return {'error': 'renumber needs `new_number` (one sheet) or '
+                                 '`prefix` (several).'}
+            if new_number and len(sheets) != 1:
+                return {'error': '`new_number` renames exactly one sheet, but {} '
+                                 'matched. Use `prefix` for a batch.'.format(len(sheets))}
+            try:
+                start_at = int(arguments.get('start_at', 1))
+            except (TypeError, ValueError):
+                start_at = 1
+            t = Transaction(doc, 'T3Lab AI Renumber Sheets')
+            t.Start()
+            done, failed = [], []
+            try:
+                for offset, s in enumerate(sheets):
+                    old = s.SheetNumber
+                    target_num = (new_number if new_number
+                                  else '{}{}'.format(prefix, start_at + offset))
+                    try:
+                        s.SheetNumber = target_num
+                        done.append({'from': old, 'to': target_num})
+                    except Exception as ex:
+                        # Duplicate sheet numbers are the usual cause and Revit
+                        # says so obscurely — keep going with the rest.
+                        failed.append({'sheet': old, 'wanted': target_num,
+                                       'error': str(ex)})
+                t.Commit()
+            except Exception as e:
+                t.RollBack()
+                return {'error': str(e)}
+            res = {'success': bool(done), 'operation': op,
+                   'renumbered': done, 'count': len(done)}
+            if failed:
+                res['failed'] = failed
+            return res
+
+        # ── export_model ─────────────────────────────────────────────────────
+        elif tool_name == 'export_model':
+            fmt = (arguments.get('format') or '').lower()
+            if fmt not in ('ifc', 'nwc', 'dwf', 'dgn'):
+                return {'error': "Unknown format '{}'.".format(fmt),
+                        'supported_formats': ['ifc', 'nwc', 'dwf', 'dgn'],
+                        'hint': ('Retry with one of supported_formats. PDF is '
+                                 'export_sheets_pdf, DWG is export_dwg, PNG is '
+                                 'export_image.')}
+            out_dir = arguments.get('output_folder')
+            if not out_dir:
+                out_dir = (os.path.dirname(doc.PathName) if doc.PathName
+                           else os.path.expanduser('~'))
+            if not os.path.isdir(out_dir):
+                try:
+                    os.makedirs(out_dir)
+                except Exception as e:
+                    return {'error': 'Cannot use output folder {}: {}'.format(
+                        out_dir, e)}
+            base = (arguments.get('filename') or '').strip()
+            if not base:
+                base = (os.path.splitext(os.path.basename(doc.PathName))[0]
+                        if doc.PathName else 'T3Lab_Export')
+            for ch in '\\/:*?"<>|':
+                base = base.replace(ch, '_')
+
+            if fmt == 'ifc':
+                try:
+                    from Autodesk.Revit.DB import (IFCExportOptions, IFCVersion,
+                                                   Transaction)
+                except ImportError:
+                    return {'error': 'This Revit has no IFC exporter — install '
+                                     'the Autodesk IFC exporter add-in, then retry.'}
+                opts = IFCExportOptions()
+                ver = (arguments.get('ifc_version') or 'IFC2x3')
+                try:
+                    opts.FileVersion = getattr(IFCVersion, ver)
+                except Exception:
+                    opts.FileVersion = IFCVersion.IFC2x3
+                    ver = 'IFC2x3'
+                try:
+                    opts.WallAndColumnSplitting = True
+                except Exception:
+                    pass
+                # IFC is the ONLY export that must run inside a Transaction.
+                t = Transaction(doc, 'T3Lab AI Export IFC')
+                t.Start()
+                try:
+                    doc.Export(out_dir, base, opts)
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'format': fmt, 'ifc_version': ver,
+                        'folder': out_dir, 'file': base + '.ifc'}
+
+            if fmt == 'nwc':
+                try:
+                    from Autodesk.Revit.DB import (NavisworksExportOptions,
+                                                   NavisworksExportScope)
+                except ImportError:
+                    return {'error': 'This Revit has no Navisworks exporter — '
+                                     'install the Navisworks Exporter add-in, '
+                                     'then retry.'}
+                opts = NavisworksExportOptions()
+                try:
+                    opts.ExportScope = NavisworksExportScope.View
+                    opts.ViewId = doc.ActiveView.Id
+                except Exception:
+                    pass
+                try:
+                    doc.Export(out_dir, base, opts)
+                except Exception as e:
+                    return {'error': str(e)}
+                return {'success': True, 'format': fmt, 'folder': out_dir,
+                        'file': base + '.nwc', 'view': doc.ActiveView.Name}
+
+            # dwf / dgn — sheet/view based
+            from Autodesk.Revit.DB import ViewSet, ViewSheet
+            views = ViewSet()
+            wanted_nums = set(u'{}'.format(n).strip().lower()
+                              for n in (arguments.get('sheet_numbers') or []))
+            picked = []
+            if wanted_nums:
+                for s in FilteredElementCollector(doc).OfClass(ViewSheet):
+                    try:
+                        if u'{}'.format(s.SheetNumber).strip().lower() in wanted_nums:
+                            views.Insert(s)
+                            picked.append(s.SheetNumber)
+                    except Exception:
+                        continue
+                if not picked:
+                    return {'error': 'None of those sheet numbers exist.',
+                            'hint': 'Call revit_list_sheets for the exact numbers.'}
+            else:
+                views.Insert(doc.ActiveView)
+                picked.append(doc.ActiveView.Name)
+
+            try:
+                if fmt == 'dwf':
+                    from Autodesk.Revit.DB import DWFExportOptions
+                    opts = DWFExportOptions()
+                else:
+                    from Autodesk.Revit.DB import DGNExportOptions
+                    opts = DGNExportOptions()
+                doc.Export(out_dir, base, views, opts)
+            except Exception as e:
+                return {'error': str(e)}
+            return {'success': True, 'format': fmt, 'folder': out_dir,
+                    'file': base + '.' + fmt, 'exported': picked,
+                    'count': len(picked)}
+
+        # ── check_bad_geometry ───────────────────────────────────────────────
+        elif tool_name == 'check_bad_geometry':
+            import time as _time
+            from Autodesk.Revit.DB import View
+            # Same probe the badgeometry preflight check runs — one source of
+            # truth for the geometry that kills the PDF/DWG exporter.
+            from Snippets._geometry_probe import probe_element
+            from Snippets._compat import elem_name
+
+            deep = bool(arguments.get('deep_probe'))
+            try:
+                limit = int(arguments.get('limit', 40))
+            except (TypeError, ValueError):
+                limit = 40
+            limit = max(1, min(limit, 200))
+
+            views = []
+            for i in (arguments.get('view_ids') or []):
+                try:
+                    v = doc.GetElement(make_eid(int(i)))
+                except Exception:
+                    v = None
+                if isinstance(v, View):
+                    views.append(v)
+            if not views:
+                views = [doc.ActiveView]
+
+            collector_cat = None
+            cat_arg = arguments.get('category')
+            if cat_arg:
+                bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+                if _cat_err:
+                    return _cat_err
+                collector_cat = bic
+
+            # The HTTP worker must not hang: stop cleanly and say so.
+            BUDGET_SEC = 25.0
+            started = _time.time()
+            findings = []
+            probed = 0
+            timed_out = False
+            for v in views:
+                if timed_out:
+                    break
+                try:
+                    col = FilteredElementCollector(doc, v.Id)
+                    if collector_cat is not None:
+                        col = col.OfCategory(collector_cat)
+                    elements = list(col.WhereElementIsNotElementType().ToElements())
+                except Exception as ex:
+                    findings.append({'view': v.Name, 'error': str(ex)})
+                    continue
+                for el in elements:
+                    if _time.time() - started > BUDGET_SEC:
+                        timed_out = True
+                        break
+                    probed += 1
+                    try:
+                        problems = probe_element(el, v, deep_probe=deep)
+                    except Exception as ex:
+                        problems = ['probe failed: {}'.format(ex)]
+                    if problems:
+                        try:
+                            cat_name = el.Category.Name if el.Category else None
+                        except Exception:
+                            cat_name = None
+                        findings.append({'id': eid_value(el.Id),
+                                         'name': elem_name(el),
+                                         'category': cat_name,
+                                         'view': v.Name,
+                                         'problems': problems[:6]})
+                        if len(findings) >= limit:
+                            timed_out = False
+                            break
+                if len(findings) >= limit:
+                    break
+
+            res = {'views_scanned': [v.Name for v in views],
+                   'elements_probed': probed,
+                   'suspect_count': len(findings),
+                   'deep_probe': deep,
+                   'findings': findings}
+            if timed_out:
+                res['truncated'] = True
+                res['note'] = ('Stopped after {}s to keep the connection alive — '
+                               'narrow the scan with `category`, or scan one view '
+                               'at a time.'.format(int(BUDGET_SEC)))
+            elif not findings:
+                res['note'] = ('No degenerate geometry found. If an export still '
+                               'crashes, re-run with deep_probe=true — but note '
+                               'that probe can itself crash Revit.')
+            return res
+
+        # ── manage_material ──────────────────────────────────────────────────
+        elif tool_name == 'manage_material':
+            from Autodesk.Revit.DB import Material
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('list', 'get_element_materials'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['list', 'get_element_materials'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            if op == 'list':
+                needle = (arguments.get('name_filter') or '').strip().lower()
+                mats = []
+                for m in FilteredElementCollector(doc).OfClass(Material):
+                    try:
+                        nm = m.Name
+                        if needle and needle not in nm.lower():
+                            continue
+                        mats.append({'name': nm, 'id': eid_value(m.Id)})
+                    except Exception:
+                        continue
+                mats.sort(key=lambda d: d['name'])
+                return {'count': len(mats), 'materials': mats,
+                        'hint': 'To assign one, pass its id to bulk_set_parameter '
+                                'on the element material parameter.'}
+
+            # get_element_materials
+            ids = arguments.get('element_ids') or []
+            cat_arg = arguments.get('category')
+            if ids:
+                targets = [doc.GetElement(make_eid(int(i))) for i in ids]
+            elif cat_arg:
+                bic, cat_arg, _cat_err = self._resolve_bic(cat_arg)
+                if _cat_err:
+                    return _cat_err
+                targets = list(FilteredElementCollector(doc, doc.ActiveView.Id)
+                               .OfCategory(bic).WhereElementIsNotElementType()
+                               .ToElements())
+            else:
+                targets = [doc.GetElement(i)
+                           for i in uidoc.Selection.GetElementIds()]
+            targets = [t for t in targets if t is not None]
+            if not targets:
+                return {'error': 'No elements to inspect — pass element_ids or '
+                                 'category, or select something in Revit.'}
+
+            out = []
+            for el in targets:
+                entry = {'id': eid_value(el.Id), 'materials': []}
+                try:
+                    # False = non-paint materials (the real assignment).
+                    for mid in el.GetMaterialIds(False):
+                        mat = doc.GetElement(mid)
+                        if mat is not None:
+                            entry['materials'].append(
+                                {'name': mat.Name, 'id': eid_value(mid)})
+                except Exception as ex:
+                    entry['error'] = str(ex)
+                out.append(entry)
+            return {'count': len(out), 'elements': out}
+
+        # ── create_detail_annotation ─────────────────────────────────────────
+        elif tool_name == 'create_detail_annotation':
+            from Autodesk.Revit.DB import (Transaction, XYZ, Line, CurveLoop,
+                                           FilledRegion, FilledRegionType,
+                                           ElementTypeGroup, View)
+            from System.Collections.Generic import List as NetList
+            from Snippets._compat import elem_name
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('filled_region', 'detail_line'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['filled_region', 'detail_line'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            M2FT = 3.28084
+            view = doc.ActiveView
+            vid = arguments.get('view_id')
+            if vid is not None:
+                cand = doc.GetElement(make_eid(int(vid)))
+                if not isinstance(cand, View):
+                    return {'error': 'view_id does not refer to a view.'}
+                view = cand
+            try:
+                if view.ViewType.ToString() in ('ThreeD', 'Schedule'):
+                    return {'error': 'Detail annotation cannot be drawn in a {} '
+                                     'view.'.format(view.ViewType)}
+            except Exception:
+                pass
+
+            if op == 'detail_line':
+                start = arguments.get('start')
+                end = arguments.get('end')
+                try:
+                    p1 = XYZ(float(start[0]) * M2FT, float(start[1]) * M2FT, 0)
+                    p2 = XYZ(float(end[0]) * M2FT, float(end[1]) * M2FT, 0)
+                except (TypeError, ValueError, IndexError):
+                    return {'error': 'detail_line needs `start` and `end` as '
+                                     '[x, y] pairs in meters.'}
+                if p1.DistanceTo(p2) < 1e-6:
+                    return {'error': 'start and end are the same point.'}
+                t = Transaction(doc, 'T3Lab AI Create Detail Line')
+                t.Start()
+                try:
+                    curve = doc.Create.NewDetailCurve(view, Line.CreateBound(p1, p2))
+                    t.Commit()
+                except Exception as e:
+                    t.RollBack()
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op,
+                        'element_id': eid_value(curve.Id), 'view': view.Name}
+
+            # filled_region
+            pts = arguments.get('boundary_points') or []
+            if len(pts) < 3:
+                return {'error': 'filled_region needs at least 3 boundary_points '
+                                 '([[x, y], ...] in meters).'}
+            try:
+                xyz = [XYZ(float(p[0]) * M2FT, float(p[1]) * M2FT, 0) for p in pts]
+            except (TypeError, ValueError, IndexError):
+                return {'error': 'boundary_points must be [[x, y], ...] numbers '
+                                 'in meters.'}
+
+            type_name = (arguments.get('type_name') or '').strip()
+            frt_id = None
+            if type_name:
+                for frt in FilteredElementCollector(doc).OfClass(FilledRegionType):
+                    if elem_name(frt) == type_name:
+                        frt_id = frt.Id
+                        break
+                if frt_id is None:
+                    return {'error': "No filled region type named '{}'.".format(
+                                type_name),
+                            'available_types': [
+                                elem_name(f) for f in
+                                FilteredElementCollector(doc)
+                                .OfClass(FilledRegionType)][:20]}
+            else:
+                try:
+                    frt_id = doc.GetDefaultElementTypeId(
+                        ElementTypeGroup.FilledRegionType)
+                except Exception:
+                    frt_id = None
+                if frt_id is None or eid_value(frt_id) == -1:
+                    first = FilteredElementCollector(doc).OfClass(
+                        FilledRegionType).FirstElement()
+                    if first is None:
+                        return {'error': 'This project has no filled region type.'}
+                    frt_id = first.Id
+
+            t = Transaction(doc, 'T3Lab AI Create Filled Region')
+            t.Start()
+            try:
+                loop = CurveLoop()
+                for i in range(len(xyz)):
+                    a = xyz[i]
+                    b = xyz[(i + 1) % len(xyz)]   # closes the loop
+                    if a.DistanceTo(b) > 1e-6:
+                        loop.Append(Line.CreateBound(a, b))
+                loops = NetList[CurveLoop]()
+                loops.Add(loop)
+                region = FilledRegion.Create(doc, frt_id, view.Id, loops)
+                t.Commit()
+            except Exception as e:
+                t.RollBack()
+                return {'error': str(e)}
+            return {'success': True, 'operation': op,
+                    'element_id': eid_value(region.Id), 'view': view.Name,
+                    'points': len(xyz)}
+
+        # ── manage_document ──────────────────────────────────────────────────
+        elif tool_name == 'manage_document':
+            # NOTE: this tool must NOT run inside a Transaction or a
+            # TransactionGroup — Save/SaveAs/SynchronizeWithCentral all throw if
+            # one is open. It is therefore listed in the assistant's
+            # _group_exempt set as well as in _WRITE_TOOLS.
+            op = (arguments.get('operation') or '').lower()
+            if op not in ('save', 'save_as', 'sync_with_central'):
+                return {'error': 'Unknown operation: {}'.format(op),
+                        'supported_operations': ['save', 'save_as',
+                                                 'sync_with_central'],
+                        'hint': 'Retry with one of supported_operations.'}
+
+            if op == 'save':
+                if doc.IsFamilyDocument and not doc.PathName:
+                    return {'error': 'This document has never been saved, so it '
+                                     'has no path — use save_as with a path.'}
+                if not doc.PathName:
+                    return {'error': 'This document has no path yet — use '
+                                     'save_as with a full .rvt path.'}
+                try:
+                    doc.Save()
+                except Exception as e:
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op, 'path': doc.PathName}
+
+            if op == 'save_as':
+                from Autodesk.Revit.DB import SaveAsOptions
+                path = (arguments.get('path') or '').strip()
+                if not path:
+                    return {'error': 'save_as requires `path` (a full .rvt path).'}
+                if not path.lower().endswith('.rvt'):
+                    return {'error': 'save_as `path` must end in .rvt.'}
+                folder = os.path.dirname(path)
+                if folder and not os.path.isdir(folder):
+                    return {'error': 'Folder does not exist: {}'.format(folder)}
+                overwrite = bool(arguments.get('overwrite'))
+                if os.path.exists(path) and not overwrite:
+                    return {'error': 'A file already exists at {}.'.format(path),
+                            'hint': 'Pass overwrite=true only if replacing it is '
+                                    'really intended.'}
+                opts = SaveAsOptions()
+                try:
+                    opts.OverwriteExistingFile = overwrite
+                except Exception:
+                    pass
+                try:
+                    doc.SaveAs(path, opts)
+                except Exception as e:
+                    return {'error': str(e)}
+                return {'success': True, 'operation': op, 'path': path,
+                        'overwrote': overwrite}
+
+            # sync_with_central — the most consequential thing this server does.
+            if not doc.IsWorkshared:
+                return {'error': 'This model is not workshared, so there is no '
+                                 'central file to synchronise with. Use "save".'}
+            comment = (arguments.get('comment') or '').strip()
+            if not comment:
+                return {'error': 'sync_with_central requires a non-empty '
+                                 '`comment` — it is recorded in the team\'s '
+                                 'synchronisation history.'}
+            # Opt-in gate: OFF unless the user turned it on in settings.
+            allowed = False
+            try:
+                from config.settings import get_settings
+                allowed = get_settings().is_sync_with_central_allowed()
+            except Exception:
+                allowed = False
+            if not allowed:
+                return {'error': 'Synchronising with central from the assistant '
+                                 'is disabled.',
+                        'hint': 'Turn on "allow_sync_with_central" in T3Lab '
+                                'settings first, or sync from Revit\'s own '
+                                'Collaborate tab.',
+                        'setting': 'agents.allow_sync_with_central'}
+            try:
+                from Autodesk.Revit.DB import (TransactWithCentralOptions,
+                                               SynchronizeWithCentralOptions,
+                                               RelinquishOptions)
+                relinquish = arguments.get('relinquish')
+                relinquish = True if relinquish is None else bool(relinquish)
+                swc = SynchronizeWithCentralOptions()
+                swc.Comment = comment
+                try:
+                    # Compacting a central file mid-sync is slow and risky.
+                    swc.Compact = False
+                except Exception:
+                    pass
+                if relinquish:
+                    rel = RelinquishOptions(False)
+                    rel.UserWorksets = True
+                    rel.StandardWorksets = True
+                    rel.ViewWorksets = True
+                    rel.FamilyWorksets = True
+                    swc.SetRelinquishOptions(rel)
+                doc.SynchronizeWithCentral(TransactWithCentralOptions(), swc)
+            except Exception as e:
+                return {'error': str(e)}
+            return {'success': True, 'operation': op, 'comment': comment,
+                    'relinquished': relinquish, 'path': doc.PathName}
+
         # ── color_elements ───────────────────────────────────────────────────
         elif tool_name == 'color_elements':
             from Autodesk.Revit.DB import (Color, OverrideGraphicSettings, Transaction,
@@ -4499,14 +6316,7 @@ class T3LabAIServer(object):
                 return _cat_err
             collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
 
-            # Find solid fill pattern (InvalidElementId sentinel — ElementId(-1)
-            # crashes on Revit 2025+, see revit_override_color above)
-            solid_id = ElementId.InvalidElementId
-            for fp in FilteredElementCollector(doc).OfClass(FillPatternElement):
-                pat = fp.GetFillPattern()
-                if pat and pat.IsSolidFill:
-                    solid_id = fp.Id
-                    break
+            solid_id = self._solid_fill_id(doc)
 
             # Group elements by param value
             groups = {}

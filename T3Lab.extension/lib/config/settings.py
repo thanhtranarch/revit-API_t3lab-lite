@@ -312,6 +312,22 @@ class T3LabAISettings(object):
         """
         return bool(self._settings.get('agents', {}).get('quality_mode', False))
 
+    def is_sync_with_central_allowed(self):
+        """Whether the assistant may synchronise with central (default OFF).
+
+        Deliberately opt-in: a sync publishes the user's work to everyone on
+        the project, can run for minutes, and relinquishes worksets. Every
+        other model edit is local and undoable; this one is neither, so it
+        needs a decision the user made once, on purpose, outside the chat.
+        """
+        return bool(self._settings.get('agents', {}).get(
+            'allow_sync_with_central', False))
+
+    def set_sync_with_central_allowed(self, allowed):
+        def _m(s):
+            s.setdefault('agents', {})['allow_sync_with_central'] = bool(allowed)
+        return self._update(_m)
+
     def get_action_mode(self):
         """Harness action mode for model-editing tools.
 

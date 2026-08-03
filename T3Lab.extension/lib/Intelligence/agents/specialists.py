@@ -24,6 +24,7 @@ from __future__ import unicode_literals
 # ─── Tool subsets (validated against tool_schema.ESSENTIAL_TOOL_NAMES) ───────
 
 READ_TOOLS = frozenset([
+    "check_bad_geometry", "manage_material",
     "get_revit_context", "revit_get_project_info", "revit_get_active_view",
     "get_current_view_info", "get_current_view_elements",
     "revit_get_selected_elements", "revit_get_element_info",
@@ -38,18 +39,21 @@ READ_TOOLS = frozenset([
 MODIFY_TOOLS = frozenset([
     "set_parameter", "bulk_set_parameter", "rename_element",
     "select_elements", "color_elements", "revit_override_color",
-    # operate_element carries hide/isolate/unhide/reset_color AND pin/unpin.
-    # Leaving it out of this subset left the ACTION specialist with no way to
-    # pin or hide anything, and the model answered "pin all walls" with the
-    # nearest tool it COULD see (revit_override_color) — a silent wrong action.
-    "operate_element",
+    # Multi-operation tools. Leaving operate_element out of this subset left the
+    # ACTION specialist with no way to pin or hide anything, and the model
+    # answered "pin all walls" with the nearest tool it COULD see
+    # (revit_override_color) — a silent wrong action. Any tool with an
+    # `operation` enum belongs here; dev/test_tool_registry.py enforces it.
+    "operate_element", "edit_elements", "manage_view", "manage_view_template",
+    "manage_links", "manage_revision", "manage_sheet",
+    "manage_material", "create_detail_annotation", "manage_document",
     "set_active_view", "create_text_note", "tag_elements",
     "tag_all_rooms", "tag_all_walls", "move_elements", "delete_element",
     "create_sheet", "add_view_to_sheet", "duplicate_view",
 ])
 
 EXPORT_TOOLS = frozenset([
-    "export_sheets_pdf", "export_dwg", "export_image",
+    "export_sheets_pdf", "export_dwg", "export_image", "export_model",
 ])
 
 ACTION_TOOLS = READ_TOOLS | MODIFY_TOOLS | EXPORT_TOOLS
@@ -75,6 +79,9 @@ MODELING_TOOLS = READ_TOOLS | frozenset([
 QA_TOOLS = READ_TOOLS | frozenset([
     "select_elements", "color_elements", "revit_override_color",
     "audit_model", "purge_unused", "create_view_filter",
+    # Degenerate geometry is the top cause of export crashes in this codebase,
+    # so a QA turn must be able to look for it.
+    "check_bad_geometry", "manage_links", "manage_material",
 ])
 
 

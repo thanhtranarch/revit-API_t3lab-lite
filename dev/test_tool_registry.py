@@ -172,8 +172,15 @@ def _dispatch_branches():
 
 BRANCHES = _dispatch_branches()
 
-# Names that are deliberately not public registry entries.
-INTERNAL_TOOLS = {'__begin_action_group', '__end_action_group'}
+# Names that are deliberately not public registry entries: pseudo-tools the
+# assistant calls directly through srv._execute_tool, never advertised to a
+# model. Adding a name here is a decision, not a workaround — an unlisted
+# branch means a tool that no provider can ever reach.
+INTERNAL_TOOLS = {
+    '__begin_action_group',      # opens the per-request TransactionGroup
+    '__end_action_group',
+    'collect_spellcheck_text',   # feeds the /english-spellcheck pipeline
+}
 
 # Fields whose value the dispatch switches on. A free-text value here is how
 # "asked for a section, silently got a 3D view" happens.
@@ -238,16 +245,58 @@ def test_every_switch_field_has_an_enum():
     check('every dispatch-switch field declares an enum', not bare, bare)
 
 
+_IMPORT_IN_BRANCH = re.compile(
+    r'from\s+((?:core|Snippets|Services|Intelligence)\.[A-Za-z_.]+)\s+import')
+
+
+def _branch_and_delegates(tool):
+    """Branch source, plus the source of any repo module it delegates to.
+
+    Several branches are thin wrappers — `create_view` hands the whole view-type
+    table to core.advanced_view_manager.create_single_view so the ribbon tool
+    and the MCP tool can't drift apart. Searching only the branch text would
+    punish exactly the sharing this refactor was for.
+    """
+    branch = BRANCHES.get(tool, '')
+    text = [branch]
+    for module in set(_IMPORT_IN_BRANCH.findall(branch)):
+        path = os.path.join(LIB, *module.split('.')) + '.py'
+        if os.path.isfile(path):
+            text.append(_read(path))
+    return _strip_comments('\n'.join(text))
+
+
+def _strip_comments(src):
+    """Drop whole-line comments — a value named in prose is not an implementation.
+
+    (Learned the hard way: a comment explaining that view types are ".NET names
+    like FloorPlan" made the checker believe FloorPlan had a branch.)
+    """
+    return '\n'.join(l for l in src.splitlines() if not l.lstrip().startswith('#'))
+
+
 def test_every_enum_value_appears_in_its_dispatch():
-    """An advertised enum value with no branch is a promise the server cannot
-    keep — the model calls it and gets an unknown-operation error at best."""
+    """PARTIALLY implemented enums are the danger: `edit_elements` advertising
+    mirror/group/ungroup/array while only three have branches means the model
+    calls array and the server does nothing useful.
+
+    A field where NO value appears in the source is a different animal — a data
+    filter matched against runtime values (revit_list_views.view_type compares
+    to str(view.ViewType)), which has no per-value branch by design. Requiring
+    branches there would be wrong, so the rule is "all or nothing": once a field
+    branches on ANY of its values, it must branch on all of them.
+    """
     orphans = []
     for tool, field, prop in _switch_props():
-        branch = BRANCHES.get(tool, '')
-        for value in prop.get('enum') or []:
-            if "'{}'".format(value) not in branch and '"{}"'.format(value) not in branch:
-                orphans.append('{}.{}={}'.format(tool, field, value))
-    check('every advertised enum value exists in the dispatch',
+        src = _branch_and_delegates(tool)
+        values = prop.get('enum') or []
+        found = [v for v in values
+                 if "'{}'".format(v) in src or '"{}"'.format(v) in src]
+        if not found:
+            continue                      # runtime-matched filter, not a switch
+        missing = [v for v in values if v not in found]
+        orphans.extend('{}.{}={}'.format(tool, field, v) for v in missing)
+    check('every advertised enum value is implemented',
           not orphans, orphans)
 
 
@@ -385,6 +434,45 @@ def test_prompt_names_every_multiop_tool():
     check('agent prompt names every multi-operation tool', not missing, missing)
 
 
+def test_destructive_declaration_is_real():
+    """_DESTRUCTIVE_TOOLS / _DESTRUCTIVE_OPS gate the confirmation dialog. A
+    typo there means an irreversible action runs with no prompt."""
+    bad = {}
+    tools = _class_attr_set(_SERVER_SRC, 'T3LabAIServer', '_DESTRUCTIVE_TOOLS')
+    unknown = sorted(n for n in tools if n not in REGISTRY)
+    if unknown:
+        bad['_DESTRUCTIVE_TOOLS'] = unknown
+
+    tree = ast.parse(_SERVER_SRC)
+    ops_map = None
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == '_DESTRUCTIVE_OPS'
+                        for t in node.targets)):
+            ops_map = {}
+            for k, v in zip(node.value.keys, node.value.values):
+                key = ast.literal_eval(k)
+                if (isinstance(v, ast.Call) and isinstance(v.func, ast.Name)
+                        and v.func.id in ('frozenset', 'set')):
+                    ops_map[key] = set(ast.literal_eval(v.args[0]))
+                else:
+                    ops_map[key] = set(ast.literal_eval(v))
+    if ops_map is None:
+        bad['_DESTRUCTIVE_OPS'] = 'not found'
+    else:
+        for tool, ops in sorted(ops_map.items()):
+            if tool not in REGISTRY:
+                bad.setdefault('unknown tools', []).append(tool)
+                continue
+            props = (REGISTRY[tool].get('inputSchema') or {}).get('properties') or {}
+            declared = set((props.get('operation') or {}).get('enum') or [])
+            stray = sorted(ops - declared)
+            if stray:
+                bad.setdefault('unknown ops', []).append(
+                    '{}: {}'.format(tool, stray))
+    check('destructive declaration names real tools and operations', not bad, bad)
+
+
 def test_destructive_names_are_real_tools():
     """The confirmation gate and the TransactionGroup exemption are both keyed
     on hardcoded tool names in the assistant script."""
@@ -424,6 +512,7 @@ TESTS = [
     ]),
     ('prompt rules', [
         test_prompt_names_every_multiop_tool,
+        test_destructive_declaration_is_real,
         test_destructive_names_are_real_tools,
     ]),
 ]

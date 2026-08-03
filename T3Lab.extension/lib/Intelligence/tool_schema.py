@@ -116,12 +116,16 @@ ESSENTIAL_TOOL_NAMES = frozenset([
     # Modify
     "set_parameter", "bulk_set_parameter", "rename_element",
     "select_elements", "color_elements", "revit_override_color",
-    "operate_element",   # hide / isolate / unhide / reset_color / pin / unpin
+    "operate_element",   # hide / isolate / pin / halftone / select_similar / ...
+    "edit_elements",     # mirror / change_type / group / ungroup
+    "manage_view",       # scale / detail level / discipline / crop
     "set_active_view", "create_text_note", "tag_elements",
     "tag_all_rooms", "tag_all_walls", "move_elements", "delete_element",
     "create_sheet", "add_view_to_sheet", "duplicate_view",
+    "manage_links", "manage_sheet", "manage_revision", "manage_material",
+    "check_bad_geometry", "create_detail_annotation", "manage_document",
     # Export
-    "export_sheets_pdf", "export_dwg", "export_image",
+    "export_sheets_pdf", "export_dwg", "export_image", "export_model",
 ])
 
 

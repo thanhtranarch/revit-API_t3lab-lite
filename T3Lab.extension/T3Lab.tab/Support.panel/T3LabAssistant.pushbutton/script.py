@@ -6371,7 +6371,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
         _group_exempt = frozenset((
             'say_hello', 'show_assistant_pane', 'set_active_view',
             'select_elements', 'export_sheets_pdf', 'export_dwg',
-            'export_image', 'send_code_to_revit',
+            'export_image', 'send_code_to_revit', 'export_model',
+            # Save / SaveAs / SynchronizeWithCentral THROW if any transaction
+            # or transaction group is open, so this one must never be wrapped.
+            'manage_document',
+            # Main-thread-only but read-only — no transaction to group.
+            'check_bad_geometry',
             '__begin_action_group', '__end_action_group',
         ))
 
@@ -6412,9 +6417,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 purge["first_done"] = True
                 if not bool(args.get('dry_run', True)):
                     args['dry_run'] = True   # first pass is ALWAYS a report
-            destructive = (
-                name == 'delete_element'
-                or (name == 'purge_unused' and not bool(args.get('dry_run', True))))
+            # What counts as destructive is declared with the tools themselves
+            # (server._DESTRUCTIVE_TOOLS / _DESTRUCTIVE_OPS) so a new tool can
+            # opt in at the point of definition instead of needing an edit here.
+            destructive = srv.is_destructive(name, args)
             if destructive and not self._confirm_tool_blocking(name, args, viet):
                 return {"cancelled": True,
                         "note": "User declined the '{}' action.".format(name)}
