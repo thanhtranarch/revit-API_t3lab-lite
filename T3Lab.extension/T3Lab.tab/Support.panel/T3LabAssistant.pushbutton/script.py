@@ -128,20 +128,23 @@ except Exception as _theme_ex:                       # pragma: no cover
     logger.warning("RevitTheme unavailable, using light defaults: {}".format(
         _theme_ex))
     _theme = None
+    # Revit's light-theme greys — same values as RevitTheme._LIGHT, as RGB.
+    # Keep the two in step: this table is what paints the window when the theme
+    # module cannot be imported at all.
     _LIGHT_FALLBACK = {
-        'AppBg': (250, 249, 245), 'ChatBg': (250, 249, 245),
-        'ComposerBg': (250, 249, 245), 'CardBg': (255, 255, 255),
-        'CardBorder': (229, 227, 218), 'Divider': (234, 232, 224),
-        'PaneEdge': (220, 218, 209), 'UserBubbleBg': (240, 238, 230),
-        'UserBubbleText': (40, 39, 34), 'BotText': (61, 60, 56),
-        'Ink': (31, 30, 29), 'Muted': (111, 110, 104), 'Faint': (163, 161, 153),
-        'Accent': (217, 119, 87), 'AccentSoft': (246, 231, 223),
-        'Blue': (59, 130, 246), 'Success': (11, 138, 90), 'Danger': (210, 59, 59),
-        'Amber': (245, 158, 11), 'IconFg': (139, 137, 129),
-        'IconFgHover': (61, 60, 56), 'IconHoverBg': (239, 237, 229),
-        'InputText': (31, 30, 29), 'InputCaret': (31, 30, 29),
-        'CodeBg': (243, 241, 233), 'CodeFg': (31, 30, 29),
-        'ScrollThumb': (207, 204, 194), 'SelectedBg': (239, 237, 229),
+        'AppBg': (240, 240, 240), 'ChatBg': (255, 255, 255),
+        'ComposerBg': (240, 240, 240), 'CardBg': (255, 255, 255),
+        'CardBorder': (196, 196, 196), 'Divider': (217, 217, 217),
+        'PaneEdge': (166, 166, 166), 'UserBubbleBg': (219, 232, 246),
+        'UserBubbleText': (0, 0, 0), 'BotText': (28, 28, 28),
+        'Ink': (0, 0, 0), 'Muted': (92, 92, 92), 'Faint': (133, 133, 133),
+        'Accent': (10, 111, 179), 'AccentSoft': (214, 233, 247),
+        'Blue': (10, 111, 179), 'Success': (11, 122, 74), 'Danger': (196, 43, 28),
+        'Amber': (245, 158, 11), 'IconFg': (92, 92, 92),
+        'IconFgHover': (26, 26, 26), 'IconHoverBg': (228, 228, 228),
+        'InputText': (0, 0, 0), 'InputCaret': (0, 0, 0),
+        'CodeBg': (245, 245, 245), 'CodeFg': (28, 28, 28),
+        'ScrollThumb': (193, 193, 193), 'SelectedBg': (230, 230, 230),
     }
 
     def _trgb(token):
@@ -884,8 +887,8 @@ _ICON_ANALYZE = u""   # Analyze — fast-context "instant DB answer" badge
 _ICON_LIST    = u""   # List/reference — stats & selection section headers
 
 # Inline message-icon colours, read from the theme at import. The old fixed
-# slate #64748B was a cool grey that read as slightly blue against the warm
-# paper background, and turned near-invisible on a dark host.
+# slate #64748B ignored the host theme entirely and turned near-invisible on a
+# dark one.
 _ICON_BLUE  = _trgb('Blue')      # info / discovery
 _ICON_AMBER = _trgb('Amber')     # warning
 _ICON_GREEN = _trgb('Success')   # success
@@ -3963,9 +3966,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             b.Content = label
             # ComposerChipBtn, not the shared PrimaryButton / SecondaryButton.
             # Those come from the auto-synced Lumina block and are pinned to
-            # #0F172A: on this warm-paper surface they read as foreign, and in
-            # Revit's dark theme SecondaryButton paints near-black text on a
-            # near-black panel — invisible. The chip style is theme-bound.
+            # #0F172A, which follows no theme at all: in Revit's dark theme
+            # SecondaryButton paints near-black text on a near-black panel —
+            # invisible. The chip style is theme-bound.
             try:
                 b.Style = self.FindResource("ComposerChipBtn")
             except Exception:
@@ -7774,7 +7777,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         body.Text         = u"`{}` — {}".format(name, args_s)
         body.FontSize     = 11.5
         body.TextWrapping = TextWrapping.Wrap
-        _bind_fg(body, 'BotText')
+        # Fixed ink, not a theme token. This card stays light red in BOTH
+        # themes on purpose (a destructive prompt has to shout), so token text
+        # inverts with the host and disappears on it: BotText is #E4E4E4 in
+        # Revit's dark theme — near-white on #FEF2F2.
+        body.Foreground   = SolidColorBrush(Color.FromRgb(63, 63, 63))   # #3F3F3F
         body.Margin       = Thickness(0, 4, 0, 8)
         panel.Children.Add(body)
 
@@ -7783,7 +7790,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         status_tb = TextBlock()
         status_tb.FontSize   = 11.5
-        _bind_fg(status_tb, 'Muted')
+        # Same reason as `body` above — fixed card, fixed ink.
+        status_tb.Foreground = SolidColorBrush(Color.FromRgb(140, 106, 106))  # #8C6A6A
         status_tb.Margin     = Thickness(10, 5, 0, 0)
         status_tb.Visibility = Visibility.Collapsed
 
@@ -7800,10 +7808,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
             b.BorderThickness = Thickness(0)
             return b
 
+        # Fixed colours, like the card itself — the two buttons live on a
+        # surface that does not follow the host, so theme tokens read wrong on
+        # it in dark mode (CardBg is a mid grey there: grey label on a red
+        # button, 2.1:1; Ink is white: white label on a light grey button).
         ok_btn = _mk_btn(u"Confirm" if viet else u"Confirm",
-                         _theme_color('Danger'), _theme_color('CardBg'))
+                         Color.FromRgb(196, 43, 28),      # #C42B1C
+                         Color.FromRgb(255, 255, 255))
         no_btn = _mk_btn(u"Cancel" if viet else u"Cancel",
-                         _theme_color('SelectedBg'), _theme_color('Ink'))
+                         Color.FromRgb(230, 230, 230),    # #E6E6E6
+                         Color.FromRgb(63, 63, 63))       # #3F3F3F
 
         def _seal(msg):
             try:
@@ -8372,12 +8386,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return False
 
     def _append_user_message(self, text, attachment_note=None):
-        """Add the user's message as a right-aligned warm-grey bubble.
+        """Add the user's message as a right-aligned bubble.
 
         The bubble is the only filled surface in the transcript — assistant
-        replies sit directly on the paper background (see _append_bot_message),
-        which is the split the reference chat UI uses: colour marks *who is
-        speaking*, and only one of the two speakers needs marking.
+        replies sit directly on the pane background (see _append_bot_message):
+        colour marks *who is speaking*, and only one of the two speakers needs
+        marking. The fill is Revit's own selected-row blue tint, so it reads
+        like a highlighted row in the Project Browser rather than a chat pill.
 
         attachment_note, if given, renders as its own line with a minimal
         Attach glyph — replaces the old baked-in "📎 filename" text so the
@@ -8785,7 +8800,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         return panel
 
     def _append_bot_message(self, text, icon=None, icon_color=None, actions=True):
-        """Add an assistant reply — plain text on the paper, no bubble.
+        """Add an assistant reply — plain text on the pane, no bubble.
 
         Only the user's turn carries a filled bubble; the assistant's answer
         renders straight onto the chat background, full width, with the

@@ -41,7 +41,7 @@ The following XAML files are **UI-locked** — their visual design is finalized 
 |------|--------|
 | `T3Lab.extension/lib/GUI/Tools/DWGManagement.xaml` | Finalized custom design — UI locked |
 | `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` | Finalized custom design (BatchOut) — UI locked |
-| `T3Lab.extension/lib/GUI/Tools/T3LabAssistant.xaml` | Chat surface, not a tool dialog — warm "paper" palette + Revit light/dark theme instead of Lumina. See `docs/assistant-revit-ui.md` |
+| `T3Lab.extension/lib/GUI/Tools/T3LabAssistant.xaml` | Chat surface, not a tool dialog — Revit's own UI greys + Revit light/dark theme instead of Lumina. See `docs/assistant-revit-ui.md` |
 
 > **T3LabAssistant.xaml — do NOT re-apply the Lumina palette.** Its colours come
 > from `lib/GUI/RevitTheme.py` and follow Revit's own UI theme; every surface is

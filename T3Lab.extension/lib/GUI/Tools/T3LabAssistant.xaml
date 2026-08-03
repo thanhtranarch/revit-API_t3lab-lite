@@ -1080,44 +1080,45 @@
         <!-- ═══ END T3LAB SHARED STYLES ═══ -->
 
         <!-- ═══════════════════════════════════════════════════════════════
-             THEME TOKENS — warm "paper" chat palette, light defaults.
+             THEME TOKENS — Revit's own UI greys, light defaults.
              GUI/RevitTheme.py rewrites every one of these at runtime to match
              Revit's own UI theme (Light/Dark, Revit 2024+), so anything bound
              with DynamicResource re-skins with the host instead of glaring as
              a foreign window inside the dockable pane.
-             Values here = the light palette, so the window still looks right
-             if the theme module is ever unavailable.
+             Values here = the light palette (#F0F0F0 palette chrome, white
+             content surfaces, black labels — Revit's light theme), so the
+             window still looks right if the theme module is unavailable.
         ═══════════════════════════════════════════════════════════════ -->
-        <SolidColorBrush x:Key="T3ThemeAppBg"          Color="#FAF9F5"/>
-        <SolidColorBrush x:Key="T3ThemeChatBg"         Color="#FAF9F5"/>
-        <SolidColorBrush x:Key="T3ThemeComposerBg"     Color="#FAF9F5"/>
+        <SolidColorBrush x:Key="T3ThemeAppBg"          Color="#F0F0F0"/>
+        <SolidColorBrush x:Key="T3ThemeChatBg"         Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="T3ThemeComposerBg"     Color="#F0F0F0"/>
         <SolidColorBrush x:Key="T3ThemeCardBg"         Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="T3ThemeCardBorder"     Color="#E5E3DA"/>
-        <SolidColorBrush x:Key="T3ThemeDivider"        Color="#EAE8E0"/>
-        <SolidColorBrush x:Key="T3ThemePaneEdge"       Color="#DCDAD1"/>
-        <SolidColorBrush x:Key="T3ThemeUserBubbleBg"   Color="#F0EEE6"/>
-        <SolidColorBrush x:Key="T3ThemeUserBubbleText" Color="#282722"/>
-        <SolidColorBrush x:Key="T3ThemeBotText"        Color="#3D3C38"/>
-        <SolidColorBrush x:Key="T3ThemeInk"            Color="#1F1E1D"/>
-        <SolidColorBrush x:Key="T3ThemeMuted"          Color="#6F6E68"/>
-        <SolidColorBrush x:Key="T3ThemeFaint"          Color="#A3A199"/>
-        <SolidColorBrush x:Key="T3ThemeAccent"         Color="#D97757"/>
-        <SolidColorBrush x:Key="T3ThemeAccentHover"    Color="#C2603F"/>
-        <SolidColorBrush x:Key="T3ThemeAccentSoft"     Color="#F6E7DF"/>
-        <SolidColorBrush x:Key="T3ThemeBlue"           Color="#3B82F6"/>
-        <SolidColorBrush x:Key="T3ThemeSuccess"        Color="#0B8A5A"/>
-        <SolidColorBrush x:Key="T3ThemeDanger"         Color="#D23B3B"/>
+        <SolidColorBrush x:Key="T3ThemeCardBorder"     Color="#C4C4C4"/>
+        <SolidColorBrush x:Key="T3ThemeDivider"        Color="#D9D9D9"/>
+        <SolidColorBrush x:Key="T3ThemePaneEdge"       Color="#A6A6A6"/>
+        <SolidColorBrush x:Key="T3ThemeUserBubbleBg"   Color="#DBE8F6"/>
+        <SolidColorBrush x:Key="T3ThemeUserBubbleText" Color="#000000"/>
+        <SolidColorBrush x:Key="T3ThemeBotText"        Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="T3ThemeInk"            Color="#000000"/>
+        <SolidColorBrush x:Key="T3ThemeMuted"          Color="#5C5C5C"/>
+        <SolidColorBrush x:Key="T3ThemeFaint"          Color="#858585"/>
+        <SolidColorBrush x:Key="T3ThemeAccent"         Color="#0A6FB3"/>
+        <SolidColorBrush x:Key="T3ThemeAccentHover"    Color="#095C93"/>
+        <SolidColorBrush x:Key="T3ThemeAccentSoft"     Color="#D6E9F7"/>
+        <SolidColorBrush x:Key="T3ThemeBlue"           Color="#0A6FB3"/>
+        <SolidColorBrush x:Key="T3ThemeSuccess"        Color="#0B7A4A"/>
+        <SolidColorBrush x:Key="T3ThemeDanger"         Color="#C42B1C"/>
         <SolidColorBrush x:Key="T3ThemeAmber"          Color="#F59E0B"/>
-        <SolidColorBrush x:Key="T3ThemeIconFg"         Color="#8B8981"/>
-        <SolidColorBrush x:Key="T3ThemeIconFgHover"    Color="#3D3C38"/>
-        <SolidColorBrush x:Key="T3ThemeIconHoverBg"    Color="#EFEDE5"/>
-        <SolidColorBrush x:Key="T3ThemeInputText"      Color="#1F1E1D"/>
-        <SolidColorBrush x:Key="T3ThemeInputCaret"     Color="#1F1E1D"/>
-        <SolidColorBrush x:Key="T3ThemeCodeBg"         Color="#F3F1E9"/>
-        <SolidColorBrush x:Key="T3ThemeCodeFg"         Color="#1F1E1D"/>
-        <SolidColorBrush x:Key="T3ThemeScrollThumb"    Color="#CFCCC2"/>
-        <SolidColorBrush x:Key="T3ThemeSelectedBg"     Color="#EFEDE5"/>
-        <Color x:Key="T3ThemeShadowColor">#18181B</Color>
+        <SolidColorBrush x:Key="T3ThemeIconFg"         Color="#5C5C5C"/>
+        <SolidColorBrush x:Key="T3ThemeIconFgHover"    Color="#1A1A1A"/>
+        <SolidColorBrush x:Key="T3ThemeIconHoverBg"    Color="#E4E4E4"/>
+        <SolidColorBrush x:Key="T3ThemeInputText"      Color="#000000"/>
+        <SolidColorBrush x:Key="T3ThemeInputCaret"     Color="#000000"/>
+        <SolidColorBrush x:Key="T3ThemeCodeBg"         Color="#F5F5F5"/>
+        <SolidColorBrush x:Key="T3ThemeCodeFg"         Color="#1C1C1C"/>
+        <SolidColorBrush x:Key="T3ThemeScrollThumb"    Color="#C1C1C1"/>
+        <SolidColorBrush x:Key="T3ThemeSelectedBg"     Color="#E6E6E6"/>
+        <Color x:Key="T3ThemeShadowColor">#000000</Color>
 
         <!-- ── Revit-thin scrollbar ────────────────────────────────────────
              Revit's own panes use a hairline scrollbar: no arrow buttons, no
@@ -1334,11 +1335,13 @@
             </Setter>
         </Style>
 
-        <!-- ── Composer round send button (Claude-style arrow-up circle) ──
-             Coral rather than near-black: the accent is the one constant
-             across both themes, so the send target stays the same object
-             whether Revit is light or dark (a near-black circle would need
-             to invert to near-white in dark mode and swallow its own arrow). -->
+        <!-- ── Composer round send button (arrow-up circle) ──
+             Autodesk blue rather than near-black: the accent is the one
+             constant across both themes, so the send target stays the same
+             object whether Revit is light or dark (a near-black circle would
+             need to invert to near-white in dark mode and swallow its own
+             arrow), and it is the blue Revit already uses for its own
+             highlights rather than a second brand colour in the host. -->
         <Style x:Key="ComposerSendBtn" TargetType="Button">
             <Setter Property="Background"      Value="{DynamicResource T3ThemeAccent}"/>
             <Setter Property="Foreground"      Value="White"/>
@@ -1538,8 +1541,8 @@
                 <!-- ── Revit context line ────────────────────────────────────
                      What the assistant is looking at, in Revit's own terms:
                      active view + live selection count. Deliberately quiet —
-                     no fill, no border, muted 10.5px on the paper — so it
-                     reads as part of the surface rather than as a toolbar.
+                     no fill, no border, muted 10.5px on the surface — so it
+                     reads as part of the pane rather than as a toolbar.
                      Refreshed on a slow timer and on window activation; click
                      to re-read immediately. Filled by _update_revit_context().
                 ── -->
