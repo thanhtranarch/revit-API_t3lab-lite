@@ -311,20 +311,32 @@ class KnowledgeStore(object):
             except Exception:
                 ranked_keys = [k for k, _ in candidates]
 
-        out = []
+        # Diversify BEFORE truncating. Ranking is per-chunk and independent,
+        # so the strongest few are routinely consecutive chunks of one page —
+        # with top_k as low as 2 or 3 that spends the whole budget on a single
+        # passage and the model never sees the rest. Materialize a few extra
+        # candidates so there is something to choose between.
+        pool = []
         score_map = dict(candidates)
-        for key in ranked_keys[:top_k]:
+        for key in ranked_keys[:max(top_k * 4, top_k + 6)]:
             info = self.get_chunk(key)
             if not info:
                 continue
-            out.append({
+            pool.append({
                 'key':   key,
                 'score': score_map.get(key, 0.0),
                 'text':  info['text'],
                 'file':  info['file'],
                 'page':  info['page'],
             })
-        return out
+
+        try:
+            from Intelligence.knowledge.rerank import diversify
+            return diversify(pool, top_k,
+                             doc_of=lambda h: doc_id_of(h['key']),
+                             text_of=lambda h: h.get('text'))
+        except Exception:
+            return pool[:top_k]
 
     def _semantic_fuse(self, query, bm25_ranked, embedder):
         """Cosine re-rank of BM25 candidates + reciprocal-rank fusion.

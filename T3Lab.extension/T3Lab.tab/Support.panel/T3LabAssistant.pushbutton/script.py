@@ -75,6 +75,55 @@ try:
     def _theme_color(token):
         """System.Windows.Media.Color for a theme token."""
         return _theme.color(token)
+
+    def _bind_theme(element, prop_name, token):
+        """Make `element.<prop_name>` FOLLOW a theme token instead of copying it.
+
+        _tb() hands back a frozen brush, so anything painted with it keeps the
+        colours it was born with. That is why a transcript already on screen
+        stayed light after Revit switched to dark: RevitTheme.apply() rewrites
+        the token resources and every XAML {DynamicResource} re-evaluates, but
+        a brush that was assigned once is just a value and nothing re-runs.
+
+        SetResourceReference is the code-behind equivalent of DynamicResource:
+        the element registers against the resource key and repaints when the
+        key's value changes. No re-render, so a message that is mid-stream is
+        never touched — which is the reason the old code gave for not fixing
+        this by rebuilding the transcript.
+
+        Falls back to the plain assignment (today's exact behaviour) when the
+        property cannot be resolved to a DependencyProperty, so the worst case
+        is the colour it would have had anyway.
+        """
+        try:
+            from System.Windows import DependencyProperty
+            dp = DependencyProperty.FromName(prop_name, element.GetType())
+            if dp is not None:
+                element.SetResourceReference(dp, _theme.RESOURCE_PREFIX + token)
+                return True
+        except Exception:
+            pass
+        try:
+            setattr(element, prop_name, _tb(token))
+        except Exception:
+            pass
+        return False
+
+    def _bind_fg(element, token):
+        """Foreground follows `token`."""
+        return _bind_theme(element, 'Foreground', token)
+
+    def _bind_bg(element, token):
+        """Background follows `token`."""
+        return _bind_theme(element, 'Background', token)
+
+    def _bind_border(element, token):
+        """BorderBrush follows `token`."""
+        return _bind_theme(element, 'BorderBrush', token)
+
+    def _bind_stroke(element, token):
+        """Stroke follows `token` (Path / Ellipse / Line icons)."""
+        return _bind_theme(element, 'Stroke', token)
 except Exception as _theme_ex:                       # pragma: no cover
     logger.warning("RevitTheme unavailable, using light defaults: {}".format(
         _theme_ex))
@@ -107,6 +156,28 @@ except Exception as _theme_ex:                       # pragma: no cover
         from System.Windows.Media import Color
         r, g, b = _trgb(token)
         return Color.FromRgb(r, g, b)
+
+    # Same surface as the themed branch above, so call sites never have to ask
+    # which one is live. With no RevitTheme there is nothing to follow, so
+    # these just assign the light-fallback colour once.
+    def _bind_theme(element, prop_name, token):
+        try:
+            setattr(element, prop_name, _tb(token))
+        except Exception:
+            pass
+        return False
+
+    def _bind_fg(element, token):
+        return _bind_theme(element, 'Foreground', token)
+
+    def _bind_bg(element, token):
+        return _bind_theme(element, 'Background', token)
+
+    def _bind_border(element, token):
+        return _bind_theme(element, 'BorderBrush', token)
+
+    def _bind_stroke(element, token):
+        return _bind_theme(element, 'Stroke', token)
 
 
 # ─── Shared with the LLMs Setting dialog ──────────────────────────────────────
@@ -270,7 +341,7 @@ except Exception as e:
         def is_continuation(*a, **kw): return False
 
         @staticmethod
-        def learned_pattern_wins(learned, nlu_result): return bool(learned)
+        def learned_pattern_wins(learned, nlu_result, raw=None): return bool(learned)
 
         @staticmethod
         def wants_spellcheck_fix(args): return False
@@ -295,10 +366,29 @@ except Exception as e:
     logger.warning("Could not import specialists: {}".format(e))
     HAS_SPECIALISTS = False
     def get_spec(name): return None
-    def build_specialist_prompt(spec, ctx, **kw):
+    def build_specialist_prompt(spec, revit_context='', **kw):
         from Intelligence.agent_loop import build_agent_system_prompt
-        return build_agent_system_prompt(ctx, local=kw.get('local', False),
+        return build_agent_system_prompt(local=kw.get('local', False),
                                          lang=kw.get('lang', 'auto'))
+
+# ─── Turn telemetry (latency + token/cache accounting) ────────────────────────
+try:
+    from Intelligence import telemetry
+    HAS_TELEMETRY = True
+except Exception as e:
+    logger.warning("Could not import telemetry: {}".format(e))
+    HAS_TELEMETRY = False
+
+    class telemetry(object):
+        """Degradation stub: measuring nothing must never break a turn."""
+        @staticmethod
+        def TurnTimer(*a, **kw): return None
+
+        @staticmethod
+        def record(turn, path=None): return False
+
+        @staticmethod
+        def prune(*a, **kw): return 0
 
 # ─── Streaming message extractor (live token rendering) ───────────────────────
 try:
@@ -684,12 +774,13 @@ def _history_file(doc_key):
     return os.path.join(config_dir, '{}.json'.format(doc_key))
 
 
-def save_chat_history(doc_key, messages):
+def save_chat_history(doc_key, messages, summary=u""):
     """Persist the last N messages to disk for this document.
 
     Args:
         doc_key  : identifier returned by _get_doc_key()
         messages : list of {role, content, ts} dicts
+        summary  : rolling summary of turns that fell out of the window
     """
     try:
         path = _history_file(doc_key)
@@ -700,7 +791,8 @@ def save_chat_history(doc_key, messages):
         # with UnicodeEncodeError mid-write under IronPython 2.7 as soon as
         # the chat carries Vietnamese — truncating the history file to 0
         # bytes, silently (same failure class as the tool_registry.json bug).
-        data = json.dumps({"doc_key": doc_key, "messages": to_save},
+        data = json.dumps({"doc_key": doc_key, "messages": to_save,
+                           "summary": summary or u""},
                           ensure_ascii=True, indent=2)
         if isinstance(data, bytes):
             data = data.decode('ascii')
@@ -722,6 +814,24 @@ def load_chat_history(doc_key):
     except Exception as ex:
         logger.debug("Could not load chat history: {}".format(ex))
         return []
+
+
+def load_chat_summary(doc_key):
+    """Rolling summary saved alongside the messages, or u''.
+
+    A file written before summaries existed simply has no "summary" key, so
+    older histories load with an empty one rather than failing.
+    """
+    try:
+        path = _history_file(doc_key)
+        if not os.path.exists(path):
+            return u""
+        with io.open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get("summary") or u""
+    except Exception as ex:
+        logger.debug("Could not load chat summary: {}".format(ex))
+        return u""
 
 
 def clear_chat_history(doc_key):
@@ -806,7 +916,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._switching_provider = False        # guard: _switch_provider bg probe in flight
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
+        self._history_summary  = u''            # turns folded out of the window
         self._last_raw         = ''             # last user input (for learning)
+        self._last_result      = None           # last parsed result (for votes)
         self._doc_key          = _get_doc_key() # document identifier for history
         self._persisted_msgs   = []             # flat list with timestamps, for save/load
         self._attached_files   = []             # list of file paths (images / PDFs)
@@ -1242,6 +1354,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             if e.WidthChanged:
                 self._apply_compact_layout(e.NewSize.Width)
+                # Always, not just on the compact transition: dragging a
+                # docked pane from 250px to 350px never crosses the threshold,
+                # so _apply_compact_layout returns early and the popups would
+                # stay clamped to the narrowest width they ever saw.
+                self._fit_popups_to_width(e.NewSize.Width)
         except Exception:
             pass
 
@@ -1278,6 +1395,51 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 getattr(self, name).Visibility = vis
             except Exception:
                 pass
+
+    # Popup widths are authored for a floating window; a pane docked beside the
+    # Project Browser is routinely narrower than the skills popup's MinWidth
+    # alone (340), so the popup hangs outside the pane over Revit's own UI.
+    _POPUP_PANELS = ('skills_popup_panel', 'project_popup_panel',
+                     'model_popup_panel')
+    # Room for the popup's own border, margin and shadow.
+    _POPUP_GUTTER = 24
+    # The widest MinWidth authored in the XAML (skills_popup). Below this the
+    # popups are pinned to the pane; at or above it they keep their own sizes.
+    _POPUP_MIN_AUTHORED = 340
+
+    def _fit_popups_to_width(self, width):
+        """Clamp popup content to the pane. UI THREAD. Never raises.
+
+        Widths are pinned on the popup's Border — the element that actually
+        carries MinWidth/MaxWidth — so a popup shrinks with the pane instead
+        of spilling out of it. Once the pane is wide enough again the authored
+        widths are restored by clearing the local values.
+        """
+        from System.Windows import FrameworkElement
+        from System.Windows.Controls import Border
+        try:
+            avail = float(width or 0) - self._POPUP_GUTTER
+        except Exception:
+            return
+        if avail <= 0:
+            return
+        for name in self._POPUP_PANELS:
+            try:
+                node = getattr(self, name, None)
+                # The panel may sit inside a ScrollViewer; walk up to the
+                # Border that carries the width.
+                while node is not None and not isinstance(node, Border):
+                    node = getattr(node, 'Parent', None)
+                if node is None:
+                    continue
+                if avail < self._POPUP_MIN_AUTHORED:
+                    node.MinWidth = avail
+                    node.MaxWidth = avail
+                else:
+                    node.ClearValue(FrameworkElement.MinWidthProperty)
+                    node.ClearValue(FrameworkElement.MaxWidthProperty)
+            except Exception:
+                continue
 
     # ─── Live Revit context ──────────────────────────────────────────────────
 
@@ -1554,6 +1716,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _restore_history(self):
         """Load saved conversation from disk and replay bubbles + context."""
         try:
+            # Restore the rolling summary first: the replay below re-adds
+            # turns, and anything that falls back out of the window must fold
+            # onto what was already condensed rather than starting over.
+            self._history_summary = load_chat_summary(self._doc_key)
             saved = load_chat_history(self._doc_key)
             if not saved:
                 return
@@ -1590,7 +1756,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._persisted_msgs.append(
                 {"role": role, "content": content, "ts": ts}
             )
-            save_chat_history(self._doc_key, self._persisted_msgs)
+            save_chat_history(self._doc_key, self._persisted_msgs,
+                              summary=getattr(self, '_history_summary', u''))
         except Exception as ex:
             logger.debug("Could not persist message: {}".format(ex))
 
@@ -1650,6 +1817,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._queued_inputs     = []      # their chips were just removed
         # Conversation + agent carryover
         self._conversation_history = []
+        self._history_summary      = u''   # a new conversation starts blank
         self._persisted_msgs       = []
         self._prev_agent_decision  = None  # specialist choice must not carry over
         self._prev_turn_calls      = set()  # repeat guard is per-conversation
@@ -2267,8 +2435,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     pass
                 name = (meta or {}).get('name', sid)
                 chip = Border()
-                chip.Background = _tb('SelectedBg')
-                chip.BorderBrush = _tb('CardBorder')
+                _bind_bg(chip, 'SelectedBg')
+                _bind_border(chip, 'CardBorder')
                 chip.BorderThickness = Thickness(1)
                 chip.CornerRadius = CornerRadius(9)
                 chip.Padding = Thickness(8, 2, 8, 3)
@@ -2277,7 +2445,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 tb.Text = u"⚡ " + name
                 tb.FontSize = 10
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-                tb.Foreground = _tb('Muted')
+                _bind_fg(tb, 'Muted')
                 chip.Child = tb
                 chip.ToolTip = u"Skill applied to this reply"
                 row.Children.Add(chip)
@@ -2315,7 +2483,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             for i, label in enumerate(labels):
                 chip = Border()
                 chip.Background = SolidColorBrush(_bg)
-                chip.BorderBrush = _tb('AccentSoft')
+                _bind_border(chip, 'AccentSoft')
                 chip.BorderThickness = Thickness(1)
                 chip.CornerRadius = CornerRadius(12)
                 chip.Padding = Thickness(11, 4, 11, 5)
@@ -2326,7 +2494,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 tb.FontSize = 11.5
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
                 tb.FontWeight = System.Windows.FontWeights.SemiBold
-                tb.Foreground = _tb('Accent')
+                _bind_fg(tb, 'Accent')
                 chip.Child = tb
 
                 def _click(s, ev, _t=texts[i] if i < len(texts) else label):
@@ -2472,6 +2640,98 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
         self._stop_timer = None
 
+    # ─── Turn telemetry ───────────────────────────────────────────────────────
+    # _set_busy is the one point every routing path passes through on the way
+    # in and out of a turn — deterministic answers, the native agent loop, the
+    # legacy JSON-intent loop and Stop all go through it — so the timer is
+    # started and flushed there rather than in each branch.
+
+    def _begin_turn_timer(self):
+        """Start measuring the turn about to run. UI thread. Never raises.
+
+        Everything read here must be free. Notably NOT has_local_llm(): it
+        calls provider.check_health(), which is an HTTP probe — running it at
+        the head of every turn would add exactly the latency this measures.
+        The local flag comes from the provider name instead, the same test the
+        agent path already uses (`provider.NAME in ("ollama", "lmstudio")`).
+        """
+        self._turn_timer = None
+        if not HAS_TELEMETRY:
+            return
+        try:
+            name = get_active_provider_name()
+            self._turn_timer = telemetry.TurnTimer(
+                provider=name,
+                model=self._active_model_name(),
+                local=(name in ("ollama", "lmstudio")))
+        except Exception:
+            self._turn_timer = None
+
+    def _mark_first_token(self):
+        """First streamed delta reached the UI. Any thread; idempotent."""
+        t = getattr(self, '_turn_timer', None)
+        if t is not None:
+            try:
+                t.mark_first_token()
+            except Exception:
+                pass
+
+    def _note_turn_route(self, specialist=None, skills=None):
+        """Record which specialist/skills handled the turn. Any thread."""
+        t = getattr(self, '_turn_timer', None)
+        if t is None:
+            return
+        try:
+            if specialist:
+                t.specialist = specialist
+            if skills:
+                t.skills = list(skills)
+        except Exception:
+            pass
+
+    def _end_turn_timer(self):
+        """Flush the finished turn to the telemetry log. UI thread.
+
+        The write itself is queued onto a pool thread — same reasoning as
+        _log_activity: a slow disk must never stall the window.
+        """
+        t = getattr(self, '_turn_timer', None)
+        self._turn_timer = None
+        if t is None:
+            return
+        try:
+            t.finish(u'cancelled' if self._cancelled() else u'done')
+        except Exception:
+            return
+        try:
+            from System.Threading import ThreadPool, WaitCallback
+
+            def _write(_state, _t=t):
+                try:
+                    telemetry.record(_t)
+                except Exception:
+                    pass
+            ThreadPool.QueueUserWorkItem(WaitCallback(_write))
+        except Exception:
+            try:
+                telemetry.record(t)
+            except Exception:
+                pass
+
+    def _active_model_name(self):
+        """Model id of the active provider, or ''.
+
+        Reads the provider's already-resolved model — get_active_model() is
+        documented as cache-only ("No HTTP; None until models were fetched",
+        claude_provider.pick_fast_model) — so this stays free. Never raises.
+        """
+        try:
+            from Intelligence.llm_router import get_router
+            prov = get_router().get_active_provider()
+            return u'{}'.format(prov.get_active_model() or u'')
+        except Exception:
+            return u''
+
     # ─── Session guard & UI state ─────────────────────────────────────────────
 
     def _set_busy(self, busy):
@@ -2489,8 +2749,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._request_id = getattr(self, '_request_id', 0) + 1
             self._replied    = False
             self._tool_runs  = 0
+            self._begin_turn_timer()
         else:
             self._stop_stop_watchdog()
+            self._end_turn_timer()
         try:
             self.chat_input.IsEnabled = True
             self._render_send_button(busy)
@@ -2576,8 +2838,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from System.Windows.Input import Cursors
 
             row = Border()
-            row.Background = _tb('SelectedBg')
-            row.BorderBrush = _tb('CardBorder')
+            _bind_bg(row, 'SelectedBg')
+            _bind_border(row, 'CardBorder')
             row.BorderThickness = Thickness(1)
             row.CornerRadius = CornerRadius(10)
             row.Padding = Thickness(10, 4, 10, 5)
@@ -2591,7 +2853,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tb.Text = u"Queued: {}".format(_short)
             tb.FontSize = 11
             tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-            tb.Foreground = _tb('Muted')
+            _bind_fg(tb, 'Muted')
             tb.TextTrimming = TextTrimming.CharacterEllipsis
             row.Child = tb
             item = {'text': raw, 'row': row}
@@ -2801,7 +3063,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         dots.Text       = u"● ● ●"
         dots.FontSize   = 12.5
         dots.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-        dots.Foreground = _tb('Muted')
+        _bind_fg(dots, 'Muted')
         dots.VerticalAlignment = VerticalAlignment.Center
 
         self._typing_text_block = dots
@@ -2820,10 +3082,24 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
     def _add_to_history(self, role, content):
-        """Add a message to conversation history and persist to disk."""
+        """Add a message to conversation history and persist to disk.
+
+        Turns leaving the window are folded into a rolling summary rather than
+        dropped — a long session used to silently forget how it started. The
+        window size comes from Intelligence.conversation so it can no longer
+        disagree with agent_loop._sanitize_history, which took the last 24
+        while this truncated to 16, making the larger number dead.
+        """
         self._conversation_history.append({"role": role, "content": content})
-        if len(self._conversation_history) > 16:
-            self._conversation_history = self._conversation_history[-16:]
+        try:
+            from Intelligence import conversation as _conv
+            self._conversation_history, self._history_summary = _conv.trim_history(
+                self._conversation_history,
+                getattr(self, '_history_summary', u''),
+                viet=_ui_viet())
+        except Exception:
+            if len(self._conversation_history) > 24:
+                self._conversation_history = self._conversation_history[-24:]
         # Persist to disk so it survives window close/reopen
         self._persist_message(role, content)
         # Daily activity journal — assistant side only (the user side is
@@ -3213,10 +3489,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _slash_highlight(self):
         """Paint the highlighted popup row. UI THREAD."""
         from System.Windows.Media import Brushes, SolidColorBrush, Color
-        sel_bg = _tb('SelectedBg')
         for i, row in enumerate(self._slash_rows):
-            row.Background = sel_bg if i == self._slash_sel \
-                else Brushes.Transparent
+            if i == self._slash_sel:
+                _bind_bg(row, 'SelectedBg')
+            else:
+                row.Background = Brushes.Transparent
 
     def _slash_move(self, delta):
         """Move popup selection with Up/Down (wraps). UI THREAD."""
@@ -3325,7 +3602,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             lead.Text = icon
             lead.FontFamily = FontFamily(u"Segoe MDL2 Assets")
             lead.FontSize = 11
-            lead.Foreground = _tb('Muted')
+            _bind_fg(lead, 'Muted')
             lead.VerticalAlignment = VerticalAlignment.Center
             lead.Margin = Thickness(0, 1, 8, 0)
         if lead is not None:
@@ -3338,7 +3615,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         t.FontSize = 12
         t.FontFamily = FontFamily(u"Hanken Grotesk")
         t.FontWeight = System.Windows.FontWeights.SemiBold
-        t.Foreground = _tb('Ink')
+        _bind_fg(t, 'Ink')
         t.TextTrimming = TextTrimming.CharacterEllipsis
         body.Children.Add(t)
         if subtitle:
@@ -3346,7 +3623,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             st.Text = subtitle
             st.FontSize = 10.5
             st.FontFamily = FontFamily(u"Hanken Grotesk")
-            st.Foreground = _tb('Muted')
+            _bind_fg(st, 'Muted')
             st.TextTrimming = TextTrimming.CharacterEllipsis
             st.Margin = Thickness(0, 1, 0, 0)
             body.Children.Add(st)
@@ -3358,7 +3635,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             chk.Text = u""
             chk.FontFamily = FontFamily(u"Segoe MDL2 Assets")
             chk.FontSize = 11
-            chk.Foreground = _tb('Blue')
+            _bind_fg(chk, 'Blue')
             chk.VerticalAlignment = VerticalAlignment.Center
             chk.Margin = Thickness(10, 0, 0, 0)
             Grid.SetColumn(chk, 2)
@@ -3367,10 +3644,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         row.Child = g
 
         if hover:
-            hover_bg = _tb('IconHoverBg')
-
             def _enter(s, ev):
-                row.Background = hover_bg
+                _bind_bg(row, 'IconHoverBg')
 
             def _leave(s, ev):
                 row.Background = Brushes.Transparent
@@ -3386,7 +3661,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         from System.Windows.Media import SolidColorBrush, Color
         sep = Border()
         sep.Height = 1
-        sep.Background = _tb('Divider')
+        _bind_bg(sep, 'Divider')
         sep.Margin = Thickness(6, 5, 6, 5)
         return sep
 
@@ -3568,18 +3843,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
         _font  = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-        _ink   = _tb('Ink')     # #18181B
-        _muted = _tb('Muted')  # #71717A
-        _faint = _tb('Faint')  # #A1A1AA
-        _blue  = _tb('Blue')   # #3B82F6
-        _red   = _tb('Danger')    # #EF4444
 
-        def _tb(text, size=12, fg=None, bold=False, wrap=True, margin=None):
+        def _txt(text, size=12, fg=None, bold=False, wrap=True, margin=None):
+            # NOT named _tb: a local of that name made the module-level theme
+            # helper local to this whole function, so the brush lookups above
+            # raised UnboundLocalError before the def was ever reached — and
+            # _open_project_panel swallows the exception, so the panel simply
+            # never appeared. `fg` is a theme TOKEN NAME now, bound live.
             t = TextBlock()
             t.Text = text
             t.FontSize = size
             t.FontFamily = _font
-            t.Foreground = fg or _ink
+            _bind_fg(t, fg or 'Ink')
             if bold:
                 t.FontWeight = System.Windows.FontWeights.SemiBold
             if wrap:
@@ -3603,24 +3878,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         def _section(title, right_widget=None):
             host.Children.Add(_two_col(
-                _tb(title, size=13.5, bold=True, wrap=False),
+                _txt(title, size=13.5, bold=True, wrap=False),
                 right_widget, top=0))
 
         def _sep():
             b = Border()
             b.Height = 1
-            b.Background = _tb('SelectedBg')
+            _bind_bg(b, 'SelectedBg')
             b.Margin = Thickness(0, 14, 0, 14)
             host.Children.Add(b)
 
         def _small_btn(label, handler, primary=False):
             b = Button()
             b.Content = label
+            # ComposerChipBtn, not the shared PrimaryButton / SecondaryButton.
+            # Those come from the auto-synced Lumina block and are pinned to
+            # #0F172A: on this warm-paper surface they read as foreign, and in
+            # Revit's dark theme SecondaryButton paints near-black text on a
+            # near-black panel — invisible. The chip style is theme-bound.
             try:
-                b.Style = self.FindResource(
-                    "PrimaryButton" if primary else "SecondaryButton")
+                b.Style = self.FindResource("ComposerChipBtn")
             except Exception:
                 pass
+            if primary:
+                _bind_bg(b, 'AccentSoft')
+                _bind_fg(b, 'Ink')
             b.FontSize = 11
             b.Padding = Thickness(12, 4, 12, 4)
             b.Margin = Thickness(8, 0, 0, 0)
@@ -3642,12 +3924,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _prev = u" ".join(instr.split())
             if len(_prev) > 260:
                 _prev = _prev[:259] + u"\u2026"
-            host.Children.Add(_tb(_prev, size=11.5, fg=_muted,
+            host.Children.Add(_txt(_prev, size=11.5, fg='Muted',
                                   margin=Thickness(0, 6, 0, 0)))
         else:
-            host.Children.Add(_tb(
+            host.Children.Add(_txt(
                 u"None yet \u2014 instructions steer every reply in this project.",
-                size=11.5, fg=_faint, margin=Thickness(0, 6, 0, 0)))
+                size=11.5, fg='Faint', margin=Thickness(0, 6, 0, 0)))
 
         _sep()
 
@@ -3661,21 +3943,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _glob = len(_facts) - len(_proj)
             if _proj:
                 for _f in _proj[:8]:
-                    host.Children.Add(_tb(
+                    host.Children.Add(_txt(
                         u"\u2022 " + (_f.get('text') or u''), size=11.5,
-                        fg=_muted, margin=Thickness(0, 4, 0, 0)))
+                        fg='Muted', margin=Thickness(0, 4, 0, 0)))
                 if len(_proj) > 8:
-                    host.Children.Add(_tb(
+                    host.Children.Add(_txt(
                         u"\u2026 and {} more".format(len(_proj) - 8),
-                        size=11, fg=_faint, margin=Thickness(0, 4, 0, 0)))
+                        size=11, fg='Faint', margin=Thickness(0, 4, 0, 0)))
             else:
-                host.Children.Add(_tb(
+                host.Children.Add(_txt(
                     u'No project facts yet \u2014 say "remember \u2026" in chat.',
-                    size=11.5, fg=_faint, margin=Thickness(0, 6, 0, 0)))
+                    size=11.5, fg='Faint', margin=Thickness(0, 6, 0, 0)))
             if _glob:
-                host.Children.Add(_tb(
+                host.Children.Add(_txt(
                     u"+ {} global fact(s) apply to every project.".format(_glob),
-                    size=10.5, fg=_faint, margin=Thickness(0, 6, 0, 0)))
+                    size=10.5, fg='Faint', margin=Thickness(0, 6, 0, 0)))
         except Exception as _mex:
             logger.debug("panel memory error: {}".format(_mex))
 
@@ -3684,8 +3966,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── 3. Knowledge (what the RAG index answers from) ─────────────────
         _section(u"Knowledge")
         try:
-            host.Children.Add(_tb(ps.describe_documents(pid), size=11.5,
-                                  fg=_muted, margin=Thickness(0, 6, 0, 0)))
+            host.Children.Add(_txt(ps.describe_documents(pid), size=11.5,
+                                  fg='Muted', margin=Thickness(0, 6, 0, 0)))
         except Exception:
             pass
 
@@ -3694,16 +3976,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             for _d in (ps.get_knowledge_dirs(pid) or [])[:8]:
                 _missing = not os.path.isdir(_d)
-                _row = _tb(u"\U0001F517 " + (os.path.basename(_d.rstrip(u"\\/")) or _d)
+                _row = _txt(u"\U0001F517 " + (os.path.basename(_d.rstrip(u"\\/")) or _d)
                            + (u"  (not found)" if _missing else u""),
-                           size=11, fg=_red if _missing else _faint,
+                           size=11, fg='Danger' if _missing else 'Faint',
                            margin=Thickness(0, 4, 0, 0))
                 _row.ToolTip = _d
                 host.Children.Add(_row)
         except Exception:
             pass
 
-        lnk = _tb(u"Open knowledge folder", size=11.5, fg=_blue,
+        lnk = _txt(u"Open knowledge folder", size=11.5, fg='Blue',
                   margin=Thickness(0, 8, 0, 0))
         lnk.Cursor = Cursors.Hand
         lnk.TextDecorations = TextDecorations.Underline
@@ -3722,20 +4004,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if len(_pv) > 70:
                     _pv = _pv[:69] + u"\u2026"
                 _on = bool(it.get('enabled', True))
-                host.Children.Add(_tb(
+                host.Children.Add(_txt(
                     u"{} daily \u2014 {}{}".format(
                         it.get('time') or u'?', _pv,
                         u"" if _on else u"   (paused)"),
-                    size=11.5, fg=_muted if _on else _faint,
+                    size=11.5, fg='Muted' if _on else 'Faint',
                     margin=Thickness(0, 4, 0, 0)))
-            host.Children.Add(_tb(
+            host.Children.Add(_txt(
                 u"Runs once per day at the set time while the assistant "
                 u"window is open (skipped while a request is busy).",
-                size=10.5, fg=_faint, margin=Thickness(0, 8, 0, 0)))
+                size=10.5, fg='Faint', margin=Thickness(0, 8, 0, 0)))
         else:
-            host.Children.Add(_tb(
+            host.Children.Add(_txt(
                 u"None yet \u2014 add recurring daily prompts in LLMs Setting "
-                u"\u2192 Projects.", size=11.5, fg=_faint,
+                u"\u2192 Projects.", size=11.5, fg='Faint',
                 margin=Thickness(0, 6, 0, 0)))
 
     # ─── Scheduled prompts runner ─────────────────────────────────────────────
@@ -5009,7 +5291,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 nlu_result = parse_command_nlu(captured, history)
                 learned = find_learned_match(raw)
 
-            if learned and routing.learned_pattern_wins(learned, nlu_result):
+            if learned and routing.learned_pattern_wins(learned, nlu_result,
+                                                        raw=raw):
                 def _run_learned(_r=learned):
                     self._execute_result(_r)
                 self.Dispatcher.Invoke(Action(_run_learned))
@@ -5178,7 +5461,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     'qa_check', 'export'):
                                 _spec = get_spec(_dec['specialist'])
                             if _dec.get('skill'):
+                                # build_skills_block injects up to two bodies;
+                                # send it the two best-ranked matches rather
+                                # than only the single winner, so a message
+                                # that legitimately spans two playbooks gets
+                                # both. A forced /slash skill stays alone.
                                 _skill_ids = [_dec['skill']]
+                                if not _dec.get('skill_forced'):
+                                    _skill_ids = self._ranked_skill_ids(
+                                        captured, _dec['skill'])
                                 # keep only skills declared for this specialist
                                 # (explicit /slash invocation skips the filter)
                                 if not _dec.get('skill_forced'):
@@ -5192,6 +5483,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                                                    _spec_name)
                                     except Exception:
                                         pass
+                        self._note_turn_route(
+                            specialist=(_spec.name if _spec else 'general'),
+                            skills=_skill_ids)
                         try:
                             _handled = self._run_native_agent(
                                 _provider, list(history), captured,
@@ -5218,7 +5512,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if _sk_lg:
                             from Intelligence.skills_engine import (
                                 build_skills_block as _bsb)
-                            _legacy_skills_block = _bsb([_sk_lg])
+                            # Same ranked top-2 the native path gets, so the
+                            # two prompt paths cannot drift apart. A forced
+                            # /slash skill stays alone.
+                            _ids_lg = ([_sk_lg]
+                                       if getattr(self, '_forced_skill_id', None)
+                                       else self._ranked_skill_ids(captured, _sk_lg))
+                            _legacy_skills_block = _bsb(_ids_lg)
                     except Exception:
                         _legacy_skills_block = u""
 
@@ -5739,6 +6039,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         message = result.get("message", "")
         params  = result.get("params", {})
         raw     = self._last_raw
+        # Kept so a 👍/👎 on the reply can act on the route that produced it
+        # (_vote_decision reads it when the reply row is built).
+        self._last_result = dict(result or {})
 
         def _bot(msg):
             """Show message and record in conversation history."""
@@ -6174,13 +6477,36 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Native agentic loop (function calling) ────────────────────────────────
 
-    def _build_knowledge_reference(self, query, local=False):
+    def _ranked_skill_ids(self, text, primary, limit=2):
+        """Up to `limit` skill ids for this message, best-ranked first.
+
+        `primary` is the dispatcher's own choice and always leads — the LLM
+        classification stage may have picked a skill the keyword triggers
+        never matched, and that verdict must not be discarded.
+        """
+        ids = [primary] if primary else []
+        try:
+            from Intelligence.skills_engine import get_skills_engine
+            for sid in get_skills_engine().match(text):
+                if sid not in ids:
+                    ids.append(sid)
+                if len(ids) >= limit:
+                    break
+        except Exception:
+            pass
+        return ids[:limit]
+
+    def _build_knowledge_reference(self, query, local=False, history=None):
         """Retrieve a compact project-knowledge block to ground the tool agent.
 
         BM25-only (no embedder) so it stays fast and deterministic on every
         request — the lexical channel is exactly what carries local models.
-        Returns a system-prompt fragment or '' (nothing relevant / no index).
+        Returns a prompt fragment or '' (nothing relevant / no index).
         Budget is tighter for local models to protect their context window.
+
+        `history` lets the retriever resolve a follow-up question against what
+        was just discussed ("còn tầng 2 thì sao?" carries none of the nouns it
+        needs on its own).
         """
         if not HAS_KNOWLEDGE:
             return u''
@@ -6189,7 +6515,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 KnowledgeAgent, build_reference_block)
             agent = KnowledgeAgent(embedder=None)   # BM25-only: fast + always-on
             top_k = 2 if local else 3
-            hits = agent.retrieve(query, top_k=top_k)
+            hits = agent.retrieve(query, top_k=top_k, history=history)
             if not hits:
                 return u''
             return build_reference_block(
@@ -6287,12 +6613,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if _lang == 'auto':
             _lang = 'vi' if _is_viet_text(captured) else 'en'
 
+        # ── STATIC system prompt ──────────────────────────────────────────────
+        # Everything below is stable for the session, which is the whole point:
+        # it sits behind ONE prompt-cache breakpoint. Anything that changes per
+        # turn (live Revit state, per-question knowledge excerpts) goes into
+        # _volatile below and rides along with the user turn instead — putting
+        # it here made the system block never repeat, so the cache never hit.
         if spec is not None and HAS_SPECIALISTS:
             system_prompt = build_specialist_prompt(
-                spec, ctx, project_instructions=_proj_instructions,
+                spec, project_instructions=_proj_instructions,
                 skills_block=_skills_block, local=_is_local, lang=_lang)
         else:
-            system_prompt = build_agent_system_prompt(ctx, local=_is_local,
+            system_prompt = build_agent_system_prompt(local=_is_local,
                                                       lang=_lang)
             if _proj_instructions:
                 system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
@@ -6304,20 +6636,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if _mem_block:
             system_prompt += u"\n\n" + _mem_block
 
-        # Project-knowledge grounding — inject a compact reference block so the
-        # tool agent's ANSWERS and ACTIONS follow documented standards, not just
-        # the knowledge specialist. Retrieved from the user's request (BM25); a
+        # Rolling summary of turns that scrolled out of the window. Static
+        # enough to belong here: it only changes when turns fall out (every
+        # few turns), so the prompt cache still hits in between — unlike live
+        # Revit state, which changes every turn and rides the user message.
+        try:
+            from Intelligence.conversation import summary_block
+            _sum_block = summary_block(
+                getattr(self, '_history_summary', u''), viet=(_lang == 'vi'))
+            if _sum_block:
+                system_prompt += u"\n\n" + _sum_block
+        except Exception:
+            pass
+
+        # ── VOLATILE context (travels with the user turn) ─────────────────────
+        # Project-knowledge grounding: a compact reference block so the tool
+        # agent's ANSWERS and ACTIONS follow documented standards, not just the
+        # knowledge specialist. Retrieved from the user's request (BM25); a
         # stray hit on an unrelated command is harmless (the header tells the
         # model to ignore irrelevant excerpts). knowledge/comment specialists
         # have their own retrieval pipeline and never reach this path.
+        _kref = u""
         try:
             _spec_name = spec.name if spec is not None else 'general'
             if _spec_name not in ('knowledge', 'comment'):
-                _kref = self._build_knowledge_reference(captured, local=_is_local)
-                if _kref:
-                    system_prompt += u"\n\n" + _kref
+                _kref = self._build_knowledge_reference(
+                    captured, local=_is_local, history=history) or u""
         except Exception:
-            pass
+            _kref = u""
 
         # Harness action mode: 'confirm' = propose-then-wait before ANY
         # model-modifying tool call (chip next to the project picker).
@@ -6356,6 +6702,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     user_content = build_vision_content_blocks(captured, [shot])
                 except Exception:
                     user_content = captured
+
+        # Live state rides with THIS turn instead of the cached system block.
+        # It never reaches _conversation_history (which stores the raw user
+        # text), so it stays ephemeral and the transcript does not grow.
+        try:
+            from Intelligence.agent_loop import (build_context_block,
+                                                 apply_context_block)
+            _volatile = build_context_block(revit_context=ctx,
+                                            knowledge_ref=_kref)
+            user_content = apply_context_block(user_content, _volatile)
+        except Exception as _ctx_ex:
+            logger.debug("context block build error: {}".format(_ctx_ex))
 
         # ── B4 + B5: tool-execution wrapper ───────────────────────────────────
         # B4: the first model-mutating tool opens ONE TransactionGroup on the
@@ -6448,6 +6806,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     doc_guard["armed"] = False
             return res
 
+        def _exec_reads_batch(batch):
+            """Run a run of read-only calls in ONE crossing to Revit.
+
+            Only reachable for plain reads (agent_loop.leading_read_run stops
+            at the first write, launcher or memory call), so none of the
+            _exec_tool preamble above — the action group, the destructive
+            confirm card, the purge dry-run forcing, the doc-guard disarm —
+            can apply to anything in here.
+            """
+            return srv.execute_tools_batch(batch)
+
         def _guard_check():
             try:
                 if not doc_guard["armed"]:
@@ -6496,6 +6865,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 pass
 
         def on_text_delta(chunk):
+            self._mark_first_token()
             stream["text"] += chunk
             _push_stream(False)
 
@@ -6590,7 +6960,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 "guard_check":   _guard_check,
             },
             max_iterations=(spec.max_iterations if spec is not None else 10),
-            max_tokens=(spec.max_tokens if spec is not None else 1500))
+            max_tokens=(spec.max_tokens if spec is not None else 1500),
+            turn_timer=getattr(self, '_turn_timer', None),
+            execute_tools_batch=_exec_reads_batch,
+            is_write_tool=srv.is_write_tool)
 
         self._agent_loop = loop
         if self._cancel_requested:
@@ -6746,8 +7119,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from System.Windows.Media import SolidColorBrush, Color, FontFamily
 
             card = Border()
-            card.Background      = _tb('SelectedBg')  # #F8FAFC
-            card.BorderBrush     = _tb('CardBorder')
+            _bind_bg(card, 'SelectedBg')
+            _bind_border(card, 'CardBorder')
             card.BorderThickness = Thickness(1)
             card.CornerRadius    = CornerRadius(8)
             card.Padding         = Thickness(12, 8, 12, 8)
@@ -6763,7 +7136,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             status.Text       = u""   # MDL2 Sync — running
             status.FontFamily = FontFamily(u"Segoe MDL2 Assets")
             status.FontSize   = 12
-            status.Foreground = _tb('Blue')      # #3B82F6
+            _bind_fg(status, 'Blue')
             status.Margin     = Thickness(0, 1, 8, 0)
 
             title = TextBlock()
@@ -6771,12 +7144,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             title.FontFamily = FontFamily(u"Consolas")
             title.FontSize   = 12
             title.FontWeight = System.Windows.FontWeights.SemiBold
-            title.Foreground = _tb('Ink')          # #0F172A
+            _bind_fg(title, 'Ink')
 
             dur = TextBlock()
             dur.Text       = u"running…"
             dur.FontSize   = 11
-            dur.Foreground = _tb('Faint')         # #94A3B8
+            _bind_fg(dur, 'Faint')
             dur.Margin     = Thickness(8, 1, 0, 0)
 
             head.Children.Add(status)
@@ -6793,14 +7166,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
             args_tb = TextBlock()
             args_tb.Text         = args_s
             args_tb.FontSize     = 11
-            args_tb.Foreground   = _tb('Muted')   # #64748B
+            _bind_fg(args_tb, 'Muted')
             args_tb.TextWrapping = TextWrapping.Wrap
             args_tb.Margin       = Thickness(20, 2, 0, 0)
             panel.Children.Add(args_tb)
 
             result_tb = TextBlock()
             result_tb.FontSize     = 11
-            result_tb.Foreground   = _tb('BotText')    # #334155
+            _bind_fg(result_tb, 'BotText')
             result_tb.TextWrapping = TextWrapping.Wrap
             result_tb.Margin       = Thickness(20, 3, 0, 0)
             result_tb.Visibility   = Visibility.Collapsed
@@ -6825,10 +7198,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             status = handle["status"]
             if ok:
                 status.Text       = u""   # MDL2 CheckMark
-                status.Foreground = _tb('Success')   # #10B981
+                _bind_fg(status, 'Success')
             else:
                 status.Text       = u""   # MDL2 Cancel
-                status.Foreground = _tb('Danger')    # #EF4444
+                _bind_fg(status, 'Danger')
 
             handle["dur"].Text = u"{0:.1f}s".format(seconds)
 
@@ -6860,7 +7233,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         tb = TextBlock()
                         tb.Text           = label
                         tb.FontSize       = 11
-                        tb.Foreground     = _tb('Blue')  # #3B82F6
+                        _bind_fg(tb, 'Blue')
                         tb.TextDecorations = TextDecorations.Underline
                         tb.Cursor         = Cursors.Hand
                         tb.Margin         = Thickness(0, 0, 10, 0)
@@ -7331,7 +7704,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         body.Text         = u"`{}` — {}".format(name, args_s)
         body.FontSize     = 11.5
         body.TextWrapping = TextWrapping.Wrap
-        body.Foreground   = _tb('BotText')         # #334155
+        _bind_fg(body, 'BotText')
         body.Margin       = Thickness(0, 4, 0, 8)
         panel.Children.Add(body)
 
@@ -7340,7 +7713,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         status_tb = TextBlock()
         status_tb.FontSize   = 11.5
-        status_tb.Foreground = _tb('Muted')   # #64748B
+        _bind_fg(status_tb, 'Muted')
         status_tb.Margin     = Thickness(10, 5, 0, 0)
         status_tb.Visibility = Visibility.Collapsed
 
@@ -7593,7 +7966,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
         p = Path()
         p.Data             = Geometry.Parse(data)
-        p.Stroke           = _tb(token)
+        _bind_stroke(p, token)
         p.StrokeThickness  = 1.5
         p.StrokeStartLineCap = PenLineCap.Round
         p.StrokeEndLineCap   = PenLineCap.Round
@@ -7659,7 +8032,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             counter.Text = u"{} / {}".format(idx + 1, len(versions))
             counter.FontSize = 10.5
             counter.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
-            counter.Foreground = _tb('Faint')
+            _bind_fg(counter, 'Faint')
             counter.VerticalAlignment = VerticalAlignment.Center
             counter.Margin = Thickness(1, 0, 1, 0)
             bar.Children.Add(counter)
@@ -7709,7 +8082,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             body = TextBlock()
             body.FontSize     = 13.5
             body.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-            body.Foreground   = _tb('BotText')
+            _bind_fg(body, 'BotText')
             body.TextWrapping = TextWrapping.Wrap
             body.LineHeight   = 21
             body.Text         = text
@@ -7744,7 +8117,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from System import TimeSpan
             glyph = sender.Content
             glyph.Data = Geometry.Parse(self._ACT_CHECK)
-            glyph.Stroke = _tb('Success')
+            _bind_stroke(glyph, 'Success')
             sender.ToolTip = u"Copied"
 
             timer = DispatcherTimer()
@@ -7754,7 +8127,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 timer.Stop()
                 try:
                     glyph.Data = Geometry.Parse(self._ACT_COPY)
-                    glyph.Stroke = _tb('IconFg')
+                    _bind_stroke(glyph, 'IconFg')
                     sender.ToolTip = u"Copy"
                 except Exception:
                     pass
@@ -7799,10 +8172,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._record_vote(sender, 'down')
 
     def _record_vote(self, sender, vote):
-        """Latch a thumbs up/down on a reply and write it to the activity log.
+        """Latch a thumbs up/down on a reply, log it, and LEARN from it.
 
         Clicking the latched side again clears the vote, so a mis-click is
         undoable rather than permanent.
+
+        The vote used to end at the activity log. It now also feeds the route
+        that produced the reply (captured in row.Tag['decision'] when the row
+        was built): 👍 reinforces the phrasing→intent mapping through the same
+        learn_pattern() the assistant already uses, 👎 suppresses that exact
+        pair so it can never win the turn again. Both are deliberately scoped
+        to the phrasing that was voted on — one bad answer is evidence about
+        one route, and a feedback loop that over-generalizes is worse than
+        none.
         """
         row = self._owning_reply_row(sender)
         if row is None:
@@ -7811,12 +8193,64 @@ class T3LabAssistantWindow(forms.WPFWindow):
         state['vote'] = None if state.get('vote') == vote else vote
         row.Tag = state
         self._refresh_reply_row(row)
-        if state['vote']:
-            versions = state.get('versions') or [u""]
-            text = versions[max(0, min(state.get('index', 0), len(versions) - 1))]
-            preview = u" ".join((text or u"").split())[:200]
-            self._log_activity(u"Feedback: {} — “{}”".format(
-                u"good response" if vote == 'up' else u"bad response", preview))
+        if not state['vote']:
+            return          # vote cleared — nothing to log or learn from
+
+        versions = state.get('versions') or [u""]
+        text = versions[max(0, min(state.get('index', 0), len(versions) - 1))]
+        preview = u" ".join((text or u"").split())[:200]
+        self._log_activity(u"Feedback: {} — “{}”".format(
+            u"good response" if vote == 'up' else u"bad response", preview))
+        self._apply_vote(vote, state.get('decision') or {})
+
+    def _vote_decision(self):
+        """Snapshot of how the current turn was routed, for the vote loop.
+
+        Taken when the reply row is built so a vote cast much later still
+        refers to the turn it belongs to, not to whatever is running now.
+        """
+        dec = getattr(self, '_agent_decision', None) or {}
+        last = getattr(self, '_last_result', None) or {}
+        return {
+            'raw':        getattr(self, '_last_raw', u"") or u"",
+            'intent':     last.get('intent'),
+            'params':     last.get('params') or {},
+            'message':    last.get('message') or u"",
+            'skill':      dec.get('skill'),
+            'specialist': dec.get('specialist'),
+        }
+
+    def _apply_vote(self, vote, decision):
+        """Persist one vote against the route that produced the reply.
+
+        Never raises: feedback is a nicety, and a write failure must not take
+        down the chat.
+        """
+        raw = (decision.get('raw') or u'').strip()
+        if not raw:
+            return
+        try:
+            from Intelligence import feedback
+            feedback.record_vote(vote, raw,
+                                 intent=decision.get('intent'),
+                                 skill=decision.get('skill'),
+                                 specialist=decision.get('specialist'))
+        except Exception as ex:
+            logger.debug("feedback store error: {}".format(ex))
+
+        if vote != 'up':
+            return
+        # An up-voted turn is a confirmed phrasing→intent mapping. learn_pattern
+        # already refuses small talk and non-tool intents, so this cannot
+        # record "thanks" as a command.
+        intent = decision.get('intent')
+        if not intent:
+            return
+        try:
+            learn_pattern(raw, intent, decision.get('params') or {},
+                          decision.get('message') or u'')
+        except Exception as ex:
+            logger.debug("learn_pattern from vote failed: {}".format(ex))
 
     def _msg_prev_clicked(self, sender, e):
         self._step_version(sender, -1)
@@ -7891,7 +8325,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             row.ColumnDefinitions.Add(col0)
 
             bubble = Border()
-            bubble.Background   = _tb('UserBubbleBg')
+            _bind_bg(bubble, 'UserBubbleBg')
             bubble.CornerRadius = CornerRadius(14)
             bubble.Padding      = Thickness(15, 10, 15, 10)
             bubble.HorizontalAlignment = HorizontalAlignment.Right
@@ -7899,7 +8333,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             msg_text = TextBlock()
             msg_text.FontSize    = 13.5
             msg_text.FontFamily  = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-            msg_text.Foreground  = _tb('UserBubbleText')
+            _bind_fg(msg_text, 'UserBubbleText')
             msg_text.LineHeight  = 21
             msg_text.TextWrapping = TextWrapping.Wrap
             if text:
@@ -7979,7 +8413,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     r.FontWeight = FontWeights.SemiBold
                 if c_idx % 2 == 1:              # inside `code`
                     r.FontFamily = _WpfFontFamily(u"Consolas")
-                    r.Foreground = _tb('CodeFg')
+                    _bind_fg(r, 'CodeFg')
                 text_block.Inlines.Add(r)
 
     @staticmethod
@@ -8025,11 +8459,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 from System.Windows.Media import SolidColorBrush, Color
                 bar = Run()
                 bar.Text       = u'▏ '   # ▏ left one-eighth block
-                bar.Foreground = _tb('Faint')
+                _bind_fg(bar, 'Faint')
                 text_block.Inlines.Add(bar)
                 quote = Run()
                 quote.Text       = stripped[2:]
-                quote.Foreground = _tb('Muted')
+                _bind_fg(quote, 'Muted')
                 quote.FontStyle  = System.Windows.FontStyles.Italic
                 text_block.Inlines.Add(quote)
                 continue
@@ -8117,7 +8551,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         1 if ri < len(rows) - 1 else 0)
                     cell.Padding = Thickness(8, 4, 8, 4)
                     if is_head:
-                        cell.Background = _tb('SelectedBg')
+                        _bind_bg(cell, 'SelectedBg')
 
                     tb = TextBlock()
                     tb.FontSize     = 12 if is_head else 12.5
@@ -8154,7 +8588,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         tb.Text       = u"\n".join(code_lines).rstrip(u"\n")
         tb.FontFamily = FontFamily(u"Consolas")
         tb.FontSize   = 12
-        tb.Foreground = _tb('Ink')
+        _bind_fg(tb, 'Ink')
 
         sv = ScrollViewer()
         sv.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
@@ -8162,8 +8596,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         sv.Content = tb
 
         card = Border()
-        card.Background      = _tb('CodeBg')
-        card.BorderBrush     = _tb('CardBorder')  # #E2E8F0
+        _bind_bg(card, 'CodeBg')
+        _bind_border(card, 'CardBorder')
         card.BorderThickness = Thickness(1)
         card.CornerRadius    = CornerRadius(6)
         card.Padding         = Thickness(10, 8, 10, 8)
@@ -8178,7 +8612,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         from System.Windows.Media import SolidColorBrush, Color
         hr = Border()
         hr.Height     = 1
-        hr.Background  = _tb('Divider')
+        _bind_bg(hr, 'Divider')
         hr.Margin      = Thickness(0, 8, 0, 8)
         return hr
 
@@ -8202,7 +8636,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tb = TextBlock()
             tb.FontSize     = 13
             tb.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-            tb.Foreground   = _tb('BotText')
+            _bind_fg(tb, 'BotText')
             tb.TextWrapping = TextWrapping.Wrap
             tb.LineHeight   = 20
             return tb
@@ -8330,6 +8764,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 'vote':       None,
                 'host':       host,
                 'prompt':     getattr(self, '_last_raw', u"") or u"",
+                # What produced this reply — so a 👍/👎 can act on the route
+                # and not just be filed in the activity log.
+                'decision':   self._vote_decision(),
             }
 
             # Block renderer: paragraphs + real table grids. Falls back to a
@@ -8340,7 +8777,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 content = TextBlock()
                 content.FontSize     = 13.5
                 content.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-                content.Foreground   = _tb('BotText')
+                _bind_fg(content, 'BotText')
                 content.TextWrapping = TextWrapping.Wrap
                 content.LineHeight   = 21
                 content.Text         = text
@@ -8384,7 +8821,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tb = TextBlock()
             tb.FontSize     = 13.5
             tb.FontFamily   = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
-            tb.Foreground   = _tb('BotText')
+            _bind_fg(tb, 'BotText')
             tb.TextWrapping = TextWrapping.Wrap
             tb.LineHeight   = 21
             host.Children.Add(tb)
@@ -8432,6 +8869,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     'vote':       None,
                     'host':       host,
                     'prompt':     getattr(self, '_last_raw', u"") or u"",
+                    'decision':   self._vote_decision(),
                 }
                 self._refresh_reply_row(row)
             else:

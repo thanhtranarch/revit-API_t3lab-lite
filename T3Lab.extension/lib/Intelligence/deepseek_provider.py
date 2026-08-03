@@ -201,6 +201,7 @@ class DeepSeekProvider(BaseLLMProvider):
                 _BASE_URL + "/chat/completions",
                 payload,
                 {"Authorization": "Bearer " + api_key},
+                timeout_ms=int(kwargs.get("timeout_ms") or 60000),
             )
             data    = json.loads(resp_text)
             msg     = data.get("choices", [{}])[0].get("message", {})

@@ -241,6 +241,11 @@ def derive_triggers(skill_id, name, description, body=''):
     return out[:_MAX_DERIVED_TRIGGERS]
 
 
+# Tie-break weight per skill source. A project ships a playbook precisely to
+# override the generic one, so it must not lose a tie to a built-in.
+_SOURCE_WEIGHT = {'project': 2.0, 'extra': 1.5, 'user': 1.0, 'builtin': 0.0}
+
+
 def _builtin_skills_dir():
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'skills')
 
@@ -443,24 +448,78 @@ class SkillsEngine(object):
                 for sid, s in sorted(self._skills.items())
                 if sid not in disabled]
 
-    def match(self, text):
-        """Skill ids whose folded triggers appear in the folded text."""
+    def match_scored(self, text):
+        """[(skill_id, score)] for every skill whose triggers hit, best first.
+
+        Only two skills ever reach the model (build_skills_block caps at
+        max_skills), so the ORDER decides which playbook the model actually
+        gets. This used to be `for sid in sorted(self._skills)` with the
+        caller taking element 0 — i.e. decided by the alphabet, so
+        `annotation-standard` beat `warning-triage` on a message about
+        warnings for no reason but its first letter.
+
+        Scoring, highest wins:
+          * a trigger's word count — "hoan thien cmt" is far more specific
+            evidence than "cmt", so a longer phrase outranks a shorter one;
+          * how much of the message the best trigger covers;
+          * how many DISTINCT triggers of that skill fired;
+          * declared triggers over derived ones — derive_triggers() guesses
+            from a Claude skill's prose and is deliberately loose;
+          * source precedence project > user > builtin, so a project's own
+            playbook wins a tie against the shipped one it overrides.
+
+        Ties break on skill id, so the result stays deterministic.
+        """
         self._ensure_scanned()
         folded = vi_text.fold_diacritics(text or '').lower()
-        folded = re.sub(r'\s+', ' ', folded)
+        folded = re.sub(r'\s+', ' ', folded).strip()
+        if not folded:
+            return []
+        total_words = len(folded.split()) or 1
         disabled = self._disabled()
-        hits = []
+
+        scored = []
         for sid in sorted(self._skills):
             if sid in disabled:
                 continue
-            for trig in self._skills[sid].get('triggers', []):
+            meta = self._skills[sid]
+            best_words = 0
+            best_chars = 0
+            n_hits = 0
+            for trig in meta.get('triggers', []):
                 if not trig:
                     continue
                 if re.search(r'(?:^|[^a-z0-9])' + re.escape(trig)
                              + r'(?:[^a-z0-9]|$)', folded):
-                    hits.append(sid)
-                    break
-        return hits
+                    n_hits += 1
+                    words = len(trig.split())
+                    if words > best_words:
+                        best_words = words
+                        best_chars = len(trig)
+                    elif words == best_words:
+                        best_chars = max(best_chars, len(trig))
+            if not n_hits:
+                continue
+
+            score = 10.0 * best_words                      # phrase specificity
+            score += 2.0 * min(n_hits, 4)                   # corroboration
+            score += 4.0 * (float(best_words) / total_words)  # query coverage
+            score += best_chars / 100.0                     # longer of equal rank
+            if not meta.get('triggers_derived'):
+                score += 3.0
+            score += _SOURCE_WEIGHT.get(meta.get('source'), 0.0)
+            scored.append((sid, score))
+
+        scored.sort(key=lambda pair: (-pair[1], pair[0]))
+        return scored
+
+    def match(self, text):
+        """Skill ids whose folded triggers appear in the folded text.
+
+        Same contract as before — a list of ids — but ordered by relevance
+        instead of alphabetically. See match_scored().
+        """
+        return [sid for sid, _ in self.match_scored(text)]
 
     def get_body(self, skill_id):
         """Full instruction body (lazy, cached, capped)."""

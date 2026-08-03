@@ -29,12 +29,23 @@ app = __revit__.Application
 rvt_year = int(app.VersionNumber)
 
 
-def create_revision(description, date, revision_type = RevisionNumberType.None):
+def create_revision(description, date, revision_type=None):
     #type:(str,str,RevisionNumberType) -> Revision
     """Function to create new Revision.
-    :param description: string for Description
-    :param date:        string for Date
-    :return:            new Revision"""
+    :param description:   string for Description
+    :param date:          string for Date
+    :param revision_type: RevisionNumberType; None = Revit's own "None"
+                          numbering (resolved lazily, see below)
+    :return:              new Revision"""
+    # NOT `revision_type=RevisionNumberType.None` in the signature: `None` is a
+    # Python keyword, so `X.None` is a SyntaxError and this whole module failed
+    # to parse — it could never be imported by anything. Resolving it here also
+    # means the lookup happens at call time rather than at import time, which
+    # matters because NumberType is obsolete from RVT 2023 and the member may
+    # not exist at all on newer hosts.
+    if revision_type is None:
+        revision_type = getattr(RevisionNumberType, 'None', None)
+
     with try_except(debug=True):
         new_rev              = Revision.Create(doc)
         new_rev.Description  = description

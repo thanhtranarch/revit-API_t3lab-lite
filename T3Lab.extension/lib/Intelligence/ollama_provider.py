@@ -285,10 +285,14 @@ class OllamaProvider(BaseLLMProvider):
             # (60s, tuned for cloud APIs) was silently killing every slower
             # local generation. The caller saw a plain None with no error,
             # indistinguishable from "the model answered but scored unknown".
+            # A caller that is only waiting on a tiny utility answer (e.g. the
+            # dispatcher's one-label classification) passes a much shorter
+            # timeout_ms — three minutes of dead wait ahead of the real turn
+            # is worse than falling back to the keyword decision.
             resp_text = http_post(
                 self._get_host() + "/api/chat",
                 payload,
-                timeout_ms=180000,
+                timeout_ms=int(kwargs.get("timeout_ms") or 180000),
             )
             data = json.loads(resp_text)
             return data.get("message", {}).get("content", "")

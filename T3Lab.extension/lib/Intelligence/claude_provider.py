@@ -228,7 +228,9 @@ class ClaudeProvider(BaseLLMProvider):
         }
 
         try:
-            resp_text  = http_post(CLAUDE_API_URL, payload, headers)
+            resp_text  = http_post(CLAUDE_API_URL, payload, headers,
+                                   timeout_ms=int(kwargs.get("timeout_ms")
+                                                  or 60000))
             api_result = json.loads(resp_text)
             return api_result["content"][0]["text"].strip()
         except Exception as ex:
@@ -424,6 +426,11 @@ class ClaudeProvider(BaseLLMProvider):
             "blocks":      [],     # finalized content blocks, in order
             "cur":         None,   # block being streamed
             "stop_reason": None,
+            # Token accounting. `message_start` carries the whole input side
+            # (including cache_read_input_tokens / cache_creation_input_tokens,
+            # the only way to tell whether prompt caching is actually working);
+            # `message_delta` carries the final output_tokens.
+            "usage":       {},
         }
 
         def _on_line(line):
@@ -441,7 +448,15 @@ class ClaudeProvider(BaseLLMProvider):
                 return
             etype = obj.get("type")
 
-            if etype == "content_block_start":
+            if etype == "message_start":
+                try:
+                    u = (obj.get("message", {}) or {}).get("usage", {}) or {}
+                    if isinstance(u, dict):
+                        state["usage"].update(u)
+                except Exception:
+                    pass
+
+            elif etype == "content_block_start":
                 cb = obj.get("content_block", {}) or {}
                 if cb.get("type") == "tool_use":
                     state["cur"] = {"type": "tool_use", "id": cb.get("id", ""),
@@ -485,6 +500,12 @@ class ClaudeProvider(BaseLLMProvider):
                 d = obj.get("delta", {}) or {}
                 if d.get("stop_reason"):
                     state["stop_reason"] = d["stop_reason"]
+                try:
+                    u = obj.get("usage", {}) or {}
+                    if isinstance(u, dict):
+                        state["usage"].update(u)
+                except Exception:
+                    pass
 
         streamed_ok = False
         try:
@@ -517,7 +538,8 @@ class ClaudeProvider(BaseLLMProvider):
 
         if streamed_ok:
             return self._agent_result_from_blocks(state["blocks"],
-                                                  state["stop_reason"])
+                                                  state["stop_reason"],
+                                                  state["usage"])
 
         # ── Blocking fallback ────────────────────────────────────────────────
         def _do_blocking(mode):
@@ -542,17 +564,19 @@ class ClaudeProvider(BaseLLMProvider):
                 elif b.get("type") == "redacted_thinking":
                     blocks.append({"type": "redacted_thinking", "parts": [],
                                    "data": b.get("data")})
-            return blocks, api_result.get("stop_reason")
+            return (blocks, api_result.get("stop_reason"),
+                    api_result.get("usage") or {})
 
         try:
-            blocks, stop_reason = _do_blocking(thinking_mode)
-            return self._agent_result_from_blocks(blocks, stop_reason)
+            blocks, stop_reason, usage = _do_blocking(thinking_mode)
+            return self._agent_result_from_blocks(blocks, stop_reason, usage)
         except Exception as ex:
             if thinking_mode == "adaptive" and self._thinking_rejected(ex):
                 self._thinking_mode[model] = thinking_mode = "legacy"
                 try:
-                    blocks, stop_reason = _do_blocking(thinking_mode)
-                    return self._agent_result_from_blocks(blocks, stop_reason)
+                    blocks, stop_reason, usage = _do_blocking(thinking_mode)
+                    return self._agent_result_from_blocks(blocks, stop_reason,
+                                                          usage)
                 except Exception as ex2:
                     self._record_error(u"chat_agent() failed: {}".format(ex2))
                     return None
@@ -560,12 +584,16 @@ class ClaudeProvider(BaseLLMProvider):
             return None
 
     @staticmethod
-    def _agent_result_from_blocks(blocks, stop_reason):
+    def _agent_result_from_blocks(blocks, stop_reason, usage=None):
         """Assemble the uniform chat_agent result from streamed blocks.
 
         Thinking blocks are preserved in assistant_msg (the API requires the
         exact blocks + signatures back in the transcript when extended
         thinking is enabled) but never surface in the user-visible text.
+
+        `usage` is the raw API token accounting for THIS call, passed through
+        untouched for Intelligence/telemetry.py to accumulate. Providers that
+        report nothing simply yield {}.
         """
         texts      = []
         tool_calls = []
@@ -600,6 +628,7 @@ class ClaudeProvider(BaseLLMProvider):
             "tool_calls":    tool_calls,
             "assistant_msg": {"role": "assistant", "content": content},
             "stop_reason":   stop_reason or ("tool_use" if tool_calls else "end_turn"),
+            "usage":         dict(usage or {}),
         }
 
     @staticmethod

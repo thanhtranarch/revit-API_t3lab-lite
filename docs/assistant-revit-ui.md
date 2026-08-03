@@ -1,6 +1,6 @@
 # T3Lab Assistant — giao diện hoà làm 1 với Revit
 
-> Cập nhật 2026-07-30. File liên quan:
+> Cập nhật 2026-08-02. File liên quan:
 > `T3Lab.extension/lib/GUI/RevitTheme.py` ·
 > `T3Lab.extension/lib/GUI/Tools/T3LabAssistant.xaml` ·
 > `T3Lab.extension/lib/GUI/AssistantPaneControl.py` ·
@@ -28,22 +28,47 @@ Cách chia màu (chỉ **một** bên hội thoại được tô nền):
 
 Không token màu nào được gõ thẳng vào chỗ dùng: tất cả đi qua
 `GUI/RevitTheme.py`. XAML dùng `{DynamicResource T3Theme<Token>}`, code Python
-dùng `_tb('Token')` / `_trgb('Token')` / `_theme_color('Token')`.
+dùng `_bind_fg` / `_bind_bg` / `_bind_border` / `_bind_stroke` (xem §2 — chúng
+**theo** token, không chụp lại nó). `_trgb('Token')` / `_theme_color('Token')`
+vẫn dùng cho chỗ cần giá trị thô.
 
 ## 2. Theme sáng/tối theo Revit
 
 `RevitTheme.current_theme()` đọc `UIThemeManager.CurrentTheme` (Revit 2024+;
 host cũ hơn không có dark mode nên trả `light`). `RevitTheme.apply(window)` ghi
-28 token vào `Window.Resources`, nên mọi chỗ bind `DynamicResource` đổi màu ngay.
+30 token vào `Window.Resources`, nên mọi chỗ bind `DynamicResource` đổi màu ngay.
 
 - Áp dụng khi mở cửa sổ **và** mỗi lần cửa sổ được activate (user đổi theme
   giữa chừng trong Options ▸ User Interface, hoặc bằng tool BG Theme).
-- **Giới hạn đã biết:** các tin nhắn *đã render* giữ nguyên màu lúc render.
-  Chúng theo theme mới khi có tin mới, hoặc toàn bộ sau "New conversation" /
-  mở lại pane. Render lại transcript giữa chừng có thể đụng vào bong bóng đang
-  stream nên không làm.
+- `apply()` ghi **hai** khoá cho mỗi token: `T3Theme<Token>` là brush, và
+  `T3Theme<Token>Color` là `Color` thô. Vài property có kiểu `Color` chứ không
+  phải `Brush` — `DropShadowEffect.Color` là chính — và bind brush vào đó thì
+  **im lặng không ăn**. Thiếu khoá này nên bóng đổ của popup từng phải hardcode
+  hex, và ở dark mode nó vẫn đen kiểu giấy nên popup mất tách lớp.
 - Card xác nhận thao tác phá huỷ (`#FEF2F2`) cố tình giữ nguyên đỏ sáng ở cả
   hai theme — nó phải nổi bật.
+
+### Tin nhắn đã render cũng đổi màu (2026-08-02)
+
+Trước đây các tin nhắn *đã render* giữ nguyên màu lúc render, và ghi chú cũ nói
+"render lại transcript giữa chừng có thể đụng bong bóng đang stream nên không
+làm". Lý do đó đúng — nhưng **không cần render lại**.
+
+Gốc rễ: `_tb()` trả một `SolidColorBrush` **đóng băng**, tức một *giá trị*.
+`apply()` ghi lại token thì mọi `{DynamicResource}` trong XAML tự tính lại,
+nhưng một brush đã gán thì không có gì chạy lại.
+
+`_bind_theme(element, prop, token)` trong `script.py` dùng
+`SetResourceReference` — đúng bản code-behind của `DynamicResource`: element tự
+đăng ký theo khoá và tự vẽ lại khi khoá đổi. Không render lại dòng nào, nên
+bong bóng đang stream không hề bị đụng tới. Bốn helper mỏng cho các property
+hay dùng: `_bind_fg` / `_bind_bg` / `_bind_border` / `_bind_stroke`.
+
+Không phân giải được `DependencyProperty` thì nó **rơi về đúng phép gán cũ**,
+nên trường hợp xấu nhất bằng đúng hành vi trước đây.
+
+> Đừng gán `X.Foreground = _tb('Token')` nữa — `dev/test_assistant_ui.py` sẽ
+> báo đỏ. Dùng `_bind_fg(X, 'Token')`.
 
 ## 3. Dockable pane: đúng chỗ, đúng viền
 
@@ -92,10 +117,63 @@ bóng một avatar.
 
 ## 6. Scrollbar mỏng kiểu Revit
 
-`RevitThinScrollBar` + `RevitThinThumb`: không nút mũi tên, không nền — chỉ một
-thumb bo tròn rộng 5px (7px khi hover/kéo), vùng bấm 8px.
+`RevitThinScrollBar`: không nút mũi tên, không nền — chỉ một thumb bo tròn dày
+5px (7px khi hover/kéo), vùng bấm 8px.
 
-Áp bằng **nested `<ScrollViewer.Resources>`** trên từng surface cuộn, không sửa
-block shared styles: block đó khai báo `<Style TargetType="{x:Type ScrollBar}">`
-*implicit* (không `x:Key`), thêm cái thứ hai cùng dictionary sẽ lỗi trùng key —
-và sửa file master sẽ kéo theo 52 tool window khác.
+### 6.1 Hai hướng, không phải một (sửa 2026-08-02)
+
+Style này ban đầu **chỉ viết cho chiều dọc**: `Width` cố định, thumb `Width="5"`
++ `HorizontalAlignment="Center"`, và `IsDirectionReversed="true"` hardcode trên
+`Track`. Đúng cho dọc, sai hoàn toàn cho ngang.
+
+Nó **có** dùng cho thanh ngang: mọi code block trong câu trả lời
+(`_make_code_block`) đặt `HorizontalScrollBarVisibility = Auto` và nằm trong
+`chat_scroll`. Kết quả: thanh ngang hiện thành vệt **dọc** 5px, và
+`IsDirectionReversed` sai làm kéo **ngược chiều**.
+
+Nay tách hai template (`...TemplateV` / `...TemplateH`) và hai thumb style, đổi
+qua `<Trigger Property="Orientation" Value="Horizontal">` — đúng cách khối
+shared vẫn làm.
+
+### 6.2 Phủ toàn cửa sổ, không phải từng surface
+
+Trước đây áp bằng **nested `<ScrollViewer.Resources>`** trên từng surface cuộn,
+vì khối shared khai báo `<Style TargetType="{x:Type ScrollBar}">` *implicit*
+(không `x:Key`) và thêm cái thứ hai **cùng dictionary** sẽ lỗi trùng khoá.
+
+Ràng buộc đó chỉ đúng trong **cùng một** dictionary. Một style implicit đặt ở
+`<Grid.Resources>` của root Grid nằm ở dictionary **khác**, hợp lệ, và thắng
+cho toàn bộ subtree. Nhờ vậy mới phủ được những chỗ cách cũ luôn bỏ sót:
+
+- `chat_input` — nó bị chặn `MaxHeight` và bật `VerticalScrollBarVisibility`
+  (`script.py`), nên soạn tin dài là có thanh cuộn;
+- dropdown của ComboBox.
+
+Cả hai trước đó rơi về style shared với hex cứng `#A1A1AA`/`#71717A`/`#18181B`
+⇒ dark mode vẽ thumb gần như tàng hình.
+
+Các override lồng cũ **vẫn giữ**: nội dung popup nằm ngoài visual tree của
+element này nên tra cứu resource không chắc tới được đây.
+
+> Vẫn **không** sửa file master `WPF_styles.xaml` — làm thế sẽ kéo theo 52 tool
+> window khác.
+
+## 7. Popup trong pane hẹp
+
+Bề rộng popup được viết cho cửa sổ nổi (`skills_popup` khai `MinWidth="340"`),
+trong khi pane cắm cạnh Project Browser thường 300–340px — popup tràn ra ngoài,
+đè lên UI của Revit. `_fit_popups_to_width()` ghim bề rộng theo pane.
+
+Nó chạy ở **mọi** lần đổi bề rộng, không chỉ lúc vượt ngưỡng compact: kéo pane
+từ 250px lên 350px không cắt qua ngưỡng nào, nên `_apply_compact_layout` thoát
+sớm và popup sẽ kẹt ở bề rộng hẹp nhất từng gặp.
+
+## 8. Test
+
+`dev/test_assistant_ui.py` giữ **các nguyên tắc mà cái lock sinh ra để bảo vệ**,
+không phải thiết kế thị giác: màu đi qua token, hai palette khớp nhau, scrollbar
+đủ hai hướng, khối auto-synced còn nguyên, không style chết, không hex lạc.
+
+Trước đó file XAML bespoke nhất codebase **không có gì kiểm tra** — `audit_ui.py`
+bỏ qua nó vì nó UI-locked. Đó chính là lý do một style chỉ-dọc bị dùng cho thanh
+ngang, và hai style hardcode hoàn toàn nằm không ai dùng suốt nhiều tháng.
