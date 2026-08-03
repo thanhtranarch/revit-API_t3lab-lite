@@ -1341,6 +1341,38 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             pass
 
+    def _theme_scopes(self):
+        """Every element that must carry its own copy of the T3Theme* brushes.
+
+        Docked, AssistantPaneControl hands the content to Revit and detaches
+        it from this window:
+
+            content = win.Content
+            win.Content = None          # <- root_chrome loses the Window
+            data.FrameworkElement = content
+
+        Window.Resources is where RevitTheme.apply() writes the tokens, so
+        after that detach it is no longer an ancestor resource scope of the
+        tree that binds to it. Every {DynamicResource T3Theme*} in the docked
+        pane then resolves to nothing and the property falls back to its
+        default — Background to null — leaving the pane transparent over
+        Revit's black HwndSource. That is the "pane went dark while Revit is
+        light" report: not a theme misdetection, a lookup that stops
+        resolving.
+
+        Writing the tokens onto the content root as well keeps them with the
+        content wherever it is reparented. Floating, both scopes are alive and
+        identical (RevitTheme caches one frozen brush per token per theme, so
+        the second copy is ~30 dictionary entries pointing at the same
+        objects); root_chrome is the nearer scope and simply wins.
+        """
+        scopes = []
+        root = getattr(self, 'root_chrome', None)
+        if root is not None:
+            scopes.append(root)
+        scopes.append(self)     # the Window's own Background binds too
+        return scopes
+
     def _sync_theme(self, force=False):
         """Repaint the shell in Revit's current theme (Light / Dark).
 
@@ -1358,7 +1390,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if theme == getattr(self, '_current_skin', None) and not force:
                 return theme
             self._current_skin = theme
-            _theme.apply(self, theme)
+            for scope in self._theme_scopes():
+                try:
+                    _theme.apply(scope, theme)
+                except Exception:
+                    continue
             return theme
         except Exception as ex:
             logger.debug("_sync_theme error: {}".format(ex))
@@ -1486,11 +1522,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("context timer unavailable: {}".format(ex))
 
     def _on_context_tick(self, sender, e):
+        # Ask the element that is actually on screen. Docked, this window is
+        # never shown — its content was detached into Revit's pane — so
+        # self.IsVisible is permanently False and this tick used to return
+        # early on every single fire, for the whole life of the pane.
+        probe = getattr(self, 'root_chrome', None)
+        if probe is None:
+            probe = self
         try:
-            if not self.IsVisible:
+            if not probe.IsVisible:
                 return          # docked pane hidden — nothing to refresh
         except Exception:
             pass
+        # Revit's theme can change while the pane is open, and a docked pane
+        # raises no Window.Activated — this tick is the only thing that would
+        # notice. _sync_theme returns immediately unless the theme changed.
+        self._sync_theme()
         if not self._update_revit_context():
             self._ctx_failures = getattr(self, '_ctx_failures', 0) + 1
             if self._ctx_failures >= 3:
