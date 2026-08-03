@@ -1,11 +1,12 @@
 # T3Lab Assistant — knowledge, skills, trí thông minh & tốc độ
 
-> Cập nhật 2026-08-01. Các file liên quan:
+> Cập nhật 2026-08-02 (mục 7). Các file liên quan:
 > `lib/Intelligence/telemetry.py`, `conversation.py`, `feedback.py`,
 > `knowledge/query_builder.py`, `knowledge/rerank.py`,
 > `agent_loop.py`, `agents/dispatcher.py`, `skills_engine.py`,
-> `core/server.py`, `T3Lab.tab/Support.panel/T3LabAssistant.pushbutton/script.py`,
-> `dev/test_assistant_perf.py`, `dev/bench_assistant.py`.
+> `nlu_engine.py`, `core/server.py`, `Services/revit_context.py`,
+> `T3Lab.tab/Support.panel/T3LabAssistant.pushbutton/script.py`,
+> `dev/test_assistant_perf.py`, `dev/test_assistant_routing.py`, `dev/bench_assistant.py`.
 
 Đợt này **không thêm tính năng mới**. Cả 4 trục đều đã có sẵn cơ chế — vấn đề
 nằm ở chỗ chúng bị **nối sai**, và mỗi mục dưới đây là một khiếm khuyết đã xác
@@ -289,3 +290,62 @@ Lỗi này sống lâu vì **không gì kiểm tra**: `audit_tools.py` chỉ soi
 `lib/Snippets/` không có test nào. Thêm `test_every_extension_file_parses` —
 `ast.parse` mọi file `.py` trong `T3Lab.extension/` (chỉ parse, **không**
 import: phần lớn cây cần Revit thật).
+
+---
+
+## 7. Rà soát tiếp theo (2026-08-02) — 2 lỗi đã sửa, 4 khoản còn để lại
+
+Đợt trước (mục 1–6) đã khớp lại tốc độ, skill scoring, retrieval và bộ nhớ hội
+thoại. Đợt này soát riêng tầng **quyết định** (`nlu_engine.py`, `routing.py`,
+`agent_loop.py`) và tầng **tích hợp dữ liệu ngoài** (`Services/revit_context.py`,
+`api_learner.py`, `api_updater.py`) tìm khiếm khuyết còn sót — không lặp lại
+phạm vi đợt trước.
+
+### 7.1 Đã sửa
+
+**a. `_last_tool_from_history` không phân biệt vai trò (`nlu_engine.py`)**
+
+Nhánh khớp `"Opening X..." / "đang mở X"` để tìm tool assistant vừa mở lẽ ra
+chỉ nên đọc dòng **của assistant**, nhưng vòng lặp quét cả `user` lẫn
+`assistant`. Một tin nhắn user tình cờ chứa cụm đó ("đang mở dwg management
+giúp tôi với") bị hiểu nhầm thành assistant vừa mở DWG Management, và một câu
+"mở nó" ngay sau sẽ mở nhầm tool đó dù chưa tool nào thực sự chạy. Đã thêm
+điều kiện `entry.get("role") == "assistant"` trước khi thử khớp dòng này —
+nhánh khớp tên tool theo `resolve_tool(raw, exact_only=True)` ngay dưới vẫn
+đọc cả hai vai vì nó chỉ khớp khi CHÍNH tin nhắn là một yêu cầu mở tool, không
+phân biệt ai gửi. Test: `test_history_referent_is_a_real_tool_mention` (thêm
+case mới) trong `dev/test_assistant_routing.py`.
+
+**b. Race khi `Raise()` thất bại có thể xoá nhầm task của người khác (`revit_context.py`)**
+
+`run_in_api_context` xếp `(func, on_done)` vào `_TASKS` rồi gọi
+`ExternalEvent.Raise()`; nếu `Raise()` ném lỗi, code cũ gọi `_TASKS.get_nowait()`
+để "lấy lại task vừa xếp" — nhưng `Queue` là FIFO, và assistant **hỗ trợ nhiều
+cửa sổ cùng lúc**, nên nếu một cửa sổ khác đã xếp task trước, `get_nowait()`
+lấy nhầm task đó (đứng đầu hàng đợi) chứ không phải task của lệnh gọi đang lỗi.
+Task bị lấy nhầm bị vứt bỏ im lặng — `on_done` của nó không bao giờ chạy, và
+lệnh gọi kia cứ treo chờ mãi dù đã nhận `'queued'`.
+
+Mỗi lần xếp hàng giờ kèm một token định danh (`object()` riêng); khi `Raise()`
+lỗi, `_remove_task(token)` lọc đúng entry mang token đó ra khỏi hàng đợi (giữ
+nguyên thứ tự mọi entry khác) thay vì lấy bất kỳ thứ gì đứng đầu. Test:
+`test_raise_failure_only_discards_its_own_task` (mới).
+
+Cả hai test đều **fail trước bản sửa này** và pass sau đó; không đổi hành vi
+khi chỉ có một task/một cửa sổ.
+
+### 7.2 Còn để lại — ưu tiên theo impact/effort
+
+| # | Vấn đề | File | Impact | Effort |
+|---|---|---|---|---|
+| 1 | `chat_stream()` khi mất kết nối SSE giữa chừng thì âm thầm gọi lại `chat()` không streaming từ đầu — user thấy câu trả lời đang stream bị thay bằng một câu trả lời khác được sinh độc lập, tốn gấp đôi latency/token mà không đảm bảo khớp nhau | `claude_provider.py`, `openai_provider.py` | Trung bình–Cao | Nhỏ |
+| 2 | `assistant_memory.add_fact()` chỉ dedupe theo so khớp chuỗi thường tuyệt đối, không có `update_fact`/`forget_fact` — user sửa lại một quy ước đã lưu ("prefix WH-" → "đổi thành EA-") thì cả hai fact cùng tồn tại và cùng được nhồi vào system prompt mỗi lượt, không có tín hiệu cái nào còn hiệu lực | `assistant_memory.py` | Trung bình–Cao | Nhỏ–Vừa |
+| 3 | `api_updater.py` (RevitAPIUpdater / auto_check_and_update / APIUpdateNotifier) không được import ở bất kỳ đâu khác trong repo — tính năng "tự phát hiện phiên bản Revit API mới" quảng cáo trong docstring không chạy | `api_updater.py` | Thấp–Trung bình | Nhỏ |
+| 4 | `feedback.skill_score()` tính điểm 👍/👎 theo từng skill nhưng không route/ranking nào đọc lại số đó — dữ liệu thu thập rồi bỏ không | `feedback.py` | Thấp | Nhỏ |
+
+Không đề xuất động vào `T3LabAssistant.xaml` (UI-locked) hay lặp lại phạm vi
+mục 1–6. `knowledge/embeddings.py` đã kiểm tra riêng: **không phải dead code**
+— được `knowledge_store.search()`/`embed_pending()` dùng thật qua nhánh
+knowledge-agent; đường inject ngữ cảnh của agent chính (`_build_knowledge_reference`)
+cố tình chỉ dùng BM25 để giữ tốc độ/tính tất định, đây là đánh đổi đã ghi nhận
+chứ không phải thiếu sót.

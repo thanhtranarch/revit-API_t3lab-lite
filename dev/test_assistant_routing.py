@@ -172,6 +172,40 @@ def test_api_context_runner_normalises_every_launcher_shape():
           ok is False and bool(err), err)
 
 
+def test_raise_failure_only_discards_its_own_task():
+    """With more than one assistant window, the task queue can hold another
+    caller's still-good task when Raise() fails for THIS call. The recovery
+    path must remove only the entry it just queued, not whatever is at the
+    front of the queue — otherwise it silently drops someone else's task and
+    its on_done callback never fires."""
+    from Services import revit_context as RC
+
+    seen = []
+    RC._TASKS.put(('other-token', lambda: (True, u'other'),
+                   lambda ok, err: seen.append(('other', ok, err))))
+
+    real_event, RC._EVENT = RC._EVENT, _FakeRaisingEvent()
+    try:
+        def _done(ok, err):
+            seen.append(('mine', ok, err))
+        RC.run_in_api_context(lambda: (True, u'mine'), _done)
+    finally:
+        RC._EVENT = real_event
+
+    check('the other caller\'s task is still queued, untouched',
+          RC._TASKS.qsize() == 1, RC._TASKS.qsize())
+    token, func, on_done = RC._TASKS.get_nowait()
+    check('it is still the other task, not a stray copy',
+          token == 'other-token', token)
+    check('only the failing call\'s own outcome was reported',
+          seen == [('mine', True, u'mine')], seen)
+
+
+class _FakeRaisingEvent(object):
+    def Raise(self):
+        raise RuntimeError('event disposed')
+
+
 def test_tools_are_launched_through_the_api_context():
     """Drift lock for the crash that made every tool unopenable from chat.
 
@@ -844,6 +878,14 @@ def test_history_referent_is_a_real_tool_mention():
     check(u'small talk leaves the pronoun unresolved',
           intent([u"Xin chào!"], u"mở nó") is None)
 
+    from Intelligence import nlu_engine as N2
+    r = N2.classify(u"mở nó", history=[
+        {'role': 'user', 'content': u"đang mở dwg management giúp tôi với"},
+    ])
+    check(u'an "Opening X..." phrase from the USER does not count as the '
+          u'assistant having launched that tool',
+          (r or {}).get('intent') is None, r)
+
 
 def test_capability_question_beats_anaphora():
     """An explicit capability frame states its own subject — resolving its
@@ -866,6 +908,7 @@ TESTS = [
         test_launcher_reports_failure_honestly,
         test_launcher_treats_exitscript_as_success,
         test_api_context_runner_normalises_every_launcher_shape,
+        test_raise_failure_only_discards_its_own_task,
         test_tools_are_launched_through_the_api_context,
     ]),
     ('catalog', [

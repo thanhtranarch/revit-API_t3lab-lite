@@ -1606,15 +1606,20 @@ def _last_tool_from_history(history):
         raw = entry.get("content", "") or ""
         content = _norm(raw)
 
-        m = _OPENED_LINE_RE.search(content)
-        if m:
-            named = m.group(1).strip()
-            tool = _tool_by_title(named)
-            if tool:
-                return tool['intent']
-            tool, _ = resolve_tool(named, exact_only=True)
-            if tool:
-                return tool['intent']
+        # "Opening X..." is the assistant announcing what it just launched —
+        # only the assistant's own lines count. A user message that happens to
+        # contain that phrase ("... dang mo dwg management ...") must not be
+        # mistaken for the assistant having opened that tool.
+        if entry.get("role") == "assistant":
+            m = _OPENED_LINE_RE.search(content)
+            if m:
+                named = m.group(1).strip()
+                tool = _tool_by_title(named)
+                if tool:
+                    return tool['intent']
+                tool, _ = resolve_tool(named, exact_only=True)
+                if tool:
+                    return tool['intent']
 
         tool, _ = resolve_tool(raw, exact_only=True)
         if tool:
