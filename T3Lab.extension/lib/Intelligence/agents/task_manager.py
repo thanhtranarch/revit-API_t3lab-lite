@@ -241,6 +241,31 @@ class AgentTaskManager(object):
             self._pump()             # a slot freed — start waiting tasks
 
 
+# ─── Parallel-eligibility policy ────────────────────────────────────────────────
+
+def eligible_for_parallel(is_multi, node_count, has_writer, enabled):
+    """Whether a graph plan should run its goals as concurrent task cards.
+
+    Deliberately conservative — the same lesson as the reverted chunked
+    BatchOut export: concurrency near Revit is only safe when it stays away
+    from interleaved model writes.
+
+    Parallelise ONLY when the caller opted in AND the plan is genuinely
+    several independent READ goals:
+      * enabled       — the agents.parallel_tasks kill switch is on;
+      * is_multi      — the planner split the turn into >1 goal;
+      * node_count>=2 — there is actually something to run side by side;
+      * not has_writer — no goal modifies the model. A writer present means
+        transactions could interleave, so the whole turn falls back to the
+        existing one-at-a-time sequential path.
+
+    Pure function of plain values so it is unit-testable without a real plan
+    or any WPF/Revit context.
+    """
+    return bool(enabled) and bool(is_multi) and node_count >= 2 \
+        and not has_writer
+
+
 # ─── Process-wide singleton ────────────────────────────────────────────────────
 
 _manager = None

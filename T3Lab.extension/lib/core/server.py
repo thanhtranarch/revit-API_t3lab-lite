@@ -3915,16 +3915,23 @@ class T3LabAIServer(object):
         elif tool_name == 'get_material_quantities':
             cat_arg   = arguments.get('category', 'Walls')
             lvl_arg   = arguments.get('level_name')
-            QTY_CATEGORY_MAP = {
-                'Walls':    BuiltInCategory.OST_Walls,
-                'Floors':   BuiltInCategory.OST_Floors,
-                'Roofs':    BuiltInCategory.OST_Roofs,
-                'Ceilings': BuiltInCategory.OST_Ceilings,
-            }
-            bic = QTY_CATEGORY_MAP.get(cat_arg)
-            if bic is None:
-                return {'error': 'Unsupported category "{}". Use one of: {}'.format(
-                    cat_arg, ', '.join(sorted(QTY_CATEGORY_MAP.keys())))}
+            # Route through the shared resolver so this tool speaks the same
+            # vocabulary as every other category tool: case-insensitive + the
+            # Vietnamese aliases in _BIC_ALIASES (tường/sàn/mái/trần). It used to
+            # keep its own case-sensitive 4-entry map, so "walls" / "Tường" gave
+            # a false "Unsupported category" in a bilingual office.
+            bic, cat_name, err = self._resolve_bic(cat_arg)
+            if err:
+                return err
+            # Only these four expose Area/Volume, so constrain AFTER resolving.
+            SUPPORTED = set([
+                BuiltInCategory.OST_Walls, BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Roofs, BuiltInCategory.OST_Ceilings,
+            ])
+            if bic not in SUPPORTED:
+                return {'error': ('Material quantities are only available for '
+                                  'Walls, Floors, Roofs, Ceilings — "{}" has no '
+                                  'area/volume.').format(cat_name)}
             collector = FilteredElementCollector(doc).OfCategory(bic).WhereElementIsNotElementType()
             total_area_m2   = 0.0
             total_volume_m3 = 0.0

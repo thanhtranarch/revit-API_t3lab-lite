@@ -659,6 +659,42 @@ def test_claude_stream_drop_with_nothing_streamed_falls_back():
         CP.http_post_stream, CP.http_post = orig_s, orig_p
 
 
+def test_skill_ranking_uses_feedback():
+    print('[skills: thumbs re-order match_scored, zero votes unchanged]')
+    _reset_appdata()
+    import Intelligence.skills_engine as SE
+    import Intelligence.feedback as FB
+
+    # Two skills that trigger on the SAME single word → identical trigger score,
+    # so the ONLY separator is the alphabet (tie-break) or feedback. 'aaa' wins
+    # the tie by id when there are no votes.
+    eng = SE.SkillsEngine()
+    eng._skills = {
+        'aaa-skill': {'triggers': ['warning'], 'source': 'builtin',
+                      'triggers_derived': False},
+        'zzz-skill': {'triggers': ['warning'], 'source': 'builtin',
+                      'triggers_derived': False},
+    }
+    eng._scanned = True
+    eng._disabled = lambda: set()
+
+    orig = FB.skill_score
+    try:
+        FB.skill_score = lambda sid: (0, 0)
+        order = [sid for sid, _ in eng.match_scored('check the warning')]
+        check('zero votes: alphabetical tie-break holds',
+              order == ['aaa-skill', 'zzz-skill'], order)
+
+        # Down-vote the alphabetical winner, up-vote the other → order flips.
+        FB.skill_score = lambda sid: {'aaa-skill': (0, 4),
+                                      'zzz-skill': (4, 0)}.get(sid, (0, 0))
+        order2 = [sid for sid, _ in eng.match_scored('check the warning')]
+        check('down-voted skill sinks below the up-voted one',
+              order2 == ['zzz-skill', 'aaa-skill'], order2)
+    finally:
+        FB.skill_score = orig
+
+
 def test_openai_stream_drop_continues_partial():
     print('[openai: stream drop continues, no re-generate]')
     a = _reset_appdata()
@@ -714,6 +750,7 @@ def main():
     test_json_callers_opt_in()
     test_claude_stream_drop_continues_partial()
     test_claude_stream_drop_with_nothing_streamed_falls_back()
+    test_skill_ranking_uses_feedback()
     test_openai_stream_drop_continues_partial()
     test_project_meta_cache()
     test_project_schedule_api()
