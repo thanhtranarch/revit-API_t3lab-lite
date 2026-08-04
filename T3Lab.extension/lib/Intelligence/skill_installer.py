@@ -575,6 +575,16 @@ def _install_one(zf, skill, dest_dir, source, report, other_roots=()):
 
     target = os.path.join(dest_dir, sid)
     existed = os.path.isdir(target)
+    # remove_installed() refuses to touch a folder with no source stamp,
+    # treating that as "the user's own skill, not ours to delete". Installing
+    # must honour the same line: a hand-authored skill that happens to share
+    # an id/slug with one from this repo must not be silently overwritten.
+    if existed and not os.path.isfile(os.path.join(target, SOURCE_FILE)):
+        report['skipped'].append(
+            (sid, 'a skill folder with this id already exists and was not '
+                  'installed from a repo — rename it or remove it manually '
+                  'before installing "{}".'.format(sid)))
+        return
     if not os.path.isdir(target):
         os.makedirs(target)
 

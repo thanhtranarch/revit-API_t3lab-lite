@@ -405,6 +405,36 @@ def test_reinstall_reports_update():
           repr(report['installed']) + repr(report['updated']))
 
 
+def test_install_does_not_overwrite_a_hand_authored_skill():
+    """remove_installed() refuses to delete a folder with no source stamp,
+    treating that as the user's own skill. Installing must honour the same
+    line: a hand-authored skill sharing an id with a repo skill must be left
+    alone, not silently overwritten with the repo's content."""
+    dest = _tmpdir()
+    user_dir = os.path.join(dest, 'pdf-processing')
+    os.makedirs(user_dir)
+    with io.open(os.path.join(user_dir, 'SKILL.md'), 'w',
+                encoding='utf-8') as f:
+        f.write(u'---\nname: pdf-processing\ntriggers: ["my own thing"]\n'
+                u'---\n\nHand-written body, not from any repo.\n')
+
+    report = si.install_from_github('https://github.com/owner/repo',
+                                    dest_dir=dest, fetcher=_fake_fetcher())
+
+    skipped_ids = [sid for sid, _reason in report['skipped']]
+    check('the conflicting skill is reported as skipped, not installed',
+          'pdf-processing' in skipped_ids, repr(report['skipped']))
+    check('the conflicting skill is not reported as installed or updated',
+          'pdf-processing' not in [e['id'] for e in report['installed']]
+          and 'pdf-processing' not in [e['id'] for e in report['updated']],
+          repr(report))
+    check('no source stamp was written into the user\'s folder',
+          not os.path.isfile(os.path.join(user_dir, si.SOURCE_FILE)))
+    with io.open(os.path.join(user_dir, 'SKILL.md'), encoding='utf-8') as f:
+        check('the user\'s own SKILL.md content is untouched',
+              'Hand-written body' in f.read())
+
+
 def test_update_all_repulls():
     dest = _tmpdir()
     si.install_from_github('https://github.com/owner/repo', dest_dir=dest,
@@ -572,6 +602,7 @@ TESTS = [
     ('Install / update', [
         test_install_writes_skills,
         test_reinstall_reports_update,
+        test_install_does_not_overwrite_a_hand_authored_skill,
         test_update_all_repulls,
         test_update_with_nothing_installed,
         test_blocked_and_unsafe_files,
