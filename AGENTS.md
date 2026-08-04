@@ -37,6 +37,9 @@ Agent definitions: `.Codex/agents/`
 
 | Resource | Path |
 |----------|------|
+| Bilingual VI/EN analysis | `T3Lab.extension/lib/Intelligence/language/` |
+| Graph agent layer | `T3Lab.extension/lib/Intelligence/graph/` |
+| Assistant architecture doc | `docs/assistant-graph-architecture.md` |
 | Canonical UI | `.Codex/standard/UIStandardShowcase.xaml` |
 | All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
 | Shared styles | `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` |

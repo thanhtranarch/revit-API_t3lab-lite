@@ -152,6 +152,7 @@ class T3LabAISettings(object):
                 'multi_agent':  True,
                 'llm_classify': True,
                 'quality_mode': False,
+                'graph_mode':   True,
             },
             'skills': {
                 'disabled': [],
@@ -301,6 +302,17 @@ class T3LabAISettings(object):
     def is_llm_classify_enabled(self):
         """Whether the dispatcher may use one small LLM call to classify."""
         return bool(self._settings.get('agents', {}).get('llm_classify', True))
+
+    def is_graph_mode_enabled(self):
+        """Kill switch for the graph agent layer (default on).
+
+        Only affects messages the PLANNER finds more than one goal in — a
+        single-goal turn never reaches the graph layer at all, so turning this
+        off changes nothing for the overwhelming majority of chats. It is here
+        because a multi-step turn runs several agent turns back to back, and a
+        user who wants one answer per message should be able to say so.
+        """
+        return bool(self._settings.get('agents', {}).get('graph_mode', True))
 
     def is_quality_mode_enabled(self):
         """Opus-parity switch (default off — trades cost/latency for depth).
