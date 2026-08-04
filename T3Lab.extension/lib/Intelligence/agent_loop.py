@@ -728,12 +728,20 @@ CONTEXT_FENCE_OPEN  = u"<<<T3LAB_LIVE_CONTEXT"
 CONTEXT_FENCE_CLOSE = u"T3LAB_LIVE_CONTEXT>>>"
 
 
-def build_context_block(revit_context=u"", knowledge_ref=u""):
+def build_context_block(revit_context=u"", knowledge_ref=u"",
+                        analysis_hint=u""):
     """The VOLATILE half of the prompt, to prepend to the current user turn.
 
     Everything in here changes from turn to turn — the active view, the
-    selection, and knowledge excerpts retrieved for this specific question —
-    which is exactly why it must not sit in the cached system block.
+    selection, knowledge excerpts retrieved for this specific question, and the
+    language analysis of this specific message — which is exactly why it must
+    not sit in the cached system block.
+
+    `analysis_hint` is `Intelligence.language.Utterance.to_prompt_hint()`: a
+    few lines naming the facts a model reads least reliably out of a
+    Vietnamese sentence — whether it was a prohibition, how wide the scope is,
+    which Revit categories were actually named, whether the operation needs
+    confirming. It goes LAST, closest to the user's own words.
 
     Returns u"" when there is nothing live to report, so an ordinary turn
     carries no extra tokens at all.
@@ -745,6 +753,9 @@ def build_context_block(revit_context=u"", knowledge_ref=u""):
     ref = (knowledge_ref or u"").strip()
     if ref:
         parts.append(ref)
+    hint = (analysis_hint or u"").strip()
+    if hint:
+        parts.append(hint)
     if not parts:
         return u""
     return u"{}\n{}\n{}".format(CONTEXT_FENCE_OPEN,
