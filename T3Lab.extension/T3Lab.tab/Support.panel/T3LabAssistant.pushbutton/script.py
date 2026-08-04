@@ -4731,9 +4731,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     msg = assistant_memory.format_memory_report(pid, viet)
                     icon, color = _ICON_LIST, _ICON_SLATE
                 elif sub.startswith((u'forget', u'xoa', u'xóa')):
-                    mn = re.search(r'(\d+)', sub)
-                    ok, removed = (assistant_memory.remove_fact(
-                        int(mn.group(1)), pid) if mn else (False, None))
+                    # A bare number removes fact #N (list order); anything else
+                    # is treated as the fact's text and matched by content.
+                    arg = re.sub(u'^(?:forget|xóa|xoa)\\s*', u'', sub).strip()
+                    if re.match(r'^\d+$', arg):
+                        ok, removed = assistant_memory.remove_fact(
+                            int(arg), pid)
+                    elif arg:
+                        ok, removed = assistant_memory.forget_fact(arg, pid)
+                    else:
+                        ok, removed = False, None
                     if ok:
                         msg = (u'Đã xóa ghi nhớ: "{}"'.format(removed) if viet
                                else u'Forgot: "{}"'.format(removed))
@@ -4749,10 +4756,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                            else u'Cleared all {} remembered facts.'.format(n))
                     icon, color = _ICON_REFRESH, _ICON_SLATE
                 else:
-                    msg = (u'Lệnh memory: `/memory` · `/memory forget <số>` · '
-                           u'`/memory clear`' if viet else
-                           u'Memory commands: `/memory` · `/memory forget '
-                           u'<number>` · `/memory clear`')
+                    msg = (u'Lệnh memory: `/memory` · '
+                           u'`/memory forget <số|nội dung>` · `/memory clear`'
+                           if viet else
+                           u'Memory commands: `/memory` · '
+                           u'`/memory forget <number|text>` · `/memory clear`')
                     icon, color = _ICON_INFO, _ICON_SLATE
 
             # ── "what do you remember?" ───────────────────────────────────
@@ -7587,10 +7595,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         _pid = ProjectStore().get_active_project_id()
                     except Exception:
                         pass
+                    _action = (args.get('action') or 'save').lower()
+                    _fact = args.get('fact')
+                    _scope = args.get('scope') or 'project'
+                    _replaces = args.get('replaces')
+                    if _action == 'forget':
+                        # `replaces` names the fact to drop; fall back to `fact`
+                        # if the model put the gist there instead.
+                        _ok, _removed = assistant_memory.forget_fact(
+                            _replaces or _fact, project_id=_pid)
+                        if _ok:
+                            return {"success": True,
+                                    "note": u"Forgot: {}".format(_removed)}
+                        return {"error": u"No matching fact to forget."}
+                    if _action == 'update':
+                        # Supersede the prior fact named by `replaces` with the
+                        # new `fact`; update_fact falls back to a save if the old
+                        # one isn't found, so the correction still lands.
+                        _ok, _note = assistant_memory.update_fact(
+                            _replaces or _fact, _fact,
+                            scope=_scope, project_id=_pid)
+                        if _ok:
+                            return {"success": True, "note": _note}
+                        return {"error": _note}
                     _ok, _note = assistant_memory.add_fact(
-                        args.get('fact'),
-                        scope=args.get('scope') or 'project',
-                        project_id=_pid)
+                        _fact, scope=_scope, project_id=_pid)
                     if _ok:
                         return {"success": True, "note": _note}
                     return {"error": _note}

@@ -282,18 +282,64 @@ class OpenAIProvider(BaseLLMProvider):
             full = u"".join(chunks)
             return full.strip() if full else None
         except Exception as ex:
-            # Transport/streaming error → one blocking retry. chat() clears the
-            # error state on entry, so the streaming reason is recorded first
-            # and re-attached when the retry is also empty; otherwise the chat
-            # window can only report a generic "no response" with no cause.
+            # Transport/streaming error. Record the reason first — chat() clears
+            # the error state on entry, so otherwise the chat window could only
+            # report a generic "no response" with no cause.
             stream_err = u"chat_stream() failed: {}".format(ex)
             self._record_error(stream_err)
-            result = self.chat(messages, system_prompt, user_content,
-                               max_tokens, **kwargs)
-            if result is None:
-                self._record_error(u"{} | blocking retry: {}".format(
-                    stream_err, self.get_last_error() or u"no response"))
-            return result
+            partial = u"".join(chunks)
+            if not partial.strip():
+                # Nothing reached the live bubble yet, so a fresh blocking retry
+                # cannot visibly swap an answer — keep the original safety net.
+                result = self.chat(messages, system_prompt, user_content,
+                                   max_tokens, **kwargs)
+                if result is None:
+                    self._record_error(u"{} | blocking retry: {}".format(
+                        stream_err, self.get_last_error() or u"no response"))
+                return result
+            # Partial text ALREADY streamed into the bubble. Regenerating a whole
+            # new answer here is exactly what made the reply visibly swap under
+            # the user (and cost double the tokens). Prefill the partial as the
+            # assistant turn and let the model CONTINUE the same reply. Any
+            # failure keeps just the partial — never a different answer.
+            prefill = partial.rstrip()
+            cont = self._continue_after_drop(
+                msgs, model, headers, max_tokens, prefill, on_delta,
+                int(kwargs.get("timeout_ms") or 60000))
+            if cont:
+                return (prefill + cont).strip()
+            return prefill.strip()
+
+    def _continue_after_drop(self, msgs, model, headers, max_tokens, prefill,
+                             on_delta, timeout_ms):
+        """Finish a stream that dropped mid-answer with ONE blocking call.
+
+        Prefills `prefill` as the assistant turn so the model continues the same
+        reply instead of starting a different one — the text the user already
+        watched stream in stays put. Best-effort: any failure returns None and
+        the caller keeps just the partial. Never raises.
+        """
+        try:
+            cont_msgs = list(msgs)
+            cont_msgs.append({"role": "assistant", "content": prefill})
+            payload = {
+                "model":      model,
+                "max_tokens": max_tokens,
+                "messages":   cont_msgs,
+            }
+            resp_text  = http_post(OPENAI_CHAT_URL, payload, headers,
+                                   timeout_ms=timeout_ms)
+            api_result = json.loads(resp_text)
+            cont = api_result["choices"][0]["message"]["content"]
+            if cont and on_delta:
+                try:
+                    on_delta(cont)
+                except Exception:
+                    pass
+            return cont
+        except Exception as ex:
+            self._record_error(u"stream continuation failed: {}".format(ex))
+            return None
 
     # ── Agentic chat (native tool calling, blocking) ──────────────────────────
 

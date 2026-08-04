@@ -284,18 +284,65 @@ class ClaudeProvider(BaseLLMProvider):
             full = u"".join(chunks)
             return full.strip() if full else None
         except Exception as ex:
-            # Any streaming/transport error → one blocking retry. chat() clears
-            # the error state on entry, so record the streaming reason first and
-            # re-attach it when the retry is also empty — without it the chat
-            # window shows "the model didn't respond" with no Details line.
+            # Streaming/transport error. Record the reason first — chat() clears
+            # the error state on entry, so without this the chat window would
+            # show "the model didn't respond" with no Details line.
             stream_err = u"chat_stream() failed: {}".format(ex)
             self._record_error(stream_err)
-            result = self.chat(messages, system_prompt, user_content,
-                               max_tokens, **kwargs)
-            if result is None:
-                self._record_error(u"{} | blocking retry: {}".format(
-                    stream_err, self.get_last_error() or u"no response"))
-            return result
+            partial = u"".join(chunks)
+            if not partial.strip():
+                # Nothing reached the live bubble yet, so a fresh blocking retry
+                # cannot visibly swap an answer — keep the original safety net.
+                result = self.chat(messages, system_prompt, user_content,
+                                   max_tokens, **kwargs)
+                if result is None:
+                    self._record_error(u"{} | blocking retry: {}".format(
+                        stream_err, self.get_last_error() or u"no response"))
+                return result
+            # Partial text ALREADY streamed into the bubble. Regenerating a whole
+            # new answer here is exactly what made the reply visibly swap under
+            # the user (and cost double the tokens). Instead prefill the partial
+            # as the assistant turn and let the model CONTINUE the same reply.
+            # Any failure keeps just the partial — never a different answer.
+            prefill = partial.rstrip()   # Anthropic rejects trailing whitespace
+            cont = self._continue_after_drop(
+                msgs, system_prompt, model, headers, max_tokens, prefill,
+                on_delta, int(kwargs.get("timeout_ms") or 60000))
+            if cont:
+                return (prefill + cont).strip()
+            return prefill.strip()
+
+    def _continue_after_drop(self, msgs, system_prompt, model, headers,
+                             max_tokens, prefill, on_delta, timeout_ms):
+        """Finish a stream that dropped mid-answer with ONE blocking call.
+
+        Prefills `prefill` as the assistant turn so the model continues the same
+        reply instead of starting a different one — the text the user already
+        watched stream in stays put. Best-effort: any failure returns None and
+        the caller keeps just the partial. Never raises.
+        """
+        try:
+            cont_msgs = list(msgs)
+            cont_msgs.append({"role": "assistant", "content": prefill})
+            payload = {
+                "model":      model,
+                "max_tokens": max_tokens,
+                "system":     system_prompt,
+                "messages":   cont_msgs,
+            }
+            resp_text  = http_post(CLAUDE_API_URL, payload, headers,
+                                   timeout_ms=timeout_ms)
+            api_result = json.loads(resp_text)
+            cont = api_result["content"][0]["text"]
+            if cont and on_delta:
+                try:
+                    on_delta(cont)
+                except Exception:
+                    pass
+            return cont
+        except Exception as ex:
+            self._record_error(u"stream continuation failed: {}".format(ex))
+            return None
 
     # ── Agentic chat (native tool calling) ────────────────────────────────────
 

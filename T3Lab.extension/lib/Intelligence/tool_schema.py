@@ -41,19 +41,24 @@ def make_memory_tool():
     return {
         "name": MEMORY_TOOL_NAME,
         "description": (
-            "Save ONE durable fact to the assistant's persistent memory so "
-            "future chats start knowing it. Use only when the user states a "
-            "lasting preference or convention ('from now on...', 'remember "
-            "that...', 'our sheet prefix is...'). Never store one-off request "
-            "details, secrets/API keys, or element ids. The user can review "
-            "everything with /memory."
+            "Manage the assistant's persistent memory so future chats start "
+            "knowing durable facts. action 'save' (default) adds ONE fact when "
+            "the user states a lasting preference or convention ('from now "
+            "on...', 'our sheet prefix is...'). action 'update' supersedes a "
+            "fact the user has CHANGED (set `replaces` to the old fact's gist "
+            "and `fact` to the new statement) so the stale one does not linger. "
+            "action 'forget' drops a fact the user CANCELS (set `replaces` to "
+            "its gist). Never store one-off request details, secrets/API keys, "
+            "or element ids. The user can review everything with /memory."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
                 "fact": {
                     "type": "string",
-                    "description": "The fact as one short English sentence.",
+                    "description": ("The fact as one short English sentence "
+                                    "(for save/update the new statement; for "
+                                    "forget, the gist of what to drop)."),
                 },
                 "scope": {
                     "type": "string",
@@ -61,6 +66,18 @@ def make_memory_tool():
                     "description": ("project = a convention of THIS Revit "
                                     "project; global = a user preference "
                                     "that applies to every project."),
+                },
+                "action": {
+                    "type": "string",
+                    "enum": ["save", "update", "forget"],
+                    "description": ("save = add a new fact (default); update = "
+                                    "replace a changed fact; forget = remove a "
+                                    "cancelled fact."),
+                },
+                "replaces": {
+                    "type": "string",
+                    "description": ("For update/forget: the gist or text of the "
+                                    "prior fact this supersedes."),
                 },
             },
             "required": ["fact"],

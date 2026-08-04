@@ -169,6 +169,132 @@ def remove_fact(number, project_id=None):
     return ok, (fact.get('text') or u'')
 
 
+def _norm(text):
+    """Same normalization add_fact stores under: collapsed whitespace, lower."""
+    return u' '.join(u'{}'.format(text or u'').split()).lower()
+
+
+def _find_fact(query, project_id=None):
+    """Locate one fact by CONTENT (not by number), across the visible scopes.
+
+    Match order, most precise first: exact normalized equality, then
+    containment either direction (stored ⊇ query or query ⊇ stored) so a
+    short gist like "sheet prefix" finds "our sheet prefix is WH-".
+
+    Returns (scope, fact_dict) of the first match, or (None, None).
+    """
+    q = _norm(query)
+    if not q:
+        return None, None
+    facts = list_facts(project_id)   # global first, then this project
+    for scope, f in facts:           # exact wins over containment
+        if _norm(f.get('text')) == q:
+            return scope, f
+    for scope, f in facts:
+        ft = _norm(f.get('text'))
+        if q in ft or ft in q:
+            return scope, f
+    return None, None
+
+
+def forget_fact(text, project_id=None):
+    """Remove one fact matched by CONTENT. Returns (ok, removed_text_or_none).
+
+    Complements remove_fact(number): the model (and `/memory forget <text>`)
+    can drop a superseded convention without knowing its position.
+    """
+    with _LOCK:
+        data = _load()
+        key = _pid_key(project_id)
+        # Rebuild the same visible view _find_fact used, but keep references
+        # into the real buckets so we can remove the matched dict.
+        scope, fact = _find_fact(text, project_id)
+        if fact is None:
+            return False, None
+        if scope == GLOBAL_SCOPE:
+            try:
+                data['global'].remove(_match_in(data['global'], fact))
+            except ValueError:
+                return False, None
+        else:
+            bucket = data['projects'].get(key, [])
+            try:
+                bucket.remove(_match_in(bucket, fact))
+            except ValueError:
+                return False, None
+        ok = _save(data)
+    return ok, (fact.get('text') or u'')
+
+
+def _match_in(bucket, fact):
+    """Return the dict in `bucket` whose normalized text equals `fact`'s.
+
+    _find_fact reads through _load(); forget_fact/update_fact then reopen the
+    file under the lock, so the dict identity differs — match on content.
+    """
+    target = _norm(fact.get('text'))
+    for f in bucket:
+        if _norm(f.get('text')) == target:
+            return f
+    raise ValueError('no match')
+
+
+def update_fact(old, new, scope=PROJECT_SCOPE, project_id=None):
+    """Replace an existing fact's text in place. Returns (ok, note).
+
+    `old` may be a 1-based number (like remove_fact) or a content gist (like
+    forget_fact). When nothing matches, this falls back to add_fact(new) so an
+    "update" never silently loses the new information.
+    """
+    new_text = u' '.join(u'{}'.format(new or u'').split())
+    if len(new_text) < MIN_FACT_CHARS:
+        return False, u'Nothing concrete to remember in that.'
+    if len(new_text) > MAX_FACT_CHARS:
+        new_text = new_text[:MAX_FACT_CHARS].rstrip()
+
+    # Resolve `old` to a fact. A bare integer means "fact #N" (list_facts order).
+    is_number = False
+    try:
+        num = int(old)
+        is_number = True
+    except (TypeError, ValueError):
+        num = None
+
+    with _LOCK:
+        data = _load()
+        key = _pid_key(project_id)
+        if is_number:
+            combined = [(GLOBAL_SCOPE, f) for f in data['global']]
+            if key:
+                for f in data['projects'].get(key, []):
+                    combined.append((PROJECT_SCOPE, f))
+            idx = num - 1
+            if idx < 0 or idx >= len(combined):
+                target = None
+            else:
+                _sc, target = combined[idx]
+        else:
+            _sc, found = _find_fact(old, project_id)
+            if found is None:
+                target = None
+            else:
+                bucket = (data['global'] if _sc == GLOBAL_SCOPE
+                          else data['projects'].get(key, []))
+                try:
+                    target = _match_in(bucket, found)
+                except ValueError:
+                    target = None
+        if target is not None:
+            target['text'] = new_text
+            ok = _save(data)
+            if ok:
+                return True, u'Updated: {}'.format(new_text)
+            return False, u'Could not write the memory file.'
+
+    # No match — treat as a fresh save so the correction still lands.
+    return add_fact(new_text, scope=scope, project_id=project_id)
+
+
 def clear_facts(project_id=None, everything=False):
     """Clear this project's facts (+ global too when everything=True).
 
@@ -213,8 +339,10 @@ def build_memory_block(project_id=None, include_tool_hint=True):
             u'the `remember_fact` tool ONCE with a short English sentence — '
             u'scope "global" for user preferences, "project" for facts about '
             u'this model. Never store one-off requests, secrets, or element '
-            u'ids. If the user contradicts a remembered fact, follow the '
-            u'user and save the correction.')
+            u'ids. If the user CHANGES a fact above, call `remember_fact` with '
+            u'action "update" (replaces=old gist, fact=new statement) so the '
+            u'old one is superseded, not duplicated. If the user CANCELS a '
+            u'fact, call it with action "forget" (replaces=gist).')
     return u'\n'.join(lines)
 
 
@@ -243,9 +371,9 @@ def format_memory_report(project_id=None, viet=False):
             i + 1, tag, txt, f.get('created') or u''))
     lines.append(u'')
     if viet:
-        lines.append(u'Xóa 1 mục: `/memory forget <số>` · Xóa hết: '
+        lines.append(u'Xóa 1 mục: `/memory forget <số|nội dung>` · Xóa hết: '
                      u'`/memory clear`')
     else:
-        lines.append(u'Remove one: `/memory forget <number>` · Remove all: '
-                     u'`/memory clear`')
+        lines.append(u'Remove one: `/memory forget <number|text>` · '
+                     u'Remove all: `/memory clear`')
     return u'\n'.join(lines)
