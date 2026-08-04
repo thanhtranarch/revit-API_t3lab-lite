@@ -184,16 +184,16 @@ class OpenAIProvider(BaseLLMProvider):
         default is auto-picked from the LIVE model list.
         """
         if not HAS_HTTP:
-            return None
+            return self._fail_no_http("chat()")
         api_key = self._get_api_key()
         if not api_key:
-            return None
+            return self._fail_no_key("chat()")
 
         has_vision = self.has_image_blocks(user_content)
 
         model = kwargs.get("model_override") or self._resolve_model(has_vision)
         if not model:
-            return None   # key not verified / vendor reported no models
+            return self._fail_no_model("chat()")
 
         openai_content = self._to_openai_content(user_content)
 
@@ -231,16 +231,17 @@ class OpenAIProvider(BaseLLMProvider):
     def chat_stream(self, messages, system_prompt, user_content,
                     on_delta=None, max_tokens=400, **kwargs):
         """Stream a GPT response token-by-token via the Chat Completions SSE API."""
+        self._clear_error()
         if not HAS_HTTP:
-            return None
+            return self._fail_no_http("chat_stream()")
         api_key = self._get_api_key()
         if not api_key:
-            return None
+            return self._fail_no_key("chat_stream()")
 
         has_vision = self.has_image_blocks(user_content)
         model = self._resolve_model(has_vision)
         if not model:
-            return None   # key not verified / vendor reported no models
+            return self._fail_no_model("chat_stream()")
 
         openai_content = self._to_openai_content(user_content)
 
@@ -281,11 +282,18 @@ class OpenAIProvider(BaseLLMProvider):
             full = u"".join(chunks)
             return full.strip() if full else None
         except Exception as ex:
-            # Transport/streaming error — fall back to a blocking call. If
-            # that ALSO fails, chat()'s own except-block above logs it, so
-            # only the streaming-specific failure needs logging here.
-            self._debug_log("chat_stream() failed, falling back to chat(): {}".format(ex))
-            return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
+            # Transport/streaming error → one blocking retry. chat() clears the
+            # error state on entry, so the streaming reason is recorded first
+            # and re-attached when the retry is also empty; otherwise the chat
+            # window can only report a generic "no response" with no cause.
+            stream_err = u"chat_stream() failed: {}".format(ex)
+            self._record_error(stream_err)
+            result = self.chat(messages, system_prompt, user_content,
+                               max_tokens, **kwargs)
+            if result is None:
+                self._record_error(u"{} | blocking retry: {}".format(
+                    stream_err, self.get_last_error() or u"no response"))
+            return result
 
     # ── Agentic chat (native tool calling, blocking) ──────────────────────────
 
@@ -293,11 +301,12 @@ class OpenAIProvider(BaseLLMProvider):
                    on_delta=None, max_tokens=1500, **kwargs):
         """One agentic turn via the `tools` parameter. Blocking (no SSE) —
         the agent loop surfaces the text through on_text_delta itself."""
+        self._clear_error()
         if not HAS_HTTP:
-            return None
+            return self._fail_no_http("chat_agent()")
         api_key = self._get_api_key()
         if not api_key:
-            return None
+            return self._fail_no_key("chat_agent()")
         # Agent turns can carry Claude-format image blocks (attached images,
         # active-view snapshots). They must be converted here — openai_chat_agent
         # forwards `messages` verbatim, so an unconverted {"type":"image"} block
@@ -308,9 +317,8 @@ class OpenAIProvider(BaseLLMProvider):
                          for m in (messages or []) if isinstance(m, dict))
         model = self._resolve_model(has_vision)
         if not model:
-            return None
+            return self._fail_no_model("chat_agent()")
         try:
-            self._clear_error()
             return openai_chat_agent(
                 OPENAI_CHAT_URL,
                 {"Authorization": "Bearer {}".format(api_key)},

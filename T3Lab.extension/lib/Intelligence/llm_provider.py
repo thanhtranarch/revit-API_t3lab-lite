@@ -675,6 +675,54 @@ class BaseLLMProvider(object):
         """Most recent failure message, or None. Cleared on each new call."""
         return getattr(self, "_last_error", None)
 
+    # ── Silent-failure guards ─────────────────────────────────────────────────
+    # chat()/chat_stream()/chat_agent() all bail out with a bare `return None`
+    # when there is no key or no resolvable model. Those two paths are the ONLY
+    # ways the providers can fail without touching the network, and because
+    # they recorded nothing, the chat window's "the model didn't respond"
+    # branch had no reason to show — the user got a generic failure with no
+    # Details line and no way to tell "your key is missing" from "the vendor
+    # timed out". Route every such bail-out through these instead.
+
+    def _fail(self, reason):
+        """Record `reason` as the last error and return None (never raises)."""
+        self._record_error(reason)
+        return None
+
+    def _fail_no_key(self, where="chat"):
+        return self._fail(
+            u"{}: no API key saved for {} — add it in Settings → LLMs Setting"
+            .format(where, self.DISPLAY_NAME))
+
+    def _fail_no_model(self, where="chat"):
+        return self._fail(
+            u"{}: no usable model for {} — the live model list came back empty "
+            u"(key not verified, no credit, or the /models request was blocked "
+            u"by the network/proxy)".format(where, self.DISPLAY_NAME))
+
+    def _fail_no_http(self, where="chat"):
+        return self._fail(
+            u"{}: HTTP transport unavailable in this engine".format(where))
+
+    def is_configured(self):
+        """True when this provider has credentials — WITHOUT any network call.
+
+        Deliberately distinct from check_health(), which for the cloud
+        providers does a live GET /models on every call. Behind a corporate
+        proxy that probe fails intermittently, and callers that gated the whole
+        LLM path on it silently fell back to offline canned replies: the
+        assistant told the user to go connect an AI they had already connected.
+        Gate on THIS, attempt the real call, and let the API's own error reach
+        the user when it genuinely fails.
+
+        Local providers (no API key) override it — for them reachability is the
+        only meaningful signal.
+        """
+        try:
+            return bool(self._get_api_key())
+        except Exception:
+            return False
+
     def _clear_error(self):
         self._last_error = None
 

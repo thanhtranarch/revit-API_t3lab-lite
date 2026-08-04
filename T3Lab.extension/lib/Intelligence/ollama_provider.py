@@ -144,6 +144,10 @@ class OllamaProvider(BaseLLMProvider):
         host, names = self._probe_tags()
         return bool(names)
 
+    def is_configured(self):
+        """No API key to check — reachability IS the configuration test."""
+        return self.check_health()
+
     def get_models(self):
         host, names = self._probe_tags()
         if names:
@@ -241,7 +245,9 @@ class OllamaProvider(BaseLLMProvider):
 
         model = self.get_active_model()
         if not model:
-            return None
+            return self._fail(
+                u"chat(): Ollama has no model available — is the server "
+                u"running, and has a model been pulled?")
 
         msgs = [{"role": "system", "content": system_prompt}]
         for h in (messages or [])[-8:]:
@@ -310,7 +316,9 @@ class OllamaProvider(BaseLLMProvider):
         """
         model = self.get_active_model()
         if not model:
-            return None
+            return self._fail(
+                u"chat_agent(): Ollama has no model available — is the server "
+                u"running, and has a model been pulled?")
 
         msgs = [{"role": "system", "content": system_prompt}]
         msgs.extend(list(messages or []))

@@ -197,10 +197,10 @@ class ClaudeProvider(BaseLLMProvider):
         blocks (text + image) for vision requests.
         """
         if not HAS_HTTP:
-            return None
+            return self._fail_no_http("chat()")
         api_key = self._get_api_key()
         if not api_key:
-            return None
+            return self._fail_no_key("chat()")
 
         has_vision = self.has_image_blocks(user_content)
 
@@ -210,7 +210,7 @@ class ClaudeProvider(BaseLLMProvider):
         model = (kwargs.get("model_override") or self._model
                  or self._default_model(prefer_vision=has_vision))
         if not model:
-            return None   # key not verified / vendor reported no models
+            return self._fail_no_model("chat()")
 
         msgs = list(messages or [])
         msgs.append({"role": "user", "content": user_content})
@@ -240,16 +240,17 @@ class ClaudeProvider(BaseLLMProvider):
     def chat_stream(self, messages, system_prompt, user_content,
                     on_delta=None, max_tokens=400, **kwargs):
         """Stream a Claude response token-by-token via the Messages SSE API."""
+        self._clear_error()
         if not HAS_HTTP:
-            return None
+            return self._fail_no_http("chat_stream()")
         api_key = self._get_api_key()
         if not api_key:
-            return None
+            return self._fail_no_key("chat_stream()")
 
         has_vision = self.has_image_blocks(user_content)
         model = self._model or self._default_model(prefer_vision=has_vision)
         if not model:
-            return None   # key not verified / vendor reported no models
+            return self._fail_no_model("chat_stream()")
 
         msgs = list(messages or [])
         msgs.append({"role": "user", "content": user_content})
@@ -282,9 +283,19 @@ class ClaudeProvider(BaseLLMProvider):
             http_post_stream(CLAUDE_API_URL, payload, headers, _on_line)
             full = u"".join(chunks)
             return full.strip() if full else None
-        except Exception:
-            # Any streaming/transport error → fall back to a single blocking call.
-            return self.chat(messages, system_prompt, user_content, max_tokens, **kwargs)
+        except Exception as ex:
+            # Any streaming/transport error → one blocking retry. chat() clears
+            # the error state on entry, so record the streaming reason first and
+            # re-attach it when the retry is also empty — without it the chat
+            # window shows "the model didn't respond" with no Details line.
+            stream_err = u"chat_stream() failed: {}".format(ex)
+            self._record_error(stream_err)
+            result = self.chat(messages, system_prompt, user_content,
+                               max_tokens, **kwargs)
+            if result is None:
+                self._record_error(u"{} | blocking retry: {}".format(
+                    stream_err, self.get_last_error() or u"no response"))
+            return result
 
     # ── Agentic chat (native tool calling) ────────────────────────────────────
 
@@ -393,16 +404,16 @@ class ClaudeProvider(BaseLLMProvider):
         `messages` must already end with the latest user / tool_result turn.
         """
         if not HAS_HTTP:
-            return None
+            return self._fail_no_http("chat_agent()")
         api_key = self._get_api_key()
         if not api_key:
-            return None
+            return self._fail_no_key("chat_agent()")
 
         # Agent turns favour a more capable model when the user hasn't picked
         # one — resolved from the LIVE model list, never a hardcoded name.
         model = self._model or self._default_model(prefer_vision=True)
         if not model:
-            return None
+            return self._fail_no_model("chat_agent()")
 
         # Opus-parity mode widens the answer ceiling so rich multi-step
         # replies never truncate. Never lower a caller's explicit higher cap.

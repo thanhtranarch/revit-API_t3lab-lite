@@ -1686,7 +1686,7 @@
                 </Border>
 
                 <!-- ── Row below the card: project picker + chat actions ── -->
-                <Grid Margin="2,7,2,0">
+                <Grid Margin="2,5,2,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -1781,24 +1781,19 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- ── Footer line: AI disclaimer (center) + input hint (right) ── -->
-                <Grid Margin="4,6,4,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="footer_disclaimer" Grid.Column="0"
-                               Text="T3Lab AI can make mistakes. Please double-check responses."
-                               FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
-                               FontFamily="Hanken Grotesk"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" Margin="10,0"/>
-                    <TextBlock x:Name="footer_hint" Grid.Column="1"
-                               Text="/ for skills  ·  Shift+Enter = new line"
-                               FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
-                               FontFamily="Hanken Grotesk"
-                               VerticalAlignment="Center"/>
-                </Grid>
+                <!-- ── Footer line: one quiet centred line ──────────────────
+                     Was two TextBlocks on a 2-column grid: the disclaimer and
+                     a hint reading "/ for skills · Shift+Enter = new line".
+                     "/ for skills" is already in the composer placeholder, and
+                     at pane width the pair collided and ellipsised each other.
+                ── -->
+                <TextBlock x:Name="footer_disclaimer"
+                           Margin="4,4,4,0"
+                           Text="T3Lab AI can make mistakes  ·  Shift+Enter = new line"
+                           FontSize="10.5" Foreground="{DynamicResource T3ThemeFaint}"
+                           FontFamily="Hanken Grotesk"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
 
                 <!-- ── Slash-skills popup (opens above the composer) ── -->
                 <Popup x:Name="skills_popup"

@@ -448,11 +448,25 @@ def parse_command(user_input, history=None, attached_files=None, rag_context=Non
 
 
 def has_api_key():
-    """Return True if the active LLM provider is configured and reachable."""
+    """Return True if the active LLM provider is usable for a real request.
+
+    "Usable" means CONFIGURED, not "answered a probe two seconds ago". This
+    used to be `provider.check_health()`, which for the cloud providers is a
+    live GET /models on every turn: behind a corporate proxy (or on any slow
+    link — the probe has an 8s timeout and no retry) it returns False, the
+    caller skips the whole LLM path, and the assistant answers from its
+    offline canned replies while the model chip still shows the provider. The
+    user sees "connect an AI in Settings" for an AI they already connected.
+
+    A configured-but-actually-dead provider now fails at the real call, where
+    the API's own error message reaches the user (see the llm_call_failed
+    branch in the chat window). Local providers keep the reachability test —
+    they have no key, so it is the only signal they have.
+    """
     try:
         from Intelligence.llm_router import LLMRouter
         provider = LLMRouter().get_active_provider()
-        return provider is not None and provider.check_health()
+        return provider is not None and provider.is_configured()
     except Exception:
         return bool(_get_api_key())   # legacy fallback: check Claude key directly
 

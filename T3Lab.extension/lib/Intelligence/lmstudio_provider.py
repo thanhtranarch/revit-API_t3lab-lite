@@ -145,6 +145,10 @@ class LMStudioProvider(BaseLLMProvider):
         host, ids = self._probe_models()
         return bool(ids)
 
+    def is_configured(self):
+        """No API key to check — reachability IS the configuration test."""
+        return self.check_health()
+
     def get_models(self):
         """Return list of model IDs currently loaded in LM Studio."""
         host, ids = self._probe_models()
@@ -197,7 +201,9 @@ class LMStudioProvider(BaseLLMProvider):
 
         model = self._model or self.get_active_model()
         if not model:
-            return None   # server unreachable / no model loaded
+            return self._fail(
+                u"chat(): LM Studio is unreachable or has no model loaded — "
+                u"start the server and load a model")
 
         msgs = []
         if system_prompt:
@@ -283,12 +289,16 @@ class LMStudioProvider(BaseLLMProvider):
         """
         model = self._model or self.get_active_model()
         if not model:
-            return None
+            return self._fail(
+                u"chat_agent(): LM Studio is unreachable or has no model "
+                u"loaded — start the server and load a model")
 
         # LM Studio's tools API lives on the OpenAI-compatible endpoint; the
         # native /api/v1/chat flavour does not accept `tools` the same way.
         if getattr(self, "_api_prefix", "/v1") != "/v1":
-            return None
+            return self._fail(
+                u"chat_agent(): native tool calling needs LM Studio's "
+                u"OpenAI-compatible endpoint (/v1)")
 
         if is_reasoning_model(model):
             max_tokens = max(int(max_tokens), self.REASONING_MIN_TOKENS)

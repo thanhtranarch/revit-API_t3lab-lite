@@ -38,7 +38,13 @@ from Autodesk.Revit import DB
 # DEFINE VARIABLES
 # ==================================================
 logger = script.get_logger()
-output = script.get_output()
+# NO script.get_output() here. It was assigned and never used (one reference in
+# the whole file, and that one is the word "output" inside a comment), but the
+# call itself materialises a pyRevit output window. This script runs in a
+# PERSISTENT engine and logs from background worker threads, and pyRevit's
+# Reload closes every output window from the UI thread — closing a WPF window
+# owned by another thread throws InvalidOperationException and aborts Reload.
+# One unused window is not worth that risk.
 
 try:
     REVIT_VERSION = int(revit.doc.Application.VersionNumber)
@@ -497,9 +503,9 @@ def launch_batchout_configured(config, progress_cb=None):
         window.ShowDialog()
         return True
     except Exception as ex:
-        logger.error("Error launching configured BatchOut: {}".format(ex))
+        logger.error(u"Error launching configured BatchOut: {}".format(_exc_text(ex)))
         if progress_cb:
-            progress_cb(u"Error: {}".format(ex))
+            progress_cb(u"Error: {}".format(_exc_text(ex)))
         return False
 
 
@@ -519,9 +525,9 @@ def launch_export_direct(config, progress_cb=None):
         ok, count, msg = direct_export(mod, config, progress_cb)
         return ok
     except Exception as ex:
-        logger.error("Error in direct export: {}".format(ex))
+        logger.error(u"Error in direct export: {}".format(_exc_text(ex)))
         if progress_cb:
-            progress_cb(u"Export error: {}".format(ex))
+            progress_cb(u"Export error: {}".format(_exc_text(ex)))
         return False
 
 
@@ -586,6 +592,22 @@ def _exc_text(exc):
         return r.decode('utf-8', 'replace') if isinstance(r, bytes) else u"{}".format(r)
     except Exception:
         return u"<unprintable error>"
+
+
+def _provider_usable(provider):
+    """True when `provider` is worth calling for a real chat turn.
+
+    Prefers is_configured() — a pure credential check — over check_health(),
+    which hits the vendor's /models endpoint on every call. Falls back to
+    check_health() for any provider object that predates is_configured().
+    """
+    if provider is None:
+        return False
+    try:
+        probe = getattr(provider, "is_configured", None) or provider.check_health
+        return bool(probe())
+    except Exception:
+        return False
 
 
 def _get_uiapp():
@@ -811,7 +833,7 @@ def save_chat_history(doc_key, messages, summary=u""):
         with io.open(path, 'w', encoding='utf-8') as f:
             f.write(data)
     except Exception as ex:
-        logger.debug("Could not save chat history: {}".format(ex))
+        logger.debug(u"Could not save chat history: {}".format(_exc_text(ex)))
 
 
 def _is_stale_tool_call_blob(role, content):
@@ -847,7 +869,7 @@ def load_chat_history(doc_key):
                 if not _is_stale_tool_call_blob(m.get("role", ""),
                                                 m.get("content", ""))]
     except Exception as ex:
-        logger.debug("Could not load chat history: {}".format(ex))
+        logger.debug(u"Could not load chat history: {}".format(_exc_text(ex)))
         return []
 
 
@@ -865,7 +887,7 @@ def load_chat_summary(doc_key):
             data = json.load(f)
         return data.get("summary") or u""
     except Exception as ex:
-        logger.debug("Could not load chat summary: {}".format(ex))
+        logger.debug(u"Could not load chat summary: {}".format(_exc_text(ex)))
         return u""
 
 
@@ -876,7 +898,7 @@ def clear_chat_history(doc_key):
         if os.path.exists(path):
             os.remove(path)
     except Exception as ex:
-        logger.debug("Could not clear chat history: {}".format(ex))
+        logger.debug(u"Could not clear chat history: {}".format(_exc_text(ex)))
 
 
 # ─── Minimal icon vocabulary for bot chat messages ─────────────────────────────
@@ -933,7 +955,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             xaml_path = os.path.join(extension_dir, 'lib', 'GUI', 'Tools', 'T3LabAssistant.xaml')
             forms.WPFWindow.__init__(self, xaml_path)
         except Exception as ex:
-            logger.error("Could not load T3LabAssistant XAML: {}".format(ex))
+            logger.error(u"Could not load T3LabAssistant XAML: {}".format(_exc_text(ex)))
             raise
 
         # Skin the window to the host BEFORE anything renders — theme brushes,
@@ -942,7 +964,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             self._apply_revit_skin()
         except Exception as ex:
-            logger.debug("_apply_revit_skin error: {}".format(ex))
+            logger.debug(u"_apply_revit_skin error: {}".format(_exc_text(ex)))
 
         self.doc = revit.doc
 
@@ -1117,9 +1139,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from Services.mcp_service import MCPService as _MCPService
             _ok, _ee_err = _MCPService.ensure_external_event()
             if not _ok:
-                logger.debug("MCP ExternalEvent init failed: {}".format(_ee_err))
+                logger.debug(u"MCP ExternalEvent init failed: {}".format(_exc_text(_ee_err)))
         except Exception as _ex:
-            logger.debug("MCP ExternalEvent init error: {}".format(_ex))
+            logger.debug(u"MCP ExternalEvent init error: {}".format(_exc_text(_ex)))
 
         # ── Register the tool-launch ExternalEvent, same constraint ───────────
         # Without it every ribbon tool the assistant opens runs in Revit's IDLE
@@ -1129,9 +1151,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             _ok, _ctx_err = ensure_api_context()
             if not _ok:
-                logger.debug("API context init failed: {}".format(_ctx_err))
+                logger.debug(u"API context init failed: {}".format(_exc_text(_ctx_err)))
         except Exception as _ex:
-            logger.debug("API context init error: {}".format(_ex))
+            logger.debug(u"API context init error: {}".format(_exc_text(_ex)))
 
         # Update AI badge, pre-load models cache, and warm up router status in background
         def _bg_startup_probe():
@@ -1155,7 +1177,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     if not wat_status.get('running'):
                         MCPService.start_watcher()
                 except Exception as ex:
-                    logger.debug("Auto-start MCP/watcher failed: {}".format(ex))
+                    logger.debug(u"Auto-start MCP/watcher failed: {}".format(_exc_text(ex)))
                     self._log_activity(
                         u"MCP server/watcher did not start: {}".format(
                             _exc_text(ex)))
@@ -1171,7 +1193,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 try:
                     self._offer_local_engine()
                 except Exception as ex:
-                    logger.debug("Local engine offer failed: {}".format(ex))
+                    logger.debug(u"Local engine offer failed: {}".format(_exc_text(ex)))
 
                 # ─── 3.4 Skills registry scan ───
                 try:
@@ -1179,7 +1201,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     _n_skills = SkillsEngine().scan()
                     logger.debug("Skills scanned: {}".format(_n_skills))
                 except Exception as ex:
-                    logger.debug("Skills scan failed: {}".format(ex))
+                    logger.debug(u"Skills scan failed: {}".format(_exc_text(ex)))
                     self._log_activity(
                         u"Skills scan failed: {}".format(_exc_text(ex)))
 
@@ -1194,7 +1216,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         if _store is not None:
                             _scan_res = _store.scan()
                             if _scan_res.get('added') or _scan_res.get('updated'):
-                                logger.debug("Knowledge scan: {}".format(_scan_res))
+                                logger.debug(u"Knowledge scan: {}".format(_exc_text(_scan_res)))
                             try:
                                 from Intelligence.knowledge.embeddings import (
                                     get_default_embedder)
@@ -1206,7 +1228,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self.Dispatcher.Invoke(
                                 Action(self._update_knowledge_status))
                 except Exception as ex:
-                    logger.debug("Knowledge scan failed: {}".format(ex))
+                    logger.debug(u"Knowledge scan failed: {}".format(_exc_text(ex)))
                     self._log_activity(
                         u"Knowledge scan failed: {}".format(_exc_text(ex)))
 
@@ -1275,7 +1297,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if UserProfile().is_first_run():
                 self._show_onboarding()
         except Exception as ex:
-            logger.debug("onboarding check error: {}".format(ex))
+            logger.debug(u"onboarding check error: {}".format(_exc_text(ex)))
 
         # Live Revit context strip (active view + selection) under the chat.
         # Started last so a host that refuses the read costs nothing during
@@ -1284,7 +1306,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._update_revit_context()
             self._start_context_timer()
         except Exception as ex:
-            logger.debug("revit context strip unavailable: {}".format(ex))
+            logger.debug(u"revit context strip unavailable: {}".format(_exc_text(ex)))
 
         # Persist window geometry/sidebar on close (custom X button was removed)
         try:
@@ -1344,7 +1366,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.root_chrome.CornerRadius    = CornerRadius(0)
             self.root_chrome.BorderThickness = Thickness(0)
         except Exception as ex:
-            logger.debug("_flatten_chrome_for_pane: {}".format(ex))
+            logger.debug(u"_flatten_chrome_for_pane: {}".format(_exc_text(ex)))
 
         # The floating min/max cluster belongs to a window, not to a pane —
         # Revit already provides the pane's own close/undock affordances.
@@ -1409,7 +1431,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     continue
             return theme
         except Exception as ex:
-            logger.debug("_sync_theme error: {}".format(ex))
+            logger.debug(u"_sync_theme error: {}".format(_exc_text(ex)))
             return None
 
     def _on_window_activated(self, sender, e):
@@ -1461,11 +1483,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             pass
 
         vis = Visibility.Collapsed if compact else Visibility.Visible
-        for name in ('footer_disclaimer', 'footer_hint'):
-            try:
-                getattr(self, name).Visibility = vis
-            except Exception:
-                pass
+        try:
+            self.footer_disclaimer.Visibility = vis
+        except Exception:
+            pass
 
     # Popup widths are authored for a floating window; a pane docked beside the
     # Project Browser is routinely narrower than the skills popup's MinWidth
@@ -1531,7 +1552,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._ctx_timer.Tick += self._on_context_tick
             self._ctx_timer.Start()
         except Exception as ex:
-            logger.debug("context timer unavailable: {}".format(ex))
+            logger.debug(u"context timer unavailable: {}".format(_exc_text(ex)))
 
     def _on_context_tick(self, sender, e):
         # Ask the element that is actually on screen. Docked, this window is
@@ -1590,7 +1611,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         try:
             ctx = self._read_revit_context()
         except Exception as ex:
-            logger.debug("_read_revit_context: {}".format(ex))
+            logger.debug(u"_read_revit_context: {}".format(_exc_text(ex)))
             ctx = None
         if ctx is None:
             try:
@@ -1648,7 +1669,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     pass
 
         except Exception as ex:
-            logger.debug("_restore_window_state error: {}".format(ex))
+            logger.debug(u"_restore_window_state error: {}".format(_exc_text(ex)))
 
     def _save_window_state(self):
         """Persist current window geometry to settings."""
@@ -1660,7 +1681,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 False,   # settings sidebar removed — all settings live in LLMs Setting
             )
         except Exception as ex:
-            logger.debug("_save_window_state error: {}".format(ex))
+            logger.debug(u"_save_window_state error: {}".format(_exc_text(ex)))
 
     # ─── Window controls ──────────────────────────────────────────────────────
 
@@ -1791,7 +1812,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     icon=_ICON_SEARCH, icon_color=_ICON_BLUE
                 )
         except Exception as ex:
-            logger.debug("_bootstrap_discovered_tools error: {}".format(ex))
+            logger.debug(u"_bootstrap_discovered_tools error: {}".format(_exc_text(ex)))
 
     # ─── History persistence ───────────────────────────────────────────────────
 
@@ -1829,7 +1850,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 u"Use the new-conversation button under the message box to start fresh."
             )
         except Exception as ex:
-            logger.debug("Could not restore history: {}".format(ex))
+            logger.debug(u"Could not restore history: {}".format(_exc_text(ex)))
 
     def _persist_message(self, role, content):
         """Append one message to the in-memory list and save to disk."""
@@ -1841,7 +1862,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             save_chat_history(self._doc_key, self._persisted_msgs,
                               summary=getattr(self, '_history_summary', u''))
         except Exception as ex:
-            logger.debug("Could not persist message: {}".format(ex))
+            logger.debug(u"Could not persist message: {}".format(_exc_text(ex)))
 
     def reset_chat_clicked(self, sender, e):
         """Clear the chat history for this document and reset the UI."""
@@ -1864,7 +1885,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # comes back on an empty transcript and already says the same thing.
             self._update_welcome_greeting()
         except Exception as ex:
-            logger.debug("reset_chat error: {}".format(ex))
+            logger.debug(u"reset_chat error: {}".format(_exc_text(ex)))
 
     def _reset_session_state(self, clear_transcript=True):
         """Drop everything tied to the OLD conversation scope. UI THREAD.
@@ -2003,7 +2024,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
         except Exception as ex:
-            logger.debug("_show_onboarding error: {}".format(ex))
+            logger.debug(u"_show_onboarding error: {}".format(_exc_text(ex)))
 
     def _hide_onboarding(self):
         try:
@@ -2090,7 +2111,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 u"Your profile is saved. Try 'open batchout' or ask me anything about Revit.".format(name),
                 icon=_ICON_SUCCESS, icon_color=_ICON_GREEN)
         except Exception as ex:
-            logger.debug("onboarding_save_clicked error: {}".format(ex))
+            logger.debug(u"onboarding_save_clicked error: {}".format(_exc_text(ex)))
 
     def _update_ai_badge(self):
         """Refresh the composer model chip (the old header pill was removed —
@@ -2137,7 +2158,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             t.SetApartmentState(ApartmentState.STA)
             t.Start()
         except Exception as ex:
-            logger.debug("_switch_provider error: {}".format(ex))
+            logger.debug(u"_switch_provider error: {}".format(_exc_text(ex)))
 
     # ─── Settings (LLMs Setting hub dialog) ──────────────────────────────────
 
@@ -2181,7 +2202,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _scope_before = self._active_pid()
             dlg.ShowDialog()
         except Exception as ex:
-            logger.debug("_open_llm_settings error: {}".format(ex))
+            logger.debug(u"_open_llm_settings error: {}".format(_exc_text(ex)))
             _scope_before = self._active_pid()
         self._refresh_after_settings(scope_before=_scope_before)
 
@@ -2210,7 +2231,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # this the edit had no effect until the user switched away and back.
             self._apply_project_provider(_pid_now)
         except Exception as ex:
-            logger.debug("scope re-sync error: {}".format(ex))
+            logger.debug(u"scope re-sync error: {}".format(_exc_text(ex)))
         try:
             self._update_composer_chips()
         except Exception:
@@ -2233,7 +2254,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 else:
                     self.project_panel_overlay.Visibility = Visibility.Collapsed
         except Exception as ex:
-            logger.debug("project panel refresh error: {}".format(ex))
+            logger.debug(u"project panel refresh error: {}".format(_exc_text(ex)))
 
     # ─── Projects (workspaces) ────────────────────────────────────────────────
 
@@ -2310,7 +2331,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._pre_project_provider = None
             self._update_ai_badge()
         except Exception as ex:
-            logger.debug("_apply_project_provider error: {}".format(ex))
+            logger.debug(u"_apply_project_provider error: {}".format(_exc_text(ex)))
 
     def _project_overview_text(self, pid, header=None):
         """Markdown overview of what the given project scope actually
@@ -2417,7 +2438,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                      icon_color=_ICON_SLATE)
             self._update_composer_chips()
         except Exception as ex:
-            logger.debug("_activate_project error: {}".format(ex))
+            logger.debug(u"_activate_project error: {}".format(_exc_text(ex)))
 
     def _create_new_project(self):
         """Create a project and activate it (called from the project popup)."""
@@ -2453,7 +2474,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # them to find Settings → Projects on their own.
             self._open_llm_settings(tab='projects', select_pid=meta['id'])
         except Exception as ex:
-            logger.debug("_create_new_project error: {}".format(ex))
+            logger.debug(u"_create_new_project error: {}".format(_exc_text(ex)))
 
     # ─── Knowledge (RAG v2 index) ─────────────────────────────────────────────
 
@@ -2482,7 +2503,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     except Exception:
                         pass
             except Exception as ex:
-                logger.debug("knowledge scan error: {}".format(ex))
+                logger.debug(u"knowledge scan error: {}".format(_exc_text(ex)))
             finally:
                 self._kn_scan_busy = False
         _kt = Thread(ThreadStart(_scan))
@@ -2532,7 +2553,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.chat_history_panel.Children.Add(row)
                 self._scroll_to_bottom()
         except Exception as ex:
-            logger.debug("_append_skill_chips error: {}".format(ex))
+            logger.debug(u"_append_skill_chips error: {}".format(_exc_text(ex)))
 
     # ─── Quick-reply chips (confirm / retry / continue) ───────────────────────
 
@@ -2598,7 +2619,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
-            logger.debug("_append_quick_replies error: {}".format(ex))
+            logger.debug(u"_append_quick_replies error: {}".format(_exc_text(ex)))
 
     def _remove_quick_replies(self):
         """Drop the active quick-reply row (if any). UI THREAD."""
@@ -2684,6 +2705,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.error(u"{}: {}".format(where, _exc_text(exc)))
         except Exception:
             pass
+        # Grab the failing frame NOW — sys.exc_info() is only valid while the
+        # except block that called us is still on the stack, and the message
+        # below is built later, on the UI thread. "_route_input: <message>"
+        # alone names the outermost handler, not the code that actually broke.
+        _frame = u""
+        try:
+            import traceback as _tbmod
+            _frames = _tbmod.extract_tb(sys.exc_info()[2])
+            if _frames:
+                _f = _frames[-1]
+                _frame = u"{}:{} in {}()".format(
+                    os.path.basename(u"{}".format(_f[0])), _f[1], _f[2])
+        except Exception:
+            _frame = u""
         if not self._claim_turn(rid):
             return
 
@@ -2703,6 +2738,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     _detail = u""
                 if _detail:
                     msg += u"\n\n`{}: {}`".format(where, _detail[:300])
+                if _frame:
+                    msg += u"\n`at {}`".format(_frame)
                 if hint:
                     msg = hint + u"\n\n" + msg
                 try:
@@ -2906,7 +2943,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
         except Exception as ex:
-            logger.debug("_drain_queued_input error: {}".format(ex))
+            logger.debug(u"_drain_queued_input error: {}".format(_exc_text(ex)))
 
     def _queue_input(self, raw):
         """Queue a message typed while a request is running. UI THREAD.
@@ -2962,7 +2999,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.chat_input.Text = u""
             self._scroll_to_bottom()
         except Exception as ex:
-            logger.debug("_queue_input error: {}".format(ex))
+            logger.debug(u"_queue_input error: {}".format(_exc_text(ex)))
 
     def _render_send_button(self, busy):
         """Swap the round send button between arrow-up ↑ and Stop ⏹. UI thread only.
@@ -2979,7 +3016,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 btn.ToolTip = u"Stop the running task"
             btn.IsEnabled = True
         except Exception as ex:
-            logger.debug("_render_send_button error: {}".format(ex))
+            logger.debug(u"_render_send_button error: {}".format(_exc_text(ex)))
 
     def _request_stop(self):
         """Stop button pressed while a request is running (UI thread)."""
@@ -2995,7 +3032,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._safe_update_typing_text(u"● ● ●  Stopping after the current step…")
             self._arm_stop_watchdog()
         except Exception as ex:
-            logger.debug("_request_stop error: {}".format(ex))
+            logger.debug(u"_request_stop error: {}".format(_exc_text(ex)))
 
     def _arm_stop_watchdog(self, seconds=20.0):
         """Release the UI even if the worker never reaches a cancel checkpoint.
@@ -3221,7 +3258,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if dlg.ShowDialog() == DialogResult.OK:
                 self._attach_paths(list(dlg.FileNames))
         except Exception as ex:
-            logger.error("attach_clicked error: {}".format(ex))
+            logger.error(u"attach_clicked error: {}".format(_exc_text(ex)))
 
     def _attach_paths(self, paths):
         """Shared intake for picker / Ctrl+V / drag-drop. Returns count added.
@@ -3268,7 +3305,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if self._paste_from_clipboard():
                 e.Handled = True
         except Exception as ex:
-            logger.debug("_input_preview_keydown error: {}".format(ex))
+            logger.debug(u"_input_preview_keydown error: {}".format(_exc_text(ex)))
 
     def _paste_from_clipboard(self):
         """Attach clipboard files (copy từ Explorer) hoặc ảnh clipboard.
@@ -3293,7 +3330,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     if path:
                         return self._attach_paths([path]) > 0
         except Exception as ex:
-            logger.debug("clipboard image paste error: {}".format(ex))
+            logger.debug(u"clipboard image paste error: {}".format(_exc_text(ex)))
         return False
 
     def _save_clipboard_image(self, bmp_source):
@@ -3320,7 +3357,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 fs.Close()
             return path
         except Exception as ex:
-            logger.debug("_save_clipboard_image error: {}".format(ex))
+            logger.debug(u"_save_clipboard_image error: {}".format(_exc_text(ex)))
             return None
 
     def _file_drag_over(self, sender, e):
@@ -3347,7 +3384,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 except Exception:
                     pass
         except Exception as ex:
-            logger.debug("_file_drop error: {}".format(ex))
+            logger.debug(u"_file_drop error: {}".format(_exc_text(ex)))
 
     def clear_attachments_clicked(self, sender, e):
         """Remove all attachments."""
@@ -3416,7 +3453,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             btn.Click += _on_remove
             self.attachment_chips_panel.Children.Add(btn)
         except Exception as ex:
-            logger.debug("_add_attachment_chip error: {}".format(ex))
+            logger.debug(u"_add_attachment_chip error: {}".format(_exc_text(ex)))
 
     def _refresh_attachment_panel(self):
         """Show or hide the attachment preview border depending on file list."""
@@ -3511,7 +3548,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             elif self._slash_open:
                 self._close_skills_popup()
         except Exception as ex:
-            logger.debug("input_text_changed error: {}".format(ex))
+            logger.debug(u"input_text_changed error: {}".format(_exc_text(ex)))
 
     def _refresh_skills_popup(self, query):
         """(Re)build the skills popup filtered by `query`. UI THREAD."""
@@ -3653,7 +3690,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._agent_decision['specialist'] = _spec
                 self._agent_decision['source'] = 'slash'
         except Exception as _sp_ex:
-            logger.debug("specialist_for error: {}".format(_sp_ex))
+            logger.debug(u"specialist_for error: {}".format(_exc_text(_sp_ex)))
 
     def _popup_row(self, title, subtitle=None, icon=None, active=False,
                    dot=None, hover=True, handler=None):
@@ -3775,7 +3812,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.project_chip_text.Foreground = SolidColorBrush(
                     _theme_color('Muted'))
         except Exception as ex:
-            logger.debug("_update_composer_chips project error: {}".format(ex))
+            logger.debug(u"_update_composer_chips project error: {}".format(_exc_text(ex)))
         try:
             from Intelligence.llm_router import LLMRouter
             router = LLMRouter()
@@ -3785,7 +3822,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.model_chip_dot.Fill = SolidColorBrush(
                 Color.FromRgb(rgb[0], rgb[1], rgb[2]))
         except Exception as ex:
-            logger.debug("_update_composer_chips model error: {}".format(ex))
+            logger.debug(u"_update_composer_chips model error: {}".format(_exc_text(ex)))
 
     def project_chip_clicked(self, sender, e):
         """Open the Claude-style project picker popup."""
@@ -3793,7 +3830,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._build_project_popup()
             self.project_popup.IsOpen = True
         except Exception as ex:
-            logger.debug("project_chip_clicked error: {}".format(ex))
+            logger.debug(u"project_chip_clicked error: {}".format(_exc_text(ex)))
 
     def _project_row_subtitle(self, ps, pid):
         """Content hint for a project popup row: 'N files · instructions ✓'.
@@ -3869,7 +3906,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 return
             self._activate_project(pid)
         except Exception as ex:
-            logger.debug("_project_popup_select error: {}".format(ex))
+            logger.debug(u"_project_popup_select error: {}".format(_exc_text(ex)))
 
     def _project_popup_new(self):
         try:
@@ -3894,7 +3931,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._build_project_panel(pid)
             self.project_panel_overlay.Visibility = Visibility.Visible
         except Exception as ex:
-            logger.debug("_open_project_panel error: {}".format(ex))
+            logger.debug(u"_open_project_panel error: {}".format(_exc_text(ex)))
 
     def project_panel_close_clicked(self, sender, e):
         try:
@@ -4052,7 +4089,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     u"+ {} global fact(s) apply to every project.".format(_glob),
                     size=10.5, fg='Faint', margin=Thickness(0, 6, 0, 0)))
         except Exception as _mex:
-            logger.debug("panel memory error: {}".format(_mex))
+            logger.debug(u"panel memory error: {}".format(_exc_text(_mex)))
 
         _sep()
 
@@ -4127,7 +4164,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             t.Start()
             self._sched_timer = t
         except Exception as ex:
-            logger.debug("_start_schedule_timer error: {}".format(ex))
+            logger.debug(u"_start_schedule_timer error: {}".format(_exc_text(ex)))
 
     def _schedule_tick(self, sender, e):
         """Fire at most ONE due scheduled prompt per tick.
@@ -4181,7 +4218,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             else:
                 self.chat_input.Text = u""
         except Exception as ex:
-            logger.debug("_schedule_tick error: {}".format(ex))
+            logger.debug(u"_schedule_tick error: {}".format(_exc_text(ex)))
     def _open_active_project_folder(self):
         """Open the active project's knowledge folder (files/) in Explorer —
         the drop target for PDF/DOCX/MD the RAG index answers from."""
@@ -4201,7 +4238,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if _open_in_explorer(d):
                 return
         except Exception as ex:
-            logger.debug("_open_active_project_folder error: {}".format(ex))
+            logger.debug(u"_open_active_project_folder error: {}".format(_exc_text(ex)))
         try:
             self._append_bot_message(
                 u"Couldn't open the knowledge folder:\n`{}`".format(d),
@@ -4229,7 +4266,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._build_model_popup()
             self.model_popup.IsOpen = True
         except Exception as ex:
-            logger.debug("model_chip_clicked error: {}".format(ex))
+            logger.debug(u"model_chip_clicked error: {}".format(_exc_text(ex)))
 
     def _build_model_popup(self, _skip_refresh=False):
         """Fill the model popup from the instant router snapshot. UI THREAD.
@@ -4333,7 +4370,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 return
             self._switch_provider(name)
         except Exception as ex:
-            logger.debug("_model_popup_select error: {}".format(ex))
+            logger.debug(u"_model_popup_select error: {}".format(_exc_text(ex)))
 
     def _model_popup_settings(self):
         try:
@@ -4356,7 +4393,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # piled up in the transcript every time the mode was toggled.
             self._update_action_mode_chip()
         except Exception as ex:
-            logger.debug("action_mode_clicked error: {}".format(ex))
+            logger.debug(u"action_mode_clicked error: {}".format(_exc_text(ex)))
 
     def _update_action_mode_chip(self):
         """Render the action-mode chip state (Claude-style stroke icons:
@@ -4386,7 +4423,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self.action_mode_icon.Stroke = SolidColorBrush(
                     _theme_color('Muted'))
         except Exception as ex:
-            logger.debug("_update_action_mode_chip error: {}".format(ex))
+            logger.debug(u"_update_action_mode_chip error: {}".format(_exc_text(ex)))
 
     def activity_log_clicked(self, sender, e):
         """Open today's activity log (notepad) or the logs folder (Explorer).
@@ -4880,6 +4917,44 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # _report_error is safe and cannot deadlock.
             self._report_error(u"_process_input", ex)
 
+    def _provider_unreachable_note(self, viet=True):
+        """Message for 'a provider is selected but its health probe failed'.
+
+        Returns u"" when there genuinely is no provider configured — the stock
+        setup guidance is the right answer then. WORKER THREAD (does HTTP via
+        check_health, same probe the gate above already ran).
+        """
+        try:
+            from Intelligence.llm_router import LLMRouter
+            provider = LLMRouter().get_active_provider()
+            if provider is None:
+                return u""
+            label = (getattr(provider, 'DISPLAY_NAME', None)
+                     or getattr(provider, 'NAME', u'AI'))
+            err = u""
+            try:
+                err = provider.get_last_error() or u""
+            except Exception:
+                err = u""
+            if viet:
+                msg = (u"**{}** đang được chọn nhưng không kết nối được, nên "
+                       u"tôi phải trả lời ở chế độ offline (chỉ hiểu lệnh cụ "
+                       u"thể).\n\nKiểm tra: API key còn hạn/còn credit, mạng "
+                       u"công ty hoặc proxy có chặn không, rồi bấm **Cài đặt → "
+                       u"LLMs Setting** để thử lại kết nối.").format(label)
+            else:
+                msg = (u"**{}** is selected but unreachable, so I answered in "
+                       u"offline mode (specific commands only).\n\nCheck the "
+                       u"API key (valid, still has credit) and whether a "
+                       u"corporate proxy is blocking it, then re-test the "
+                       u"connection in **Settings → LLMs Setting**.").format(label)
+            if err:
+                msg += u"\n\n`{}`".format(err[:200])
+            return msg
+        except Exception as ex:
+            logger.debug(u"_provider_unreachable_note error: {}".format(_exc_text(ex)))
+            return u""
+
     def _link_cache_dir(self):
         """Where downloaded links are stored. Project attachments folder when
         there is an active project, otherwise a temp folder — never the user's
@@ -4943,7 +5018,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     u', '.join(os.path.basename(p) for p in added)))
             return u"\n\n".join(p for p in parts if p)
         except Exception as ex:
-            logger.debug("_resolve_message_links error: {}".format(ex))
+            logger.debug(u"_resolve_message_links error: {}".format(_exc_text(ex)))
             return u""
 
     def _build_attachment_context(self, raw, attached):
@@ -5013,7 +5088,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     parts.append(extra)
             return u'\n\n'.join(parts)
         except Exception as ex:
-            logger.debug("attachment RAG failed, legacy path: {}".format(ex))
+            logger.debug(u"attachment RAG failed, legacy path: {}".format(_exc_text(ex)))
             return build_text_context(attached)
 
     def _run_knowledge_agent(self, raw, history):
@@ -5202,7 +5277,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         self._scroll_to_bottom()
                         rendered = True
                     except Exception as cex:
-                        logger.debug("comment card render failed: {}".format(cex))
+                        logger.debug(u"comment card render failed: {}".format(_exc_text(cex)))
                     md = agent.report_to_markdown(report)
                     if not rendered:
                         self._append_bot_message(md)
@@ -5266,7 +5341,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         provider, list(self._conversation_history),
                         instruction, spec=spec)
                 except Exception as wex:
-                    logger.debug("comment exec error: {}".format(wex))
+                    logger.debug(u"comment exec error: {}".format(_exc_text(wex)))
 
                 def _after():
                     try:
@@ -5292,7 +5367,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _ct.SetApartmentState(ApartmentState.STA)
             _ct.Start()
         except Exception as ex:
-            logger.debug("_execute_comment_item error: {}".format(ex))
+            logger.debug(u"_execute_comment_item error: {}".format(_exc_text(ex)))
 
     def _route_input(self, raw, attached):
         """Classify + dispatch one user request. WORKER THREAD.
@@ -5357,7 +5432,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     list(self._conversation_history[:-1])):
                                 return
                 except Exception as _cm_ex:
-                    logger.debug("comment route error: {}".format(_cm_ex))
+                    logger.debug(u"comment route error: {}".format(_exc_text(_cm_ex)))
 
             if has_attach and not raw:
                 # No text — summarise the documents
@@ -5478,6 +5553,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 if nlu_result["intent"] not in ("chat", "help") \
                         or nlu_result.get("_authoritative") \
                         or not (use_local or use_claude):
+                    # A provider that IS configured but failed its health probe
+                    # lands here and answers from the offline canned replies,
+                    # whose text tells the user to "connect an AI in Settings"
+                    # — wrong and baffling when they just did. Say what really
+                    # happened instead.
+                    if nlu_result["intent"] in ("chat", "help") \
+                            and not (use_local or use_claude):
+                        _note = self._provider_unreachable_note(
+                            viet=_is_viet_text(raw))
+                        if _note:
+                            nlu_result = dict(nlu_result)
+                            nlu_result["message"] = _note
                     def _run_nlu(_r=nlu_result):
                         self._execute_result(_r)
                     self.Dispatcher.Invoke(Action(_run_nlu))
@@ -5529,7 +5616,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             skills_engine=_skills_eng,
                             allow_llm=bool(_clf_provider))
                     except Exception as _disp_ex:
-                        logger.debug("dispatcher error: {}".format(_disp_ex))
+                        logger.debug(u"dispatcher error: {}".format(_exc_text(_disp_ex)))
                     if self._agent_decision:
                         logger.debug("dispatcher: {} ({}, {:.2f})".format(
                             self._agent_decision.get('specialist'),
@@ -5698,7 +5785,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                              else None),
                                 image_files=(_img_files if _can_see else None))
                         except Exception as _na_ex:
-                            logger.debug("native agent path error: {}".format(_na_ex))
+                            logger.debug(u"native agent path error: {}".format(_exc_text(_na_ex)))
                         if _handled:
                             return
 
@@ -5797,7 +5884,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     u"to receive its full JSON schema, then call the tool "
                                     u"in your next reply.\n")
                         except Exception as tool_err:
-                            logger.debug("Failed to list server tools: {}".format(tool_err))
+                            logger.debug(u"Failed to list server tools: {}".format(_exc_text(tool_err)))
 
                         system_prompt = _build_system_prompt(revit_context=_ctx_block)
                         # Project instructions + remembered facts. This path is
@@ -5833,12 +5920,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     system_prompt, current_query, max_tokens=1200,
                                     response_format={"type": "json_object"}
                                 )
-                            elif _provider and _provider.check_health():
+                            elif _provider and _provider_usable(_provider):
                                 _resp = _provider.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200, response_format={"type": "json_object"})
                             else:
                                 _resp = _router.chat(current_history[-16:], system_prompt, current_query, max_tokens=1200, response_format={"type": "json_object"})
                         except Exception as chat_ex:
-                            logger.debug("Router chat error: {}".format(chat_ex))
+                            logger.debug(u"Router chat error: {}".format(_exc_text(chat_ex)))
 
                         if not _resp or not _resp.strip():
                             llm_call_failed = True
@@ -6185,9 +6272,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                                       else u"\nDetail: {}".format(_le))
                                     except Exception:
                                         pass
-                                    msg = (u"The AI model ({}) did not respond (model too heavy, "
-                                           u"connection lost or API error). Retry or pick another "
-                                           u"model in Settings.{}".format(label, detail)
+                                    msg = (u"Model AI ({}) không phản hồi (model quá nặng, "
+                                           u"mất kết nối hoặc API báo lỗi). Thử lại hoặc chọn "
+                                           u"model khác trong Cài đặt.{}".format(label, detail)
                                            if _is_viet_text(captured) else
                                            u"The AI model ({}) didn't respond (too heavy, "
                                            u"disconnected, or the API returned an error). Try again "
@@ -6364,7 +6451,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 self._set_busy(False)
                 return
         except Exception as _mcp_ex:
-            logger.debug("MCP intent handler error: {}".format(_mcp_ex))
+            logger.debug(u"MCP intent handler error: {}".format(_exc_text(_mcp_ex)))
 
         # ── Recover hallucinated open_* intents ──────────────────────────────
         # The LLM sometimes invents a near-miss intent name ("open_mcp_control"
@@ -6528,7 +6615,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                             or it.get('source') or u'',
                                 })
                 except Exception as _col_ex:
-                    logger.debug("spellcheck server collect error: {}".format(_col_ex))
+                    logger.debug(u"spellcheck server collect error: {}".format(_exc_text(_col_ex)))
                     notes = None
                 if notes is None and isinstance(res, dict) and res.get('error'):
                     # The scan TOOL failed (e.g. document-context error) —
@@ -6620,7 +6707,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                                    SC.build_batch_query(batch),
                                                    max_tokens=_max_tok)
                             except Exception as ex:
-                                logger.debug("spellcheck batch error: {}".format(ex))
+                                logger.debug(u"spellcheck batch error: {}".format(_exc_text(ex)))
                             if not resp or not resp.strip():
                                 failed += 1
                                 continue
@@ -6630,7 +6717,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         ui_findings, ui_total, ui_uniq, ui_failed = \
                             findings, len(notes), len(uniq), failed
             except Exception as ex:
-                logger.debug("spellcheck error: {}".format(ex))
+                logger.debug(u"spellcheck error: {}".format(_exc_text(ex)))
                 report = (u"Spell-check failed — see the console for details."
                           if viet else u"Spell-check failed — see console for details.")
             if report:
@@ -6727,7 +6814,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return build_reference_block(
                 hits, excerpt_chars=(500 if local else 800), max_items=top_k)
         except Exception as ex:
-            logger.debug("knowledge reference build error: {}".format(ex))
+            logger.debug(u"knowledge reference build error: {}".format(_exc_text(ex)))
             return u''
 
     def _run_native_agent(self, provider, history, captured,
@@ -6760,8 +6847,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from core.server import get_t3labai_server
             srv = get_t3labai_server()
         except Exception as _srv_ex:
-            logger.debug("native path skipped: MCP server unavailable ({})"
-                         .format(_srv_ex))
+            logger.debug(u"native path skipped: MCP server unavailable ({})"
+                         .format(_exc_text(_srv_ex)))
             return False
 
         launcher = tool_schema.make_launcher_tool(list(TOOL_LAUNCHERS.keys()))
@@ -6920,7 +7007,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 user_content = build_vision_content_blocks(
                     user_content, _vision_files)
             except Exception as _vx:
-                logger.debug("vision block build error: {}".format(_vx))
+                logger.debug(u"vision block build error: {}".format(_exc_text(_vx)))
 
         # Live state rides with THIS turn instead of the cached system block.
         # It never reaches _conversation_history (which stores the raw user
@@ -6932,7 +7019,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                             knowledge_ref=_kref)
             user_content = apply_context_block(user_content, _volatile)
         except Exception as _ctx_ex:
-            logger.debug("context block build error: {}".format(_ctx_ex))
+            logger.debug(u"context block build error: {}".format(_exc_text(_ctx_ex)))
 
         # ── B4 + B5: tool-execution wrapper ───────────────────────────────────
         # B4: the first model-mutating tool opens ONE TransactionGroup on the
@@ -7207,6 +7294,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 and not result.get("text")
                 and not result.get("tool_runs")
                 and not stream["open"]):
+            # Log WHY. This handover is invisible to the user: the legacy path
+            # answers without native tools, so a data question can come back as
+            # a confident prose stub with no tool call behind it. The provider
+            # recorded a real reason (bad key, no model, HTTP/tool-payload
+            # error) — losing it here is what made that look like the model
+            # simply "chose" not to use tools.
+            try:
+                logger.debug(u"native path: turn 1 failed ({}) -> legacy "
+                             u"fallback".format(provider.get_last_error()
+                                                or u"no reason recorded"))
+            except Exception:
+                pass
             return False
 
         # Model "answered" with an EMPTY turn — no text, no tool calls
@@ -7262,8 +7361,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     except Exception:
                         pass
                     self._append_bot_message(
-                        (u"The AI model ({}) was interrupted mid-run — the result "
-                         u"may be incomplete. Please retry.{}".format(label, detail))
+                        (u"Model AI ({}) bị ngắt giữa chừng — kết quả có thể "
+                         u"chưa đầy đủ. Vui lòng thử lại.{}".format(label, detail))
                         if viet else
                         (u"The AI model ({}) dropped mid-request — the result "
                          u"may be incomplete. Please retry.{}".format(label, detail)),
@@ -7404,7 +7503,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return {"card": card, "status": status, "dur": dur,
                     "result": result_tb}
         except Exception as ex:
-            logger.debug("_append_tool_card error: {}".format(ex))
+            logger.debug(u"_append_tool_card error: {}".format(_exc_text(ex)))
             return None
 
     def _update_tool_card(self, handle, ok, seconds, result):
@@ -7475,7 +7574,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             self._scroll_to_bottom()
         except Exception as ex:
-            logger.debug("_update_tool_card error: {}".format(ex))
+            logger.debug(u"_update_tool_card error: {}".format(_exc_text(ex)))
 
     @staticmethod
     def _summarize_tool_result(result, fallback):
@@ -7832,7 +7931,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._scroll_to_bottom()
             return True
         except Exception as ex:
-            logger.debug("_append_spellcheck_findings error: {}".format(ex))
+            logger.debug(u"_append_spellcheck_findings error: {}".format(_exc_text(ex)))
             return False
 
     # ─── Destructive-tool confirmation (B5) ────────────────────────────────────
@@ -8065,7 +8164,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._avatar_bitmap = bmp
             return bmp
         except Exception as ex:
-            logger.debug("_get_avatar_bitmap error: {}".format(ex))
+            logger.debug(u"_get_avatar_bitmap error: {}".format(_exc_text(ex)))
             self._avatar_bitmap_failed = True
             return None
 
@@ -8338,7 +8437,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 # with copy=True retries through the shell instead of throwing.
                 Clipboard.SetDataObject(text, True)
         except Exception as ex:
-            logger.debug("copy to clipboard failed: {}".format(ex))
+            logger.debug(u"copy to clipboard failed: {}".format(_exc_text(ex)))
             return
 
         try:
@@ -8393,7 +8492,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             self._retry_target_row   = None
             self._suppress_user_echo = False
-            logger.debug("retry failed: {}".format(ex))
+            logger.debug(u"retry failed: {}".format(_exc_text(ex)))
 
     def _msg_vote_up_clicked(self, sender, e):
         self._record_vote(sender, 'up')
@@ -8466,7 +8565,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                  skill=decision.get('skill'),
                                  specialist=decision.get('specialist'))
         except Exception as ex:
-            logger.debug("feedback store error: {}".format(ex))
+            logger.debug(u"feedback store error: {}".format(_exc_text(ex)))
 
         if vote != 'up':
             return
@@ -8480,7 +8579,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             learn_pattern(raw, intent, decision.get('params') or {},
                           decision.get('message') or u'')
         except Exception as ex:
-            logger.debug("learn_pattern from vote failed: {}".format(ex))
+            logger.debug(u"learn_pattern from vote failed: {}".format(_exc_text(ex)))
 
     def _msg_prev_clicked(self, sender, e):
         self._step_version(sender, -1)
@@ -8528,7 +8627,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._scroll_to_bottom()
             return True
         except Exception as ex:
-            logger.debug("_adopt_retry_version failed: {}".format(ex))
+            logger.debug(u"_adopt_retry_version failed: {}".format(_exc_text(ex)))
             return False
 
     def _append_user_message(self, text, attachment_note=None):
@@ -8579,7 +8678,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
-            logger.debug("Error adding user message: {}".format(ex))
+            logger.debug(u"Error adding user message: {}".format(_exc_text(ex)))
 
     @staticmethod
     def _clean_bot_response(text):
@@ -8803,7 +8902,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             outer.Child = g
             return outer
         except Exception as ex:
-            logger.debug("_make_md_table error: {}".format(ex))
+            logger.debug(u"_make_md_table error: {}".format(_exc_text(ex)))
             return None
 
     def _make_code_block(self, code_lines):
@@ -9016,12 +9115,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 try:
                     host.Children.Add(self._make_message_actions(row))
                 except Exception as ex:
-                    logger.debug("message actions skipped: {}".format(ex))
+                    logger.debug(u"message actions skipped: {}".format(_exc_text(ex)))
 
             self.chat_history_panel.Children.Add(row)
             self._scroll_to_bottom()
         except Exception as ex:
-            logger.debug("Error adding bot message: {}".format(ex))
+            logger.debug(u"Error adding bot message: {}".format(_exc_text(ex)))
 
     # ─── Live streaming bubble ────────────────────────────────────────────────
 
@@ -9061,7 +9160,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._stream_host = host
             self._scroll_to_bottom()
         except Exception as ex:
-            logger.debug("_begin_stream_bubble error: {}".format(ex))
+            logger.debug(u"_begin_stream_bubble error: {}".format(_exc_text(ex)))
             self._stream_row  = None
             self._stream_tb   = None
             self._stream_host = None
@@ -9178,7 +9277,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # JSON regex and a correct answer the user had just watched stream
             # in was overwritten with "Could not read data from the model".
             # Both chat_stream implementations already accept **kwargs.
-            if provider is not None and provider.check_health():
+            # is_configured(), NOT check_health(): the health probe is a live
+            # GET /models on the cloud providers, so gating the turn on it put
+            # a network round-trip (8s timeout, no retry) in front of every
+            # message and silently rerouted through the router whenever a proxy
+            # dropped it. Attempt the real call and let its own error surface —
+            # same rationale as has_api_key() in Intelligence/t3lab_assistant.py.
+            if provider is not None and _provider_usable(provider):
                 return provider.chat_stream(
                     history[-16:], system_prompt, query, _on_delta,
                     max_tokens, **kwargs)
@@ -9186,7 +9291,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 history[-16:], system_prompt, query, _on_delta,
                 max_tokens, **kwargs)
         except Exception as ex:
-            logger.debug("_stream_llm_turn error: {}".format(ex))
+            logger.debug(u"_stream_llm_turn error: {}".format(_exc_text(ex)))
             return None
 
     def _scroll_to_bottom(self):
@@ -9222,6 +9327,6 @@ if __name__ == '__main__':
             else:
                 pane.Show()
     except Exception as ex:
-        logger.warning("Could not toggle dockable pane: {}. Falling back to floating window.".format(ex))
+        logger.warning(u"Could not toggle dockable pane: {}. Falling back to floating window.".format(_exc_text(ex)))
         window = T3LabAssistantWindow()
         window.ShowDialog()
