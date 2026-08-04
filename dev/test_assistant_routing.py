@@ -631,6 +631,78 @@ def test_continuation_rejects_closing_questions():
               not R.is_continuation(closer, u"1", _PREV), closer)
 
 
+def test_small_talk_never_rides_the_previous_turn():
+    """The bug: typing "hello" right after the assistant's own greeting took
+    SECONDS on a local model. Both of the assistant's standard closers —
+    "Bạn muốn làm gì tiếp?" and "Xin chào! Bạn có cần giúp đỡ gì không?" —
+    end in "?" and were missing from _CLOSING_QUESTIONS, so "hello" looked
+    like the answer to a clarifying question. Continuation skips the whole
+    deterministic stage, so the offline NLU never got to reply `greet`
+    instantly and the turn went to the LLM instead."""
+    from Intelligence import routing as R
+
+    for closer in (u"Bạn muốn làm gì tiếp?",
+                   u"Xin chào! Bạn có cần giúp đỡ gì không?",
+                   u"Hello! I'm T3Lab Assistant 👋\nWhat would you like to do today?"):
+        check(u'"{}" is a closer'.format(closer.splitlines()[-1][:38]),
+              R.is_closing_question(closer), closer)
+
+    # Even after a REAL clarifying question, small talk answers nothing.
+    q = u"Bạn muốn liệt kê level của model nào?"
+    for greeting in (u"hello", u"hi", u"chào bạn", u"cảm ơn", u"bye"):
+        check(u'"{}" does not carry over'.format(greeting),
+              not R.is_continuation(q, greeting, _PREV), greeting)
+
+    # The affirmations that ARE answers must keep continuing — this is why
+    # nlu_engine.is_conversational() (which calls "ok"/"1"/"no" small talk)
+    # cannot be reused here.
+    for answer in (u"ok", u"vâng", u"all", u"toàn bộ project"):
+        check(u'"{}" still carries over'.format(answer),
+              R.is_continuation(q, answer, _PREV), answer)
+
+    # A polite opener in front of a real request is not small talk.
+    check('"hi, export the G sheets" is a request',
+          not R.is_social_turn(u"hi, export the G sheets"))
+
+
+def test_which_model_asks_about_the_llm_not_the_rvt():
+    """"model" is the most overloaded word in this product — the .rvt file or
+    the LLM behind the chat. Asked "model bạn đang dùng là gì" the assistant
+    had no deterministic answer, fell through to the LLM, and a local model
+    replied "Tôi chưa mở bất kỳ model Revit nào": the wrong noun, plus an
+    ungrounded claim about the open document. The provider and model id are
+    known exactly, so this must never reach the LLM."""
+    from Intelligence import routing as R
+
+    for q in (u"model bạn đang dùng là gì",
+              u"bạn đang dùng model nào",
+              u"what model are you using",
+              u"which LLM are you using",
+              u"bạn dùng AI gì",
+              u"llm nào vậy",
+              u"provider nào đang chạy",
+              u"bạn chạy trên model gì"):
+        check(u'"{}" asks about the LLM'.format(q), R.asks_which_llm(q), q)
+
+    # Revit-document questions must stay out — an interrogative plus the word
+    # "model" is not enough, and a document verb settles it the other way
+    # even when a second-person pronoun is present.
+    for q in (u"model có bao nhiêu tường",
+              u"mở model này",
+              u"so sánh 2 model",
+              u"kiểm tra model",
+              u"model nào đang mở",
+              u"model bạn vừa mở tên gì",
+              u"bạn mở file rvt nào",
+              u"bạn kiểm tra model giúp tôi",
+              u"dựng model nhà 3 tầng",
+              u"tạo model mới",
+              u"list levels",
+              u"hello"):
+        check(u'"{}" is not an LLM question'.format(q),
+              not R.asks_which_llm(q), q)
+
+
 def test_continuation_guards():
     from Intelligence import routing as R
     q = u"Which scope?"
@@ -709,6 +781,327 @@ def test_dispatcher_precedence_conflicts():
     check('"what to do" is not a colour command',
           spec(u"what to do next") != 'revit_action',
           spec(u"what to do next"))
+
+
+def test_build_requests_reach_the_modeling_specialist():
+    """The bug: "dựng hệ grid 5x5 với thông số là 12345 và abcde" matched no
+    modeling phrase, fell through to `general`, and the model answered with
+    the nearest tool its catalog DID contain — it wrote a create_text_note
+    reading "Grid 5x5: 12345, abcde" into the model.
+
+    Only `modeling` carries the geometry constructors; `general` and
+    `revit_action` have none, so any build wording that misses this stage is
+    a wrong-tool report waiting to happen."""
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    d = AgentDispatcher()
+
+    def spec(text):
+        return d.classify(text, allow_llm=False).get('specialist')
+
+    builds = [
+        # the reported case — verb + classifier + noun, none of it literal
+        u"dựng hệ grid 5x5 với thông số là 12345 và abcde",
+        u"dựng hệ lưới trục 5x5",
+        u"tạo hệ lưới trục A-E, 1-5",
+        u"dựng grid",
+        u"thêm 2 tầng nữa",
+        u"add 3 levels",
+        u"create a grid system",
+    ]
+    for text in builds:
+        got = spec(text)
+        check(u'"{}" → modeling'.format(text), got == 'modeling', got)
+
+    # The pair rule is adjacency-bound so it cannot annex the action
+    # specialist's work: only the noun the verb governs counts.
+    for text, want in ((u"tạo sheet mới", 'revit_action'),
+                       (u"tạo view mặt bằng", 'revit_action'),
+                       (u"thêm tham số cho tường", 'revit_action'),
+                       (u"đổi tên tường tầng 2", 'revit_action')):
+        got = spec(text)
+        check(u'"{}" stays {}'.format(text, want), got == want, got)
+
+
+# (utterance, the tool the assistant must be able to call for it).
+# One entry per user-facing registry tool, in the wording people actually
+# type. This is the corpus the coverage invariant below runs on.
+ROUTING_CORPUS = [
+    # reads
+    (u"có bao nhiêu bức tường", 'ai_element_filter'),
+    (u"how many doors are there", 'ai_element_filter'),
+    (u"thống kê cửa theo tầng", 'ai_element_filter'),
+    (u"liệt kê tất cả sheet", 'revit_list_sheets'),
+    (u"list all views", 'revit_list_views'),
+    (u"liệt kê level", 'list_levels'),
+    (u"danh sách workset", 'list_worksets'),
+    (u"view hiện tại là gì", 'get_current_view_info'),
+    (u"đang chọn gì", 'revit_get_selected_elements'),
+    (u"thông tin dự án", 'revit_get_project_info'),
+    (u"model có bao nhiêu warning", 'get_model_warnings'),
+    (u"sức khỏe model thế nào", 'get_model_health'),
+    (u"đọc schedule cửa", 'get_schedule_data'),
+    (u"có những loại tường nào", 'get_available_family_types'),
+    (u"lấy giá trị parameter Comments của element 12345", 'get_parameter'),
+    (u"kích thước bao của element 12345", 'get_element_bounding_box'),
+    (u"khối lượng bê tông trong model", 'get_material_quantities'),
+    (u"lấy dầm trên tầng 3", 'get_elements_by_level'),
+    # modifies
+    (u"đổi tên sheet A-101 thành A-102", 'rename_element'),
+    (u"set parameter Comments cho tường", 'bulk_set_parameter'),
+    (u"tô đỏ tường", 'revit_override_color'),
+    (u"tô màu cửa theo Type", 'color_elements'),
+    (u"pin toàn bộ tường", 'operate_element'),
+    (u"chọn hết cửa sổ", 'select_elements'),
+    (u"đổi type tường sang Generic 200", 'edit_elements'),
+    (u"đổi scale view thành 1:50", 'manage_view'),
+    (u"di chuyển element 123 sang phải 2m", 'move_elements'),
+    (u"xoay element 123 45 độ", 'rotate_element'),
+    (u"copy element 123 lên 3m", 'copy_elements'),
+    (u"xóa element 123", 'delete_element'),
+    (u"tag tất cả phòng", 'tag_all_rooms'),
+    (u"tag hết tường trong view", 'tag_all_walls'),
+    (u"gán tag cho cửa", 'tag_elements'),
+    (u"thêm ghi chú vào view", 'create_text_note'),
+    (u"chuyển sang view Level 1", 'set_active_view'),
+    # sheets / views
+    (u"tạo sheet mới A-201", 'create_sheet'),
+    (u"đặt view Level 1 lên sheet A-101", 'add_view_to_sheet'),
+    (u"đặt các view lên sheet", 'place_views_on_sheets'),
+    (u"nhân bản view Level 1", 'duplicate_view'),
+    (u"tạo view mặt bằng tầng 2", 'create_view'),
+    (u"tạo schedule cửa", 'create_schedule'),
+    (u"áp view template cho các view mặt bằng", 'apply_view_template'),
+    (u"đổi tên view template", 'manage_view_template'),
+    (u"đánh số lại sheet", 'manage_sheet'),
+    (u"tạo revision mới", 'manage_revision'),
+    (u"tạo view filter ẩn tường", 'create_view_filter'),
+    # modeling
+    (u"dựng hệ grid 5x5 với thông số là 12345 và abcde", 'create_grid'),
+    (u"tạo level tầng 3 cao độ 7m", 'create_level'),
+    (u"dựng tường từ (0,0) đến (5,0)", 'place_wall'),
+    (u"tạo sàn theo biên phòng", 'create_surface_based_element'),
+    (u"đặt cửa vào tường", 'create_point_based_element'),
+    (u"tạo dầm từ trục A đến trục B", 'create_line_based_element'),
+    (u"dựng hệ dầm theo lưới trục", 'create_structural_framing_system'),
+    (u"tạo phòng ở tọa độ 3,4", 'create_room'),
+    (u"tạo sàn từ các phòng", 'room_to_floor'),
+    (u"load family cửa vào project", 'load_family'),
+    (u"tạo dimension giữa trục A và B", 'create_dimension'),
+    (u"join tường với sàn", 'join_geometry'),
+    (u"cắt tường này làm đôi", 'split_element'),
+    (u"chia đường line thành 3 đoạn", 'split_curve'),
+    (u"vẽ filled region trong view", 'create_detail_annotation'),
+    # QA
+    (u"audit model", 'audit_model'),
+    (u"purge model", 'purge_unused'),
+    (u"kiểm tra geometry lỗi trước khi export", 'check_bad_geometry'),
+    (u"kiểm tra vật liệu của tường", 'manage_material'),
+    (u"kiểm tra link model", 'manage_links'),
+    # export
+    (u"xuất pdf toàn bộ sheet", 'export_sheets_pdf'),
+    (u"xuất dwg các sheet G", 'export_dwg'),
+    (u"xuất ảnh view hiện tại", 'export_image'),
+    (u"xuất ifc", 'export_model'),
+    (u"xuất dữ liệu phòng ra file", 'export_room_data'),
+    # worksets / parameters
+    (u"tạo workset mới tên Kết cấu", 'create_workset'),
+    (u"chuyển toàn bộ tường sang workset Kiến trúc", 'set_element_workset'),
+    (u"tạo project parameter cho cửa", 'create_project_parameter'),
+    # documents
+    (u"có những model nào đang mở", 'list_open_documents'),
+    (u"chuyển sang model kia", 'switch_active_document'),
+    (u"mở file rvt này", 'open_document'),
+    (u"đóng model hiện tại", 'close_document'),
+    (u"lưu model", 'manage_document'),
+    (u"model nào mở gần đây", 'list_recent_documents'),
+]
+
+
+def test_comments_parameter_is_not_a_pdf_markup():
+    """"Comments" is a built-in Revit parameter as well as the word for a
+    PDF markup, and the comment stage runs first — so "lấy giá trị parameter
+    Comments của element 12345" was handed to the markup-resolution agent.
+    A parameter context has to disarm the bare word."""
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    d = AgentDispatcher()
+
+    def spec(text, **kw):
+        return d.classify(text, allow_llm=False, **kw).get('specialist')
+
+    for text in (u"lấy giá trị parameter Comments của element 12345",
+                 u"set parameter Comments cho tường",
+                 u"điền thông số Comments cho cửa"):
+        got = spec(text)
+        check(u'"{}" is not the markup agent'.format(text[:34]),
+              got != 'comment', got)
+
+    # The real markup workflow must be untouched.
+    for text in (u"xử lý comment bản vẽ", u"hoàn thiện cmt",
+                 u"đọc markup bluebeam"):
+        got = spec(text)
+        check(u'"{}" still routes to comment'.format(text), got == 'comment',
+              got)
+    # An annotated PDF is decisive on its own, parameter wording or not.
+    check('an annotated PDF still wins',
+          spec(u"đọc giá trị parameter trong file này",
+               attached_pdf_annotated=True) == 'comment')
+
+
+def test_every_routed_request_can_reach_its_tool():
+    """THE invariant behind the create_grid bug, stated once for every tool.
+
+    A specialist that is routed a request it has no tool for does not say
+    "I can't do that" — the model picks the nearest tool it CAN see and
+    reports that as success ("dựng hệ grid 5x5" → a create_text_note reading
+    "Grid 5x5"). So for every utterance, the tool it needs must be visible
+    to the specialist it lands on. Cloud providers get the full registry;
+    a local model sees the specialist subset, or ESSENTIAL_TOOL_NAMES when
+    the specialist declares none."""
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    from Intelligence.agents import specialists as S
+    from Intelligence.tool_schema import ESSENTIAL_TOOL_NAMES
+
+    d = AgentDispatcher()
+    gaps = []
+    for text, need in ROUTING_CORPUS:
+        spec_name = d.classify(text, allow_llm=False).get('specialist')
+        sp = S.SPECIALISTS.get(spec_name)
+        # Mirrors _run_native_agent: a falsy subset means "provider default",
+        # which for a local model is ESSENTIAL_TOOL_NAMES.
+        subset = sp.tools_for(True) if sp else None
+        visible = subset or ESSENTIAL_TOOL_NAMES
+        if need not in visible:
+            gaps.append(u'"{}" needs {} but landed on {}'.format(
+                text, need, spec_name))
+    check('every corpus request can reach its tool ({} cases)'.format(
+        len(ROUTING_CORPUS)), not gaps, u' | '.join(gaps[:6]))
+
+
+def test_every_tool_is_consciously_placed():
+    """A tool nobody wired into a subset is invisible to local models, and
+    an invisible tool is answered with the nearest visible one. Adding a
+    tool to the registry must therefore be a decision: put it in a
+    specialist subset, in ESSENTIAL_TOOL_NAMES, or declare it hidden."""
+    from Intelligence.agents import specialists as S
+    from Intelligence.tool_schema import (ESSENTIAL_TOOL_NAMES,
+                                          LOCAL_HIDDEN_TOOLS,
+                                          get_server_tools)
+    registry = set(t['name'] for t in get_server_tools())
+    check('registry is readable', bool(registry))
+    placed = set(ESSENTIAL_TOOL_NAMES) | set(LOCAL_HIDDEN_TOOLS)
+    for sp in S.SPECIALISTS.values():
+        placed |= set(sp.tool_names or ())
+    orphans = sorted(registry - placed)
+    check('every registry tool is placed', not orphans,
+          'unplaced: {}'.format(', '.join(orphans)))
+    stale = sorted(placed - registry)
+    check('no subset names a tool that no longer exists', not stale,
+          'stale: {}'.format(', '.join(stale)))
+
+
+def test_announcing_the_work_is_not_doing_it():
+    """The bug: "list levels" was answered with "Đang liệt kê các mức trong
+    dự án…" and nothing else — the model narrated, called no tool, and the
+    loop accepted any text-only reply as the final answer. On a data
+    question that is worse than a missing answer: prose produced with zero
+    read tools is ungrounded by construction."""
+    from Intelligence.agent_loop import _announces_work
+
+    for text in (u"Đang liệt kê các mức trong dự án...",
+                 u"Let me check the levels for you.",
+                 u"I'll list the levels now",
+                 u"Tôi sẽ tiến hành kiểm tra model",
+                 u"Đang xử lý..."):
+        check(u'"{}" is a promise, not an answer'.format(text[:34]),
+              _announces_work(text), text)
+
+    # A clarifying question and a real answer must never be nudged.
+    for text in (u"Bạn muốn liệt kê level của model nào?",
+                 u"Which sheets do you want to export?",
+                 u"Model có 5 level: L1, L2, L3, L4, L5.",
+                 u""):
+        check(u'"{}" is left alone'.format(text[:34]),
+              not _announces_work(text), text)
+
+    # End to end: narrate first, then obey the nudge and answer for real.
+    tools = [{'name': 'list_levels'}]
+    result, _shown, ran, prov = _run_agent([
+        {'text': u'Đang liệt kê các mức trong dự án...'},
+        {'text': u'', 'calls': [{'id': '1', 'name': 'list_levels',
+                                 'args': {}}]},
+        {'text': u'Model có 2 level: L1, L2.'},
+    ], tools=tools)
+    check('the nudged turn actually called the tool', ran == ['list_levels'],
+          ran)
+    check('and the user gets the real answer',
+          result.get('text') == u'Model có 2 level: L1, L2.',
+          result.get('text'))
+    fed = [m.get('content') for t in prov.transcripts for m in t
+           if m.get('role') == 'user']
+    check('the nudge tells the model it called nothing',
+          any(u'called no tool' in u'{}'.format(c) for c in fed), fed[-1:])
+
+    # Bounded: a model that keeps narrating is not retried forever, and its
+    # text still reaches the user rather than vanishing.
+    result2, _shown2, ran2, prov2 = _run_agent([
+        {'text': u'Đang liệt kê...'},
+        {'text': u'Đang liệt kê...'},
+        {'text': u'Đang liệt kê...'},
+    ], tools=tools)
+    check('narration is nudged at most once', len(prov2.turns) == 1,
+          '{} turns left'.format(len(prov2.turns)))
+    check('no tool ran on a pure-narration turn', ran2 == [], ran2)
+    check('and its text still reaches the user',
+          result2.get('text') == u'Đang liệt kê...', result2.get('text'))
+
+
+def test_tool_result_survives_non_utf8_bytes():
+    """The bug: a byte string carrying Windows code-page bytes (a localised
+    Revit message, an OS path) reached json, whose encoder decodes byte
+    strings as UTF-8 — "'unknown' codec can't decode byte 0xe0 in position
+    17" escaped every handler up to _route_input and ended the turn AFTER
+    tools had already run. The `u"{}".format(result)` fallback failed on the
+    same bytes under IronPython 2.7, so it guarded nothing.
+
+    CPython 3 has no implicit decode, so this test pins the sanitising step
+    itself: no bytes may survive into what is handed to json."""
+    from Intelligence.agent_loop import _json_safe, _result_to_json, _call_key
+
+    cp1252 = b'\xe0\xf4ng'          # "àông" in cp1252 — NOT valid UTF-8
+    payload = {'name': cp1252, 'ids': [1, cp1252], 'nested': {'p': cp1252}}
+
+    clean = _json_safe(payload)
+
+    def has_bytes(o):
+        if isinstance(o, bytes):
+            return True
+        if isinstance(o, dict):
+            return any(has_bytes(k) or has_bytes(v) for k, v in o.items())
+        if isinstance(o, (list, tuple)):
+            return any(has_bytes(v) for v in o)
+        return False
+
+    check('no byte string reaches the encoder', not has_bytes(clean))
+    check('valid UTF-8 bytes decode as UTF-8',
+          _json_safe(u'lưới'.encode('utf-8')) == u'lưới')
+
+    s = _result_to_json(payload)
+    check('a non-UTF-8 result still serialises', isinstance(s, str) and s)
+    check('the duplicate guard still gets a key',
+          _call_key('create_grid', payload)[0] == 'create_grid')
+
+
+def test_local_catalog_can_build_geometry():
+    """A local model routed to `general` sees ESSENTIAL_TOOL_NAMES and
+    nothing else. That list carried create_text_note but no constructor, so
+    a build request had exactly one plausible-looking tool in it — which is
+    how "dựng hệ grid" became a text note. A catalog that can annotate must
+    also be able to create."""
+    from Intelligence.tool_schema import ESSENTIAL_TOOL_NAMES
+    for name in ('create_grid', 'create_level', 'create_room', 'place_wall',
+                 'create_line_based_element', 'create_surface_based_element'):
+        check(u'{} is in the local catalog'.format(name),
+              name in ESSENTIAL_TOOL_NAMES)
 
 
 def test_spellcheck_fix_detection():
@@ -1104,9 +1497,18 @@ TESTS = [
         test_continuation_accepts_real_answers,
         test_continuation_rejects_new_commands,
         test_continuation_rejects_closing_questions,
+        test_small_talk_never_rides_the_previous_turn,
+        test_which_model_asks_about_the_llm_not_the_rvt,
         test_continuation_guards,
         test_learned_pattern_defers_to_nlu,
         test_dispatcher_precedence_conflicts,
+        test_build_requests_reach_the_modeling_specialist,
+        test_local_catalog_can_build_geometry,
+        test_every_routed_request_can_reach_its_tool,
+        test_every_tool_is_consciously_placed,
+        test_comments_parameter_is_not_a_pdf_markup,
+        test_announcing_the_work_is_not_doing_it,
+        test_tool_result_survives_non_utf8_bytes,
         test_spellcheck_fix_detection,
     ]),
     ('semantics', [

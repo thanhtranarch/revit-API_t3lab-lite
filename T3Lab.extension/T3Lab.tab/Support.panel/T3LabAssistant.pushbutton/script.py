@@ -139,7 +139,7 @@ except Exception as _theme_ex:                       # pragma: no cover
     # module cannot be imported at all.
     _LIGHT_FALLBACK = {
         'AppBg': (240, 240, 240), 'ChatBg': (255, 255, 255),
-        'ComposerBg': (240, 240, 240), 'CardBg': (255, 255, 255),
+        'ComposerBg': (255, 255, 255), 'CardBg': (255, 255, 255),
         'CardBorder': (196, 196, 196), 'Divider': (217, 217, 217),
         'PaneEdge': (166, 166, 166), 'UserBubbleBg': (219, 232, 246),
         'UserBubbleText': (0, 0, 0), 'BotText': (28, 28, 28),
@@ -398,6 +398,19 @@ except Exception as e:
             return {'specialist': 'general', 'skill': None,
                     'source': 'default', 'confidence': 0.0}
 
+# ─── "Narrated instead of acted" guard (shared with the native AgentLoop) ─────
+# Both prompt paths need the same rule, so the detector lives in agent_loop
+# and the legacy JSON-intent loop below borrows it.
+try:
+    from Intelligence.agent_loop import (_announces_work,
+                                         _ANNOUNCE_FIXUP)
+except Exception as e:
+    logger.warning("Could not import the announce guard: {}".format(e))
+    _ANNOUNCE_FIXUP = u"Call the tool that answers the request now."
+
+    def _announces_work(_text):
+        return False
+
 # ─── Specialist specs (per-agent prompt/tools/budget) ─────────────────────────
 try:
     from Intelligence.agents.specialists import get_spec, build_specialist_prompt
@@ -616,6 +629,56 @@ def _exc_text(exc):
         return u"<unprintable error>"
 
 
+def _json_safe(obj):
+    """Recursively coerce byte strings inside `obj` to unicode. Never raises.
+
+    Byte strings reach the tool loop from anywhere the .NET/OS side hands
+    back a legacy code page — a localised Revit message, a Windows path, an
+    exception text — and they are NOT UTF-8. That is the one input json's
+    encoder cannot survive; see _json_text.
+    """
+    if isinstance(obj, bytes):
+        try:
+            return obj.decode('utf-8')
+        except Exception:
+            return obj.decode('latin-1', 'replace')
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            out[_json_safe(k)] = _json_safe(v)
+        return out
+    if isinstance(obj, (list, tuple, set)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
+def _json_text(obj, sort_keys=False):
+    """`json.dumps` as unicode that can never kill a chat turn.
+
+    IronPython 2.7's encoder decodes byte strings as UTF-8 (json/encoder.py
+    line 47, reached whenever ensure_ascii is on). A byte string carrying
+    Windows code-page bytes raises there — and on the tool-loop display path
+    that exception escaped every handler up to _route_input, so the user got
+    "'unknown' codec can't decode byte 0xe0 …" instead of an answer, mid-way
+    through a turn that had already run tools. Sanitising first removes the
+    only input the encoder cannot handle; the fallbacks cover the rest.
+    """
+    try:
+        out = json.dumps(_json_safe(obj), ensure_ascii=False,
+                         sort_keys=sort_keys)
+        return out.decode('utf-8', 'replace') if isinstance(out, bytes) \
+            else u"{}".format(out)
+    except Exception:
+        pass
+    try:
+        out = json.dumps(_json_safe(obj), ensure_ascii=True,
+                         sort_keys=sort_keys, default=_exc_text)
+        return out.decode('ascii', 'replace') if isinstance(out, bytes) \
+            else u"{}".format(out)
+    except Exception:
+        return u"<unserializable {}>".format(type(obj).__name__)
+
+
 def _provider_usable(provider):
     """True when `provider` is worth calling for a real chat turn.
 
@@ -742,6 +805,38 @@ def _note_user_language(text):
         _LAST_USER_VIET = _detect_viet(
             text, default=(True if _LAST_USER_VIET is None
                            else _LAST_USER_VIET))
+
+
+def _time_greeting(hour=None, viet=None):
+    """Time-of-day greeting phrase (no name). Never raises.
+
+    Six buckets rather than the old three: Vietnamese distinguishes sáng sớm
+    / sáng / trưa / chiều / tối / khuya, and "Good afternoon" at 11am or
+    11pm reads as if nobody is home. English has no separate midday
+    greeting, so 11–13 and 13–18 legitimately share one phrase — the split
+    exists for the Vietnamese side.
+    """
+    try:
+        if hour is None:
+            import datetime
+            hour = datetime.datetime.now().hour
+        hour = int(hour)
+        if viet is None:
+            viet = _ui_viet()
+    except Exception:
+        return u"Xin chào" if viet else u"Hello"
+
+    if hour < 5 or hour >= 22:
+        return u"Khuya rồi" if viet else u"Working late"
+    if hour < 7:
+        return u"Dậy sớm nhỉ" if viet else u"Early start"
+    if hour < 11:
+        return u"Chào buổi sáng" if viet else u"Good morning"
+    if hour < 13:
+        return u"Chào buổi trưa" if viet else u"Good afternoon"
+    if hour < 18:
+        return u"Chào buổi chiều" if viet else u"Good afternoon"
+    return u"Chào buổi tối" if viet else u"Good evening"
 
 
 def _ui_viet():
@@ -972,6 +1067,7 @@ _ICON_LIST    = u""   # List/reference — stats & selection section headers
 _ICON_BLUE  = _trgb('Blue')      # info / discovery
 _ICON_AMBER = _trgb('Amber')     # warning
 _ICON_GREEN = _trgb('Success')   # success
+_ICON_RED   = _trgb('Danger')    # "no / not available" markers
 _ICON_SLATE = _trgb('Muted')     # neutral / muted
 
 
@@ -1989,15 +2085,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _render_greeting(self, name):
         """Set the welcome greeting text for a given name (no settings read)."""
         try:
-            import datetime
-            hour = datetime.datetime.now().hour
-            if hour < 12:
-                greet = u"Good morning"
-            elif hour < 18:
-                greet = u"Good afternoon"
-            else:
-                greet = u"Good evening"
-            self.welcome_greeting_text.Text = u"{}, {}".format(greet, name or u"Thạnh")
+            self.welcome_greeting_text.Text = u"{}, {}".format(
+                _time_greeting(), name or u"Thạnh")
         except Exception:
             pass
 
@@ -2057,12 +2146,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             except Exception:
                 pass
 
-            import datetime
-            h = datetime.datetime.now().hour
-            greet = (u"Good morning" if h < 12 else
-                     u"Good afternoon" if h < 18 else u"Good evening")
             try:
-                self.onboarding_greeting.Text = u"{}!".format(greet)
+                self.onboarding_greeting.Text = u"{}!".format(_time_greeting())
             except Exception:
                 pass
 
@@ -2589,11 +2674,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 chip.CornerRadius = CornerRadius(9)
                 chip.Padding = Thickness(8, 2, 8, 3)
                 chip.Margin = Thickness(0, 0, 4, 0)
+                # MDL2 glyph run + label run, rather than a ⚡ emoji baked
+                # into the body font — the emoji rendered in full colour and
+                # was the one bit of the chip that ignored the theme.
                 tb = TextBlock()
-                tb.Text = u"⚡ " + name
                 tb.FontSize = 10
                 tb.FontFamily = System.Windows.Media.FontFamily("Hanken Grotesk")
                 _bind_fg(tb, 'Muted')
+                from System.Windows.Documents import Run as _WpfRun
+                _gr = _WpfRun()
+                _gr.Text = _ICON_ANALYZE + u"  "
+                _gr.FontFamily = System.Windows.Media.FontFamily(u"Segoe MDL2 Assets")
+                tb.Inlines.Add(_gr)
+                _nr = _WpfRun()
+                _nr.Text = name
+                tb.Inlines.Add(_nr)
                 chip.Child = tb
                 chip.ToolTip = u"Skill applied to this reply"
                 row.Children.Add(chip)
@@ -2892,6 +2987,75 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 telemetry.record(t)
             except Exception:
                 pass
+
+    _PROVIDER_LABELS = {
+        'claude': u'Claude (Anthropic)', 'openai': u'OpenAI',
+        'deepseek': u'DeepSeek', 'ollama': u'Ollama (local)',
+        'lmstudio': u'LM Studio (local)',
+    }
+
+    def _try_which_model(self, raw):
+        """Answer "which model/LLM are you running?" from fact. WORKER THREAD.
+
+        Returns True when handled. The provider and model id are known
+        exactly, so this must never reach the LLM — see the call site in
+        _route_input for what happened when it did.
+        """
+        try:
+            if not routing.asks_which_llm(raw):
+                return False
+        except Exception:
+            return False
+
+        try:
+            return self._answer_which_model(raw)
+        except Exception as ex:
+            logger.debug(u'_try_which_model error: {}'.format(_exc_text(ex)))
+            return False
+
+    def _answer_which_model(self, raw):
+        """Post the provider/model answer. Split out so a UI failure here
+        falls back to the normal path instead of eating the turn."""
+        viet = _is_viet_text(raw)
+        try:
+            prov = get_active_provider_name() or u''
+        except Exception:
+            prov = u''
+        label = self._PROVIDER_LABELS.get(prov, prov or (
+            u'chưa cấu hình' if viet else u'not configured'))
+        model = self._active_model_name()
+
+        if not prov:
+            msg = (u"Hiện chưa có AI provider nào được cấu hình. "
+                   u"Mở **LLMs Setting** để kết nối một provider."
+                   if viet else
+                   u"No AI provider is configured yet. Open **LLMs Setting** "
+                   u"to connect one.")
+        elif model:
+            msg = (u"Mình đang chạy trên **{}**, model `{}`.\n"
+                   u"Đổi trong **LLMs Setting**.".format(label, model)
+                   if viet else
+                   u"I'm running on **{}**, model `{}`.\n"
+                   u"You can change it in **LLMs Setting**.".format(label, model))
+        else:
+            # Provider set but the model id has not been resolved yet
+            # (get_active_model is cache-only). Say that, do not invent one.
+            msg = (u"Mình đang chạy trên **{}**. Tên model cụ thể chưa được "
+                   u"nạp — mở **LLMs Setting** để xem và đổi.".format(label)
+                   if viet else
+                   u"I'm running on **{}**. The exact model id isn't loaded "
+                   u"yet — open **LLMs Setting** to see or change it."
+                   .format(label))
+
+        def _show():
+            self._hide_typing_indicator()
+            self._append_bot_message(msg, icon=_ICON_INFO,
+                                     icon_color=_ICON_BLUE)
+            self._add_to_history("assistant", msg)
+            self._set_busy(False)
+
+        self.Dispatcher.Invoke(Action(_show))
+        return True
 
     def _active_model_name(self):
         """Model id of the active provider, or ''.
@@ -5439,6 +5603,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not attached and raw and self._try_memory_command(raw):
                 return
 
+            # ── "Which model are you using?" (deterministic, no LLM) ───────
+            # The assistant knows its own provider and model id for certain,
+            # so this is never a question for the LLM. Left to it, "model bạn
+            # đang dùng là gì" got read as a question about the .rvt and came
+            # back "Tôi chưa mở bất kỳ model Revit nào" — wrong noun, and an
+            # ungrounded claim about the open document on top.
+            if not attached and raw and self._try_which_model(raw):
+                return
+
             # ── Skill packs from GitHub (deterministic, no LLM) ────────────
             # "/skills …" and "cài skill từ <repo link>" install or refresh
             # Claude-format skills. Answered here so it works offline-ish
@@ -5897,8 +6070,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     except Exception:
                         _legacy_skills_block = u""
 
-                    # Run up to 5 iterations of tool execution
-                    max_iterations = 5
+                    # Step budget. 5 was set before specialists existed and is
+                    # now the outlier: the native path gives 6–14 depending on
+                    # the specialist. Five is not enough for an ordinary
+                    # multi-step read ("check the model name against ISO
+                    # 19650" spent one step on context and two on sheet lists,
+                    # then hit the wall and told the user to split the request
+                    # — work the assistant should just finish). Follow the
+                    # specialist's own budget, with the native path's default.
+                    max_iterations = 10
+                    try:
+                        _spec_budget = getattr(_spec, 'max_iterations', None)
+                        if _spec_budget:
+                            max_iterations = int(_spec_budget)
+                    except Exception:
+                        pass
                     current_iteration = 0
                     current_history = list(history)
                     # Deterministic repeat guards — small local models ignore
@@ -5909,6 +6095,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     _turn_calls = set()          # (intent, args) run THIS turn
                     _prev_calls = getattr(self, '_prev_turn_calls', None) or set()
                     _blocked_repeats = 0
+                    _announce_nudges = 0         # "I'm about to…" with no call
 
                     # Initial user prompt. _rag_query == rag_context except
                     # when a text-only provider was handed images (see above).
@@ -6068,7 +6255,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                         ensure_ascii=False)
                                 current_history.append(
                                     {"role": "assistant",
-                                     "content": _json.dumps(_parsed, ensure_ascii=False)})
+                                     "content": _json_text(_parsed)})
                                 current_history.append(
                                     {"role": "user",
                                      "content": u"Tool schema: {}".format(info)})
@@ -6095,9 +6282,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 pass
 
                             if is_local_tool:
-                                _call_key = (intent, _json.dumps(
-                                    params or {}, sort_keys=True,
-                                    ensure_ascii=False))
+                                _call_key = (intent, _json_text(
+                                    params or {}, sort_keys=True))
                                 _dup_now = _call_key in _turn_calls
                                 # A previous turn's call re-emitted AFTER this
                                 # turn already did its own different work =
@@ -6134,7 +6320,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                             u'"..."}} if it is fulfilled.'.format(intent, captured))
                                     current_history.append(
                                         {"role": "assistant",
-                                         "content": _json.dumps(_parsed, ensure_ascii=False)})
+                                         "content": _json_text(_parsed)})
                                     current_history.append(
                                         {"role": "user", "content": _guard_msg})
                                     current_query = _guard_msg
@@ -6147,14 +6333,39 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 status_msg = u"● ● ●  Đang chạy công cụ `{}`...".format(intent) if is_vn else "● ● ●  Executing tool `{}`...".format(intent)
                                 self._safe_update_typing_text(status_msg)
 
-                                # Display temporary feedback message in chat so the user is updated
-                                tool_display_msg = u"[Tool Call] `{}` (params: {})".format(intent, _json.dumps(params))
+                                # The model's own "what I'm doing" line, if it
+                                # wrote one. The tool NAME and ARGS used to be
+                                # printed here too, but the card below says all
+                                # of that and also shows the RESULT.
                                 if message:
-                                    tool_display_msg = u"[Tool Call] {}\nRevit tool: `{}`".format(message, intent)
-                                self._safe_append_bot(tool_display_msg,
-                                                      icon=_ICON_SYNC, icon_color=_ICON_BLUE)
+                                    self._safe_append_bot(
+                                        message, icon=_ICON_SYNC,
+                                        icon_color=_ICON_BLUE)
+
+                                # Real tool card — the same one the native agent
+                                # path draws. This path used to print only a
+                                # "[Tool Call] …" line BEFORE execution and
+                                # nothing after, so the tool's data reached the
+                                # user only if the model chose to repeat it in
+                                # prose. It often does not: "list levels" ran
+                                # list_levels, then answered "Danh sách các mức
+                                # đã được liệt kê. Bạn muốn làm gì tiếp?" and
+                                # the levels themselves were never shown. The
+                                # card puts the result on screen deterministically,
+                                # whatever the model says afterwards.
+                                _card = {"cur": None}
+
+                                def _open_card(_n=intent, _a=params):
+                                    _card["cur"] = self._append_tool_card(_n, _a)
+
+                                try:
+                                    self.Dispatcher.Invoke(Action(_open_card))
+                                except Exception:
+                                    pass
 
                                 # Execute the tool in the Revit context using the external event handler
+                                import time as _time
+                                _t0 = _time.time()
                                 tool_result = None
                                 try:
                                     from core.server import get_t3labai_server
@@ -6167,6 +6378,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     # whole turn from inside the error handler.
                                     tool_result = {"error": _exc_text(execute_err),
                                                    "tool": intent}
+
+                                _ok = not (isinstance(tool_result, dict)
+                                           and tool_result.get('error'))
+                                _secs = _time.time() - _t0
+
+                                def _close_card(_ok=_ok, _s=_secs,
+                                                _r=tool_result):
+                                    self._update_tool_card(_card["cur"], _ok,
+                                                           _s, _r)
+
+                                try:
+                                    self.Dispatcher.Invoke(Action(_close_card))
+                                except Exception:
+                                    pass
 
                                 # Register the successful call (errors stay
                                 # unregistered — rule 4 allows ONE retry with
@@ -6185,8 +6410,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     return
 
                                 # Log tool call and result to current_history using portable roles
-                                current_history.append({"role": "assistant", "content": _json.dumps(_parsed, ensure_ascii=False)})
-                                current_history.append({"role": "user", "content": u"Tool `{}` returned: {}".format(intent, _json.dumps(tool_result, ensure_ascii=False))})
+                                _result_text = _json_text(tool_result)
+                                current_history.append({"role": "assistant", "content": _json_text(_parsed)})
+                                current_history.append({"role": "user", "content": u"Tool `{}` returned: {}".format(intent, _result_text)})
 
                                 # Setup subsequent query — restate WHICH request
                                 # is being executed. A bare "proceed to the next
@@ -6203,8 +6429,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     u"a final summary if this request is "
                                     u"done.".format(
                                         intent,
-                                        _json.dumps(tool_result,
-                                                    ensure_ascii=False),
+                                        _result_text,
                                         captured))
                                 continue
                             else:
@@ -6216,6 +6441,29 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 # for the generic offline fallback in finish().
                                 if intent == "unknown" and message.strip():
                                     _parsed["intent"] = "chat"
+                                # Narrated instead of acted. Same hole the
+                                # native AgentLoop had: a reply that only
+                                # promises the work ("Đang liệt kê các mức
+                                # trong dự án…") ended the turn with no tool
+                                # run and no data — "list levels" answered
+                                # nothing. Nudge once, then let it stand.
+                                if (self._tool_runs == 0 and not _turn_calls
+                                        and _announce_nudges < 1
+                                        and _announces_work(
+                                            message or _cleaned)):
+                                    _announce_nudges += 1
+                                    self.Dispatcher.Invoke(Action(
+                                        self._remove_stream_bubble))
+                                    current_history.append(
+                                        {"role": "assistant",
+                                         "content": _json_text(_parsed)})
+                                    current_history.append(
+                                        {"role": "user",
+                                         "content": _ANNOUNCE_FIXUP})
+                                    current_query = (
+                                        u"{}\n\nThe request is: \"{}\"".format(
+                                            _ANNOUNCE_FIXUP, captured))
+                                    continue
                                 result = _parsed
                                 break
                         else:
@@ -6750,12 +6998,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         report = (
                             u"Đã tìm thấy **{}** mục text nhưng không tải được từ "
                             u"điển kiểm tra chính tả và chưa kết nối AI — cài lại "
-                            u"extension hoặc kết nối provider trong Settings (⚙)."
+                            u"extension hoặc kết nối provider trong Settings."
                             if viet else
                             u"Found **{}** text items but the spell-check "
                             u"dictionary could not be loaded and no AI provider is "
                             u"connected — reinstall the extension or connect a "
-                            u"provider in Settings (⚙).").format(len(notes))
+                            u"provider in Settings.").format(len(notes))
                     else:
                         # Fallback (dictionary asset missing) — legacy LLM batch
                         # path. Cloud providers take much larger batches than the
@@ -7799,10 +8047,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             handle["dur"].Text = u"{0:.1f}s".format(seconds)
 
-            try:
-                res_s = json.dumps(result, ensure_ascii=False)
-            except Exception:
-                res_s = u"{}".format(result)
+            # _json_text, not json.dumps: a Revit result carrying Windows
+            # code-page bytes raises in the encoder, and the u"{}".format
+            # fallback used to fail on exactly the same bytes.
+            res_s = _json_text(result)
             rt = handle["result"]
             # Friendly one-line summary of common result shapes; full JSON
             # stays available on hover so nothing is hidden.
@@ -8012,15 +8260,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             _font = System.Windows.Media.FontFamily("Hanken Grotesk, Inter")
 
-            def _brush(r, g, b):
-                return SolidColorBrush(Color.FromRgb(r, g, b))
-            INK, MUTED, FAINT = _brush(15, 23, 42), _brush(100, 116, 139), _brush(148, 163, 184)
-            BLUE, RED, GREEN = _brush(59, 130, 246), _brush(220, 38, 38), _brush(5, 150, 105)
-            LINE, ALT = _brush(241, 245, 249), _brush(248, 250, 252)
-
+            # Every colour here is a THEME TOKEN, never a hex. This card used
+            # to hardcode the Lumina palette (white card, #0F172A ink), so in
+            # Revit's dark theme it rendered as a white slab of near-black
+            # text inside a dark pane. See docs/assistant-revit-ui.md.
             card = Border()
-            card.Background      = _brush(255, 255, 255)
-            card.BorderBrush     = _brush(226, 232, 240)                          # #E2E8F0
+            _bind_bg(card, 'CardBg')
+            _bind_border(card, 'CardBorder')
             card.BorderThickness = Thickness(1)
             card.CornerRadius    = CornerRadius(8)
             card.Padding         = Thickness(12, 9, 12, 10)
@@ -8029,18 +8275,34 @@ class T3LabAssistantWindow(forms.WPFWindow):
             panel = StackPanel()
 
             instances = sum(len(r["ids"]) for r in rows)
+            # Monochrome MDL2 glyph instead of the 🔍 emoji, so the header
+            # matches the icon language of the tool cards and follows the theme.
+            head_row = StackPanel()
+            head_row.Orientation = Orientation.Horizontal
+            head_row.Margin      = Thickness(0, 0, 0, 8)
+
+            hicon = TextBlock()
+            hicon.Text       = _ICON_SEARCH
+            hicon.FontFamily = System.Windows.Media.FontFamily(u"Segoe MDL2 Assets")
+            hicon.FontSize   = 12
+            hicon.Margin     = Thickness(0, 1, 7, 0)
+            hicon.VerticalAlignment = VerticalAlignment.Center
+            _bind_fg(hicon, 'Blue')
+            head_row.Children.Add(hicon)
+
             hdr = TextBlock()
-            hdr.Text = (u"🔍 Kiểm tra chính tả: {} lỗi ({} vị trí) trong {} nội dung"
+            hdr.Text = (u"Kiểm tra chính tả: {} lỗi ({} vị trí) trong {} nội dung"
                         .format(len(rows), instances, uniq) if viet else
-                        u"🔍 Spell-check: {} issue(s) across {} instances in {} unique texts"
+                        u"Spell-check: {} issue(s) across {} instances in {} unique texts"
                         .format(len(rows), instances, uniq))
             hdr.FontSize     = 12.5
             hdr.FontFamily   = _font
             hdr.FontWeight   = System.Windows.FontWeights.SemiBold
-            hdr.Foreground   = INK
+            _bind_fg(hdr, 'Ink')
             hdr.TextWrapping = TextWrapping.Wrap
-            hdr.Margin       = Thickness(0, 0, 0, 8)
-            panel.Children.Add(hdr)
+            hdr.VerticalAlignment = VerticalAlignment.Center
+            head_row.Children.Add(hdr)
+            panel.Children.Add(head_row)
 
             grid = Grid()
             for w in (GridLength.Auto, GridLength.Auto, GridLength.Auto,
@@ -8055,13 +8317,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             for _ in range(len(shown_rows) + 1):
                 grid.RowDefinitions.Add(RowDefinition())
 
-            def _cell(text, col, row, brush, size=12, bold=False, wrap=True,
+            def _cell(text, col, row, token, size=12, bold=False, wrap=True,
                       align_r=False):
                 tb = TextBlock()
                 tb.Text         = text
                 tb.FontSize     = size
                 tb.FontFamily   = _font
-                tb.Foreground   = brush
+                _bind_fg(tb, token)
                 tb.TextWrapping = TextWrapping.Wrap if wrap else TextWrapping.NoWrap
                 tb.Margin       = Thickness(0, 5, 12, 5)
                 tb.VerticalAlignment = VerticalAlignment.Center
@@ -8078,10 +8340,10 @@ class T3LabAssistantWindow(forms.WPFWindow):
             heads = ([u"#", u"Sai", u"Đúng", u"SL", u"Element IDs", u"View"] if viet
                      else [u"#", u"Wrong", u"Correct", u"Qty", u"Element IDs", u"View"])
             for c, h in enumerate(heads):
-                _cell(h, c, 0, FAINT, size=10.5, bold=True,
+                _cell(h, c, 0, 'Faint', size=10.5, bold=True,
                       align_r=(c == 3)).FontWeight = System.Windows.FontWeights.Bold
             hline = Border()
-            hline.BorderBrush = _brush(226, 232, 240)
+            _bind_border(hline, 'CardBorder')
             hline.BorderThickness = Thickness(0, 0, 0, 1)
             Grid.SetRow(hline, 0)
             Grid.SetColumnSpan(hline, 6)
@@ -8090,44 +8352,32 @@ class T3LabAssistantWindow(forms.WPFWindow):
             for i, r in enumerate(shown_rows):
                 rr = i + 1
                 bg = Border()
-                bg.Background      = ALT if (i % 2 == 1) else _brush(255, 255, 255)
-                bg.BorderBrush     = LINE
+                if i % 2 == 1:
+                    _bind_bg(bg, 'CodeBg')          # subtle zebra on both themes
+                _bind_border(bg, 'Divider')
                 bg.BorderThickness = Thickness(0, 0, 0, 1)
                 Grid.SetRow(bg, rr)
                 Grid.SetColumnSpan(bg, 6)
                 grid.Children.Add(bg)
 
-                _cell(u"{}".format(rr), 0, rr, MUTED, size=11)
+                _cell(u"{}".format(rr), 0, rr, 'Muted', size=11)
 
-                # wrong — red badge
-                badge = Border()
-                badge.Background      = _brush(254, 242, 242)                     # #FEF2F2
-                badge.BorderBrush     = _brush(252, 165, 165)                     # #FCA5A5
-                badge.BorderThickness = Thickness(1)
-                badge.CornerRadius    = CornerRadius(4)
-                badge.Padding         = Thickness(6, 1, 6, 2)
-                badge.Margin          = Thickness(0, 4, 12, 4)
-                badge.HorizontalAlignment = HorizontalAlignment.Left
-                badge.VerticalAlignment   = VerticalAlignment.Center
-                bt = TextBlock()
-                bt.Text = r["wrong"]
-                bt.FontSize = 11.5
-                bt.FontFamily = _font
-                bt.Foreground = RED
-                bt.TextWrapping = TextWrapping.Wrap
-                badge.Child = bt
-                Grid.SetColumn(badge, 1)
-                Grid.SetRow(badge, rr)
-                grid.Children.Add(badge)
+                # Wrong / Correct: plain text, no chip. The wrong word used to
+                # sit in a bordered red pill while the correction was bare bold
+                # text — two visual languages for one before→after pair. The
+                # theme's own note on Danger says it is "error TEXT … never a
+                # fill", so the pill was against the palette as well as
+                # lopsided. Same size, same weight, colour carries the meaning.
+                _cell(r["wrong"], 1, rr, 'Danger', size=12, bold=True)
 
                 right = r["right"]
                 if r.get("reason") and not right:
                     right = r["reason"]
                 elif r.get("reason"):
                     right = u"{} ({})".format(right, r["reason"])
-                _cell(right, 2, rr, GREEN, size=12, bold=True)
+                _cell(right, 2, rr, 'Success', size=12, bold=True)
 
-                _cell(u"{}".format(len(r["ids"])), 3, rr, MUTED, size=11,
+                _cell(u"{}".format(len(r["ids"])), 3, rr, 'Muted', size=11,
                       align_r=True)
 
                 # element-id links (WrapPanel) — click opens the element's view
@@ -8143,7 +8393,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     tb.Text            = label
                     tb.FontSize        = 11
                     tb.FontFamily      = _font
-                    tb.Foreground      = BLUE
+                    _bind_fg(tb, 'Blue')
                     tb.TextDecorations = TextDecorations.Underline
                     tb.Cursor          = Cursors.Hand
                     tb.Margin          = Thickness(0, 1, 10, 1)
@@ -8173,7 +8423,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
                 views = [v for v in r["views"] if v]
                 _cell(u" / ".join(views[:3]) + (u" …" if len(views) > 3 else u"")
-                      if views else u"—", 5, rr, MUTED, size=11)
+                      if views else u"—", 5, rr, 'Muted', size=11)
 
             panel.Children.Add(grid)
 
@@ -8185,7 +8435,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                              .format(len(rows) - _MAX_ROWS))
                 more.FontSize = 11
                 more.FontFamily = _font
-                more.Foreground = MUTED
+                _bind_fg(more, 'Muted')
                 more.Margin = Thickness(0, 8, 0, 0)
                 more.TextWrapping = TextWrapping.Wrap
                 panel.Children.Add(more)
@@ -8197,7 +8447,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                          u'"fix 1,2..." or "fix all" to apply the suggestions.')
             hint.FontSize     = 11
             hint.FontFamily   = _font
-            hint.Foreground   = FAINT
+            _bind_fg(hint, 'Faint')
             hint.TextWrapping = TextWrapping.Wrap
             hint.Margin       = Thickness(0, 10, 0, 0)
             panel.Children.Add(hint)
@@ -8993,6 +9243,26 @@ class T3LabAssistantWindow(forms.WPFWindow):
         (u"\U0001f3af ",   "_ICON_LIST",    "_ICON_SLATE"),  # selection section
         (u"\U0001f4ca ",   "_ICON_LIST",    "_ICON_BLUE"),   # LLM chart/stats emoji
         (u"\U0001f4c8 ",   "_ICON_LIST",    "_ICON_BLUE"),   # LLM trend emoji
+        # nlu_engine's capability answers and the assistant's own status lines
+        # were still emitting full-colour emoji, against the house rule stated
+        # at _ICON_INFO above. Converting them HERE rather than editing ~30
+        # string literals keeps one renderer authoritative, and any emoji a
+        # model invents in its reply gets the same treatment for free.
+        # A variation-selector form (U+FE0F) must precede its bare twin —
+        # startswith would match the bare marker and strand the selector.
+        (u"✅ ",       "_ICON_SUCCESS", "_ICON_GREEN"),  # ✅ yes / found
+        (u"✔ ",       "_ICON_SUCCESS", "_ICON_GREEN"),  # ✔ completed
+        (u"❌ ",       "_ICON_STOP",    "_ICON_RED"),    # ❌ none / no tool
+        (u"⚠️ ", "_ICON_WARNING", "_ICON_AMBER"),  # ⚠️ warning
+        (u"⚠ ",       "_ICON_WARNING", "_ICON_AMBER"),  # ⚠ warning
+        (u"\U0001f50d ",   "_ICON_SEARCH",  "_ICON_BLUE"),   # 🔍 QA / lookup
+        (u"\U0001f4c2 ",   "_ICON_LIST",    "_ICON_SLATE"),  # 📂 ribbon tools
+        (u"\U0001f9e9 ",   "_ICON_LIST",    "_ICON_SLATE"),  # 🧩 other tools
+        (u"\U0001f4d6 ",   "_ICON_LIST",    "_ICON_SLATE"),  # 📖 read / query
+        (u"\U0001f4c1 ",   "_ICON_LIST",    "_ICON_SLATE"),  # 📁 view / sheet
+        (u"\U0001f4e4 ",   "_ICON_LIST",    "_ICON_SLATE"),  # 📤 export
+        (u"✏️ ", "_ICON_LIST",    "_ICON_SLATE"),  # ✏️ create / modify
+        (u"✏ ",       "_ICON_LIST",    "_ICON_SLATE"),  # ✏ create / modify
     ]
 
     @staticmethod

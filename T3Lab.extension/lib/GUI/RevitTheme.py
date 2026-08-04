@@ -63,7 +63,7 @@ _LIGHT = {
     # Surfaces — Revit light: grey chrome, white content
     'AppBg':          '#F0F0F0',   # pane backdrop = Revit's palette grey
     'ChatBg':         '#FFFFFF',   # transcript = a content surface (browser/canvas)
-    'ComposerBg':     '#F0F0F0',   # composer strip reads as palette chrome
+    'ComposerBg':     '#FFFFFF',   # composer sits on the transcript surface
     'CardBg':         '#FFFFFF',   # composer card, popups, overlays = Revit fields
     'CardBorder':     '#C4C4C4',   # Revit control border
     'Divider':        '#D9D9D9',   # separators, footer rule
@@ -82,7 +82,7 @@ _LIGHT = {
     # Accent + status
     # Autodesk blue, one step deeper than the #0696D7 brand value: the accent
     # also paints 11.5px text (selection count, active chips), and the bright
-    # value only reaches 2.9:1 on the #F0F0F0 composer bar. This clears 4.5:1
+    # value only reaches 2.9:1 on the composer surface. This clears 4.5:1
     # there and takes the white send arrow from 3.3:1 to 5.1:1.
     'Accent':         '#0A6FB3',   # send button, active states
     'AccentHover':    '#095C93',   # pressed/hover
@@ -112,7 +112,7 @@ _DARK = {
     # Surfaces — Revit 2024+ dark chrome, content one step lighter than chrome
     'AppBg':          '#2E2E2E',
     'ChatBg':         '#383838',
-    'ComposerBg':     '#2E2E2E',
+    'ComposerBg':     '#383838',   # = ChatBg, composer blends with transcript
     'CardBg':         '#414141',
     'CardBorder':     '#575757',
     'Divider':        '#4A4A4A',

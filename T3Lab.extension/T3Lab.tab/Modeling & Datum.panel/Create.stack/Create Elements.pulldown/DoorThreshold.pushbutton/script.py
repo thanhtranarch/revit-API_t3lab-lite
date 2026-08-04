@@ -56,7 +56,12 @@ XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'DoorThreshold.xaml')
 logger        = script.get_logger()
 doc           = revit.doc
 uidoc         = revit.uidoc
-REVIT_VERSION = int(doc.Application.VersionNumber)
+# Read from the Application, not the document: `revit.doc` is None when this
+# tool is launched from the Assistant pane or with no project open, and the
+# old `int(revit.doc.Application.VersionNumber)` raised at IMPORT time
+# ('NoneType' object has no attribute 'Application') so the window never opened.
+from Snippets._host import get_revit_version
+REVIT_VERSION = get_revit_version()
 
 FT_TO_MM = 304.8
 MM_TO_FT = 1.0 / 304.8

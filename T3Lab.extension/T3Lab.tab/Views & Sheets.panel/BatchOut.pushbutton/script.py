@@ -187,7 +187,12 @@ if not HAS_API_LEARNER:
         "smart API adaptation & auto-update disabled: {}".format(_api_learner_err))
 
 # Get Revit version information
-REVIT_VERSION = int(revit.doc.Application.VersionNumber)  # e.g., 2023, 2024, 2025, 2026
+# Read from the Application, not the document: `revit.doc` is None when this
+# tool is launched from the Assistant pane or with no project open, and the
+# old `int(revit.doc.Application.VersionNumber)` raised at IMPORT time
+# ('NoneType' object has no attribute 'Application') so the window never opened.
+from Snippets._host import get_revit_version
+REVIT_VERSION = get_revit_version()
 
 # CLASS/FUNCTIONS
 # ==================================================

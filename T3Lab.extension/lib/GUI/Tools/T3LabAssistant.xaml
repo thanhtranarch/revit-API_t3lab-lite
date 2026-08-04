@@ -1091,7 +1091,7 @@
         ═══════════════════════════════════════════════════════════════ -->
         <SolidColorBrush x:Key="T3ThemeAppBg"          Color="#F0F0F0"/>
         <SolidColorBrush x:Key="T3ThemeChatBg"         Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="T3ThemeComposerBg"     Color="#F0F0F0"/>
+        <SolidColorBrush x:Key="T3ThemeComposerBg"     Color="#FFFFFF"/>
         <SolidColorBrush x:Key="T3ThemeCardBg"         Color="#FFFFFF"/>
         <SolidColorBrush x:Key="T3ThemeCardBorder"     Color="#C4C4C4"/>
         <SolidColorBrush x:Key="T3ThemeDivider"        Color="#D9D9D9"/>
@@ -1500,9 +1500,12 @@
         <!-- ═══════════════════════════════════════════════════════════
              INPUT BAR & ACTION CENTER
         ═══════════════════════════════════════════════════════════ -->
+        <!-- The composer sits on the same surface as the transcript: no grey
+             chrome strip, no rule above it. The card's own border + shadow are
+             what separate the input from the conversation. -->
         <Border x:Name="composer_bar" Grid.Row="1"
                 Background="{DynamicResource T3ThemeComposerBg}"
-                BorderBrush="{DynamicResource T3ThemeDivider}" BorderThickness="0,1,0,0"
+                BorderThickness="0"
                 Padding="16,8,16,10">
             <StackPanel>
 

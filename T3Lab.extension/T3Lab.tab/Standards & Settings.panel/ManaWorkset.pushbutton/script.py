@@ -52,7 +52,12 @@ if lib_dir not in sys.path:
 # ==================================================
 logger = script.get_logger()
 output = script.get_output()
-REVIT_VERSION = int(revit.doc.Application.VersionNumber)
+# Read from the Application, not the document: `revit.doc` is None when this
+# tool is launched from the Assistant pane or with no project open, and the
+# old `int(revit.doc.Application.VersionNumber)` raised at IMPORT time
+# ('NoneType' object has no attribute 'Application') so the window never opened.
+from Snippets._host import get_revit_version
+REVIT_VERSION = get_revit_version()
 
 doc = revit.doc
 uidoc = revit.uidoc

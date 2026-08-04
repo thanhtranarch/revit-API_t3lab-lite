@@ -111,8 +111,10 @@ ESSENTIAL_TOOL_NAMES = frozenset([
     "revit_list_views", "revit_list_sheets", "ai_element_filter",
     "get_parameter", "get_all_parameters", "get_model_warnings",
     "get_model_health", "analyze_model_statistics", "get_schedule_data",
-    "get_available_family_types",
+    "get_available_family_types", "get_element_bounding_box",
+    "get_material_quantities",
     "list_open_documents", "switch_active_document",
+    "open_document", "close_document", "list_recent_documents",
     # Modify
     "set_parameter", "bulk_set_parameter", "rename_element",
     "select_elements", "color_elements", "revit_override_color",
@@ -124,8 +126,42 @@ ESSENTIAL_TOOL_NAMES = frozenset([
     "create_sheet", "add_view_to_sheet", "duplicate_view",
     "manage_links", "manage_sheet", "manage_revision", "manage_material",
     "check_bad_geometry", "create_detail_annotation", "manage_document",
+    # Create geometry. A catalog with create_text_note but no create_grid
+    # does not make the model decline a build request — it makes it answer
+    # with the nearest tool it CAN see: "dựng hệ grid 5x5" came back as a
+    # text note reading "Grid 5x5". A local turn that lands on the `general`
+    # specialist (no subset of its own) sees only this list, so the geometry
+    # constructors have to be in it.
+    "create_grid", "create_level", "create_room", "place_wall",
+    "create_point_based_element", "create_line_based_element",
+    "create_surface_based_element", "create_dimension", "load_family",
+    "join_geometry", "split_element", "split_curve", "rotate_element",
+    "copy_elements",
+    # Views, schedules, filters, worksets, project parameters. Same reason:
+    # `general` is where every request the keyword stage could not place
+    # ends up, so this list has to answer for all of them.
+    "create_view", "create_schedule", "create_view_filter",
+    "apply_view_template", "place_views_on_sheets",
+    "create_workset", "set_element_workset", "create_project_parameter",
     # Export
     "export_sheets_pdf", "export_dwg", "export_image", "export_model",
+    "export_room_data",
+])
+
+
+# The other side of the same decision: tools deliberately kept OUT of every
+# local catalog. Declared explicitly so the split is a choice rather than an
+# oversight — dev/test_assistant_routing.py fails when a registry tool is
+# neither in a specialist subset, nor in ESSENTIAL_TOOL_NAMES, nor here.
+# That is the guard against the create_grid class of bug: a tool nobody
+# wired up is invisible to the model, and an invisible tool is not answered
+# with "I can't" — it is answered with the nearest visible tool.
+LOCAL_HIDDEN_TOOLS = frozenset([
+    "send_code_to_revit",   # arbitrary IronPython — never for a small model
+    "say_hello",            # MCP connectivity probe
+    "file_watcher_status",  # diagnostic
+    "show_assistant_pane",  # the assistant's own UI
+    "store_project_data", "store_room_data", "query_stored_data",
 ])
 
 

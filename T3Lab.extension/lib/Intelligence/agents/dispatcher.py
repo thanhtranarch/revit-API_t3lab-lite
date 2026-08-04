@@ -48,6 +48,14 @@ _CLASSIFY_TIMEOUT_MS = 6000
 _COMMENT_PHRASES = ('hoan thien cmt', 'hoan thien comment', 'xu ly comment',
                     'xu ly cmt', 'ghi chu ban ve', 'comment ban ve')
 _COMMENT_WORDS = ('cmt', 'comment', 'comments', 'markup', 'markups', 'bluebeam')
+# "Comments" is also a built-in Revit PARAMETER, and this stage runs first —
+# so "lấy giá trị parameter Comments của element 12345" was handed to the PDF
+# markup-resolution agent. A parameter context disarms the bare words; an
+# attached annotated PDF still wins outright, and 'cmt'/'markup'/'bluebeam'
+# are unambiguous enough to keep.
+_COMMENT_PARAM_CONTEXT = ('parameter', 'parameters', 'thong so', 'tham so',
+                          'gia tri', 'value', 'field', 'shared parameter')
+_COMMENT_STRONG_WORDS = ('cmt', 'markup', 'markups', 'bluebeam')
 
 _KNOWLEDGE_PHRASES = ('tieu chuan', 'quy dinh', 'quy chuan', 'tai lieu',
                       'huong dan', 'theo file', 'trong pdf', 'trong tai lieu',
@@ -58,12 +66,26 @@ _KNOWLEDGE_WORDS = ('tcvn', 'qcvn', 'spec', 'specification', 'standard',
 
 _ACTION_PHRASES = ('doi ten', 'di chuyen', 'to mau', 'danh tag', 'gan tag',
                    'dat ten', 'chinh sua', 'cap nhat', 'thay doi',
-                   'danh dau')
+                   'danh dau',
+                   # View templates and worksets read as neither a build nor
+                   # a query, so they used to fall through to `general`.
+                   'ap view template', 'apply view template', 'ap template',
+                   'gan view template', 'sang workset', 'chuyen workset',
+                   'doi workset', 'set workset', 'move to workset',
+                   # Splitting. As bare words 'cat'/'chia' annex ordinary
+                   # Vietnamese ("cắt tóc", "chia sẻ file"), so the verb only
+                   # counts next to the thing being split.
+                   'chia duong', 'chia line', 'chia curve', 'chia element',
+                   'chia thanh', 'cat tuong', 'cat dam', 'cat ong',
+                   'cat duong', 'cat line',
+                   # "điền thông số X cho Y" is a write; 'dien' alone is not
+                   # usable ("diện tích" folds to "dien tich").
+                   'dien thong so', 'dien gia tri', 'dien tham so')
 _ACTION_WORDS = ('sua', 'xoa', 'tao', 'dat', 'gan', 'doi', 'them',
                  'rename', 'delete', 'create', 'move', 'set', 'change',
                  'update', 'modify', 'draw', 'place', 'tag', 'color',
                  'export', 'xuat', 'duplicate', 'copy', 'hide', 'isolate',
-                 'highlight')
+                 'highlight', 'split', 'xoay', 'rotate')
 
 # Color commands usually name the color directly ("tô đỏ tường", "bôi xanh
 # các cột") instead of saying "tô màu". The verbs are only unambiguous WITH
@@ -76,9 +98,15 @@ _ACTION_COLOR_RAW = ('tô đỏ', 'tô xanh', 'tô vàng', 'tô cam', 'tô tím'
                      'bôi đỏ', 'bôi xanh', 'bôi vàng', 'bôi màu', 'bôi đen')
 
 _DATA_PHRASES = ('bao nhieu', 'liet ke', 'danh sach', 'thong ke', 'canh bao',
-                 'how many', 'kiem tra model', 'tinh trang model', 'thong tin')
+                 'how many', 'kiem tra model', 'tinh trang model', 'thong tin',
+                 # Quantity take-off and geometry extents are reads; both
+                 # used to reach no keyword at all.
+                 'khoi luong', 'take off', 'material quantity',
+                 'kich thuoc bao', 'bounding box',
+                 'lay gia tri', 'doc gia tri', 'gia tri parameter',
+                 'get parameter', 'read parameter')
 _DATA_WORDS = ('dem', 'count', 'list', 'warnings', 'warning', 'schedule',
-               'statistics', 'health', 'info')
+               'statistics', 'health', 'info', 'takeoff', 'quantities')
 
 # Multi-document: several models open at once (phrases only — the bare word
 # "model" is far too generic to route on).
@@ -89,7 +117,17 @@ _MULTIDOC_PHRASES = ('so sanh model', 'so sanh 2 model', 'so sanh hai model',
                      'switch model', 'switch document', 'compare model',
                      'compare models', 'both models', 'other model',
                      'open documents', 'cac file dang mo', 'file rvt khac',
-                     'lien ket model', 'lien ket cac model')
+                     'lien ket model', 'lien ket cac model',
+                     # Opening/closing a model is document work, not an edit.
+                     # "mở file rvt này" matched nothing; "model nào mở gần
+                     # đây" matched the action word 'gan' (gắn) instead.
+                     'mo file', 'mo model', 'mo project', 'mo ban ve',
+                     'dong model', 'dong file', 'dong project',
+                     'open file', 'open model', 'open project',
+                     'close model', 'close file', 'close document',
+                     'model gan day', 'file gan day', 'mo gan day',
+                     'recent model', 'recent file', 'recent document',
+                     'recent project')
 
 # Geometry creation (image/text-to-model) — must outrank the generic
 # action verbs ('tao', 'dung' folds...) so builds get the modeling budget.
@@ -99,13 +137,58 @@ _MODELING_PHRASES = ('dung model', 'dung nha', 'dung cong trinh',
                      'model tu ban ve', 'pdf to model', 'tao tuong',
                      'dung tuong', 've tuong', 'tao level', 'tao luoi',
                      'tao grid', 'tao san', 'tao mai', 'place wall',
-                     'create wall', 'create level', 'create grid')
+                     'create wall', 'create level', 'create grid',
+                     # Joining geometry is modeling work and matched no
+                     # keyword table at all before.
+                     'join', 'unjoin', 'join geometry', 'noi hinh hoc')
+
+# The literal table above can only list the exact wordings somebody thought
+# of, and every build request it misses lands in `general` or `revit_action`
+# — neither of which HAS a geometry-creation tool. The model then answers
+# with the nearest thing it can see: "dựng hệ grid 5x5" was written into the
+# model as a create_text_note reading "Grid 5x5". So build verb + geometry
+# noun is matched as a pair instead, with only a classifier/quantity allowed
+# between them ("dựng HỆ grid", "tạo HỆ lưới trục", "add 3 levels").
+#
+# Adjacency is what keeps this off the action specialist's turf: only the
+# noun directly governed by the verb counts, so "tạo sheet", "tạo view" and
+# "thêm tham số cho tường" (them → tham, not a geometry noun) still route to
+# revit_action. "ve" (vẽ) is deliberately NOT a verb here — it folds
+# together with the far more common "về" ("hỏi về tường"); the literal
+# 've tuong' above covers the one wording that is worth the risk.
+_BUILD_VERBS = ('tao', 'dung', 'them', 'dat', 'create', 'build', 'draw',
+                'add', 'place', 'make', 'generate', 'model')
+# Optional filler between verb and noun: Vietnamese classifiers, articles,
+# and a count ("3 tang", "5 luoi").
+_BUILD_FILLERS = ('he thong', 'he', 'cac', 'mot', 'a', 'an', 'the', 'new',
+                  'lai', 'them', 'ra')
+# Geometry the MODELING specialist owns. Sheets, views and schedules are
+# deliberately absent — those are revit_action work.
+_GEOMETRY_NOUNS = ('grids', 'grid', 'luoi truc', 'luoi', 'truc', 'levels',
+                   'level', 'cao do', 'tang', 'tuong', 'walls', 'wall',
+                   'san', 'slab', 'floors', 'floor', 'mai', 'roof',
+                   'cot', 'columns', 'column', 'dam', 'beams', 'beam',
+                   'phong', 'rooms', 'room', 'nha', 'toa nha',
+                   'cong trinh', 'model',
+                   # Hosted families. "đặt cửa vào tường" is a build, but
+                   # 'dat' + 'cua' only reads that way when they are
+                   # adjacent — "xóa cửa của tường" has no build verb.
+                   'cua so', 'cua', 'doors', 'door', 'windows', 'window')
+_MODELING_BUILD_RE = re.compile(
+    r'(?:^|[^a-z0-9])'
+    r'(?:' + '|'.join(_BUILD_VERBS) + r')'
+    r'(?:\s+(?:' + '|'.join(_BUILD_FILLERS) + r'))?'
+    r'(?:\s+\d+)?'
+    r'\s+(?:' + '|'.join(_GEOMETRY_NOUNS) + r')'
+    r'(?:[^a-z0-9]|$)')
 
 # Direct exports — outranks action ('xuat'/'export' are action words too).
 _EXPORT_PHRASES = ('xuat pdf', 'xuat dwg', 'xuat ifc', 'xuat anh',
                    'xuat sheet', 'xuat ban ve', 'in ra pdf',
                    'export pdf', 'export dwg', 'export ifc',
-                   'export image', 'export sheet', 'export sheets')
+                   'export image', 'export sheet', 'export sheets',
+                   'xuat du lieu', 'xuat room', 'xuat phong',
+                   'export room', 'export data')
 
 # QA / audit — outranks data so audits get the QA prompt + highlight tools.
 _QA_PHRASES = ('kiem tra loi', 'kiem tra chinh ta', 'check chinh ta',
@@ -269,8 +352,11 @@ class AgentDispatcher(object):
     def _keyword_stage(self, folded, folded_masked, tokens, raw_lower,
                        attached_pdf_annotated):
         # 1. PDF markup workflow — most specific
+        _comment_words = _COMMENT_WORDS
+        if _has_phrase(folded, _COMMENT_PARAM_CONTEXT):
+            _comment_words = _COMMENT_STRONG_WORDS
         if attached_pdf_annotated or _has_phrase(folded, _COMMENT_PHRASES) \
-                or (tokens & set(_COMMENT_WORDS)):
+                or (tokens & set(_comment_words)):
             return {'specialist': 'comment', 'source': 'keyword',
                     'confidence': 0.9}
         # 2. Cross-model requests — before action ("đổi model" contains the
@@ -284,8 +370,10 @@ class AgentDispatcher(object):
             return {'specialist': 'export', 'source': 'keyword',
                     'confidence': 0.85}
         # 4. Geometry builds — before action ('tao tuong' would otherwise
-        #    land in generic action with half the iteration budget)
-        if _has_phrase(folded, _MODELING_PHRASES):
+        #    land in generic action with half the iteration budget, and
+        #    without a single geometry-creation tool in its subset)
+        if _has_phrase(folded, _MODELING_PHRASES) \
+                or _MODELING_BUILD_RE.search(folded_masked):
             return {'specialist': 'modeling', 'source': 'keyword',
                     'confidence': 0.85}
         # 5. QA / audits — before data so audits get the QA role + tools

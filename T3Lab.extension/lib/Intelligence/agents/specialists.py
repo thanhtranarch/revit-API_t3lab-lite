@@ -32,7 +32,8 @@ READ_TOOLS = frozenset([
     "revit_list_views", "revit_list_sheets", "ai_element_filter",
     "get_parameter", "get_all_parameters", "get_model_warnings",
     "get_model_health", "analyze_model_statistics", "get_schedule_data",
-    "get_available_family_types",
+    "get_available_family_types", "get_element_bounding_box",
+    "get_material_quantities",
     "list_open_documents", "switch_active_document",
 ])
 
@@ -50,10 +51,25 @@ MODIFY_TOOLS = frozenset([
     "set_active_view", "create_text_note", "tag_elements",
     "tag_all_rooms", "tag_all_walls", "move_elements", "delete_element",
     "create_sheet", "add_view_to_sheet", "duplicate_view",
+    # Everything the dispatcher's action keywords can send here must be
+    # HERE. A tool this specialist is asked for but cannot see does not
+    # produce "I can't do that" — it produces the nearest visible tool
+    # applied to the model and reported as success (see create_grid →
+    # create_text_note). dev/test_assistant_routing.py enforces the match.
+    "copy_elements", "rotate_element",              # siblings of move_elements
+    "create_view", "create_schedule", "create_view_filter",
+    "apply_view_template", "place_views_on_sheets",  # view/sheet production
+    "create_dimension",                              # sibling of create_text_note
+    "split_element", "split_curve",                  # siblings of edit_elements
+    "create_workset", "set_element_workset",
+    "create_project_parameter",                      # project setup
 ])
 
 EXPORT_TOOLS = frozenset([
     "export_sheets_pdf", "export_dwg", "export_image", "export_model",
+    # "xuất dữ liệu phòng ra file" is an export in the user's words, and
+    # reads like one to the keyword stage too.
+    "export_room_data",
 ])
 
 ACTION_TOOLS = READ_TOOLS | MODIFY_TOOLS | EXPORT_TOOLS
@@ -62,7 +78,7 @@ ACTION_TOOLS = READ_TOOLS | MODIFY_TOOLS | EXPORT_TOOLS
 # tools operate on the ACTIVE document; these switch/inspect across them.
 MULTIDOC_TOOLS = READ_TOOLS | frozenset([
     "open_document", "close_document", "list_recent_documents",
-    "export_room_data",
+    "export_room_data", "manage_document",
 ])
 
 # Geometry creation (image-to-model / text-to-model workflows).
@@ -73,6 +89,10 @@ MODELING_TOOLS = READ_TOOLS | frozenset([
     "create_dimension", "create_text_note", "load_family",
     "join_geometry", "move_elements", "copy_elements", "rotate_element",
     "delete_element", "select_elements",
+    # A beam grid is the one build the dispatcher already routed here while
+    # the subset could not perform it.
+    "create_structural_framing_system",
+    "split_element", "split_curve",
 ])
 
 # Model QA / audit: read everything, highlight problems visually.

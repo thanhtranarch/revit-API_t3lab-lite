@@ -1762,8 +1762,8 @@ _MESSAGES_VI = {
     "open_batchout_configured": u"Mở BatchOut đã cấu hình...",
     "open_loadfamily":        u"Đang mở Family Loader...",
     "check_spelling":         u"Đang quét Text Note trong model để kiểm tra chính tả tiếng Anh...",
-    "greet":  u"Xin chào! Tôi là T3Lab Assistant 👋\nBạn muốn làm gì hôm nay?",
-    "farewell": u"Tạm biệt! Gặp lại bạn sau nhé 👋",
+    "greet":  u"Xin chào! Tôi là T3Lab Assistant.\nBạn muốn làm gì hôm nay?",
+    "farewell": u"Tạm biệt! Gặp lại bạn sau nhé.",
     "chat":   u"Không có gì! Cần gì cứ hỏi tôi nhé.",
     "help":   (u"Tôi có thể giúp bạn:\n"
                u"• Xuất sheet: 'xuất pdf G sheet', 'in tất cả sang dwg'\n"
@@ -1777,8 +1777,8 @@ _MESSAGES_EN = {
     "open_batchout_configured": "Opening BatchOut (pre-configured)...",
     "open_loadfamily":        "Opening Family Loader...",
     "check_spelling":         "Scanning model Text Notes for English spelling errors...",
-    "greet":   "Hello! I'm T3Lab Assistant 👋\nWhat would you like to do today?",
-    "farewell": "Goodbye! See you later 👋",
+    "greet":   "Hello! I'm T3Lab Assistant.\nWhat would you like to do today?",
+    "farewell": "Goodbye! See you later.",
     "chat":    "You're welcome! Let me know if you need anything.",
     "help":    ("I can help you:\n"
                 "• Export sheets: 'export pdf G sheet', 'print all to dwg'\n"
@@ -1868,7 +1868,7 @@ def _build_message(intent, slots, viet, raw_input=""):
                         "see you", "hen gap", "hẹn gặp", "goodbye"]
         if _short and _kw_hit(raw_input, normed_raw, farewell_kws):
             return (_MESSAGES_VI if viet else _MESSAGES_EN).get("farewell",
-                    u"Tạm biệt! 👋" if viet else "Goodbye! 👋")
+                    u"Tạm biệt!" if viet else "Goodbye!")
         # Frustration / insult directed at the assistant itself — acknowledge
         # honestly instead of the generic "didn't understand" reply, and point
         # at a concrete next step (works with or without an LLM connected).
@@ -1898,7 +1898,7 @@ def _build_message(intent, slots, viet, raw_input=""):
         positive_kws = ["tuyet", "tuyệt", "tot", "tốt", "ngon", "perfect",
                         "great", "awesome", "nice"]
         if _short and _kw_hit(raw_input, normed_raw, positive_kws):
-            return u"Cảm ơn bạn! 😊 Cần gì cứ hỏi nhé." if viet else "Thank you! 😊 Let me know if you need anything."
+            return u"Cảm ơn bạn! Cần gì cứ hỏi nhé." if viet else "Thank you! Let me know if you need anything."
         # Thanks
         thanks_kws = ["cam on", "cảm ơn", "thank", "thanks", "tks", "thks"]
         if _kw_hit(raw_input, normed_raw, thanks_kws):
@@ -1907,8 +1907,8 @@ def _build_message(intent, slots, viet, raw_input=""):
         state_kws = ["khoe", "khỏe", "met", "mệt", "buon", "buồn", "chan",
                      "chán", "sao vay", "sao vậy", "stress"]
         if _short and _kw_hit(raw_input, normed_raw, state_kws):
-            return (u"Cảm ơn bạn hỏi thăm! Tôi ổn 😊 Bạn cần tôi giúp gì không?"
-                    if viet else "Thanks for asking! I'm fine 😊 How can I help?")
+            return (u"Cảm ơn bạn hỏi thăm! Tôi ổn. Bạn cần tôi giúp gì không?"
+                    if viet else "Thanks for asking! I'm fine. How can I help?")
 
     table = _MESSAGES_VI if viet else _MESSAGES_EN
     if intent in table:

@@ -43,11 +43,37 @@ from Intelligence.tool_schema import LAUNCHER_TOOL_NAME, MEMORY_TOOL_NAME
 _MAX_RESULT_CHARS = 4000
 
 
+def _json_safe(obj):
+    """Recursively coerce byte strings to unicode. Never raises.
+
+    A Revit/OS string that arrives as Windows code-page bytes is the one
+    input json's encoder cannot handle — it decodes byte strings as UTF-8 —
+    and under IronPython 2.7 the `u"{}".format(...)` fallback below fails on
+    exactly the same bytes, so the guard guarded nothing.
+    """
+    if isinstance(obj, bytes):
+        try:
+            return obj.decode('utf-8')
+        except Exception:
+            return obj.decode('latin-1', 'replace')
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            out[_json_safe(k)] = _json_safe(v)
+        return out
+    if isinstance(obj, (list, tuple, set)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
 def _result_to_json(result):
     try:
-        s = json.dumps(result, ensure_ascii=False)
+        s = json.dumps(_json_safe(result), ensure_ascii=False)
     except Exception:
-        s = u"{}".format(result)
+        try:
+            s = u"{}".format(_json_safe(result))
+        except Exception:
+            s = u"<unserializable {}>".format(type(result).__name__)
     if len(s) > _MAX_RESULT_CHARS:
         s = s[:_MAX_RESULT_CHARS] + u"... [truncated {} chars]".format(len(s) - _MAX_RESULT_CHARS)
     return s
@@ -59,6 +85,55 @@ def _result_to_json(result):
 # (_text_tool_call → known); when it isn't, the blob is a dead end that must
 # never be shown as the answer — the model gets one correction per retry.
 _MAX_PHANTOM_RETRIES = 2
+
+# ─── Announced-but-not-performed turns ────────────────────────────────────────
+# A model that replies "Đang liệt kê các mức trong dự án…" and calls nothing
+# has not answered — it has narrated. The loop used to accept any text-only
+# reply as final, so "list levels" ended on that sentence and no level ever
+# reached the user. Worse than the missing answer: on a data question, prose
+# produced with zero read tools is ungrounded by construction.
+_MAX_ANNOUNCE_NUDGES = 1
+
+_ANNOUNCE_PATTERNS = (
+    # Vietnamese
+    'dang liet ke', 'dang lay', 'dang kiem tra', 'dang tim', 'dang tai',
+    'dang truy xuat', 'dang thuc hien', 'dang tien hanh', 'dang xu ly',
+    'dang chay', 'toi se', 'minh se', 'de toi', 'de minh', 'se tien hanh',
+    'cho chut', 'cho mot chut', 'vui long doi', 'doi mot lat',
+    # English
+    'let me', "i'll ", 'i will ', 'i am going to', "i'm going to",
+    'i am now', "i'm now", 'going to check', 'one moment', 'hold on',
+    'give me a moment', 'let us ', "let's ",
+)
+
+_ANNOUNCE_FIXUP = (
+    u"You described what you were about to do but called no tool, so nothing "
+    u"happened and the user received no data. Do not narrate — act. Call the "
+    u"tool that answers the request NOW, then report its real result. If no "
+    u"available tool can do it, say plainly that you cannot and why."
+)
+
+
+def _announces_work(text):
+    """True when `text` promises an action instead of delivering one.
+
+    Deliberately narrow: a question is a clarification (legitimate), and a
+    long reply is an answer. Only a short, forward-looking sentence counts.
+    """
+    if not text:
+        return False
+    body = u"{}".format(text).strip()
+    if len(body) > 220 or body.endswith(u'?'):
+        return False
+    from Intelligence.knowledge import vi_text
+    folded = vi_text.fold_diacritics(body).lower()
+    for p in _ANNOUNCE_PATTERNS:
+        if p in folded:
+            return True
+    # "Đang liệt kê các mức trong dự án..." — a trailing ellipsis on a short
+    # line is the same promise without any of the phrasings above.
+    return body.endswith(u'...') or body.endswith(u'…')
+
 
 _PHANTOM_FIXUP = (
     u"`{}` is not a tool, and JSON written as chat text is never executed. "
@@ -163,9 +238,13 @@ def _call_key(name, args):
     can never disagree about what counts as "already done".
     """
     try:
-        return (name, json.dumps(args, sort_keys=True, ensure_ascii=False))
+        return (name, json.dumps(_json_safe(args), sort_keys=True,
+                                 ensure_ascii=False))
     except Exception:
-        return (name, u"{}".format(args))
+        try:
+            return (name, u"{}".format(_json_safe(args)))
+        except Exception:
+            return (name, u"<unkeyable>")
 
 
 def _sanitize_history(history, limit=None):
@@ -401,6 +480,7 @@ class AgentLoop(object):
         iteration  = 0
         done_calls = set()   # (name, canonical args) that succeeded this run
         phantom_retries = 0  # JSON calls to tools that don't exist, corrected
+        announce_nudges = 0  # "I'm about to…" replies that called nothing
 
         while iteration < self._max_iterations:
             iteration += 1
@@ -472,6 +552,20 @@ class AgentLoop(object):
                 messages.append(resp["assistant_msg"])
                 messages.append({"role": "user",
                                  "content": _PHANTOM_FIXUP.format(phantom["name"])})
+                continue
+
+            # Narrated instead of acted: no tool call anywhere in this run and
+            # a reply that only promises one. Nudge once, then let it stand —
+            # a model that still narrates after a correction will not stop on
+            # the third try, and its text is at least visible.
+            if (not calls and tool_runs == 0
+                    and announce_nudges < _MAX_ANNOUNCE_NUDGES
+                    and _announces_work(text)):
+                announce_nudges += 1
+                last_text = text
+                self._emit("on_turn_text", text, False)
+                messages.append(resp["assistant_msg"])
+                messages.append({"role": "user", "content": _ANNOUNCE_FIXUP})
                 continue
 
             if text:

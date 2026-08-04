@@ -48,6 +48,28 @@ _CLOSING_QUESTIONS = (
     'ho tro gi them', 'tiep theo khong', 'ban can gi', 'con gi nua',
     'anything else', 'else i can help', 'need anything', 'can i help',
     'next step', 'what next', 'how else',
+    # The assistant's OWN standard closers were missing from its own list:
+    # "Bạn muốn làm gì tiếp?" and the greeting "Xin chào! Bạn có cần giúp đỡ
+    # gì không?" both opened the continuation path, so the next message rode
+    # the previous turn instead of being routed fresh.
+    'lam gi tiep', 'muon lam gi', 'can giup do gi', 'giup do gi khong',
+    'help you with', 'like to do today', 'muon lam gi hom nay',
+)
+
+# Pure social openers and closers. Whatever the assistant just asked, "hello"
+# is never the answer to it — and treating it as one skips the deterministic
+# `greet` reply and pays for a whole LLM turn, which on a local provider is
+# seconds of "Đang phản hồi…" for a word the NLU answers instantly.
+#
+# Deliberately NOT nlu_engine.is_conversational(), which is broader: it also
+# returns True for "ok", "vâng", "được", "1" and "no" — those ARE answers to
+# a clarifying question and must keep continuing the previous turn.
+_SOCIAL_TURNS = (
+    'hello', 'helo', 'hi', 'hey', 'yo', 'hallo',
+    'good morning', 'good afternoon', 'good evening',
+    'chao', 'chao ban', 'xin chao', 'alo', 'chao buoi sang',
+    'thanks', 'thank you', 'thx', 'cam on', 'cam on ban', 'cam on nhe',
+    'bye', 'goodbye', 'tam biet', 'see you',
 )
 
 # Replies that are answers by their very shape.
@@ -116,6 +138,15 @@ def _has_action_verb(raw):
                 or any(p in raw_lower for p in _ACTION_COLOR_RAW))
 
 
+def is_social_turn(raw):
+    """True for a bare greeting / thanks / goodbye.
+
+    Exact match on the folded text: "hi" alone is small talk, "hi, export the
+    G sheets" is a request that happens to open politely.
+    """
+    return _fold(raw).rstrip('.!,?') in _SOCIAL_TURNS
+
+
 def looks_like_answer(raw):
     """True when the text reads as a reply to a question, not a new command."""
     text = (raw or '').strip()
@@ -157,7 +188,56 @@ def is_continuation(last_bot, raw, prev_decision, fresh_keyword_hit=False):
         return False
     if is_closing_question(last_bot):
         return False
+    # Small talk answers nothing — and routing it as a continuation costs a
+    # full LLM turn for a word the offline NLU replies to instantly.
+    if is_social_turn(raw):
+        return False
     return looks_like_answer(raw)
+
+
+# ─── "Which model are you using?" ────────────────────────────────────────────
+# "model" is the single most overloaded word in this product: to the user it is
+# either the .rvt file or the LLM behind the chat. Asked "model bạn đang dùng
+# là gì", the assistant had no deterministic answer, fell through to the LLM,
+# and a local model replied "Tôi chưa mở bất kỳ model Revit nào" — the wrong
+# noun AND an ungrounded claim about the open document.
+#
+# The assistant knows its own provider and model id for certain, so this is
+# answered from that fact and never sent to the LLM.
+
+_SECOND_PERSON = ('ban', 'cau', 'may', 'minh', 'you', 'your', "you're", 'ur')
+# Words that make the question unambiguously about the AI, with no need for a
+# second-person pronoun.
+_LLM_WORDS = ('llm', 'gpt', 'chatgpt', 'claude', 'ollama', 'lmstudio',
+              'deepseek', 'provider')
+_MODEL_WORDS = ('model', 'ai', 'engine')
+_ASK_WORDS = ('nao', 'gi', 'what', 'which', 'who')
+# A document verb settles it the other way: "model bạn vừa mở tên gì" carries
+# both a pronoun and "model", but it is asking about the .rvt file.
+_DOC_CONTEXT = ('mo', 'dong', 'luu', 'save', 'saved', 'open', 'opened',
+                'close', 'closed', 'link', 'central', 'rvt', 'file',
+                'project', 'du an', 'tai', 'load')
+
+
+def asks_which_llm(text):
+    """True for "which model/LLM are you running?" — never for a Revit model.
+
+    Requires an interrogative AND either an explicit LLM word or a
+    second-person pronoun, so "model nào đang mở" (a document question) and
+    "bạn kiểm tra model giúp tôi" (an imperative) both stay out.
+    """
+    folded = _fold(text)
+    if not folded:
+        return False
+    tokens = set(folded.replace('?', ' ').split())
+    if not (tokens & set(_ASK_WORDS)) and '?' not in folded:
+        return False
+    llm_named = bool(tokens & set(_LLM_WORDS))
+    if not llm_named and not (tokens & set(_MODEL_WORDS)):
+        return False
+    if not llm_named and (tokens & set(_DOC_CONTEXT)):
+        return False
+    return llm_named or bool(tokens & set(_SECOND_PERSON))
 
 
 # ─── Learned patterns ────────────────────────────────────────────────────────
