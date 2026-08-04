@@ -88,6 +88,9 @@ Agent definitions: `.claude/agents/`
 | Example XAML (wizard nav) | `T3Lab.extension/lib/GUI/Tools/ExportManagerTest.xaml` |
 | Python dialogs | `T3Lab.extension/lib/GUI/` (FamilyLoaderDialog.py, etc.) |
 | Snippets | `T3Lab.extension/lib/Snippets/` |
+| Bilingual VI/EN analysis | `T3Lab.extension/lib/Intelligence/language/` |
+| Graph agent layer | `T3Lab.extension/lib/Intelligence/graph/` |
+| Assistant architecture doc | `docs/assistant-graph-architecture.md` |
 
 ## Folder Layout
 
