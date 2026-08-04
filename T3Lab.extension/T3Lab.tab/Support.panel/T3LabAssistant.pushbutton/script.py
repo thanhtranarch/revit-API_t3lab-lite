@@ -358,6 +358,28 @@ except Exception as e:
         @staticmethod
         def wants_spellcheck_fix(args): return False
 
+# ─── Bilingual language analysis (VI/EN) ──────────────────────────────────────
+# Feeds routing, the prompt hint and the reply-language decision. Degrading to
+# the old diacritic check is always safe: every consumer takes a `default`.
+try:
+    from Intelligence.language import analyzer as _lang_analyzer
+    from Intelligence.language import lang_detect as _lang_detect
+    HAS_LANGUAGE = True
+except Exception as e:
+    logger.warning("Could not import language layer: {}".format(e))
+    HAS_LANGUAGE = False
+    _lang_analyzer = None
+    _lang_detect = None
+
+# ─── Graph agent layer (multi-goal turns) ─────────────────────────────────────
+try:
+    from Intelligence.graph.orchestrator import GraphOrchestrator
+    HAS_GRAPH = True
+except Exception as e:
+    logger.warning("Could not import graph layer: {}".format(e))
+    HAS_GRAPH = False
+    GraphOrchestrator = None
+
 # ─── Multi-agent dispatcher (specialist routing) ──────────────────────────────
 try:
     from Intelligence.agents.dispatcher import AgentDispatcher
@@ -651,7 +673,7 @@ def _is_viet_text(text):
         return False
     if not text:
         return _ui_viet()
-    viet = any(c in _VIET_CHARS for c in text.lower())
+    viet = _detect_viet(text, default=_ui_viet())
     if viet:
         # Remember it: messages that belong to no particular turn (startup
         # notices, card labels) should follow the language the user is
@@ -661,16 +683,43 @@ def _is_viet_text(text):
     return viet
 
 
+def _detect_viet(text, default=True):
+    """Language verdict for one message, with a fallback for the undecidable.
+
+    The old test was `any(c in _VIET_CHARS for c in text)` — a single-line
+    diacritic check that got the three commonest cases in a Vietnamese BIM
+    office wrong: diacritic-less typing ("xuat pdf sheet A") read as English,
+    code-switched sentences ("export cái sheet này") read by whichever half
+    won, and a bare tool name ("BatchOut") flipped the whole session to
+    English. `Intelligence.language` weighs evidence instead and returns
+    `default` when there is none either way, so a bare tool name no longer
+    changes anything.
+    """
+    if HAS_LANGUAGE:
+        try:
+            return _lang_detect.is_vietnamese(text, default=default)
+        except Exception:
+            pass
+    return any(c in _VIET_CHARS for c in (text or u'').lower())
+
+
 # Language of the most recent user message, for strings that are not tied to
 # one turn. None until the user has typed something.
 _LAST_USER_VIET = None
 
 
 def _note_user_language(text):
-    """Record the language of a user message. Call once per submitted turn."""
+    """Record the language of a user message. Call once per submitted turn.
+
+    An undecidable message (a bare tool name, a number, "ok") leaves the
+    session language ALONE rather than resetting it — that is the whole point
+    of the `default` argument.
+    """
     global _LAST_USER_VIET
     if text:
-        _LAST_USER_VIET = any(c in _VIET_CHARS for c in text.lower())
+        _LAST_USER_VIET = _detect_viet(
+            text, default=(True if _LAST_USER_VIET is None
+                           else _LAST_USER_VIET))
 
 
 def _ui_viet():
@@ -5383,6 +5432,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # receives via the system prompt in do_nlp().
             captured = raw
 
+            # One language analysis for the whole turn: the dispatcher, the
+            # graph planner and the per-turn prompt hint all read it, so the
+            # normalisation and entity tables run once instead of three times
+            # and every stage agrees about what the sentence said.
+            _utterance = None
+            if HAS_LANGUAGE and raw:
+                try:
+                    _utterance = _lang_analyzer.analyze(raw)
+                except Exception as _ln_ex:
+                    logger.debug("language analysis error: {}".format(_ln_ex))
+
             history  = list(self._conversation_history[:-1])
 
             use_local        = HAS_NLP and has_local_llm()
@@ -5527,7 +5587,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         self._agent_decision = AgentDispatcher().classify(
                             _clf_text, provider=_clf_provider,
                             skills_engine=_skills_eng,
-                            allow_llm=bool(_clf_provider))
+                            allow_llm=bool(_clf_provider),
+                            # Only when the classifier is reading the user's
+                            # own words: a /slash invocation classifies the
+                            # skill args, which this analysis is not of.
+                            analysis=(_utterance if _clf_text == raw
+                                      else None))
                     except Exception as _disp_ex:
                         logger.debug("dispatcher error: {}".format(_disp_ex))
                     if self._agent_decision:
@@ -5579,6 +5644,23 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     or self._agent_decision.get('specialist')
                     not in (None, 'general')):
                 self._prev_agent_decision = dict(self._agent_decision)
+
+            # ── 2.7 Graph path (multi-goal turns) ──────────────────────────
+            # "thống kê tường rồi xuất pdf sheet A-101" is TWO requests. The
+            # single-specialist path below can only serve one of them, and
+            # historically answered the first and dropped the rest. The planner
+            # decomposes the message; it declines anything it cannot split
+            # confidently, so a normal one-goal turn never reaches this code
+            # and keeps its exact previous behaviour.
+            # Kill switch: agents.graph_mode.
+            if (not has_attach and not _skill_forced and not _continuation
+                    and (use_local or use_claude)):
+                try:
+                    if self._run_graph_plan(raw, history,
+                                            utterance=_utterance):
+                        return
+                except Exception as _gp_ex:
+                    logger.debug("graph path error: {}".format(_gp_ex))
 
             if use_local or use_claude or has_attach:
                 # ── 3/4. LLM path (typing indicator already showing) ──────────
@@ -5696,7 +5778,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 spec=_spec, skill_ids=_skill_ids,
                                 rag_context=(rag_context if _compact_rag
                                              else None),
-                                image_files=(_img_files if _can_see else None))
+                                image_files=(_img_files if _can_see else None),
+                                analysis=_utterance)
                         except Exception as _na_ex:
                             logger.debug("native agent path error: {}".format(_na_ex))
                         if _handled:
@@ -6730,9 +6813,185 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug("knowledge reference build error: {}".format(ex))
             return u''
 
+    # ─── Graph path (multi-goal turns) ────────────────────────────────────────
+
+    def _graph_enabled(self):
+        """Kill switch + prerequisites for the graph agent layer."""
+        if not (HAS_GRAPH and HAS_AGENTS and HAS_SPECIALISTS):
+            return False
+        try:
+            from config.settings import get_settings
+            settings = get_settings()
+            return bool(settings.is_graph_mode_enabled()
+                        and settings.is_multi_agent_enabled())
+        except Exception:
+            return True
+
+    def _build_orchestrator(self, provider, history, viet):
+        """A GraphOrchestrator whose runner is one `_run_native_agent` turn.
+
+        max_parallel is pinned to 1: the runner streams into the chat
+        transcript, and two agent turns writing into one transcript interleave
+        into nonsense. The executor's parallel path is real and tested, but it
+        belongs to headless callers — see Intelligence/graph/executor.py.
+        """
+        base_history = list(history)
+
+        def _runner(node, context, state):
+            if self._cancelled():
+                # Tell the graph, not just this node: cancelling the state
+                # stops the sweep between layers instead of failing every
+                # remaining node one at a time.
+                state.cancel()
+                return None
+            spec = get_spec(node.specialist) if node.specialist else None
+            skill_ids = [node.skill] if node.skill else None
+            # `context` carries what earlier nodes produced. It rides in front
+            # of this node's own goal exactly like attachment RAG excerpts do.
+            self._run_native_agent(
+                provider, list(base_history), node.goal,
+                spec=spec, skill_ids=skill_ids,
+                rag_context=(context or None), hold_busy=True)
+            return getattr(self, '_last_agent_text', u'') or None
+
+        def _on_step(index, total, node):
+            header = (u"**Bước {}/{}** — {}" if viet
+                      else u"**Step {}/{}** — {}").format(
+                          index, total, node.goal)
+
+            def _show():
+                self._append_bot_message(header, icon=_ICON_SYNC,
+                                         icon_color=_ICON_SLATE)
+                self._show_typing_indicator()
+            self._ui_invoke(_show)
+
+        skills_engine = None
+        try:
+            from Intelligence.skills_engine import SkillsEngine
+            skills_engine = SkillsEngine()
+        except Exception:
+            pass
+
+        return GraphOrchestrator(
+            _runner, dispatcher=AgentDispatcher(), skills_engine=skills_engine,
+            provider=provider, max_parallel=1, on_step=_on_step)
+
+    def _run_graph_plan(self, raw, history, utterance=None):
+        """Plan and run a MULTI-GOAL turn as a graph. WORKER THREAD.
+
+        Returns True when the request was handled here. False means the
+        message was not multi-goal (or the layer is off / unavailable) and the
+        caller must fall through to its normal single-specialist path —
+        nothing has been shown to the user in that case.
+        """
+        if not self._graph_enabled():
+            return False
+        try:
+            from Intelligence.llm_router import LLMRouter
+            provider = LLMRouter().get_active_provider()
+        except Exception:
+            return False
+        if provider is None or not getattr(provider, 'SUPPORTS_NATIVE_TOOLS',
+                                           False):
+            # Every node is an agent turn; without native tools there is no
+            # agent loop to run them in.
+            return False
+
+        viet = _is_viet_text(raw)
+        rid = getattr(self, '_request_id', 0)
+
+        # Decide BEFORE anything is shown: a plan the layer declines must leave
+        # the turn exactly as it found it, so the caller can fall through.
+        try:
+            orchestrator = self._build_orchestrator(provider, history, viet)
+            plan = orchestrator.plan_for(raw, utterance=utterance)
+        except Exception as ex:
+            logger.debug("graph plan error: {}".format(ex))
+            return False
+        if plan is None or not plan.is_multi:
+            return False
+        logger.debug("graph plan:\n{}".format(plan.describe()))
+
+        # Past this point the plan owns the turn: its nodes stream into the
+        # transcript, so falling through afterwards would answer twice.
+        try:
+            result = orchestrator.handle(
+                raw, utterance=utterance, plan=plan,
+                lang=('vi' if viet else 'en'))
+        except Exception as ex:
+            self._report_error(u"graph plan", ex, rid)
+            return True
+
+        if self._cancelled():
+            self._finish_cancelled(rid)
+            return True
+
+        def _finish():
+            self._hide_typing_indicator()
+            summary = self._graph_summary(result, viet)
+            if summary:
+                self._append_bot_message(summary, icon=_ICON_SYNC,
+                                         icon_color=_ICON_SLATE)
+                self._add_to_history("assistant", summary)
+            self._set_busy(False)
+
+        if self._claim_turn(rid):
+            self._ui_invoke(_finish)
+        return True
+
+    @staticmethod
+    def _graph_summary(result, viet):
+        """Closing line for a graph turn.
+
+        Every node already streamed its own answer into the transcript, so
+        repeating the reducer's full concatenation here would show the user the
+        same text twice. What is NOT otherwise visible is which steps did not
+        happen — so the summary is a tally, plus the reducer's own report for
+        the steps that failed.
+        """
+        plan, state = result.plan, result.state
+        if plan is None or state is None:
+            return u''
+        nodes = plan.agent_nodes()
+        failed = [n for n in nodes if not state.succeeded(n.id)]
+        total = len(nodes)
+        if not failed:
+            return (u"✔ Đã hoàn thành cả {} bước.".format(total) if viet
+                    else u"✔ All {} steps completed.".format(total))
+        try:
+            from Intelligence.graph.reducer import Reducer
+            detail = Reducer().reduce(plan.graph, state,
+                                      node_ids=[n.id for n in failed],
+                                      lang=('vi' if viet else 'en'))
+        except Exception:
+            detail = u''
+        head = (u"Hoàn thành {}/{} bước.".format(total - len(failed), total)
+                if viet else
+                u"Completed {}/{} steps.".format(total - len(failed), total))
+        return u"{}\n\n{}".format(head, detail) if detail else head
+
+    @staticmethod
+    def _analysis_hint(text, analysis=None):
+        """Per-message language analysis for the volatile context block.
+
+        Returns u'' when the language layer is unavailable or the sentence is
+        plain enough to need no help, so an ordinary turn costs no extra
+        tokens. Never raises — a hint is an optimisation, not a requirement.
+        """
+        if not HAS_LANGUAGE or not (text or u'').strip():
+            return u''
+        try:
+            utt = analysis if analysis is not None else _lang_analyzer.analyze(
+                text)
+            lang = _reply_language()
+            return utt.to_prompt_hint(
+                lang=(lang if lang in ('vi', 'en') else None))
+        except Exception:
+            return u''
+
     def _run_native_agent(self, provider, history, captured,
                           spec=None, skill_ids=None, rag_context=None,
-                          image_files=None):
+                          image_files=None, analysis=None, hold_busy=False):
         """Run the native tool-calling agent loop. WORKER THREAD.
 
         spec: optional SpecialistSpec — narrows the tool catalog, adds a
@@ -6743,11 +7002,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
         prepended to the user content only.
         image_files: attached image paths sent as real vision blocks. The
         caller only passes them when the provider reports SUPPORTS_VISION.
+        analysis: optional pre-built language.Utterance for `captured`, reused
+        for the per-turn analysis hint instead of re-analysing the message.
+        hold_busy: keep the busy state ON after this turn. Set by the graph
+        path, which runs several of these back to back for ONE user message —
+        releasing the composer between steps would let a new request land in
+        the middle of a running plan.
 
         Returns True when the request was fully handled (UI updated, busy
-        released). Returns False so the legacy JSON-intent path can run —
-        only when nothing was shown to the user yet.
+        released unless hold_busy). Returns False so the legacy JSON-intent
+        path can run — only when nothing was shown to the user yet.
+
+        The answer text is also left on `self._last_agent_text`, which the
+        graph path reads to pass one node's result to the next.
         """
+        self._last_agent_text = u""
         if provider is None or not getattr(provider, "SUPPORTS_NATIVE_TOOLS", False):
             logger.debug("native path skipped: provider {} has no native tools"
                          .format(getattr(provider, 'NAME', provider)))
@@ -6929,7 +7198,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from Intelligence.agent_loop import (build_context_block,
                                                  apply_context_block)
             _volatile = build_context_block(revit_context=ctx,
-                                            knowledge_ref=_kref)
+                                            knowledge_ref=_kref,
+                                            analysis_hint=self._analysis_hint(
+                                                captured, analysis))
             user_content = apply_context_block(user_content, _volatile)
         except Exception as _ctx_ex:
             logger.debug("context block build error: {}".format(_ctx_ex))
@@ -7317,12 +7588,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     # the UI thread and releases the busy state itself.
                     self._execute_result({"intent": li, "message": u"",
                                           "params": {}})
-                else:
+                elif not hold_busy:
                     self._set_busy(False)
             except Exception as ex:
                 self._report_error(u"native agent finish", ex)
 
         self.Dispatcher.Invoke(Action(_finish_ui))
+        # What this turn actually said, for a caller chaining several turns
+        # together (the graph path). The streamed text is the fallback: a turn
+        # that streamed its whole answer can finish with result["text"] empty.
+        self._last_agent_text = ((result.get("text") or u"").strip()
+                                 or (stream.get("text") or u"").strip())
         return True
 
     # ─── Tool-call cards ───────────────────────────────────────────────────────

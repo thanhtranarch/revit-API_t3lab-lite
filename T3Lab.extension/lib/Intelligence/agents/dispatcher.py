@@ -22,6 +22,13 @@ import re
 
 from Intelligence.knowledge import vi_text
 
+try:
+    from Intelligence.language import analyzer as _lang_analyzer
+    HAS_LANGUAGE = True
+except Exception:                                   # pragma: no cover
+    HAS_LANGUAGE = False
+    _lang_analyzer = None
+
 SPECIALIST_NAMES = ('general', 'revit_data', 'revit_action',
                     'knowledge', 'comment',
                     'multi_doc', 'modeling', 'qa_check', 'export')
@@ -128,22 +135,43 @@ def _has_phrase(folded, phrases):
 class AgentDispatcher(object):
 
     def classify(self, text, has_attachments=False, attached_pdf_annotated=False,
-                 provider=None, skills_engine=None, allow_llm=True):
+                 provider=None, skills_engine=None, allow_llm=True,
+                 analysis=None):
         """Returns {"specialist", "skill", "source", "confidence"}.
 
         provider/skills_engine/allow_llm feed the optional LLM stage; when
         absent the decision is keyword-stage only.
+
+        `analysis` is a pre-built `language.Utterance` for this text. When None
+        one is built here. Its NORMALISED form is what the keyword stage reads,
+        which is how teencode and typos reach these tables at all — "ktra
+        warning ko" carries no keyword until it becomes "kiểm tra warning
+        không". The raw text is still what the caller sends to the model; only
+        this routing decision sees the repaired version.
         """
-        folded = _fold_text(text)
+        utt = analysis
+        if utt is None and HAS_LANGUAGE:
+            try:
+                utt = _lang_analyzer.analyze(text)
+            except Exception:
+                utt = None
+        match_text = text
+        if utt is not None and utt.normalized:
+            match_text = utt.normalized
+
+        folded = _fold_text(match_text)
         folded_masked = folded
         for mask in _NOUN_MASK_PHRASES:
             folded_masked = folded_masked.replace(mask, ' ')
         tokens = set(folded_masked.split())
-        raw_lower = re.sub(r'\s+', ' ', (text or '').lower()).strip()
+        raw_lower = re.sub(r'\s+', ' ', (match_text or '').lower()).strip()
 
         decision = self._keyword_stage(folded, folded_masked, tokens,
                                        raw_lower, attached_pdf_annotated)
+        if decision is None:
+            decision = self._entity_stage(utt)
         if decision is not None:
+            decision = self._apply_negation(decision, utt)
             skill = self._match_skill(text, skills_engine)
             decision['skill'] = skill
             return decision
@@ -160,13 +188,53 @@ class AgentDispatcher(object):
                         'source': 'skill', 'confidence': 0.7}
 
         if allow_llm and provider is not None:
-            llm = self._llm_stage(text, provider, skills_engine)
+            llm = self._llm_stage(match_text, provider, skills_engine)
             if llm is not None:
-                return llm
+                return self._apply_negation(llm, utt)
 
         return {'specialist': 'general', 'skill':
                 self._match_skill(text, skills_engine),
                 'source': 'default', 'confidence': 0.3}
+
+    # ── stage 1b: entity signals ──────────────────────────────────────────
+
+    def _entity_stage(self, utt):
+        """A decision from the language analysis when no keyword matched.
+
+        The keyword tables need a VERB. A perfectly clear question that happens
+        to use none of them ("cửa sổ tầng 3?") matched nothing and went to the
+        model to be classified — a round-trip to learn what the sentence
+        already said. A named Revit category plus a question is a read request;
+        nothing else here is confident enough to route on.
+        """
+        if utt is None or not utt.categories:
+            return None
+        if utt.is_question:
+            return {'specialist': 'revit_data', 'source': 'entity',
+                    'confidence': 0.6}
+        return None
+
+    # ── negation guard ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _apply_negation(decision, utt):
+        """Demote a write route when the sentence FORBIDS the action it names.
+
+        "đừng xóa text note" matches the delete verb and lands on the action
+        specialist, which is the one specialist equipped to do the thing the
+        user just said not to do. The read specialist can answer ("I won't
+        delete anything — here they are") and cannot act.
+        """
+        if utt is None or utt.is_safe_to_act:
+            return decision
+        if decision.get('specialist') not in ('revit_action', 'modeling',
+                                              'export'):
+            return decision
+        out = dict(decision)
+        out['specialist'] = 'revit_data'
+        out['source'] = 'negation-demoted'
+        out['confidence'] = min(out.get('confidence', 0.8), 0.6)
+        return out
 
     # A skill scoring at least this much matched on a multi-word DECLARED
     # trigger (10/word + 3 for being declared), not a single guessed keyword.

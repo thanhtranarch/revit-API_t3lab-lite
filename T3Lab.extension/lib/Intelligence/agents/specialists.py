@@ -311,6 +311,11 @@ def build_specialist_prompt(spec, revit_context='', project_instructions='',
     accepted (old callers pass it positionally) but no longer used: live state
     travels with the user turn via agent_loop.build_context_block().
 
+    The per-message language analysis does NOT belong here for the same
+    reason: it changes every turn, so putting it in this block would break the
+    cache for the whole static prefix. It rides with the user turn instead —
+    see `build_context_block(analysis_hint=...)` in agent_loop.
+
     lang ('auto' | 'vi' | 'en') is passed straight through to the base prompt
     so a specialist turn answers in the same language as the rest of the UI.
     """
