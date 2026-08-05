@@ -114,6 +114,42 @@ except Exception as _cm_ex:
     except Exception:
         pass
 
+# ─── Self-study idle loop (opt-in: agents.self_study) ──────────────────────────
+# Subscribe to the application Idling event so the assistant can quietly refresh
+# its knowledge and curate a local training dataset while Revit is open and the
+# user is not using it. The handler is deliberately trivial — it hands off to a
+# throttled facade that early-returns in microseconds unless a full window has
+# passed AND the assistant has been idle, then runs one small unit of work on a
+# background thread. Off by default (the setting must be enabled); never crashes
+# Revit startup. The handler reference is kept alive on the module so the .NET
+# event does not drop it.
+_IDLING_HANDLERS = []
+try:
+    _uictrld_idle = None
+    try:
+        _uictrld_idle = __revit__  # noqa: F821 — UIControlledApplication at startup
+    except NameError:
+        try:
+            from pyrevit import HOST_APP
+            _uictrld_idle = getattr(HOST_APP, 'uicontrolledapp', None)
+        except Exception:
+            _uictrld_idle = None
+
+    if _uictrld_idle is not None and hasattr(_uictrld_idle, 'add_Idling'):
+        from Intelligence.learning import loop as _study_loop
+
+        def _t3lab_on_idling(sender, args):
+            try:
+                _study_loop.on_idling_tick()
+            except Exception:
+                pass
+
+        _uictrld_idle.Idling += _t3lab_on_idling
+        _IDLING_HANDLERS.append(_t3lab_on_idling)   # keep alive
+except Exception:
+    # Never crash Revit startup — self-study is best-effort.
+    pass
+
 # ─── Start file-based task watcher ─────────────────────────────────────────────
 # Watches ~/T3Lab_AI_Data/task.json (and task.py) for AI-written tasks.
 # Executes them in Revit context via ExternalEvent; result → result.json / result.txt.

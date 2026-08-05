@@ -3089,6 +3089,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._replied    = False
             self._tool_runs  = 0
             self._begin_turn_timer()
+            # Tell the app-level self-study loop the assistant is active, so it
+            # backs off while the user is working (see Intelligence/learning).
+            try:
+                from Intelligence.learning import activity as _study_activity
+                _study_activity.note_active()
+            except Exception:
+                pass
         else:
             self._stop_stop_watchdog()
             self._end_turn_timer()
