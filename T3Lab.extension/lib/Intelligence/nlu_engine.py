@@ -14,6 +14,7 @@ from __future__ import unicode_literals, division
 __author__  = "Tran Tien Thanh"
 __title__   = "NLU Engine"
 
+import random
 import re
 import unicodedata
 
@@ -1896,6 +1897,140 @@ def _kw_hit(raw_input, normed_raw, keywords):
 _REACTION_MAX_WORDS = 6
 
 
+# ─── Small-talk keyword tables (module-level so classify() + _build_message
+# read the SAME lists) ────────────────────────────────────────────────────────
+# Hoisted out of _build_message so the router can ask "is this an instant-safe
+# small-talk reply?" without duplicating the keyword sets and drifting from them.
+_FAREWELL_KWS = ["tam biet", "tạm biệt", "bye", "bai", "bài",
+                 "see you", "hen gap", "hẹn gặp", "goodbye"]
+_INSULT_KWS   = ["stupid", "dumb", "useless", "garbage", "trash", "suck",
+                 "ngu", "vo dung", "vô dụng", "te qua", "tệ quá",
+                 "qua te", "quá tệ"]
+_ERROR_KWS    = ["loi", "lỗi", "bi hong", "bị hỏng", "khong chay",
+                 "không chạy", "khong hoat dong", "không hoạt động",
+                 "error", "broken", "not working"]
+_POSITIVE_KWS = ["tuyet", "tuyệt", "tot", "tốt", "ngon", "perfect",
+                 "great", "awesome", "nice"]
+_THANKS_KWS   = ["cam on", "cảm ơn", "thank", "thanks", "tks", "thks"]
+# "How are you?" splits into a POSITIVE state (safe to answer instantly) and a
+# LOW-MOOD state (kept flowing to the LLM for a warmer, empathetic reply — a
+# canned "I'm fine" reads as tone-deaf when the user just said they're tired).
+_STATE_HOWAREYOU_KWS = ["khoe", "khỏe"]
+_STATE_LOWMOOD_KWS   = ["met", "mệt", "buon", "buồn", "chan", "chán",
+                        "sao vay", "sao vậy", "stress"]
+
+
+# ─── English small-talk the trigger tables miss ───────────────────────────────
+# "how are you", "what's up", "you there", "sup"... carry no Vietnamese-centric
+# trigger, so classify() scored them at 0 and fell through to a full LLM turn.
+# Recognised here as instant-safe small talk. Emotional / complaint phrasing is
+# deliberately NOT listed — it keeps going to the LLM.
+_EN_SMALLTALK_PHRASES = (
+    # how are you
+    "how are you", "how are u", "how r u", "how are ya", "how are things",
+    "how is it going", "hows it going", "how it going", "hows things",
+    "how do you do", "how you doing", "how are you doing", "how ya doing",
+    "hows your day", "how is your day", "how have you been", "how you been",
+    # what's up (apostrophe stripped upstream → "what s up")
+    "whats up", "what s up", "what is up", "wassup", "wazzup", "sup",
+    "whats good", "whats new", "long time no see",
+    # presence / wellbeing checks
+    "you there", "are you there", "u there", "you awake", "still there",
+    "you good", "you ok", "you okay", "u good", "u ok", "are you ok",
+    "are you okay", "you alright", "you all right",
+)
+# Trailing fillers a greeting may pick up ("how are you today", "how are you Sun")
+# — stripped before the exact-match test so a name or politeness word does not
+# defeat recognition, without opening the door to matching real commands.
+_EN_SMALLTALK_TAIL = frozenset((
+    "today", "now", "then", "mate", "man", "bro", "buddy", "friend", "pal",
+    "sir", "dear", "sun", "ban", "a", "ha", "huh", "hey", "hi", "there",
+))
+
+
+def _fold_plain(text):
+    """Diacritic-folded, punctuation-free, whitespace-collapsed lowercase."""
+    plain = re.sub(r'[^a-z0-9\s]', ' ', _norm(text or ""))
+    return " ".join(plain.split())
+
+
+def _match_english_smalltalk(raw):
+    """Return 'howareyou' when the WHOLE message is English small talk, else None.
+
+    Matches the entire folded message (up to a couple of trailing filler/name
+    words) so a command that merely opens with a greeting is never swallowed.
+    """
+    f = _fold_plain(raw)
+    if not f:
+        return None
+    words = f.split()
+    if len(words) > 7:                         # a request, not a one-liner
+        return None
+    # The unpeeled message is tested first, so a genuine two-word phrase
+    # ("you there") is never lost even though a trailing word gets peeled below.
+    if f in _EN_SMALLTALK_PHRASES:
+        return "howareyou"
+    # Peel up to two trailing filler / name words: "how are you today", "sup man".
+    for _ in range(2):
+        if len(words) >= 2 and words[-1] in _EN_SMALLTALK_TAIL:
+            words = words[:-1]
+        else:
+            break
+    if " ".join(words) in _EN_SMALLTALK_PHRASES:
+        return "howareyou"
+    return None
+
+
+# Instant-safe categories: answered from a canned reply even when a provider is
+# online. Everything else in `chat` (insult, error, low mood) still goes to the
+# LLM, per the Hybrid policy.
+_INSTANT_CHAT_KINDS = frozenset(("farewell", "thanks", "positive", "howareyou"))
+
+
+def _chat_smalltalk_kind(raw_input, normed_raw):
+    """Categorise a `chat`-intent message. Returns a kind string or None.
+
+    Reuses the exact keyword tables _build_message replies from, so the router's
+    "is this instant-safe?" decision can never drift from the reply it produces.
+    Order mirrors _build_message: emotional kinds are tested before the softer
+    ones so "how are you" cannot mask a complaint.
+    """
+    _short = len((raw_input or u"").split()) <= _REACTION_MAX_WORDS
+    if _short and _kw_hit(raw_input, normed_raw, _FAREWELL_KWS):
+        return "farewell"
+    if _short and _kw_hit(raw_input, normed_raw, _INSULT_KWS):
+        return "insult"
+    if _kw_hit(raw_input, normed_raw, _ERROR_KWS):
+        return "error"
+    if _short and _kw_hit(raw_input, normed_raw, _POSITIVE_KWS):
+        return "positive"
+    if _kw_hit(raw_input, normed_raw, _THANKS_KWS):
+        return "thanks"
+    if _short and _kw_hit(raw_input, normed_raw, _STATE_HOWAREYOU_KWS):
+        return "howareyou"
+    if _short and _kw_hit(raw_input, normed_raw, _STATE_LOWMOOD_KWS):
+        return "lowmood"
+    return None
+
+
+# A little variety so the instant replies don't read like a canned macro.
+_HOWAREYOU_REPLIES_EN = (
+    "Doing great, thanks for asking! What can I help you with?",
+    "All good here! What would you like to work on?",
+    "I'm doing well, thank you! How can I help?",
+)
+_HOWAREYOU_REPLIES_VI = (
+    u"Cảm ơn bạn hỏi thăm! Tôi ổn. Bạn cần tôi giúp gì không?",
+    u"Tôi vẫn khỏe đây! Bạn muốn làm gì hôm nay?",
+    u"Mọi thứ ổn cả! Bạn cần tôi hỗ trợ gì nào?",
+)
+
+
+def _howareyou_reply(viet):
+    return random.choice(_HOWAREYOU_REPLIES_VI if viet
+                         else _HOWAREYOU_REPLIES_EN)
+
+
 def _build_message(intent, slots, viet, raw_input=""):
     """Build a friendly message for the given intent and extracted slots."""
     normed_raw = _norm(raw_input)
@@ -1921,32 +2056,29 @@ def _build_message(intent, slots, viet, raw_input=""):
             return "Opening BatchOut{} ({})...".format(part, fmt)
 
     # ── Contextual chat responses ─────────────────────────────────────────────
+    # Reply text for each small-talk kind. _chat_smalltalk_kind() (module level)
+    # owns the CATEGORISATION so the router and this builder agree; this switch
+    # owns only the wording.
     if intent == "chat":
-        _short = len((raw_input or u"").split()) <= _REACTION_MAX_WORDS
-        # Farewell
-        farewell_kws = ["tam biet", "tạm biệt", "bye", "bai", "bài",
-                        "see you", "hen gap", "hẹn gặp", "goodbye"]
-        if _short and _kw_hit(raw_input, normed_raw, farewell_kws):
+        # English "how are you"/"what's up"/"you there" carry no VI keyword —
+        # catch them first so they get the warm state reply, not the fallback.
+        if _match_english_smalltalk(raw_input):
+            return _howareyou_reply(viet)
+        kind = _chat_smalltalk_kind(raw_input, normed_raw)
+        if kind == "farewell":
             return (_MESSAGES_VI if viet else _MESSAGES_EN).get("farewell",
                     u"Tạm biệt!" if viet else "Goodbye!")
         # Frustration / insult directed at the assistant itself — acknowledge
         # honestly instead of the generic "didn't understand" reply, and point
         # at a concrete next step (works with or without an LLM connected).
-        insult_kws = ["stupid", "dumb", "useless", "garbage", "trash", "suck",
-                      "ngu", "vo dung", "vô dụng", "te qua", "tệ quá",
-                      "qua te", "quá tệ"]
-        if _short and _kw_hit(raw_input, normed_raw, insult_kws):
+        if kind == "insult":
             if viet:
                 return (u"Xin lỗi vì trải nghiệm chưa tốt! Ở chế độ offline khả năng "
                         u"của tôi hạn chế — kết nối AI trong phần Cài đặt để trả "
                         u"lời tự nhiên hơn.")
             return ("Sorry that reply wasn't good enough! Offline mode is limited — "
                     "connect an AI provider in Settings for smarter answers.")
-        # Error/complaint
-        error_kws = ["loi", "lỗi", "bi hong", "bị hỏng", "khong chay",
-                     "không chạy", "khong hoat dong", "không hoạt động",
-                     "error", "broken", "not working"]
-        if _kw_hit(raw_input, normed_raw, error_kws):
+        if kind == "error":
             if viet:
                 return (u"Xin lỗi bạn gặp vấn đề! Bạn có thể thử:\n"
                         u"• Đóng và mở lại tool\n"
@@ -1954,21 +2086,21 @@ def _build_message(intent, slots, viet, raw_input=""):
             return ("Sorry you're having issues! You can try:\n"
                     "• Close and reopen the tool\n"
                     "• Check the Revit console for error details")
-        # Positive reaction
-        positive_kws = ["tuyet", "tuyệt", "tot", "tốt", "ngon", "perfect",
-                        "great", "awesome", "nice"]
-        if _short and _kw_hit(raw_input, normed_raw, positive_kws):
+        if kind == "positive":
             return u"Cảm ơn bạn! Cần gì cứ hỏi nhé." if viet else "Thank you! Let me know if you need anything."
-        # Thanks
-        thanks_kws = ["cam on", "cảm ơn", "thank", "thanks", "tks", "thks"]
-        if _kw_hit(raw_input, normed_raw, thanks_kws):
+        if kind == "thanks":
             return u"Không có gì! Cần gì cứ hỏi tôi nhé." if viet else "You're welcome! Let me know if you need anything."
-        # State question
-        state_kws = ["khoe", "khỏe", "met", "mệt", "buon", "buồn", "chan",
-                     "chán", "sao vay", "sao vậy", "stress"]
-        if _short and _kw_hit(raw_input, normed_raw, state_kws):
-            return (u"Cảm ơn bạn hỏi thăm! Tôi ổn. Bạn cần tôi giúp gì không?"
-                    if viet else "Thanks for asking! I'm fine. How can I help?")
+        if kind == "howareyou":
+            return _howareyou_reply(viet)
+        # Low mood ("mệt quá", "stress") — a canned "I'm fine" is tone-deaf, so
+        # answer with light empathy when offline; online this kind is routed to
+        # the LLM (not marked _instant) for a genuinely warmer reply.
+        if kind == "lowmood":
+            if viet:
+                return (u"Nghe bạn nói vậy tôi cũng lo. Nghỉ một chút nhé — "
+                        u"khi nào cần tôi vẫn ở đây giúp bạn.")
+            return ("Sorry to hear that. Take a short break if you can — "
+                    "I'm here whenever you need a hand.")
 
     table = _MESSAGES_VI if viet else _MESSAGES_EN
     if intent in table:
@@ -2013,6 +2145,17 @@ def classify(user_input, history=None):
     # pronoun against the history would open a tool instead of answering.
     if is_capability_question(expanded):
         return answer_capability_question(user_input, viet)
+
+    # ── English small-talk the trigger tables miss (instant, no LLM) ─────────
+    # "how are you", "what's up", "you there"... scored 0 in the VI-centric
+    # trigger tables and fell through to a full LLM turn. Answer them here from
+    # a canned reply and mark _instant so the router skips the model even when a
+    # provider is online. Checked before tool/pronoun resolution because these
+    # phrases are never a tool name or an anaphor.
+    if _match_english_smalltalk(user_input):
+        return {"intent": "chat", "params": {},
+                "message": _howareyou_reply(viet),
+                "_nlu": True, "_instant": True}
 
     # ── Pronoun resolution ───────────────────────────────────────────────────
     if _is_pronoun_query(expanded) and history:
@@ -2115,4 +2258,16 @@ def classify(user_input, history=None):
         params = {}
 
     message = _build_message(best, slots, viet, raw_input=user_input)
-    return {"intent": best, "params": params, "message": message, "_nlu": True}
+    result = {"intent": best, "params": params, "message": message,
+              "_nlu": True}
+    # Mark instant-safe small talk so the router answers it from this canned
+    # reply instead of paying for an LLM turn (the biggest single latency win on
+    # a slow local model). `greet` is always instant; `chat` only for the safe
+    # kinds — complaints / insults / low mood keep flowing to the LLM.
+    if best == "greet":
+        result["_instant"] = True
+    elif best == "chat":
+        if _chat_smalltalk_kind(user_input, _norm(user_input)) \
+                in _INSTANT_CHAT_KINDS:
+            result["_instant"] = True
+    return result

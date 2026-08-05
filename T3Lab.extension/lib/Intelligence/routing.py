@@ -70,6 +70,11 @@ _SOCIAL_TURNS = (
     'chao', 'chao ban', 'xin chao', 'alo', 'chao buoi sang',
     'thanks', 'thank you', 'thx', 'cam on', 'cam on ban', 'cam on nhe',
     'bye', 'goodbye', 'tam biet', 'see you',
+    # English "how are you" family — pure small talk, never an answer to a
+    # clarifying question. The nlu matcher below is the authoritative check;
+    # these folded forms keep is_social_turn() meaningful on its own.
+    'how are you', 'how are u', 'hows it going', 'how do you do',
+    'whats up', "what's up", 'sup', 'you there', 'you good', 'you ok',
 )
 
 # Replies that are answers by their very shape.
@@ -139,12 +144,20 @@ def _has_action_verb(raw):
 
 
 def is_social_turn(raw):
-    """True for a bare greeting / thanks / goodbye.
+    """True for a bare greeting / thanks / goodbye / "how are you".
 
     Exact match on the folded text: "hi" alone is small talk, "hi, export the
-    G sheets" is a request that happens to open politely.
+    G sheets" is a request that happens to open politely. The English
+    "how are you" family also consults the NLU's own matcher so the two never
+    drift (it tolerates a trailing name/filler word that this exact set can't).
     """
-    return _fold(raw).rstrip('.!,?') in _SOCIAL_TURNS
+    if _fold(raw).rstrip('.!,?') in _SOCIAL_TURNS:
+        return True
+    try:
+        from Intelligence.nlu_engine import _match_english_smalltalk
+        return bool(_match_english_smalltalk(raw))
+    except Exception:
+        return False
 
 
 def looks_like_answer(raw):

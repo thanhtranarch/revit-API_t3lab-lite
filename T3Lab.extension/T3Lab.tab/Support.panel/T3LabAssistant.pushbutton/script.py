@@ -5908,8 +5908,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 # _authoritative = answered from the real tool catalog
                 # (capability questions, ambiguity clarifications) — the
                 # LLM must not get a chance to override it with a guess.
+                # _instant = pure small talk (greeting, thanks, "how are you"...)
+                # answered from the canned reply even with a provider online —
+                # skipping the model here is the biggest single latency win on a
+                # slow local model. Emotional/complaint chat is NOT _instant and
+                # still flows to the LLM below for a warmer answer.
                 if nlu_result["intent"] not in ("chat", "help") \
                         or nlu_result.get("_authoritative") \
+                        or nlu_result.get("_instant") \
                         or not (use_local or use_claude):
                     # A provider that IS configured but failed its health probe
                     # lands here and answers from the offline canned replies,

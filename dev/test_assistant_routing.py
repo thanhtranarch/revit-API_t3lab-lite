@@ -668,6 +668,53 @@ def test_small_talk_never_rides_the_previous_turn():
           not R.is_social_turn(u"hi, export the G sheets"))
 
 
+def test_english_small_talk_is_instant():
+    """English "how are you" / "what's up" / "you there" carried no VI trigger,
+    so classify() fell through to a full LLM turn — seconds on a local model.
+    They must now classify as instant-safe small talk (answered from a canned
+    reply, no model). Emotional/complaint chat must NOT be instant."""
+    from Intelligence import nlu_engine as N
+    from Intelligence import routing as R
+
+    # Recognised as instant small talk, answered without the LLM.
+    for q in (u"how are you?", u"how are you today", u"what's up", u"whats up",
+              u"sup man", u"you there?", u"you good", u"hows it going",
+              u"how do you do", u"long time no see"):
+        r = N.classify(q)
+        check(u'"{}" classifies'.format(q), bool(r), q)
+        check(u'"{}" is chat/greet'.format(q),
+              r and r.get('intent') in ('chat', 'greet'), r)
+        check(u'"{}" is _instant'.format(q), r and r.get('_instant') is True, r)
+        check(u'"{}" is not a generic fallback'.format(q),
+              r and not r.get('_generic_fallback'), r)
+
+    # Already-recognised social chat is instant too (thanks / reaction / bye).
+    for q in (u"thanks", u"thank you so much", u"great job", u"awesome",
+              u"cảm ơn nhé", u"bye"):
+        r = N.classify(q)
+        check(u'"{}" is instant social'.format(q),
+              r and r.get('_instant') is True, r)
+
+    # Emotional / complaint / low-mood chat is NOT instant — it keeps the LLM.
+    for q in (u"mệt quá", u"chán quá", u"it's broken", u"this is stupid",
+              u"nó không chạy được"):
+        r = N.classify(q)
+        check(u'"{}" is not instant (stays LLM)'.format(q),
+              not (r and r.get('_instant')), r)
+
+    # A command that opens with a greeting is never swallowed as small talk.
+    for q in (u"how are you exporting the walls to pdf",
+              u"hi, export the G sheets"):
+        check(u'"{}" is not small talk'.format(q),
+              not R.is_social_turn(q) and not N._match_english_smalltalk(q), q)
+
+    # And it does not ride a previous clarifying question either.
+    q = u"Which model do you want to list levels for?"
+    for greeting in (u"how are you?", u"what's up", u"you there"):
+        check(u'"{}" does not carry over'.format(greeting),
+              not R.is_continuation(q, greeting, _PREV), greeting)
+
+
 def test_which_model_asks_about_the_llm_not_the_rvt():
     """"model" is the most overloaded word in this product — the .rvt file or
     the LLM behind the chat. Asked "model bạn đang dùng là gì" the assistant
@@ -1673,6 +1720,7 @@ TESTS = [
         test_continuation_rejects_new_commands,
         test_continuation_rejects_closing_questions,
         test_small_talk_never_rides_the_previous_turn,
+        test_english_small_talk_is_instant,
         test_which_model_asks_about_the_llm_not_the_rvt,
         test_continuation_guards,
         test_learned_pattern_defers_to_nlu,
