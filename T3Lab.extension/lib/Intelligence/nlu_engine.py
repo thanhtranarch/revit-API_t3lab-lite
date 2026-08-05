@@ -1182,6 +1182,22 @@ _SCOPE_WORDS = {
     "nay", "day", "kia",
 }
 
+# Greeting / politeness openers. A question can be prefixed with small talk
+# ("hi. what can you do?", "chào bạn, có tool nào để xuất pdf không") and those
+# words name no function — but they ARE content words, so without this the lone
+# "hi" survived as the whole predicate of "hi. what can you do?" and the answer
+# became "T3Lab doesn't have a dedicated tool for that yet. Type 'what can you
+# do' to see the full tool list" — for the question the user had just typed.
+# Deliberately narrow: only words that can never name a Revit operation, so
+# real predicates that also appear in the small-talk lexicon ("copy" elements,
+# "viết"/write) keep their meaning here.
+_SOCIAL_WORDS = {
+    "hi", "hii", "hey", "helo", "hello", "hallo", "halo", "howdy", "yo", "sup",
+    "hiya", "greetings", "morning", "afternoon", "evening", "night",
+    "chao", "alo", "bye", "goodbye", "thanks", "thank", "thanx", "thx",
+    "please", "pls", "sorry", "excuse", "oi", "nhe", "nha", "a", "oke", "okay",
+}
+
 # Determiners — a pronoun followed by one of these (or by a scope noun) is
 # being used as a DETERMINER ("this project"), not as anaphora ("mở nó").
 _DETERMINERS = {
@@ -1193,10 +1209,11 @@ _DETERMINERS = {
 def _predicate_words(expanded):
     """Content words naming the FUNCTION the user is asking about.
 
-    Strips the question frame, open verbs, stopwords and the scope phrase from
-    already-`_expand`ed text, so what remains is only what the user wants DONE.
-    An empty result means the question carried no predicate at all — i.e. it is
-    the generic "what can you do?", whatever scope was appended to it.
+    Strips the question frame, open verbs, stopwords, greetings and the scope
+    phrase from already-`_expand`ed text, so what remains is only what the user
+    wants DONE. An empty result means the question carried no predicate at all
+    — i.e. it is the generic "what can you do?", whatever scope was appended to
+    it and whatever small talk was prefixed to it.
     """
     padded = u" " + u" ".join(
         re.sub(r'[^a-z0-9\s]', ' ', expanded).split()) + u" "
@@ -1207,7 +1224,8 @@ def _predicate_words(expanded):
     out = set()
     for i, w in enumerate(tokens):
         if (len(w) < 2 or w in _STOPWORDS or w in _CAP_BOILERPLATE
-                or w in _SCOPE_WORDS or w in _OPEN_VERBS):
+                or w in _SCOPE_WORDS or w in _OPEN_VERBS
+                or w in _SOCIAL_WORDS):
             continue
         # "in" is a homograph: Vietnamese "in" = print (a real predicate —
         # "có tool nào để in sheet không"), English "in" = the preposition that

@@ -240,13 +240,47 @@ def save_learned_patterns(patterns):
         pass
 
 
+# A learned pattern is a shorthand for a COMMAND ("mở batchout",
+# "/english-spellcheck") — every legitimate entry on disk is 1–2 words. A long
+# descriptive sentence must never become one: the key is an unordered word set
+# matched at Jaccard ≥ 0.8, so on a 9-word key a single differing word still
+# scores 0.9 and the mapping replays for requests it was never about. That is
+# how one LLM guess on "create 3d views for each rooms in project with margin =
+# 100mm" became a permanent deterministic route to Create Plan Views.
+_LEARN_MAX_WORDS = 5
+
+
+def _learned_contradicts(raw, intent):
+    """True when `intent`'s tool NAMES something the request rules out.
+
+    Same mutually-exclusive axes the catalog resolver uses (3d vs plan, wall vs
+    floor, pdf vs dwg) — a learned mapping is a memory of a phrasing, and must
+    not survive being replayed onto a tool the words contradict.
+    """
+    try:
+        from Intelligence.nlu_engine import (_contradicts, _expand, _norm,
+                                             _singularise, _tool_catalog)
+        qset = set(_singularise(w) for w in
+                   re.sub(r'[^a-z0-9\s]', ' ', _expand(_norm(raw))).split())
+        for tool in _tool_catalog():
+            if tool.get('intent') == intent:
+                if _contradicts(qset, tool['words']):
+                    return True
+    except Exception:
+        pass
+    return False
+
+
 def learn_pattern(raw, intent, params, message=''):
     """Record a successful command→intent mapping.
 
-    Only learns tool intents (not greet/chat/help).
+    Only learns tool intents (not greet/chat/help), only short command-like
+    phrasings, and never a tool the request itself contradicts.
     """
     _skip = {'help', 'chat', 'greet', 'unknown', None}
     if intent in _skip:
+        return
+    if _learned_contradicts(raw, intent):
         return
     # Never learn small talk as a tool command. Without this gate, a single
     # LLM hallucination (e.g. "morning" → open_cadtoelements) gets recorded
@@ -260,6 +294,8 @@ def learn_pattern(raw, intent, params, message=''):
     try:
         key = _normalize_key(raw)
         if not key or len(key.split()) < 1:
+            return
+        if len(key.split()) > _LEARN_MAX_WORDS:
             return
         patterns = load_learned_patterns()
         if key in patterns:
@@ -317,12 +353,18 @@ def find_learned_match(raw):
             stored_words = set(stored_key.split()) if stored_key else set()
             if not stored_words:
                 continue
+            # Long keys are not command shorthands (see _LEARN_MAX_WORDS) and
+            # are no longer written; skipping them here retires the ones
+            # already on disk instead of replaying them.
+            if len(stored_words) > _LEARN_MAX_WORDS:
+                continue
             inter = key_words & stored_words
             if len(stored_words) >= 3 and len(inter) < 2:
                 continue
             union = key_words | stored_words
             score = len(inter) / len(union) if union else 0.0
-            if score > best_score:
+            if score > best_score and not _learned_contradicts(
+                    raw, data.get('intent')):
                 best_score = score
                 best_data  = data
 
@@ -349,8 +391,13 @@ def _normalize_key(text):
         ascii_text = text
     # Lowercase, keep alphanumeric
     cleaned = re.sub(r'[^a-zA-Z0-9\s]', ' ', ascii_text.lower())
-    # Keep words longer than 2 chars, sort for order-independence
-    words = sorted(w for w in cleaned.split() if len(w) > 2)
+    # Keep words longer than 2 chars, sort for order-independence.
+    # Short tokens carrying a DIGIT are kept regardless: "3d", "2d", "v2" are
+    # exactly the words that distinguish two otherwise identical requests, and
+    # dropping them made "create 3d views for each room" and "create plan views
+    # for each room" the same key.
+    words = sorted(w for w in cleaned.split()
+                   if len(w) > 2 or any(c.isdigit() for c in w))
     return ' '.join(words)
 
 

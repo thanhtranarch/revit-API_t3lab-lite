@@ -1,46 +1,25 @@
 {
   "patterns": {
     "import pdf": {
-      "last_message": "\u0110ang m\u1edf PDF Import...", 
-      "hits": 2, 
-      "params": {}, 
-      "last_raw": "m\u1edf pdf import", 
+      "last_message": "\u0110ang m\u1edf PDF Import...",
+      "hits": 2,
+      "params": {},
+      "last_raw": "m\u1edf pdf import",
       "intent": "open_pdf_import"
-    }, 
+    },
     "batchout": {
-      "last_message": "\u0110ang m\u1edf BatchOut...", 
-      "hits": 1, 
-      "params": {}, 
-      "last_raw": "m\u1edf batchout", 
+      "last_message": "\u0110ang m\u1edf BatchOut...",
+      "hits": 1,
+      "params": {},
+      "last_raw": "m\u1edf batchout",
       "intent": "open_batchout"
-    }, 
+    },
     "english spellcheck": {
-      "last_message": "Scanning model Text Notes for English spelling errors...", 
-      "hits": 12, 
-      "params": {}, 
-      "last_raw": "/english-spellcheck", 
+      "last_message": "Scanning model Text Notes for English spelling errors...",
+      "hits": 12,
+      "params": {},
+      "last_raw": "/english-spellcheck",
       "intent": "check_spelling"
-    }, 
-    "100mm create each for margin project rooms views with": {
-      "params": {
-        "view_type": "3D isometric", 
-        "margin": 100
-      }, 
-      "last_raw": "create 3d views for each rooms in project with margin = 100mm", 
-      "intent": "open_sheetgen", 
-      "hits": 1, 
-      "last_message": "Opening Create Plan Views..."
-    }, 
-    "100mm create each for margin rooms views with": {
-      "last_message": "Opening View Manager...", 
-      "hits": 1, 
-      "params": {
-        "view_type": "3D", 
-        "category": "Rooms", 
-        "margin": 100
-      }, 
-      "last_raw": "create 3d views for each rooms with margin 100mm", 
-      "intent": "open_manaviews"
     }
   }
 }
