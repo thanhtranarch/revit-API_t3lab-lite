@@ -622,8 +622,16 @@ def build_context_file(folder, out_subdir=DEFAULT_OUT_SUBDIR,
         changed = True
         n += 1
 
-    if not changed and len(fresh) != len(prev):
-        changed = True          # a file was added or removed
+    if not changed:
+        # A file added/removed changes the count; a file that FLIPPED
+        # readable<->unreadable at constant count does not, yet it changes what
+        # the cross-document overview should say (a doc left or entered the
+        # readable corpus). Compare the readable set, not just the total, so a
+        # flip still forces a rebuild instead of serving a stale summary.
+        prev_unreadable  = set(r for r, v in prev.items() if v.get('unreadable'))
+        fresh_unreadable = set(r for r, v in fresh.items() if v.get('unreadable'))
+        if len(fresh) != len(prev) or prev_unreadable != fresh_unreadable:
+            changed = True
 
     # consolidated cross-document view — the actual "project standard" answer.
     # Reused verbatim when nothing was re-read: its only inputs are the

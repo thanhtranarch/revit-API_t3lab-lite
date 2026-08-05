@@ -508,6 +508,21 @@ class SkillsEngine(object):
             if not meta.get('triggers_derived'):
                 score += 3.0
             score += _SOURCE_WEIGHT.get(meta.get('source'), 0.0)
+            # 👍/👎 nudge: the votes are collected per skill (feedback.py) but
+            # nothing read them back until here. Smooth and bounded to ±3 — it
+            # re-orders ties and near-ties (a repeatedly down-voted playbook
+            # sinks below an equally-triggered neutral one; an up-voted one
+            # edges ahead) but can never override a strong phrase match at
+            # 10 pts/word. With no votes net is 0 → +0.0, so the order is
+            # byte-identical to before feedback existed.
+            try:
+                from Intelligence import feedback
+                up, down = feedback.skill_score(sid)
+                net = up - down
+                if net:
+                    score += 3.0 * (float(net) / (abs(net) + 3.0))
+            except Exception:
+                pass
             scored.append((sid, score))
 
         scored.sort(key=lambda pair: (-pair[1], pair[0]))

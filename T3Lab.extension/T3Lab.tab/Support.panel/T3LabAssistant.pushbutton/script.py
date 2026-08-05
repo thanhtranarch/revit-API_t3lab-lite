@@ -3089,6 +3089,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             self._replied    = False
             self._tool_runs  = 0
             self._begin_turn_timer()
+            # Tell the app-level self-study loop the assistant is active, so it
+            # backs off while the user is working (see Intelligence/learning).
+            try:
+                from Intelligence.learning import activity as _study_activity
+                _study_activity.note_active()
+            except Exception:
+                pass
         else:
             self._stop_stop_watchdog()
             self._end_turn_timer()
@@ -4731,9 +4738,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     msg = assistant_memory.format_memory_report(pid, viet)
                     icon, color = _ICON_LIST, _ICON_SLATE
                 elif sub.startswith((u'forget', u'xoa', u'xóa')):
-                    mn = re.search(r'(\d+)', sub)
-                    ok, removed = (assistant_memory.remove_fact(
-                        int(mn.group(1)), pid) if mn else (False, None))
+                    # A bare number removes fact #N (list order); anything else
+                    # is treated as the fact's text and matched by content.
+                    arg = re.sub(u'^(?:forget|xóa|xoa)\\s*', u'', sub).strip()
+                    if re.match(r'^\d+$', arg):
+                        ok, removed = assistant_memory.remove_fact(
+                            int(arg), pid)
+                    elif arg:
+                        ok, removed = assistant_memory.forget_fact(arg, pid)
+                    else:
+                        ok, removed = False, None
                     if ok:
                         msg = (u'Đã xóa ghi nhớ: "{}"'.format(removed) if viet
                                else u'Forgot: "{}"'.format(removed))
@@ -4749,10 +4763,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                            else u'Cleared all {} remembered facts.'.format(n))
                     icon, color = _ICON_REFRESH, _ICON_SLATE
                 else:
-                    msg = (u'Lệnh memory: `/memory` · `/memory forget <số>` · '
-                           u'`/memory clear`' if viet else
-                           u'Memory commands: `/memory` · `/memory forget '
-                           u'<number>` · `/memory clear`')
+                    msg = (u'Lệnh memory: `/memory` · '
+                           u'`/memory forget <số|nội dung>` · `/memory clear`'
+                           if viet else
+                           u'Memory commands: `/memory` · '
+                           u'`/memory forget <number|text>` · `/memory clear`')
                     icon, color = _ICON_INFO, _ICON_SLATE
 
             # ── "what do you remember?" ───────────────────────────────────
@@ -4807,6 +4822,79 @@ class T3LabAssistantWindow(forms.WPFWindow):
             return True
         except Exception as ex:
             logger.debug('_try_memory_command error: {}'.format(ex))
+            return False
+
+    # ─── Self-study: /train command ───────────────────────────────────────────
+
+    def _try_train_command(self, raw):
+        """Deterministic `/train` handling. WORKER THREAD.
+
+        `/train`      → show the self-study dataset stats + readiness.
+        `/train now`  → launch the external LoRA fine-tune (detached process).
+        Weight training runs OUTSIDE Revit (CPython+GPU, tools/train/), so this
+        only reports status and kicks off that job. Returns True when handled.
+        """
+        try:
+            text = (raw or u'').strip()
+            low = text.lower()
+            m = re.match(r'^/train(?:\s+(.*))?$', low, re.S)
+            if not m:
+                return False
+            sub = (m.group(1) or u'').strip()
+            viet = _is_viet_text(text)
+
+            from Intelligence.learning import trainer as _trainer
+            st = _trainer.dataset_stats()
+            count = st.get('count', 0)
+            last = _trainer.last_train()
+
+            icon, color = _ICON_INFO, _ICON_SLATE
+            if sub in (u'now', u'chay', u'chạy', u'start'):
+                ok, note = _trainer.launch()
+                if ok:
+                    msg = (u'Đã khởi động huấn luyện nền ({} mẫu). Quá trình '
+                           u'chạy ngoài Revit và có thể mất hàng giờ; xem '
+                           u'`tools/train/README.md`.'.format(count) if viet else
+                           u'Started background training on {} examples. It runs '
+                           u'outside Revit and can take hours; see '
+                           u'`tools/train/README.md`.'.format(count))
+                    icon, color = _ICON_SYNC, _ICON_SLATE
+                else:
+                    msg = (u'Không khởi động được: {}'.format(note) if viet
+                           else u'Could not launch training: {}'.format(note))
+                    icon, color = _ICON_WARNING, _ICON_AMBER
+            else:
+                by_src = u', '.join(u'{}: {}'.format(k, v)
+                                    for k, v in sorted(
+                                        (st.get('by_source') or {}).items()))
+                last_line = (u'Lần cuối: {} ({} mẫu)'.format(
+                    last.get('trained_at'), last.get('examples'))
+                    if last else (u'Chưa huấn luyện lần nào' if viet
+                                  else u'Never trained yet'))
+                if viet:
+                    msg = (u'**Tự học — dữ liệu huấn luyện**\n\n'
+                           u'- Tổng số mẫu: **{}**\n- Nguồn: {}\n- {}\n\n'
+                           u'Gõ `/train now` để chạy fine-tune nền (cần GPU, '
+                           u'chạy ngoài Revit).'.format(
+                               count, by_src or u'(trống)', last_line))
+                else:
+                    msg = (u'**Self-study — training data**\n\n'
+                           u'- Total examples: **{}**\n- Sources: {}\n- {}\n\n'
+                           u'Type `/train now` to run a background fine-tune '
+                           u'(needs a GPU, runs outside Revit).'.format(
+                               count, by_src or u'(empty)', last_line))
+
+            self._log_activity(u'Train: {}'.format(text))
+
+            def _show(_m=msg, _i=icon, _c=color):
+                self._hide_typing_indicator()
+                self._append_bot_message(_m, icon=_i, icon_color=_c)
+                self._add_to_history('assistant', _m)
+                self._set_busy(False)
+            self.Dispatcher.Invoke(Action(_show))
+            return True
+        except Exception as ex:
+            logger.debug('_try_train_command error: {}'.format(ex))
             return False
 
     def _try_skills_command(self, raw):
@@ -5601,6 +5689,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # answered instantly here — before learned patterns or NLU can
             # hijack the wording.
             if not attached and raw and self._try_memory_command(raw):
+                return
+
+            # ── Self-study /train (deterministic, no LLM) ──────────────────
+            # Shows the curated training-data stats, or launches the external
+            # fine-tune. Answered here so it never reaches the model.
+            if not attached and raw and self._try_train_command(raw):
                 return
 
             # ── "Which model are you using?" (deterministic, no LLM) ───────
@@ -7211,6 +7305,255 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _runner, dispatcher=AgentDispatcher(), skills_engine=skills_engine,
             provider=provider, max_parallel=1, on_step=_on_step)
 
+    # ─── Parallel task cards ──────────────────────────────────────────────────
+
+    def _parallel_tasks_enabled(self):
+        """Opt-in kill switch for concurrent task cards (agents.parallel_tasks).
+
+        Default OFF: a new concurrency path that can only be exercised end to
+        end inside Revit ships disabled until the user turns it on. Also needs
+        the graph layer it plugs into.
+        """
+        if not self._graph_enabled():
+            return False
+        try:
+            from config.settings import get_settings
+            return bool(get_settings().get_agent_option("parallel_tasks", False))
+        except Exception:
+            return False
+
+    def _run_agent_text(self, provider, base_history, node, cancel_check=None):
+        """Run ONE read goal to completion with NO streaming; return its text.
+
+        The parallel counterpart of _build_orchestrator's per-node runner: it
+        never touches the shared streaming bubble or self._last_agent_text
+        (which concurrent tasks would clobber), returning the answer as a value
+        instead. Read-only by construction — the parallel path is gated on a
+        writer-free plan — so it needs neither the action-group wrapper nor the
+        destructive-confirm card, and it withholds the launcher and memory tools
+        (a background task must not open a window or race a fact write).
+        Runs on a task worker thread. Never raises.
+        """
+        try:
+            from Intelligence.agent_loop import AgentLoop, build_agent_system_prompt
+            from Intelligence import tool_schema
+            from core.server import get_t3labai_server
+            srv = get_t3labai_server()
+        except Exception as ex:
+            logger.debug(u"parallel node setup failed: {}".format(_exc_text(ex)))
+            return None
+
+        spec = get_spec(node.specialist) if (node.specialist
+                                             and HAS_SPECIALISTS) else None
+        _is_local = provider.NAME in ("ollama", "lmstudio")
+
+        # Read tools only — no launcher (terminal, opens a window) and no
+        # memory pseudo-tool. Both would be wrong for a background sub-goal.
+        _spec_tools = spec.tools_for(_is_local) if spec is not None else None
+        if _spec_tools:
+            tools = tool_schema.get_tools_by_names(provider.NAME, _spec_tools, [])
+        else:
+            tools = tool_schema.get_tools_for_provider(
+                provider.NAME, [], essential_only=_is_local)
+        if not tools:
+            return None
+
+        _lang = _reply_language()
+        if _lang == 'auto':
+            _lang = 'vi' if _is_viet_text(node.goal) else 'en'
+        _proj_instructions, _mem_block = self._project_prompt_blocks()
+        if spec is not None and HAS_SPECIALISTS:
+            system_prompt = build_specialist_prompt(
+                spec, project_instructions=_proj_instructions,
+                skills_block=u"", local=_is_local, lang=_lang)
+        else:
+            system_prompt = build_agent_system_prompt(local=_is_local, lang=_lang)
+            if _proj_instructions:
+                system_prompt += u"\n\n## Project instructions\n" + _proj_instructions
+        if _mem_block:
+            system_prompt += u"\n\n" + _mem_block
+
+        def _exec(name, args):
+            # srv._execute_tool marshals anything main-thread-bound onto Revit's
+            # thread via ExternalEvent — that queue is the real serializer, so
+            # several read tasks contend there and nowhere else.
+            return srv._execute_tool(name, dict(args or {}))
+
+        # Bridge BOTH cancel signals into the loop's cooperative guard: the
+        # window-wide cancel and this individual task's Cancel button.
+        def _guard():
+            try:
+                if self._cancelled():
+                    return True
+                return bool(cancel_check and cancel_check())
+            except Exception:
+                return False
+
+        loop = AgentLoop(provider, _exec, tools,
+                         callbacks={"guard_check": _guard}, max_tokens=1500)
+        try:
+            res = loop.run(list(base_history), system_prompt, node.goal)
+        except Exception as ex:
+            logger.debug(u"parallel node run failed: {}".format(_exc_text(ex)))
+            return None
+        return ((res or {}).get("text") or u"").strip() or None
+
+    def _run_parallel_tasks(self, plan, provider, history, viet):
+        """Run an all-read multi-goal plan concurrently as task cards.
+
+        Each goal becomes an AgentTask; its full answer is posted to the
+        transcript ATOMICALLY when the task finishes (never streamed), which is
+        what lets several run at once without their text interleaving. WORKER
+        THREAD (marshals every UI touch through _ui_invoke).
+        """
+        from Intelligence.agents.task_manager import get_task_manager, DONE
+        nodes = plan.agent_nodes()
+        total = len(nodes)
+        mgr = get_task_manager()
+        base_history = list(history)
+
+        state = {"cards": {}, "tasks": {}, "done": 0}
+
+        # Build the card panel FIRST (all rows 'running') so a task that finishes
+        # fast still finds its card. _ui_invoke is synchronous, so this returns
+        # before any task is submitted.
+        def _panel():
+            self._hide_typing_indicator()
+            state["cards"] = self._append_task_cards(nodes, state, mgr, viet)
+        self._ui_invoke(_panel)
+
+        def _on_done(task, _node):
+            def _ui():
+                self._update_task_card(state["cards"].get(_node.id), task, viet)
+                if task.status == DONE and task.result:
+                    self._append_bot_message(u"**{}**\n\n{}".format(
+                        _node.goal, task.result))
+                    self._add_to_history("assistant", task.result)
+                state["done"] += 1
+                if state["done"] >= total:
+                    done_ok = sum(1 for t in state["tasks"].values()
+                                  if t.status == DONE)
+                    summary = (u"✔ Xong {}/{} tác vụ song song.".format(
+                        done_ok, total) if viet else
+                        u"✔ Finished {}/{} parallel tasks.".format(
+                            done_ok, total))
+                    self._append_bot_message(summary, icon=_ICON_SYNC,
+                                             icon_color=_ICON_SLATE)
+                    self._set_busy(False)
+            self._ui_invoke(_ui)
+
+        for node in nodes:
+            def _fn(task, _n=node):
+                return self._run_agent_text(provider, base_history, _n,
+                                            cancel_check=task.is_cancelled)
+
+            def _done(task, _n=node):
+                _on_done(task, _n)
+            t = mgr.submit(node.goal, _fn, writer=False, on_done=_done)
+            state["tasks"][node.id] = t
+
+    def _append_task_cards(self, nodes, state, mgr, viet):
+        """Build the running/done/failed task-card panel. UI thread only.
+
+        Returns {node_id: handle} for _update_task_card. Each card carries a
+        Cancel button wired to mgr.cancel(task.id).
+        """
+        cards = {}
+        try:
+            from System.Windows.Controls import (Border, TextBlock, StackPanel,
+                                                  Orientation, Button)
+            from System.Windows import Thickness, CornerRadius, TextWrapping
+            from System.Windows.Media import FontFamily
+
+            outer = Border()
+            _bind_bg(outer, 'SelectedBg')
+            _bind_border(outer, 'CardBorder')
+            outer.BorderThickness = Thickness(1)
+            outer.CornerRadius    = CornerRadius(8)
+            outer.Padding         = Thickness(12, 8, 12, 8)
+            outer.Margin          = Thickness(0, 0, 8, 10)
+            col = StackPanel()
+
+            head = TextBlock()
+            head.Text       = (u"Chạy {} tác vụ song song".format(len(nodes))
+                               if viet else
+                               u"Running {} tasks in parallel".format(len(nodes)))
+            head.FontSize   = 12
+            head.FontWeight = System.Windows.FontWeights.SemiBold
+            _bind_fg(head, 'Ink')
+            head.Margin     = Thickness(0, 0, 0, 6)
+            col.Children.Add(head)
+
+            for node in nodes:
+                row = StackPanel()
+                row.Orientation = Orientation.Horizontal
+                row.Margin      = Thickness(0, 2, 0, 2)
+
+                status = TextBlock()
+                status.Text       = u""   # MDL2 Sync — running
+                status.FontFamily = FontFamily(u"Segoe MDL2 Assets")
+                status.FontSize   = 12
+                _bind_fg(status, 'Blue')
+                status.Margin     = Thickness(0, 1, 8, 0)
+
+                goal = TextBlock()
+                goal.Text         = node.goal
+                goal.FontSize     = 12
+                _bind_fg(goal, 'Ink')
+                goal.TextWrapping = TextWrapping.Wrap
+                goal.MaxWidth     = 320
+
+                cancel = Button()
+                cancel.Content   = (u"Hủy" if viet else u"Cancel")
+                cancel.FontSize  = 10
+                cancel.Margin    = Thickness(8, 0, 0, 0)
+                cancel.Padding   = Thickness(6, 1, 6, 1)
+                cancel.Cursor    = Cursors.Hand
+
+                def _cancel_click(sender, args, _nid=node.id):
+                    t = state["tasks"].get(_nid)
+                    if t is not None:
+                        mgr.cancel(t.id)
+                cancel.Click += _cancel_click
+
+                row.Children.Add(status)
+                row.Children.Add(goal)
+                row.Children.Add(cancel)
+                col.Children.Add(row)
+                cards[node.id] = {"status": status, "cancel": cancel}
+
+            outer.Child = col
+            self.chat_history_panel.Children.Add(outer)
+            self._scroll_to_bottom()
+        except Exception as ex:
+            logger.debug(u"_append_task_cards error: {}".format(_exc_text(ex)))
+        return cards
+
+    def _update_task_card(self, handle, task, viet):
+        """Flip a task row to its terminal state. UI thread only."""
+        if not handle:
+            return
+        try:
+            from Intelligence.agents.task_manager import DONE, FAILED, CANCELLED
+            status = handle["status"]
+            if task.status == DONE:
+                status.Text = u""   # MDL2 CheckMark
+                _bind_fg(status, 'Success')
+            elif task.status == CANCELLED:
+                status.Text = u""   # MDL2 Cancel
+                _bind_fg(status, 'Muted')
+            else:  # FAILED or anything non-terminal-looking
+                status.Text = u""   # MDL2 Cancel
+                _bind_fg(status, 'Danger')
+            # A finished task can no longer be cancelled.
+            try:
+                handle["cancel"].IsEnabled = False
+                handle["cancel"].Visibility = Visibility.Collapsed
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug(u"_update_task_card error: {}".format(_exc_text(ex)))
+
     def _run_graph_plan(self, raw, history, utterance=None):
         """Plan and run a MULTI-GOAL turn as a graph. WORKER THREAD.
 
@@ -7246,6 +7589,21 @@ class T3LabAssistantWindow(forms.WPFWindow):
         if plan is None or not plan.is_multi:
             return False
         logger.debug("graph plan:\n{}".format(plan.describe()))
+
+        # Parallel task cards: an all-READ multi-goal plan can run its goals at
+        # once as cancellable cards instead of one-at-a-time. Gated hard (opt-in
+        # switch + writer-free) — see task_manager.eligible_for_parallel. Any
+        # writer present, or the switch off, falls straight through to the
+        # sequential orchestrator below, exactly as before.
+        try:
+            from Intelligence.agents.task_manager import eligible_for_parallel
+            if eligible_for_parallel(plan.is_multi, len(plan.agent_nodes()),
+                                     plan.has_writer(),
+                                     self._parallel_tasks_enabled()):
+                self._run_parallel_tasks(plan, provider, history, viet)
+                return True
+        except Exception as ex:
+            logger.debug(u"parallel tasks skipped: {}".format(_exc_text(ex)))
 
         # Past this point the plan owns the turn: its nodes stream into the
         # transcript, so falling through afterwards would answer twice.
@@ -7587,10 +7945,31 @@ class T3LabAssistantWindow(forms.WPFWindow):
                         _pid = ProjectStore().get_active_project_id()
                     except Exception:
                         pass
+                    _action = (args.get('action') or 'save').lower()
+                    _fact = args.get('fact')
+                    _scope = args.get('scope') or 'project'
+                    _replaces = args.get('replaces')
+                    if _action == 'forget':
+                        # `replaces` names the fact to drop; fall back to `fact`
+                        # if the model put the gist there instead.
+                        _ok, _removed = assistant_memory.forget_fact(
+                            _replaces or _fact, project_id=_pid)
+                        if _ok:
+                            return {"success": True,
+                                    "note": u"Forgot: {}".format(_removed)}
+                        return {"error": u"No matching fact to forget."}
+                    if _action == 'update':
+                        # Supersede the prior fact named by `replaces` with the
+                        # new `fact`; update_fact falls back to a save if the old
+                        # one isn't found, so the correction still lands.
+                        _ok, _note = assistant_memory.update_fact(
+                            _replaces or _fact, _fact,
+                            scope=_scope, project_id=_pid)
+                        if _ok:
+                            return {"success": True, "note": _note}
+                        return {"error": _note}
                     _ok, _note = assistant_memory.add_fact(
-                        args.get('fact'),
-                        scope=args.get('scope') or 'project',
-                        project_id=_pid)
+                        _fact, scope=_scope, project_id=_pid)
                     if _ok:
                         return {"success": True, "note": _note}
                     return {"error": _note}

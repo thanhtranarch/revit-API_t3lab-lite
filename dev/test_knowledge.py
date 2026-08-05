@@ -787,6 +787,51 @@ def test_context_digest_incremental():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_context_digest_readability_flip():
+    """A doc that flips readable->unreadable at constant count must rebuild the
+    cross-document overview. The unreadable re-read branch never sets `changed`
+    and the file count is unchanged, so before the readable-set gate the stale
+    overview (still built from the doc's old summary) was served verbatim."""
+    print('[context_digest: readability flip rebuilds overview]')
+    import tempfile, shutil
+    from Intelligence.knowledge import context_digest as cd
+    from Intelligence.knowledge import pdf_cache as pcache
+
+    calls = {'overview': 0}
+
+    def chat(system, user, max_tokens=700):
+        if system == cd._SUMMARY_SYSTEM:
+            calls['overview'] += 1
+            return 'OVERVIEW TEXT'
+        return '- rule from ' + ('A' if 'alpha' in user else 'B')
+
+    tmp = tempfile.mkdtemp()
+    try:
+        pcache.clear()
+        a = os.path.join(tmp, 'a.md')
+        b = os.path.join(tmp, 'b.md')
+        with open(a, 'wb') as f:
+            f.write(b'alpha naming code WH-ARC-01')
+        with open(b, 'wb') as f:
+            f.write(b'beta folder structure rule')
+
+        r1 = cd.build_context_file(tmp, chat_fn=chat)
+        check('both readable on first pass', r1['skipped'] == 0, r1['skipped'])
+
+        # A becomes unreadable (whitespace only). Its fp changes so it IS
+        # re-read, but the count stays 2 and the unreadable branch sets no
+        # `changed` flag — the exact case the count-only gate missed.
+        calls['overview'] = 0
+        with open(a, 'wb') as f:
+            f.write(b'   ')
+        r2 = cd.build_context_file(tmp, chat_fn=chat)
+        check('A now unreadable', r2['skipped'] == 1, r2['skipped'])
+        check('overview REBUILT after the flip (not served stale)',
+              calls['overview'] == 1, calls['overview'])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ─── dispatcher (keyword stage) ───────────────────────────────────────────────
 
 def test_dispatcher():
@@ -1449,6 +1494,7 @@ def main():
     test_pdf_cache()
     test_context_digest()
     test_context_digest_incremental()
+    test_context_digest_readability_flip()
     test_dispatcher()
     test_specialists()
     test_skills()

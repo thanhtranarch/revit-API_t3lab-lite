@@ -579,6 +579,160 @@ def test_single_edit_surface():
           'set_schedule_enabled' in dlg and 'remove_schedule' in dlg)
 
 
+# ─── providers: streaming resilience on a mid-stream drop ─────────────────────
+# Before this fix, when the SSE stream dropped after some text had already
+# streamed into the live bubble, chat_stream() threw the partial away and
+# re-ran the full non-streaming chat() — the user watched their answer get
+# REPLACED by a different one, at double the tokens. Now the partial is kept
+# and finished with ONE prefill-continuation call.
+
+def test_claude_stream_drop_continues_partial():
+    print('[claude: stream drop continues, no re-generate]')
+    a = _reset_appdata()
+    a.set_api_key('Claude', 'sk-ant-test')
+    import Intelligence.claude_provider as CP
+
+    orig_s, orig_p = CP.http_post_stream, CP.http_post
+
+    def drop_after_two(url, payload, headers, on_line):
+        on_line('data: {"type":"content_block_delta","delta":'
+                '{"type":"text_delta","text":"Hello "}}')
+        on_line('data: {"type":"content_block_delta","delta":'
+                '{"type":"text_delta","text":"wor"}}')
+        raise IOError('connection reset')
+
+    calls = {'n': 0, 'last': None}
+
+    def fake_post(url, payload, headers, timeout_ms=None, **kw):
+        calls['n'] += 1
+        calls['last'] = payload['messages'][-1]
+        return json.dumps({'content': [{'text': 'ld, done.'}]})
+
+    CP.http_post_stream = drop_after_two
+    CP.http_post = fake_post
+    try:
+        p = CP.ClaudeProvider()
+        p.set_model('claude-3-5-test')
+        deltas = []
+        res = p.chat_stream([], 'sys', 'hi',
+                            on_delta=lambda d: deltas.append(d), max_tokens=80)
+        check('kept the streamed partial', res == 'Hello world, done.', repr(res))
+        check('no from-scratch regenerate (single blocking call)',
+              calls['n'] == 1, calls['n'])
+        check('the one call PREFILLED the partial (continued, not restarted)',
+              calls['last'] == {'role': 'assistant', 'content': 'Hello wor'},
+              calls['last'])
+        check('continuation was streamed into the bubble too',
+              deltas[-1] == 'ld, done.', deltas)
+    finally:
+        CP.http_post_stream, CP.http_post = orig_s, orig_p
+
+
+def test_claude_stream_drop_with_nothing_streamed_falls_back():
+    print('[claude: empty-partial drop keeps the chat() safety net]')
+    a = _reset_appdata()
+    a.set_api_key('Claude', 'sk-ant-test')
+    import Intelligence.claude_provider as CP
+
+    orig_s, orig_p = CP.http_post_stream, CP.http_post
+
+    def drop_immediately(url, payload, headers, on_line):
+        raise IOError('dead before first byte')
+
+    seen = {'last_role': None}
+
+    def fake_post(url, payload, headers, timeout_ms=None, **kw):
+        seen['last_role'] = payload['messages'][-1]['role']
+        return json.dumps({'content': [{'text': 'fresh full answer'}]})
+
+    CP.http_post_stream = drop_immediately
+    CP.http_post = fake_post
+    try:
+        p = CP.ClaudeProvider()
+        p.set_model('claude-3-5-test')
+        res = p.chat_stream([], 'sys', 'hi', on_delta=lambda d: None,
+                            max_tokens=80)
+        check('fell back to a fresh chat()', res == 'fresh full answer', repr(res))
+        check('fresh call ends on the USER turn (not a prefill)',
+              seen['last_role'] == 'user', seen['last_role'])
+    finally:
+        CP.http_post_stream, CP.http_post = orig_s, orig_p
+
+
+def test_skill_ranking_uses_feedback():
+    print('[skills: thumbs re-order match_scored, zero votes unchanged]')
+    _reset_appdata()
+    import Intelligence.skills_engine as SE
+    import Intelligence.feedback as FB
+
+    # Two skills that trigger on the SAME single word → identical trigger score,
+    # so the ONLY separator is the alphabet (tie-break) or feedback. 'aaa' wins
+    # the tie by id when there are no votes.
+    eng = SE.SkillsEngine()
+    eng._skills = {
+        'aaa-skill': {'triggers': ['warning'], 'source': 'builtin',
+                      'triggers_derived': False},
+        'zzz-skill': {'triggers': ['warning'], 'source': 'builtin',
+                      'triggers_derived': False},
+    }
+    eng._scanned = True
+    eng._disabled = lambda: set()
+
+    orig = FB.skill_score
+    try:
+        FB.skill_score = lambda sid: (0, 0)
+        order = [sid for sid, _ in eng.match_scored('check the warning')]
+        check('zero votes: alphabetical tie-break holds',
+              order == ['aaa-skill', 'zzz-skill'], order)
+
+        # Down-vote the alphabetical winner, up-vote the other → order flips.
+        FB.skill_score = lambda sid: {'aaa-skill': (0, 4),
+                                      'zzz-skill': (4, 0)}.get(sid, (0, 0))
+        order2 = [sid for sid, _ in eng.match_scored('check the warning')]
+        check('down-voted skill sinks below the up-voted one',
+              order2 == ['zzz-skill', 'aaa-skill'], order2)
+    finally:
+        FB.skill_score = orig
+
+
+def test_openai_stream_drop_continues_partial():
+    print('[openai: stream drop continues, no re-generate]')
+    a = _reset_appdata()
+    a.set_api_key('OpenAI', 'sk-test')
+    import Intelligence.openai_provider as OP
+
+    orig_s, orig_p = OP.http_post_stream, OP.http_post
+
+    def drop_after_two(url, payload, headers, on_line):
+        on_line('data: {"choices":[{"delta":{"content":"Foo "}}]}')
+        on_line('data: {"choices":[{"delta":{"content":"ba"}}]}')
+        raise IOError('reset')
+
+    calls = {'n': 0, 'last': None}
+
+    def fake_post(url, payload, headers, timeout_ms=None, **kw):
+        calls['n'] += 1
+        calls['last'] = payload['messages'][-1]
+        return json.dumps({'choices': [{'message': {'content': 'r done.'}}]})
+
+    OP.http_post_stream = drop_after_two
+    OP.http_post = fake_post
+    try:
+        p = OP.OpenAIProvider()
+        p.set_model('gpt-4o-test')
+        deltas = []
+        res = p.chat_stream([], 'sys', 'hi',
+                            on_delta=lambda d: deltas.append(d), max_tokens=80)
+        check('kept the streamed partial', res == 'Foo bar done.', repr(res))
+        check('no from-scratch regenerate (single blocking call)',
+              calls['n'] == 1, calls['n'])
+        check('the one call PREFILLED the partial',
+              calls['last'] == {'role': 'assistant', 'content': 'Foo ba'},
+              calls['last'])
+    finally:
+        OP.http_post_stream, OP.http_post = orig_s, orig_p
+
+
 def main():
     test_settings_merge_on_write()
     test_settings_corrupt_quarantine()
@@ -594,6 +748,10 @@ def main():
     test_wants_json_contract()
     test_ollama_json_is_opt_in()
     test_json_callers_opt_in()
+    test_claude_stream_drop_continues_partial()
+    test_claude_stream_drop_with_nothing_streamed_falls_back()
+    test_skill_ranking_uses_feedback()
+    test_openai_stream_drop_continues_partial()
     test_project_meta_cache()
     test_project_schedule_api()
     test_project_document_counts()
