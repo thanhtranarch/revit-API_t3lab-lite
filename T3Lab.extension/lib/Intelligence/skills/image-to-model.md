@@ -1,8 +1,8 @@
 ---
 name: image-to-model
 description: Phân tích ảnh/bản vẽ công trình rồi dựng model Revit theo quy trình levels → grids → walls → floors → openings
-triggers: dung model, dung cong trinh, dung nha, dung lai, build model, build from image, image to model, pdf to model, model tu anh, model tu ban ve, phan tich anh, phan tich ban ve, tao model, dung toa nha, cong trinh nha, phong ngu, can ho, phong khach
-agents: revit_action, modeling, general
+triggers: dung model, dung cong trinh, dung nha, dung lai model, dung lai nha, build model, build from image, image to model, pdf to model, model tu anh, model tu ban ve, phan tich anh, phan tich ban ve, tao model, dung toa nha
+agents: modeling, revit_action, general
 tools: list_levels, create_level, create_grid, place_wall, create_line_based_element, create_point_based_element, create_surface_based_element, create_room, get_available_family_types, analyze_model_statistics, select_elements
 ---
 # Dựng model từ ảnh / bản vẽ (T3Lab)

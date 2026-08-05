@@ -995,6 +995,35 @@ def _tool_catalog():
     return catalog
 
 
+# Words that name MUTUALLY EXCLUSIVE things. The fuzzy score below rewards
+# overlap and is blind to conflict: for "create 3d view" vs the tool "Create
+# Plan Views" the shared {create, view} scored 0.67 and "Create Plan Views"
+# came back as the one and only suggestion — 3d and plan cancelled out as
+# merely "unmatched" instead of "these are different drawings". A user asking
+# for a 3D view should be told no tool matches, not handed the plan tool.
+#
+# One group per axis; two words from the SAME group on opposite sides is a
+# contradiction. Words absent from every group are unaffected, so this only
+# ever removes candidates that were already wrong.
+_CONTRADICTION_GROUPS = [
+    frozenset(['3d', 'plan', 'section', 'elevation', 'schedule', 'legend',
+               'sheet']),
+    frozenset(['wall', 'floor', 'ceiling', 'roof', 'column', 'beam', 'room',
+               'door', 'window']),
+    frozenset(['pdf', 'dwg', 'ifc', 'nwc', 'image']),
+]
+
+
+def _contradicts(qset, tool_words):
+    """True when query and tool name DIFFERENT members of one group."""
+    for group in _CONTRADICTION_GROUPS:
+        q = qset & group
+        t = tool_words & group
+        if q and t and not (q & t):
+            return True
+    return False
+
+
 def resolve_tool(user_input, exact_only=False):
     """Deterministically resolve a tool-open request against the full catalog.
 
@@ -1030,6 +1059,8 @@ def resolve_tool(user_input, exact_only=False):
                  or (len(tokens_all) == 1 and tokens_all[0] in tool['joined']))
         if exact:
             scored.append((1.0, True, tool))
+            continue
+        if _contradicts(qset, tool['words']):
             continue
         inter = qset & tool['words']
         if inter:
@@ -1087,6 +1118,17 @@ _CAP_RES = [
     re.compile(r'\bho tro gi\b'),
     re.compile(r'\bbiet lam gi\b'),
     re.compile(r'\bgiup duoc gi\b'),
+    # Asking for the LIST rather than asking whether one exists. These reach
+    # the same answer — the curated, registry-validated catalog — and missing
+    # them is the expensive failure: the question still gets answered, just by
+    # the LLM from memory, which is exactly how a truncated tool list becomes
+    # a confident claim of full coverage.
+    re.compile(r'\b(?:liet ke|danh sach|list)\s+(?:cac\s+|nhung\s+|the\s+)?'
+               r'(?:tool|cong cu|lenh|chuc nang|tinh nang)\b'),
+    re.compile(r'\b(?:chuc nang|tinh nang)\s+(?:cua|of)\s+'
+               r'(?:assistant|t3lab|extension|ban|you)\b'),
+    re.compile(r'\bgioi thieu\s+(?:cac\s+|nhung\s+)?(?:tool|chuc nang|tinh nang)\b'),
+    re.compile(r'\b(?:extension|t3lab|assistant)\s+(?:nay\s+)?co\s+gi\b'),
     # Productive forms the fixed _ABBREVS phrases can't cover ("what ELSE can
     # you do"). Deliberately anchored on the ability verb: "what can you DO" is
     # a capability question, "what can you tell me about walls" is not, and

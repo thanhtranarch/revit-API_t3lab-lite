@@ -1613,7 +1613,16 @@ class T3LabAIServer(object):
                             'type': 'string',
                             'description': 'Level name — used by floor / ceiling / structural / area plans, and to pick the host plan for an elevation. Defaults to the first level.'
                         },
-                        'name': {'type': 'string', 'description': 'Name for the new view'}
+                        'name': {'type': 'string', 'description': 'Name for the new view'},
+                        'room_ids': {
+                            'type': 'array',
+                            'items': {'type': 'integer'},
+                            'description': 'Room element ids. Creates ONE 3D view per room, each cropped to that room by a section box (view_type must be "3d"; `name` is ignored, views are named "3D - <number> <room name>"). There is deliberately NO "all rooms" default — get the ids from ai_element_filter(category="Rooms") or revit_get_selected_elements first, and confirm the count with the user: one view per room in a large model means dozens of views.'
+                        },
+                        'margin_mm': {
+                            'type': 'number',
+                            'description': 'Clearance added around each room bounding box, in MILLIMETRES (default 0). Only used together with room_ids.'
+                        }
                     },
                     'required': ['view_type']
                 }
@@ -1681,7 +1690,11 @@ class T3LabAIServer(object):
                         'x': {'type': 'number', 'description': 'X position in meters (model coordinates)'},
                         'y': {'type': 'number', 'description': 'Y position in meters'},
                         'font_size': {'type': 'number', 'description': 'Text height in mm (default 3.5)'},
-                        'text_type': {'type': 'string', 'description': 'Text note type name (optional)'}
+                        'text_type': {'type': 'string', 'description': 'Text note type name (optional)'},
+                        # The dispatch has honoured this since it was written,
+                        # but it was never declared — so the only way to reach
+                        # it was to guess. Undeclared = unreachable.
+                        'sheet_number': {'type': 'string', 'description': 'Place the note on this sheet (e.g. "A-101") instead of the active view.'}
                     },
                     'required': ['text', 'x', 'y']
                 }
@@ -2731,8 +2744,57 @@ class T3LabAIServer(object):
     # already used when no ExternalEvent exists at all.
     _READ_FALLBACK_WAIT = 2.0
 
+    # Undeclared arguments a dispatch traps ITSELF, because it can give a
+    # better answer than the generic guard below. get_schedule_data reads an
+    # EXISTING schedule; a model that passes `category` wants a takeoff, and
+    # the branch redirects it to get_material_quantities / create_schedule by
+    # name. Letting the generic "does not accept: category" fire first would
+    # throw that redirect away. dev/test_tool_registry.py exempts exactly
+    # these pairs and no others.
+    _ARGUMENT_REDIRECTS = {
+        'get_schedule_data': frozenset(['category']),
+    }
+
+    def _reject_unknown_arguments(self, tool_name, arguments):
+        """Error dict when `arguments` carries keys the tool cannot honour.
+
+        Every dispatch branch reads its inputs with `arguments.get('x')`, so a
+        key nobody reads is silently dropped and the tool still reports
+        success. A user asked for "3D views of rooms with 100mm margin"; the
+        model called create_view(category='Room', view_type='3D', margin=100);
+        `category` and `margin` fell on the floor, ONE plain isometric of the
+        whole site came back as {'success': True} — and the model, believing
+        it now had a room view, went on to invent a colour-coding step nobody
+        asked for. Answering "I ignored two of your three arguments" with
+        "Done" is the worst failure mode this server has.
+
+        Returns None when the call is clean. Internal pseudo-tools
+        (__begin_action_group, collect_spellcheck_text...) are not in the
+        registry and are left alone.
+        """
+        schema = (self._tools.get(tool_name) or {}).get('inputSchema') or {}
+        declared = set(schema.get('properties') or {})
+        if not declared or not isinstance(arguments, dict):
+            return None
+        declared |= self._ARGUMENT_REDIRECTS.get(tool_name, frozenset())
+        unknown = sorted(k for k in arguments if k not in declared)
+        if not unknown:
+            return None
+        return {
+            'error': "{} does not accept: {}.".format(
+                tool_name, ', '.join(unknown)),
+            'accepted_arguments': sorted(declared),
+            'hint': ('Those arguments were NOT applied. Either drop them and '
+                     'retry, or tell the user this tool cannot do what they '
+                     'asked — do not report the call as done.'),
+            'tool': tool_name,
+        }
+
     def _execute_tool(self, tool_name, arguments):
         """Execute a Revit tool in a thread-safe manner using External Events."""
+        rejected = self._reject_unknown_arguments(tool_name, arguments)
+        if rejected is not None:
+            return rejected
         if self._external_event:
             task = _ToolTask(tool_name, arguments)
             self._event_handler.tasks.put(task)
@@ -6813,16 +6875,71 @@ class T3LabAIServer(object):
                 # silently produced a 3D view for everything else — asking for a
                 # section quietly got you an isometric.
                 from core.advanced_view_manager import (create_single_view,
+                                                        create_room_3d_views,
                                                         canonical_view_type,
                                                         SUPPORTED_VIEW_TYPES)
                 vtype = (arguments.get('view_type') or 'floor_plan').lower()
                 name  = arguments.get('name')
                 level_name = arguments.get('level_name')
+                room_ids = arguments.get('room_ids') or []
 
                 if canonical_view_type(vtype) is None:
                     return {'error': "Unknown view_type '{}'.".format(vtype),
                             'supported_view_types': SUPPORTED_VIEW_TYPES,
                             'hint': 'Retry with one of supported_view_types.'}
+
+                # ── One 3D view per room ─────────────────────────────────
+                if room_ids:
+                    if canonical_view_type(vtype) != '3D View':
+                        return {
+                            'error': ("room_ids only works with "
+                                      "view_type='3d' (a section box needs a "
+                                      "3D view); got '{}'.".format(vtype)),
+                            'hint': ("For per-room PLANS use the Create Room "
+                                     "Plan tool instead."),
+                        }
+                    rooms, missing = [], []
+                    for raw_id in room_ids:
+                        try:
+                            el = doc.GetElement(make_eid(int(raw_id)))
+                        except Exception:
+                            el = None
+                        # Duck-typed on purpose: importing
+                        # DB.Architecture.Room at module scope would drag the
+                        # Architecture assembly into every server import.
+                        if el is None or not hasattr(el, 'get_BoundingBox'):
+                            missing.append(raw_id)
+                        else:
+                            rooms.append(el)
+                    if not rooms:
+                        return {'error': 'None of the given room_ids resolved '
+                                         'to an element in this document.',
+                                'unresolved_ids': missing}
+
+                    t = Transaction(doc, 'T3Lab AI Create Room 3D Views')
+                    t.Start()
+                    try:
+                        created, skipped = create_room_3d_views(
+                            doc, rooms,
+                            margin_mm=arguments.get('margin_mm') or 0.0)
+                        if not created:
+                            t.RollBack()
+                            return {'error': 'No view could be created.',
+                                    'skipped': skipped,
+                                    'unresolved_ids': missing}
+                        t.Commit()
+                    except Exception as e:
+                        t.RollBack()
+                        return {'error': str(e)}
+                    out = {'success': True,
+                           'created_count': len(created),
+                           'requested_count': len(room_ids),
+                           'views': created}
+                    if skipped:
+                        out['skipped'] = skipped
+                    if missing:
+                        out['unresolved_ids'] = missing
+                    return out
 
                 t = Transaction(doc, 'T3Lab AI Create View')
                 t.Start()

@@ -611,6 +611,30 @@ class SkillsEngine(object):
             return False
         return not self.tools_for(skill_id)
 
+    def modifies_model(self, skill_id):
+        """True when the skill's own tool list can change the model or write
+        files.
+
+        "Declares tools" is NOT the same question. `annotation-standard`
+        declares create_dimension/tag_* so that a real "dim mặt bằng này"
+        request has the tools to hand — but the file itself is a CONVENTION
+        document. Read as "executable" by a bare `/annotation-standard`, it
+        sent the model off dimensioning every floor plan in the project with
+        no target and no confirmation.
+
+        A skill that only reads (qa-checklist, lod-standard,
+        shared-coordinates) is safe to run immediately; one that can write
+        has to show its plan first. See _process_input's slash-invocation
+        branch in the Assistant script.
+        """
+        self._ensure_scanned()
+        try:
+            from Intelligence.tool_schema import is_model_modifying
+        except Exception:
+            # No registry knowledge available → assume the risky answer.
+            return bool(self.tools_for(skill_id))
+        return any(is_model_modifying(t) for t in self.tools_for(skill_id))
+
     def set_enabled(self, skill_id, enabled):
         try:
             from config.settings import get_settings

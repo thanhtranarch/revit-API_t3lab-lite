@@ -331,6 +331,66 @@ def test_docless_tools_are_real_tools():
     check('_DOCLESS_TOOLS names only real tools', not unknown, unknown)
 
 
+def test_every_argument_read_is_declared():
+    """A dispatch that reads `arguments.get('x')` while the schema never
+    declares `x` makes a working feature unreachable — the model can only find
+    it by guessing (create_text_note's sheet_number sat like that).
+
+    Since _reject_unknown_arguments() now refuses undeclared keys outright,
+    this drift is no longer merely undiscoverable: it is a dead branch.
+    """
+    redirects = _read(SERVER)
+    start = redirects.find('_ARGUMENT_REDIRECTS = {')
+    block = redirects[start:redirects.find('}', start)] if start != -1 else ''
+    exempt = set(re.findall(r"'([a-z_0-9]+)'", block))
+    undeclared = {}
+    for name, schema in sorted(REGISTRY.items()):
+        props = set((schema.get('inputSchema') or {}).get('properties') or {})
+        props |= exempt if name in exempt else set()
+        src = BRANCHES.get(name, '')
+        read = set(re.findall(
+            r"arguments\.get\(\s*['\"]([a-zA-Z_0-9]+)['\"]", src))
+        read |= set(re.findall(
+            r"arguments\[\s*['\"]([a-zA-Z_0-9]+)['\"]", src))
+        extra = sorted(read - props)
+        if extra:
+            undeclared[name] = extra
+    check('every argument a dispatch reads is declared in its schema',
+          not undeclared, undeclared)
+
+
+def test_unknown_arguments_are_rejected_not_dropped():
+    """Source lock on the guard itself. Without it a tool silently ignores
+    what it cannot do and still answers {'success': True} — which is how
+    "3D views of rooms with 100mm margin" became one isometric of the site."""
+    src = _SERVER_SRC
+    check('the guard exists', 'def _reject_unknown_arguments' in src)
+    check('the guard runs before dispatch',
+          src.find('rejected = self._reject_unknown_arguments') <
+          src.find('if self._external_event:'))
+    check('the guard names what was refused', "'accepted_arguments'" in src)
+
+
+def test_read_only_tools_are_real_tools():
+    names = _frozenset_literal(_read(TOOL_SCHEMA), 'READ_ONLY_TOOL_NAMES')
+    unknown = sorted(n for n in names if n not in REGISTRY)
+    check('READ_ONLY_TOOL_NAMES names only real tools', not unknown, unknown)
+
+
+def test_read_only_tools_open_no_transaction():
+    """A tool that opens a Transaction changes the document, full stop.
+
+    is_model_modifying() is the inverse of this set, and it decides whether a
+    bare "/skill" invocation may act immediately. Misfiling one transactional
+    tool as read-only puts a whole playbook back on the path that made
+    "/annotation-standard" dimension every floor plan in the project.
+    """
+    names = _frozenset_literal(_read(TOOL_SCHEMA), 'READ_ONLY_TOOL_NAMES')
+    liars = sorted(n for n in names
+                   if 'Transaction(doc' in BRANCHES.get(n, ''))
+    check('no READ_ONLY tool opens a Transaction', not liars, liars)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Version safety
 # ─────────────────────────────────────────────────────────────────────────────
@@ -500,6 +560,12 @@ TESTS = [
         test_transactional_tools_are_write_tools,
         test_write_tools_are_real_tools,
         test_docless_tools_are_real_tools,
+        test_read_only_tools_are_real_tools,
+        test_read_only_tools_open_no_transaction,
+    ]),
+    ('argument contract', [
+        test_every_argument_read_is_declared,
+        test_unknown_arguments_are_rejected_not_dropped,
     ]),
     ('version safety', [
         test_bic_map_is_built_defensively,

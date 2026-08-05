@@ -182,6 +182,53 @@ LOCAL_HIDDEN_TOOLS = frozenset([
 ])
 
 
+# Tools that leave NO trace: they neither change the document nor write a
+# file. Everything else in the registry is "consequential" — it edits the
+# model, overrides view graphics, or drops files on disk.
+#
+# This is NOT core.server._WRITE_TOOLS. That set answers a different
+# question ("must this run on Revit's main thread?") and therefore contains
+# read-only-but-heavy tools (check_bad_geometry, say_hello,
+# switch_active_document). Using it as a proxy for "will this change my
+# model?" mislabels both directions.
+#
+# Selection and view/document switching count as side-effect free: they
+# change what the user is LOOKING at, never what the file contains, and both
+# are one click to undo. Exports do NOT — a bare "/export-standard" must not
+# spray PDFs into a folder nobody chose.
+#
+# Consumer: skills_engine.SkillsEngine.modifies_model(), which decides
+# whether a bare "/skill" invocation may act immediately or has to present a
+# plan first. dev/test_tool_registry.py checks every name here is real and
+# that the registry is fully partitioned by it.
+READ_ONLY_TOOL_NAMES = frozenset([
+    # Model / project reads
+    "ai_element_filter", "analyze_model_statistics", "audit_model",
+    "check_bad_geometry", "get_all_parameters", "get_available_family_types",
+    "get_current_view_elements", "get_current_view_info",
+    "get_element_bounding_box", "get_elements_by_level",
+    "get_material_quantities", "get_model_health", "get_model_warnings",
+    "get_parameter", "get_revit_context", "get_schedule_data",
+    "list_levels", "list_open_documents", "list_recent_documents",
+    "list_worksets", "query_stored_data", "revit_get_active_view",
+    "revit_get_element_info", "revit_get_project_info",
+    "revit_get_selected_elements", "revit_list_sheets", "revit_list_views",
+    # Navigation / highlighting — changes the view, never the file
+    "select_elements", "set_active_view", "switch_active_document",
+    # Diagnostics and the assistant's own UI
+    "file_watcher_status", "say_hello", "show_assistant_pane",
+])
+
+
+def is_model_modifying(name):
+    """True when `name` edits the document or writes a file.
+
+    Unknown names are treated as modifying: a tool nobody classified is the
+    one most likely to surprise the user.
+    """
+    return bool(name) and name not in READ_ONLY_TOOL_NAMES
+
+
 # ─── Registry access ───────────────────────────────────────────────────────────
 
 _cache = {}   # keys: "raw", "anthropic[_ess]", "openai[_ess]"

@@ -1184,6 +1184,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._slash_sel       = 0       # highlighted index
         self._forced_skill_id = None    # skill forced via /slash for THIS message
         self._forced_skill_args = u""   # user text after the /slash id (pre-boilerplate)
+        self._tool_group      = None    # collapsed tool-card group for THIS turn
 
         # Provider active before a project override was applied, so leaving the
         # project can put it back (a scoped override must be undoable).
@@ -5038,6 +5039,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             # A new send supersedes any quick-reply chips still on screen.
             self._remove_quick_replies()
+            # ...and starts a fresh compact tool group, so this turn's cards
+            # never fold into the previous turn's summary row.
+            self._reset_tool_group()
 
             # ── Slash-skill invocation: "/skill-id [rest of message]" ─────────
             # The skill id must exist in the registry; anything else is sent
@@ -5068,15 +5072,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             # The old "Apply the '<id>' playbook" wording made
                             # JSON-intent models answer {"intent":
                             # "apply_playbook"} → "Tool does not exist".
-                            # Reference playbooks (no `tools:` in the
-                            # frontmatter — iso19650-naming, bep-guideline)
-                            # get their OWN wording: told to "start scanning
-                            # immediately" they have nothing to scan, and a
-                            # small local model filled the gap by replaying
-                            # the previous turn's tool calls.
-                            _ref = get_skills_engine().is_reference_skill(
-                                m.group(1))
-                            if _ref:
+                            #
+                            # THREE modes, because a bare "/skill" carries no
+                            # target at all:
+                            #  * reference  (no `tools:` — iso19650-naming,
+                            #    bep-guideline): told to "start scanning
+                            #    immediately" they have nothing to scan, and a
+                            #    small local model filled the gap by replaying
+                            #    the previous turn's tool calls.
+                            #  * read-only  (qa-checklist, lod-standard,
+                            #    shared-coordinates): nothing to lose, scan now.
+                            #  * modifying  (17 of 25 skills): plan first.
+                            #    "/annotation-standard" — a CONVENTION document
+                            #    that declares create_dimension/tag_* so a real
+                            #    "dim mặt bằng này" has tools — used to land on
+                            #    the read-only wording's "act NOW, do NOT ask
+                            #    about scope" and the model went dimensioning
+                            #    every floor plan in the project unprompted.
+                            #    Declaring tools says what a skill CAN reach,
+                            #    never that a bare invocation should fire them.
+                            _eng = get_skills_engine()
+                            _sid = m.group(1)
+                            if _eng.is_reference_skill(_sid):
                                 route_text = (
                                     u"Answer from the '{}' reference (the "
                                     u"Active skill in your system prompt) "
@@ -5087,21 +5104,35 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                     u"Revit tool and do NOT repeat or "
                                     u"re-run any earlier request in this "
                                     u"conversation."
-                                ).format(m.group(1))
+                                ).format(_sid)
+                            elif _eng.modifies_model(_sid):
+                                route_text = (
+                                    u"Follow the '{}' workflow (the Active "
+                                    u"skill in your system prompt) for THIS "
+                                    u"message. I gave you NO target, so run "
+                                    u"its READ/diagnostic steps only — over "
+                                    u"the ENTIRE project unless the workflow "
+                                    u"says otherwise — then STOP and present "
+                                    u"the plan: what you would change, on "
+                                    u"which targets, how many, and anything "
+                                    u"you still need me to decide. Do NOT "
+                                    u"create, modify, delete, rename, tag, "
+                                    u"dimension, override or export anything "
+                                    u"in this turn; wait for my confirmation. "
+                                    u"Ignore every earlier request in this "
+                                    u"conversation — do not repeat it."
+                                ).format(_sid)
                             else:
                                 route_text = (
                                     u"Follow the '{}' workflow (the Active "
                                     u"skill in your system prompt) NOW, "
-                                    u"using its DEFAULT scope. Checking/"
-                                    u"audit/statistics workflows default to "
-                                    u"the ENTIRE project — start scanning "
-                                    u"immediately, do NOT ask about scope. "
-                                    u"Workflows that change the model: use "
-                                    u"my selection or active view and "
-                                    u"confirm before any model-wide edit. "
+                                    u"using its DEFAULT scope. This workflow "
+                                    u"only reads the model, so start "
+                                    u"scanning the ENTIRE project "
+                                    u"immediately — do NOT ask about scope. "
                                     u"Ignore every earlier request in this "
                                     u"conversation — do not repeat it."
-                                ).format(m.group(1))
+                                ).format(_sid)
                 except Exception:
                     pass
 
@@ -6936,7 +6967,16 @@ class T3LabAssistantWindow(forms.WPFWindow):
         been handed over) and only a FAILURE gets reported afterwards.
         """
         def _report(ok, err):
+            # SUCCESS used to return silently. The turn then ended on the
+            # "Opening X..." line — a progress message that never resolved, so
+            # the user sat watching an ellipsis with no way to tell whether
+            # the window had opened, was still coming, or had died. Report
+            # both outcomes: an unresolved in-progress line reads as a hang.
             if ok:
+                self._ui_invoke(
+                    lambda: self._append_bot_message(
+                        self._launch_success_text(intent),
+                        icon=_ICON_SUCCESS, icon_color=_ICON_GREEN))
                 return
             self._ui_invoke(
                 lambda: self._append_bot_message(
@@ -6947,6 +6987,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             _report(False, _exc_text(ex))
         self._set_busy(False)
+
+    def _launch_success_text(self, intent):
+        """Terminal confirmation for a launcher that DID open its window."""
+        title = get_tool_title(intent)
+        if _ui_viet():
+            return u"Đã mở **{}**. Cửa sổ tool đang ở trong Revit.".format(title)
+        return u"Opened **{}** — the tool window is now in Revit.".format(title)
 
     def _launch_failure_text(self, intent, err):
         """Honest failure message for a launcher that did not open its tool.
@@ -8094,6 +8141,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
             def _ui():
                 try:
+                    # "Show thinking" off hides the INTERIM narration only —
+                    # the final answer always renders. The text still goes to
+                    # history (the model must see its own turn) and still
+                    # drives the typing indicator, so the user keeps a live
+                    # signal instead of staring at a frozen window.
+                    if not is_final and not self._chat_verbosity()[1]:
+                        if stream["open"]:
+                            stream["open"] = False
+                            self._remove_stream_bubble()
+                            self._clear_stream_refs()
+                        self._show_typing_indicator()
+                        if getattr(self, "_typing_text_block", None) is not None:
+                            _line = u" ".join(text.split())[:80]
+                            self._typing_text_block.Text = u"● ● ●  {}".format(_line)
+                        self._add_to_history("assistant", text)
+                        return
                     if stream["open"]:
                         stream["open"] = False
                         self._finalize_stream_bubble(text)
@@ -8329,6 +8392,109 @@ class T3LabAssistantWindow(forms.WPFWindow):
 
     # ─── Tool-call cards ───────────────────────────────────────────────────────
 
+    # ── Compact tool-call group ──────────────────────────────────────────────
+    # With "Show tool calls" off, a turn's cards do not vanish — they move
+    # into ONE collapsible row ("✓ 5 tools · 3.2s") that expands on click.
+    # Vanishing was the tempting option and the wrong one: a failing call
+    # would disappear with it, and the next question would be "why did it do
+    # nothing?" — the same blind wait this whole setting exists to remove.
+
+    def _chat_verbosity(self):
+        """(show_tool_calls, show_thinking) — never raises."""
+        try:
+            from config.settings import get_settings
+            s = get_settings()
+            return (s.is_show_tool_calls_enabled(),
+                    s.is_show_thinking_enabled())
+        except Exception:
+            return (True, True)
+
+    def _reset_tool_group(self):
+        """Drop the current turn's compact group so the next turn starts a
+        fresh one. Called when a new user message is sent."""
+        self._tool_group = None
+
+    def _ensure_tool_group(self):
+        """The collapsible container for this turn, created on first tool."""
+        group = getattr(self, '_tool_group', None)
+        if group is not None:
+            return group
+        from System.Windows.Controls import Border, TextBlock, StackPanel, Orientation
+        from System.Windows import Thickness, CornerRadius
+        from System.Windows.Media import FontFamily
+        from System.Windows.Input import Cursors
+
+        shell = Border()
+        _bind_bg(shell, 'SelectedBg')
+        _bind_border(shell, 'CardBorder')
+        shell.BorderThickness = Thickness(1)
+        shell.CornerRadius    = CornerRadius(8)
+        shell.Padding         = Thickness(12, 8, 12, 8)
+        shell.Margin          = Thickness(0, 0, 8, 10)
+
+        outer = StackPanel()
+
+        head = StackPanel()
+        head.Orientation = Orientation.Horizontal
+        head.Cursor      = Cursors.Hand
+
+        chevron = TextBlock()
+        chevron.Text       = u""          # MDL2 ChevronRight — collapsed
+        chevron.FontFamily = FontFamily(u"Segoe MDL2 Assets")
+        chevron.FontSize   = 10
+        _bind_fg(chevron, 'Faint')
+        chevron.Margin     = Thickness(0, 2, 8, 0)
+
+        label = TextBlock()
+        label.FontSize = 11.5
+        _bind_fg(label, 'Muted')
+
+        head.Children.Add(chevron)
+        head.Children.Add(label)
+        outer.Children.Add(head)
+
+        body = StackPanel()
+        body.Margin     = Thickness(0, 8, 0, 0)
+        body.Visibility = Visibility.Collapsed
+        outer.Children.Add(body)
+
+        group = {'shell': shell, 'label': label, 'chevron': chevron,
+                 'body': body, 'total': 0, 'failed': 0, 'seconds': 0.0,
+                 'running': u''}
+
+        def _toggle(sender, e, _g=group):
+            expanded = _g['body'].Visibility == Visibility.Visible
+            _g['body'].Visibility = (Visibility.Collapsed if expanded
+                                     else Visibility.Visible)
+            _g['chevron'].Text = u"" if expanded else u""   # right / down
+            self._scroll_to_bottom()
+
+        head.MouseLeftButtonUp += _toggle
+
+        shell.Child = outer
+        self.chat_history_panel.Children.Add(shell)
+        self._tool_group = group
+        self._refresh_tool_group_label(group)
+        return group
+
+    def _refresh_tool_group_label(self, group):
+        running = group.get('running')
+        if running:
+            group['label'].Text = (
+                u"Đang chạy `{}`… ({} tool)".format(running, group['total'])
+                if _ui_viet() else
+                u"Running `{}`… ({} tools)".format(running, group['total']))
+            return
+        done = group['total'] - group['failed']
+        parts = [u"{} tool".format(done) if _ui_viet()
+                 else u"{} tool{}".format(done, u"" if done == 1 else u"s")]
+        if group['failed']:
+            parts.append(u"{} lỗi".format(group['failed']) if _ui_viet()
+                         else u"{} failed".format(group['failed']))
+        parts.append(u"{0:.1f}s".format(group['seconds']))
+        group['label'].Text = u"{}  {}".format(
+            u"" if group['failed'] else u"", u" · ".join(parts))
+
     def _append_tool_card(self, name, args):
         """Add a tool-call status card to the chat. UI thread only.
 
@@ -8401,10 +8567,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
             panel.Children.Add(result_tb)
 
             card.Child = panel
-            self.chat_history_panel.Children.Add(card)
+            group = None
+            if not self._chat_verbosity()[0]:
+                try:
+                    group = self._ensure_tool_group()
+                except Exception as ex:
+                    logger.debug(u"tool group error: {}".format(_exc_text(ex)))
+                    group = None
+            if group is not None:
+                # Inside the group the outer chrome would double up.
+                card.BorderThickness = Thickness(0)
+                card.Background      = None
+                card.Padding         = Thickness(0, 0, 0, 0)
+                card.Margin          = Thickness(0, 0, 0, 8)
+                group['body'].Children.Add(card)
+                group['total']  += 1
+                group['running'] = name
+                self._refresh_tool_group_label(group)
+            else:
+                self.chat_history_panel.Children.Add(card)
             self._scroll_to_bottom()
             return {"card": card, "status": status, "dur": dur,
-                    "result": result_tb}
+                    "result": result_tb, "group": group}
         except Exception as ex:
             logger.debug(u"_append_tool_card error: {}".format(_exc_text(ex)))
             return None
@@ -8425,6 +8609,18 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 _bind_fg(status, 'Danger')
 
             handle["dur"].Text = u"{0:.1f}s".format(seconds)
+
+            group = handle.get("group")
+            if group is not None:
+                group['seconds'] += float(seconds or 0.0)
+                group['running']  = u''
+                if not ok:
+                    group['failed'] += 1
+                    # A failure must never stay folded away — the summary row
+                    # is a convenience for the happy path only.
+                    group['body'].Visibility = Visibility.Visible
+                    group['chevron'].Text    = u""
+                self._refresh_tool_group_label(group)
 
             # _json_text, not json.dumps: a Revit result carrying Windows
             # code-page bytes raises in the encoder, and the u"{}".format

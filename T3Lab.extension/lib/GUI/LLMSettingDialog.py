@@ -139,6 +139,7 @@ class LLMSettingWindow(forms.WPFWindow):
         self._action_guard  = False  # guards action_mode_toggled re-entry
         self._think_guard   = False  # guards extended_thinking_toggled re-entry
         self._quality_guard = False  # guards quality_mode_toggled re-entry
+        self._verbosity_guard = False  # guards the two chat-detail toggles
         self._embed_guard   = False  # guards knowledge_embed_toggled re-entry
         self._prov_guard    = False  # guards provider_changed re-entry
         self._kn_scan_busy = False
@@ -931,6 +932,18 @@ class LLMSettingWindow(forms.WPFWindow):
             pass
         finally:
             self._quality_guard = False
+        try:
+            from config.settings import get_settings
+            self._verbosity_guard = True
+            _s = get_settings()
+            self.show_tool_calls_toggle.IsChecked = bool(
+                _s.is_show_tool_calls_enabled())
+            self.show_thinking_toggle.IsChecked = bool(
+                _s.is_show_thinking_enabled())
+        except Exception:
+            pass
+        finally:
+            self._verbosity_guard = False
 
     def save_username_clicked(self, sender, e):
         name = (self.username_box.Text or u"").strip()
@@ -981,6 +994,28 @@ class LLMSettingWindow(forms.WPFWindow):
                 bool(self.quality_mode_toggle.IsChecked))
         except Exception as ex:
             logger.debug("quality_mode_toggled error: {}".format(ex))
+
+    def show_tool_calls_toggled(self, sender, e):
+        """Full tool cards vs one collapsed summary row per reply."""
+        if getattr(self, '_verbosity_guard', False):
+            return
+        try:
+            from config.settings import get_settings
+            get_settings().set_show_tool_calls(
+                bool(self.show_tool_calls_toggle.IsChecked))
+        except Exception as ex:
+            logger.debug("show_tool_calls_toggled error: {}".format(ex))
+
+    def show_thinking_toggled(self, sender, e):
+        """Interim step narration on/off (the final answer always shows)."""
+        if getattr(self, '_verbosity_guard', False):
+            return
+        try:
+            from config.settings import get_settings
+            get_settings().set_show_thinking(
+                bool(self.show_thinking_toggle.IsChecked))
+        except Exception as ex:
+            logger.debug("show_thinking_toggled error: {}".format(ex))
 
     def open_data_dir_clicked(self, sender, e):
         """Open %APPDATA%/T3LabAI in Explorer."""

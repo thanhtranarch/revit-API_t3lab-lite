@@ -1,7 +1,7 @@
 ---
 name: sheet-set-management
 description: Batch-create sheet sets and place views on sheets
-triggers: tao bo sheet, dat view len sheet, len sheet, place view, bo ban ve, xep sheet, dan trang, tao sheet hang loat, batch sheet, place views, view len sheet
+triggers: tao bo sheet, dat view len sheet, len sheet, place view, xep sheet, dan trang, tao sheet hang loat, batch sheet, place views, view len sheet
 agents: revit_action, revit_data, export
 tools: create_sheet, add_view_to_sheet, place_views_on_sheets, revit_list_sheets, revit_list_views, duplicate_view
 ---

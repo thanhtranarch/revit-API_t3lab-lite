@@ -149,10 +149,12 @@ class T3LabAISettings(object):
                 'embed_model':        'nomic-embed-text',
             },
             'agents': {
-                'multi_agent':  True,
-                'llm_classify': True,
-                'quality_mode': False,
-                'graph_mode':   True,
+                'multi_agent':    True,
+                'llm_classify':   True,
+                'quality_mode':   False,
+                'graph_mode':     True,
+                'show_tool_calls': True,
+                'show_thinking':   True,
             },
             'skills': {
                 'disabled': [],
@@ -323,6 +325,37 @@ class T3LabAISettings(object):
         (classification) pin a fast model via model_override and are unaffected.
         """
         return bool(self._settings.get('agents', {}).get('quality_mode', False))
+
+    # ------------------------------------------------------------------
+    # Chat verbosity
+    #
+    # Both default ON: the assistant showing its work live is what stops a
+    # long turn from looking like a hang. OFF does NOT go silent — the cards
+    # collapse into one clickable summary row and the running tool still
+    # shows in the typing indicator. Hiding progress entirely would trade one
+    # confusion for a worse one.
+    # ------------------------------------------------------------------
+
+    def is_show_tool_calls_enabled(self):
+        """Full tool cards in the chat, vs one collapsed summary row."""
+        return bool(self._settings.get('agents', {}).get(
+            'show_tool_calls', True))
+
+    def set_show_tool_calls(self, enabled):
+        return self.set_agent_option('show_tool_calls', bool(enabled))
+
+    def is_show_thinking_enabled(self):
+        """Interim narration between tool calls ("Đang tạo dim cho...").
+
+        Only the INTERIM turns are affected. The final answer of a turn is
+        never suppressed — a turn that renders nothing at all is the bug this
+        setting exists to avoid, not a mode it should offer.
+        """
+        return bool(self._settings.get('agents', {}).get(
+            'show_thinking', True))
+
+    def set_show_thinking(self, enabled):
+        return self.set_agent_option('show_thinking', bool(enabled))
 
     def is_sync_with_central_allowed(self):
         """Whether the assistant may synchronise with central (default OFF).

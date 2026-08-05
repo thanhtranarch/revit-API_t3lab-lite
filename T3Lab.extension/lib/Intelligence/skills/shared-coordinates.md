@@ -2,7 +2,7 @@
 name: shared-coordinates
 description: Model positioning - shared coordinates, base and survey points
 triggers: shared coordinates, toa do chung, dinh vi model, survey point, base point, origin model, lech toa do, model bi lech, acquire coordinates, project base point, true north, toa do khao sat, dich chuyen model
-agents: knowledge, revit_data, multi_doc, general
+agents: revit_data, multi_doc, knowledge, general
 tools: get_revit_context, revit_get_project_info, list_open_documents, switch_active_document
 standard: project
 ---

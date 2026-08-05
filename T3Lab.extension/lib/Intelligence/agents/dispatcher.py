@@ -85,7 +85,15 @@ _ACTION_WORDS = ('sua', 'xoa', 'tao', 'dat', 'gan', 'doi', 'them',
                  'rename', 'delete', 'create', 'move', 'set', 'change',
                  'update', 'modify', 'draw', 'place', 'tag', 'color',
                  'export', 'xuat', 'duplicate', 'copy', 'hide', 'isolate',
-                 'highlight', 'split', 'xoay', 'rotate')
+                 'highlight', 'split', 'xoay', 'rotate',
+                 # operate_element verbs that were missing: "pin toàn bộ cột"
+                 # scored no action keyword and fell through to `general`.
+                 # `general` happens to carry operate_element so the command
+                 # still worked, but it arrived without the ACTION specialist's
+                 # role prompt — the one that says pin is not a colour.
+                 'pin', 'unpin', 'ghim', 'khoa', 'unhide', 'hien lai',
+                 'co lap', 'an di', 'halftone', 'mirror', 'lat', 'group',
+                 'nhom lai', 'ungroup', 'ra nhom')
 
 # Color commands usually name the color directly ("tô đỏ tường", "bôi xanh
 # các cột") instead of saying "tô màu". The verbs are only unambiguous WITH

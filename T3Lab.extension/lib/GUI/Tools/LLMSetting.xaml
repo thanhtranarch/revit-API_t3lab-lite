@@ -1266,6 +1266,34 @@
 
                         <Border Height="1" Background="#E2E8F0" Margin="0,0,0,16"/>
 
+                        <!-- Chat verbosity -->
+                        <TextBlock Text="CHAT DETAIL" Style="{StaticResource FieldLabel}"/>
+                        <CheckBox x:Name="show_tool_calls_toggle"
+                                  Style="{StaticResource T3ToggleSwitch}"
+                                  Margin="1,4,0,6"
+                                  Checked="show_tool_calls_toggled"
+                                  Unchecked="show_tool_calls_toggled">
+                            <TextBlock Text="Show tool calls" FontSize="12.5"
+                                       Foreground="#27272A"/>
+                        </CheckBox>
+                        <TextBlock Text="ON (default): every Revit tool call gets its own card with arguments and result. OFF: they fold into one row per reply — &quot;5 tools · 3.2s&quot; — that you click to expand. A failed call always unfolds itself."
+                                   FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
+                                   Margin="1,0,0,12" LineHeight="15"/>
+
+                        <CheckBox x:Name="show_thinking_toggle"
+                                  Style="{StaticResource T3ToggleSwitch}"
+                                  Margin="1,4,0,6"
+                                  Checked="show_thinking_toggled"
+                                  Unchecked="show_thinking_toggled">
+                            <TextBlock Text="Show thinking" FontSize="12.5"
+                                       Foreground="#27272A"/>
+                        </CheckBox>
+                        <TextBlock Text="ON (default): the assistant narrates each step between tool calls. OFF: only the final answer appears in the chat — the current step still shows in the typing line, so you can always see it is working."
+                                   FontSize="11" Foreground="#71717A" TextWrapping="Wrap"
+                                   Margin="1,0,0,16" LineHeight="15"/>
+
+                        <Border Height="1" Background="#E2E8F0" Margin="0,0,0,16"/>
+
                         <!-- Data -->
                         <TextBlock Text="DATA" Style="{StaticResource FieldLabel}"/>
                         <TextBlock Text="Chat history, projects, attachments and the knowledge index are stored per-user under %APPDATA%\T3LabAI."

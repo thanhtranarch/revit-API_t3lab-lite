@@ -278,10 +278,42 @@ class TaskFileWatcher(object):
             self._exec_direct(task)
 
     def _exec_direct(self, task):
-        """Fallback: execute directly (no Revit API calls will work safely)."""
+        """Fallback: execute directly (no Revit API calls will work safely).
+
+        Refuses to run without an active document. The ExternalEvent path
+        above already checks this (`if not doc: ... 'No active Revit
+        document'`); this path did not, and handed the task code a context
+        with no `doc` at all. Task code that reaches for the document itself
+        then gets None, and `FilteredElementCollector(None)` is not a Python
+        exception — it is Revit's own
+
+            FATAL ERROR: The input argument "document" of function
+            FilteredElementCollector_constructor ... is null
+
+        which no `except Exception` anywhere up the stack can catch. This
+        fallback runs precisely when the ExternalEvent does not exist yet,
+        i.e. the window around document-open when there is most likely to be
+        no active document. Declining is the only safe answer.
+        """
         task_id  = task.get('task_id', '')
         code     = task.get('code', '')
         is_plain = task.get('_plain', False)
+        try:
+            from pyrevit import revit
+            if getattr(revit, 'doc', None) is None:
+                self._write_result(
+                    task_id,
+                    error=('No active Revit document, and the Revit '
+                           'ExternalEvent is not available yet — task not '
+                           'run. Open a model (or reopen the T3Lab Assistant '
+                           'once) and write the task again.'),
+                    plain=is_plain)
+                self._done_event.set()
+                return
+        except Exception:
+            # pyrevit unavailable (bare unit-test context) — the historical
+            # behaviour, where the task is plain Python with no Revit calls.
+            pass
         try:
             local_ctx = {'result': None, 'output': []}
             exec(code, local_ctx)   # noqa: S102

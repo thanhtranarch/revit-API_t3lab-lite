@@ -647,6 +647,124 @@ def create_single_view(doc, view_type, name=None, level_name=None):
     return new_view, None
 
 
+# ── Per-room 3D views ────────────────────────────────────────────────────────
+# A user asked for "3D views of rooms with 100mm margin". create_single_view
+# only knows View3D.CreateIsometric — ONE isometric of the whole model — so
+# that request came back as a single view of the entire site, reported as a
+# success. This is the capability that was actually missing.
+
+MM_PER_FOOT = 304.8
+
+
+def _existing_view_names(doc):
+    names = set()
+    for v in FilteredElementCollector(doc).OfClass(View)\
+            .WhereElementIsNotElementType():
+        try:
+            if not v.IsTemplate:
+                names.add(v.Name)
+        except Exception:
+            continue
+    return names
+
+
+def _unique_view_name(base, taken):
+    """`base`, else `base (2)`, `base (3)`... Revit rejects duplicates and a
+    rejected rename leaves a "3D View 12" nobody can find."""
+    name = base
+    n = 2
+    while name in taken:
+        name = u'{} ({})'.format(base, n)
+        n += 1
+    taken.add(name)
+    return name
+
+
+def _room_label(room):
+    """"<Number> <Name>" from the room, falling back to its id."""
+    number = name = u''
+    try:
+        p = room.get_Parameter(BuiltInParameter.ROOM_NUMBER)
+        number = (p.AsString() or u'') if p else u''
+    except Exception:
+        pass
+    try:
+        p = room.get_Parameter(BuiltInParameter.ROOM_NAME)
+        name = (p.AsString() or u'') if p else u''
+    except Exception:
+        pass
+    label = u' '.join(x for x in (number, name) if x).strip()
+    return label or u'Room {}'.format(_eid_int(room.Id))
+
+
+def create_room_3d_views(doc, rooms, margin_mm=0.0, name_prefix=u'3D'):
+    """One cropped 3D view per room. Opens NO transaction — caller owns it.
+
+    Returns (created, skipped): created is a list of
+    {view_id, view_name, room_id, room}, skipped a list of {room_id, reason}.
+    An unplaced room has no bounding box at all, so it is reported rather
+    than silently dropped — "created 4 of 37" is an answer, "Done" is not.
+    """
+    vft = None
+    for cand in FilteredElementCollector(doc).OfClass(ViewFamilyType):
+        if cand.ViewFamily == ViewFamily.ThreeDimensional:
+            vft = cand
+            break
+    if vft is None:
+        return [], [{'room_id': None,
+                     'reason': 'No 3D ViewFamilyType in this project.'}]
+
+    margin_ft = float(margin_mm or 0.0) / MM_PER_FOOT
+    taken = _existing_view_names(doc)
+    created, skipped = [], []
+
+    for room in rooms:
+        rid = _eid_int(room.Id)
+        try:
+            bb = room.get_BoundingBox(None)
+        except Exception:
+            bb = None
+        if bb is None:
+            skipped.append({
+                'room_id': rid,
+                'reason': ('Room is not placed (no bounding box) — place it '
+                           'in a level before asking for a view.')})
+            continue
+
+        try:
+            box = BoundingBoxXYZ()
+            box.Min = XYZ(bb.Min.X - margin_ft,
+                          bb.Min.Y - margin_ft,
+                          bb.Min.Z - margin_ft)
+            box.Max = XYZ(bb.Max.X + margin_ft,
+                          bb.Max.Y + margin_ft,
+                          bb.Max.Z + margin_ft)
+
+            view = View3D.CreateIsometric(doc, vft.Id)
+            view.SetSectionBox(box)
+            # SetSectionBox activates the box in most releases, but not all —
+            # an inactive box means the view still shows the whole model,
+            # which is the exact bug this function exists to fix.
+            try:
+                view.IsSectionBoxActive = True
+            except Exception:
+                pass
+            label = _unique_view_name(
+                u'{} - {}'.format(name_prefix, _room_label(room)), taken)
+            try:
+                view.Name = label
+            except Exception:
+                label = view.Name      # keep Revit's own name over a lie
+            created.append({'view_id': _eid_int(view.Id),
+                            'view_name': label,
+                            'room_id': rid,
+                            'room': _room_label(room)})
+        except Exception as ex:
+            skipped.append({'room_id': rid, 'reason': str(ex)})
+
+    return created, skipped
+
+
 def create_views_from_defs(doc, view_defs):
     """Create views from list of definitions.
     Returns (created_count, skipped_count, failed_list)

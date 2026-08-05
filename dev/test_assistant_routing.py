@@ -232,9 +232,12 @@ def test_tools_are_launched_through_the_api_context():
         if _re.search(r'TOOL_LAUNCHERS\s*(\[[^\]]+\]|\.get\([^)]*\))\s*\(\s*\)', line):
             direct.append(lineno)
     check('no launcher is invoked outside the API context hop', not direct, direct)
+    # Scoped to the method BODY (up to the next `def` at method indent) rather
+    # than a character budget: the old {0,1400} window failed the moment the
+    # success-reporting branch was added, which says nothing about the hop.
+    body = _re.search(r'\n    def _launch_tool\b[\s\S]*?(?=\n    def )', src)
     check('_launch_tool marshals through run_in_api_context',
-          _re.search(r'def _launch_tool[\s\S]{0,1400}?run_in_api_context', src)
-          is not None)
+          body is not None and 'run_in_api_context' in body.group(0))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1458,6 +1461,178 @@ def test_skills_contract_says_a_skill_is_not_a_tool():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Skills: bare "/skill" invocation
+#
+# A user typed "/annotation-standard" with nothing after it. The skill is a
+# CONVENTION document that declares create_dimension/tag_* so a real "dim mặt
+# bằng này" has tools to hand — but "declares tools" was read as "is an
+# executable job", so the bare invocation got the "act NOW, do NOT ask about
+# scope" boilerplate and the model started dimensioning every floor plan in
+# the project. 17 of 25 shipped skills sit in that same class.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _engine():
+    from Intelligence.skills_engine import SkillsEngine
+    eng = SkillsEngine()
+    eng.scan()
+    return eng
+
+
+def test_convention_skill_is_not_treated_as_an_executable_job():
+    eng = _engine()
+    check('annotation-standard is flagged as model-modifying',
+          eng.modifies_model('annotation-standard'))
+    check('...and is NOT a tool-less reference either',
+          not eng.is_reference_skill('annotation-standard'))
+
+
+def test_read_only_skills_may_still_act_immediately():
+    """The fix must not turn every playbook into a question. A skill that can
+    only read has nothing to confirm — /qa-checklist still scans on sight."""
+    eng = _engine()
+    for sid in ('qa-checklist', 'lod-standard', 'shared-coordinates'):
+        check('{} may run immediately'.format(sid),
+              not eng.modifies_model(sid))
+
+
+def test_every_writing_skill_is_flagged():
+    """Mechanical sweep: any skill declaring a tool that edits the model or
+    writes a file must plan before acting."""
+    eng = _engine()
+    from Intelligence.tool_schema import is_model_modifying
+    wrong = []
+    for meta in eng.all_skills():
+        sid = meta['id']
+        expect = any(is_model_modifying(t) for t in eng.tools_for(sid))
+        if eng.modifies_model(sid) != expect:
+            wrong.append(sid)
+    check('modifies_model agrees with the tool registry on all 25 skills',
+          not wrong, wrong)
+
+
+def test_slash_boilerplate_has_three_distinct_modes():
+    """Source-level lock on the caller. The three wordings must stay distinct:
+    collapsing modifying skills back onto the read-only text is exactly the
+    regression this whole section exists for."""
+    import io as _io
+    with _io.open(os.path.join(
+            REPO, 'T3Lab.extension', 'T3Lab.tab', 'Support.panel',
+            'T3LabAssistant.pushbutton', 'script.py'), encoding='utf-8') as f:
+        src = f.read()
+    check('reference mode still exists', 'is_reference_skill(_sid)' in src)
+    check('modifying mode is consulted', 'modifies_model(_sid)' in src)
+    check('modifying mode forbids acting this turn',
+          'create, modify, delete, rename, tag, ' in src
+          and 'wait for my confirmation' in src)
+    check('read-only mode still scans immediately',
+          'only reads the model' in src)
+
+
+def test_a_noun_cannot_activate_the_build_playbook():
+    """image-to-model builds an entire building and its body demands a tool
+    call every turn "cho tới khi dựng xong". It used to trigger on the nouns
+    `phong ngu` / `can ho` / `phong khach`, so an ordinary counting question
+    activated it; `dung lai` folds to the same ASCII as "dùng lại" (= reuse),
+    which did the same for "dùng lại family cũ"."""
+    eng = _engine()
+    for msg in (u'có bao nhiêu phòng ngủ trong model?',
+                u'diện tích phòng khách là bao nhiêu',
+                u'căn hộ A có mấy phòng',
+                u'dùng lại family cũ được không'):
+        hits = [sid for sid, _ in eng.match_scored(msg)]
+        check('build playbook stays out of: {}'.format(msg),
+              'image-to-model' not in hits, hits)
+
+
+def test_build_requests_still_reach_the_build_playbook():
+    eng = _engine()
+    for msg in (u'dựng model từ ảnh này', u'dựng lại model theo bản vẽ',
+                u'phân tích bản vẽ rồi dựng nhà'):
+        hits = [sid for sid, _ in eng.match_scored(msg)]
+        check('build playbook fires on: {}'.format(msg),
+              'image-to-model' in hits, hits)
+
+
+def test_catalog_questions_reach_the_deterministic_answer():
+    """"liệt kê các tool" / "chức năng của assistant" asked for the catalog and
+    missed the detector, so the LLM answered from memory instead — the exact
+    path that turns a truncated tool list into a confident claim of full
+    coverage. Same answer, so the detector has to catch the phrasing too."""
+    from Intelligence import nlu_engine as N
+    for q in (u'liệt kê các tool', u'danh sách tool',
+              u'chức năng của assistant', u'giới thiệu các tính năng',
+              u'extension này có gì', u'bạn làm được gì',
+              u'có tool nào check chính tả không'):
+        exp = N._expand(N._norm(q))
+        check('catalog question detected: {}'.format(q),
+              N.is_capability_question(exp), exp)
+
+
+def test_a_data_query_is_not_a_catalog_question():
+    """The widened patterns must not swallow ordinary list requests — "liệt kê"
+    and "danh sách" are the assistant's most common data verbs."""
+    from Intelligence import nlu_engine as N
+    for q in (u'liệt kê các sheet', u'danh sách phòng tầng 2',
+              u'liệt kê view chưa lên sheet', u'list all doors',
+              u'cho tôi danh sách level', u'model này có gì lạ'):
+        exp = N._expand(N._norm(q))
+        check('stays a data query: {}'.format(q),
+              not N.is_capability_question(exp), exp)
+
+
+def test_operate_element_verbs_reach_the_action_specialist():
+    """"pin toàn bộ cột" scored no action keyword and landed on `general`,
+    arriving without the ACTION role prompt — the one that spells out that a
+    pin is not a colour. That prompt is the guard against the original
+    pin→override_color substitution, so the verb has to route there."""
+    from Intelligence.agents.dispatcher import AgentDispatcher
+    disp = AgentDispatcher()
+    for q in (u'pin toàn bộ cột trong view', u'ghim hết grid lại',
+              u'bỏ ghim các cột'):
+        dec = disp.classify(q, allow_llm=False) or {}
+        check('action specialist for: {}'.format(q),
+              dec.get('specialist') == 'revit_action', dec.get('specialist'))
+
+
+def test_a_3d_request_is_never_answered_with_the_plan_tool():
+    """"create 3d view" used to come back suggesting **Create Plan Views**.
+
+    The fuzzy score rewards overlap and was blind to conflict: {create, view}
+    matched, while `3d` and `plan` cancelled out as merely "unmatched" rather
+    than "these are two different drawings". Being handed the wrong tool is
+    worse than being told nothing matches.
+    """
+    from Intelligence.nlu_engine import resolve_tool
+    match, cands = resolve_tool(u'create 3d view')
+    titles = [(match or {}).get('title')] + [c.get('title') for c in cands]
+    check('no plan tool is offered for a 3D request',
+          not any(t and 'Plan' in t for t in titles), titles)
+
+
+def test_the_plan_tool_is_still_reachable():
+    """The guard must only remove WRONG candidates."""
+    from Intelligence.nlu_engine import resolve_tool
+    match, _ = resolve_tool(u'create plan view')
+    check('"create plan view" still resolves',
+          (match or {}).get('title') == 'Create Plan Views', match)
+    for q in (u'open batchout', u'workset manager', u'dwg management',
+              u'load family', u'mcp control'):
+        m, _c = resolve_tool(q)
+        check('"{}" still resolves'.format(q), m is not None,
+              [c.get('title') for c in _c])
+
+
+def test_tagging_and_export_phrasings_reach_the_right_skill():
+    eng = _engine()
+    tag = [sid for sid, _ in eng.match_scored(u'tag tất cả tường trong view')]
+    check('"tag tất cả tường" reaches annotation-standard',
+          'annotation-standard' in tag, tag)
+    exp = [sid for sid, _ in eng.match_scored(u'xuất pdf bộ bản vẽ')]
+    check('"xuất pdf bộ bản vẽ" prefers export-standard',
+          exp[:1] == ['export-standard'], exp)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Runner
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1533,6 +1708,20 @@ TESTS = [
         test_plain_reply_is_untouched,
         test_saved_blob_is_pruned_on_load,
         test_skills_contract_says_a_skill_is_not_a_tool,
+    ]),
+    ('skills / bare slash', [
+        test_convention_skill_is_not_treated_as_an_executable_job,
+        test_read_only_skills_may_still_act_immediately,
+        test_every_writing_skill_is_flagged,
+        test_slash_boilerplate_has_three_distinct_modes,
+        test_a_noun_cannot_activate_the_build_playbook,
+        test_build_requests_still_reach_the_build_playbook,
+        test_catalog_questions_reach_the_deterministic_answer,
+        test_a_data_query_is_not_a_catalog_question,
+        test_operate_element_verbs_reach_the_action_specialist,
+        test_a_3d_request_is_never_answered_with_the_plan_tool,
+        test_the_plan_tool_is_still_reachable,
+        test_tagging_and_export_phrasings_reach_the_right_skill,
     ]),
 ]
 

@@ -1,7 +1,7 @@
 ---
 name: model-cleanup
 description: Clean up the model - purge, file size, junk views and families
-triggers: don dep model, don model, purge, lam sach model, giam dung luong, file nang, model nang, purge unused, xoa view rac, view rac, don file, model cham, file cham
+triggers: don dep model, don model, purge, lam sach model, giam dung luong, file nang, model nang, model bi nang, file bi nang, nang qua, purge unused, xoa view rac, view rac, don file, model cham, file cham
 agents: revit_action, revit_data, qa_check
 tools: purge_unused, analyze_model_statistics, get_model_health, revit_list_views, audit_model, delete_element
 ---
