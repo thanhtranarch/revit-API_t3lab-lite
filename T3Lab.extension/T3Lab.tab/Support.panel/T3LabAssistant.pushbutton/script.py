@@ -4824,6 +4824,79 @@ class T3LabAssistantWindow(forms.WPFWindow):
             logger.debug('_try_memory_command error: {}'.format(ex))
             return False
 
+    # ─── Self-study: /train command ───────────────────────────────────────────
+
+    def _try_train_command(self, raw):
+        """Deterministic `/train` handling. WORKER THREAD.
+
+        `/train`      → show the self-study dataset stats + readiness.
+        `/train now`  → launch the external LoRA fine-tune (detached process).
+        Weight training runs OUTSIDE Revit (CPython+GPU, tools/train/), so this
+        only reports status and kicks off that job. Returns True when handled.
+        """
+        try:
+            text = (raw or u'').strip()
+            low = text.lower()
+            m = re.match(r'^/train(?:\s+(.*))?$', low, re.S)
+            if not m:
+                return False
+            sub = (m.group(1) or u'').strip()
+            viet = _is_viet_text(text)
+
+            from Intelligence.learning import trainer as _trainer
+            st = _trainer.dataset_stats()
+            count = st.get('count', 0)
+            last = _trainer.last_train()
+
+            icon, color = _ICON_INFO, _ICON_SLATE
+            if sub in (u'now', u'chay', u'chạy', u'start'):
+                ok, note = _trainer.launch()
+                if ok:
+                    msg = (u'Đã khởi động huấn luyện nền ({} mẫu). Quá trình '
+                           u'chạy ngoài Revit và có thể mất hàng giờ; xem '
+                           u'`tools/train/README.md`.'.format(count) if viet else
+                           u'Started background training on {} examples. It runs '
+                           u'outside Revit and can take hours; see '
+                           u'`tools/train/README.md`.'.format(count))
+                    icon, color = _ICON_SYNC, _ICON_SLATE
+                else:
+                    msg = (u'Không khởi động được: {}'.format(note) if viet
+                           else u'Could not launch training: {}'.format(note))
+                    icon, color = _ICON_WARNING, _ICON_AMBER
+            else:
+                by_src = u', '.join(u'{}: {}'.format(k, v)
+                                    for k, v in sorted(
+                                        (st.get('by_source') or {}).items()))
+                last_line = (u'Lần cuối: {} ({} mẫu)'.format(
+                    last.get('trained_at'), last.get('examples'))
+                    if last else (u'Chưa huấn luyện lần nào' if viet
+                                  else u'Never trained yet'))
+                if viet:
+                    msg = (u'**Tự học — dữ liệu huấn luyện**\n\n'
+                           u'- Tổng số mẫu: **{}**\n- Nguồn: {}\n- {}\n\n'
+                           u'Gõ `/train now` để chạy fine-tune nền (cần GPU, '
+                           u'chạy ngoài Revit).'.format(
+                               count, by_src or u'(trống)', last_line))
+                else:
+                    msg = (u'**Self-study — training data**\n\n'
+                           u'- Total examples: **{}**\n- Sources: {}\n- {}\n\n'
+                           u'Type `/train now` to run a background fine-tune '
+                           u'(needs a GPU, runs outside Revit).'.format(
+                               count, by_src or u'(empty)', last_line))
+
+            self._log_activity(u'Train: {}'.format(text))
+
+            def _show(_m=msg, _i=icon, _c=color):
+                self._hide_typing_indicator()
+                self._append_bot_message(_m, icon=_i, icon_color=_c)
+                self._add_to_history('assistant', _m)
+                self._set_busy(False)
+            self.Dispatcher.Invoke(Action(_show))
+            return True
+        except Exception as ex:
+            logger.debug('_try_train_command error: {}'.format(ex))
+            return False
+
     def _try_skills_command(self, raw):
         """Install / update skills from a GitHub repo. WORKER THREAD.
 
@@ -5616,6 +5689,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
             # answered instantly here — before learned patterns or NLU can
             # hijack the wording.
             if not attached and raw and self._try_memory_command(raw):
+                return
+
+            # ── Self-study /train (deterministic, no LLM) ──────────────────
+            # Shows the curated training-data stats, or launches the external
+            # fine-tune. Answered here so it never reaches the model.
+            if not attached and raw and self._try_train_command(raw):
                 return
 
             # ── "Which model are you using?" (deterministic, no LLM) ───────

@@ -171,6 +171,14 @@ def on_idling_tick(now=None):
             _running = True
         try:
             run_one_cycle()
+            # Opt-in: once the corpus has grown enough, kick off a detached
+            # fine-tune. Self-gated on agents.self_train_auto + a growth
+            # threshold, so this is a cheap no-op on almost every cycle.
+            try:
+                from Intelligence.learning import trainer as _trainer
+                _trainer.maybe_auto_train()
+            except Exception:
+                pass
         finally:
             with _run_lock:
                 _running = False
