@@ -1119,6 +1119,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._warming_up       = False          # guard: local-model warm-up in flight
         self._warmed_provider  = None           # last local provider we preloaded
         self._warmed_at        = 0.0            # timestamp of that warm-up
+        self._snapshot_building = False         # guard: model-snapshot build in flight
+        self._snapshot_built_for = None         # doc_key whose snapshot we ensured
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
         self._history_summary  = u''            # turns folded out of the window
@@ -1589,6 +1591,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # Preload the local model so the FIRST message isn't a cold VRAM load.
         # Throttled + backgrounded, and a cheap no-op for cloud providers.
         self._maybe_warm_up_local()
+        # Ensure a cached open-model digest exists so answers are grounded in
+        # the real model. Backgrounded, once per document per session.
+        self._maybe_refresh_model_snapshot()
 
     def _maybe_warm_up_local(self, force=False):
         """Preload the active LOCAL model so the first message replies fast.
@@ -1630,6 +1635,50 @@ class T3LabAssistantWindow(forms.WPFWindow):
             t.Start()
         except Exception:
             self._warming_up = False
+
+    def _model_snapshot_grounding(self):
+        """Cached digest of the OPEN model (element counts / health / project) as
+        a short grounding block. Injected with the live turn so answers — above
+        all on a local model that cannot afford many read round-trips — start
+        already knowing the model. Empty until a snapshot has been built for
+        this document (self-study idle loop, or _maybe_refresh_model_snapshot)."""
+        try:
+            from Intelligence.learning.enrichers import model_snapshot
+            digest = model_snapshot.load_digest(self._doc_key)
+            return model_snapshot.digest_to_grounding_text(digest) or u""
+        except Exception:
+            return u""
+
+    def _maybe_refresh_model_snapshot(self):
+        """Build the open-model digest in the background if this document has none
+        yet, so project grounding works without waiting for the self-study idle
+        loop. Once per document per session; read-only tools, marshalled to
+        Revit's thread by the enricher; never blocks the UI."""
+        try:
+            key = self._doc_key
+            if self._snapshot_built_for == key or self._snapshot_building:
+                return
+            from Intelligence.learning.enrichers import model_snapshot
+            if model_snapshot.load_digest(key).get('element_counts'):
+                self._snapshot_built_for = key   # a usable snapshot already exists
+                return
+            self._snapshot_building = True
+
+            def _bg():
+                try:
+                    model_snapshot.run(doc_key=key)
+                    self._snapshot_built_for = key
+                except Exception:
+                    pass
+                finally:
+                    self._snapshot_building = False
+
+            t = Thread(ThreadStart(_bg))
+            t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+        except Exception:
+            self._snapshot_building = False
 
     # ─── Compact layout for narrow docks ─────────────────────────────────────
 
@@ -7878,6 +7927,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 ctx = ContextScout.get_context_summary_for_ai()
             except Exception:
                 pass
+        # Prepend the cached open-model digest (element counts / health) so the
+        # agent starts grounded in the real model — a local model then spends
+        # its round-trips on the task, not on re-discovering the project.
+        _snap = self._model_snapshot_grounding()
+        if _snap:
+            ctx = u"{}\n\n{}".format(ctx, _snap) if ctx else _snap
 
         _proj_instructions, _mem_block = self._project_prompt_blocks()
         _skills_block = u""

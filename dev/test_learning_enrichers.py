@@ -141,6 +141,16 @@ def test_snapshot_grounding_only():
     check('run caches, trains nothing',
           res.get('added') == 0 and res.get('cached') is True, res)
 
+    # The READ-BACK path the assistant now uses at chat start (previously dead:
+    # load_digest / digest_to_grounding_text had no caller). The cached digest
+    # must load and turn into non-empty grounding text.
+    loaded = MS.load_digest('unit-test-doc')
+    check('cached digest loads back',
+          loaded.get('element_counts') == {'Walls': 5}, loaded)
+    check('loaded digest grounds the chat',
+          u'Walls: 5' in MS.digest_to_grounding_text(loaded),
+          MS.digest_to_grounding_text(loaded))
+
 
 def main():
     test_miner_sft_and_prune()
