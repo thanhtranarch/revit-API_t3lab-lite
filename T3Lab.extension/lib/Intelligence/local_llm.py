@@ -286,6 +286,31 @@ def _param_billions(name):
         return 0.0
 
 
+# Below this parameter count a model misfires multi-tool agentic work (see the
+# module header: "avoid <4B for multi-tool work"). Used only to WARN the user
+# and recommend a bigger model — never to block a choice.
+TOOL_CALLING_MIN_B = 4.0
+
+
+def is_tool_capable_size(name):
+    """False when `name` has a KNOWN parameter count below the tool-calling floor.
+
+    Unknown size (a custom tag with no "<n>b") returns True — we never nag on a
+    model we can't measure. Use for a soft warning, not a hard gate.
+    """
+    b = _param_billions(name)
+    return b == 0.0 or b >= TOOL_CALLING_MIN_B
+
+
+def recommended_tool_model(installed=None):
+    """A reasonable tool-calling model to suggest — the best installed one at or
+    above the floor, else the documented sweet-spot tag to pull."""
+    for n in (installed or []):
+        if _param_billions(n) >= TOOL_CALLING_MIN_B:
+            return n
+    return "qwen3:14b"
+
+
 def pick_best(installed, prefer_capable=False):
     """Rank an ALREADY-FETCHED model list and return the best name, or None.
 

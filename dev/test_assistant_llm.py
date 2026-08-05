@@ -438,6 +438,20 @@ def test_local_llm_pick_best_is_pure():
           LL.pick_best(['mystery:1b']) == 'mystery:1b')
 
 
+def test_tool_calling_size_floor():
+    print('[local_llm: tool-calling size floor + recommendation]')
+    import Intelligence.local_llm as LL
+    check('1.5B is below the floor', not LL.is_tool_capable_size('qwen2.5:1.5b'))
+    check('0.5B is below the floor', not LL.is_tool_capable_size('qwen2.5:0.5b'))
+    check('4B meets the floor', LL.is_tool_capable_size('qwen3:4b'))
+    check('14B meets the floor', LL.is_tool_capable_size('qwen3:14b'))
+    check('unknown size is not nagged', LL.is_tool_capable_size('mystery-model'))
+    check('recommends an installed capable model',
+          LL.recommended_tool_model(['qwen2.5:0.5b', 'qwen3:8b']) == 'qwen3:8b')
+    check('falls back to the sweet-spot tag when none installed',
+          LL.recommended_tool_model(['qwen2.5:0.5b']) == 'qwen3:14b')
+
+
 def test_wants_json_contract():
     print('[providers: _wants_json]')
     from Intelligence.llm_provider import BaseLLMProvider as B
@@ -884,6 +898,7 @@ def main():
     test_ollama_auto_model_is_cached()
     test_lmstudio_auto_model_is_cached()
     test_local_providers_warm_up()
+    test_tool_calling_size_floor()
     test_local_llm_pick_best_is_pure()
     test_wants_json_contract()
     test_ollama_json_is_opt_in()

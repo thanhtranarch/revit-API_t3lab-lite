@@ -4621,6 +4621,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             subtitle = model if model else (
                 None if info.get('available')
                 else u"Not configured — open Settings")
+            # Flag a local model that is too small for reliable tool-calling, at
+            # the exact point the user is choosing one.
+            if model and name in ("ollama", "lmstudio"):
+                try:
+                    from Intelligence import local_llm as _ll
+                    if not _ll.is_tool_capable_size(model):
+                        subtitle = u"{} · small, may misfire tools".format(model)
+                except Exception:
+                    pass
             panel.Children.Add(self._popup_row(
                 info.get('display_name', name), subtitle,
                 active=info.get('active', False),

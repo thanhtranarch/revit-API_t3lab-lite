@@ -1442,6 +1442,81 @@ def test_phantom_keeps_the_prose_around_it():
           and not any('apply_playbook' in s for s in shown), shown)
 
 
+_HINT_TOOLS_ANTHROPIC = [{
+    'name': 'set_parameter',
+    'description': 'Set a parameter value',
+    'input_schema': {
+        'type': 'object',
+        'properties': {
+            'element_id': {'type': 'string'},
+            'name': {'type': 'string'},
+            'value': {'type': 'string'},
+            'scope': {'type': 'string', 'enum': ['instance', 'type']},
+        },
+        'required': ['element_id', 'name', 'value'],
+    },
+}]
+_HINT_TOOLS_OPENAI = [{
+    'type': 'function',
+    'function': {
+        'name': 'set_parameter',
+        'description': 'Set a parameter value',
+        'parameters': _HINT_TOOLS_ANTHROPIC[0]['input_schema'],
+    },
+}]
+
+
+def test_param_hint_reads_both_schema_shapes():
+    """The schema hint must work for Claude (input_schema) AND Ollama/OpenAI
+    (function.parameters) tool shapes."""
+    from Intelligence.agent_loop import _param_hint
+    for shape, tools in (('anthropic', _HINT_TOOLS_ANTHROPIC),
+                         ('openai', _HINT_TOOLS_OPENAI)):
+        h = _param_hint(tools, 'set_parameter')
+        check(u'{}: names the tool'.format(shape), 'set_parameter' in h, h)
+        check(u'{}: marks required args'.format(shape),
+              'element_id (required' in h, h)
+        check(u'{}: marks optional args'.format(shape),
+              'scope (optional' in h, h)
+        check(u'{}: lists the enum'.format(shape), 'instance|type' in h, h)
+    check('unknown tool → empty hint',
+          _param_hint(_HINT_TOOLS_ANTHROPIC, 'no_such_tool') == u'')
+
+
+def test_tool_error_carries_the_schema_hint():
+    """A failing tool call hands the model the tool's expected schema so a small
+    model can self-correct instead of repeating the bad call."""
+    from Intelligence.agent_loop import AgentLoop
+    calls_seen = {'n': 0}
+
+    def _exec(name, args):
+        calls_seen['n'] += 1
+        if calls_seen['n'] == 1:
+            return {'error': 'missing required argument: element_id'}
+        return {'ok': True}
+
+    prov = _ScriptedProvider([
+        {'text': u'', 'calls': [{'id': '1', 'name': 'set_parameter',
+                                 'args': {'name': 'Comments'}}]},
+        {'text': u'Done — parameter set.'},
+    ])
+    loop = AgentLoop(prov, _exec, _HINT_TOOLS_ANTHROPIC,
+                     callbacks={'on_turn_text': lambda t, f: None,
+                                'on_text_delta': lambda c: None,
+                                'on_tool_start': lambda n, a, i: None,
+                                'on_tool_done': lambda n, r, ok, s: None},
+                     max_iterations=6)
+    loop.run([], 'sys', 'set the comments parameter')
+
+    # The messages the model saw on its SECOND turn carry the tool result.
+    fed_back = u' '.join(m.get('content', '') for m in prov.transcripts[-1]
+                         if m.get('role') == 'user')
+    check('error result carries the expected schema',
+          'expected_parameters' in fed_back, fed_back)
+    check('schema names the missing required arg',
+          'element_id (required' in fed_back, fed_back)
+
+
 def test_real_tool_written_as_text_runs_without_printing_json():
     """The rescue path already executed these; it also used to print the raw
     JSON into the chat first."""
@@ -1750,6 +1825,8 @@ TESTS = [
         test_phantom_tool_call_is_never_shown,
         test_phantom_correction_is_bounded,
         test_phantom_keeps_the_prose_around_it,
+        test_param_hint_reads_both_schema_shapes,
+        test_tool_error_carries_the_schema_hint,
         test_real_tool_written_as_text_runs_without_printing_json,
         test_json_data_answer_is_not_mistaken_for_a_tool_call,
         test_fenced_json_example_is_not_suppressed,
