@@ -14,6 +14,8 @@ __author__ = "Tran Tien Thanh"
 __title__  = "LM Studio Provider"
 
 import json
+import os
+import time
 
 from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_get,
                                        http_get_auth, openai_chat_agent,
@@ -39,10 +41,19 @@ class LMStudioProvider(BaseLLMProvider):
     # reply before the model reaches its tool call.
     REASONING_MIN_TOKENS = 4096
 
+    # The loaded-model list changes only when the user loads/unloads a model or
+    # switches host — all of which invalidate the cache explicitly. So the
+    # auto-selected model is cached for this long instead of re-probing
+    # /v1/models on EVERY chat turn (a network round-trip of pure overhead, and
+    # painful against a remote/busy server). Mirrors OllamaProvider.
+    MODEL_CACHE_TTL = float(os.environ.get("T3LAB_LMSTUDIO_MODEL_TTL", 30))
+
     def __init__(self):
         self._model = None        # None → use whatever is loaded in LM Studio
         self._active_host = None  # last host that actually responded
         self._api_prefix = "/v1" # discovered API prefix ("/v1" or "/api/v1")
+        self._auto_model = None    # cached auto-selected model id
+        self._auto_model_at = 0.0  # timestamp of that cache
 
     def _configured_host(self):
         """Return the normalized host from settings (or the default)."""
@@ -158,26 +169,37 @@ class LMStudioProvider(BaseLLMProvider):
         """User's choice, else the first model the server actually reports.
 
         Returns None when the server is unreachable or has nothing loaded —
-        never a made-up placeholder name.
+        never a made-up placeholder name. The auto-selected id is cached for a
+        short TTL so chat() doesn't re-probe /v1/models on every turn.
         """
         if self._model:
             return self._model
+        now = time.time()
+        if self._auto_model and (now - self._auto_model_at) < self.MODEL_CACHE_TTL:
+            return self._auto_model
         models = self.get_models()
-        return models[0] if models else None
+        picked = models[0] if models else None
+        if picked:
+            self._auto_model = picked
+            self._auto_model_at = now
+        return picked
 
     def set_model(self, model_name):
         self._model = model_name
+        self._auto_model = None        # a pinned choice retires the auto cache
         return True
 
     def reload_credentials(self):
         """No key needed, but a host may have changed — re-probe on next call."""
         self._active_host = None
         self._api_prefix = "/v1"
+        self._auto_model = None        # host may have changed → re-probe models
 
     def invalidate_models_cache(self):
         """LM Studio always fetches live; just forget the remembered host."""
         self._active_host = None
         self._api_prefix = "/v1"
+        self._auto_model = None
 
     # ── Chat ──────────────────────────────────────────────────────────────────
 
@@ -191,6 +213,30 @@ class LMStudioProvider(BaseLLMProvider):
         if prefix == "/api/v1":
             return self._get_host() + "/api/v1/chat"
         return self._get_host() + "/v1/chat/completions"
+
+    def warm_up(self):
+        """Preload the loaded model so the FIRST real message isn't a cold load.
+
+        1-token completion, guarded, run on a background thread — never raises,
+        never blocks the UI. get_active_model() also discovers the host + API
+        prefix so _get_chat_endpoint() is correct.
+        """
+        try:
+            model = self.get_active_model()
+            if not model:
+                return False
+            payload = {
+                "model":       model,
+                "messages":    [{"role": "user", "content": u"hi"}],
+                "max_tokens":  1,
+                "temperature": 0.0,
+                "stream":      False,
+            }
+            http_post(self._get_chat_endpoint(), payload,
+                      headers=self._auth_headers(), timeout_ms=15000)
+            return True
+        except Exception:
+            return False
 
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """POST to the chat endpoint (auto-detected during probe)."""

@@ -16,6 +16,7 @@ __title__  = "Ollama Provider"
 import json
 import os
 import sys
+import time
 
 from Intelligence.llm_provider import (BaseLLMProvider, http_post, http_get,
                                        http_post_stream,
@@ -42,10 +43,20 @@ class OllamaProvider(BaseLLMProvider):
     NUM_CTX_MIN = int(os.environ.get("T3LAB_OLLAMA_NUM_CTX_MIN", 8192))
     NUM_CTX_MAX = int(os.environ.get("T3LAB_OLLAMA_NUM_CTX_MAX", 32768))
 
+    # The installed-model list changes only when the user pulls/removes a model
+    # or switches host — all of which invalidate the cache explicitly. So the
+    # auto-selected model is cached for this long instead of re-probing
+    # /api/tags on EVERY chat turn (a network round-trip that is pure overhead,
+    # and painful against a remote/busy Ollama). Mirrors the router's 30s
+    # status-cache TTL.
+    MODEL_CACHE_TTL = float(os.environ.get("T3LAB_OLLAMA_MODEL_TTL", 30))
+
     def __init__(self):
         self._model = None        # None → auto-select best installed model
         self._host  = None        # None → read from local_llm.OLLAMA_HOST
         self._active_host = None  # last host that actually responded
+        self._auto_model = None   # cached auto-selected model
+        self._auto_model_at = 0.0 # monotonic-ish timestamp of that cache
 
     # Reasoning models spend most of a turn inside <think>...</think>; a tool
     # call or final answer only appears AFTER that. num_predict caps the whole
@@ -174,9 +185,16 @@ class OllamaProvider(BaseLLMProvider):
     def get_active_model(self):
         if self._model:
             return self._model
+        # Auto-select: reuse the recently-resolved model instead of probing
+        # /api/tags on every turn. Only the short TTL window is cached; a pull/
+        # remove/host-change invalidates it via reload_credentials/set_host.
+        now = time.time()
+        if self._auto_model and (now - self._auto_model_at) < self.MODEL_CACHE_TTL:
+            return self._auto_model
         mod = self._local_llm()
         if not mod:
             return None
+        picked = None
         # Rank the models installed on the host WE are configured for.
         # local_llm.get_best_model() re-discovers via its module-level
         # OLLAMA_HOST constant, so with a remote Ollama it queried localhost,
@@ -185,22 +203,28 @@ class OllamaProvider(BaseLLMProvider):
         try:
             _host, names = self._probe_tags()
             if names:
-                return mod.pick_best(names,
-                                     prefer_capable=self._quality_mode())
+                picked = mod.pick_best(names,
+                                       prefer_capable=self._quality_mode())
         except AttributeError:
             pass          # older local_llm without pick_best
         except Exception:
             pass
-        try:
-            return mod.get_best_model(prefer_capable=self._quality_mode())
-        except TypeError:
-            # Older local_llm without the prefer_capable kwarg.
-            return mod.get_best_model()
-        except Exception:
-            return None
+        if not picked:
+            try:
+                picked = mod.get_best_model(prefer_capable=self._quality_mode())
+            except TypeError:
+                # Older local_llm without the prefer_capable kwarg.
+                picked = mod.get_best_model()
+            except Exception:
+                picked = None
+        if picked:
+            self._auto_model = picked
+            self._auto_model_at = now
+        return picked
 
     def set_model(self, model_name):
         self._model = model_name
+        self._auto_model = None        # a pinned choice retires the auto cache
         return True
 
     def reload_credentials(self):
@@ -210,6 +234,7 @@ class OllamaProvider(BaseLLMProvider):
         must drop the cached live host, exactly like LMStudioProvider does.
         """
         self._active_host = None
+        self._auto_model = None        # host may have changed → re-rank models
 
     def invalidate_models_cache(self):
         """No-op — Ollama always fetches live from /api/tags."""
@@ -224,11 +249,36 @@ class OllamaProvider(BaseLLMProvider):
         """
         self._host = host
         self._active_host = None   # re-probe with the new host on next check
+        self._auto_model = None    # different host → different installed models
         try:
             from config.settings import T3LabAISettings
             T3LabAISettings().set_api_key("Ollama_Host", host)
         except Exception:
             pass
+
+    def warm_up(self):
+        """Preload the active model so the FIRST real message isn't a cold load.
+
+        keep_alive keeps a model resident only AFTER a first use, so without
+        this the first message after the pane opens pays the multi-second VRAM
+        load. Sends a 1-token generation and swallows everything — never raises,
+        never blocks the UI (the caller runs it on a background thread).
+        """
+        try:
+            model = self.get_active_model()
+            if not model:
+                return False
+            payload = {
+                "model":      model,
+                "messages":   [{"role": "user", "content": u"hi"}],
+                "stream":     False,
+                "keep_alive": "15m",
+                "options":    {"num_predict": 1, "temperature": 0.0},
+            }
+            http_post(self._get_host() + "/api/chat", payload, timeout_ms=15000)
+            return True
+        except Exception:
+            return False
 
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """

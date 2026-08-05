@@ -1116,6 +1116,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Session state ─────────────────────────────────────────────────────
         self._busy             = False          # concurrency guard
         self._switching_provider = False        # guard: _switch_provider bg probe in flight
+        self._warming_up       = False          # guard: local-model warm-up in flight
+        self._warmed_provider  = None           # last local provider we preloaded
+        self._warmed_at        = 0.0            # timestamp of that warm-up
+        self._snapshot_building = False         # guard: model-snapshot build in flight
+        self._snapshot_built_for = None         # doc_key whose snapshot we ensured
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
         self._history_summary  = u''            # turns folded out of the window
@@ -1583,6 +1588,97 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _on_window_activated(self, sender, e):
         self._sync_theme()
         self._update_revit_context()
+        # Preload the local model so the FIRST message isn't a cold VRAM load.
+        # Throttled + backgrounded, and a cheap no-op for cloud providers.
+        self._maybe_warm_up_local()
+        # Ensure a cached open-model digest exists so answers are grounded in
+        # the real model. Backgrounded, once per document per session.
+        self._maybe_refresh_model_snapshot()
+
+    def _maybe_warm_up_local(self, force=False):
+        """Preload the active LOCAL model so the first message replies fast.
+
+        Ollama/LM Studio only keep a model resident AFTER a first use, so the
+        first message after the pane opens otherwise pays the multi-second load.
+        No-op for cloud providers, throttled (keep_alive holds a model ~15m), and
+        run entirely on a background thread so the UI is never blocked.
+        """
+        try:
+            import time as _time
+            name = get_active_provider_name()
+            if name not in ("ollama", "lmstudio"):
+                return
+            now = _time.time()
+            if not force and self._warmed_provider == name \
+                    and (now - self._warmed_at) < 600:
+                return
+            if self._warming_up:
+                return
+            self._warming_up = True
+
+            def _bg():
+                try:
+                    from Intelligence.llm_router import LLMRouter
+                    provider = LLMRouter().get_active_provider()
+                    if provider is not None and hasattr(provider, "warm_up"):
+                        provider.warm_up()
+                        self._warmed_provider = name
+                        self._warmed_at = _time.time()
+                except Exception:
+                    pass
+                finally:
+                    self._warming_up = False
+
+            t = Thread(ThreadStart(_bg))
+            t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+        except Exception:
+            self._warming_up = False
+
+    def _model_snapshot_grounding(self):
+        """Cached digest of the OPEN model (element counts / health / project) as
+        a short grounding block. Injected with the live turn so answers — above
+        all on a local model that cannot afford many read round-trips — start
+        already knowing the model. Empty until a snapshot has been built for
+        this document (self-study idle loop, or _maybe_refresh_model_snapshot)."""
+        try:
+            from Intelligence.learning.enrichers import model_snapshot
+            digest = model_snapshot.load_digest(self._doc_key)
+            return model_snapshot.digest_to_grounding_text(digest) or u""
+        except Exception:
+            return u""
+
+    def _maybe_refresh_model_snapshot(self):
+        """Build the open-model digest in the background if this document has none
+        yet, so project grounding works without waiting for the self-study idle
+        loop. Once per document per session; read-only tools, marshalled to
+        Revit's thread by the enricher; never blocks the UI."""
+        try:
+            key = self._doc_key
+            if self._snapshot_built_for == key or self._snapshot_building:
+                return
+            from Intelligence.learning.enrichers import model_snapshot
+            if model_snapshot.load_digest(key).get('element_counts'):
+                self._snapshot_built_for = key   # a usable snapshot already exists
+                return
+            self._snapshot_building = True
+
+            def _bg():
+                try:
+                    model_snapshot.run(doc_key=key)
+                    self._snapshot_built_for = key
+                except Exception:
+                    pass
+                finally:
+                    self._snapshot_building = False
+
+            t = Thread(ThreadStart(_bg))
+            t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+        except Exception:
+            self._snapshot_building = False
 
     # ─── Compact layout for narrow docks ─────────────────────────────────────
 
@@ -2283,6 +2379,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self._models_cache[name] = provider.get_models()
                         except Exception:
                             pass
+                        # Switched TO a local provider → preload its model now so
+                        # the user's first message on it isn't a cold VRAM load.
+                        if name in ("ollama", "lmstudio") and \
+                                hasattr(provider, "warm_up"):
+                            try:
+                                import time as _time
+                                provider.warm_up()
+                                self._warmed_provider = name
+                                self._warmed_at = _time.time()
+                            except Exception:
+                                pass
                 except Exception:
                     pass
                 finally:
@@ -4514,6 +4621,15 @@ class T3LabAssistantWindow(forms.WPFWindow):
             subtitle = model if model else (
                 None if info.get('available')
                 else u"Not configured — open Settings")
+            # Flag a local model that is too small for reliable tool-calling, at
+            # the exact point the user is choosing one.
+            if model and name in ("ollama", "lmstudio"):
+                try:
+                    from Intelligence import local_llm as _ll
+                    if not _ll.is_tool_capable_size(model):
+                        subtitle = u"{} · small, may misfire tools".format(model)
+                except Exception:
+                    pass
             panel.Children.Add(self._popup_row(
                 info.get('display_name', name), subtitle,
                 active=info.get('active', False),
@@ -5908,8 +6024,14 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 # _authoritative = answered from the real tool catalog
                 # (capability questions, ambiguity clarifications) — the
                 # LLM must not get a chance to override it with a guess.
+                # _instant = pure small talk (greeting, thanks, "how are you"...)
+                # answered from the canned reply even with a provider online —
+                # skipping the model here is the biggest single latency win on a
+                # slow local model. Emotional/complaint chat is NOT _instant and
+                # still flows to the LLM below for a warmer answer.
                 if nlu_result["intent"] not in ("chat", "help") \
                         or nlu_result.get("_authoritative") \
+                        or nlu_result.get("_instant") \
                         or not (use_local or use_claude):
                     # A provider that IS configured but failed its health probe
                     # lands here and answers from the offline canned replies,
@@ -7814,6 +7936,12 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 ctx = ContextScout.get_context_summary_for_ai()
             except Exception:
                 pass
+        # Prepend the cached open-model digest (element counts / health) so the
+        # agent starts grounded in the real model — a local model then spends
+        # its round-trips on the task, not on re-discovering the project.
+        _snap = self._model_snapshot_grounding()
+        if _snap:
+            ctx = u"{}\n\n{}".format(ctx, _snap) if ctx else _snap
 
         _proj_instructions, _mem_block = self._project_prompt_blocks()
         _skills_block = u""

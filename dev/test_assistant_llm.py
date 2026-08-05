@@ -288,6 +288,143 @@ def test_ollama_active_model_uses_configured_host():
           model)
 
 
+def test_ollama_auto_model_is_cached():
+    print('[ollama: auto-selected model is cached, not re-probed each turn]')
+    _reset_appdata()
+    import Intelligence.ollama_provider as OP
+    p = OP.OllamaProvider()
+
+    calls = {'n': 0}
+
+    def _fake_probe():
+        calls['n'] += 1
+        p._active_host = 'http://localhost:11434'
+        return p._active_host, ['qwen2.5:0.5b', 'qwen3:14b']
+    p._probe_tags = _fake_probe
+
+    m1 = p.get_active_model()
+    m2 = p.get_active_model()
+    m3 = p.get_active_model()
+    check('auto-select probes /api/tags only once', calls['n'] == 1, calls)
+    check('cached model is stable', m1 == m2 == m3 and bool(m1), (m1, m2, m3))
+
+    # A pinned model never probes at all.
+    calls['n'] = 0
+    p.set_model('qwen3:14b')
+    check('pinned model returns without probing',
+          p.get_active_model() == 'qwen3:14b' and calls['n'] == 0, calls)
+
+    # Switching host must drop the cache so the new host is re-ranked.
+    p2 = OP.OllamaProvider()
+    p2._probe_tags = _fake_probe
+    calls['n'] = 0
+    p2.get_active_model()
+    p2.reload_credentials()       # e.g. host changed in Settings
+    p2.get_active_model()
+    check('reload_credentials invalidates the model cache', calls['n'] == 2,
+          calls)
+
+
+def test_lmstudio_auto_model_is_cached():
+    print('[lmstudio: auto-selected model is cached, not re-probed each turn]')
+    _reset_appdata()
+    import Intelligence.lmstudio_provider as LP
+    p = LP.LMStudioProvider()
+
+    calls = {'n': 0}
+
+    def _fake_get_models():
+        calls['n'] += 1
+        return ['some-model-7b', 'another-13b']
+    p.get_models = _fake_get_models
+
+    m1 = p.get_active_model()
+    m2 = p.get_active_model()
+    check('auto-select probes only once', calls['n'] == 1, calls)
+    check('cached model is stable', m1 == m2 == 'some-model-7b', (m1, m2))
+
+    calls['n'] = 0
+    p.set_model('another-13b')
+    check('pinned model returns without probing',
+          p.get_active_model() == 'another-13b' and calls['n'] == 0, calls)
+
+    p2 = LP.LMStudioProvider()
+    p2.get_models = _fake_get_models
+    calls['n'] = 0
+    p2.get_active_model()
+    p2.reload_credentials()
+    p2.get_active_model()
+    check('reload_credentials invalidates the model cache', calls['n'] == 2,
+          calls)
+
+
+def test_local_providers_warm_up():
+    print('[ollama/lmstudio: warm_up preloads the model, guarded + backgrounded]')
+    _reset_appdata()
+    import Intelligence.ollama_provider as OP
+    import Intelligence.lmstudio_provider as LP
+
+    # Ollama: one tiny (num_predict=1) call to /api/chat.
+    captured = []
+
+    def _fake_post(url, payload, timeout_ms=None, **kw):
+        captured.append((url, payload))
+        return json.dumps({'message': {'content': 'x'}})
+
+    orig_op = OP.http_post
+    OP.http_post = _fake_post
+    try:
+        p = OP.OllamaProvider()
+        p.set_model('qwen3:14b')
+        ok = p.warm_up()
+        check('ollama warm_up posts once', len(captured) == 1, captured)
+        check('ollama warm_up is 1-token',
+              captured[-1][1].get('options', {}).get('num_predict') == 1,
+              captured[-1][1])
+        check('ollama warm_up keeps the model resident',
+              captured[-1][1].get('keep_alive') == '15m', captured[-1][1])
+        check('ollama warm_up returns True on success', ok is True)
+    finally:
+        OP.http_post = orig_op
+
+    # No model → no call, returns False (never raises).
+    captured[:] = []
+    OP.http_post = _fake_post
+    try:
+        p2 = OP.OllamaProvider()
+        p2.get_active_model = lambda: None
+        check('ollama warm_up is a no-op without a model',
+              p2.warm_up() is False and not captured, captured)
+    finally:
+        OP.http_post = orig_op
+
+    # LM Studio: one max_tokens=1 call to the chat endpoint.
+    captured[:] = []
+    orig_lp = LP.http_post
+    LP.http_post = _fake_post
+    try:
+        q = LP.LMStudioProvider()
+        q.get_active_model = lambda: 'some-model-7b'
+        ok = q.warm_up()
+        check('lmstudio warm_up posts once', len(captured) == 1, captured)
+        check('lmstudio warm_up is 1-token',
+              captured[-1][1].get('max_tokens') == 1, captured[-1][1])
+        check('lmstudio warm_up returns True on success', ok is True)
+    finally:
+        LP.http_post = orig_lp
+
+    # A raising http_post is swallowed (warm-up must never disturb the UI).
+    def _boom(*a, **kw):
+        raise RuntimeError('server down')
+    OP.http_post = _boom
+    try:
+        r = OP.OllamaProvider()
+        r.set_model('qwen3:14b')
+        check('warm_up swallows a failing server', r.warm_up() is False)
+    finally:
+        OP.http_post = orig_op
+
+
 def test_local_llm_pick_best_is_pure():
     print('[local_llm: pick_best]')
     import Intelligence.local_llm as LL
@@ -299,6 +436,20 @@ def test_local_llm_pick_best_is_pure():
           LL.pick_best(['llama3:8b', 'qwen2.5:0.5b']) == 'qwen2.5:0.5b')
     check('unknown names still return something',
           LL.pick_best(['mystery:1b']) == 'mystery:1b')
+
+
+def test_tool_calling_size_floor():
+    print('[local_llm: tool-calling size floor + recommendation]')
+    import Intelligence.local_llm as LL
+    check('1.5B is below the floor', not LL.is_tool_capable_size('qwen2.5:1.5b'))
+    check('0.5B is below the floor', not LL.is_tool_capable_size('qwen2.5:0.5b'))
+    check('4B meets the floor', LL.is_tool_capable_size('qwen3:4b'))
+    check('14B meets the floor', LL.is_tool_capable_size('qwen3:14b'))
+    check('unknown size is not nagged', LL.is_tool_capable_size('mystery-model'))
+    check('recommends an installed capable model',
+          LL.recommended_tool_model(['qwen2.5:0.5b', 'qwen3:8b']) == 'qwen3:8b')
+    check('falls back to the sweet-spot tag when none installed',
+          LL.recommended_tool_model(['qwen2.5:0.5b']) == 'qwen3:14b')
 
 
 def test_wants_json_contract():
@@ -744,6 +895,10 @@ def main():
     test_router_status_instant_is_offline()
     test_ollama_host_persists()
     test_ollama_active_model_uses_configured_host()
+    test_ollama_auto_model_is_cached()
+    test_lmstudio_auto_model_is_cached()
+    test_local_providers_warm_up()
+    test_tool_calling_size_floor()
     test_local_llm_pick_best_is_pure()
     test_wants_json_contract()
     test_ollama_json_is_opt_in()

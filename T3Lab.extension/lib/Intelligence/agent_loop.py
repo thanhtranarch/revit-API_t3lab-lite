@@ -79,6 +79,53 @@ def _result_to_json(result):
     return s
 
 
+# ─── Parameter-error self-correction ───────────────────────────────────────────
+# A small local model routinely calls a real tool with a wrong or missing
+# argument, gets a terse error back, and repeats the same call. Attaching the
+# tool's expected schema TO the error result gives it what it needs to fix the
+# call on the next turn. Bounded per run so a pathological loop can't balloon the
+# context, and each tool is hinted at most once.
+_MAX_PARAM_HINTS = 3
+
+
+def _param_hint(tools, name):
+    """Compact 'expected parameters' line for `name` from the tool list, or u''.
+
+    Handles both shapes in play: Anthropic (`input_schema`) and OpenAI/Ollama
+    (`function.parameters`). Names each property with required/optional and any
+    enum, so a model that guessed the arguments can correct them.
+    """
+    schema = None
+    for t in tools or []:
+        if not isinstance(t, dict):
+            continue
+        if t.get("name") == name and isinstance(t.get("input_schema"), dict):
+            schema = t["input_schema"]
+            break
+        fn = t.get("function")
+        if isinstance(fn, dict) and fn.get("name") == name \
+                and isinstance(fn.get("parameters"), dict):
+            schema = fn["parameters"]
+            break
+    if not isinstance(schema, dict):
+        return u""
+    props = schema.get("properties") or {}
+    if not isinstance(props, dict) or not props:
+        return u""
+    required = set(schema.get("required") or [])
+    parts = []
+    for pname in list(props.keys())[:12]:
+        pspec = props[pname] if isinstance(props[pname], dict) else {}
+        bits = [u"{}".format(pspec.get("type") or u"any")]
+        if pspec.get("enum"):
+            vals = u"|".join(u"{}".format(v) for v in list(pspec["enum"])[:8])
+            bits.append(u"enum: " + vals)
+        parts.append(u"{} ({}, {})".format(
+            pname, u"required" if pname in required else u"optional",
+            u", ".join(bits)))
+    return u"Expected parameters for `{}`: {}".format(name, u"; ".join(parts))
+
+
 # ─── Phantom tool calls ────────────────────────────────────────────────────────
 # A model that writes {"name": "...", "parameters": {...}} as chat text is
 # trying to call a tool. When the name is real the loop executes it
@@ -481,6 +528,7 @@ class AgentLoop(object):
         done_calls = set()   # (name, canonical args) that succeeded this run
         phantom_retries = 0  # JSON calls to tools that don't exist, corrected
         announce_nudges = 0  # "I'm about to…" replies that called nothing
+        hinted = set()       # tools whose schema we already attached to an error
 
         while iteration < self._max_iterations:
             iteration += 1
@@ -647,6 +695,13 @@ class AgentLoop(object):
                     res = {"result": res}
                 dt = time.time() - t0
                 ok = "error" not in res
+                # Hand a small model the tool's schema alongside the error so it
+                # can fix a wrong/missing argument instead of repeating the call.
+                if not ok and name not in hinted and len(hinted) < _MAX_PARAM_HINTS:
+                    _ph = _param_hint(self._tools, name)
+                    if _ph:
+                        res["expected_parameters"] = _ph
+                        hinted.add(name)
                 tool_runs += 1
                 self._emit("on_tool_done", name, res, ok, dt)
                 results.append(res)
