@@ -1116,6 +1116,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         # ── Session state ─────────────────────────────────────────────────────
         self._busy             = False          # concurrency guard
         self._switching_provider = False        # guard: _switch_provider bg probe in flight
+        self._warming_up       = False          # guard: local-model warm-up in flight
+        self._warmed_provider  = None           # last local provider we preloaded
+        self._warmed_at        = 0.0            # timestamp of that warm-up
         self._typing_row       = None           # reference to typing indicator element
         self._conversation_history = []         # [{role, content}, ...] multi-turn context
         self._history_summary  = u''            # turns folded out of the window
@@ -1583,6 +1586,50 @@ class T3LabAssistantWindow(forms.WPFWindow):
     def _on_window_activated(self, sender, e):
         self._sync_theme()
         self._update_revit_context()
+        # Preload the local model so the FIRST message isn't a cold VRAM load.
+        # Throttled + backgrounded, and a cheap no-op for cloud providers.
+        self._maybe_warm_up_local()
+
+    def _maybe_warm_up_local(self, force=False):
+        """Preload the active LOCAL model so the first message replies fast.
+
+        Ollama/LM Studio only keep a model resident AFTER a first use, so the
+        first message after the pane opens otherwise pays the multi-second load.
+        No-op for cloud providers, throttled (keep_alive holds a model ~15m), and
+        run entirely on a background thread so the UI is never blocked.
+        """
+        try:
+            import time as _time
+            name = get_active_provider_name()
+            if name not in ("ollama", "lmstudio"):
+                return
+            now = _time.time()
+            if not force and self._warmed_provider == name \
+                    and (now - self._warmed_at) < 600:
+                return
+            if self._warming_up:
+                return
+            self._warming_up = True
+
+            def _bg():
+                try:
+                    from Intelligence.llm_router import LLMRouter
+                    provider = LLMRouter().get_active_provider()
+                    if provider is not None and hasattr(provider, "warm_up"):
+                        provider.warm_up()
+                        self._warmed_provider = name
+                        self._warmed_at = _time.time()
+                except Exception:
+                    pass
+                finally:
+                    self._warming_up = False
+
+            t = Thread(ThreadStart(_bg))
+            t.IsBackground = True
+            t.SetApartmentState(ApartmentState.STA)
+            t.Start()
+        except Exception:
+            self._warming_up = False
 
     # ─── Compact layout for narrow docks ─────────────────────────────────────
 
@@ -2283,6 +2330,17 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             self._models_cache[name] = provider.get_models()
                         except Exception:
                             pass
+                        # Switched TO a local provider → preload its model now so
+                        # the user's first message on it isn't a cold VRAM load.
+                        if name in ("ollama", "lmstudio") and \
+                                hasattr(provider, "warm_up"):
+                            try:
+                                import time as _time
+                                provider.warm_up()
+                                self._warmed_provider = name
+                                self._warmed_at = _time.time()
+                            except Exception:
+                                pass
                 except Exception:
                     pass
                 finally:

@@ -256,6 +256,30 @@ class OllamaProvider(BaseLLMProvider):
         except Exception:
             pass
 
+    def warm_up(self):
+        """Preload the active model so the FIRST real message isn't a cold load.
+
+        keep_alive keeps a model resident only AFTER a first use, so without
+        this the first message after the pane opens pays the multi-second VRAM
+        load. Sends a 1-token generation and swallows everything — never raises,
+        never blocks the UI (the caller runs it on a background thread).
+        """
+        try:
+            model = self.get_active_model()
+            if not model:
+                return False
+            payload = {
+                "model":      model,
+                "messages":   [{"role": "user", "content": u"hi"}],
+                "stream":     False,
+                "keep_alive": "15m",
+                "options":    {"num_predict": 1, "temperature": 0.0},
+            }
+            http_post(self._get_host() + "/api/chat", payload, timeout_ms=15000)
+            return True
+        except Exception:
+            return False
+
     def chat(self, messages, system_prompt, user_content, max_tokens=400, **kwargs):
         """
         Send a chat request to the local Ollama server.
