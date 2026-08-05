@@ -288,6 +288,43 @@ def test_ollama_active_model_uses_configured_host():
           model)
 
 
+def test_ollama_auto_model_is_cached():
+    print('[ollama: auto-selected model is cached, not re-probed each turn]')
+    _reset_appdata()
+    import Intelligence.ollama_provider as OP
+    p = OP.OllamaProvider()
+
+    calls = {'n': 0}
+
+    def _fake_probe():
+        calls['n'] += 1
+        p._active_host = 'http://localhost:11434'
+        return p._active_host, ['qwen2.5:0.5b', 'qwen3:14b']
+    p._probe_tags = _fake_probe
+
+    m1 = p.get_active_model()
+    m2 = p.get_active_model()
+    m3 = p.get_active_model()
+    check('auto-select probes /api/tags only once', calls['n'] == 1, calls)
+    check('cached model is stable', m1 == m2 == m3 and bool(m1), (m1, m2, m3))
+
+    # A pinned model never probes at all.
+    calls['n'] = 0
+    p.set_model('qwen3:14b')
+    check('pinned model returns without probing',
+          p.get_active_model() == 'qwen3:14b' and calls['n'] == 0, calls)
+
+    # Switching host must drop the cache so the new host is re-ranked.
+    p2 = OP.OllamaProvider()
+    p2._probe_tags = _fake_probe
+    calls['n'] = 0
+    p2.get_active_model()
+    p2.reload_credentials()       # e.g. host changed in Settings
+    p2.get_active_model()
+    check('reload_credentials invalidates the model cache', calls['n'] == 2,
+          calls)
+
+
 def test_local_llm_pick_best_is_pure():
     print('[local_llm: pick_best]')
     import Intelligence.local_llm as LL
@@ -744,6 +781,7 @@ def main():
     test_router_status_instant_is_offline()
     test_ollama_host_persists()
     test_ollama_active_model_uses_configured_host()
+    test_ollama_auto_model_is_cached()
     test_local_llm_pick_best_is_pure()
     test_wants_json_contract()
     test_ollama_json_is_opt_in()
