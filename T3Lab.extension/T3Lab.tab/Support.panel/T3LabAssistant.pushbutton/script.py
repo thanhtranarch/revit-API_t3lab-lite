@@ -7477,19 +7477,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ─── Parallel task cards ──────────────────────────────────────────────────
 
     def _parallel_tasks_enabled(self):
-        """Opt-in kill switch for concurrent task cards (agents.parallel_tasks).
+        """Kill switch for concurrent task cards (agents.parallel_tasks).
 
-        Default OFF: a new concurrency path that can only be exercised end to
-        end inside Revit ships disabled until the user turns it on. Also needs
-        the graph layer it plugs into.
+        Default ON, but hard-gated downstream by eligible_for_parallel: it only
+        ever fires for a genuinely writer-FREE multi-goal plan (>=2 read goals),
+        so two model-writes can never interleave. Cancellable per card. Needs the
+        graph layer it plugs into, so a disabled graph disables this too.
         """
         if not self._graph_enabled():
             return False
         try:
             from config.settings import get_settings
-            return bool(get_settings().get_agent_option("parallel_tasks", False))
+            return bool(get_settings().get_agent_option("parallel_tasks", True))
         except Exception:
-            return False
+            return True
 
     def _run_agent_text(self, provider, base_history, node, cancel_check=None):
         """Run ONE read goal to completion with NO streaming; return its text.

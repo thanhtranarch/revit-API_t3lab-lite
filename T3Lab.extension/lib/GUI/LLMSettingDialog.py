@@ -671,9 +671,18 @@ class LLMSettingWindow(forms.WPFWindow):
                     msg = u"Provider '{}' not loaded.".format(name)
                 elif not provider.check_health():
                     if name == "ollama":
+                        # Recommend the tool-capable sweet spot (qwen3:14b), not
+                        # a tiny NLU-only model — the assistant's agentic path
+                        # needs a model that reliably tool-calls.
+                        rec = u"qwen3:14b"
+                        try:
+                            from Intelligence import local_llm as _ll
+                            rec = _ll.recommended_tool_model()
+                        except Exception:
+                            pass
                         msg = (u"Ollama not available or no models installed.\n"
                                u"1. Make sure Ollama is running.\n"
-                               u"2. Run: ollama pull qwen2.5:0.5b")
+                               u"2. Run: ollama pull {}".format(rec))
                     elif name == "lmstudio":
                         msg = (u"LM Studio not available or no model loaded.\n"
                                u"1. Open LM Studio.\n"

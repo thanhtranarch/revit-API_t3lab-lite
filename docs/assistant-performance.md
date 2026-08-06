@@ -396,3 +396,80 @@ báo cáo — hoặc đã được làm chắc từ trước, hoặc là lớp t
 logic quyết định đáng kể để sai. Chưa soát hết toàn bộ 7361 dòng của
 `server.py` dòng-theo-dòng — vòng này chỉ nhắm bảng tra và dispatch/error-handling
 theo đúng phạm vi được giao.
+
+---
+
+## 9. Qwen mặc định + distill từ Opus 5, và dọn nốt backlog (2026-08-06)
+
+Đợt này gồm ba trục: (a) đưa **Qwen trên Ollama** thành runtime mặc định, (b) thêm
+đường **distillation từ Opus 5** (teacher → student), (c) rà & đóng các mục backlog
+§7.2 / §8 còn treo.
+
+### 9.1 Qwen-on-Ollama là mặc định, ưu tiên tool-capable
+
+- `config/settings.py`: `active_provider` mặc định **`ollama`** (trước là `claude`).
+  Chỉ là seed lần đầu — lựa chọn đã lưu vẫn thắng khi restore, và `FALLBACK_CHAIN`
+  vẫn với tới Claude/OpenAI khi Ollama chưa sẵn sàng.
+- `local_llm.pick_tool_capable()` (mới) + `OllamaProvider.get_active_model()`: đường
+  agentic (không quality-mode) nay ưu tiên Qwen **đạt ngưỡng tool-calling**
+  (`qwen3:14b → 8b → 4b`) thay vì smallest-first vốn chỉ hợp NLU nhẹ. Quality-mode
+  vẫn chọn model mạnh nhất; đường NLU (`get_best_model()` default) giữ nguyên.
+- Thông điệp onboarding + Test Connection khuyến nghị `qwen3:14b` (qua
+  `recommended_tool_model()`), không còn `qwen2.5:0.5b/1.5b`.
+
+### 9.2 Distillation: Opus 5 làm teacher cho Qwen (opt-in)
+
+Tận dụng nguyên pipeline self-study có sẵn (`learning/` → `dataset.jsonl` →
+`tools/train/finetune_local.py`). Trước đây pipeline **cố ý local-only, no API cost**
+— enricher generative chỉ chạy khi provider active là local. Nay thêm **một lớp
+enricher mới** phá giao ước đó một cách có kiểm soát:
+
+- `study_engine.Enricher` thêm trường `requires` (`'local'` | `'teacher'` | None);
+  `Gate` thêm `has_teacher`; scheduler skip enricher `teacher` khi không có teacher.
+- `learning/enrichers/opus_teacher.py` (mới): chọn ứng viên **offline** (lệnh thật
+  của văn phòng có câu trả lời terse + seed list Revit/BIM song ngữ), gọi thẳng
+  **Claude provider ghim model Opus** (`ClaudeProvider.pick_quality_model()` mới),
+  ghi ví dụ SFT `source='opus_teacher', quality='teacher'`. Dedup theo user-turn đã
+  có trong corpus. Bound `MAX_PER_CYCLE=3` để kiểm soát token. Never raises.
+- `loop.py`: đăng ký enricher, `_teacher_available()` = `agents.opus_teacher` bật +
+  Claude có key (không HTTP ở gate), `_teacher_chat_fn()` resolve model Opus lúc chạy.
+- Chạy được **kể cả khi assistant đang chat trên Qwen local** — teacher gọi Claude
+  trực tiếp, không phụ thuộc provider active.
+- Setting mới, **mặc định TẮT** (tốn token): `agents.opus_teacher`, `agents.self_train_auto`.
+- `finetune_local.py` + `tools/train/README.md`: base mặc định đổi sang **Qwen**
+  (`unsloth/Qwen2.5-14B-Instruct-bnb-4bit`) để distill đúng họ student.
+
+### 9.3 Tính năng đang ngủ được bật (zero-cost)
+
+- `agents.self_study` mặc định **bật** (enricher local zero-cost, throttle nặng).
+- `agents.parallel_tasks` mặc định **bật** — nhưng vẫn hard-gate qua
+  `eligible_for_parallel` (chỉ kế hoạch **nhiều mục tiêu, toàn read**), nên hai
+  transaction ghi không bao giờ đan nhau.
+- Graph multi-goal nay tự mở trên local: Qwen có `SUPPORTS_NATIVE_TOOLS=True` nên
+  `_run_graph_plan` không còn bị chặn khi provider mặc định là Ollama.
+
+### 9.4 Backlog §7.2 / §8 — rà lại: phần lớn đã được sửa từ trước
+
+Rà từng mục Trung bình–Cao trong §7.2 và §8, đối chiếu mã nguồn hiện tại:
+
+| Mục | Trạng thái 2026-08-06 |
+|---|---|
+| §7.2#1 `chat_stream` reconnect | `claude_provider`/`openai_provider` **đã có** `_continue_after_drop` (chỉ blocking-retry khi chưa stream gì). **DeepSeek còn sót** → đợt này sửa: có partial thì trả partial, không sinh lại câu mới. |
+| §7.2#2 `assistant_memory` update/forget | **Đã có** `update_fact`/`forget_fact`/`_find_fact`; `remember_fact` tool + `/memory forget <số\|nội dung>` đã nối (script.py 8128–8147). |
+| §8#1 `context_digest` phát hiện đổi | **Đã sửa**: dùng `pdf_cache.fingerprint` (mtime,size) theo TỪNG doc + lưu trạng thái `unreadable`, nên flip đọc-được↔không cũng re-read. |
+| §8#2 `get_material_quantities` alias | **Đã sửa**: route qua `_resolve_bic()` (case-insensitive + alias VI). |
+
+Các mục Thấp (§7.2#3 `api_updater`, §7.2#4 `feedback.skill_score`, §8#3 `task_manager`,
+§8#4 đọc `telemetry`) vẫn để lại — dead-code/impact thấp, ngoài phạm vi đợt này.
+
+### Kiểm chứng đợt này
+
+```bash
+python3 dev/test_opus_teacher.py          # enricher + study_engine gating + pick_tool_capable
+python3 dev/test_assistant_llm.py
+python3 dev/test_trainer_trigger.py
+python3 tools/train/finetune_local.py --dry-run
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+
+**Không sửa file XAML nào** — `T3LabAssistant.xaml` vẫn UI-locked.

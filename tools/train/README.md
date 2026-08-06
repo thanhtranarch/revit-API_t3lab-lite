@@ -39,10 +39,12 @@ in-Revit idle loop  ──►  %APPDATA%/T3LabAI/training/dataset.jsonl
    python3 tools/train/finetune_local.py --dry-run
    ```
 3. **Train** (GPU box). Pick a `--base` HF model that matches the Ollama base you
-   chat with (e.g. Llama-3.1-8B-Instruct ↔ `unsloth/llama-3.1-8b-instruct-bnb-4bit`):
+   chat with. The assistant auto-selects **qwen3:14b** as its default agentic
+   model, so distil INTO a Qwen base (default `unsloth/Qwen2.5-14B-Instruct-bnb-4bit`;
+   use a Qwen3 checkpoint if available). `--base` overrides for other families:
    ```
    python3 tools/train/finetune_local.py \
-       --base unsloth/llama-3.1-8b-instruct-bnb-4bit \
+       --base unsloth/Qwen2.5-14B-Instruct-bnb-4bit \
        --tag t3lab-assistant --epochs 1
    ```
    Produces `out/gguf/*.gguf` + `out/Modelfile` and writes
@@ -63,6 +65,19 @@ but only when a GPU + trainer are present and Revit is not mid-operation.
 ## Privacy
 The dataset and all artifacts stay on your machine (`%APPDATA%/T3LabAI`), same as
 telemetry. Nothing is uploaded.
+
+## Distillation from Opus 5 (optional teacher)
+The corpus is mostly the office's own successful commands (zero-cost enrichers).
+To also distil **Opus-5-quality** answers into it, enable the teacher:
+```json
+{ "agents": { "self_study": true, "opus_teacher": true } }
+```
+with a Claude API key set in *LLMs Setting*. While Revit is idle, Opus writes
+gold answers to `dataset.jsonl` (`meta.source = "opus_teacher"`, `quality =
+"teacher"`) for a curated set of Revit/BIM questions plus the office's own terse
+commands. This is the ONE enricher that spends API tokens — off by default — and
+it runs even while the assistant itself chats on local Qwen. The teacher rows
+train the local student here, no code change needed.
 
 ## Notes
 - Ollama base models aren't HF checkpoints; Unsloth trains a HF base then exports

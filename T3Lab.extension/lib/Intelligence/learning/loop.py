@@ -41,11 +41,14 @@ _last_tick = 0.0
 # ─── Gate inputs ────────────────────────────────────────────────────────────────
 
 def _self_study_enabled():
+    # Default ON: the local enrichers are zero-API-cost and heavily throttled
+    # (IDLE_SECONDS/THROTTLE_SECONDS + hourly budget). The teacher enricher,
+    # which DOES spend API tokens, is gated separately behind agents.opus_teacher.
     try:
         from config.settings import get_settings
-        return bool(get_settings().get_agent_option('self_study', False))
+        return bool(get_settings().get_agent_option('self_study', True))
     except Exception:
-        return False
+        return True
 
 
 def _revit_version():
@@ -73,11 +76,58 @@ def _active_local_provider():
     return None
 
 
+def _teacher_available():
+    """True when the Opus-5 teacher may run: the opt-in switch is on AND the
+    Claude provider has a key.
+
+    Deliberately no HTTP here (the gate is read every cycle) — is_configured()
+    is key-presence only. The teacher enricher itself resolves the Opus model
+    (a possible /v1/models fetch) when it actually runs, on the study thread.
+    """
+    try:
+        from config.settings import get_settings
+        if not bool(get_settings().get_agent_option('opus_teacher', False)):
+            return False
+        from Intelligence.llm_router import LLMRouter
+        p = LLMRouter().get_provider('claude')
+        return p is not None and p.is_configured()
+    except Exception:
+        return False
+
+
+def _teacher_chat_fn():
+    """Return chat_fn(prompt)->answer using the Claude provider pinned to Opus,
+    or None when unavailable. Resolving the Opus model may do one HTTP fetch —
+    only ever called from the background study thread.
+    """
+    try:
+        from Intelligence.llm_router import LLMRouter
+        from Intelligence.learning.enrichers import opus_teacher
+        provider = LLMRouter().get_provider('claude')
+        if provider is None or not provider.is_configured():
+            return None
+        opus = None
+        try:
+            opus = provider.pick_quality_model()
+        except Exception:
+            opus = None
+
+        def _chat(prompt, _p=provider, _m=opus):
+            kw = {'max_tokens': opus_teacher._ANSWER_TOKENS}
+            if _m:
+                kw['model_override'] = _m
+            return _p.chat([], opus_teacher.TEACHER_SYSTEM_PROMPT, prompt, **kw)
+        return _chat
+    except Exception:
+        return None
+
+
 # ─── Engine assembly ────────────────────────────────────────────────────────────
 
 def _build_engine():
     from Intelligence.learning.enrichers import (telemetry_miner, api_facts,
-                                                 model_snapshot, knowledge_refresh)
+                                                 model_snapshot, knowledge_refresh,
+                                                 opus_teacher)
     ver = _revit_version()
 
     def _mine():
@@ -92,11 +142,20 @@ def _build_engine():
     def _knowledge():
         return knowledge_refresh.run()
 
+    def _teacher():
+        chat_fn = _teacher_chat_fn()
+        if chat_fn is None:
+            return {'status': 'no teacher', 'added': 0}
+        return opus_teacher.run(chat_fn=chat_fn, revit_version=ver)
+
     return StudyEngine([
         Enricher('telemetry_miner', _mine, generative=False),
         Enricher('model_snapshot',  _snapshot, generative=False),
         Enricher('api_facts',       _api, generative=False),
         Enricher('knowledge_refresh', _knowledge, generative=True),
+        # DISTILLATION: opt-in, cloud teacher — runs even while the active
+        # provider is local Qwen (it calls Claude directly). requires='teacher'.
+        Enricher('opus_teacher',    _teacher, requires='teacher'),
     ])
 
 
@@ -126,6 +185,7 @@ def _make_gate():
         enabled=_self_study_enabled(),
         idle=activity.is_idle(IDLE_SECONDS),
         has_local_model=(_active_local_provider() is not None),
+        has_teacher=_teacher_available(),
         cancel=(lambda: not activity.is_idle(IDLE_SECONDS)),
     )
 
