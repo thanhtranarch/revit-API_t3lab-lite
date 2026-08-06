@@ -127,7 +127,7 @@ def _teacher_chat_fn():
 def _build_engine():
     from Intelligence.learning.enrichers import (telemetry_miner, api_facts,
                                                  model_snapshot, knowledge_refresh,
-                                                 opus_teacher)
+                                                 opus_teacher, mcp_session_miner)
     ver = _revit_version()
 
     def _mine():
@@ -142,6 +142,9 @@ def _build_engine():
     def _knowledge():
         return knowledge_refresh.run()
 
+    def _mcp_sessions():
+        return mcp_session_miner.run(revit_version=ver)
+
     def _teacher():
         chat_fn = _teacher_chat_fn()
         if chat_fn is None:
@@ -153,6 +156,9 @@ def _build_engine():
         Enricher('model_snapshot',  _snapshot, generative=False),
         Enricher('api_facts',       _api, generative=False),
         Enricher('knowledge_refresh', _knowledge, generative=True),
+        # Ingest recorded MCP teaching sessions (Opus via Claude Desktop) into
+        # the SFT corpus. Zero-cost file reshaping — always runnable.
+        Enricher('mcp_session_miner', _mcp_sessions, generative=False),
         # DISTILLATION: opt-in, cloud teacher — runs even while the active
         # provider is local Qwen (it calls Claude directly). requires='teacher'.
         Enricher('opus_teacher',    _teacher, requires='teacher'),

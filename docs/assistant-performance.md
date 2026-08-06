@@ -473,3 +473,36 @@ python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3
 ```
 
 **Không sửa file XAML nào** — `T3LabAssistant.xaml` vẫn UI-locked.
+
+---
+
+## 10. Opus dạy Qwen bằng cách điều khiển Revit qua MCP (2026-08-06, tiếp)
+
+Nâng cấp teacher từ **distill văn bản** (`opus_teacher`) lên **distill trajectory
+tool-use**: Opus (Claude Desktop) điều khiển Revit qua MCP bridge, và chuỗi
+tool-call thật đó được ghi thành dữ liệu train dạy Qwen local **gọi tool đúng**.
+
+### 10.1 Kênh & an toàn
+- **Kênh = Claude Desktop ngoài** (MCP bridge → `POST /mcp` → `T3LabAIServer._handle_tool_call`). Đây là cổng vào RIÊNG của đường ngoài — assistant in-app đi thẳng `_execute_tool`, nên capture + boundary tool chỉ ghi phiên của teacher, không đụng assistant nội bộ.
+- **An toàn = sandbox**: khi Teaching mode ON, guard trên **Revit main thread** (`_execute_tool_in_context`, có `doc` hợp lệ) chặn mọi tool `is_model_modifying` nếu document active không phải sandbox đã đánh dấu (so `PathName`/`Title`, fallback tên chứa `sandbox`/`nhap`/…). Model dự án thật được bảo vệ; read không bị ảnh hưởng; teaching OFF là no-op.
+
+### 10.2 Cấu phần
+- `core/teaching.py` (mới, thuần, CPython-test): `is_sandbox`, `should_block_write`, `is_error_result`, và raw-session I/O (`session_dir`/`append_step_line`/`read_session`). Một nguồn sự thật cho cả server lẫn miner.
+- `core/server.py`: state `teaching_enabled`/`sandbox_doc` (persist ở `mcp_paths.json`); recorder ghi mỗi tool-call vào `mcp_sessions/<id>.jsonl`; hai pseudo-tool `t3lab_begin_teaching(goal)`/`t3lab_end_teaching(summary)` (đăng ký vào tools/list, xử lý cục bộ, không chạm Revit); guard sandbox; API `set_teaching_mode`/`set_sandbox_document`/`get_teaching_status`.
+- `tool_schema.py`: ẩn 2 boundary tool khỏi catalog **in-app** (external bridge đọc registry trực tiếp nên vẫn thấy).
+- `dataset.py`: schema **agentic** — `_VALID_ROLES` thêm `tool`, giữ `tool_calls` (chuẩn hoá OpenAI), `_hash` gộp tool name/args, `export_sft` giữ turn tool; `add_trajectory(goal, steps, final, …)`. Tương thích ngược ví dụ text.
+- `learning/enrichers/mcp_session_miner.py` (mới, `generative=False`): nạp `mcp_sessions/*.jsonl` → `add_trajectory`, đánh dấu `.done`; phiên không có goal → `.nolabel` (để dành); idempotent; đăng ký trong `loop.py`.
+- `Services/mcp_service.py` + `GUI/MCPControlDialog.py` + `Tools/MCPControl.xaml` (KHÔNG UI-locked): thẻ **Teaching Capture** — toggle bật/tắt, nút **Mark Sandbox**, dòng trạng thái. Đặt ở row spacer sẵn có (không đánh số lại), theo Lumina, `sync_wpf_styles --check` vẫn 0 out-of-sync.
+
+### 10.3 Trainer
+`finetune_local.py`/`export_sft` giữ nguyên turn `tool`/`tool_calls`; Qwen chat template hỗ trợ role tool. Nguồn `mcp_teacher` (trajectory) đứng cạnh `opus_teacher` (text) và `telemetry_miner` — xem `tools/train/README.md`.
+
+### Kiểm chứng (E)
+```bash
+python3 dev/test_mcp_teacher.py           # teaching helpers + agentic dataset + miner
+python3 dev/test_learning_dataset.py
+python3 dev/test_opus_teacher.py
+python3 tools/train/finetune_local.py --dry-run
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+QA trong Revit: MCP Control → bật Teaching Capture, mở file .rvt nháp → Mark Sandbox; Claude Desktop (Opus) chạy vài tác vụ (có `t3lab_begin/end_teaching`) → `mcp_sessions/*.jsonl` xuất hiện, `dataset.jsonl` có dòng `source=mcp_teacher`; thử write khi active là model thật → bị chặn.

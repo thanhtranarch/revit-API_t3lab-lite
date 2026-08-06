@@ -1280,6 +1280,62 @@
                         </Grid>
                     </Grid>
                 </Border>
+
+                <!-- Teaching Capture card (Opus distils to local Qwen via MCP) -->
+                <Border Grid.Row="15" VerticalAlignment="Top" Margin="0,12,0,0"
+                        Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1"
+                        CornerRadius="8" Padding="12,10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="6"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="8"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Header + toggle -->
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Teaching Capture (Opus → Qwen)"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#18181B"
+                                       VerticalAlignment="Center"/>
+                            <CheckBox Grid.Column="1" x:Name="teaching_toggle"
+                                      Style="{StaticResource T3ToggleSwitch}"
+                                      VerticalAlignment="Center"
+                                      ToolTip="Record Claude Desktop's MCP tool calls as training data for the local model. Writes are restricted to the sandbox document."/>
+                        </Grid>
+
+                        <!-- Status row -->
+                        <StackPanel Grid.Row="2" Orientation="Horizontal">
+                            <Border x:Name="teaching_indicator" Width="10" Height="10" CornerRadius="5"
+                                    Background="#94A3B8" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock x:Name="teaching_status_label" Text="Teaching capture off"
+                                       FontSize="11" Foreground="#64748B" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Sandbox row -->
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="8"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="sandbox_label" Grid.Column="0"
+                                       Text="Sandbox: none — mark a scratch model"
+                                       FontFamily="Consolas" FontSize="10" Foreground="#94A3B8"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}"/>
+                            <Button Grid.Column="2" x:Name="mark_sandbox_btn"
+                                    Content="Mark Sandbox" Style="{StaticResource SecondaryButton}"
+                                    Height="30" Width="130"
+                                    ToolTip="Designate the ACTIVE document as the teaching sandbox — the only model writes are allowed on while teaching."/>
+                        </Grid>
+                    </Grid>
+                </Border>
             </Grid>
 
             <!-- Actions/Footer -->

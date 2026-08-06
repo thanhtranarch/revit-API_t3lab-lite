@@ -17,6 +17,7 @@ import sys
 import threading
 import json
 import uuid
+import io
 
 try:
     import queue as _queue_mod            # CPython 3
@@ -441,6 +442,20 @@ class T3LabAIServer(object):
         # and closed on the Revit main thread via the __begin/__end_action_group
         # pseudo-tools below. One request = one group = one Undo entry.
         self._action_group = None
+
+        # ── Teaching capture (Opus distils via MCP) ──────────────────────────
+        # When ON, the EXTERNAL MCP path (_handle_tool_call, i.e. Claude Desktop
+        # via bridge.py) records every tool call into a trajectory the local
+        # Qwen is later fine-tuned on, and — on the Revit main thread — every
+        # model-MODIFYING tool is restricted to a designated sandbox document so
+        # the teacher can never touch the real project. State persisted in
+        # mcp_paths.json so it survives a restart. See set_teaching_mode /
+        # _sandbox guard in _execute_tool_in_context / the recorder below.
+        self._teaching_enabled = False
+        self._sandbox_doc = None          # {'title':..., 'path':...} or None
+        self._teach_session = None        # {'id','goal','steps':[...]} or None
+        self._restore_teaching_state()
+
         self._initialized = True
 
         # Register default Revit tools
@@ -486,6 +501,52 @@ class T3LabAIServer(object):
     def _register_default_tools(self):
         """Register default Revit tools for MCP"""
         self._tools = {
+            # ── Teaching capture boundary tools (Opus distils via MCP) ───────
+            # Call these to frame ONE training trajectory when the user has
+            # turned teaching capture on in MCP Control. They record nothing
+            # about the Revit model itself — only the task framing — and are
+            # no-ops when teaching mode is off.
+            't3lab_begin_teaching': {
+                'name': 't3lab_begin_teaching',
+                'description': ('Start recording a T3Lab teaching trajectory. '
+                                'Call this FIRST, before the Revit tool calls '
+                                'for one task, passing the task goal in your own '
+                                'words. Everything you do until t3lab_end_teaching '
+                                'is captured as one example to fine-tune the local '
+                                'assistant. Only records when the user enabled '
+                                'teaching capture; safe to call regardless.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'goal': {
+                            'type': 'string',
+                            'description': ('The task you are about to perform, '
+                                            'phrased as a user request (e.g. '
+                                            '"tag all walls on level 1").'),
+                        },
+                    },
+                    'required': ['goal'],
+                },
+            },
+            't3lab_end_teaching': {
+                'name': 't3lab_end_teaching',
+                'description': ('Finish the current T3Lab teaching trajectory '
+                                'started with t3lab_begin_teaching. Call this '
+                                'LAST, after the task is done, with a short '
+                                'summary of the outcome. Persists the trajectory '
+                                'as one training example.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'summary': {
+                            'type': 'string',
+                            'description': ('One-sentence summary of what was '
+                                            'accomplished (optional).'),
+                        },
+                    },
+                    'required': [],
+                },
+            },
             'revit_get_active_view': {
                 'name': 'revit_get_active_view',
                 'description': 'Get information about the currently active view in Revit',
@@ -2373,9 +2434,21 @@ class T3LabAIServer(object):
         }
 
     def _handle_tool_call(self, params):
-        """Handle tools/call request"""
+        """Handle tools/call request.
+
+        This is the EXTERNAL MCP entry (bridge.py / Claude Desktop). The in-app
+        assistant calls _execute_tool directly and never reaches here, so the
+        teaching recorder + session-boundary tools live here and only capture
+        the external teacher's sessions.
+        """
         tool_name = params.get('name', '')
         arguments = params.get('arguments', {})
+
+        # Teaching session boundary tools are handled locally (no Revit) so the
+        # teacher can frame each trajectory. No-op unless teaching mode is on.
+        boundary = self._teach_handle_boundary(tool_name, arguments)
+        if boundary is not None:
+            return boundary
 
         if tool_name not in self._tools:
             return {
@@ -2389,6 +2462,7 @@ class T3LabAIServer(object):
         # Execute tool and return result
         try:
             result = self._execute_tool(tool_name, arguments)
+            self._teach_record_step(tool_name, arguments, result)
             return {
                 'content': [{
                     'type': 'text',
@@ -2396,6 +2470,8 @@ class T3LabAIServer(object):
                 }]
             }
         except Exception as e:
+            self._teach_record_step(
+                tool_name, arguments, {'error': str(e), 'tool': tool_name})
             return {
                 'content': [{
                     'type': 'text',
@@ -2403,6 +2479,191 @@ class T3LabAIServer(object):
                 }],
                 'isError': True
             }
+
+    # ── Teaching capture (Opus distils via the external MCP path) ────────────
+
+    # Session-boundary pseudo-tools the teacher (Opus in Claude Desktop) calls
+    # to frame one training trajectory. Registered into tools/list, handled
+    # entirely here — they never touch Revit.
+    _TEACH_BEGIN_TOOL = 't3lab_begin_teaching'
+    _TEACH_END_TOOL   = 't3lab_end_teaching'
+
+    def _teach_data_dir(self):
+        from core import teaching
+        return teaching.session_dir()
+
+    def _restore_teaching_state(self):
+        """Load persisted teaching_enabled + sandbox_doc from mcp_paths.json."""
+        try:
+            from core import paths
+            data = paths.load_settings() or {}
+            self._teaching_enabled = bool(data.get('teaching_enabled', False))
+            sb = data.get('sandbox_doc')
+            self._sandbox_doc = sb if isinstance(sb, dict) else None
+        except Exception:
+            self._teaching_enabled = False
+            self._sandbox_doc = None
+
+    def set_teaching_mode(self, on):
+        """Enable/disable teaching capture + sandbox write-lock. Persisted."""
+        self._teaching_enabled = bool(on)
+        try:
+            from core import paths
+            paths.set_setting('teaching_enabled', self._teaching_enabled)
+        except Exception:
+            pass
+        return self._teaching_enabled
+
+    def set_sandbox_document(self, info):
+        """Mark a document as the teaching sandbox. `info` is {'title','path'}
+        (resolved by the caller on the UI thread) or None to clear. Persisted."""
+        self._sandbox_doc = info if isinstance(info, dict) else None
+        try:
+            from core import paths
+            paths.set_setting('sandbox_doc', self._sandbox_doc)
+        except Exception:
+            pass
+        return self._sandbox_doc
+
+    def get_teaching_status(self):
+        """{'enabled', 'sandbox', 'session_open', 'sessions_recorded'}."""
+        sessions = 0
+        try:
+            sessions = len([f for f in os.listdir(self._teach_data_dir())
+                            if f.endswith('.jsonl')])
+        except Exception:
+            pass
+        sb = None
+        if isinstance(self._sandbox_doc, dict):
+            sb = self._sandbox_doc.get('title') or self._sandbox_doc.get('path')
+        return {'enabled': bool(self._teaching_enabled),
+                'sandbox': sb,
+                'session_open': self._teach_session is not None,
+                'sessions_recorded': sessions}
+
+    def _is_sandbox_doc(self, doc):
+        """True when `doc` is the designated teaching sandbox.
+
+        Runs on the Revit main thread (valid doc) — reads two string props only,
+        then delegates the (pure, tested) match to core.teaching.is_sandbox.
+        """
+        if doc is None:
+            return False
+        try:
+            title = u'{}'.format(getattr(doc, 'Title', u'') or u'')
+            path  = u'{}'.format(getattr(doc, 'PathName', u'') or u'')
+        except Exception:
+            return False
+        from core import teaching
+        return teaching.is_sandbox(title, path, self._sandbox_doc)
+
+    def _teach_sandbox_reject(self, tool_name):
+        """The error returned when a write is blocked by the sandbox guard."""
+        return {
+            'error': ('Teaching mode is ON: model-modifying tools are only '
+                      'allowed on the sandbox document. Mark a scratch .rvt as '
+                      'the sandbox in MCP Control (or name it with "sandbox"/'
+                      '"nhap"), then retry — the real project is protected.'),
+            'tool': tool_name,
+            'teaching_blocked': True,
+        }
+
+    def _teach_handle_boundary(self, tool_name, arguments):
+        """Handle t3lab_begin/end_teaching locally; return a result dict, or
+        None when `tool_name` is not a boundary tool."""
+        if tool_name == self._TEACH_BEGIN_TOOL:
+            goal = u'{}'.format((arguments or {}).get('goal') or u'').strip()
+            if self._teaching_enabled:
+                self._teach_begin(goal)
+                msg = 'Teaching trajectory started.'
+            else:
+                msg = 'Teaching mode is OFF — nothing recorded.'
+            return {'content': [{'type': 'text', 'text': msg}]}
+        if tool_name == self._TEACH_END_TOOL:
+            summary = u'{}'.format((arguments or {}).get('summary') or u'').strip()
+            note = self._teach_end(summary)
+            return {'content': [{'type': 'text', 'text': note}]}
+        return None
+
+    def _teach_begin(self, goal):
+        """Open a new trajectory buffer (flushing any orphan first)."""
+        if self._teach_session is not None:
+            self._teach_flush()
+        import time as _t
+        self._teach_session = {
+            'id': _t.strftime('%Y%m%d-%H%M%S'),
+            'goal': goal or u'',
+            'steps': [],
+        }
+
+    def _teach_record_step(self, tool_name, arguments, result):
+        """Append one executed tool call to the open trajectory + session file.
+
+        No-op unless teaching mode is on. If the teacher never called
+        begin_teaching, an implicit session is opened so nothing is lost.
+        Never raises.
+        """
+        if not self._teaching_enabled:
+            return
+        if tool_name in (self._TEACH_BEGIN_TOOL, self._TEACH_END_TOOL):
+            return
+        try:
+            from core import teaching
+            if self._teach_session is None:
+                self._teach_begin(u'')
+            step = {'tool': tool_name, 'arguments': arguments,
+                    'result': result,
+                    'is_error': bool(teaching.is_error_result(result))}
+            self._teach_session['steps'].append(step)
+            path = os.path.join(self._teach_data_dir(),
+                                self._teach_session['id'] + '.jsonl')
+            teaching.append_step_line(
+                path, self._teach_session.get('goal', u''), step)
+        except Exception:
+            pass
+
+    def _teach_end(self, summary):
+        """Close the open trajectory: convert to an SFT example, clear buffer."""
+        if self._teach_session is None:
+            return 'No teaching trajectory was open.'
+        session = self._teach_session
+        self._teach_session = None
+        steps = session.get('steps') or []
+        goal = session.get('goal') or u''
+        if not steps:
+            return 'Teaching trajectory had no tool calls — nothing recorded.'
+        try:
+            from Intelligence.learning import dataset as _ds
+            rev = None
+            try:
+                from pyrevit import HOST_APP
+                rev = int(HOST_APP.version)
+            except Exception:
+                rev = None
+            if goal:
+                ok, note = _ds.add_trajectory(
+                    goal, steps, final=(summary or None),
+                    source='mcp_teacher', quality='teacher', revit_version=rev)
+                return ('Recorded teaching trajectory ({} steps): {}'
+                        .format(len(steps), note))
+            # No goal declared — leave the raw session file for the miner to
+            # label later; do not fabricate a target here.
+            return ('Recorded {} steps with no goal — call '
+                    't3lab_begin_teaching(goal=...) first next time.'
+                    .format(len(steps)))
+        except Exception as ex:
+            return 'Could not record trajectory: {}'.format(ex)
+
+    def _teach_flush(self):
+        """Flush an orphan open session (begin without end) to the dataset if it
+        has a goal; the raw file survives regardless for the miner."""
+        try:
+            if self._teach_session and self._teach_session.get('goal') \
+                    and self._teach_session.get('steps'):
+                self._teach_end(u'')
+        except Exception:
+            pass
+        self._teach_session = None
 
     # Tools that open a Transaction / mutate the model. These MUST run on
     # Revit's main thread via the ExternalEvent — starting a transaction from
@@ -3155,6 +3416,25 @@ class T3LabAIServer(object):
                     return no_doc_err
         except ImportError:
             return {'error': 'Revit API not available', 'tool': tool_name}
+
+        # ── Teaching sandbox write-guard ─────────────────────────────────────
+        # When teaching mode is ON, a model-MODIFYING tool may only run against
+        # the designated sandbox document — so the teacher (or the assistant)
+        # can never damage the real project while capturing training data. Runs
+        # HERE, on the Revit main thread, where `doc` is resolved (reading a
+        # doc's Title/PathName off the HTTP thread would be unsafe). Read tools
+        # are unaffected; teaching mode OFF is a no-op.
+        if self._teaching_enabled and doc is not None:
+            try:
+                from Intelligence.tool_schema import is_model_modifying
+                modifies = is_model_modifying(tool_name)
+            except Exception:
+                # Fail safe: if we can't tell, treat known writers as writers.
+                modifies = tool_name in self._WRITE_TOOLS
+            from core import teaching
+            if teaching.should_block_write(
+                    True, modifies, self._is_sandbox_doc(doc)):
+                return self._teach_sandbox_reject(tool_name)
 
         # ── Agent request TransactionGroup (B4) ──────────────────────────────
         # Pseudo-tools, only reachable through _execute_tool (never listed in

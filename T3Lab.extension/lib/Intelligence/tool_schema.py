@@ -251,12 +251,21 @@ def get_server_tools():
         srv   = get_t3labai_server()
         tools = srv._handle_tools_list().get("tools", []) or []
         # Keep only well-formed entries; never let one bad schema kill the list.
+        # Drop the teaching session-boundary tools: they exist for the EXTERNAL
+        # MCP teacher (Claude Desktop) to frame trajectories and must never enter
+        # the in-app assistant's own tool catalog. The external bridge reads the
+        # server registry directly, so it still sees them.
         clean = [t for t in tools
-                 if isinstance(t, dict) and t.get("name") and t.get("inputSchema")]
+                 if isinstance(t, dict) and t.get("name") and t.get("inputSchema")
+                 and t["name"] not in _TEACHING_ONLY_TOOLS]
         _cache["raw"] = clean
         return clean
     except Exception:
         return []
+
+
+# Teacher-only pseudo-tools (see core/server.py); hidden from the in-app agent.
+_TEACHING_ONLY_TOOLS = frozenset(['t3lab_begin_teaching', 't3lab_end_teaching'])
 
 
 # ─── Converters ────────────────────────────────────────────────────────────────

@@ -297,6 +297,78 @@ class MCPService(object):
         except Exception as ex:
             return [], str(ex)
 
+    # ── Teaching capture (Opus distils via MCP) ────────────────────────────────
+
+    @staticmethod
+    def teaching_status():
+        """Return the server's teaching-capture status dict.
+
+        Keys: enabled (bool), sandbox (str|None), session_open (bool),
+        sessions_recorded (int), error (str|None).
+        """
+        try:
+            server = _get_server()
+            info = server.get_teaching_status()
+            info['error'] = None
+            return info
+        except Exception as ex:
+            return {'enabled': False, 'sandbox': None, 'session_open': False,
+                    'sessions_recorded': 0, 'error': str(ex)}
+
+    @staticmethod
+    def set_teaching_mode(on):
+        """Enable/disable teaching capture. Returns (new_state: bool, err|None)."""
+        try:
+            server = _get_server()
+            return bool(server.set_teaching_mode(bool(on))), None
+        except Exception as ex:
+            return False, str(ex)
+
+    @staticmethod
+    def toggle_teaching_mode():
+        """Flip teaching capture. Returns (new_state: bool, err|None)."""
+        status = MCPService.teaching_status()
+        if status.get('error'):
+            return False, status['error']
+        return MCPService.set_teaching_mode(not status.get('enabled'))
+
+    @staticmethod
+    def mark_active_document_as_sandbox():
+        """Designate the ACTIVE document as the teaching sandbox — the only doc
+        model-modifying tools may touch while teaching mode is on.
+
+        Resolves the active document via the server's open-documents list (safe,
+        already used by the dialog). Returns (info: dict|None, error: str|None).
+        """
+        try:
+            server = _get_server()
+            docs = server.get_open_documents() or []
+            active = None
+            for d in docs:
+                if d.get('is_active'):
+                    active = d
+                    break
+            if active is None and docs:
+                active = docs[0]
+            if active is None:
+                return None, 'No open document to mark as sandbox.'
+            info = {'title': active.get('title') or '',
+                    'path':  active.get('path') or ''}
+            server.set_sandbox_document(info)
+            return info, None
+        except Exception as ex:
+            return None, str(ex)
+
+    @staticmethod
+    def clear_sandbox():
+        """Clear the designated sandbox document. Returns (ok, err|None)."""
+        try:
+            server = _get_server()
+            server.set_sandbox_document(None)
+            return True, None
+        except Exception as ex:
+            return False, str(ex)
+
     # ── File watcher ───────────────────────────────────────────────────────────
 
     @staticmethod

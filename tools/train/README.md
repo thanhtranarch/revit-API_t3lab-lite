@@ -68,16 +68,29 @@ telemetry. Nothing is uploaded.
 
 ## Distillation from Opus 5 (optional teacher)
 The corpus is mostly the office's own successful commands (zero-cost enrichers).
-To also distil **Opus-5-quality** answers into it, enable the teacher:
+Two ways to also distil **Opus-5-quality** behaviour into it:
+
+**a) Text answers (`opus_teacher`).** Enable:
 ```json
 { "agents": { "self_study": true, "opus_teacher": true } }
 ```
 with a Claude API key set in *LLMs Setting*. While Revit is idle, Opus writes
 gold answers to `dataset.jsonl` (`meta.source = "opus_teacher"`, `quality =
-"teacher"`) for a curated set of Revit/BIM questions plus the office's own terse
-commands. This is the ONE enricher that spends API tokens — off by default — and
-it runs even while the assistant itself chats on local Qwen. The teacher rows
-train the local student here, no code change needed.
+"teacher"`) for curated Revit/BIM questions plus the office's own terse commands.
+The ONE enricher that spends API tokens — off by default — and it runs even while
+the assistant itself chats on local Qwen.
+
+**b) Tool-use trajectories (`mcp_teacher`).** Teach the model to *drive Revit*,
+not just answer. In **MCP Control**, turn on **Teaching Capture** and mark a
+scratch `.rvt` as the **Sandbox** (model writes are then blocked everywhere else).
+Connect **Claude Desktop** (Opus) to Revit via the MCP bridge and perform tasks;
+each `t3lab_begin_teaching(goal)` … tool calls … `t3lab_end_teaching(summary)`
+sequence is stored as an agentic trajectory (`meta.source = "mcp_teacher"`) with
+`user`/`assistant(tool_calls)`/`tool` turns. The session miner (idle enricher)
+also sweeps any raw session files into the dataset. These trajectory rows teach
+the local Qwen to call the right tool with the right arguments — exactly what
+small models get wrong. `export_sft` and the trainer keep the tool turns
+(Qwen2.5/3 chat templates support the `tool` role), so no extra flags are needed.
 
 ## Notes
 - Ollama base models aren't HF checkpoints; Unsloth trains a HF base then exports
