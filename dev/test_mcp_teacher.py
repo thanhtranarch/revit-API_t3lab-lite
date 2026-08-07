@@ -74,6 +74,30 @@ def test_error_detection():
     check('non-dict', bool(T.is_error_result('ok')) is False)
 
 
+def test_should_launch_training():
+    print('[teaching: train launch decision]')
+    check('below floor, no force -> no',
+          T.should_launch_training(10, False, 30) is False)
+    check('force overrides floor', T.should_launch_training(10, True, 30) is True)
+    check('at floor -> yes', T.should_launch_training(30, False, 30) is True)
+    check('above floor -> yes', T.should_launch_training(100, False, 30) is True)
+    check('bad input -> no (never raises)',
+          T.should_launch_training('x', False, 30) is False)
+
+
+def test_sandbox_marker_from_claude():
+    print('[teaching: sandbox marked by a Claude-supplied identifier]')
+    # t3lab_mark_sandbox stores {title:doc, path:doc}; is_sandbox must match when
+    # the active doc's title OR path equals what the teacher passed.
+    marker = {'title': 'Scratch01.rvt', 'path': 'Scratch01.rvt'}
+    check('active doc whose PATH equals the marker matches',
+          T.is_sandbox('Scratch01', 'Scratch01.rvt', marker) is True)
+    check('active doc whose TITLE equals the marker matches',
+          T.is_sandbox('Scratch01.rvt', 'C:/x/Scratch01.rvt', marker) is True)
+    check('a different doc does not match',
+          T.is_sandbox('RealTower', 'C:/proj/RealTower.rvt', marker) is False)
+
+
 def test_session_roundtrip():
     print('[teaching: raw session round-trip]')
     d = T.session_dir()
@@ -199,6 +223,8 @@ if __name__ == '__main__':
     test_sandbox_match()
     test_guard_decision()
     test_error_detection()
+    test_should_launch_training()
+    test_sandbox_marker_from_claude()
     test_session_roundtrip()
     test_agentic_schema()
     test_backward_compat_text()

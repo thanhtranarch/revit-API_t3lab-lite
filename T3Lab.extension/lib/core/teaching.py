@@ -60,6 +60,20 @@ def is_error_result(result):
     return isinstance(result, dict) and ('error' in result or result.get('isError'))
 
 
+def should_launch_training(count, force, floor):
+    """Whether t3lab_train_model should actually launch the fine-tune. Pure.
+
+    Below the floor a run wastes time (and the trainer would abort anyway),
+    unless the caller explicitly forces it. At/above the floor it always runs.
+    """
+    try:
+        if force:
+            return True
+        return int(count) >= int(floor)
+    except Exception:
+        return False
+
+
 # ─── Raw session files (%APPDATA%/T3LabAI/training/mcp_sessions/*.jsonl) ──────────
 
 def session_dir(appdata=None):

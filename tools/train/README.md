@@ -92,6 +92,26 @@ the local Qwen to call the right tool with the right arguments — exactly what
 small models get wrong. `export_sft` and the trainer keep the tool turns
 (Qwen2.5/3 chat templates support the `tool` role), so no extra flags are needed.
 
+### Train from Claude Desktop with one skill
+Add the skill pack **`skills/train-t3lab-model/`** to Claude Desktop (copy the
+folder into your Claude *Skills* directory, or install it however your Claude
+client adds skills). After Claude is connected to Revit via the T3Lab MCP
+server, invoke the skill — Claude then runs the whole loop for you: enable
+teaching, mark the sandbox, demonstrate representative tasks, and launch the
+fine-tune. It uses these MCP tools (exposed to the external client only, hidden
+from the in-app assistant):
+
+| MCP tool | Purpose |
+|----------|---------|
+| `t3lab_set_teaching_mode(enabled)` | Turn capture + sandbox write-lock on/off |
+| `t3lab_mark_sandbox(document)`      | Mark a scratch `.rvt` (from `list_open_documents`) as the only writable model |
+| `t3lab_begin_teaching(goal)` / `t3lab_end_teaching(summary)` | Frame one demonstrated task as a trajectory |
+| `t3lab_training_status()`           | Example count, last train, teaching state |
+| `t3lab_train_model(force?)`         | Launch the detached fine-tune (refuses below the minimum unless `force`) |
+
+Only ever mark a **scratch** model as the sandbox — writes to any real project
+are blocked while teaching is on.
+
 ## Notes
 - Ollama base models aren't HF checkpoints; Unsloth trains a HF base then exports
   GGUF. Match the family/instruct-format of your Ollama base for best results.

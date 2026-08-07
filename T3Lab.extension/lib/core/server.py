@@ -547,6 +547,72 @@ class T3LabAIServer(object):
                     'required': [],
                 },
             },
+            't3lab_set_teaching_mode': {
+                'name': 't3lab_set_teaching_mode',
+                'description': ('Turn T3Lab teaching capture on or off. While ON, '
+                                'the external MCP session is recorded as training '
+                                'data AND model-modifying tools are restricted to '
+                                'the sandbox document (protects the real project). '
+                                'Call with enabled=true before teaching a task.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'enabled': {
+                            'type': 'boolean',
+                            'description': 'True to start capturing, false to stop.',
+                        },
+                    },
+                    'required': ['enabled'],
+                },
+            },
+            't3lab_mark_sandbox': {
+                'name': 't3lab_mark_sandbox',
+                'description': ('Designate a document as the teaching sandbox — '
+                                'the ONLY document model-modifying tools may touch '
+                                'while teaching mode is on. Pass the title or path '
+                                'of a SCRATCH .rvt (get it from list_open_documents). '
+                                'NEVER mark a real project model.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'document': {
+                            'type': 'string',
+                            'description': ('Title or file path of the scratch '
+                                            'document, as shown by list_open_documents.'),
+                        },
+                    },
+                    'required': ['document'],
+                },
+            },
+            't3lab_training_status': {
+                'name': 't3lab_training_status',
+                'description': ('Report the local training corpus (example count '
+                                'by source), the last fine-tune, whether a run is '
+                                'in progress, and the current teaching/sandbox '
+                                'state. Call before t3lab_train_model.'),
+                'inputSchema': {
+                    'type': 'object', 'properties': {}, 'required': [],
+                },
+            },
+            't3lab_train_model': {
+                'name': 't3lab_train_model',
+                'description': ('Launch a background LoRA fine-tune of the local '
+                                'model on the captured training data. Runs OUTSIDE '
+                                'Revit (CPython + GPU), detached, can take hours. '
+                                'Refuses below the minimum example count unless '
+                                'force=true. Check t3lab_training_status first.'),
+                'inputSchema': {
+                    'type': 'object',
+                    'properties': {
+                        'force': {
+                            'type': 'boolean',
+                            'description': ('Train even if the dataset is below '
+                                            'the recommended minimum.'),
+                        },
+                    },
+                    'required': [],
+                },
+            },
             'revit_get_active_view': {
                 'name': 'revit_get_active_view',
                 'description': 'Get information about the currently active view in Revit',
@@ -2488,6 +2554,17 @@ class T3LabAIServer(object):
     _TEACH_BEGIN_TOOL = 't3lab_begin_teaching'
     _TEACH_END_TOOL   = 't3lab_end_teaching'
 
+    # Claude-callable teaching/training control tools — handled locally (no
+    # Revit), so the external teacher can drive the whole "teach then train"
+    # loop from Claude Desktop. Hidden from the in-app catalog (tool_schema).
+    _TEACH_SET_MODE_TOOL = 't3lab_set_teaching_mode'
+    _TEACH_SANDBOX_TOOL  = 't3lab_mark_sandbox'
+    _TEACH_STATUS_TOOL   = 't3lab_training_status'
+    _TEACH_TRAIN_TOOL    = 't3lab_train_model'
+    # Below this many examples, a fine-tune wastes time (the trainer aborts
+    # anyway) unless the caller forces it. Mirrors tools/train validate_dataset.
+    _TRAIN_MIN_EXAMPLES  = 30
+
     def _teach_data_dir(self):
         from core import teaching
         return teaching.session_dir()
@@ -2568,22 +2645,110 @@ class T3LabAIServer(object):
             'teaching_blocked': True,
         }
 
+    @staticmethod
+    def _text_result(msg):
+        return {'content': [{'type': 'text', 'text': u'{}'.format(msg)}]}
+
     def _teach_handle_boundary(self, tool_name, arguments):
-        """Handle t3lab_begin/end_teaching locally; return a result dict, or
-        None when `tool_name` is not a boundary tool."""
+        """Handle the Claude-callable teaching/training control tools locally
+        (no Revit). Returns a result dict, or None when `tool_name` is not one
+        of them so the normal execution path runs."""
+        args = arguments or {}
+
+        # ── Session boundaries ──────────────────────────────────────────────
         if tool_name == self._TEACH_BEGIN_TOOL:
-            goal = u'{}'.format((arguments or {}).get('goal') or u'').strip()
+            goal = u'{}'.format(args.get('goal') or u'').strip()
             if self._teaching_enabled:
                 self._teach_begin(goal)
                 msg = 'Teaching trajectory started.'
             else:
-                msg = 'Teaching mode is OFF — nothing recorded.'
-            return {'content': [{'type': 'text', 'text': msg}]}
+                msg = ('Teaching mode is OFF — call t3lab_set_teaching_mode('
+                       'enabled=true) first, then retry.')
+            return self._text_result(msg)
         if tool_name == self._TEACH_END_TOOL:
-            summary = u'{}'.format((arguments or {}).get('summary') or u'').strip()
-            note = self._teach_end(summary)
-            return {'content': [{'type': 'text', 'text': note}]}
+            summary = u'{}'.format(args.get('summary') or u'').strip()
+            return self._text_result(self._teach_end(summary))
+
+        # ── Teaching-mode toggle ────────────────────────────────────────────
+        if tool_name == self._TEACH_SET_MODE_TOOL:
+            enabled = bool(args.get('enabled', True))
+            self.set_teaching_mode(enabled)
+            return self._text_result(
+                'Teaching capture {}. {}'.format(
+                    'ON' if enabled else 'OFF',
+                    'Model writes are now restricted to the sandbox document.'
+                    if enabled else 'Sandbox write-lock lifted.'))
+
+        # ── Mark sandbox (local: caller supplies the doc identifier) ────────
+        if tool_name == self._TEACH_SANDBOX_TOOL:
+            doc = u'{}'.format(args.get('document') or u'').strip()
+            if not doc:
+                return self._text_result(
+                    'Pass document=<title or path of the scratch .rvt> — get it '
+                    'from list_open_documents. Only ever mark a SCRATCH model.')
+            self.set_sandbox_document({'title': doc, 'path': doc})
+            return self._text_result(
+                'Sandbox set to "{}". Model-modifying tools are allowed only on '
+                'this document while teaching mode is on.'.format(doc))
+
+        # ── Training status ─────────────────────────────────────────────────
+        if tool_name == self._TEACH_STATUS_TOOL:
+            return self._text_result(self._training_status_text())
+
+        # ── Launch training ─────────────────────────────────────────────────
+        if tool_name == self._TEACH_TRAIN_TOOL:
+            force = bool(args.get('force', False))
+            return self._text_result(self._launch_training(force))
+
         return None
+
+    def _training_status_text(self):
+        """Human-readable dataset + last-train + teaching status. Never raises."""
+        try:
+            from Intelligence.learning import trainer as _t
+            st = _t.dataset_stats()
+            last = _t.last_train() or {}
+            running = _t.is_running()
+        except Exception as ex:
+            return 'Training status unavailable: {}'.format(ex)
+        by_src = ', '.join('{}: {}'.format(k, v)
+                           for k, v in sorted((st.get('by_source') or {}).items()))
+        teach = self.get_teaching_status()
+        last_line = ('last trained {} on {} examples'.format(
+            last.get('trained_at'), last.get('examples'))
+            if last else 'never trained')
+        return ('Training data: {} examples ({}). {}. Teaching {}, sandbox={}, '
+                'sessions recorded={}. Training running: {}.'.format(
+                    st.get('count', 0), by_src or 'empty', last_line,
+                    'ON' if teach.get('enabled') else 'OFF',
+                    teach.get('sandbox') or 'none',
+                    teach.get('sessions_recorded', 0),
+                    'yes' if running else 'no'))
+
+    def _launch_training(self, force):
+        """Decide + launch the detached fine-tune. Never raises."""
+        try:
+            from Intelligence.learning import trainer as _t
+            from core import teaching
+            count = _t.dataset_stats().get('count', 0)
+            if not teaching.should_launch_training(count, force,
+                                                   self._TRAIN_MIN_EXAMPLES):
+                return ('Only {} training examples — need >= {} to train well. '
+                        'Teach more tasks (t3lab_begin_teaching/…/'
+                        't3lab_end_teaching) or call t3lab_train_model(force=true)'
+                        ' to run anyway.'.format(count, self._TRAIN_MIN_EXAMPLES))
+            if _t.is_running():
+                return 'A training run is already in progress.'
+            ok, note = _t.launch(force=force)
+            if ok:
+                return ('Started background fine-tune on {} examples. It runs '
+                        'OUTSIDE Revit (CPython + GPU) and can take hours; see '
+                        'tools/train/README.md. The result is served as an '
+                        'Ollama model the assistant can then point at.'
+                        .format(count))
+            return 'Could not launch training: {}'.format(note)
+        except Exception as ex:
+            return 'Could not launch training: {}'.format(ex)
 
     def _teach_begin(self, goal):
         """Open a new trajectory buffer (flushing any orphan first)."""

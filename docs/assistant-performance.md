@@ -506,3 +506,39 @@ python3 tools/train/finetune_local.py --dry-run
 python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
 ```
 QA trong Revit: MCP Control → bật Teaching Capture, mở file .rvt nháp → Mark Sandbox; Claude Desktop (Opus) chạy vài tác vụ (có `t3lab_begin/end_teaching`) → `mcp_sessions/*.jsonl` xuất hiện, `dataset.jsonl` có dòng `source=mcp_teacher`; thử write khi active là model thật → bị chặn.
+
+---
+
+## 11. Skill "train model" gọi thẳng trên Claude Desktop (2026-08-06, tiếp)
+
+Để "chỉ cần gọi một skill là chạy trọn dạy → train" từ Claude Desktop. Skill
+T3Lab là **in-app only** (không tới Claude Desktop qua MCP), nên deliverable là
+**Claude skill pack + MCP tools**.
+
+### 11.1 4 MCP tool mới (cục bộ, không chạm Revit; `core/server.py`)
+Xử lý trong `_teach_handle_boundary` (đầu `_handle_tool_call`, đường external):
+- `t3lab_set_teaching_mode(enabled)` → `set_teaching_mode` (Part E).
+- `t3lab_mark_sandbox(document)` → `set_sandbox_document({title:document, path:document})`. **Thuần cục bộ**: Opus truyền định danh doc lấy từ `list_open_documents`, `teaching.is_sandbox` khớp title HOẶC path — không cần đọc Revit off-thread.
+- `t3lab_training_status()` → `trainer.dataset_stats/last_train/is_running` + `get_teaching_status`.
+- `t3lab_train_model(force?)` → quyết định qua `teaching.should_launch_training(count, force, 30)` rồi `trainer.launch(force)`; dưới ngưỡng và không force → không launch, báo còn thiếu.
+
+### 11.2 Ẩn khỏi in-app (`tool_schema.py`)
+`_TEACHING_ONLY_TOOLS` → `_EXTERNAL_ONLY_TOOLS` gồm cả 6 tool teacher/train. Model
+Qwen in-app không tự tắt guard/không tự launch train; Claude Desktop (đọc registry
+qua bridge) vẫn thấy. In-app vẫn train bằng `/train` + MCP Control.
+
+### 11.3 Skill pack (`skills/train-t3lab-model/SKILL.md`, mới)
+Format Claude chuẩn. Playbook: kiểm tra kết nối → `t3lab_set_teaching_mode(true)`
+→ `list_open_documents` + `t3lab_mark_sandbox` (chỉ file nháp) → lặp N task bọc
+`t3lab_begin/end_teaching` → `t3lab_training_status` → `t3lab_train_model`. Kèm
+cảnh báo an toàn: chỉ mark model nháp, write ngoài sandbox bị chặn.
+
+### Kiểm chứng (F)
+```bash
+python3 dev/test_mcp_teacher.py          # + should_launch_training, sandbox marker
+python3 dev/test_trainer_trigger.py
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+QA: add `skills/train-t3lab-model/` vào Claude Desktop → gọi skill → Opus tự chạy
+cả loop; `dataset.jsonl` có `mcp_teacher`, `last_train.json` cập nhật (nếu đủ mẫu
++ GPU).
