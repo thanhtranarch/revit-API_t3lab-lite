@@ -4966,7 +4966,35 @@ class T3LabAssistantWindow(forms.WPFWindow):
             last = _trainer.last_train()
 
             icon, color = _ICON_INFO, _ICON_SLATE
-            if sub in (u'now', u'chay', u'chạy', u'start'):
+            if sub in (u'exemplars', u'exemplar', u'portable'):
+                # Rebuild the PORTABLE few-shot layer (no GPU): distils teacher
+                # data into the git-tracked teacher_exemplars.json so a plain
+                # local model answers in the taught style on any machine.
+                try:
+                    from Intelligence.learning import exemplars as _ex
+                    res = _ex.promote_from_dataset()
+                    n = res.get('count', 0)
+                    if res.get('status') == 'ok':
+                        msg = (u'Đã dựng {} ví dụ mẫu portable vào '
+                               u'`teacher_exemplars.json`. Commit file này để '
+                               u'mọi máy dùng model local đều trả lời theo phong '
+                               u'cách đã dạy — không cần GPU/train.'.format(n)
+                               if viet else
+                               u'Built {} portable exemplars into '
+                               u'`teacher_exemplars.json`. Commit it so every '
+                               u'machine\'s local model answers in the taught '
+                               u'style — no GPU/training needed.'.format(n))
+                        icon, color = _ICON_SYNC, _ICON_SLATE
+                    else:
+                        msg = (u'Không dựng được exemplars: {}'.format(
+                            res.get('status')) if viet else
+                            u'Could not build exemplars: {}'.format(
+                                res.get('status')))
+                        icon, color = _ICON_WARNING, _ICON_AMBER
+                except Exception as _ex_err:
+                    msg = u'Could not build exemplars: {}'.format(_ex_err)
+                    icon, color = _ICON_WARNING, _ICON_AMBER
+            elif sub in (u'now', u'chay', u'chạy', u'start'):
                 ok, note = _trainer.launch()
                 if ok:
                     msg = (u'Đã khởi động huấn luyện nền ({} mẫu). Quá trình '

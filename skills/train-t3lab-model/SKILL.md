@@ -56,10 +56,27 @@ T3Lab server in MCP Control, then re-run.
    (preferred) or, only if the user insists, call `t3lab_train_model` with
    `force: true`. Training runs **outside Revit** on a GPU and can take hours.
 
-7. **Report.** Tell the user how many trajectories were captured, whether a
-   fine-tune was launched, and that the result becomes an Ollama model the
-   assistant can point at (see `tools/train/README.md`). Remind them they can
-   watch teaching state in *MCP Control*.
+7. **Make it portable (no GPU).** Call `t3lab_build_exemplars`. This distils the
+   captured teaching into a small git-tracked file (`teacher_exemplars.json`)
+   that makes even a plain local model answer in the taught style on **any**
+   machine — no fine-tune or GPU required. Tell the user to commit that file to
+   share the improvement. (`t3lab_train_model` also refreshes it automatically;
+   use `t3lab_build_exemplars` alone when you want the portable layer without a
+   full fine-tune.)
+
+8. **Report.** Tell the user how many trajectories were captured, whether a
+   fine-tune was launched, how many portable exemplars were built, and that the
+   fine-tune result becomes an Ollama model the assistant can point at (see
+   `tools/train/README.md`). Remind them they can watch teaching state in
+   *MCP Control*.
+
+## Two ways the training travels to other machines
+- **Fine-tuned model (best quality):** the weights live only in the training
+  machine's Ollama. Distribute via `ollama push`/`pull` (a registry) or by
+  copying the GGUF, then select it in *LLMs Setting* on each machine.
+- **Portable exemplars (works everywhere immediately):** commit
+  `teacher_exemplars.json`; any machine running a plain `qwen3:14b` picks it up
+  from the extension and answers in the taught style — no re-train.
 
 ## Notes
 - Do all model-editing demonstrations on the **sandbox** document. If a write is

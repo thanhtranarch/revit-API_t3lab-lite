@@ -112,6 +112,24 @@ from the in-app assistant):
 Only ever mark a **scratch** model as the sandbox — writes to any real project
 are blocked while teaching is on.
 
+### Two ways the training reaches other machines
+The fine-tune (above) bakes behaviour into **model weights**, which live only in
+the training machine's Ollama — they do not travel by themselves. There are two
+ways to make other machines benefit:
+
+1. **Distribute the fine-tuned model (best quality).** `ollama push` the trained
+   `t3lab-assistant` tag to a (private) registry and `ollama pull` it on each
+   machine — or copy the GGUF and `ollama create` — then select it in
+   *LLMs Setting*. One-time per model version.
+2. **Portable exemplars (works everywhere, no GPU).** Call `t3lab_build_exemplars`
+   (MCP), the `/train exemplars` chat command, or let `t3lab_train_model` do it
+   automatically. This distils the teacher data into a small git-tracked file,
+   **`T3Lab.extension/lib/Intelligence/config/teacher_exemplars.json`**, which is
+   injected into the local model's system prompt as few-shot examples. Commit
+   that file and **any** machine running a plain `qwen3:14b` answers in the taught
+   style immediately — no re-train. The block is bounded (~2 KB), local-models
+   only, and static so it stays prompt-cache-friendly.
+
 ## Notes
 - Ollama base models aren't HF checkpoints; Unsloth trains a HF base then exports
   GGUF. Match the family/instruct-format of your Ollama base for best results.

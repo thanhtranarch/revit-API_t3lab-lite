@@ -272,6 +272,7 @@ _EXTERNAL_ONLY_TOOLS = frozenset([
     't3lab_begin_teaching', 't3lab_end_teaching',
     't3lab_set_teaching_mode', 't3lab_mark_sandbox',
     't3lab_training_status', 't3lab_train_model',
+    't3lab_build_exemplars',
 ])
 
 

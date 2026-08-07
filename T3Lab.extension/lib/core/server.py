@@ -613,6 +613,18 @@ class T3LabAIServer(object):
                     'required': [],
                 },
             },
+            't3lab_build_exemplars': {
+                'name': 't3lab_build_exemplars',
+                'description': ('Distil the captured teaching data into a small, '
+                                'PORTABLE few-shot file (teacher_exemplars.json) '
+                                'that makes the local model answer in the taught '
+                                'style on ANY machine — no GPU or fine-tune needed. '
+                                'Commit that file to share it. Call after teaching '
+                                'when you want portability without training.'),
+                'inputSchema': {
+                    'type': 'object', 'properties': {}, 'required': [],
+                },
+            },
             'revit_get_active_view': {
                 'name': 'revit_get_active_view',
                 'description': 'Get information about the currently active view in Revit',
@@ -2561,6 +2573,7 @@ class T3LabAIServer(object):
     _TEACH_SANDBOX_TOOL  = 't3lab_mark_sandbox'
     _TEACH_STATUS_TOOL   = 't3lab_training_status'
     _TEACH_TRAIN_TOOL    = 't3lab_train_model'
+    _TEACH_EXEMPLARS_TOOL = 't3lab_build_exemplars'
     # Below this many examples, a fine-tune wastes time (the trainer aborts
     # anyway) unless the caller forces it. Mirrors tools/train validate_dataset.
     _TRAIN_MIN_EXAMPLES  = 30
@@ -2700,7 +2713,31 @@ class T3LabAIServer(object):
             force = bool(args.get('force', False))
             return self._text_result(self._launch_training(force))
 
+        # ── Build portable exemplars (no GPU) ───────────────────────────────
+        if tool_name == self._TEACH_EXEMPLARS_TOOL:
+            return self._text_result(self._build_exemplars())
+
         return None
+
+    def _build_exemplars(self):
+        """Distil teacher data into the git-tracked portable few-shot file.
+
+        Unlike training, this needs no GPU: it rewrites teacher_exemplars.json so
+        a plain local model answers in the taught style on any machine once the
+        file is committed. Never raises.
+        """
+        try:
+            from Intelligence.learning import exemplars as _ex
+            res = _ex.promote_from_dataset()
+            n = res.get('count', 0)
+            if res.get('status') == 'ok':
+                return ('Rebuilt {} portable exemplars into '
+                        'lib/Intelligence/config/teacher_exemplars.json. Commit '
+                        'that file so every machine\'s local model answers in the '
+                        'taught style — no GPU / re-train needed.'.format(n))
+            return 'Could not build exemplars: {}'.format(res.get('status'))
+        except Exception as ex:
+            return 'Could not build exemplars: {}'.format(ex)
 
     def _training_status_text(self):
         """Human-readable dataset + last-train + teaching status. Never raises."""
@@ -2739,13 +2776,25 @@ class T3LabAIServer(object):
                         ' to run anyway.'.format(count, self._TRAIN_MIN_EXAMPLES))
             if _t.is_running():
                 return 'A training run is already in progress.'
+            # Refresh the portable few-shot layer too, so machines without the
+            # fine-tuned model still benefit once teacher_exemplars.json is
+            # committed. Best-effort — never blocks the training launch.
+            exemplar_note = ''
+            try:
+                from Intelligence.learning import exemplars as _ex
+                ex_res = _ex.promote_from_dataset()
+                exemplar_note = (' Also rebuilt {} portable exemplars '
+                                 '(commit teacher_exemplars.json).'
+                                 .format(ex_res.get('count', 0)))
+            except Exception:
+                pass
             ok, note = _t.launch(force=force)
             if ok:
                 return ('Started background fine-tune on {} examples. It runs '
                         'OUTSIDE Revit (CPython + GPU) and can take hours; see '
                         'tools/train/README.md. The result is served as an '
-                        'Ollama model the assistant can then point at.'
-                        .format(count))
+                        'Ollama model the assistant can then point at.{}'
+                        .format(count, exemplar_note))
             return 'Could not launch training: {}'.format(note)
         except Exception as ex:
             return 'Could not launch training: {}'.format(ex)

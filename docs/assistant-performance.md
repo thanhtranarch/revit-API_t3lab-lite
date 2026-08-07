@@ -542,3 +542,44 @@ python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3
 QA: add `skills/train-t3lab-model/` vào Claude Desktop → gọi skill → Opus tự chạy
 cả loop; `dataset.jsonl` có `mcp_teacher`, `last_train.json` cập nhật (nếu đủ mẫu
 + GPU).
+
+---
+
+## 12. Lớp few-shot exemplar PORTABLE (2026-08-06, tiếp)
+
+Fine-tune nướng hành vi vào **trọng số** — model `t3lab-assistant` chỉ nằm trong
+Ollama của máy train, không tự sang máy khác. Thêm một lớp **runtime portable**:
+chưng dữ liệu teacher thành few-shot ngắn, **commit trong extension**, nạp vào
+system prompt của model local → **Qwen vanilla ở mọi máy phản hồi theo phong cách
+đã dạy mà không cần train lại**.
+
+### 12.1 Store + builder
+`Intelligence/learning/exemplars.py` (mới, thuần/testable): `load/save_exemplars`
+ghi `lib/Intelligence/config/teacher_exemplars.json` (git-tracked, cùng precedent
+`learned_patterns.json`); `trajectory_to_exemplar`/`qa_to_exemplar` → dòng gọn
+`User: "…" -> call tool(args); reply "…"`; `select_exemplars` (lọc `quality in
+{teacher,high}`, dedup theo user, cap, tool trước qa); `build_exemplar_block`
+(bounded ~2 KB); `promote_from_dataset` (injectable).
+
+### 12.2 Nạp prompt (native, local-only, static)
+`agent_loop.build_agent_system_prompt(local=True)` nối `teacher_exemplar_block()`
+sau `_LOCAL_GENERAL_FEWSHOT` (đường general); `specialists.build_specialist_prompt(
+local=True)` nối sau `spec.few_shot` (đường specialist — builder gọi base KHÔNG
+kèm `local` nên nối trực tiếp, không double). Cloud không đổi. Nội dung file ổn
+định → cache system prefix vẫn trúng.
+
+### 12.3 Kích hoạt
+- MCP `t3lab_build_exemplars` (external-only) — chưng exemplar, KHÔNG cần GPU.
+- `t3lab_train_model` gộp promote → làm mới cả lớp weight lẫn portable.
+- In-app `/train exemplars`.
+- Skill `SKILL.md` thêm bước gọi `t3lab_build_exemplars` + giải thích 2 đường
+  portability.
+
+### Kiểm chứng (G)
+```bash
+python3 dev/test_exemplars.py
+python3 dev/test_mcp_teacher.py && python3 dev/test_learning_dataset.py
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+QA thật: máy B chỉ có `qwen3:14b` vanilla + repo đã commit `teacher_exemplars.json`
+→ mở Assistant hỏi task đã dạy → phản hồi bám mẫu, không cần model đã train.
