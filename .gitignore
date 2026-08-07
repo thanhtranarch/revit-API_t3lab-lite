@@ -49,3 +49,6 @@ Thumbs.db
 T3Lab.extension/lib/config/tool_registry.json
 T3Lab.extension/lib/config/learned_patterns.json
 T3Lab.extension/lib/config/chat_history/
+
+# Local fine-tune build artifacts (finetune_local.py default --out)
+tools/train/out/

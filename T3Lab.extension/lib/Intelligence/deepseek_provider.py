@@ -279,6 +279,16 @@ class DeepSeekProvider(BaseLLMProvider):
             # "the model didn't respond" with no Details line.
             stream_err = u"chat_stream() failed: {}".format(ex)
             self._record_error(stream_err)
+            partial = _re.sub(r"<think>[\s\S]*?</think>", "",
+                              u"".join(chunks)).strip()
+            if partial:
+                # Text ALREADY streamed into the live bubble. Regenerating a
+                # whole new answer with a blocking chat() is exactly the
+                # double-latency, visibly-swapped-reply bug (perf doc §7.2#1):
+                # keep what the user watched arrive rather than replace it.
+                return partial
+            # Nothing reached the bubble yet, so a blocking retry cannot visibly
+            # swap an answer — keep the original safety net.
             result = self.chat(messages, system_prompt, user_content,
                                max_tokens, **kwargs)
             if result is None:

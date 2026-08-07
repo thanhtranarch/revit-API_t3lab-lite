@@ -251,12 +251,29 @@ def get_server_tools():
         srv   = get_t3labai_server()
         tools = srv._handle_tools_list().get("tools", []) or []
         # Keep only well-formed entries; never let one bad schema kill the list.
+        # Drop the external-only teaching/training control tools: they exist for
+        # the EXTERNAL MCP teacher (Claude Desktop) to frame trajectories and
+        # drive the fine-tune, and must never enter the in-app assistant's own
+        # tool catalog — the local model should not toggle its own safety guard
+        # or launch training. The external bridge reads the server registry
+        # directly, so Claude Desktop still sees them.
         clean = [t for t in tools
-                 if isinstance(t, dict) and t.get("name") and t.get("inputSchema")]
+                 if isinstance(t, dict) and t.get("name") and t.get("inputSchema")
+                 and t["name"] not in _EXTERNAL_ONLY_TOOLS]
         _cache["raw"] = clean
         return clean
     except Exception:
         return []
+
+
+# Teacher-/trainer-only pseudo-tools (see core/server.py); hidden from the in-app
+# agent, exposed to the external MCP client (Claude Desktop) only.
+_EXTERNAL_ONLY_TOOLS = frozenset([
+    't3lab_begin_teaching', 't3lab_end_teaching',
+    't3lab_set_teaching_mode', 't3lab_mark_sandbox',
+    't3lab_training_status', 't3lab_train_model',
+    't3lab_build_exemplars',
+])
 
 
 # ─── Converters ────────────────────────────────────────────────────────────────

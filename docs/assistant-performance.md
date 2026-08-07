@@ -396,3 +396,190 @@ báo cáo — hoặc đã được làm chắc từ trước, hoặc là lớp t
 logic quyết định đáng kể để sai. Chưa soát hết toàn bộ 7361 dòng của
 `server.py` dòng-theo-dòng — vòng này chỉ nhắm bảng tra và dispatch/error-handling
 theo đúng phạm vi được giao.
+
+---
+
+## 9. Qwen mặc định + distill từ Opus 5, và dọn nốt backlog (2026-08-06)
+
+Đợt này gồm ba trục: (a) đưa **Qwen trên Ollama** thành runtime mặc định, (b) thêm
+đường **distillation từ Opus 5** (teacher → student), (c) rà & đóng các mục backlog
+§7.2 / §8 còn treo.
+
+### 9.1 Qwen-on-Ollama là mặc định, ưu tiên tool-capable
+
+- `config/settings.py`: `active_provider` mặc định **`ollama`** (trước là `claude`).
+  Chỉ là seed lần đầu — lựa chọn đã lưu vẫn thắng khi restore, và `FALLBACK_CHAIN`
+  vẫn với tới Claude/OpenAI khi Ollama chưa sẵn sàng.
+- `local_llm.pick_tool_capable()` (mới) + `OllamaProvider.get_active_model()`: đường
+  agentic (không quality-mode) nay ưu tiên Qwen **đạt ngưỡng tool-calling**
+  (`qwen3:14b → 8b → 4b`) thay vì smallest-first vốn chỉ hợp NLU nhẹ. Quality-mode
+  vẫn chọn model mạnh nhất; đường NLU (`get_best_model()` default) giữ nguyên.
+- Thông điệp onboarding + Test Connection khuyến nghị `qwen3:14b` (qua
+  `recommended_tool_model()`), không còn `qwen2.5:0.5b/1.5b`.
+
+### 9.2 Distillation: Opus 5 làm teacher cho Qwen (opt-in)
+
+Tận dụng nguyên pipeline self-study có sẵn (`learning/` → `dataset.jsonl` →
+`tools/train/finetune_local.py`). Trước đây pipeline **cố ý local-only, no API cost**
+— enricher generative chỉ chạy khi provider active là local. Nay thêm **một lớp
+enricher mới** phá giao ước đó một cách có kiểm soát:
+
+- `study_engine.Enricher` thêm trường `requires` (`'local'` | `'teacher'` | None);
+  `Gate` thêm `has_teacher`; scheduler skip enricher `teacher` khi không có teacher.
+- `learning/enrichers/opus_teacher.py` (mới): chọn ứng viên **offline** (lệnh thật
+  của văn phòng có câu trả lời terse + seed list Revit/BIM song ngữ), gọi thẳng
+  **Claude provider ghim model Opus** (`ClaudeProvider.pick_quality_model()` mới),
+  ghi ví dụ SFT `source='opus_teacher', quality='teacher'`. Dedup theo user-turn đã
+  có trong corpus. Bound `MAX_PER_CYCLE=3` để kiểm soát token. Never raises.
+- `loop.py`: đăng ký enricher, `_teacher_available()` = `agents.opus_teacher` bật +
+  Claude có key (không HTTP ở gate), `_teacher_chat_fn()` resolve model Opus lúc chạy.
+- Chạy được **kể cả khi assistant đang chat trên Qwen local** — teacher gọi Claude
+  trực tiếp, không phụ thuộc provider active.
+- Setting mới, **mặc định TẮT** (tốn token): `agents.opus_teacher`, `agents.self_train_auto`.
+- `finetune_local.py` + `tools/train/README.md`: base mặc định đổi sang **Qwen**
+  (`unsloth/Qwen2.5-14B-Instruct-bnb-4bit`) để distill đúng họ student.
+
+### 9.3 Tính năng đang ngủ được bật (zero-cost)
+
+- `agents.self_study` mặc định **bật** (enricher local zero-cost, throttle nặng).
+- `agents.parallel_tasks` mặc định **bật** — nhưng vẫn hard-gate qua
+  `eligible_for_parallel` (chỉ kế hoạch **nhiều mục tiêu, toàn read**), nên hai
+  transaction ghi không bao giờ đan nhau.
+- Graph multi-goal nay tự mở trên local: Qwen có `SUPPORTS_NATIVE_TOOLS=True` nên
+  `_run_graph_plan` không còn bị chặn khi provider mặc định là Ollama.
+
+### 9.4 Backlog §7.2 / §8 — rà lại: phần lớn đã được sửa từ trước
+
+Rà từng mục Trung bình–Cao trong §7.2 và §8, đối chiếu mã nguồn hiện tại:
+
+| Mục | Trạng thái 2026-08-06 |
+|---|---|
+| §7.2#1 `chat_stream` reconnect | `claude_provider`/`openai_provider` **đã có** `_continue_after_drop` (chỉ blocking-retry khi chưa stream gì). **DeepSeek còn sót** → đợt này sửa: có partial thì trả partial, không sinh lại câu mới. |
+| §7.2#2 `assistant_memory` update/forget | **Đã có** `update_fact`/`forget_fact`/`_find_fact`; `remember_fact` tool + `/memory forget <số\|nội dung>` đã nối (script.py 8128–8147). |
+| §8#1 `context_digest` phát hiện đổi | **Đã sửa**: dùng `pdf_cache.fingerprint` (mtime,size) theo TỪNG doc + lưu trạng thái `unreadable`, nên flip đọc-được↔không cũng re-read. |
+| §8#2 `get_material_quantities` alias | **Đã sửa**: route qua `_resolve_bic()` (case-insensitive + alias VI). |
+
+Các mục Thấp (§7.2#3 `api_updater`, §7.2#4 `feedback.skill_score`, §8#3 `task_manager`,
+§8#4 đọc `telemetry`) vẫn để lại — dead-code/impact thấp, ngoài phạm vi đợt này.
+
+### Kiểm chứng đợt này
+
+```bash
+python3 dev/test_opus_teacher.py          # enricher + study_engine gating + pick_tool_capable
+python3 dev/test_assistant_llm.py
+python3 dev/test_trainer_trigger.py
+python3 tools/train/finetune_local.py --dry-run
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+
+**Không sửa file XAML nào** — `T3LabAssistant.xaml` vẫn UI-locked.
+
+---
+
+## 10. Opus dạy Qwen bằng cách điều khiển Revit qua MCP (2026-08-06, tiếp)
+
+Nâng cấp teacher từ **distill văn bản** (`opus_teacher`) lên **distill trajectory
+tool-use**: Opus (Claude Desktop) điều khiển Revit qua MCP bridge, và chuỗi
+tool-call thật đó được ghi thành dữ liệu train dạy Qwen local **gọi tool đúng**.
+
+### 10.1 Kênh & an toàn
+- **Kênh = Claude Desktop ngoài** (MCP bridge → `POST /mcp` → `T3LabAIServer._handle_tool_call`). Đây là cổng vào RIÊNG của đường ngoài — assistant in-app đi thẳng `_execute_tool`, nên capture + boundary tool chỉ ghi phiên của teacher, không đụng assistant nội bộ.
+- **An toàn = sandbox**: khi Teaching mode ON, guard trên **Revit main thread** (`_execute_tool_in_context`, có `doc` hợp lệ) chặn mọi tool `is_model_modifying` nếu document active không phải sandbox đã đánh dấu (so `PathName`/`Title`, fallback tên chứa `sandbox`/`nhap`/…). Model dự án thật được bảo vệ; read không bị ảnh hưởng; teaching OFF là no-op.
+
+### 10.2 Cấu phần
+- `core/teaching.py` (mới, thuần, CPython-test): `is_sandbox`, `should_block_write`, `is_error_result`, và raw-session I/O (`session_dir`/`append_step_line`/`read_session`). Một nguồn sự thật cho cả server lẫn miner.
+- `core/server.py`: state `teaching_enabled`/`sandbox_doc` (persist ở `mcp_paths.json`); recorder ghi mỗi tool-call vào `mcp_sessions/<id>.jsonl`; hai pseudo-tool `t3lab_begin_teaching(goal)`/`t3lab_end_teaching(summary)` (đăng ký vào tools/list, xử lý cục bộ, không chạm Revit); guard sandbox; API `set_teaching_mode`/`set_sandbox_document`/`get_teaching_status`.
+- `tool_schema.py`: ẩn 2 boundary tool khỏi catalog **in-app** (external bridge đọc registry trực tiếp nên vẫn thấy).
+- `dataset.py`: schema **agentic** — `_VALID_ROLES` thêm `tool`, giữ `tool_calls` (chuẩn hoá OpenAI), `_hash` gộp tool name/args, `export_sft` giữ turn tool; `add_trajectory(goal, steps, final, …)`. Tương thích ngược ví dụ text.
+- `learning/enrichers/mcp_session_miner.py` (mới, `generative=False`): nạp `mcp_sessions/*.jsonl` → `add_trajectory`, đánh dấu `.done`; phiên không có goal → `.nolabel` (để dành); idempotent; đăng ký trong `loop.py`.
+- `Services/mcp_service.py` + `GUI/MCPControlDialog.py` + `Tools/MCPControl.xaml` (KHÔNG UI-locked): thẻ **Teaching Capture** — toggle bật/tắt, nút **Mark Sandbox**, dòng trạng thái. Đặt ở row spacer sẵn có (không đánh số lại), theo Lumina, `sync_wpf_styles --check` vẫn 0 out-of-sync.
+
+### 10.3 Trainer
+`finetune_local.py`/`export_sft` giữ nguyên turn `tool`/`tool_calls`; Qwen chat template hỗ trợ role tool. Nguồn `mcp_teacher` (trajectory) đứng cạnh `opus_teacher` (text) và `telemetry_miner` — xem `tools/train/README.md`.
+
+### Kiểm chứng (E)
+```bash
+python3 dev/test_mcp_teacher.py           # teaching helpers + agentic dataset + miner
+python3 dev/test_learning_dataset.py
+python3 dev/test_opus_teacher.py
+python3 tools/train/finetune_local.py --dry-run
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+QA trong Revit: MCP Control → bật Teaching Capture, mở file .rvt nháp → Mark Sandbox; Claude Desktop (Opus) chạy vài tác vụ (có `t3lab_begin/end_teaching`) → `mcp_sessions/*.jsonl` xuất hiện, `dataset.jsonl` có dòng `source=mcp_teacher`; thử write khi active là model thật → bị chặn.
+
+---
+
+## 11. Skill "train model" gọi thẳng trên Claude Desktop (2026-08-06, tiếp)
+
+Để "chỉ cần gọi một skill là chạy trọn dạy → train" từ Claude Desktop. Skill
+T3Lab là **in-app only** (không tới Claude Desktop qua MCP), nên deliverable là
+**Claude skill pack + MCP tools**.
+
+### 11.1 4 MCP tool mới (cục bộ, không chạm Revit; `core/server.py`)
+Xử lý trong `_teach_handle_boundary` (đầu `_handle_tool_call`, đường external):
+- `t3lab_set_teaching_mode(enabled)` → `set_teaching_mode` (Part E).
+- `t3lab_mark_sandbox(document)` → `set_sandbox_document({title:document, path:document})`. **Thuần cục bộ**: Opus truyền định danh doc lấy từ `list_open_documents`, `teaching.is_sandbox` khớp title HOẶC path — không cần đọc Revit off-thread.
+- `t3lab_training_status()` → `trainer.dataset_stats/last_train/is_running` + `get_teaching_status`.
+- `t3lab_train_model(force?)` → quyết định qua `teaching.should_launch_training(count, force, 30)` rồi `trainer.launch(force)`; dưới ngưỡng và không force → không launch, báo còn thiếu.
+
+### 11.2 Ẩn khỏi in-app (`tool_schema.py`)
+`_TEACHING_ONLY_TOOLS` → `_EXTERNAL_ONLY_TOOLS` gồm cả 6 tool teacher/train. Model
+Qwen in-app không tự tắt guard/không tự launch train; Claude Desktop (đọc registry
+qua bridge) vẫn thấy. In-app vẫn train bằng `/train` + MCP Control.
+
+### 11.3 Skill pack (`skills/train-t3lab-model/SKILL.md`, mới)
+Format Claude chuẩn. Playbook: kiểm tra kết nối → `t3lab_set_teaching_mode(true)`
+→ `list_open_documents` + `t3lab_mark_sandbox` (chỉ file nháp) → lặp N task bọc
+`t3lab_begin/end_teaching` → `t3lab_training_status` → `t3lab_train_model`. Kèm
+cảnh báo an toàn: chỉ mark model nháp, write ngoài sandbox bị chặn.
+
+### Kiểm chứng (F)
+```bash
+python3 dev/test_mcp_teacher.py          # + should_launch_training, sandbox marker
+python3 dev/test_trainer_trigger.py
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+QA: add `skills/train-t3lab-model/` vào Claude Desktop → gọi skill → Opus tự chạy
+cả loop; `dataset.jsonl` có `mcp_teacher`, `last_train.json` cập nhật (nếu đủ mẫu
++ GPU).
+
+---
+
+## 12. Lớp few-shot exemplar PORTABLE (2026-08-06, tiếp)
+
+Fine-tune nướng hành vi vào **trọng số** — model `t3lab-assistant` chỉ nằm trong
+Ollama của máy train, không tự sang máy khác. Thêm một lớp **runtime portable**:
+chưng dữ liệu teacher thành few-shot ngắn, **commit trong extension**, nạp vào
+system prompt của model local → **Qwen vanilla ở mọi máy phản hồi theo phong cách
+đã dạy mà không cần train lại**.
+
+### 12.1 Store + builder
+`Intelligence/learning/exemplars.py` (mới, thuần/testable): `load/save_exemplars`
+ghi `lib/Intelligence/config/teacher_exemplars.json` (git-tracked, cùng precedent
+`learned_patterns.json`); `trajectory_to_exemplar`/`qa_to_exemplar` → dòng gọn
+`User: "…" -> call tool(args); reply "…"`; `select_exemplars` (lọc `quality in
+{teacher,high}`, dedup theo user, cap, tool trước qa); `build_exemplar_block`
+(bounded ~2 KB); `promote_from_dataset` (injectable).
+
+### 12.2 Nạp prompt (native, local-only, static)
+`agent_loop.build_agent_system_prompt(local=True)` nối `teacher_exemplar_block()`
+sau `_LOCAL_GENERAL_FEWSHOT` (đường general); `specialists.build_specialist_prompt(
+local=True)` nối sau `spec.few_shot` (đường specialist — builder gọi base KHÔNG
+kèm `local` nên nối trực tiếp, không double). Cloud không đổi. Nội dung file ổn
+định → cache system prefix vẫn trúng.
+
+### 12.3 Kích hoạt
+- MCP `t3lab_build_exemplars` (external-only) — chưng exemplar, KHÔNG cần GPU.
+- `t3lab_train_model` gộp promote → làm mới cả lớp weight lẫn portable.
+- In-app `/train exemplars`.
+- Skill `SKILL.md` thêm bước gọi `t3lab_build_exemplars` + giải thích 2 đường
+  portability.
+
+### Kiểm chứng (G)
+```bash
+python3 dev/test_exemplars.py
+python3 dev/test_mcp_teacher.py && python3 dev/test_learning_dataset.py
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+QA thật: máy B chỉ có `qwen3:14b` vanilla + repo đã commit `teacher_exemplars.json`
+→ mở Assistant hỏi task đã dạy → phản hồi bám mẫu, không cần model đã train.

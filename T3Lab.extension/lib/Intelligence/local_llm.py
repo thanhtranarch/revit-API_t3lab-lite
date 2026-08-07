@@ -338,6 +338,55 @@ def pick_best(installed, prefer_capable=False):
     return installed[0]
 
 
+# Preferred agentic (tool-calling) models, sweet-spot FIRST. Used by the
+# assistant's main path (OllamaProvider.get_active_model), and deliberately
+# distinct from PREFERRED_MODELS above — that list is smallest-first, right for
+# the lightweight NLU/intent fallback but wrong for reliable multi-tool work
+# (see the module header: "avoid <4B for multi-tool work"). qwen3:14b is the
+# documented sweet spot; larger MoE/dense variants and 8b/4b follow.
+AGENTIC_PREFERRED = [
+    "qwen3:14b",
+    "qwen3:30b-a3b",
+    "qwen3:32b",
+    "qwen3:8b",
+    "qwen2.5:14b",
+    "qwen2.5:7b",
+    "qwen3:4b",
+    "qwen2.5:3b",
+]
+
+
+def pick_tool_capable(installed):
+    """Best tool-calling model for the agentic assistant, or None.
+
+    Pure — no HTTP. Ranks an ALREADY-FETCHED list:
+      1) the documented sweet-spot Qwen tiers, in order (14b → … → 4b);
+      2) else any installed model at/above the tool-calling floor, Qwen and
+         reasoning families first, then largest parameter count;
+      3) else fall back to pick_best (fastest sensible pick) so a box with only
+         tiny models still gets an answer — just with a soft warning elsewhere.
+    """
+    if not installed:
+        return None
+    for pref in AGENTIC_PREFERRED:
+        if pref in installed:
+            return pref
+    capable = [n for n in installed if _param_billions(n) >= TOOL_CALLING_MIN_B]
+    if capable:
+        try:
+            from Intelligence.llm_provider import is_reasoning_model
+        except Exception:
+            is_reasoning_model = lambda _n: False
+
+        def _score(n):
+            low = (n or "").lower()
+            return (1 if "qwen" in low else 0,
+                    1 if is_reasoning_model(n) else 0,
+                    _param_billions(n))
+        return sorted(capable, key=_score, reverse=True)[0]
+    return pick_best(installed)
+
+
 def get_best_model(prefer_capable=False, host=None):
     """Return the best installed model name, or None if none installed.
 

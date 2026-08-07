@@ -134,6 +134,19 @@ class MCPControlWindow(forms.WPFWindow):
         if configure_claude_btn:
             configure_claude_btn.Click += self._on_configure_claude
 
+        # Teaching capture widgets (Opus distils to local Qwen via MCP)
+        self._teaching_toggle    = self.FindName('teaching_toggle')
+        self._teaching_indicator = self.FindName('teaching_indicator')
+        self._teaching_label     = self.FindName('teaching_status_label')
+        self._sandbox_label      = self.FindName('sandbox_label')
+        mark_sandbox_btn         = self.FindName('mark_sandbox_btn')
+        # Bind Click (not Checked/Unchecked): _refresh_teaching sets IsChecked
+        # from server state, and Checked would re-fire the handler and fight it.
+        if self._teaching_toggle:
+            self._teaching_toggle.Click += self._on_teaching_toggle
+        if mark_sandbox_btn:
+            mark_sandbox_btn.Click += self._on_mark_sandbox
+
         self._init_port()
         self._refresh_all()
 
@@ -163,6 +176,7 @@ class MCPControlWindow(forms.WPFWindow):
         self._refresh_documents()
         self._refresh_watcher()
         self._refresh_claude_config()
+        self._refresh_teaching()
 
     def _refresh_server(self):
         if not HAS_SERVICE:
@@ -315,6 +329,57 @@ class MCPControlWindow(forms.WPFWindow):
             self.config_box.Text = MCPService.config_snippet(
                 port=self.port_tb.Text or None
             )
+
+    # ── Teaching capture ────────────────────────────────────────────────────────
+
+    def _refresh_teaching(self):
+        if not HAS_SERVICE or self._teaching_label is None:
+            return
+        try:
+            status = MCPService.teaching_status()
+        except Exception as ex:
+            status = {'enabled': False, 'error': str(ex)}
+        enabled = bool(status.get('enabled'))
+        if self._teaching_toggle is not None:
+            self._teaching_toggle.IsChecked = enabled
+        if self._teaching_indicator is not None:
+            self._teaching_indicator.Background = _brush(
+                '#10B981' if enabled else '#94A3B8')
+        recorded = status.get('sessions_recorded', 0)
+        if status.get('error'):
+            self._teaching_label.Text = 'Teaching unavailable'
+        elif enabled:
+            self._teaching_label.Text = (
+                'Recording MCP sessions - {} captured'.format(recorded))
+        else:
+            self._teaching_label.Text = 'Teaching capture off'
+        if self._sandbox_label is not None:
+            sb = status.get('sandbox')
+            self._sandbox_label.Text = (
+                'Sandbox: {}'.format(sb) if sb
+                else 'Sandbox: none - mark a scratch model')
+
+    def _on_teaching_toggle(self, sender, e):
+        if not HAS_SERVICE:
+            return
+        # The toggle already flipped IsChecked on click; push that to the server.
+        want = bool(self._teaching_toggle.IsChecked) \
+            if self._teaching_toggle is not None else False
+        _new, err = MCPService.set_teaching_mode(want)
+        if err:
+            logger.error('Teaching mode error: {}'.format(err))
+        self._refresh_teaching()
+
+    def _on_mark_sandbox(self, sender, e):
+        if not HAS_SERVICE:
+            return
+        info, err = MCPService.mark_active_document_as_sandbox()
+        if err:
+            logger.error('Mark sandbox error: {}'.format(err))
+        else:
+            logger.info('Sandbox document set: {}'.format(
+                info.get('title') if info else ''))
+        self._refresh_teaching()
 
 
 def show_mcp_control_dialog():

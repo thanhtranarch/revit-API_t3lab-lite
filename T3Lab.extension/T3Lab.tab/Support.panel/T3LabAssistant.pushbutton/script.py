@@ -4966,7 +4966,35 @@ class T3LabAssistantWindow(forms.WPFWindow):
             last = _trainer.last_train()
 
             icon, color = _ICON_INFO, _ICON_SLATE
-            if sub in (u'now', u'chay', u'chạy', u'start'):
+            if sub in (u'exemplars', u'exemplar', u'portable'):
+                # Rebuild the PORTABLE few-shot layer (no GPU): distils teacher
+                # data into the git-tracked teacher_exemplars.json so a plain
+                # local model answers in the taught style on any machine.
+                try:
+                    from Intelligence.learning import exemplars as _ex
+                    res = _ex.promote_from_dataset()
+                    n = res.get('count', 0)
+                    if res.get('status') == 'ok':
+                        msg = (u'Đã dựng {} ví dụ mẫu portable vào '
+                               u'`teacher_exemplars.json`. Commit file này để '
+                               u'mọi máy dùng model local đều trả lời theo phong '
+                               u'cách đã dạy — không cần GPU/train.'.format(n)
+                               if viet else
+                               u'Built {} portable exemplars into '
+                               u'`teacher_exemplars.json`. Commit it so every '
+                               u'machine\'s local model answers in the taught '
+                               u'style — no GPU/training needed.'.format(n))
+                        icon, color = _ICON_SYNC, _ICON_SLATE
+                    else:
+                        msg = (u'Không dựng được exemplars: {}'.format(
+                            res.get('status')) if viet else
+                            u'Could not build exemplars: {}'.format(
+                                res.get('status')))
+                        icon, color = _ICON_WARNING, _ICON_AMBER
+                except Exception as _ex_err:
+                    msg = u'Could not build exemplars: {}'.format(_ex_err)
+                    icon, color = _ICON_WARNING, _ICON_AMBER
+            elif sub in (u'now', u'chay', u'chạy', u'start'):
                 ok, note = _trainer.launch()
                 if ok:
                     msg = (u'Đã khởi động huấn luyện nền ({} mẫu). Quá trình '
@@ -7477,19 +7505,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
     # ─── Parallel task cards ──────────────────────────────────────────────────
 
     def _parallel_tasks_enabled(self):
-        """Opt-in kill switch for concurrent task cards (agents.parallel_tasks).
+        """Kill switch for concurrent task cards (agents.parallel_tasks).
 
-        Default OFF: a new concurrency path that can only be exercised end to
-        end inside Revit ships disabled until the user turns it on. Also needs
-        the graph layer it plugs into.
+        Default ON, but hard-gated downstream by eligible_for_parallel: it only
+        ever fires for a genuinely writer-FREE multi-goal plan (>=2 read goals),
+        so two model-writes can never interleave. Cancellable per card. Needs the
+        graph layer it plugs into, so a disabled graph disables this too.
         """
         if not self._graph_enabled():
             return False
         try:
             from config.settings import get_settings
-            return bool(get_settings().get_agent_option("parallel_tasks", False))
+            return bool(get_settings().get_agent_option("parallel_tasks", True))
         except Exception:
-            return False
+            return True
 
     def _run_agent_text(self, provider, base_history, node, cancel_check=None):
         """Run ONE read goal to completion with NO streaming; return its text.

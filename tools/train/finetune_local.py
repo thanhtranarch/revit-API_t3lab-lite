@@ -15,7 +15,7 @@ importable and its non-training logic testable in CI.
 
 Usage:
     python3 tools/train/finetune_local.py --dry-run
-    python3 tools/train/finetune_local.py --base unsloth/llama-3.1-8b-instruct-bnb-4bit \
+    python3 tools/train/finetune_local.py --base unsloth/Qwen2.5-14B-Instruct-bnb-4bit \
         --out ./t3lab-out --tag t3lab-assistant
 
 See tools/train/README.md for the full recipe (base-model choice, hardware,
@@ -195,8 +195,10 @@ def build_parser():
                                             'the T3Lab self-study dataset.')
     p.add_argument('--dataset', help='dataset.jsonl (default: %%APPDATA%%/...)')
     p.add_argument('--out', help='output dir (default: tools/train/out)')
-    p.add_argument('--base', default='unsloth/llama-3.1-8b-instruct-bnb-4bit',
-                   help='HF base model matching your Ollama base')
+    p.add_argument('--base', default='unsloth/Qwen2.5-14B-Instruct-bnb-4bit',
+                   help='HF base model matching your Ollama base (Qwen — the '
+                        'assistant auto-selects qwen3:14b, so distil INTO a '
+                        'Qwen base; --base overrides for other families)')
     p.add_argument('--tag', default=DEFAULT_TAG, help='Ollama model tag')
     p.add_argument('--system', help='SYSTEM prompt baked into the Modelfile')
     p.add_argument('--epochs', type=int, default=1)

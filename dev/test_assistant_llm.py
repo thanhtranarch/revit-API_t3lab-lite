@@ -884,6 +884,44 @@ def test_openai_stream_drop_continues_partial():
         OP.http_post_stream, OP.http_post = orig_s, orig_p
 
 
+def test_deepseek_stream_drop_returns_partial():
+    print('[deepseek: stream drop returns partial, no re-generate]')
+    a = _reset_appdata()
+    a.set_api_key('DeepSeek', 'sk-test')
+    import Intelligence.deepseek_provider as DP
+
+    orig_s, orig_p = DP.http_post_stream, DP.http_post
+
+    def drop_after_two(url, payload, headers, on_line):
+        on_line('data: {"choices":[{"delta":{"content":"Foo "}}]}')
+        on_line('data: {"choices":[{"delta":{"content":"bar"}}]}')
+        raise IOError('reset')
+
+    calls = {'n': 0}
+
+    def fake_post(url, payload, headers=None, timeout_ms=None, **kw):
+        # A blocking fallback here would be the §7.2#1 bug: a second, different
+        # answer generated from scratch after text already streamed.
+        calls['n'] += 1
+        return json.dumps({'choices': [{'message': {'content': 'DIFFERENT'}}]})
+
+    DP.http_post_stream = drop_after_two
+    DP.http_post = fake_post
+    try:
+        p = DP.DeepSeekProvider()
+        p._resolve_model = lambda: 'deepseek-chat'
+        deltas = []
+        res = p.chat_stream([], 'sys', 'hi',
+                            on_delta=lambda d: deltas.append(d), max_tokens=80)
+        check('kept the streamed partial (not a fresh answer)',
+              res == 'Foo bar', repr(res))
+        check('no from-scratch blocking regenerate after partial',
+              calls['n'] == 0, calls['n'])
+        check('user saw the streamed deltas', deltas == ['Foo ', 'bar'], deltas)
+    finally:
+        DP.http_post_stream, DP.http_post = orig_s, orig_p
+
+
 def main():
     test_settings_merge_on_write()
     test_settings_corrupt_quarantine()
@@ -907,6 +945,7 @@ def main():
     test_claude_stream_drop_with_nothing_streamed_falls_back()
     test_skill_ranking_uses_feedback()
     test_openai_stream_drop_continues_partial()
+    test_deepseek_stream_drop_returns_partial()
     test_project_meta_cache()
     test_project_schedule_api()
     test_project_document_counts()

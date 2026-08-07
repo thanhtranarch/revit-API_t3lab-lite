@@ -26,16 +26,28 @@ import time
 class Enricher(object):
     """One named unit of self-study work.
 
-    fn() -> dict (must include 'status'; 'added' optional). generative=True
-    means it needs a local LLM and is skipped when none is reachable.
+    fn() -> dict (must include 'status'; 'added' optional).
+
+    Resource requirement, decided by the scheduler before running:
+      requires=None       — pure/zero-cost, always runnable.
+      requires='local'    — needs a LOCAL LLM (skipped when none reachable).
+                            `generative=True` is the backward-compatible alias.
+      requires='teacher'  — needs a CLOUD teacher (Claude/Opus) AND the opt-in
+                            switch; skipped when no teacher is available. This is
+                            the only enricher class that can spend API tokens.
     """
 
-    __slots__ = ('name', 'fn', 'generative')
+    __slots__ = ('name', 'fn', 'generative', 'requires')
 
-    def __init__(self, name, fn, generative=False):
+    def __init__(self, name, fn, generative=False, requires=None):
         self.name = name
         self.fn = fn
-        self.generative = bool(generative)
+        # `generative=True` predates `requires` and meant "needs a local model".
+        if requires is None and generative:
+            requires = 'local'
+        self.requires = requires
+        # Keep the legacy attribute truthful for any external reader.
+        self.generative = bool(generative or requires == 'local')
 
 
 class Gate(object):
@@ -47,13 +59,15 @@ class Gate(object):
     cancel           — callable -> True to abort mid-cycle (user activity).
     """
 
-    __slots__ = ('enabled', 'idle', 'has_local_model', 'cancel')
+    __slots__ = ('enabled', 'idle', 'has_local_model', 'has_teacher', 'cancel')
 
     def __init__(self, enabled=False, idle=False, has_local_model=False,
-                 cancel=None):
+                 cancel=None, has_teacher=False):
         self.enabled = bool(enabled)
         self.idle = bool(idle)
         self.has_local_model = bool(has_local_model)
+        # A cloud teacher (Claude/Opus) is reachable AND the opt-in switch is on.
+        self.has_teacher = bool(has_teacher)
         self.cancel = cancel or (lambda: False)
 
 
@@ -78,12 +92,21 @@ class StudyEngine(object):
         return max(0, self._budget - len(self._runs))
 
     # ── selection ────────────────────────────────────────────────────────────
-    def _next_enricher(self, has_local_model):
+    def _runnable(self, e, has_local_model, has_teacher):
+        """True when enricher `e`'s resource requirement is currently met."""
+        if e.requires == 'local':
+            return has_local_model
+        if e.requires == 'teacher':
+            return has_teacher
+        return True
+
+    def _next_enricher(self, has_local_model, has_teacher=False):
         """Advance the cursor to the next runnable enricher, or None.
 
-        Skips generative enrichers when no local model is reachable. Scans at
-        most one full lap so an all-generative set with no model returns None
-        instead of looping forever.
+        Skips enrichers whose resource requirement is unmet (a 'local' enricher
+        with no local model, a 'teacher' enricher with no cloud teacher). Scans
+        at most one full lap so a set with nothing runnable returns None instead
+        of looping forever.
         """
         n = len(self._enrichers)
         if n == 0:
@@ -91,7 +114,7 @@ class StudyEngine(object):
         for _ in range(n):
             e = self._enrichers[self._idx % n]
             self._idx = (self._idx + 1) % n
-            if e.generative and not has_local_model:
+            if not self._runnable(e, has_local_model, has_teacher):
                 continue
             return e
         return None
@@ -111,7 +134,7 @@ class StudyEngine(object):
         if self.budget_left() <= 0:
             return {'ran': None, 'status': 'budget_exhausted'}
 
-        enricher = self._next_enricher(gate.has_local_model)
+        enricher = self._next_enricher(gate.has_local_model, gate.has_teacher)
         if enricher is None:
             return {'ran': None, 'status': 'no_runnable_enricher'}
 

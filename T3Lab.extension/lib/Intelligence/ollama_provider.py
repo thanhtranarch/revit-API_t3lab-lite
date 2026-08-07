@@ -203,8 +203,17 @@ class OllamaProvider(BaseLLMProvider):
         try:
             _host, names = self._probe_tags()
             if names:
-                picked = mod.pick_best(names,
-                                       prefer_capable=self._quality_mode())
+                if self._quality_mode():
+                    # Quality mode: strongest installed model (reasoning + size).
+                    picked = mod.pick_best(names, prefer_capable=True)
+                else:
+                    # Default agentic path: prefer a tool-capable Qwen tier
+                    # (qwen3:14b → 8b → 4b) over the smallest-first NLU pick, so
+                    # multi-tool turns land on a model that actually tool-calls.
+                    try:
+                        picked = mod.pick_tool_capable(names)
+                    except AttributeError:
+                        picked = mod.pick_best(names, prefer_capable=False)
         except AttributeError:
             pass          # older local_llm without pick_best
         except Exception:

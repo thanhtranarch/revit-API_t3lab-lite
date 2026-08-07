@@ -339,7 +339,8 @@ def build_specialist_prompt(spec, revit_context='', project_instructions='',
     lang ('auto' | 'vi' | 'en') is passed straight through to the base prompt
     so a specialist turn answers in the same language as the rest of the UI.
     """
-    from Intelligence.agent_loop import build_agent_system_prompt
+    from Intelligence.agent_loop import (build_agent_system_prompt,
+                                         teacher_exemplar_block)
     # local= is deliberately NOT forwarded: a specialist turn uses its own
     # few-shot (appended below), not the general-path one.
     parts = [build_agent_system_prompt(lang=lang)]
@@ -347,6 +348,13 @@ def build_specialist_prompt(spec, revit_context='', project_instructions='',
         parts.append(spec.prompt_intro)
     if local and spec is not None and spec.few_shot:
         parts.append(spec.few_shot)
+    if local:
+        # Portable teacher exemplars (git-tracked). build_agent_system_prompt was
+        # called WITHOUT local= above, so they are added here for specialist turns
+        # too — with no double-add on the general path.
+        ex_block = teacher_exemplar_block().strip()
+        if ex_block:
+            parts.append(ex_block)
     if project_instructions:
         parts.append("## Project instructions\n" + project_instructions)
     if skills_block:

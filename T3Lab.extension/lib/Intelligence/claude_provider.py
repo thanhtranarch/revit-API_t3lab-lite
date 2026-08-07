@@ -163,6 +163,15 @@ class ClaudeProvider(BaseLLMProvider):
         calls (classification). No HTTP; None until models were fetched."""
         return self._pick_model(self._cached_models or [], _PREF_FAST)
 
+    def pick_quality_model(self):
+        """Most capable model (Opus > Sonnet > Haiku) from the LIVE list.
+
+        Used by the self-study teacher enricher to distill gold answers from
+        Opus regardless of the user's saved default. May fetch /v1/models.
+        Returns None when no key / no live list.
+        """
+        return self._pick_model(self.get_models(), _PREF_QUALITY)
+
     @staticmethod
     def _quality_mode():
         """Opus-parity switch (agents.quality_mode). Off by default."""

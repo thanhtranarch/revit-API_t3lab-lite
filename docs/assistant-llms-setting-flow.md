@@ -173,7 +173,7 @@ flowchart TD
 | Khoá | Ghi bởi | Đọc bởi | Ảnh hưởng |
 |------|---------|---------|-----------|
 | `api_keys` | Setting · Onboarding | Provider adapters | Quyết định provider có "available" hay không |
-| `active_provider` | Setting · chip model · Onboarding | `LLMRouter._restore_settings` | Provider mặc định khi mở Revit lần sau |
+| `active_provider` | Setting · chip model · Onboarding | `LLMRouter._restore_settings` | Provider mặc định khi mở Revit lần sau. **Seed lần đầu = `ollama`** (Qwen local, riêng tư + zero API cost); lựa chọn đã lưu vẫn thắng, fallback chain vẫn với tới cloud khi Ollama chưa sẵn sàng |
 | `model_preferences` | Setting (Save model) | Router + `get_status_instant` | Model hiển thị trên chip khi chưa probe |
 | `Ollama_Host` · `LMStudio_Host` | Setting (tab Models) | Local provider adapters | Địa chỉ engine cục bộ |
 | `username` | Setting (tab General) | Assistant — lời chào | `_update_welcome_greeting` |

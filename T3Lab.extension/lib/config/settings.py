@@ -132,7 +132,11 @@ class T3LabAISettings(object):
             },
             'providers': [],
             'api_keys': {},
-            'active_provider': 'claude',
+            # Default to the local Ollama+Qwen runtime (privacy + zero API cost).
+            # This is only the FIRST-RUN seed — a saved choice always wins on
+            # restore, and the fallback chain still reaches Claude/OpenAI when
+            # Ollama is unreachable, so the assistant works even with no model.
+            'active_provider': 'ollama',
             'model_preferences': {},
             'username': 'Thạnh',
             'window_state': {
@@ -155,6 +159,22 @@ class T3LabAISettings(object):
                 'graph_mode':     True,
                 'show_tool_calls': True,
                 'show_thinking':   True,
+                # Idle-time self-study of local, zero-API-cost enrichers
+                # (telemetry mining, model snapshot, API facts). On by default;
+                # heavily throttled (see Intelligence/learning/loop.py).
+                'self_study':      True,
+                # Read-only multi-goal plans may surface parallel task cards.
+                # Guarded to writer-free plans in script.py — never runs two
+                # model-writes at once.
+                'parallel_tasks':  True,
+                # Opt-in DISTILLATION: let Opus 5 (Claude) act as the teacher
+                # that writes gold answers into the self-study SFT corpus for a
+                # local Qwen fine-tune. OFF by default because it spends Claude
+                # API tokens, breaking the otherwise local-only study contract.
+                'opus_teacher':    False,
+                # Opt-in: auto-launch the detached local fine-tune once the
+                # corpus has grown enough (see Intelligence/learning/trainer.py).
+                'self_train_auto': False,
             },
             'skills': {
                 'disabled': [],

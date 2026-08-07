@@ -868,7 +868,29 @@ def build_agent_system_prompt(revit_context=u"", local=False, lang="auto"):
     prompt = _AGENT_PROMPT.format(language=language)
     if local:
         prompt += u"\n" + _LOCAL_GENERAL_FEWSHOT
+        prompt += teacher_exemplar_block()
     return prompt
+
+
+# ─── Portable teacher exemplars (few-shot distilled from teaching) ───────────────
+
+def teacher_exemplar_block():
+    """The committed teacher-exemplar few-shot block, prefixed with a blank line,
+    or u"" when there are none.
+
+    These come from lib/Intelligence/config/teacher_exemplars.json — a git-tracked
+    file — so a plain local model (qwen3:14b) on ANY machine answers in the taught
+    style without a re-train (the weight-level fine-tune is not portable). Static
+    for the session, so the cached system prefix still hits across turns. Local
+    models only, mirroring _LOCAL_GENERAL_FEWSHOT / SpecialistSpec.few_shot.
+    Never raises.
+    """
+    try:
+        from Intelligence.learning import exemplars as _ex
+        block = _ex.build_exemplar_block(_ex.load_exemplars())
+        return (u"\n" + block) if block else u""
+    except Exception:
+        return u""
 
 
 # Fence around the volatile block so the model can tell live state from the
