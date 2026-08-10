@@ -19,6 +19,8 @@ import json
 import uuid
 import io
 
+from core import jsonsafe
+
 try:
     import queue as _queue_mod            # CPython 3
 except ImportError:
@@ -211,13 +213,22 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _send_json(self, data, status_code=200):
-        """Send JSON response"""
-        body = json.dumps(data)
+        """Send JSON response.
+
+        Serialized through jsonsafe, NOT plain json.dumps: IronPython 2.7's
+        ASCII escaper raises on non-ASCII, and 35 tool descriptions in the
+        registry below contain an em dash. That made every tools/list response
+        die mid-handler — the client saw a bare connection reset and bridge.py
+        silently fell back to its stale tools_cache.json, so newly registered
+        tools (the t3lab_* teaching set among them) never reached Claude.
+        """
+        body = jsonsafe.dumps(data)
         self._send_response(status_code, 'application/json', body)
 
     def _send_sse_event(self, event_type, data):
         """Send SSE event"""
-        message = "event: {}\ndata: {}\n\n".format(event_type, json.dumps(data))
+        message = "event: {}\ndata: {}\n\n".format(event_type,
+                                                   jsonsafe.dumps(data))
         self.wfile.write(message.encode('utf-8'))
         self.wfile.flush()
 
@@ -2544,7 +2555,11 @@ class T3LabAIServer(object):
             return {
                 'content': [{
                     'type': 'text',
-                    'text': json.dumps(result, indent=2)
+                    # jsonsafe, not json.dumps: a single Revit name with an
+                    # accent (a view called "Café Kitchen - Section") made the
+                    # whole tool call fail with "'unknown' codec can't decode
+                    # byte 0xe9" — IronPython's ensure_ascii escaper again.
+                    'text': jsonsafe.dumps(result, indent=2)
                 }]
             }
         except Exception as e:
@@ -3536,32 +3551,76 @@ class T3LabAIServer(object):
         from Autodesk.Revit.DB import ElementId
         return ElementId.InvalidElementId
 
+    # Colour vocabulary shared by revit_override_color and create_view_filter.
+    # Vietnamese names are in it because the office types "tô đỏ tường" and the
+    # model forwards the word it was handed, accents and all.
+    CSS_COLORS = {
+        'red': (255, 0, 0), 'do': (255, 0, 0), u'đỏ': (255, 0, 0),
+        'green': (0, 255, 0), 'xanh la': (0, 255, 0), u'xanh lá': (0, 255, 0),
+        'blue': (0, 0, 255), 'xanh': (0, 0, 255), u'xanh dương': (0, 0, 255),
+        'orange': (255, 165, 0), 'cam': (255, 165, 0),
+        'cyan': (0, 255, 255),
+        'yellow': (255, 255, 0), 'vang': (255, 255, 0), u'vàng': (255, 255, 0),
+        'magenta': (255, 0, 255),
+        'black': (0, 0, 0), 'den': (0, 0, 0), u'đen': (0, 0, 0),
+        'white': (255, 255, 255), 'trang': (255, 255, 255), u'trắng': (255, 255, 255),
+        'gray': (128, 128, 128), 'grey': (128, 128, 128),
+        'xam': (128, 128, 128), u'xám': (128, 128, 128),
+        'pink': (255, 192, 203), 'hong': (255, 192, 203), u'hồng': (255, 192, 203),
+        'purple': (128, 0, 128), 'tim': (128, 0, 128), u'tím': (128, 0, 128),
+        'violet': (238, 130, 238),
+    }
+
     def _parse_color(self, color_str):
-        """Parse a hex (#RRGGBB / #RGB) or CSS-name color into an (r, g, b)
-        tuple, or None if unparseable. Mirrors the inline parser in
-        revit_override_color so filter overrides accept the same vocabulary."""
-        if not color_str:
+        """(r, g, b) for a colour, or None if unparseable.
+
+        Accepts a CSS or Vietnamese name, #rrggbb, #rgb, an [r, g, b] sequence,
+        or the STRING form of one ("[0, 0, 255]", "0,0,255"). The string form
+        matters because the MCP schema declares `color` as a string, so a
+        caller that sends an RGB array has it stringified before it arrives —
+        which used to land here as an unknown value and, in
+        revit_override_color, silently become red.
+        """
+        if color_str is None or color_str == u'':
             return None
-        s = color_str.lower().strip()
-        css = {
-            'red': (255, 0, 0), 'green': (0, 255, 0), 'blue': (0, 0, 255),
-            'orange': (255, 165, 0), 'cyan': (0, 255, 255), 'yellow': (255, 255, 0),
-            'magenta': (255, 0, 255), 'black': (0, 0, 0), 'white': (255, 255, 255),
-            'gray': (128, 128, 128), 'grey': (128, 128, 128), 'pink': (255, 192, 203),
-            'purple': (128, 0, 128), 'violet': (238, 130, 238),
-        }
-        if s in css:
-            return css[s]
-        if s.startswith('#'):
-            h = s[1:]
-            try:
-                if len(h) == 6:
-                    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
-                if len(h) == 3:
-                    return (int(h[0] * 2, 16), int(h[1] * 2, 16), int(h[2] * 2, 16))
-            except ValueError:
+
+        if isinstance(color_str, (list, tuple)):
+            parts = list(color_str)
+        else:
+            s = u'{}'.format(color_str).lower().strip()
+            if s in self.CSS_COLORS:
+                return self.CSS_COLORS[s]
+            if s.startswith('#'):
+                h = s[1:]
+                try:
+                    if len(h) == 3:
+                        h = u''.join(c * 2 for c in h)
+                    if len(h) == 6:
+                        return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+                except ValueError:
+                    return None
                 return None
-        return None
+            parts = [p for p in s.strip('[]() ').replace(';', ',').split(',')
+                     if p.strip() != u'']
+
+        if len(parts) != 3:
+            return None
+        try:
+            rgb = tuple(int(float(u'{}'.format(p).strip())) for p in parts)
+        except (TypeError, ValueError):
+            return None
+        return rgb if all(0 <= c <= 255 for c in rgb) else None
+
+    def _color_error(self, color_str):
+        """Error dict for a colour that _parse_color rejected."""
+        return {
+            'error': u"Unrecognised colour '{}'.".format(color_str),
+            'supported_colors': sorted(set(
+                k for k in self.CSS_COLORS if all(ord(c) < 128 for c in k))),
+            'hint': ('Use a colour name, #rrggbb, or an [r,g,b] triple with '
+                     'values 0-255. An unknown colour is refused rather than '
+                     'silently painted red.'),
+        }
 
     def _apply_param_value(self, param, value):
         """Coerce a string value onto a Revit parameter honouring its storage
@@ -4040,45 +4099,22 @@ class T3LabAIServer(object):
                         'tool': tool_name}
             element_ids = _clean_ids
 
-            # Parse color
-            r, g, b = 255, 0, 0 # default red
-            if color_str:
-                color_str = color_str.lower().strip()
-                css_colors = {
-                    'red': (255, 0, 0),
-                    'green': (0, 255, 0),
-                    'blue': (0, 0, 255),
-                    'orange': (255, 165, 0),
-                    'cyan': (0, 255, 255),
-                    'yellow': (255, 255, 0),
-                    'magenta': (255, 0, 255),
-                    'black': (0, 0, 0),
-                    'white': (255, 255, 255),
-                    'gray': (128, 128, 128),
-                    'grey': (128, 128, 128),
-                    'pink': (255, 192, 203),
-                    'purple': (128, 0, 128),
-                    'violet': (238, 130, 238),
-                }
-                if color_str in css_colors:
-                    r, g, b = css_colors[color_str]
-                elif color_str.startswith('#'):
-                    hex_val = color_str[1:]
-                    if len(hex_val) == 6:
-                        try:
-                            r = int(hex_val[0:2], 16)
-                            g = int(hex_val[2:4], 16)
-                            b = int(hex_val[4:6], 16)
-                        except ValueError:
-                            pass
-                    elif len(hex_val) == 3:
-                        try:
-                            r = int(hex_val[0]*2, 16)
-                            g = int(hex_val[1]*2, 16)
-                            b = int(hex_val[2]*2, 16)
-                        except ValueError:
-                            pass
-            
+            # Parse color.
+            #
+            # An UNRECOGNISED colour must not fall through to the default.
+            # It used to: anything that was neither a CSS name nor #rrggbb
+            # silently became red, so a caller passing an RGB triple got
+            # "success" with red paint while the reply said blue. Wrong
+            # geometry colour is invisible in the transcript and only shows up
+            # in the model. RGB triples are now accepted, and anything still
+            # unparseable is an error that names what IS supported.
+            r, g, b = 255, 0, 0  # default when no colour is given at all
+            if color_str is not None and color_str != u'':
+                rgb = self._parse_color(color_str)
+                if rgb is None:
+                    return self._color_error(color_str)
+                r, g, b = rgb
+
             from Autodesk.Revit.DB import Color, OverrideGraphicSettings, ElementId, Transaction
             revit_color = Color(r, g, b)
 
@@ -8541,6 +8577,20 @@ class T3LabAIServer(object):
                 # explicit positive limit is still honored.
                 limit = int(arguments.get('limit', 0) or 0)
                 ids   = arguments.get('element_ids')
+
+                # An EMPTY list is "select nothing", never "select everything".
+                # `if ids:` treated [] the same as an omitted argument, so the
+                # branch below collected the whole model — select_elements([])
+                # put 37,929 elements into the selection, and any following
+                # colour/hide call that falls back to the selection would then
+                # have hit every one of them. Omitting the argument entirely
+                # still means "use category / whole model".
+                if isinstance(ids, (list, tuple)) and len(ids) == 0 \
+                        and not arguments.get('category'):
+                    uidoc.Selection.SetElementIds(NetList[ElementId]())
+                    return {'success': True, 'selected_count': 0,
+                            'note': 'Selection cleared (element_ids was empty).'}
+
                 if ids:
                     target = [make_eid(int(i)) for i in ids]
                     if limit > 0:

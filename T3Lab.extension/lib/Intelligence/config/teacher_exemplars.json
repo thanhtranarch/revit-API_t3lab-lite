@@ -1,1 +1,52 @@
-[]
+[
+ {
+  "user": "list all levels in the model",
+  "trace": "call list_levels(); reply \"Listed 18 levels from Parking to Parapet 2.\"",
+  "kind": "tool"
+ },
+ {
+  "user": "t\u1ea1o view m\u1eb7t b\u1eb1ng m\u1edbi cho t\u1ea7ng L2",
+  "trace": "call create_view(level_name=L2, view_type=floor_plan); call rename_element(element_id=2661040, new_name=L2 Coordination); reply \"create_view t\u1ef1 \u0111\u1eb7t t\u00ean L2(1) v\u00e0 b\u1ecf qua view_name, n\u00ean ph\u1ea3i g\u1ecdi rename_element sau \u0111\u1ec3 \u0111\u1ed5i th\u00e0nh L2 Coordination (id 2661040).\"",
+  "kind": "tool"
+ },
+ {
+  "user": "how many walls are in this model?",
+  "trace": "call ai_element_filter(category=Walls, limit=5); reply \"The model has 1128 walls (total_count from the filter, not the 5 rows returned).\"",
+  "kind": "tool"
+ },
+ {
+  "user": "tag c\u00e1c c\u1eeda trong view hi\u1ec7n t\u1ea1i",
+  "trace": "call get_current_view_elements(category=Doors, limit=6); call tag_elements(category=Doors); reply \"tag_elements b\u1eaft bu\u1ed9c c\u00f3 category, kh\u00f4ng ch\u1ec9 element_ids. \u0110\u00e3 tag 28 c\u1eeda trong view L1, 6 c\u00e1i kh\u00f4ng tag \u0111\u01b0\u1ee3c (\u0111\u00e3 c\u00f3 tag ho\u1eb7c n\u1eb1m ngo\u00e0i view).\"",
+  "kind": "tool"
+ },
+ {
+  "user": "show me the project information",
+  "trace": "call revit_get_project_info(); reply \"Project Snowdon Towers, number 7765328-33-A, client Autodesk, status Construction Documents.\"",
+  "kind": "tool"
+ },
+ {
+  "user": "nh\u00f3m 5 t\u01b0\u1eddng \u0111\u1ea7u ti\u00ean trong view th\u00e0nh m\u1ed9t group",
+  "trace": "call get_current_view_elements(category=Walls, limit=5); call edit_elements(element_ids=[\u2026], group_name=T3Lab Test Group, operation=group); reply \"\u0110\u00e3 t\u1ea1o group T3Lab Test Group g\u1ed3m 5 t\u01b0\u1eddng (id 2661017). edit_elements thay \u0111\u1ed5i model th\u1eadt, kh\u00e1c operate_element ch\u1ec9 \u0111\u1ed5i hi\u1ec3n th\u1ecb trong view.\"",
+  "kind": "tool"
+ },
+ {
+  "user": "what view am I in right now?",
+  "trace": "call get_current_view_info(); reply \"Active view is the sheet Cover (DrawingSheet, id 850623, scale 1:1).\"",
+  "kind": "tool"
+ },
+ {
+  "user": "/english-spellcheck",
+  "trace": "reply \"Scanning model Text Notes for English spelling errors...\"",
+  "kind": "qa"
+ },
+ {
+  "user": "DWGExportOptions.prop_overrides (Revit 2026) \u2014 what should I know?",
+  "trace": "reply \"Type PropOverrideMode. Values: ByEntity, ByLayer.\"",
+  "kind": "qa"
+ },
+ {
+  "user": "What is the Revit API signature for dwf_export (Revit 2026)?",
+  "trace": "reply \"Export(String folder, String name, ViewSet views, DWFExportOptions options)\"",
+  "kind": "qa"
+ }
+]

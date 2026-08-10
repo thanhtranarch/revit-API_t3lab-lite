@@ -19,6 +19,8 @@ import io
 import json
 import os
 
+from core import jsonsafe
+
 # Document-name substrings that mark a scratch/sandbox model when the user has
 # not explicitly marked one. Kept generous but distinctive.
 SANDBOX_NAME_HINTS = ('sandbox', 'nhap', u'nháp', 'teach', 'scratch', 'test')
@@ -89,12 +91,9 @@ def session_dir(appdata=None):
 
 def append_step_line(path, goal, step):
     """Stream-append one {goal, step} record to a session file. ASCII-serialize-
-    then-write (IronPython 2.7 safe); never raises."""
+    then-write via jsonsafe (IronPython 2.7 safe); never raises."""
     try:
-        payload = json.dumps({'goal': goal or u'', 'step': step},
-                             ensure_ascii=True)
-        if isinstance(payload, bytes):
-            payload = payload.decode('ascii')
+        payload = jsonsafe.dumps({'goal': goal or u'', 'step': step})
         with io.open(path, 'a', encoding='utf-8') as f:
             f.write(payload + u'\n')
         return True

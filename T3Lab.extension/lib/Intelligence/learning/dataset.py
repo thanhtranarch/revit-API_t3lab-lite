@@ -15,10 +15,13 @@ export_sft() is a near-passthrough. The enrichers append here; the external
 fine-tune job (tools/train/) reads it.
 
 Write discipline mirrors assistant_memory: ASCII-serialize then write, so an
-IronPython 2.7 UnicodeEncodeError mid-write can never truncate the file. Append
-is line-oriented (one json.dumps per line) so a crash costs at most the last
-line, never the whole corpus. Dedup is by a content hash of the user+assistant
-turns, cached in memory and rebuilt from the file on first use.
+IronPython 2.7 UnicodeEncodeError mid-write can never truncate the file. The
+serializer is `core.jsonsafe.dumps`, NOT `json.dumps(ensure_ascii=True)` —
+IronPython's ASCII escaper raises on the very non-ASCII input it exists to
+handle, which silently dropped every Vietnamese example. Append is
+line-oriented (one dumps per line) so a crash costs at most the last line,
+never the whole corpus. Dedup is by a content hash of the user+assistant turns,
+cached in memory and rebuilt from the file on first use.
 
 Pure Python + guarded imports — CPython-3 testable.
 
@@ -35,6 +38,8 @@ import json
 import os
 import threading
 import time
+
+from core import jsonsafe
 
 # Corpus ceiling. Beyond this the oldest lines are dropped on the next add —
 # a training set, not an archive; stale examples from a renamed tool would only
@@ -234,9 +239,7 @@ def add_example(messages, source, quality='ok', revit_version=None, meta=None):
         if h in _seen:
             return True, u'duplicate'
         try:
-            payload = json.dumps(row, ensure_ascii=True)
-            if isinstance(payload, bytes):
-                payload = payload.decode('ascii')
+            payload = jsonsafe.dumps(row)
             with io.open(dataset_file(), 'a', encoding='utf-8') as f:
                 f.write(payload + u'\n')
             _seen[h] = True
@@ -371,10 +374,7 @@ def export_sft(out_path):
                 if h in seen:
                     continue
                 seen[h] = True
-                line = json.dumps({'messages': msgs}, ensure_ascii=True)
-                if isinstance(line, bytes):
-                    line = line.decode('ascii')
-                f.write(line + u'\n')
+                f.write(jsonsafe.dumps({'messages': msgs}) + u'\n')
                 n += 1
     except Exception:
         return n

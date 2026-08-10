@@ -100,11 +100,52 @@ def test_survives_malformed_line():
     check('stats still counts the good one', D.stats()['count'] == 1)
 
 
+def test_vietnamese_persists_as_ascii():
+    """Regression: Vietnamese examples used to vanish under IronPython 2.7.
+
+    `json.dumps(..., ensure_ascii=True)` raises there on any non-ASCII input —
+    add_example swallowed it and returned (False, "'ascii' codec can't encode
+    …"), so every Vietnamese command the office typed was silently dropped
+    while these CPython-3 tests stayed green. core.jsonsafe does the escaping
+    itself; assert both that the row lands and that the line is pure ASCII.
+    """
+    print('[dataset: Vietnamese round-trips, on-disk line is ASCII]')
+    D.reset()
+    goal = u'liệt kê tất cả level trong model'
+    ok, note = D.add_qa(goal, u'Đã liệt kê 18 cao độ — từ Parking đến Parapet 2.',
+                        source='mcp_teacher', quality='teacher')
+    check('Vietnamese Q&A added', ok and note == u'added', note)
+
+    import io as _io, json as _json
+    raw = _io.open(D.dataset_file(), encoding='utf-8').read().strip()
+    check('on-disk line is pure ASCII', all(ord(c) < 128 for c in raw),
+          repr(raw[:80]))
+    check('round-trips back to the original text',
+          _json.loads(raw)['messages'][0]['content'] == goal)
+
+    # Trajectories take the same write path.
+    D.reset()
+    ok, note = D.add_trajectory(
+        u'đổi màu tất cả cửa sang đỏ',
+        [{'tool': 'revit_override_color',
+          'arguments': {'category': u'Cửa', 'color': u'đỏ'},
+          'result': {'ok': True, 'note': u'Đã đổi màu 42 cửa'}}],
+        final=u'Đã đổi màu 42 cửa sang đỏ trong view hiện tại.')
+    check('Vietnamese trajectory added', ok and note == u'added', note)
+    line = _io.open(D.dataset_file(), encoding='utf-8').read().strip()
+    check('trajectory line is pure ASCII', all(ord(c) < 128 for c in line),
+          repr(line[:80]))
+    check('trajectory keeps the tool call',
+          _json.loads(line)['messages'][1]['tool_calls'][0]['name']
+          == 'revit_override_color')
+
+
 def main():
     test_add_and_dedupe()
     test_rejects_degenerate()
     test_stats_and_export()
     test_survives_malformed_line()
+    test_vietnamese_persists_as_ascii()
 
     print('')
     if FAILURES:

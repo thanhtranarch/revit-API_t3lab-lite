@@ -79,10 +79,61 @@ def test_unknown_returns_contract():
           isinstance(err, dict) and 'did_you_mean' in err, err)
 
 
+class _StubColorServer(object):
+    CSS_COLORS = S.T3LabAIServer.CSS_COLORS
+
+
+def _color(value):
+    return S.T3LabAIServer._parse_color(_StubColorServer(), value)
+
+
+def test_color_vocabulary():
+    print('[color: names, hex and RGB triples]')
+    check('CSS name', _color('blue') == (0, 0, 255), _color('blue'))
+    check('case and spacing ignored', _color('  BLUE ') == (0, 0, 255))
+    check('Vietnamese accented', _color(u'đỏ') == (255, 0, 0), _color(u'đỏ'))
+    check('Vietnamese unaccented', _color('vang') == (255, 255, 0))
+    check('#rrggbb', _color('#0000ff') == (0, 0, 255))
+    check('#rgb shorthand', _color('#00f') == (0, 0, 255), _color('#00f'))
+
+    # The regression: the MCP schema types `color` as a string, so an RGB array
+    # arrives stringified. That used to match nothing and fall through to red.
+    check('stringified RGB array', _color('[0, 0, 255]') == (0, 0, 255),
+          _color('[0, 0, 255]'))
+    check('bare RGB string', _color('0,0,255') == (0, 0, 255))
+    check('real RGB list', _color([0, 0, 255]) == (0, 0, 255))
+    check('RGB tuple', _color((12, 34, 56)) == (12, 34, 56))
+    check('float components are truncated', _color('[0, 0, 255.0]') == (0, 0, 255))
+
+
+def test_color_rejects_instead_of_defaulting_to_red():
+    """The point of the fix: an unknown colour must NOT become red.
+
+    Painting the wrong colour is invisible in the chat transcript — the tool
+    reports success and the reply repeats the colour the user asked for, while
+    the model on screen disagrees.
+    """
+    print('[color: unparseable is rejected, never silently red]')
+    for bad in ('chartreuse-ish', '[0, 0]', '[0, 0, 300]', '#12345',
+                'rgb(0,0,255)', 'không rõ'):
+        check(u'"{}" rejected'.format(bad), _color(bad) is None, _color(bad))
+    check('empty is None (caller keeps its default)', _color('') is None)
+    check('None is None', _color(None) is None)
+
+    err = S.T3LabAIServer._color_error(_StubColorServer(), 'chartreuse-ish')
+    check('error names the value', 'chartreuse-ish' in err['error'], err)
+    check('error lists supported names',
+          'blue' in err['supported_colors'] and 'red' in err['supported_colors'])
+    check('supported list is ASCII-safe for any client',
+          all(all(ord(c) < 128 for c in k) for k in err['supported_colors']))
+
+
 def main():
     test_case_insensitive()
     test_vietnamese_aliases()
     test_unknown_returns_contract()
+    test_color_vocabulary()
+    test_color_rejects_instead_of_defaulting_to_red()
 
     print('')
     if FAILURES:

@@ -671,10 +671,13 @@ def _json_text(obj, sort_keys=False):
     except Exception:
         pass
     try:
-        out = json.dumps(_json_safe(obj), ensure_ascii=True,
-                         sort_keys=sort_keys, default=_exc_text)
-        return out.decode('ascii', 'replace') if isinstance(out, bytes) \
-            else u"{}".format(out)
+        # Second rung: ASCII-escaped. Must be jsonsafe — `ensure_ascii=True`
+        # here would raise on exactly the non-ASCII input that pushed us past
+        # rung one, so the fallback could only ever fall through to the
+        # "<unserializable>" string it is supposed to prevent.
+        from core import jsonsafe
+        return jsonsafe.dumps(_json_safe(obj), sort_keys=sort_keys,
+                              default=_exc_text)
     except Exception:
         return u"<unserializable {}>".format(type(obj).__name__)
 
@@ -807,6 +810,36 @@ def _note_user_language(text):
                            else _LAST_USER_VIET))
 
 
+def _relative_time(ts_text, viet=True):
+    """'hôm nay 16:09' / '3 ngày trước' from a stored 'Y-m-d H:M:S' stamp.
+
+    Returns u'' for anything unparseable — a history file written before
+    timestamps existed, or one hand-edited — so callers can concatenate it
+    without guarding. Never raises.
+    """
+    if not ts_text:
+        return u""
+    try:
+        import datetime as _dt
+        then = _dt.datetime.strptime(u"{}".format(ts_text).strip(),
+                                     "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return u""
+    try:
+        now = _dt.datetime.now()
+        days = (now.date() - then.date()).days
+        clock = then.strftime("%H:%M")
+        if days <= 0:
+            return (u"hôm nay lúc {}" if viet else u"today at {}").format(clock)
+        if days == 1:
+            return (u"hôm qua lúc {}" if viet else u"yesterday at {}").format(clock)
+        if days < 7:
+            return (u"{} ngày trước" if viet else u"{} days ago").format(days)
+        return then.strftime("%d/%m/%Y" if viet else "%d %b %Y")
+    except Exception:
+        return u""
+
+
 def _time_greeting(hour=None, viet=None):
     """Time-of-day greeting phrase (no name). Never raises.
 
@@ -917,15 +950,31 @@ def get_tool_title(intent):
 
 # ─── Chat history persistence ─────────────────────────────────────────────────
 
+LEGACY_DOC_KEY = "default"
+
+
 def _get_doc_key():
-    """Return a filesystem-safe key for the current Revit document."""
+    """Return a filesystem-safe key for the current Revit document.
+
+    Resolved through Snippets._host.resolve_doc(), NOT `revit.doc`. In this
+    modeless pane's engine `revit.doc` is a getattr chain that silently yields
+    None, so the old code fell into `except` on every call and returned
+    "default" — which is why every model on this machine shared ONE history
+    file and switching projects never switched the conversation.
+    """
+    title = None
     try:
-        title = revit.doc.Title or "untitled"
-        # Strip chars that are invalid in filenames
-        safe = re.sub(r'[\\/:*?"<>|]', '_', title)
-        return safe[:80]   # cap at 80 chars
+        from Snippets._host import resolve_doc
+        doc, _err = resolve_doc()
+        if doc is not None:
+            title = doc.Title
     except Exception:
-        return "default"
+        pass
+    if not title:
+        return LEGACY_DOC_KEY
+    # Strip chars that are invalid in filenames
+    safe = re.sub(r'[\\/:*?"<>|]', '_', title)
+    return safe[:80] or LEGACY_DOC_KEY   # cap at 80 chars
 
 
 def _history_file(doc_key):
@@ -961,19 +1010,22 @@ def save_chat_history(doc_key, messages, summary=u""):
         summary  : rolling summary of turns that fell out of the window
     """
     try:
+        from core import jsonsafe
         path = _history_file(doc_key)
         # Keep only the last 60 messages
         to_save = messages[-60:]
-        # Serialize to an ASCII string FIRST, then write in one shot.
-        # json.dump(..., ensure_ascii=False) on a bytes-mode file blows up
-        # with UnicodeEncodeError mid-write under IronPython 2.7 as soon as
-        # the chat carries Vietnamese — truncating the history file to 0
-        # bytes, silently (same failure class as the tool_registry.json bug).
-        data = json.dumps({"doc_key": doc_key, "messages": to_save,
-                           "summary": summary or u""},
-                          ensure_ascii=True, indent=2)
-        if isinstance(data, bytes):
-            data = data.decode('ascii')
+        # Serialize to an ASCII string FIRST, then write in one shot, so a
+        # mid-write encode error can never truncate the file.
+        #
+        # This MUST go through jsonsafe, not json.dumps(ensure_ascii=True).
+        # The old code used the latter and its comment claimed it was the fix
+        # for Vietnamese chats — it was the cause. IronPython 2.7's ASCII
+        # escaper raises on non-ASCII, the `except` below swallowed it, and so
+        # the history file was never written at all the moment a conversation
+        # contained Vietnamese. Every history on disk was English-only and
+        # nobody saw an error. See core/jsonsafe.py.
+        data = jsonsafe.dumps({"doc_key": doc_key, "messages": to_save,
+                               "summary": summary or u""}, indent=2)
         with io.open(path, 'w', encoding='utf-8') as f:
             f.write(data)
     except Exception as ex:
@@ -1001,11 +1053,29 @@ def _is_stale_tool_call_blob(role, content):
         return False
 
 
+def _history_path_for_read(doc_key):
+    """Path to read this document's history from, or None.
+
+    Falls back to the legacy shared "default" file so the conversations saved
+    before _get_doc_key() started resolving a real document title are adopted
+    by whichever model is open next, instead of appearing to vanish. Read-only
+    fallback: the next saved message goes to the per-document file.
+    """
+    path = _history_file(doc_key)
+    if os.path.exists(path):
+        return path
+    if doc_key != LEGACY_DOC_KEY:
+        legacy = _history_file(LEGACY_DOC_KEY)
+        if os.path.exists(legacy):
+            return legacy
+    return None
+
+
 def load_chat_history(doc_key):
     """Load saved messages for doc_key.  Returns [] if none / error."""
     try:
-        path = _history_file(doc_key)
-        if not os.path.exists(path):
+        path = _history_path_for_read(doc_key)
+        if not path:
             return []
         with io.open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -1024,8 +1094,8 @@ def load_chat_summary(doc_key):
     older histories load with an empty one rather than failing.
     """
     try:
-        path = _history_file(doc_key)
-        if not os.path.exists(path):
+        path = _history_path_for_read(doc_key)
+        if not path:
             return u""
         with io.open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -2056,10 +2126,57 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as ex:
             logger.debug(u"_bootstrap_discovered_tools error: {}".format(_exc_text(ex)))
 
+    # ─── Old-context repeat guard ──────────────────────────────────────────────
+    # Every (intent, args) that has COMPLETED in this conversation, newest last.
+    # A small local model re-reads the transcript and re-issues work it already
+    # did: one "tô đỏ tường" produced revit_override_color on Walls/red (right),
+    # then Floors/blue and Doors/yellow (both lifted from earlier turns), and
+    # then claimed only the walls had been coloured. The turn-local guard could
+    # not see those — their arguments differ from anything in THIS turn — and
+    # the old registry only held the single immediately-previous turn, so a
+    # command from two turns back sailed through. Bounded so a long session
+    # cannot grow it without limit.
+    _MAX_REMEMBERED_CALLS = 60
+
+    def _earlier_turn_calls(self):
+        """Calls completed in earlier turns of this conversation."""
+        return set(getattr(self, '_prev_turn_calls', None) or set())
+
+    def _remember_turn_calls(self, calls):
+        """Fold this turn's executed calls into the conversation-wide set."""
+        try:
+            known = getattr(self, '_prev_turn_calls', None)
+            if not isinstance(known, set):
+                known = set()
+            order = getattr(self, '_prev_turn_call_order', None)
+            if not isinstance(order, list):
+                order = [k for k in known]
+            for key in calls:
+                if key not in known:
+                    known.add(key)
+                    order.append(key)
+            # Drop the oldest beyond the cap: recent work is what the model is
+            # most likely to replay, and an unbounded set would keep a command
+            # blocked long after the user could plausibly mean it again.
+            while len(order) > self._MAX_REMEMBERED_CALLS:
+                known.discard(order.pop(0))
+            self._prev_turn_calls = known
+            self._prev_turn_call_order = order
+        except Exception as ex:
+            logger.debug(u"repeat-guard bookkeeping: {}".format(_exc_text(ex)))
+
     # ─── History persistence ───────────────────────────────────────────────────
 
     def _restore_history(self):
-        """Load saved conversation from disk and replay bubbles + context."""
+        """Load saved conversation from disk and replay bubbles + context.
+
+        Order matters: the "restored" banner is emitted BEFORE the replayed
+        turns and with no action row. It used to be appended last as a normal
+        assistant reply, so after a Revit restart the pane looked like the
+        assistant's most recent utterance was a notice about itself — complete
+        with copy / try-again / thumbs buttons on a line it makes no sense to
+        regenerate or rate.
+        """
         try:
             # Restore the rolling summary first: the replay below re-adds
             # turns, and anything that falls back out of the window must fold
@@ -2069,8 +2186,25 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if not saved:
                 return
 
-            # Replay the last 30 messages (15 exchanges) as bubbles
-            for msg in saved[-30:]:
+            replay = saved[-30:]   # last 30 messages = 15 exchanges
+
+            # Re-learn the conversation's language BEFORE anything is rendered.
+            # _LAST_USER_VIET is process state, so a Revit restart reset a
+            # Vietnamese session to the English default and the first reply
+            # after reopening came back in the wrong language. Feed the
+            # restored user turns through the normal detector, oldest first, so
+            # the most recent decidable message wins.
+            for msg in replay:
+                if msg.get("role") == "user" and msg.get("content"):
+                    _note_user_language(msg["content"])
+
+            viet = _ui_viet()
+            self._append_bot_message(self._restored_banner(saved, viet),
+                                     icon=_ICON_REFRESH, icon_color=_ICON_SLATE,
+                                     actions=False)
+
+            # Replay the bubbles
+            for msg in replay:
                 role    = msg.get("role", "")
                 content = msg.get("content", "")
                 if not content:
@@ -2085,14 +2219,30 @@ class T3LabAssistantWindow(forms.WPFWindow):
                 )
 
             self._persisted_msgs = list(saved)
-
-            # Show a separator so user knows this is a restored session
-            self._append_bot_message(
-                u"── Previous conversation restored ──\n"
-                u"Use the new-conversation button under the message box to start fresh."
-            )
         except Exception as ex:
             logger.debug(u"Could not restore history: {}".format(_exc_text(ex)))
+
+    def _restored_banner(self, saved, viet):
+        """One line of context for a restored session: how much, how old.
+
+        "Previous conversation restored" alone left the obvious question
+        unanswered — restored from when? A session reopened after lunch and one
+        reopened after three weeks looked identical, so stale context silently
+        framed the next question.
+        """
+        exchanges = max(1, len([m for m in saved if m.get("role") == "user"]))
+        when = _relative_time(
+            (saved[-1] or {}).get("ts") if saved else None, viet)
+        if viet:
+            head = u"Đã khôi phục hội thoại trước ({} lượt{})".format(
+                exchanges, u", " + when if when else u"")
+            tail = u"Bấm nút hội thoại mới dưới ô nhập để bắt đầu lại từ đầu."
+        else:
+            head = u"Previous conversation restored ({} turn{}{})".format(
+                exchanges, u"s" if exchanges != 1 else u"",
+                u", " + when if when else u"")
+            tail = u"Use the new-conversation button under the message box to start fresh."
+        return head + u"\n" + tail
 
     def _persist_message(self, role, content):
         """Append one message to the in-memory list and save to disk."""
@@ -2162,6 +2312,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
         self._persisted_msgs       = []
         self._prev_agent_decision  = None  # specialist choice must not carry over
         self._prev_turn_calls      = set()  # repeat guard is per-conversation
+        self._prev_turn_call_order = []     # insertion order, for the cap
         # Composer staging: attachments and a forced /skill belong to the old
         # scope; carrying them into a new project silently mis-files documents.
         try:
@@ -6316,7 +6467,20 @@ class T3LabAssistantWindow(forms.WPFWindow):
                                 image_files=(_img_files if _can_see else None),
                                 analysis=_utterance)
                         except Exception as _na_ex:
-                            logger.debug(u"native agent path error: {}".format(_exc_text(_na_ex)))
+                            # Also record it where it can actually be READ.
+                            # logger.debug alone goes to pyRevit's debug log,
+                            # which is off by default — so a native-path crash
+                            # looked to everyone (including the activity log)
+                            # like the legacy path simply having been chosen,
+                            # and the user only ever saw the legacy path's
+                            # "Could not read data from the model."
+                            logger.debug(u"native agent path error: {}".format(
+                                _exc_text(_na_ex)))
+                            self._log_activity(
+                                u"native agent path FAILED, falling back to the "
+                                u"legacy JSON path — {}: {}".format(
+                                    type(_na_ex).__name__,
+                                    _exc_text(_na_ex))[:600])
                         if _handled:
                             return
 
@@ -6368,7 +6532,7 @@ class T3LabAssistantWindow(forms.WPFWindow):
                     # PREVIOUS turn's call mid-turn ("tô tím cửa" replayed).
                     # Prompt rules alone don't stop this; the loop does.
                     _turn_calls = set()          # (intent, args) run THIS turn
-                    _prev_calls = getattr(self, '_prev_turn_calls', None) or set()
+                    _prev_calls = self._earlier_turn_calls()
                     _blocked_repeats = 0
                     _announce_nudges = 0         # "I'm about to…" with no call
 
@@ -6745,11 +6909,11 @@ class T3LabAssistantWindow(forms.WPFWindow):
                             result = {"intent": "chat", "message": _cleaned}
                             break
 
-                    # Remember this turn's executed calls — the next turn's
+                    # Remember this turn's executed calls — later turns'
                     # old-context guard needs them. Pure-chat turns keep the
-                    # previous registry alive.
+                    # registry alive.
                     if _turn_calls:
-                        self._prev_turn_calls = set(_turn_calls)
+                        self._remember_turn_calls(_turn_calls)
 
                     # Falling out of the while loop leaves result=None, because
                     # every tool-executing branch ends in `continue` and only a
@@ -7880,6 +8044,22 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception:
             return u''
 
+    def _note_native_skip(self, reason):
+        """Record WHY the native tool-calling path was skipped.
+
+        These used to be logger.debug only. pyRevit's debug log is off by
+        default, so every skip was invisible: the turn quietly dropped to the
+        legacy JSON-intent path, and when that path then failed to parse a
+        local model's prose the user just saw "Could not read data from the
+        model" with nothing anywhere explaining that the good path never ran.
+        """
+        msg = u"native path skipped: {}".format(reason)
+        logger.debug(msg)
+        try:
+            self._log_activity(msg[:600])
+        except Exception:
+            pass
+
     def _run_native_agent(self, provider, history, captured,
                           spec=None, skill_ids=None, rag_context=None,
                           image_files=None, analysis=None, hold_busy=False):
@@ -7909,8 +8089,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
         """
         self._last_agent_text = u""
         if provider is None or not getattr(provider, "SUPPORTS_NATIVE_TOOLS", False):
-            logger.debug("native path skipped: provider {} has no native tools"
-                         .format(getattr(provider, 'NAME', provider)))
+            self._note_native_skip(
+                u"provider {} has no native tools".format(
+                    getattr(provider, 'NAME', provider)))
             return False
 
         from Intelligence.agent_loop import AgentLoop, build_agent_system_prompt
@@ -7920,8 +8101,8 @@ class T3LabAssistantWindow(forms.WPFWindow):
             from core.server import get_t3labai_server
             srv = get_t3labai_server()
         except Exception as _srv_ex:
-            logger.debug(u"native path skipped: MCP server unavailable ({})"
-                         .format(_exc_text(_srv_ex)))
+            self._note_native_skip(u"MCP server unavailable ({})".format(
+                _exc_text(_srv_ex)))
             return False
 
         launcher = tool_schema.make_launcher_tool(list(TOOL_LAUNCHERS.keys()))
@@ -7955,8 +8136,9 @@ class T3LabAssistantWindow(forms.WPFWindow):
             tools = tool_schema.get_tools_for_provider(
                 provider.NAME, _extras, essential_only=_is_local)
         if len(tools) <= len(_extras):   # registry unavailable
-            logger.debug("native path skipped: tool registry empty for "
-                         "provider {}".format(provider.NAME))
+            self._note_native_skip(
+                u"tool registry empty for provider {} (got {} tools, {} of them "
+                u"extras)".format(provider.NAME, len(tools), len(_extras)))
             return False
 
         ctx = u""
@@ -8222,8 +8404,19 @@ class T3LabAssistantWindow(forms.WPFWindow):
             _exec_tool preamble above — the action group, the destructive
             confirm card, the purge dry-run forcing, the doc-guard disarm —
             can apply to anything in here.
+
+            This used to call srv.execute_tools_batch, which the server has
+            never defined. AgentLoop wraps the call in `except Exception:
+            return {}`, so the AttributeError was swallowed and batching
+            silently never engaged — one dead round-trip per turn, invisible.
+            Executed here instead: still ONE seam for the loop, and correct.
+            `batch` is [(name, args), ...]; the return must be a list of the
+            same length or AgentLoop discards it.
             """
-            return srv.execute_tools_batch(batch)
+            out = []
+            for _name, _args in batch:
+                out.append(srv._execute_tool(_name, _args))
+            return out
 
         def _guard_check():
             try:
@@ -8387,7 +8580,13 @@ class T3LabAssistantWindow(forms.WPFWindow):
             max_tokens=(spec.max_tokens if spec is not None else 1500),
             turn_timer=getattr(self, '_turn_timer', None),
             execute_tools_batch=_exec_reads_batch,
-            is_write_tool=srv.is_write_tool)
+            # tool_schema.is_model_modifying, NOT srv.is_write_tool — the
+            # server has never had that method. Attribute access raises before
+            # AgentLoop is even constructed, so EVERY Revit request through the
+            # pane died here and fell through to the legacy JSON path, which a
+            # local model's prose then failed to parse: "Could not read data
+            # from the model." The native path had simply never run.
+            is_write_tool=tool_schema.is_model_modifying)
 
         self._agent_loop = loop
         if self._cancel_requested:

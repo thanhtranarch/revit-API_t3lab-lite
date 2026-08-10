@@ -329,7 +329,14 @@ class OllamaProvider(BaseLLMProvider):
             "keep_alive": "15m",
             "options":    {
                 "temperature": 0.0,
-                "num_predict": max_tokens,
+                # Widened for reasoning models, exactly like the streaming path
+                # — this used to pass max_tokens straight through, and only the
+                # streaming path called _num_predict_for(). On a thinking model
+                # the whole budget goes into the reasoning pass, so a 120-token
+                # non-streaming call (Test Connection) came back with an empty
+                # `content` and reported "Provider responded but returned an
+                # empty reply" for a model that was working perfectly.
+                "num_predict": self._num_predict_for(model, max_tokens),
             },
         }
         # JSON grammar is OPT-IN, honouring the caller's response_format the
@@ -360,9 +367,29 @@ class OllamaProvider(BaseLLMProvider):
                 timeout_ms=int(kwargs.get("timeout_ms") or 180000),
             )
             data = json.loads(resp_text)
-            return data.get("message", {}).get("content", "")
+            return self._reply_text(data.get("message") or {})
         except Exception:
             return None
+
+    @staticmethod
+    def _reply_text(message):
+        """Answer text from an Ollama chat message.
+
+        Newer Ollama builds return reasoning in a SEPARATE `thinking` field
+        rather than inline <think> tags, so `content` alone is the right answer
+        — but when generation is cut short mid-reasoning, `content` is empty
+        while `thinking` holds everything. Returning "" there is what made a
+        healthy qwen3.6 look like a broken provider. Fall back to the tail of
+        the reasoning so the caller sees the model DID respond; a real answer
+        still comes from `content` whenever there is one.
+        """
+        text = (message.get("content") or u"").strip()
+        if text:
+            return text
+        thinking = (message.get("thinking") or u"").strip()
+        if thinking:
+            return thinking[-400:]
+        return u""
 
     # ── Agentic chat (native tool calling, blocking) ──────────────────────────
 

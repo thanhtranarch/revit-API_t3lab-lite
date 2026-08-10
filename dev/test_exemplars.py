@@ -162,9 +162,133 @@ def test_prompt_injection():
         X.save_exemplars([])
 
 
+def test_failed_calls_are_dropped_from_the_trace():
+    """A few-shot line is read as an instruction, so it must show only the
+    path that WORKED. Distilled verbatim, the captured recovery told the model
+    to make the rejected call first and then fix it."""
+    print('[exemplars: an errored call never reaches the few-shot trace]')
+    msgs = [
+        {'role': 'user', 'content': u'đổi màu tất cả tường sang đỏ'},
+        {'role': 'assistant', 'content': '',
+         'tool_calls': [{'id': 'call_0', 'name': 'revit_override_color',
+                         'arguments': '{"color": "red"}'}]},
+        {'role': 'tool', 'tool_call_id': 'call_0', 'name': 'revit_override_color',
+         'content': '{"error": "No elements specified and no elements are selected."}'},
+        {'role': 'assistant', 'content': '',
+         'tool_calls': [{'id': 'call_1', 'name': 'get_current_view_elements',
+                         'arguments': '{"category": "Walls"}'}]},
+        {'role': 'tool', 'tool_call_id': 'call_1',
+         'name': 'get_current_view_elements', 'content': '{"count": 10}'},
+        {'role': 'assistant', 'content': '',
+         'tool_calls': [{'id': 'call_2', 'name': 'revit_override_color',
+                         'arguments': '{"element_ids": [1, 2], "color": "red"}'}]},
+        {'role': 'tool', 'tool_call_id': 'call_2', 'name': 'revit_override_color',
+         'content': '{"success": true, "overridden_count": 10}'},
+        {'role': 'assistant', 'content': u'Đã tô đỏ 10 tường.'},
+    ]
+    ex = X.trajectory_to_exemplar(msgs)
+    check('exemplar produced', ex is not None)
+    if not ex:
+        return
+    trace = ex['trace']
+    check('starts with the call that works',
+          trace.startswith('call get_current_view_elements'), trace)
+    check('the rejected first call is gone',
+          trace.count('revit_override_color') == 1, trace)
+    check('the successful colour call survives',
+          'element_ids' in trace, trace)
+    check('the reply is kept', u'Đã tô đỏ' in trace, trace)
+
+    # "Error executing tool: ..." is the MCP transport's wrapper shape.
+    msgs2 = [
+        {'role': 'user', 'content': 'list the views'},
+        {'role': 'assistant', 'content': '',
+         'tool_calls': [{'id': 'c0', 'name': 'revit_list_views', 'arguments': '{}'}]},
+        {'role': 'tool', 'tool_call_id': 'c0', 'name': 'revit_list_views',
+         'content': "Error executing tool: 'unknown' codec can't decode byte 0xe9"},
+        {'role': 'assistant', 'content': 'It failed.'},
+    ]
+    check('a trajectory that only failed yields no exemplar',
+          X.trajectory_to_exemplar(msgs2) is None,
+          X.trajectory_to_exemplar(msgs2))
+
+    # A successful call whose payload merely mentions the word must survive.
+    msgs3 = [
+        {'role': 'user', 'content': 'check warnings'},
+        {'role': 'assistant', 'content': '',
+         'tool_calls': [{'id': 'c0', 'name': 'get_model_warnings', 'arguments': '{}'}]},
+        {'role': 'tool', 'tool_call_id': 'c0', 'name': 'get_model_warnings',
+         'content': '{"total": 49, "warnings": ["wall overlap"]}'},
+        {'role': 'assistant', 'content': '49 warnings.'},
+    ]
+    ok = X.trajectory_to_exemplar(msgs3)
+    check('a successful call is not mistaken for an error',
+          ok is not None and 'get_model_warnings' in ok['trace'], ok)
+
+
+def test_select_spreads_across_languages():
+    """Regression: the block must not silently exclude a whole language.
+
+    Selection used to be `tool_ex[:7]` — plain truncation in file order. The
+    eight English tasks taught first filled every slot, so the six Vietnamese
+    demonstrations recorded right after them never reached the local model, in
+    an office that types Vietnamese.
+    """
+    print('[exemplars: selection spreads across languages and tools]')
+    english = [_traj(u'english task number {}'.format(i),
+                     [('tool_{}'.format(i), {'a': 1})], final=u'done {}'.format(i))
+               for i in range(8)]
+    viet = [_traj(u'tác vụ tiếng Việt số {}'.format(i),
+                  [('viet_tool_{}'.format(i), {'a': 1})], final=u'xong {}'.format(i))
+            for i in range(6)]
+
+    got = X.select_exemplars(english + viet)
+    accented = [e for e in got if any(ord(c) > 127 for c in e['user'])]
+    check('both languages present', 0 < len(accented) < len(got),
+          [e['user'] for e in got])
+    check('respects max_n', len(got) <= X.DEFAULT_MAX_EXEMPLARS, len(got))
+
+    # Order within a language is still preserved (oldest demonstration first).
+    plain = [e['user'] for e in got if not any(ord(c) > 127 for c in e['user'])]
+    check('order preserved inside a bucket', plain == sorted(plain), plain)
+
+    # A single-language corpus must still fill the block.
+    only_en = X.select_exemplars(english)
+    check('one language still fills the block', len(only_en) == 7, len(only_en))
+
+    # Multi-step traces outrank single calls: chaining and recovering is what
+    # a small model gets wrong, and a lone call it can copy from the static
+    # few-shot. Without this the whole block came out single-call.
+    singles = [_traj(u'single {}'.format(i), [('tool_{}'.format(i), {'a': i})],
+                     final=u'done') for i in range(9)]
+    chained = [_traj(u'chained task',
+                     [('revit_override_color', {'category': 'Walls'}),
+                      ('get_current_view_elements', {'category': 'Walls'}),
+                      ('revit_override_color', {'element_ids': [1, 2]})],
+                     final=u'recovered and coloured 2 walls')]
+    got2 = X.select_exemplars(singles + chained)
+    check('a multi-step trace reaches the block',
+          any('chained task' == e['user'] for e in got2),
+          [e['user'] for e in got2])
+    check('and it comes first', got2[0]['user'] == 'chained task',
+          got2[0]['user'])
+
+    # Distinct tools are preferred over repeats of the same one.
+    same = [_traj(u'repeat {}'.format(i), [('one_tool', {'a': i})],
+                  final=u'done') for i in range(9)]
+    varied = [_traj(u'varied {}'.format(i), [('tool_{}'.format(i), {'a': i})],
+                    final=u'done') for i in range(3)]
+    picked = X.select_exemplars(same + varied)
+    names = set((e.get('trace') or '').split('(')[0].strip() for e in picked)
+    check('distinct tools reached before repeats',
+          len(names) >= 4, sorted(names))
+
+
 if __name__ == '__main__':
     test_converters()
     test_select()
+    test_failed_calls_are_dropped_from_the_trace()
+    test_select_spreads_across_languages()
     test_block()
     test_promote_and_store()
     test_never_raises()

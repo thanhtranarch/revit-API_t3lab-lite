@@ -438,6 +438,74 @@ def test_local_llm_pick_best_is_pure():
           LL.pick_best(['mystery:1b']) == 'mystery:1b')
 
 
+def test_ollama_chat_budgets_reasoning_models():
+    """Regression: Test Connection reported "empty reply" for a healthy model.
+
+    `chat()` passed max_tokens straight into num_predict; only the STREAMING
+    path called _num_predict_for(). A thinking model spends the whole budget in
+    its reasoning pass, so the dialog's 120-token probe came back with
+    done_reason="length", an empty `content`, and 473 characters of `thinking`
+    — measured against a real qwen3.6 on 2026-08-10.
+    """
+    print('[ollama: chat() widens num_predict for reasoning models]')
+    _reset_appdata()
+    import Intelligence.ollama_provider as OP
+
+    captured = []
+
+    def _fake_post(url, payload, timeout_ms=None, **kw):
+        captured.append(payload)
+        return json.dumps({'message': {'role': 'assistant',
+                                       'content': 'Connected OK'}})
+
+    orig = OP.http_post
+    OP.http_post = _fake_post
+    try:
+        p = OP.OllamaProvider()
+        p.set_model('qwen3.6:latest')
+        p.chat([], 'sys', 'hi', max_tokens=120)
+        got = captured[-1]['options']['num_predict']
+        check('reasoning model gets room to finish thinking',
+              got >= OP.OllamaProvider.REASONING_MIN_PREDICT,
+              'num_predict={}'.format(got))
+
+        captured[:] = []
+        p2 = OP.OllamaProvider()
+        p2.set_model('llama3.1:8b')
+        p2.chat([], 'sys', 'hi', max_tokens=120)
+        check('plain instruct model keeps the caller budget',
+              captured[-1]['options']['num_predict'] == 120,
+              captured[-1]['options'])
+
+        captured[:] = []
+        p3 = OP.OllamaProvider()
+        p3.set_model('qwen3.6:latest')
+        p3.chat([], 'sys', 'hi', max_tokens=99999)
+        check('a bigger caller budget is never shrunk',
+              captured[-1]['options']['num_predict'] == 99999,
+              captured[-1]['options'])
+    finally:
+        OP.http_post = orig
+
+
+def test_ollama_reply_text_handles_separate_thinking():
+    """Newer Ollama returns reasoning in message.thinking, not inline tags."""
+    print('[ollama: answer text prefers content, falls back to thinking]')
+    import Intelligence.ollama_provider as OP
+    rt = OP.OllamaProvider._reply_text
+
+    check('content wins when present',
+          rt({'content': 'Connected OK', 'thinking': 'blah'}) == 'Connected OK')
+    check('whitespace-only content is not an answer',
+          rt({'content': '   ', 'thinking': 'reasoned'}) == 'reasoned')
+    check('truncated mid-thought still reports a response',
+          rt({'content': '', 'thinking': 'x' * 900}) != u'')
+    check('thinking fallback is bounded',
+          len(rt({'content': '', 'thinking': 'x' * 900})) <= 400)
+    check('genuinely empty stays empty', rt({'content': '', 'thinking': ''}) == u'')
+    check('missing keys never raise', rt({}) == u'')
+
+
 def test_tool_calling_size_floor():
     print('[local_llm: tool-calling size floor + recommendation]')
     import Intelligence.local_llm as LL
@@ -936,6 +1004,8 @@ def main():
     test_ollama_auto_model_is_cached()
     test_lmstudio_auto_model_is_cached()
     test_local_providers_warm_up()
+    test_ollama_chat_budgets_reasoning_models()
+    test_ollama_reply_text_handles_separate_thinking()
     test_tool_calling_size_floor()
     test_local_llm_pick_best_is_pure()
     test_wants_json_contract()
