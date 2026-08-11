@@ -39,6 +39,11 @@ own server on the first free port in 48884-48894. The bridge tracks a
                              server such as pyRevit Routes on the port), the
                              bridge fails over to another alive instance.
 
+Result-size guard: the MCP client rejects any tool result over 1 MB outright
+("Tool result is too large. Maximum size is 1MB.") — it does not truncate it,
+so the model receives nothing and the whole call is wasted. Every response is
+therefore capped here before it goes out; see MAX_RESULT_BYTES below.
+
 Bridge-level tools (served entirely by the bridge, injected into tools/list
 on top of the in-Revit server's manifest):
 
@@ -59,7 +64,7 @@ import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
-BRIDGE_VERSION = '2.2.0'
+BRIDGE_VERSION = '2.3.0'
 
 PORT_MIN, PORT_MAX = 48884, 48894
 PROBE_TIMEOUT = 1.0    # /health probe per port (run in parallel)
@@ -68,6 +73,38 @@ TARGET_PROBE_TIMEOUT = 4.0  # explicit single-port checks get a fairer wait —
                             # can miss the fast range scan yet still be alive
 CALL_TIMEOUT = 130     # matches the server's 120s ExternalEvent wait + margin
 LIST_TIMEOUT = 15      # tools/list must answer fast or fall back to cache
+
+# ─── Result-size guard ──────────────────────────────────────────────────────
+# The client's 1 MB tool-result ceiling is a hard reject, and no client-side
+# setting raises it (MAX_MCP_OUTPUT_TOKENS governs the separate 25k-token
+# limit; the per-tool annotation below tops out at 500k chars). So an
+# oversized payload has to be shrunk on this side: the longest lists are
+# halved until the response fits, and the payload says so, giving the model
+# real partial data plus a paging hint instead of an error toast.
+MAX_RESULT_BYTES = 800000   # margin under the client's hard 1 MB ceiling
+MIN_KEPT_ITEMS = 5          # never shrink a list below this many rows
+SHRINK_PASSES = 60          # repeated halving bottoms out long before this
+
+# Tools whose results are legitimately large (full parameter dumps, schedule
+# rows, model audits). Without an annotation the client persists anything over
+# its default threshold to disk and hands the model a file reference instead
+# of the data; these read tools are more useful inline. Deliberately well
+# under both the client's 500k-char annotation ceiling and MAX_RESULT_BYTES —
+# the point is to skip the disk round-trip on a mid-size read, not to dump a
+# whole model into the conversation.
+LARGE_RESULT_CHARS = 200000
+LARGE_RESULT_TOOLS = (
+    'analyze_model_statistics',
+    'audit_model',
+    'get_all_parameters',
+    'get_current_view_elements',
+    'get_material_quantities',
+    'get_model_warnings',
+    'get_schedule_data',
+    'query_stored_data',
+    'revit_list_sheets',
+    'revit_list_views',
+)
 
 # Protocol versions this bridge can echo back to the client. The in-Revit
 # server is version-agnostic (tools/list + tools/call only), so accepting
@@ -218,6 +255,111 @@ def _tool_response(request_id, payload):
 def _rpc_error(request_id, message, code=-32603):
     return {'jsonrpc': '2.0', 'id': request_id,
             'error': {'code': code, 'message': message}}
+
+
+# ─── Keeping results under the client's 1 MB ceiling ────────────────────────
+
+def _response_bytes(response):
+    """Wire size of a response — what the client actually measures."""
+    try:
+        return len(json.dumps(response).encode('utf-8'))
+    except Exception:
+        return 0
+
+
+def _longest_list(payload):
+    """(owner_dict, key, list) for the longest list anywhere in the payload.
+    Only lists held under a dict key are candidates — those are the ones that
+    can be replaced with a shorter copy, and every server payload is a dict
+    of lists. Iterative: a deeply nested payload must not blow the stack."""
+    best = (None, None, None)
+    stack = [payload]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if isinstance(value, list):
+                    if best[2] is None or len(value) > len(best[2]):
+                        best = (node, key, value)
+                    stack.append(value)
+                elif isinstance(value, dict):
+                    stack.append(value)
+        elif isinstance(node, list):
+            stack.extend(v for v in node if isinstance(v, (dict, list)))
+    return best
+
+
+def _shrink_once(payload, shrunk):
+    """Halve the longest list in the payload, recording what was dropped.
+    False when nothing is left worth shrinking."""
+    owner, key, biggest = _longest_list(payload)
+    if owner is None or len(biggest) <= MIN_KEPT_ITEMS:
+        return False
+    keep = max(MIN_KEPT_ITEMS, len(biggest) // 2)
+    # First sighting of a key carries the real total — later passes see the
+    # already-shortened list, so the original count must not be overwritten.
+    entry = shrunk.setdefault(key, {'total': len(biggest)})
+    entry['returned'] = keep
+    owner[key] = biggest[:keep]
+    return True
+
+
+def _hard_cut(response):
+    """Last resort for a payload that cannot be shrunk structurally (plain
+    text, or one enormous value): cut the raw text until it fits. A cut
+    result the model can read beats a rejected one it never sees."""
+    try:
+        item = response['result']['content'][0]
+        text = item.get('text') or ''
+    except Exception:
+        return response
+    marker = ('\n\n... [T3Lab bridge: result cut here — the MCP client rejects '
+              'tool results over 1 MB. The remainder was NOT returned; re-run '
+              'with narrower filters or paging (offset/count) to get it.]')
+    for _ in range(SHRINK_PASSES):
+        if _response_bytes(response) <= MAX_RESULT_BYTES:
+            break
+        text = text[:max(1000, len(text) // 2)]
+        item['text'] = text + marker
+    return response
+
+
+def _cap_result(response):
+    """Keep any outgoing response under the client's hard 1 MB result cap.
+    Applied to everything the bridge writes, so a tool that forgot its own
+    paging cannot cost the model the entire call."""
+    if _response_bytes(response) <= MAX_RESULT_BYTES:
+        return response
+    try:
+        item = response['result']['content'][0]
+        payload = json.loads(item['text']) if item.get('type') == 'text' else None
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict):
+        return _hard_cut(response)
+
+    shrunk = {}
+    while len(shrunk) < SHRINK_PASSES:
+        if not _shrink_once(payload, shrunk):
+            break
+        item['text'] = json.dumps(payload, indent=2)
+        if _response_bytes(response) <= MAX_RESULT_BYTES:
+            break
+
+    if shrunk:
+        payload['truncated'] = True
+        payload['truncated_lists'] = shrunk
+        payload['truncation_note'] = (
+            'Lists were shortened by the T3Lab bridge because the full result '
+            'exceeded the MCP client 1 MB limit. Do NOT count or conclude '
+            'from these lists — use the total in truncated_lists. Re-run with '
+            'a narrower filter, or with offset/count paging where the tool '
+            'supports it, to read the rest.')
+        item['text'] = json.dumps(payload, indent=2)
+
+    if _response_bytes(response) > MAX_RESULT_BYTES:
+        return _hard_cut(response)
+    return response
 
 
 def _documents_on(port, token):
@@ -455,7 +597,23 @@ def _handle_tools_list(request, current, token):
     except Exception:
         tools = _load_cached_tools()
     return {'jsonrpc': '2.0', 'id': request.get('id'),
-            'result': {'tools': tools + BRIDGE_TOOLS}}
+            'result': {'tools': _annotate_large_results(tools + BRIDGE_TOOLS)}}
+
+
+def _annotate_large_results(tools):
+    """Raise the client's per-tool inline-result threshold for the read tools
+    that legitimately return a lot of data, so their output reaches the model
+    directly instead of being persisted to disk as a file reference. Applied
+    after _save_cached_tools so the cache stays a verbatim server manifest."""
+    for tool in tools:
+        if tool.get('name') not in LARGE_RESULT_TOOLS:
+            continue
+        meta = tool.get('_meta')
+        if not isinstance(meta, dict):
+            meta = {}
+            tool['_meta'] = meta
+        meta.setdefault('anthropic/maxResultSizeChars', LARGE_RESULT_CHARS)
+    return tools
 
 
 def _handle_instances(request, current, token):
@@ -625,6 +783,11 @@ def main():
             response = _rpc_error(
                 request.get('id'),
                 f"T3Lab Revit server connection failed: {str(e)}")
+
+        try:
+            response = _cap_result(response)
+        except Exception:
+            pass          # a guard failure must never eat the response itself
 
         sys.stdout.write(json.dumps(response) + '\n')
         sys.stdout.flush()
