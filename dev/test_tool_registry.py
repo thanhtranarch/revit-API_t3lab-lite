@@ -177,8 +177,8 @@ BRANCHES = _dispatch_branches()
 # model. Adding a name here is a decision, not a workaround — an unlisted
 # branch means a tool that no provider can ever reach.
 INTERNAL_TOOLS = {
-    '__begin_action_group',      # opens the per-request TransactionGroup
-    '__end_action_group',
+    '__begin_action_group',      # withdrawn request TransactionGroup — the
+    '__end_action_group',        # dispatch keeps inert no-op branches only
     'collect_spellcheck_text',   # feeds the /english-spellcheck pipeline
 }
 
@@ -533,16 +533,25 @@ def test_destructive_declaration_is_real():
     check('destructive declaration names real tools and operations', not bad, bad)
 
 
-def test_destructive_names_are_real_tools():
-    """The confirmation gate and the TransactionGroup exemption are both keyed
-    on hardcoded tool names in the assistant script."""
+def test_no_request_wide_transaction_group():
+    """The assistant must NOT open a TransactionGroup around a request.
+
+    A TransactionGroup cannot outlive the ExternalEvent.Execute that starts it
+    — Revit force-discards the phase and the leftover managed handle, once
+    Assimilate()d, kills the process on the next request. This is what crashed
+    Revit on multi-step requests (2026-08-11 journal 0139). The feature never
+    worked; the guard is here so it does not come back.
+    """
     src = _read(ASSISTANT)
-    start = src.find('_group_exempt = frozenset((')
-    block = src[start:src.find('))', start)] if start != -1 else ''
-    named = set(re.findall(r"'([a-z0-9_]+)'", block))
-    unknown = sorted(n for n in named
-                     if n not in REGISTRY and n not in INTERNAL_TOOLS)
-    check('_group_exempt names only real tools', not unknown, unknown)
+    revived = [m for m in ('__begin_action_group', '_group_exempt')
+               if '"{}"'.format(m) in src or "'{}'".format(m) in src]
+    check('assistant opens no request-wide TransactionGroup', not revived,
+          revived)
+
+    srv = _read(SERVER)
+    check('server does not Start() a request TransactionGroup',
+          'tg.Start()' not in srv and 'self._action_group = tg' not in srv,
+          'TransactionGroup revived in server.py')
 
 
 TESTS = [
@@ -579,7 +588,7 @@ TESTS = [
     ('prompt rules', [
         test_prompt_names_every_multiop_tool,
         test_destructive_declaration_is_real,
-        test_destructive_names_are_real_tools,
+        test_no_request_wide_transaction_group,
     ]),
 ]
 

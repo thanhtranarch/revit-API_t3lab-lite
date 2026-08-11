@@ -15,6 +15,7 @@ __title__   = "MCP Server"
 import os
 import sys
 import threading
+import time
 import json
 import uuid
 import io
@@ -148,6 +149,14 @@ try:
                 finally:
                     if is_write:
                         self.server._write_in_progress = False
+                        # Revit keeps regenerating and refreshing views for a
+                        # while after a write commits. Stamp the finish time so
+                        # the read fallback stays off the worker thread during
+                        # that window — see _READ_FALLBACK_WAIT.
+                        try:
+                            self.server._last_write_done = time.time()
+                        except Exception:
+                            pass
                     task.done.set()
 
         def GetName(self):
@@ -449,10 +458,14 @@ class T3LabAIServer(object):
         self._write_in_progress = False
         self._start_error = None
         self._token = self._get_or_create_token()
-        # Open TransactionGroup for the current assistant request (B4) — owned
-        # and closed on the Revit main thread via the __begin/__end_action_group
-        # pseudo-tools below. One request = one group = one Undo entry.
+        # Legacy slot for the withdrawn B4 request-wide TransactionGroup. It is
+        # never populated any more (see __begin_action_group) — kept only so an
+        # instance anchored from before a pyRevit reload still has the
+        # attribute for _release_stale_action_group to clear.
         self._action_group = None
+        # Monotonic time the last write tool finished on the Revit main thread.
+        # Gates the read fallback: see _READ_FALLBACK_WAIT.
+        self._last_write_done = 0.0
 
         # ── Teaching capture (Opus distils via MCP) ──────────────────────────
         # When ON, the EXTERNAL MCP path (_handle_tool_call, i.e. Claude Desktop
@@ -2906,14 +2919,13 @@ class T3LabAIServer(object):
         'manage_links', 'manage_revision', 'manage_sheet', 'export_model',
         'create_detail_annotation',
         # Save/SaveAs/SynchronizeWithCentral need the Revit main thread but
-        # must NOT be inside a TransactionGroup — also in script.py's
-        # _group_exempt.
+        # must NOT be inside any open transaction phase.
         'manage_document',
         # Read-only, but this set really means "must run on Revit's main
         # thread": check_bad_geometry evaluates surface derivatives and can
         # tessellate faces, which is exactly the work that takes the process
         # down. Never let it fall back onto the HTTP worker thread. It opens
-        # no transaction, so it is _group_exempt too.
+        # no transaction of its own.
         'check_bad_geometry',
         'color_elements', 'tag_all_walls', 'tag_all_rooms', 'move_elements',
         'copy_elements', 'rotate_element', 'create_view', 'set_active_view',
@@ -3234,6 +3246,34 @@ class T3LabAIServer(object):
     # already used when no ExternalEvent exists at all.
     _READ_FALLBACK_WAIT = 2.0
 
+    # ...but only while the model is NOT being rewritten underneath us. Reading
+    # the API off the main thread is safe only when the main thread is idle;
+    # the moment a write commits, Revit spends seconds regenerating elements
+    # and refreshing view caches, and a collector walking the same document
+    # from a worker thread during that window is the documented modeless
+    # hard-crash. A multi-step assistant request is exactly write-then-read, so
+    # that window is where the fallback fired most and where Revit died.
+    #
+    # Inside this quiet period after a write the read WAITS for its turn on the
+    # main thread instead (it still gets a 120s ceiling, same as a write). A
+    # read-only session never enters it at all, so the anti-hang valve keeps
+    # working where it was actually needed.
+    _WRITE_QUIET_PERIOD = 8.0
+
+    def _read_fallback_allowed(self):
+        """True when a read may safely run on the CALLING thread.
+
+        Blocked while a write is executing on the main thread, and for
+        _WRITE_QUIET_PERIOD seconds after the last one finished.
+        """
+        if getattr(self, '_write_in_progress', False):
+            return False
+        try:
+            since = time.time() - (getattr(self, '_last_write_done', 0.0) or 0.0)
+        except Exception:
+            return False
+        return since > self._WRITE_QUIET_PERIOD
+
     # Undeclared arguments a dispatch traps ITSELF, because it can give a
     # better answer than the generic guard below. get_schedule_data reads an
     # EXISTING schedule; a model that passes `category` wants a takeoff, and
@@ -3280,6 +3320,25 @@ class T3LabAIServer(object):
             'tool': tool_name,
         }
 
+    def _release_stale_action_group(self):
+        """Drop any TransactionGroup handle left over from the withdrawn B4
+        grouping WITHOUT touching it.
+
+        Revit already force-closed the group when the Execute that started it
+        returned, so the managed wrapper points at a terminated native object:
+        calling Assimilate() or RollBack() on it is precisely the fatal
+        exception this code path exists to stop. Only the reference is cleared.
+
+        Reached from the Revit main thread (the inert pseudo-tools) and from
+        the pane at request start, so a group opened by a pre-reload,
+        AppDomain-anchored server can never be operated on later.
+        """
+        try:
+            if getattr(self, '_action_group', None) is not None:
+                self._action_group = None
+        except Exception:
+            pass
+
     def _execute_tool(self, tool_name, arguments):
         """Execute a Revit tool in a thread-safe manner using External Events."""
         rejected = self._reject_unknown_arguments(tool_name, arguments)
@@ -3298,14 +3357,21 @@ class T3LabAIServer(object):
             finished = task.done.wait(120 if is_write else self._READ_FALLBACK_WAIT)
             if not finished and not is_write:
                 # Never read concurrently with a write mutating the model on
-                # the UI thread — in that case keep waiting like a write would.
-                if not self._write_in_progress and task.claim('fallback'):
-                    # Revit is busy — run the read directly on this thread
-                    # instead of hanging until Revit next goes idle. Reads
-                    # never touch the window, so running off the UI thread
-                    # is safe; the target is the active document either way.
-                    return self._execute_tool_in_context(
-                        tool_name, arguments)
+                # the UI thread, nor while Revit is still regenerating after
+                # one — in either case keep waiting like a write would.
+                if self._read_fallback_allowed() and task.claim('fallback'):
+                    # Revit is busy with something else — run the read directly
+                    # on this thread instead of hanging until Revit next goes
+                    # idle. The target is the active document either way.
+                    #
+                    # Wrapped: this is a WORKER thread, and a .NET exception
+                    # escaping it is not a failed tool call, it is a dead
+                    # Revit process.
+                    try:
+                        return self._execute_tool_in_context(
+                            tool_name, arguments)
+                    except Exception as e:
+                        return {'error': str(e), 'tool': tool_name}
                 finished = task.done.wait(120)
             if not finished:
                 # If still unclaimed, mark it consumed so the UI thread skips
@@ -3330,8 +3396,13 @@ class T3LabAIServer(object):
                     'external_event_ready': False,
                 }
             # Read tool with no ExternalEvent at all — run directly on the
-            # HTTP worker thread (reads don't touch the window).
-            return self._execute_tool_in_context(tool_name, arguments)
+            # HTTP worker thread (reads don't touch the window). Same reason
+            # for the guard as the fallback above: an escaping .NET exception
+            # on a worker thread kills the process, not just the call.
+            try:
+                return self._execute_tool_in_context(tool_name, arguments)
+            except Exception as e:
+                return {'error': str(e), 'tool': tool_name}
 
     # ── Shared tool helpers ────────────────────────────────────────────────
 
@@ -3709,47 +3780,38 @@ class T3LabAIServer(object):
                     True, modifies, self._is_sandbox_doc(doc)):
                 return self._teach_sandbox_reject(tool_name)
 
-        # ── Agent request TransactionGroup (B4) ──────────────────────────────
-        # Pseudo-tools, only reachable through _execute_tool (never listed in
-        # the public registry). We are on the Revit main thread here (routed
-        # via _WRITE_TOOLS + ExternalEvent), which TransactionGroup requires.
-        if tool_name == '__begin_action_group':
-            from Autodesk.Revit.DB import TransactionGroup
-            # Defensive: never stack groups — close a leftover one first.
-            if self._action_group is not None:
-                try:
-                    self._action_group.Assimilate()
-                except Exception:
-                    try:
-                        self._action_group.RollBack()
-                    except Exception:
-                        pass
-                self._action_group = None
-            try:
-                title = (arguments or {}).get('title') or 'T3Lab AI actions'
-                tg = TransactionGroup(doc, title)
-                tg.Start()
-                self._action_group = tg
-                return {'success': True, 'group': title}
-            except Exception as e:
-                self._action_group = None
-                return {'error': str(e), 'tool': tool_name}
-
-        elif tool_name == '__end_action_group':
-            tg = self._action_group
-            self._action_group = None
-            if tg is None:
-                return {'success': True, 'note': 'no open group'}
-            try:
-                # Assimilate merges every transaction inside into ONE undo item.
-                tg.Assimilate()
-                return {'success': True}
-            except Exception as e:
-                try:
-                    tg.RollBack()
-                except Exception:
-                    pass
-                return {'error': str(e), 'tool': tool_name}
+        # ── Agent request TransactionGroup (B4) — WITHDRAWN, DO NOT REINSTATE ──
+        # These pseudo-tools used to open a TransactionGroup here and leave it
+        # open so a whole assistant request would collapse into ONE undo entry.
+        # That is not possible from an ExternalEvent: Revit force-closes every
+        # transaction phase an event handler leaves open when Execute returns.
+        # It says so in the journal, once per write:
+        #
+        #   "An API event handler left some transaction phases open for the
+        #    active document. In effect of that, all uncommitted changes made
+        #    by this event handler will be discarded."
+        #
+        # So the group never survived the very Execute that started it (5/5
+        # writes in the 2026-08-11 crash journal, and NO other journal in that
+        # folder carries the warning at all) — B4 delivered nothing. What it
+        # DID deliver was a stale managed TransactionGroup handle pointing at a
+        # group Revit had already terminated, which `__end_action_group` then
+        # Assimilate()d, and which the next request's `__begin_action_group`
+        # Assimilate()d a second time. Operating a dead native group is the
+        # unhandled managed exception (0xe0434352) that took Revit down right
+        # after the second request of a multi-step task.
+        #
+        # Kept as inert no-ops rather than deleted: an AppDomain-anchored
+        # server instance from before a reload can still be called with these
+        # names. Each tool keeps its own Transaction, so a multi-step request
+        # is now N undo entries instead of the 1 it never actually produced.
+        if tool_name in ('__begin_action_group', '__end_action_group'):
+            self._release_stale_action_group()
+            return {'success': False,
+                    'note': ('Request-wide TransactionGroup is disabled: a '
+                             'group cannot outlive the ExternalEvent that '
+                             'opened it. Each tool commits its own '
+                             'transaction.')}
 
         if tool_name == 'revit_get_active_view':
             view = doc.ActiveView
@@ -6790,9 +6852,10 @@ class T3LabAIServer(object):
         # ── manage_document ──────────────────────────────────────────────────
         elif tool_name == 'manage_document':
             # NOTE: this tool must NOT run inside a Transaction or a
-            # TransactionGroup — Save/SaveAs/SynchronizeWithCentral all throw if
-            # one is open. It is therefore listed in the assistant's
-            # _group_exempt set as well as in _WRITE_TOOLS.
+            # TransactionGroup — Save/SaveAs/SynchronizeWithCentral all throw
+            # if one is open. Nothing wraps tool calls in a group any more
+            # (see __begin_action_group), so this holds as long as it stays
+            # that way.
             op = (arguments.get('operation') or '').lower()
             if op not in ('save', 'save_as', 'sync_with_central'):
                 return {'error': 'Unknown operation: {}'.format(op),

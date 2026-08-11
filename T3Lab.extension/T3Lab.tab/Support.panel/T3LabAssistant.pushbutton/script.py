@@ -8284,28 +8284,28 @@ class T3LabAssistantWindow(forms.WPFWindow):
         except Exception as _ctx_ex:
             logger.debug(u"context block build error: {}".format(_exc_text(_ctx_ex)))
 
-        # ── B4 + B5: tool-execution wrapper ───────────────────────────────────
-        # B4: the first model-mutating tool opens ONE TransactionGroup on the
-        #     Revit main thread (via the __begin_action_group pseudo-tool), so
-        #     the whole request assimilates into a single Undo entry.
-        # B5: destructive tools block on an in-chat Confirm/Cancel card; the
-        #     first purge_unused of a request is always forced to dry_run.
-        req_title = u" ".join((captured or u"AI request").split())[:60]
-        group = {"open": False}
+        # ── B5: tool-execution wrapper ────────────────────────────────────────
+        # Destructive tools block on an in-chat Confirm/Cancel card; the first
+        # purge_unused of a request is always forced to dry_run.
+        #
+        # B4 (one request = one TransactionGroup = one Undo entry) USED to live
+        # here and is gone. A TransactionGroup cannot outlive the
+        # ExternalEvent.Execute that opened it — Revit force-discards every
+        # phase an event handler leaves open, logging "An API event handler
+        # left some transaction phases open for the active document" once per
+        # write. The group therefore never grouped anything, while the stale
+        # handle it left behind was Assimilate()d later and took the whole
+        # process down on the next request. See the withdrawal note on
+        # __begin_action_group in lib/core/server.py before reinstating any of
+        # this: each tool now commits its own transaction, so a multi-step
+        # request is N undo entries.
         purge = {"first_done": False}
-        # Write tools that must NOT trigger the request group: they don't
-        # change the model (selection / export / UI) or run arbitrary code.
-        _group_exempt = frozenset((
-            'say_hello', 'show_assistant_pane', 'set_active_view',
-            'select_elements', 'export_sheets_pdf', 'export_dwg',
-            'export_image', 'send_code_to_revit', 'export_model',
-            # Save / SaveAs / SynchronizeWithCentral THROW if any transaction
-            # or transaction group is open, so this one must never be wrapped.
-            'manage_document',
-            # Main-thread-only but read-only — no transaction to group.
-            'check_bad_geometry',
-            '__begin_action_group', '__end_action_group',
-        ))
+        # Belt and braces: an AppDomain-anchored server from before a pyRevit
+        # reload may still be carrying a group handle from the old code.
+        try:
+            srv._release_stale_action_group()
+        except Exception:
+            pass
 
         # ── D1: cancel the loop when the USER switches documents mid-request ──
         # Agent-initiated document changes (switch_active_document /
@@ -8372,15 +8372,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             if destructive and not self._confirm_tool_blocking(name, args, viet):
                 return {"cancelled": True,
                         "note": "User declined the '{}' action.".format(name)}
-            if (not group["open"] and name in srv._WRITE_TOOLS
-                    and name not in _group_exempt):
-                try:
-                    res = srv._execute_tool(
-                        "__begin_action_group",
-                        {"title": u"T3Lab AI: " + req_title})
-                    group["open"] = isinstance(res, dict) and bool(res.get("success"))
-                except Exception:
-                    group["open"] = False
             res = srv._execute_tool(name, args)
             # Multi-doc workflow: the model changed the active document ON
             # PURPOSE — the doc-changed guard must not abort the request.
@@ -8595,14 +8586,6 @@ class T3LabAssistantWindow(forms.WPFWindow):
             result = loop.run(history, system_prompt, user_content)
         finally:
             self._agent_loop = None
-            # B4: always close the request group — a group left open would
-            # block every subsequent transaction in the session.
-            if group["open"]:
-                group["open"] = False
-                try:
-                    srv._execute_tool("__end_action_group", {})
-                except Exception:
-                    pass
 
         # Provider never answered turn 1 and nothing reached the UI →
         # hand back to the legacy path (it has its own fallbacks).
