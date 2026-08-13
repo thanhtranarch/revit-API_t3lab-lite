@@ -101,10 +101,37 @@ def test_legacy_beta_header_only_on_legacy_mode():
     check('no thinking: no beta header', 'anthropic-beta' not in _headers(None))
 
 
+def test_no_dated_model_ids_hardcoded():
+    """Regression: no request payload should pin a dated model snapshot.
+
+    Every provider in Intelligence/ resolves models live from /v1/models —
+    intentional, so an account's actual available models (and Anthropic's own
+    snapshot rotation behind an alias like "claude-haiku-4-5") are never
+    second-guessed by a stale hardcoded ID. batch_out_assistant.py used to be
+    the one exception (a standalone raw-HTTP caller, outside the LLMRouter
+    provider stack) pinned to "claude-haiku-4-5-20251001" — silently stale the
+    day Anthropic rotates that alias to a newer snapshot. Locks down that it
+    stays on the un-dated alias.
+    """
+    print('batch_out_assistant: no dated Claude model ID')
+    import re
+    import io as _io
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(repo, 'T3Lab.extension', 'lib', 'Services',
+                        'batch_out_assistant.py')
+    src = _io.open(path, encoding='utf-8').read()
+    dated = re.findall(r'claude-[a-z0-9.-]*-20\d{6}', src)
+    check('no dated Claude model snapshot in batch_out_assistant.py',
+          not dated, dated)
+    check('still targets the Haiku alias', '"claude-haiku-4-5"' in src)
+
+
 if __name__ == '__main__':
     test_claude_thinking_payload_shapes()
     test_thinking_rejected_heuristic()
     test_legacy_beta_header_only_on_legacy_mode()
+    test_no_dated_model_ids_hardcoded()
 
     print()
     if FAILURES:
