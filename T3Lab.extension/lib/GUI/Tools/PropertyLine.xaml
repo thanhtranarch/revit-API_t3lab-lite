@@ -1440,8 +1440,9 @@
                                         <TextBlock Text="Line Category" Style="{StaticResource FieldLabel}"/>
                                         <ComboBox x:Name="cmb_line_type"
                                                   Style="{StaticResource T3ComboBox}"
-                                                  ToolTip="Note: Revit API does not support direct PropertyLine creation.">
-                                            <ComboBoxItem Content="Model Lines" IsSelected="True"/>
+                                                  ToolTip="Property Line draws the boundary as model lines on a dedicated 'Property Line' line style — Revit's API exposes PropertyLine read-only, with no way to create one.">
+                                            <ComboBoxItem Content="Property Line" IsSelected="True"/>
+                                            <ComboBoxItem Content="Model Lines"/>
                                             <ComboBoxItem Content="Detail Lines"/>
                                         </ComboBox>
                                     </StackPanel>
@@ -1462,6 +1463,14 @@
                                           Foreground="#3F3F46" FontSize="12"
                                           Margin="0,14,0,0"
                                           ToolTip="Writes the boundary centroid into Revit's Site Location, so sun studies and energy analysis match the real site."/>
+
+                                <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1"
+                                        CornerRadius="4" Padding="10,8" Margin="0,12,0,0">
+                                    <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#0F172A">
+                                        <Run Text="Tip:" FontWeight="Bold" Foreground="#3B82F6"/>
+                                        <Run Text="Revit's API exposes PropertyLine read-only — no version up to 2026 can create one. 'Property Line' therefore draws the boundary as model lines on a dedicated Property Line line style. For a native property line, use the metes-and-bounds table on the right with Massing &amp; Site → Property Line → Create by entering distances and bearings."/>
+                                    </TextBlock>
+                                </Border>
                             </StackPanel>
                         </GroupBox>
 
@@ -1632,6 +1641,35 @@
                                     HorizontalAlignment="Stretch"
                                     Style="{StaticResource SecondaryButton}"
                                     Click="btn_copy_project_data_Click"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- ─── METES AND BOUNDS ─── -->
+                        <GroupBox x:Name="grp_metes"
+                                  Header="Distances &amp; Bearings"
+                                  Style="{StaticResource T3PremiumCard}"
+                                  Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Feed these into Massing &amp; Site → Property Line → Create by entering distances and bearings to get a native Revit property line."
+                                           Foreground="#9CA3AF" FontSize="10" FontStyle="Italic"
+                                           Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                <Border Background="#F9FAFB" CornerRadius="4" Padding="12"
+                                        BorderBrush="#E5E7EB" BorderThickness="1"
+                                        Margin="0,0,0,12">
+                                    <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Auto">
+                                        <TextBlock x:Name="txt_metes"
+                                                   Foreground="#374151"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   FontSize="11"
+                                                   LineHeight="16"/>
+                                    </ScrollViewer>
+                                </Border>
+                                <Button x:Name="btn_copy_metes"
+                                    Content="Copy Distances &amp; Bearings"
+                                    HorizontalAlignment="Stretch"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="btn_copy_metes_Click"/>
                             </StackPanel>
                         </GroupBox>
 

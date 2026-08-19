@@ -26,7 +26,8 @@ __all__ = [
     "search_boundaries", "primary_boundaries", "nearby_boundaries",
     "overpass_boundaries", "geocode", "ring_key",
     "polygon_area_m2", "polygon_area_sqft", "polygon_centroid",
-    "format_area_dual", "point_in_polygon", "close_ring",
+    "format_area_dual", "point_in_polygon", "close_ring", "demojibake",
+    "metes_and_bounds", "format_metes_and_bounds", "format_bearing",
     "SQM_TO_SQFT", "OSM_SOURCE", "NOMINATIM_URL", "set_logger",
 ]
 
@@ -41,6 +42,24 @@ try:
 except ImportError:
     _urq = None
     _upa = None
+
+# Inside Revit the .NET stack is available and is the only HTTP path with an
+# unambiguous text decode - see _http_dotnet below.
+try:
+    import System                     # noqa: F401 - probe only
+    import System.Net                 # noqa: F401 - probe only
+    _HAS_DOTNET = True
+except ImportError:
+    _HAS_DOTNET = False
+
+
+def _is_dotnet_setup_error(ex):
+    """
+    True when the .NET request failed for a reason that makes urllib worth a
+    try (missing type, bad attribute), rather than a genuine transport error
+    that urllib would hit as well.
+    """
+    return isinstance(ex, (AttributeError, TypeError, NameError, ImportError))
 
 
 OSM_SOURCE    = "OpenStreetMap"
@@ -134,18 +153,55 @@ def _to_text(raw):
     return raw
 
 
+def demojibake(text):
+    """
+    Repair text that was UTF-8 but got decoded as Latin-1 somewhere upstream,
+    so "Thành phố Hồ Chí Minh" arrives as "ThÃ nh phá»' Há»" ChÃ­ Minh".
+
+    Only rewrites when the whole string fits in Latin-1, actually contains
+    high bytes, and then re-decodes cleanly as UTF-8.  Genuine Latin-1 text
+    ("Café", "Ångström", "Müller") fails that last test, because a lone
+    accented letter is not a valid UTF-8 sequence - so it is left alone.
+
+    Script-agnostic: the same repair recovers Vietnamese, Thai, Arabic,
+    Greek, Cyrillic and CJK names, since they all reach us as UTF-8.
+    """
+    if not text:
+        return text
+    has_high = False
+    for ch in text:
+        code = ord(ch)
+        if code > 0xFF:
+            return text     # already outside Latin-1, so it cannot be mojibake
+        if code >= 0x80:
+            has_high = True
+    if not has_high:
+        return text         # pure ASCII, nothing to repair
+    try:
+        return text.encode("latin-1").decode("utf-8")
+    except Exception:
+        return text
+
+
 def _u(val):
-    """Coerce anything to text without blowing up on IronPython byte strings."""
+    """
+    Coerce anything to text without blowing up on IronPython byte strings,
+    repairing upstream mis-decoding on the way through.
+    """
     if val is None:
         return u""
+    text = None
     try:
         if isinstance(val, unicode):        # noqa: F821 - IronPython 2 only
-            return val
+            text = val
     except NameError:
         pass
-    if isinstance(val, bytes):
-        return val.decode("utf-8", "replace")
-    return u"{}".format(val)
+    if text is None:
+        if isinstance(val, bytes):
+            text = val.decode("utf-8", "replace")
+        else:
+            text = u"{}".format(val)
+    return demojibake(text)
 
 
 def url_quote(text, safe=""):
@@ -172,6 +228,75 @@ def url_quote(text, safe=""):
     return "".join(out)
 
 
+def _http_dotnet(url, data=None, headers=None, timeout=25):
+    """
+    HTTP through System.Net, decoding the body with an explicit UTF-8 reader.
+
+    This exists because IronPython's urllib2 hands back a string whose
+    encoding is ambiguous: the bytes of a UTF-8 body end up widened one byte
+    per character, which is how "Thành phố" turns into "ThÃ nh phá»'" on the
+    way to WPF.  Reading the response stream through Encoding.UTF8 removes the
+    guesswork for every script, not just Vietnamese.
+
+    Returns (status_code, text).  Raises if System.Net is unavailable (plain
+    CPython) or the request cannot be made at all, so callers fall back to
+    urllib.
+    """
+    import System
+    import System.Net as Net
+    import System.IO as IO
+    import System.Text as Text
+
+    req = Net.WebRequest.Create(url)
+    req.Timeout = int(timeout * 1000)
+
+    # User-Agent / Accept / Content-Type are restricted headers in .NET and
+    # must go through their own properties, not the Headers collection.
+    rest = dict(headers or {})
+    user_agent = rest.pop("User-Agent", None)
+    accept = rest.pop("Accept", None)
+    content_type = rest.pop("Content-Type", None)
+    if user_agent:
+        req.UserAgent = user_agent
+    if accept:
+        req.Accept = accept
+    for key, val in rest.items():
+        req.Headers.Add(key, val)
+
+    if data is None:
+        req.Method = "GET"
+    else:
+        req.Method = "POST"
+        req.ContentType = content_type or "application/x-www-form-urlencoded"
+        payload = Text.Encoding.UTF8.GetBytes(data)
+        req.ContentLength = payload.Length
+        stream = req.GetRequestStream()
+        try:
+            stream.Write(payload, 0, payload.Length)
+        finally:
+            stream.Close()
+
+    try:
+        resp = req.GetResponse()
+    except Net.WebException as wex:
+        resp = wex.Response
+        if resp is None:
+            raise           # DNS failure, timeout, TLS refusal - let it bubble
+
+    try:
+        try:
+            status = int(System.Convert.ToInt32(resp.StatusCode))
+        except Exception:
+            status = 200
+        reader = IO.StreamReader(resp.GetResponseStream(), Text.Encoding.UTF8)
+        try:
+            return status, reader.ReadToEnd()
+        finally:
+            reader.Close()
+    finally:
+        resp.Close()
+
+
 def http_request(url, data=None, headers=None, timeout=25):
     """
     GET (data=None) or POST a form body.  Returns (status_code, text).
@@ -184,6 +309,19 @@ def http_request(url, data=None, headers=None, timeout=25):
     if headers:
         hdrs.update(headers)
     body = _to_bytes(data) if data is not None else None
+
+    # Preferred path inside Revit: .NET with a known-UTF-8 decode.
+    if _HAS_DOTNET:
+        try:
+            return _http_dotnet(url, data=data, headers=hdrs, timeout=timeout)
+        except ImportError:
+            pass
+        except Exception as ex:
+            # A real transport failure must still surface; only fall through
+            # to urllib when .NET could not be used at all.
+            if not _is_dotnet_setup_error(ex):
+                raise
+            _log("System.Net path unusable, falling back to urllib: {}".format(ex))
 
     if _u2 is not None:
         req = _u2.Request(url, body)
@@ -282,6 +420,112 @@ def close_ring(coords):
            abs(ring[0][1] - ring[-1][1]) < 1e-12):
         ring = ring[:-1]
     return ring
+
+
+M_TO_FT = 3.280839895013123
+
+
+def ring_to_local_m(coords):
+    """
+    Project a [lon, lat] ring to local metres about its own centroid.
+    +x = east, +y = north.  Equirectangular, exact enough at parcel scale.
+    """
+    lat0, lon0 = polygon_centroid(coords)
+    cos_lat = math.cos(math.radians(lat0))
+    return [(EARTH_RADIUS_M * math.radians(c[0] - lon0) * cos_lat,
+             EARTH_RADIUS_M * math.radians(c[1] - lat0)) for c in coords]
+
+
+def format_bearing(azimuth_deg):
+    """
+    Azimuth (degrees clockwise from true north) as a surveyor's quadrant
+    bearing, e.g. 135.5 -> 'S 44°30'00" E'.
+    """
+    # The quadrant boundaries are picked so the cardinals stay symmetric:
+    # due east reads N 90 E and due west N 90 W, due north N 0 E and due
+    # south S 0 W - rather than one cardinal borrowing the other's axis.
+    az = azimuth_deg % 360.0
+    if az <= 90.0:
+        ns, ew, angle = u"N", u"E", az
+    elif az < 180.0:
+        ns, ew, angle = u"S", u"E", 180.0 - az
+    elif az < 270.0:
+        ns, ew, angle = u"S", u"W", az - 180.0
+    else:
+        ns, ew, angle = u"N", u"W", 360.0 - az
+
+    total_seconds = int(round(angle * 3600.0))
+    degrees, rest = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(rest, 60)
+    return u"{} {}°{:02d}'{:02d}\" {}".format(ns, degrees, minutes, seconds, ew)
+
+
+def metes_and_bounds(coords):
+    """
+    Surveyor's description of a [lon, lat] ring: one entry per boundary
+    segment, walking the ring and closing back to the first vertex.
+
+    Each entry: {index, bearing, azimuth_deg, length_m, length_ft}
+
+    Bearings are relative to true north, which is what the source coordinates
+    are in - Revit's Project North is a separate, project-specific rotation.
+    """
+    ring = close_ring(coords)
+    if len(ring) < 3:
+        return []
+
+    pts = ring_to_local_m(ring)
+    segments = []
+    count = len(pts)
+    for i in range(count):
+        x1, y1 = pts[i]
+        x2, y2 = pts[(i + 1) % count]
+        dx, dy = x2 - x1, y2 - y1
+        length_m = math.sqrt(dx * dx + dy * dy)
+        if length_m < 0.01:
+            continue                      # duplicate vertex
+        azimuth = math.degrees(math.atan2(dx, dy)) % 360.0
+        segments.append({
+            "index":       len(segments) + 1,
+            "bearing":     format_bearing(azimuth),
+            "azimuth_deg": azimuth,
+            "length_m":    length_m,
+            "length_ft":   length_m * M_TO_FT,
+        })
+    return segments
+
+
+def format_metes_and_bounds(coords, area_sqft=None, title=None):
+    """
+    The metes-and-bounds table as plain text, ready for a TextBlock or the
+    clipboard.  Distances in metres and feet, bearings in D°M'S".
+    """
+    segments = metes_and_bounds(coords)
+    if not segments:
+        return u"No boundary segments to describe."
+
+    lines = []
+    if title:
+        lines.append(title)
+        lines.append(u"")
+    lines.append(u"{:<4} {:<18} {:>12} {:>12}".format(
+        u"#", u"BEARING", u"LENGTH (m)", u"LENGTH (ft)"))
+    lines.append(u"-" * 50)
+    total_m = 0.0
+    for seg in segments:
+        total_m += seg["length_m"]
+        lines.append(u"{:<4} {:<18} {:>12.3f} {:>12.3f}".format(
+            seg["index"], seg["bearing"], seg["length_m"], seg["length_ft"]))
+    lines.append(u"-" * 50)
+    lines.append(u"{:<23} {:>12.3f} {:>12.3f}".format(
+        u"PERIMETER", total_m, total_m * M_TO_FT))
+    if area_sqft:
+        lines.append(u"{:<23} {}".format(u"ENCLOSED AREA",
+                                         format_area_dual(area_sqft)))
+    lines.append(u"")
+    lines.append(u"Bearings are from TRUE north. Data © OpenStreetMap "
+                 u"contributors / parcel provider - verify against a survey.")
+    return u"\n".join(lines)
 
 
 def format_area_dual(sqft):

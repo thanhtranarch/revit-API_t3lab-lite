@@ -142,6 +142,129 @@ def test_encoding():
 
 # ── classification and ranking ───────────────────────────────────────────────
 
+def test_demojibake():
+    print("\n[demojibake]")
+    # The exact corruption seen in Revit: UTF-8 read back as Latin-1.
+    broken = "Thành phố Hồ Chí Minh".encode("utf-8").decode("latin-1")
+    check("Vietnamese is repaired",
+          gp.demojibake(broken) == "Thành phố Hồ Chí Minh", broken)
+
+    for label, good in (
+            ("Thai", "กรุงเทพมหานคร"),
+            ("Arabic", "شارع الملك فهد"),
+            ("Greek", "Λεωφόρος Κηφισίας"),
+            ("Cyrillic", "Тверская улица"),
+            ("Japanese", "東京都千代田区"),
+            ("Korean", "서울특별시 강남구"),
+            ("Hindi", "नई दिल्ली")):
+        mangled = good.encode("utf-8").decode("latin-1")
+        check("{} is repaired".format(label),
+              gp.demojibake(mangled) == good, mangled)
+
+    # Text that is legitimately Latin-1 must be left exactly as it is.
+    for good in ("Café de Flore", "Ångström", "Müller Straße",
+                 "Plaça de Catalunya", "São Paulo", "Ísafjörður"):
+        check("'{}' is left alone".format(good), gp.demojibake(good) == good,
+              gp.demojibake(good))
+
+    check("ASCII is left alone",
+          gp.demojibake("10 Downing Street") == "10 Downing Street")
+    check("already-correct unicode is left alone",
+          gp.demojibake("Thành phố") == "Thành phố")
+    check("empty input is safe", gp.demojibake("") == "")
+    check("None is safe", gp.demojibake(None) is None)
+
+    # _u is the funnel every API string passes through
+    check("_u repairs on the way through", gp._u(broken) == "Thành phố Hồ Chí Minh")
+    check("_u still handles None", gp._u(None) == "")
+
+
+def test_metes_and_bounds():
+    print("\n[metes and bounds]")
+    # A 100 m square walked counter-clockwise from the south-west corner:
+    # east, north, west, south.
+    ring = square_ring(10.0, 106.0, 100.0)
+    segs = gp.metes_and_bounds(ring)
+    check("one segment per side and back to the start", len(segs) == 4,
+          len(segs))
+
+    lengths = [s["length_m"] for s in segs]
+    check("every side measures ~100 m",
+          all(abs(l - 100.0) < 0.6 for l in lengths),
+          ["{:.2f}".format(l) for l in lengths])
+
+    bearings = [s["bearing"] for s in segs]
+    check("the four sides read due E, N, W, S",
+          bearings == ['N 90°00\'00" E', 'N 0°00\'00" E',
+                       'N 90°00\'00" W', 'S 0°00\'00" W'],
+          bearings)
+    check("due east and due west stay symmetric",
+          gp.format_bearing(90.0) == 'N 90°00\'00" E' and
+          gp.format_bearing(270.0) == 'N 90°00\'00" W',
+          (gp.format_bearing(90.0), gp.format_bearing(270.0)))
+    check("due north and due south stay symmetric",
+          gp.format_bearing(0.0) == 'N 0°00\'00" E' and
+          gp.format_bearing(180.0) == 'S 0°00\'00" W',
+          (gp.format_bearing(0.0), gp.format_bearing(180.0)))
+
+    # Bearings must round-trip: reading the quadrant text back must land on
+    # the azimuth it came from.
+    def bearing_to_azimuth(text):
+        ns, rest = text[0], text[2:]
+        ew = text[-1]
+        deg, rest = rest.split("°")
+        minutes, rest = rest.split("'")
+        seconds = rest.split('"')[0]
+        angle = int(deg) + int(minutes) / 60.0 + int(seconds) / 3600.0
+        if ns == "N" and ew == "E":
+            return angle
+        if ns == "S" and ew == "E":
+            return 180.0 - angle
+        if ns == "S" and ew == "W":
+            return 180.0 + angle
+        return 360.0 - angle
+
+    round_trip_ok = True
+    for az in (0.0, 12.5125, 45.0, 89.9, 90.0, 120.0, 179.5, 180.0,
+               200.0, 269.0, 270.0, 300.0, 359.5):
+        back = bearing_to_azimuth(gp.format_bearing(az)) % 360.0
+        if abs(back - az) > 0.001 and abs(back - az - 360.0) > 0.001:
+            round_trip_ok = False
+            print("       {} -> {} -> {}".format(az, gp.format_bearing(az), back))
+    check("every bearing round-trips to its azimuth", round_trip_ok)
+
+    check("azimuths run clockwise from north",
+          [round(s["azimuth_deg"]) for s in segs] == [90, 0, 270, 180],
+          [round(s["azimuth_deg"]) for s in segs])
+
+    check("feet track metres",
+          all(abs(s["length_ft"] - s["length_m"] * 3.280839895) < 1e-6
+              for s in segs))
+
+    # Quadrant conversion across all four quadrants
+    check("45 deg is NE", gp.format_bearing(45.0) == 'N 45°00\'00" E')
+    check("135 deg is SE", gp.format_bearing(135.0) == 'S 45°00\'00" E')
+    check("225 deg is SW", gp.format_bearing(225.0) == 'S 45°00\'00" W')
+    check("315 deg is NW", gp.format_bearing(315.0) == 'N 45°00\'00" W')
+    check("wraps past 360", gp.format_bearing(405.0) == 'N 45°00\'00" E')
+    check("minutes and seconds are carried",
+          gp.format_bearing(12.5125) == 'N 12°30\'45" E',
+          gp.format_bearing(12.5125))
+
+    text = gp.format_metes_and_bounds(ring, area_sqft=107639.1)
+    check("the table lists a row per segment",
+          all(b in text for b in bearings), text[:200])
+    check("the table totals the perimeter", "PERIMETER" in text)
+    check("the table states the area", "ENCLOSED AREA" in text)
+    check("the table warns that bearings are true north",
+          "TRUE north" in text)
+
+    check("a degenerate ring yields nothing",
+          gp.metes_and_bounds([[0, 0], [0, 0]]) == [])
+    check("and formats as a readable message",
+          "No boundary segments" in gp.format_metes_and_bounds([[0, 0]]))
+
+
 def test_classify():
     print("\n[classify]")
     label, rank = gp._classify({"boundary": "cadastral"})
@@ -325,6 +448,8 @@ def test_overpass_query_shape():
 def main():
     test_geometry()
     test_encoding()
+    test_demojibake()
+    test_metes_and_bounds()
     test_classify()
     test_ranking_and_dedup()
     test_area_cap()

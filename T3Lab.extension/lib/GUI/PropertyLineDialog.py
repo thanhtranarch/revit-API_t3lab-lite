@@ -107,6 +107,15 @@ ELEV_UNITS = {
 # How many boundary candidates to offer per search
 MAX_RESULTS = 8
 
+# Line Category options. Must match cmb_line_type in the XAML.
+# NOTE: Autodesk.Revit.DB.PropertyLine is a member-less Element subclass in
+# every shipping Revit (checked against RevitAPI.xml for 2023 and 2026) - there
+# is no Create, so a genuine property line can only be drawn through Massing &
+# Site > Property Line. LINE_CAT_PROPERTY therefore produces model lines on a
+# dedicated "Property Line" line style, and the tool says so rather than
+# pretending. See native_property_line_available().
+LINE_CAT_PROPERTY = "Property Line"
+
 if HAS_GEOPARCEL:
     geoparcel.set_logger(logger)
 
@@ -1202,19 +1211,22 @@ def get_survey_point(doc):
 
 
 def create_property_lines_in_revit(doc, coordinates, elevation_ft=0.0,
-                                   line_category="Property Lines",
+                                   line_category=LINE_CAT_PROPERTY,
                                    origin_mode="Project Base Point"):
     """
-    Create property boundary lines in the Revit document.
+    Create the property boundary in the Revit document.
 
     Parameters:
         doc           - Revit Document
         coordinates   - list of [lon, lat] from GeoJSON outer ring
         elevation_ft  - Z elevation in feet
-        line_category - "Property Lines" | "Model Lines" | "Detail Lines"
+        line_category - "Property Line" | "Model Lines" | "Detail Lines"
         origin_mode   - where to place the centroid
 
-    Returns number of lines created.
+    Returns (count, kind) where *kind* names what was actually created, so the
+    caller can report it honestly - "Property Line" falls back to model lines
+    on the Property Line style wherever Revit exposes no PropertyLine factory,
+    which is every shipping version to date.
     """
     if len(coordinates) < 2:
         raise ValueError("Need at least 2 coordinates to create lines")
@@ -1246,50 +1258,114 @@ def create_property_lines_in_revit(doc, coordinates, elevation_ft=0.0,
         revit_pts.append(revit_pts[0])
 
     lines_created = 0
+    kind = line_category
 
     with DB.Transaction(doc, "Create Property Lines") as t:
         t.Start()
 
-        if line_category == "Property Lines":
-            # Use Revit's native PropertyLine element
+        if line_category == LINE_CAT_PROPERTY:
+            # Prefer a genuine PropertyLine element if this Revit exposes one.
             lines_created = _create_native_property_lines(doc, revit_pts)
+            if lines_created is None:
+                # It does not (see native_property_line_available), so draw the
+                # boundary as model lines carrying the Property Line style.
+                style = get_or_create_line_style(doc)
+                lines_created = _create_model_lines_from_pts(
+                    doc, revit_pts, elevation_ft, line_style=style)
+                kind = (u"model lines on the '{}' style".format(
+                    PROPERTY_LINE_STYLE_NAME) if style is not None
+                    else u"model lines")
+            else:
+                kind = u"native property line"
         elif line_category == "Detail Lines":
             lines_created = _create_detail_lines(doc, revit_pts)
+            kind = u"detail lines"
         else:
-            # Default: Model Lines
             lines_created = _create_model_lines(doc, revit_pts, elevation_ft)
+            kind = u"model lines"
 
         t.Commit()
 
-    return lines_created
+    return lines_created, kind
+
+
+def native_property_line_available():
+    """
+    Whether this Revit build exposes any way to create a PropertyLine element.
+
+    As of Revit 2026, Autodesk.Revit.DB.PropertyLine is a bare Element subclass
+    with no members at all - no Create, no properties - so property lines can
+    only be drawn through the UI (Massing & Site > Property Line).  This probe
+    exists so the tool picks the real thing up automatically if a future
+    release adds a factory, rather than silently staying on model lines.
+    """
+    prop_line = getattr(DB, "PropertyLine", None)
+    if prop_line is None:
+        return None
+    for name in ("Create", "CreateByCurveLoop", "NewPropertyLine"):
+        factory = getattr(prop_line, name, None)
+        if factory is not None:
+            return name
+    return None
 
 
 def _create_native_property_lines(doc, pts):
-    """Create native PropertyLine elements in Revit.
+    """
+    Create native PropertyLine elements when the running Revit supports it.
 
-    Starting from Revit 2022, DB.PropertyLine.Create(doc, curve_loop) is available.
-    If unavailable or fails, we fall back to creating Model Lines.
+    Returns the segment count, or None when there is no native API - the
+    caller then falls back to model lines on the Property Line style and
+    reports honestly that it did so.
+    """
+    factory_name = native_property_line_available()
+    if not factory_name:
+        return None
+    try:
+        curve_loop = DB.CurveLoop()
+        for i in range(len(pts) - 1):
+            start, end = pts[i], pts[i + 1]
+            if start.DistanceTo(end) < 0.001:
+                continue
+            curve_loop.Append(DB.Line.CreateBound(start, end))
+        factory = getattr(DB.PropertyLine, factory_name)
+        if factory(doc, curve_loop):
+            return len(pts) - 1
+    except Exception as ex:
+        logger.warning(
+            "Native PropertyLine creation via {} failed: {}".format(
+                factory_name, ex))
+    return None
+
+
+PROPERTY_LINE_STYLE_NAME = "Property Line"
+
+
+def get_or_create_line_style(doc, name=PROPERTY_LINE_STYLE_NAME,
+                             rgb=(200, 30, 30), weight=5):
+    """
+    Find (or create) a line style under Lines, and return its GraphicsStyle.
+
+    Must be called inside an open transaction - NewSubcategory modifies the
+    document.  Returns None if the style cannot be provided, so callers can
+    carry on with the default style rather than losing the geometry.
     """
     try:
-        if hasattr(DB.PropertyLine, "Create"):
-            curve_loop = DB.CurveLoop()
-            for i in range(len(pts) - 1):
-                start = pts[i]
-                end = pts[i + 1]
-                if start.DistanceTo(end) < 0.001:
-                    continue
-                line = DB.Line.CreateBound(start, end)
-                curve_loop.Append(line)
-            
-            # Draw native PropertyLine
-            prop_line = DB.PropertyLine.Create(doc, curve_loop)
-            if prop_line:
-                return len(pts) - 1
-    except Exception as ex:
-        logger.warning("Failed to create native PropertyLine, falling back to Model Lines: {}".format(ex))
+        lines_cat = doc.Settings.Categories.get_Item(DB.BuiltInCategory.OST_Lines)
+        for sub in lines_cat.SubCategories:
+            if sub.Name == name:
+                return sub.GetGraphicsStyle(DB.GraphicsStyleType.Projection)
 
-    # Fallback: Model Lines
-    return _create_model_lines_from_pts(doc, pts, pts[0].Z)
+        sub = doc.Settings.Categories.NewSubcategory(lines_cat, name)
+        try:
+            sub.LineColor = DB.Color(rgb[0], rgb[1], rgb[2])
+            sub.SetLineWeight(weight, DB.GraphicsStyleType.Projection)
+        except Exception as ex:
+            logger.debug("Line style cosmetics skipped: {}".format(ex))
+        return sub.GetGraphicsStyle(DB.GraphicsStyleType.Projection)
+    except Exception as ex:
+        logger.warning("Could not provide the '{}' line style: {}".format(
+            name, ex))
+        return None
 
 
 def _create_model_lines(doc, pts, elevation_ft):
@@ -1297,8 +1373,14 @@ def _create_model_lines(doc, pts, elevation_ft):
     return _create_model_lines_from_pts(doc, pts, elevation_ft)
 
 
-def _create_model_lines_from_pts(doc, pts, elevation_ft):
-    """Internal: create model lines from a list of XYZ points."""
+def _create_model_lines_from_pts(doc, pts, elevation_ft, line_style=None):
+    """
+    Internal: create model lines from a list of XYZ points.
+
+    *line_style* is an optional GraphicsStyle applied to every curve, which is
+    how the boundary lands in the Property Line line style rather than the
+    default <Lines>.
+    """
     count = 0
     try:
         # Build sketch plane at the given elevation
@@ -1313,7 +1395,12 @@ def _create_model_lines_from_pts(doc, pts, elevation_ft):
             if start.DistanceTo(end) < 0.001:
                 continue
             line = DB.Line.CreateBound(start, end)
-            doc.Create.NewModelCurve(line, sketch_plane)
+            curve = doc.Create.NewModelCurve(line, sketch_plane)
+            if line_style is not None and curve is not None:
+                try:
+                    curve.LineStyle = line_style
+                except Exception as ex:
+                    logger.debug("Line style not applied: {}".format(ex))
             count += 1
     except Exception as ex:
         logger.error("Model line creation error: {}".format(ex))
@@ -1649,6 +1736,9 @@ class PropertyLineDialog(forms.WPFWindow):
             self.grp_parcel_details.Visibility = Visibility.Collapsed
             self.grp_setback.Visibility = Visibility.Collapsed
             self.scroll_details.Visibility = Visibility.Collapsed
+            panel = getattr(self, "grp_metes", None)
+            if panel is not None:
+                panel.Visibility = Visibility.Collapsed
             try:
                 self.img_map_preview.Source = None
             except Exception:
@@ -1755,6 +1845,36 @@ class PropertyLineDialog(forms.WPFWindow):
 
         # Refresh project-data preview
         self._refresh_project_data(item)
+        self._refresh_metes_and_bounds(item)
+
+    def _refresh_metes_and_bounds(self, item):
+        """Fill the distances-and-bearings table for the selected boundary."""
+        panel = getattr(self, "grp_metes", None)
+        if panel is None:
+            return
+        coords = get_polygon_coords(item.geometry)
+        if not HAS_GEOPARCEL or len(coords) < 3:
+            panel.Visibility = Visibility.Collapsed
+            return
+        try:
+            self.txt_metes.Text = geoparcel.format_metes_and_bounds(
+                coords, area_sqft=item.area_sqft_raw)
+            panel.Visibility = Visibility.Visible
+        except Exception as ex:
+            logger.warning("Metes and bounds failed: {}".format(ex))
+            panel.Visibility = Visibility.Collapsed
+
+    def btn_copy_metes_Click(self, sender, e):
+        """Copy the distances-and-bearings table to the Windows clipboard."""
+        try:
+            from System.Windows import Clipboard
+            Clipboard.SetText(self.txt_metes.Text)
+            self._set_status(
+                u"Distances & bearings copied — paste into Massing & Site "
+                u"→ Property Line → Create by entering distances and bearings.",
+                success=True)
+        except Exception as ex:
+            self._set_status("Copy failed: {}".format(ex), error=True)
 
     def _refresh_project_data(self, item):
         """Rebuild the formatted Project Data text block."""
@@ -1940,13 +2060,13 @@ class PropertyLineDialog(forms.WPFWindow):
         self.btn_create.IsEnabled = False
 
         try:
-            count = create_property_lines_in_revit(
+            count, kind = create_property_lines_in_revit(
                 doc, coords, elevation_ft, line_cat, origin_mode
             )
-            logger.info("Property lines created: {} segments".format(count))
+            logger.info("Boundary created: {} segments as {}".format(count, kind))
 
-            msg = u"Done! Created {} property line segment(s) for: {}".format(
-                count, self._selected_parcel.display_address)
+            msg = u"Done! Created {} segment(s) as {} for: {}".format(
+                count, kind, self._selected_parcel.display_address)
 
             if self._wants_geo_location():
                 parcel = self._selected_parcel

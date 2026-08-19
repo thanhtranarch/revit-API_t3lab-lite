@@ -3,7 +3,8 @@ tooltip: "Draw property lines anywhere in the world — just type the address."
 description: |
   Type any address on earth and pick the matching boundary
   Uses OpenStreetMap worldwide (no API key) and LightBox cadastral parcels for US addresses
-  Places a closed property line loop at the project base point, survey point or world origin
+  Draws a closed loop on a dedicated Property Line style at the base point, survey point or world origin
+  Lists distances and bearings for every segment, ready for Revit's native Property Line dialog
   Optionally writes the site latitude/longitude into the project location
 author: "Tran Tien Thanh"
-version: "2.0.0"
+version: "2.1.0"
