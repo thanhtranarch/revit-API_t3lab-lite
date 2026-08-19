@@ -61,6 +61,14 @@ except ImportError:
 # pyRevit
 from pyrevit import revit, DB, forms, script
 
+# Worldwide (keyless) boundary lookup — OpenStreetMap based
+try:
+    from Snippets import _geoparcel as geoparcel
+    HAS_GEOPARCEL = True
+except ImportError:
+    geoparcel = None
+    HAS_GEOPARCEL = False
+
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
@@ -81,6 +89,26 @@ LIGHTBOX_PARCELS_ENDPOINT  = "/v1/parcels/us"
 
 # Earth radius in feet (for coordinate conversion)
 EARTH_RADIUS_FT = 20902231.0
+
+# ── Data sources ─────────────────────────────────────────────────────────────
+# These strings must match the ComboBoxItem contents in PropertyLine.xaml.
+SOURCE_AUTO     = "Auto (recommended)"
+SOURCE_OSM      = "OpenStreetMap (worldwide, no key)"
+SOURCE_LIGHTBOX = "LightBox (US parcels, API key)"
+
+# Elevation input units -> feet.  Must match cmb_elev_unit in the XAML.
+ELEV_UNITS = {
+    "m":  3.280839895013123,
+    "mm": 0.003280839895013123,
+    "cm": 0.03280839895013123,
+    "ft": 1.0,
+}
+
+# How many boundary candidates to offer per search
+MAX_RESULTS = 8
+
+if HAS_GEOPARCEL:
+    geoparcel.set_logger(logger)
 
 
 # ╔═╗╔═╗╔╗╔╔═╗╦╔═╗
@@ -169,11 +197,24 @@ def compute_area_sqft(coordinates):
 
 
 def format_area(sqft):
-    """Format area as sqft and acres."""
+    """
+    Format an area for display.  Metric first (the tool is worldwide now),
+    imperial in brackets.
+    """
+    if HAS_GEOPARCEL:
+        return geoparcel.format_area_dual(sqft)
+    # Fallback if the shared module is unavailable
+    try:
+        sqft = float(sqft or 0)
+    except (TypeError, ValueError):
+        return "N/A"
+    if sqft <= 0:
+        return "N/A"
+    sqm = sqft / 10.763910416709722
     acres = sqft / 43560.0
-    if acres >= 1.0:
-        return "{:,.0f} sqft ({:.3f} ac)".format(sqft, acres)
-    return "{:,.0f} sqft".format(sqft)
+    if acres >= 0.1:
+        return u"{:,.0f} m² ({:,.0f} sqft, {:.2f} ac)".format(sqm, sqft, acres)
+    return u"{:,.0f} m² ({:,.0f} sqft)".format(sqm, sqft)
 
 
 def parse_wkt_polygon(wkt):
@@ -638,6 +679,8 @@ def _parse_parcel(item):
             if val is not None and str(val).strip():
                 setbacks[label] = _coerce_str(val)
 
+    centroid_lat, centroid_lon = compute_centroid(coords)
+
     return {
         "id":               item_id or parcel_apn,
         "parcel_id":        parcel_apn,
@@ -654,6 +697,14 @@ def _parse_parcel(item):
         "lot_width":        lot_width,
         "lot_depth":        lot_depth,
         "setbacks":         setbacks,
+        # ── shared shape with the worldwide OSM provider ──
+        "source":           "LightBox",
+        "boundary_kind":    u"Cadastral parcel",
+        "country":          u"United States",
+        "is_approximate":   False,
+        "lat":              centroid_lat,
+        "lon":              centroid_lon,
+        "subtitle":         u"Cadastral parcel  ·  {}".format(format_area(area_sqft)),
     }
 
 
@@ -674,6 +725,102 @@ def get_polygon_coords(geometry):
                 best = poly[0]
         return best
     return []
+
+
+# ╦ ╦╔═╗╦═╗╦  ╔╦╗╦ ╦╦╔╦╗╔═╗
+# ║║║║ ║╠╦╝║   ║║║║║║ ║║║╣
+# ╚╩╝╚═╝╩╚═╩═╝═╩╝╚╩╝╩═╩╝╚═╝ SOURCE DISPATCH
+# ==================================================
+
+_US_MARKERS = ("usa", "u.s.a", "united states", "us")
+
+
+def looks_like_us_address(address):
+    """
+    True when the address plausibly sits in the United States - i.e. it carries
+    a US state code/name or names the country.  Used only to decide whether the
+    LightBox parcel API is worth a call before falling back to OpenStreetMap.
+    """
+    text = (address or u"").strip().lower()
+    if not text:
+        return False
+    tail = [p.strip() for p in text.split(",")]
+    if tail and tail[-1] in _US_MARKERS:
+        return True
+    for token in text.replace(",", " ").split():
+        if token.upper() in _STATE_CODES:
+            return True
+        if token in _STATE_MAP:
+            return True
+    for name in _STATE_MAP:
+        if " " in name and name in text:
+            return True
+    return False
+
+
+def search_primary(address, api_key=None, source=SOURCE_AUTO, language=None):
+    """
+    First, fast pass of a boundary search.
+
+    Returns (parcels, context) where *context* carries whatever the slow second
+    pass needs (``None`` when there is no second pass - the LightBox path
+    returns cadastral parcels outright and needs no enrichment).
+
+    Raises ValueError with a user-facing message when nothing can be resolved.
+    """
+    address = (address or u"").strip()
+    if not address:
+        raise ValueError(u"Please enter an address.")
+
+    use_lightbox = (source == SOURCE_LIGHTBOX or
+                    (source == SOURCE_AUTO and api_key and
+                     looks_like_us_address(address)))
+
+    if use_lightbox:
+        if not api_key:
+            raise ValueError(
+                u"LightBox needs an API key - add one in the API tab, or "
+                u"switch the source to OpenStreetMap.")
+        try:
+            parcels = search_parcels(api_key, address)
+            if parcels:
+                return parcels, None
+            if source == SOURCE_LIGHTBOX:
+                return [], None
+            logger.info("LightBox returned no parcels; falling back to OSM.")
+        except Exception as ex:
+            if source == SOURCE_LIGHTBOX:
+                raise
+            logger.warning("LightBox failed, falling back to OSM: {}".format(ex))
+
+    if not HAS_GEOPARCEL:
+        raise ValueError(
+            u"Worldwide lookup is unavailable: lib/Snippets/_geoparcel.py "
+            u"could not be imported.")
+
+    places, parcels = geoparcel.primary_boundaries(
+        address, limit=MAX_RESULTS, language=language)
+    seen = set(geoparcel.ring_key(p["geometry"]["coordinates"][0])
+               for p in parcels)
+    return parcels, {"place": places[0], "seen": seen}
+
+
+def search_more(context):
+    """
+    Slow second pass: everything OpenStreetMap has mapped around the geocoded
+    point.  Never raises - a dead Overpass mirror just means fewer choices.
+    """
+    if not context or not HAS_GEOPARCEL:
+        return []
+    try:
+        return geoparcel.nearby_boundaries(
+            context["place"],
+            limit=max(0, MAX_RESULTS - len(context.get("seen") or ())),
+            exclude=context.get("seen"),
+            include_fallback=True)
+    except Exception as ex:
+        logger.warning("Overpass enrichment failed: {}".format(ex))
+        return []
 
 
 # ╔═╗╔═╗╦═╗╔═╗╔═╗╦    ╔╦╗╔═╗╔═╗
@@ -1014,6 +1161,33 @@ def get_project_base_point(doc):
     return DB.XYZ(0, 0, 0)
 
 
+def set_project_geo_location(doc, lat, lon, place_name=None):
+    """
+    Point the project's site location at the parcel (Revit stores latitude and
+    longitude in radians).  Runs in its own transaction.
+
+    Returns True on success; logs and returns False if the API refuses.
+    """
+    try:
+        site = doc.SiteLocation
+        if site is None:
+            return False
+        with DB.Transaction(doc, "Set Project Geo Location") as t:
+            t.Start()
+            site.Latitude = math.radians(float(lat))
+            site.Longitude = math.radians(float(lon))
+            if place_name:
+                try:
+                    site.PlaceName = place_name[:255]
+                except Exception:
+                    pass    # PlaceName is read-only in some Revit versions
+            t.Commit()
+        return True
+    except Exception as ex:
+        logger.warning("Could not set project geo location: {}".format(ex))
+        return False
+
+
 def get_survey_point(doc):
     """Get the survey point in Revit internal feet."""
     collector = DB.FilteredElementCollector(doc).OfCategory(
@@ -1195,6 +1369,17 @@ class ParcelItem(object):
         self.lot_width         = data.get("lot_width", "")
         self.lot_depth         = data.get("lot_depth", "")
         self.setbacks          = data.get("setbacks", {})
+        # Worldwide fields (present for every source; see search_primary)
+        self.source            = data.get("source", "LightBox")
+        self.boundary_kind     = data.get("boundary_kind", u"Cadastral parcel")
+        self.country           = data.get("country", "")
+        self.is_approximate    = bool(data.get("is_approximate", False))
+        self.lat               = data.get("lat", 0.0)
+        self.lon               = data.get("lon", 0.0)
+        self.subtitle          = data.get(
+            "subtitle",
+            u"{}  ·  {}".format(self.boundary_kind,
+                                     format_area(self.area_sqft_raw)))
 
 
 class PropertyLineDialog(forms.WPFWindow):
@@ -1210,6 +1395,9 @@ class PropertyLineDialog(forms.WPFWindow):
         self._selected_parcel = None
         self._parcels = []
         self._zoning_data = None
+        # Bumped on every search so a slow second pass from an earlier search
+        # cannot append its results onto a newer one.
+        self._search_seq = 0
 
 
 
@@ -1219,6 +1407,23 @@ class PropertyLineDialog(forms.WPFWindow):
         if saved_key:
             self.txt_api_key.Text = saved_key
             self._update_api_status(True, "API key loaded from config")
+        else:
+            self._update_api_status(
+                True, "No API key — worldwide OpenStreetMap search still works")
+
+        # Restore the last used data source
+        saved_source = config.get("data_source", SOURCE_AUTO)
+        combo = getattr(self, "cmb_source", None)
+        if combo is not None:
+            for entry in combo.Items:
+                if entry.Content == saved_source:
+                    combo.SelectedItem = entry
+                    break
+
+        if not HAS_GEOPARCEL:
+            self._set_status(
+                u"Worldwide search unavailable — lib/Snippets/_geoparcel.py "
+                u"failed to import. LightBox (US) only.", error=True)
 
     # ───────────────────────────────────── GUI EVENTS
 
@@ -1266,15 +1471,22 @@ class PropertyLineDialog(forms.WPFWindow):
         if e.Key == Key.Return:
             self.btn_search_Click(sender, e)
 
+    def _selected_source(self):
+        combo = getattr(self, "cmb_source", None)
+        item = combo.SelectedItem if combo is not None else None
+        return item.Content if item else SOURCE_AUTO
+
     def btn_search_Click(self, sender, e):
         address = self.txt_address.Text.strip()
         if not address:
-            self._show_address_warning("Please enter a US property address.")
-            return
-        if len(address) < 8 or not any(ch.isdigit() for ch in address):
             self._show_address_warning(
-                u"Address looks incomplete — include street number, city and state. "
-                u"Example: 123 Main St, Los Angeles CA 90001")
+                u"Please enter a property address — anywhere in the world.")
+            return
+        if len(address) < 4:
+            self._show_address_warning(
+                u"Address looks too short — include the street, city and "
+                u"country. Example: 268 Ly Thuong Kiet, District 10, "
+                u"Ho Chi Minh City, Vietnam")
             return
         self._hide_address_warning()
         try:
@@ -1282,48 +1494,85 @@ class PropertyLineDialog(forms.WPFWindow):
         except Exception:
             pass
 
+        source = self._selected_source()
         api_key = self.txt_api_key.Text.strip()
-        if not api_key:
-            self._set_status("Please enter your Lightbox API key first.", error=True)
+        if source == SOURCE_LIGHTBOX and not api_key:
+            self._set_status(
+                u"LightBox needs an API key — add one in the API tab, or "
+                u"switch the source to OpenStreetMap.", error=True)
             return
 
-        self._set_status("Searching for parcels...", busy=True)
-        self.btn_search.IsEnabled = False
+        save_config({"data_source": source})
 
-        # Run in background thread to avoid blocking UI
+        self._set_status(u"Searching for property boundaries...", busy=True)
+        self.btn_search.IsEnabled = False
+        self._search_seq += 1
+        seq = self._search_seq
+
+        # Background thread so the UI stays live.  Two passes: the geocoder
+        # answers in about a second while Overpass takes considerably longer,
+        # so the first batch is painted as soon as it lands.
         def search_thread():
             try:
-                parcels = search_parcels(api_key, address)
-                self.Dispatcher.Invoke(
-                    DispatcherPriority.Normal,
-                    Action(lambda: self._on_search_complete(parcels))
-                )
+                parcels, context = search_primary(address, api_key, source)
             except Exception as ex:
                 error_msg = str(ex)
                 self.Dispatcher.Invoke(
                     DispatcherPriority.Normal,
-                    Action(lambda: self._on_search_error(error_msg))
+                    Action(lambda: self._on_search_error(error_msg, seq))
                 )
+                return
+
+            has_more = bool(context)
+            self.Dispatcher.Invoke(
+                DispatcherPriority.Normal,
+                Action(lambda: self._on_search_complete(parcels, has_more, seq))
+            )
+            if not has_more:
+                return
+
+            extra = search_more(context)
+            self.Dispatcher.Invoke(
+                DispatcherPriority.Background,
+                Action(lambda: self._on_search_more(extra, seq))
+            )
 
         t = threading.Thread(target=search_thread)
         t.daemon = True
         t.start()
 
-    def _on_search_complete(self, parcels):
+    def _is_current(self, seq):
+        """False once a newer search has started - drop the stale callback."""
+        return seq is None or seq == self._search_seq
+
+    def _on_search_complete(self, parcels, more=False, seq=None):
+        if not self._is_current(seq):
+            return
+        # Re-enabled straight away: the second pass is opportunistic and must
+        # never hold the Search button hostage to a loaded Overpass mirror.
         self.btn_search.IsEnabled = True
         self._hide_address_warning()
-        self._parcels = parcels
-
-        if not parcels:
-            self._set_status("No parcels found. Try a more specific address (include state + ZIP).")
-            self.lv_parcels.Visibility = Visibility.Collapsed
-            self.border_no_results.Visibility = Visibility.Visible
-            return
+        self._parcels = list(parcels)
 
         # Populate ListView
         self.lv_parcels.Items.Clear()
         for p in parcels:
             self.lv_parcels.Items.Add(ParcelItem(p))
+
+        if not parcels:
+            if more:
+                # The geocoder located the address but carried no polygon;
+                # Overpass may still turn one up, so do not declare failure.
+                self._set_status(
+                    u"Location found. Looking for mapped boundaries...",
+                    busy=True)
+            else:
+                self._set_status(
+                    u"No property boundary found. Try a more specific "
+                    u"address, or add the city and country.")
+            self.lv_parcels.Visibility = Visibility.Collapsed
+            self.border_no_results.Visibility = Visibility.Visible
+            return
 
         self.lv_parcels.Visibility = Visibility.Visible
         self.border_no_results.Visibility = Visibility.Collapsed
@@ -1331,11 +1580,39 @@ class PropertyLineDialog(forms.WPFWindow):
         # Surface auto-correction hint if address was normalised
         corrected_from = parcels[0].get("_corrected_from") if parcels else None
         if corrected_from:
-            msg = (u"Found {} parcel(s). \u2728 Address auto-corrected: '{}' \u2192 '{}'".format(
-                len(parcels), corrected_from, self.txt_address.Text))
+            msg = (u"Found {} boundary(ies). \u2728 Address auto-corrected: "
+                   u"'{}' \u2192 '{}'".format(len(parcels), corrected_from,
+                                              self.txt_address.Text))
+        elif more:
+            msg = (u"Found {} boundary(ies) \u2014 searching OpenStreetMap "
+                   u"for more...".format(len(parcels)))
         else:
-            msg = "Found {} parcel(s). Select one to continue.".format(len(parcels))
-        self._set_status(msg)
+            msg = u"Found {} boundary(ies). Select one to continue.".format(
+                len(parcels))
+        self._set_status(msg, busy=bool(more))
+
+    def _on_search_more(self, parcels, seq=None):
+        """Append the slow Overpass results to whatever is already listed."""
+        if not self._is_current(seq):
+            return
+        self.btn_search.IsEnabled = True
+        for p in parcels or []:
+            self._parcels.append(p)
+            self.lv_parcels.Items.Add(ParcelItem(p))
+
+        if not self._parcels:
+            self._set_status(
+                u"No mapped boundary at that address. Try a nearby address, "
+                u"or a different data source.")
+            self.lv_parcels.Visibility = Visibility.Collapsed
+            self.border_no_results.Visibility = Visibility.Visible
+            return
+
+        self.lv_parcels.Visibility = Visibility.Visible
+        self.border_no_results.Visibility = Visibility.Collapsed
+        self._set_status(
+            u"Found {} boundary(ies). Select one to continue.".format(
+                len(self._parcels)))
 
     def _show_address_warning(self, msg):
         self.txt_address_warning.Text = u"⚠  " + msg
@@ -1344,7 +1621,9 @@ class PropertyLineDialog(forms.WPFWindow):
     def _hide_address_warning(self):
         self.txt_address_warning.Visibility = Visibility.Collapsed
 
-    def _on_search_error(self, error_msg):
+    def _on_search_error(self, error_msg, seq=None):
+        if not self._is_current(seq):
+            return
         self.btn_search.IsEnabled = True
         # Suppress raw network / connection errors from the status bar;
         # log them and show a friendly neutral message instead.
@@ -1354,12 +1633,13 @@ class PropertyLineDialog(forms.WPFWindow):
             "ssl", "certificate", "unreachable", "refused", "reset",
             "httperror", "urlerror", "ioerror", "errno"))
         if is_network:
-            logger.warning("Lightbox API network error: {}".format(error_msg))
+            logger.warning("Boundary lookup network error: {}".format(error_msg))
             self._set_status(
-                u"Could not reach the Lightbox API — check your internet connection and try again.")
+                u"Could not reach the map data service — check your internet "
+                u"connection (and proxy settings) and try again.")
         else:
             self._set_status("Search error: {}".format(error_msg), error=True)
-            logger.error("Lightbox API search error: {}".format(error_msg))
+            logger.error("Boundary search error: {}".format(error_msg))
 
     def lv_parcels_SelectionChanged(self, sender, e):
         item = self.lv_parcels.SelectedItem
@@ -1447,6 +1727,19 @@ class PropertyLineDialog(forms.WPFWindow):
         self.txt_detail_county.Text  = item.county or "N/A"
         self.txt_detail_state.Text   = item.state or "N/A"
 
+        # Worldwide rows (present in the XAML since v2)
+        try:
+            self.txt_detail_country.Text = item.country or "N/A"
+            self.txt_detail_source.Text  = u"{}  ·  {}".format(
+                item.source, item.boundary_kind)
+            self.txt_detail_latlon.Text  = u"{:.6f}, {:.6f}".format(
+                item.lat or 0.0, item.lon or 0.0)
+            self.border_approx_warning.Visibility = (
+                Visibility.Visible if item.is_approximate
+                else Visibility.Collapsed)
+        except AttributeError:
+            pass    # older XAML without the worldwide rows
+
         raw = item.area_sqft_raw
         self.txt_detail_area.Text = format_area(raw) if raw and raw > 0 else "N/A"
 
@@ -1472,14 +1765,21 @@ class PropertyLineDialog(forms.WPFWindow):
 
         lines = [
             ("JURISDICTION HAVING AUTHORITY", jurisdiction),
+            ("COUNTRY",                       item.country or "—"),
             ("LEGAL DESCRIPTION",             item.legal_description or "—"),
-            ("ASSESSORS PARCEL NO. (APN)",    item.parcel_id or "—"),
+            ("PARCEL / FEATURE ID",           item.parcel_id or "—"),
             ("IN FLOOD ZONE (FEMA)",          ("Zone " + item.flood_zone)
                                               if item.flood_zone else "—"),
             ("ZONING",                        item.zoning_code or "—"),
             ("LOT AREA",                      format_area(item.area_sqft_raw)
                                               if item.area_sqft_raw else "—"),
             ("LAND USE",                      item.land_use or "—"),
+            ("CENTROID (LAT, LONG)",          u"{:.6f}, {:.6f}".format(
+                                                  item.lat or 0.0,
+                                                  item.lon or 0.0)),
+            ("BOUNDARY SOURCE",               u"{} ({})".format(
+                                                  item.source,
+                                                  item.boundary_kind)),
         ]
 
         max_key = max(len(k) for k, _ in lines)
@@ -1621,10 +1921,7 @@ class PropertyLineDialog(forms.WPFWindow):
             return
 
         # Get options
-        try:
-            elevation_ft = float(self.txt_elevation.Text.strip() or "0")
-        except ValueError:
-            elevation_ft = 0.0
+        elevation_ft = self._elevation_in_feet()
 
         # ComboBox selected item text
         line_cat_item = self.cmb_line_type.SelectedItem
@@ -1648,8 +1945,18 @@ class PropertyLineDialog(forms.WPFWindow):
             )
             logger.info("Property lines created: {} segments".format(count))
 
-            msg = "Done! Created {} property line segment(s) for: {}".format(
+            msg = u"Done! Created {} property line segment(s) for: {}".format(
                 count, self._selected_parcel.display_address)
+
+            if self._wants_geo_location():
+                parcel = self._selected_parcel
+                if set_project_geo_location(doc, parcel.lat, parcel.lon,
+                                            parcel.display_address):
+                    msg += u"  ·  Project location set to {:.5f}, {:.5f}.".format(
+                        parcel.lat or 0.0, parcel.lon or 0.0)
+                else:
+                    msg += u"  ·  Could not update the project location."
+
             self._set_status(msg, success=True)
 
         except Exception as ex:
@@ -1659,6 +1966,29 @@ class PropertyLineDialog(forms.WPFWindow):
             self.btn_create.IsEnabled = True
 
     # ───────────────────────────────────── HELPERS
+
+    def _elevation_in_feet(self):
+        """
+        Read the elevation box in the unit picked next to it and return feet
+        (Revit's internal unit).  Anything unparsable means 0.
+        """
+        try:
+            value = float(self.txt_elevation.Text.strip() or "0")
+        except (ValueError, AttributeError):
+            return 0.0
+
+        unit = "ft"
+        combo = getattr(self, "cmb_elev_unit", None)
+        item = combo.SelectedItem if combo is not None else None
+        if item is not None and item.Content:
+            unit = str(item.Content).strip().lower()
+        return value * ELEV_UNITS.get(unit, 1.0)
+
+    def _wants_geo_location(self):
+        chk = getattr(self, "chk_set_geo", None)
+        if chk is None:
+            return False
+        return bool(chk.IsChecked)
 
     def _update_api_status(self, ok, msg):
         self.txt_api_status.Text = msg

@@ -1,0 +1,744 @@
+# -*- coding: utf-8 -*-
+"""
+Worldwide address -> property boundary lookup.
+
+Pure python (IronPython 2.7 + CPython 3 compatible) with no Revit imports, so it
+can be exercised outside Revit.  Gives the Property Line tool keyless global
+coverage on top of OpenStreetMap: Nominatim for geocoding (it already returns
+the matched object's polygon) and Overpass for the enclosures around that point.
+
+Public API
+----------
+search_boundaries(address, ...) -> list of parcel dicts, in the same shape the
+                                   PropertyLine dialog already consumes
+geocode(address, ...)           -> list of geocoded places
+polygon_area_m2(coords)         -> area of a [lon, lat] ring, in m2
+format_area_dual(sqft)          -> "1,240 m2 (13,347 sqft)"
+
+Author: Tran Tien Thanh
+Mail: trantienthanh909@gmail.com
+"""
+
+import json
+import math
+
+__all__ = [
+    "search_boundaries", "primary_boundaries", "nearby_boundaries",
+    "overpass_boundaries", "geocode", "ring_key",
+    "polygon_area_m2", "polygon_area_sqft", "polygon_centroid",
+    "format_area_dual", "point_in_polygon", "close_ring",
+    "SQM_TO_SQFT", "OSM_SOURCE", "NOMINATIM_URL", "set_logger",
+]
+
+# ── HTTP plumbing (IronPython 2.7 / CPython 3) ───────────────────────────────
+try:
+    import urllib2 as _u2
+except ImportError:
+    _u2 = None
+try:
+    import urllib.request as _urq
+    import urllib.parse as _upa
+except ImportError:
+    _urq = None
+    _upa = None
+
+
+OSM_SOURCE    = "OpenStreetMap"
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+PHOTON_URL    = "https://photon.komoot.io/api"
+
+# The main overpass-api.de instance answers HTTP 406 to any User-Agent it does
+# not recognise, so the mirrors that do accept ours are tried first and it acts
+# as a last-resort failover (it may still answer from other networks).
+OVERPASS_ENDPOINTS = (
+    "https://overpass.private.coffee/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+)
+
+USER_AGENT = ("T3Lab-PropertyLine/2.0 "
+              "(pyRevit add-in; https://github.com/thanhtranarch/t3lab-revit-api)")
+
+SQM_TO_SQFT    = 10.763910416709722
+EARTH_RADIUS_M = 6378137.0
+
+# Overpass search radius (metres) around the geocoded point
+DEFAULT_RADIUS_M = 80
+# Hard ceiling - anything bigger than this is a district, never a plot
+MAX_PLOT_AREA_M2 = 400000.0
+# Above this, a polygon is still offered but ranked below plot-sized ones and
+# labelled district-scale, so a whole residential zone cannot outrank the lot
+PLOT_SCALE_AREA_M2 = 50000.0
+# Side of the synthetic square drawn when no boundary is mapped at all
+FALLBACK_PLOT_M = 30.0
+# Neighbouring enclosures offered when the geocoder lands slightly off the plot
+MAX_NEIGHBOURS = 3
+NEIGHBOUR_DISTANCE_M = 45.0
+# Per-endpoint HTTP timeout for the (slow) Overpass query, and how many
+# mirrors to try before giving up - the geocoder result already stands on its
+# own, so a loaded Overpass must never hold the caller for minutes.
+OVERPASS_TIMEOUT_S = 20
+OVERPASS_MAX_TRIES = 3
+
+_logger = None
+
+
+def set_logger(logger):
+    """Optional: hand in the pyRevit logger so failures stay traceable."""
+    global _logger
+    _logger = logger
+
+
+def _log(msg):
+    if _logger is not None:
+        try:
+            _logger.debug(msg)
+        except Exception:
+            pass
+
+
+def _ensure_tls():
+    """
+    Revit/.NET can still default to TLS 1.0, which every OSM endpoint refuses.
+    Force TLS 1.2 when running on .NET; no-op on CPython.
+    """
+    try:
+        import System.Net as _net
+        wanted = _net.SecurityProtocolType.Tls12
+        try:
+            wanted = _net.SecurityProtocolType.Tls12 | _net.SecurityProtocolType.Tls13
+        except AttributeError:
+            pass
+        _net.ServicePointManager.SecurityProtocol = wanted
+    except Exception:
+        pass
+
+
+def _to_bytes(text):
+    if isinstance(text, bytes):
+        return text
+    return text.encode("utf-8")
+
+
+def _to_text(raw):
+    if raw is None:
+        return u""
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", "replace")
+    try:
+        if isinstance(raw, unicode):        # noqa: F821 - IronPython 2 only
+            return raw
+    except NameError:
+        pass
+    return raw
+
+
+def _u(val):
+    """Coerce anything to text without blowing up on IronPython byte strings."""
+    if val is None:
+        return u""
+    try:
+        if isinstance(val, unicode):        # noqa: F821 - IronPython 2 only
+            return val
+    except NameError:
+        pass
+    if isinstance(val, bytes):
+        return val.decode("utf-8", "replace")
+    return u"{}".format(val)
+
+
+def url_quote(text, safe=""):
+    """Percent-encode text as UTF-8 (critical for Vietnamese addresses)."""
+    try:
+        if isinstance(text, unicode):       # noqa: F821 - IronPython 2 only
+            text = text.encode("utf-8")
+    except NameError:
+        pass
+    if _u2 is not None:
+        return _u2.quote(text, safe=safe)
+    if _upa is not None:
+        if isinstance(text, bytes):
+            text = text.decode("utf-8")
+        return _upa.quote(text, safe=safe)
+    out = []
+    safe_set = set(safe)
+    for byte in bytearray(_to_bytes(text)):
+        ch = chr(byte)
+        if ch.isalnum() or ch in "-_.~" or ch in safe_set:
+            out.append(ch)
+        else:
+            out.append("%{0:02X}".format(byte))
+    return "".join(out)
+
+
+def http_request(url, data=None, headers=None, timeout=25):
+    """
+    GET (data=None) or POST a form body.  Returns (status_code, text).
+    Non-2xx responses are returned, never raised.
+    """
+    _ensure_tls()
+    hdrs = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+    if data is not None:
+        hdrs["Content-Type"] = "application/x-www-form-urlencoded"
+    if headers:
+        hdrs.update(headers)
+    body = _to_bytes(data) if data is not None else None
+
+    if _u2 is not None:
+        req = _u2.Request(url, body)
+        for key, val in hdrs.items():
+            req.add_header(key, val)
+        try:
+            resp = _u2.urlopen(req, timeout=timeout)
+            return resp.getcode(), _to_text(resp.read())
+        except _u2.HTTPError as err:
+            try:
+                return err.code, _to_text(err.read())
+            except Exception:
+                return err.code, u""
+
+    if _urq is not None:
+        req = _urq.Request(url, data=body, headers=hdrs)
+        try:
+            resp = _urq.urlopen(req, timeout=timeout)
+            return resp.getcode(), _to_text(resp.read())
+        except Exception as err:
+            if hasattr(err, "code"):
+                try:
+                    return err.code, _to_text(err.read())
+                except Exception:
+                    return err.code, u""
+            raise
+
+    raise RuntimeError("No HTTP library available (urllib2 / urllib.request)")
+
+
+# ── geometry helpers (equirectangular - exact enough at parcel scale) ────────
+
+def polygon_centroid(coords):
+    """Average of a [lon, lat] ring -> (lat, lon)."""
+    if not coords:
+        return 0.0, 0.0
+    return (sum(c[1] for c in coords) / float(len(coords)),
+            sum(c[0] for c in coords) / float(len(coords)))
+
+
+def polygon_area_m2(coords):
+    """Shoelace area of a [lon, lat] ring, in square metres."""
+    if not coords or len(coords) < 3:
+        return 0.0
+    lat0, lon0 = polygon_centroid(coords)
+    cos_lat = math.cos(math.radians(lat0))
+    pts = []
+    for c in coords:
+        x = EARTH_RADIUS_M * math.radians(c[0] - lon0) * cos_lat
+        y = EARTH_RADIUS_M * math.radians(c[1] - lat0)
+        pts.append((x, y))
+    total = 0.0
+    n = len(pts)
+    for i in range(n):
+        j = (i + 1) % n
+        total += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1]
+    return abs(total) / 2.0
+
+
+def polygon_area_sqft(coords):
+    return polygon_area_m2(coords) * SQM_TO_SQFT
+
+
+def point_in_polygon(lon, lat, coords):
+    """Ray-casting test.  coords is a [lon, lat] ring."""
+    if not coords or len(coords) < 3:
+        return False
+    inside = False
+    n = len(coords)
+    j = n - 1
+    for i in range(n):
+        xi, yi = coords[i][0], coords[i][1]
+        xj, yj = coords[j][0], coords[j][1]
+        if (yi > lat) != (yj > lat):
+            denom = (yj - yi) or 1e-12
+            if lon < (xj - xi) * (lat - yi) / denom + xi:
+                inside = not inside
+        j = i
+    return inside
+
+
+def haversine_m(lat1, lon1, lat2, lon2):
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2.0) ** 2 +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+         math.sin(dlon / 2.0) ** 2)
+    return 2.0 * EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(a)))
+
+
+def close_ring(coords):
+    """Drop duplicated closing vertices so callers always get an open ring."""
+    ring = [[float(c[0]), float(c[1])] for c in coords if c and len(c) >= 2]
+    while (len(ring) > 1 and
+           abs(ring[0][0] - ring[-1][0]) < 1e-12 and
+           abs(ring[0][1] - ring[-1][1]) < 1e-12):
+        ring = ring[:-1]
+    return ring
+
+
+def format_area_dual(sqft):
+    """'1,240 m2 (13,347 sqft, 0.31 ac)' - metric first, imperial in brackets."""
+    try:
+        sqft = float(sqft or 0)
+    except (TypeError, ValueError):
+        return u"N/A"
+    if sqft <= 0:
+        return u"N/A"
+    sqm = sqft / SQM_TO_SQFT
+    acres = sqft / 43560.0
+    tail = u"{:,.0f} sqft".format(sqft)
+    if acres >= 0.1:
+        tail += u", {:.2f} ac".format(acres)
+    if sqm >= 10000:
+        head = u"{:,.0f} m² ({:.2f} ha)".format(sqm, sqm / 10000.0)
+    else:
+        head = u"{:,.0f} m²".format(sqm)
+    return u"{} ({})".format(head, tail)
+
+
+# ── geocoding ────────────────────────────────────────────────────────────────
+
+def geocode(address, limit=8, language=None):
+    """
+    Address -> list of places, worldwide.  Nominatim first (it also returns the
+    matched object's polygon), Photon as failover.
+
+    Each place: {lat, lon, display_name, name, address{}, geojson, boundingbox,
+                 osm_type, osm_id, category, type, source}
+    """
+    address = _u(address).strip()
+    if not address:
+        return []
+    places = _geocode_nominatim(address, limit, language)
+    if not places:
+        places = _geocode_photon(address, limit, language)
+    return places
+
+
+def _geocode_nominatim(address, limit, language):
+    url = ("{}?q={}&format=jsonv2&polygon_geojson=1&addressdetails=1"
+           "&extratags=1&limit={}".format(NOMINATIM_URL,
+                                          url_quote(address), int(limit)))
+    headers = {}
+    if language:
+        headers["Accept-Language"] = language
+    try:
+        status, text = http_request(url, headers=headers)
+    except Exception as ex:
+        _log("Nominatim network error: {}".format(ex))
+        return []
+    if status != 200:
+        _log("Nominatim HTTP {}: {}".format(status, text[:200]))
+        return []
+    try:
+        raw = json.loads(text)
+    except Exception as ex:
+        _log("Nominatim bad JSON: {}".format(ex))
+        return []
+
+    places = []
+    for item in raw or []:
+        try:
+            places.append({
+                "lat":          float(item.get("lat")),
+                "lon":          float(item.get("lon")),
+                "display_name": _u(item.get("display_name")),
+                "name":         _u(item.get("name")),
+                "address":      item.get("address") or {},
+                "geojson":      item.get("geojson") or {},
+                "boundingbox":  item.get("boundingbox") or [],
+                "osm_type":     _u(item.get("osm_type")),
+                "osm_id":       _u(item.get("osm_id")),
+                "category":     _u(item.get("category")),
+                "type":         _u(item.get("type")),
+                "source":       "Nominatim",
+            })
+        except (TypeError, ValueError):
+            continue
+    return places
+
+
+def _geocode_photon(address, limit, language):
+    url = "{}?q={}&limit={}".format(PHOTON_URL, url_quote(address), int(limit))
+    if language:
+        url += "&lang={}".format(url_quote(language))
+    try:
+        status, text = http_request(url)
+        if status != 200:
+            return []
+        raw = json.loads(text)
+    except Exception as ex:
+        _log("Photon failed: {}".format(ex))
+        return []
+
+    places = []
+    for feat in (raw or {}).get("features", []):
+        geom = feat.get("geometry") or {}
+        props = feat.get("properties") or {}
+        coords = geom.get("coordinates") or []
+        if geom.get("type") != "Point" or len(coords) < 2:
+            continue
+        bits = [props.get(k) for k in
+                ("name", "housenumber", "street", "district", "city",
+                 "state", "postcode", "country")]
+        places.append({
+            "lat":          float(coords[1]),
+            "lon":          float(coords[0]),
+            "display_name": u", ".join([_u(b) for b in bits if b]),
+            "name":         _u(props.get("name")),
+            "address":      props,
+            "geojson":      {},
+            "boundingbox":  [],
+            "osm_type":     _u(props.get("osm_type")),
+            "osm_id":       _u(props.get("osm_id")),
+            "category":     _u(props.get("osm_key")),
+            "type":         _u(props.get("osm_value")),
+            "source":       "Photon",
+        })
+    return places
+
+
+# ── candidate boundaries ─────────────────────────────────────────────────────
+
+# Tag -> (human label, rank).  Lower rank wins: a surveyed plot beats a fence,
+# a fence beats a roof outline.
+_KIND_RULES = (
+    ("boundary", "cadastral", u"Cadastral parcel",   0),
+    ("boundary", "parcel",    u"Cadastral parcel",   0),
+    ("place",    "plot",      u"Land plot",          1),
+    ("place",    "farm",      u"Farm plot",          1),
+    ("landuse",  None,        u"Land parcel",        2),
+    ("leisure",  None,        u"Site boundary",      3),
+    ("amenity",  None,        u"Site boundary",      3),
+    ("barrier",  None,        u"Fence / wall line",  4),
+    ("building", None,        u"Building footprint", 5),
+    ("man_made", None,        u"Structure outline",  6),
+)
+
+
+def _classify(tags):
+    """Tag dict -> (human label, rank)."""
+    tags = tags or {}
+    for key, value, label, rank in _KIND_RULES:
+        got = tags.get(key)
+        if not got:
+            continue
+        if value is not None and got != value:
+            continue
+        detail = u"" if got in ("yes", "true") else _u(got)
+        if detail:
+            return u"{} ({})".format(label, detail), rank
+        return label, rank
+
+    # Unknown feature: name it after its own tag rather than hiding it behind
+    # a generic label, so "place=house" reads as "Place (house)".
+    for key in sorted(tags):
+        if tags[key]:
+            return u"{} ({})".format(
+                _u(key).replace("_", " ").title(), _u(tags[key])), 7
+    return u"Mapped area", 7
+
+
+def _overpass_query(lat, lon, radius_m):
+    filters = ('["boundary"="cadastral"]',
+               '["place"~"^(plot|farm)$"]',
+               '["landuse"]',
+               '["leisure"]',
+               '["amenity"]',
+               '["barrier"~"^(fence|wall|hedge|retaining_wall)$"]',
+               '["building"]',
+               '["man_made"]')
+    around = "(around:{},{:.7f},{:.7f})".format(int(radius_m), lat, lon)
+    parts = "".join("way{}{};".format(around, f) for f in filters)
+    return "[out:json][timeout:{}];({});out geom;".format(
+        OVERPASS_TIMEOUT_S - 3, parts)
+
+
+def overpass_boundaries(lat, lon, radius_m=DEFAULT_RADIUS_M):
+    """
+    Closed ways around (lat, lon) that could serve as a property boundary.
+    Returns a list of candidate dicts; an empty list on any failure.
+    """
+    payload = "data=" + url_quote(_overpass_query(lat, lon, radius_m))
+    text = None
+    for endpoint in OVERPASS_ENDPOINTS[:OVERPASS_MAX_TRIES]:
+        try:
+            status, body = http_request(endpoint, data=payload,
+                                        timeout=OVERPASS_TIMEOUT_S)
+        except Exception as ex:
+            _log("Overpass {} error: {}".format(endpoint, ex))
+            continue
+        if status == 200 and body.lstrip().startswith("{"):
+            text = body
+            break
+        _log("Overpass {} -> HTTP {}".format(endpoint, status))
+    if text is None:
+        return []
+
+    try:
+        data = json.loads(text)
+    except Exception as ex:
+        _log("Overpass bad JSON: {}".format(ex))
+        return []
+
+    candidates = []
+    for element in data.get("elements", []):
+        geometry = element.get("geometry") or []
+        if len(geometry) < 4:
+            continue
+        first, last = geometry[0], geometry[-1]
+        if (abs(first["lat"] - last["lat"]) > 1e-9 or
+                abs(first["lon"] - last["lon"]) > 1e-9):
+            continue                       # open way - not an enclosure
+        ring = close_ring([[n["lon"], n["lat"]] for n in geometry])
+        if len(ring) < 3:
+            continue
+        area = polygon_area_m2(ring)
+        if area < 4.0 or area > MAX_PLOT_AREA_M2:
+            continue
+        tags = element.get("tags") or {}
+        label, rank = _classify(tags)
+        oversized = area > PLOT_SCALE_AREA_M2
+        if oversized:
+            label = u"{} — district scale".format(label)
+        clat, clon = polygon_centroid(ring)
+        candidates.append({
+            "ring":       ring,
+            "kind":       label,
+            "rank":       rank,
+            "oversized":  oversized,
+            "area_m2":    area,
+            "contains":   point_in_polygon(lon, lat, ring),
+            "distance_m": haversine_m(lat, lon, clat, clon),
+            "name":       _u(tags.get("name")),
+            "osm_id":     element.get("id"),
+            "osm_type":   element.get("type", "way"),
+            "tags":       tags,
+        })
+    return candidates
+
+
+def _bbox_ring(bbox):
+    """Nominatim boundingbox ['s', 'n', 'w', 'e'] -> [lon, lat] ring."""
+    try:
+        south, north, west, east = [float(v) for v in bbox]
+    except (TypeError, ValueError):
+        return []
+    if abs(north - south) < 1e-7 or abs(east - west) < 1e-7:
+        return []
+    return [[west, south], [east, south], [east, north], [west, north]]
+
+
+def _square_ring(lat, lon, size_m=FALLBACK_PLOT_M):
+    """A north-aligned square of size_m, centred on the point."""
+    half = size_m / 2.0
+    dlat = math.degrees(half / EARTH_RADIUS_M)
+    cos_lat = math.cos(math.radians(lat)) or 1e-9
+    dlon = math.degrees(half / (EARTH_RADIUS_M * cos_lat))
+    return [[lon - dlon, lat - dlat], [lon + dlon, lat - dlat],
+            [lon + dlon, lat + dlat], [lon - dlon, lat + dlat]]
+
+
+def _rings_from_geojson(geojson):
+    """Outer ring(s) of a GeoJSON geometry, as [lon, lat] lists."""
+    if not geojson:
+        return []
+    gtype = geojson.get("type")
+    coords = geojson.get("coordinates") or []
+    rings = []
+    if gtype == "Polygon" and coords:
+        rings.append(close_ring(coords[0]))
+    elif gtype == "MultiPolygon":
+        for poly in coords:
+            if poly:
+                rings.append(close_ring(poly[0]))
+    elif gtype in ("LineString", "LinearRing") and len(coords) >= 4:
+        rings.append(close_ring(coords))
+    return [r for r in rings if len(r) >= 3]
+
+
+def ring_key(ring):
+    """
+    Identity of a ring, independent of where the vertex list starts or which
+    way it winds - Nominatim and Overpass hand back the same footprint with
+    different vertex order, and the user should only see it once.
+    """
+    if not ring:
+        return "empty"
+    lat, lon = polygon_centroid(ring)
+    return "{:.6f},{:.6f},{:.0f}".format(lat, lon, polygon_area_m2(ring))
+
+
+_ring_key = ring_key   # kept for callers written against the private name
+
+
+# ── result assembly ──────────────────────────────────────────────────────────
+
+def _parcel_dict(ring, place, kind, source, approximate=False,
+                 osm_id=None, osm_type=None, feature_name=u"", extra=None):
+    """Build a record in the exact shape the PropertyLine dialog consumes."""
+    area_m2 = polygon_area_m2(ring)
+    area_sqft = area_m2 * SQM_TO_SQFT
+    addr = place.get("address") or {}
+    country = _u(addr.get("country"))
+    region = _u(addr.get("state") or addr.get("region") or
+                addr.get("province") or addr.get("city"))
+    county = _u(addr.get("county") or addr.get("district") or
+                addr.get("suburb") or addr.get("city_district"))
+    clat, clon = polygon_centroid(ring)
+
+    # Identify the shape's own OSM object, not the geocoder hit it came from -
+    # an Overpass way sitting under a node-matched address is still a way.
+    if osm_id is not None:
+        ident = u"OSM {} {}".format(_u(osm_type or u"way"), _u(osm_id))
+    else:
+        ident = u"OSM {} {}".format(_u(place.get("osm_type") or u"way"),
+                                    _u(place.get("osm_id")))
+    label = _u(place.get("display_name") or feature_name or u"Unknown location")
+
+    return {
+        "id":                ident,
+        "parcel_id":         ident,
+        "display_address":   label,
+        "area_sqft":         u"{:,.0f}".format(area_sqft) if area_sqft else u"N/A",
+        "area_sqft_raw":     area_sqft,
+        "area_m2_raw":       area_m2,
+        "geometry":          {"type": "Polygon", "coordinates": [ring]},
+        "county":            county,
+        "state":             region,
+        "country":           country,
+        "zoning_code":       _u((extra or {}).get("zoning")),
+        "legal_description": _u(feature_name or place.get("name")),
+        "flood_zone":        u"",
+        "land_use":          _u((extra or {}).get("land_use")),
+        "lot_width":         u"",
+        "lot_depth":         u"",
+        "setbacks":          {},
+        # worldwide additions
+        "source":            source,
+        "boundary_kind":     kind,
+        "is_approximate":    bool(approximate),
+        "lat":               clat,
+        "lon":               clon,
+        "subtitle":          u"{}  ·  {}".format(kind,
+                                                      format_area_dual(area_sqft)),
+    }
+
+
+def primary_boundaries(address, limit=8, language=None):
+    """
+    Fast phase (~1s): geocode the address and return the polygons the geocoder
+    already carries for the matched objects.
+
+    Returns (places, results).  Raises ValueError when nothing geocodes.
+    """
+    places = geocode(address, limit=max(3, int(limit)), language=language)
+    if not places:
+        raise ValueError(
+            u"No location found for '{}'. Try adding the city and country, "
+            u"e.g. '25 Le Duan, District 1, Ho Chi Minh City, Vietnam'."
+            .format(_u(address)))
+
+    results, seen = [], set()
+    for index, place in enumerate(places):
+        if len(results) >= limit:
+            break
+        for ring in _rings_from_geojson(place.get("geojson")):
+            key = ring_key(ring)
+            if key in seen:
+                continue
+            seen.add(key)
+            kind, _rank = _classify({place.get("category"): place.get("type")})
+            results.append(_parcel_dict(ring, place, kind, OSM_SOURCE,
+                                        feature_name=place.get("name")))
+            if index:
+                break        # one shape per alternative match is plenty
+    return places, results
+
+
+def nearby_boundaries(place, limit=8, radius_m=DEFAULT_RADIUS_M,
+                      exclude=None, include_fallback=False,
+                      fallback_size_m=FALLBACK_PLOT_M):
+    """
+    Slow phase (~10-25s): the enclosures Overpass knows around *place*, ranked
+    plot-first.  *exclude* is a set of ring_key values already shown.
+
+    Never raises - a dead Overpass mirror just means fewer choices.
+    """
+    seen = set(exclude or ())
+    results = []
+    lat, lon = place["lat"], place["lon"]
+
+    # A district-sized polygon that happens to contain the point is still not
+    # the plot, so plot scale outranks containment.
+    candidates = overpass_boundaries(lat, lon, radius_m)
+    candidates.sort(key=lambda c: (c["oversized"], not c["contains"],
+                                   c["rank"], c["distance_m"], c["area_m2"]))
+    neighbours = 0
+    for cand in candidates:
+        if len(results) >= limit:
+            break
+        if not cand["contains"]:
+            # A handful of neighbours helps when the geocoder lands slightly
+            # off; a whole street of them is just noise.
+            if neighbours >= MAX_NEIGHBOURS and results:
+                continue
+            if cand["distance_m"] > NEIGHBOUR_DISTANCE_M and results:
+                continue
+        key = ring_key(cand["ring"])
+        if key in seen:
+            continue
+        seen.add(key)
+        if not cand["contains"]:
+            neighbours += 1
+        results.append(_parcel_dict(
+            cand["ring"], place, cand["kind"], OSM_SOURCE,
+            osm_id=cand["osm_id"], osm_type=cand["osm_type"],
+            feature_name=cand["name"],
+            extra={"land_use": cand["tags"].get("landuse")}))
+
+    # Nothing at all is mapped here: still hand back geometry at the right
+    # place on earth, clearly flagged as approximate.
+    if not results and not seen and include_fallback:
+        ring = (_bbox_ring(place.get("boundingbox")) or
+                _square_ring(lat, lon, fallback_size_m))
+        results.append(_parcel_dict(
+            ring, place, u"Approximate plot (no mapped boundary)",
+            OSM_SOURCE, approximate=True))
+
+    return results
+
+
+def search_boundaries(address, limit=8, radius_m=DEFAULT_RADIUS_M,
+                      language=None, include_fallback=True,
+                      fallback_size_m=FALLBACK_PLOT_M):
+    """
+    Address (anywhere on earth) -> ranked list of drawable boundaries.
+
+    No API key required.  Results are ordered best-first:
+      1. the boundary of the matched object itself (Nominatim polygon)
+      2. mapped plots/enclosures containing the geocoded point (Overpass)
+      3. nearby enclosures, closest first
+      4. an approximate square, only when nothing at all is mapped
+
+    Blocking, both phases.  A responsive UI should call primary_boundaries()
+    and nearby_boundaries() itself so the fast results paint immediately.
+
+    Raises ValueError when the address cannot be geocoded.
+    """
+    places, results = primary_boundaries(address, limit=limit,
+                                         language=language)
+    seen = set(ring_key(r["geometry"]["coordinates"][0]) for r in results)
+    results += nearby_boundaries(places[0], limit=max(0, limit - len(results)),
+                                 radius_m=radius_m, exclude=seen,
+                                 include_fallback=include_fallback,
+                                 fallback_size_m=fallback_size_m)
+    return results[:limit]

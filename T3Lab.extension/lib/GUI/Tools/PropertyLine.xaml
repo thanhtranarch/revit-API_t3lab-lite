@@ -1114,7 +1114,7 @@
             <!-- T3Lab Title + Subtitle Brand layout -->
             <StackPanel Grid.Column="0" Orientation="Vertical" Margin="24,0,0,0" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True">
                 <TextBlock Text="Property Line Tool" FontSize="15" FontWeight="Bold" Foreground="#18181B"/>
-                <TextBlock Text="Lookup and create property line boundaries from cadastral data" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
+                <TextBlock Text="Type any address worldwide and draw its property boundary in Revit" FontSize="12.5" Foreground="#71717A" Margin="0,2,0,0"/>
             </StackPanel>
 
             <!-- Window controls + Profile Icon -->
@@ -1219,7 +1219,7 @@
                         <!-- ─── ADDRESS SEARCH CARD ─── -->
                         <GroupBox Header="Search Property by Address" Style="{StaticResource T3PremiumCard}">
                             <StackPanel>
-                                <TextBlock Text="US Property Address" Style="{StaticResource FieldLabel}"/>
+                                <TextBlock Text="Property Address — anywhere in the world" Style="{StaticResource FieldLabel}"/>
                                 <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -1229,7 +1229,7 @@
                                              Grid.Column="0"
                                              Style="{StaticResource T3InputField}"
                                              KeyDown="txt_address_KeyDown"
-                                             ToolTip="e.g. 123 Main St, Los Angeles, CA 90001"
+                                             ToolTip="e.g. 268 Ly Thuong Kiet, District 10, Ho Chi Minh City, Vietnam"
                                              Margin="0,0,8,0"/>
                                     <Button x:Name="btn_search"
                                             Grid.Column="1"
@@ -1238,14 +1238,36 @@
                                             Style="{StaticResource PrimaryButton}"
                                             Click="btn_search_Click"/>
                                 </Grid>
-                                
+
                                 <!-- Inline address validation warning -->
                                 <TextBlock x:Name="txt_address_warning"
                                            Foreground="#B45309" FontSize="11"
                                            Margin="0,0,0,6" TextWrapping="Wrap"
                                            Visibility="Collapsed"/>
-                                <TextBlock Text="Example: 2255 Erwin Ah B., Ossana Mululerd, Carstore, CA 23062"
-                                           Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"/>
+
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="Data source"
+                                               Foreground="#64748B" FontSize="11.5"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,10,0"/>
+                                    <ComboBox x:Name="cmb_source"
+                                              Grid.Column="1"
+                                              Style="{StaticResource T3ComboBox}"
+                                              ToolTip="Auto uses LightBox cadastral parcels for US addresses when an API key is set, and OpenStreetMap everywhere else.">
+                                        <ComboBoxItem Content="Auto (recommended)" IsSelected="True"/>
+                                        <ComboBoxItem Content="OpenStreetMap (worldwide, no key)"/>
+                                        <ComboBoxItem Content="LightBox (US parcels, API key)"/>
+                                    </ComboBox>
+                                </Grid>
+
+                                <TextBlock Text="Examples: 268 Ly Thuong Kiet, District 10, Ho Chi Minh City · 1 Marina Boulevard, Singapore · Marienplatz 1, München · 20521 Paisley Ln, Huntington Beach, CA 92646"
+                                           Foreground="#9CA3AF" FontSize="11" FontStyle="Italic"
+                                           TextWrapping="Wrap"/>
                             </StackPanel>
                         </GroupBox>
 
@@ -1353,12 +1375,17 @@
                                                         <Ellipse Fill="#3B82F6" Width="8" Height="8" Visibility="Collapsed" x:Name="dot"/>
                                                     </Grid>
 
-                                                    <TextBlock Grid.Column="1" 
-                                                               Text="{Binding display_address}" 
-                                                               FontSize="13" 
-                                                               Foreground="#1F2937" 
-                                                               VerticalAlignment="Center"
-                                                               TextWrapping="Wrap"/>
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding display_address}"
+                                                                   FontSize="13"
+                                                                   Foreground="#1F2937"
+                                                                   TextWrapping="Wrap"/>
+                                                        <TextBlock Text="{Binding subtitle}"
+                                                                   FontSize="11"
+                                                                   Foreground="#64748B"
+                                                                   Margin="0,2,0,0"
+                                                                   TextWrapping="Wrap"/>
+                                                    </StackPanel>
                                                 </Grid>
 
                                                 <!-- Trigger to checked radio button visuals upon selection -->
@@ -1377,39 +1404,65 @@
 
                         <!-- ─── REVIT CREATION OPTIONS CARD ─── -->
                         <GroupBox Header="Revit Creation Options" Style="{StaticResource T3PremiumCard}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
 
-                                <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                    <TextBlock Text="Elevation (ft)" Style="{StaticResource FieldLabel}"/>
-                                    <TextBox x:Name="txt_elevation" Text="0.0"
-                                             Style="{StaticResource T3InputField}"/>
-                                </StackPanel>
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <TextBlock Text="Elevation" Style="{StaticResource FieldLabel}"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="txt_elevation" Text="0.0"
+                                                     Grid.Column="0"
+                                                     Margin="0,0,6,0"
+                                                     Style="{StaticResource T3InputField}"/>
+                                            <ComboBox x:Name="cmb_elev_unit"
+                                                      Grid.Column="1"
+                                                      Width="72"
+                                                      Style="{StaticResource T3ComboBox}"
+                                                      ToolTip="Unit of the elevation value above.">
+                                                <ComboBoxItem Content="m" IsSelected="True"/>
+                                                <ComboBoxItem Content="mm"/>
+                                                <ComboBoxItem Content="cm"/>
+                                                <ComboBoxItem Content="ft"/>
+                                            </ComboBox>
+                                        </Grid>
+                                    </StackPanel>
 
-                                <StackPanel Grid.Column="1" Margin="0,0,12,0">
-                                    <TextBlock Text="Line Category" Style="{StaticResource FieldLabel}"/>
-                                    <ComboBox x:Name="cmb_line_type"
-                                              Style="{StaticResource T3ComboBox}"
-                                              ToolTip="Note: Revit API does not support direct PropertyLine creation.">
-                                        <ComboBoxItem Content="Model Lines" IsSelected="True"/>
-                                        <ComboBoxItem Content="Detail Lines"/>
-                                    </ComboBox>
-                                </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                        <TextBlock Text="Line Category" Style="{StaticResource FieldLabel}"/>
+                                        <ComboBox x:Name="cmb_line_type"
+                                                  Style="{StaticResource T3ComboBox}"
+                                                  ToolTip="Note: Revit API does not support direct PropertyLine creation.">
+                                            <ComboBoxItem Content="Model Lines" IsSelected="True"/>
+                                            <ComboBoxItem Content="Detail Lines"/>
+                                        </ComboBox>
+                                    </StackPanel>
 
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Origin" Style="{StaticResource FieldLabel}"/>
-                                    <ComboBox x:Name="cmb_origin"
-                                              Style="{StaticResource T3ComboBox}">
-                                        <ComboBoxItem Content="Project Base Point" IsSelected="True"/>
-                                        <ComboBoxItem Content="Survey Point"/>
-                                        <ComboBoxItem Content="World Origin (0,0,0)"/>
-                                    </ComboBox>
-                                </StackPanel>
-                            </Grid>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Origin" Style="{StaticResource FieldLabel}"/>
+                                        <ComboBox x:Name="cmb_origin"
+                                                  Style="{StaticResource T3ComboBox}">
+                                            <ComboBoxItem Content="Project Base Point" IsSelected="True"/>
+                                            <ComboBoxItem Content="Survey Point"/>
+                                            <ComboBoxItem Content="World Origin (0,0,0)"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </Grid>
+
+                                <CheckBox x:Name="chk_set_geo"
+                                          Content="Also set the project location (latitude / longitude) from this boundary"
+                                          Foreground="#3F3F46" FontSize="12"
+                                          Margin="0,14,0,0"
+                                          ToolTip="Writes the boundary centroid into Revit's Site Location, so sun studies and energy analysis match the real site."/>
+                            </StackPanel>
                         </GroupBox>
 
                     </StackPanel>
@@ -1432,11 +1485,23 @@
                                 </Grid.RowDefinitions>
 
                                 <StackPanel Grid.Row="0">
-                                    <TextBlock Text="Parcel ID (APN)" Style="{StaticResource FieldLabel}"/>
+                                    <!-- Shown only for synthesised (unmapped) boundaries -->
+                                    <Border x:Name="border_approx_warning"
+                                            Background="#FFFBEB" BorderBrush="#FCD34D" BorderThickness="1"
+                                            CornerRadius="4" Padding="10,8" Margin="0,0,0,12"
+                                            Visibility="Collapsed">
+                                        <TextBlock Text="Approximate boundary — no plot is mapped at this address. The shape is a placeholder at the correct location; edit it against a survey before use."
+                                                   Foreground="#92400E" FontSize="11" TextWrapping="Wrap"/>
+                                    </Border>
+
+                                    <TextBlock Text="Parcel / Feature ID" Style="{StaticResource FieldLabel}"/>
                                     <TextBlock x:Name="txt_detail_id" Foreground="#1F2937" FontSize="13" Margin="0,0,0,12" FontWeight="Medium"/>
 
                                     <TextBlock Text="Address" Style="{StaticResource FieldLabel}"/>
                                     <TextBlock x:Name="txt_detail_address" Foreground="#1F2937" FontSize="13" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+                                    <TextBlock Text="Source / Boundary Type" Style="{StaticResource FieldLabel}"/>
+                                    <TextBlock x:Name="txt_detail_source" Foreground="#3B82F6" FontSize="12.5" Margin="0,0,0,12" TextWrapping="Wrap"/>
 
                                     <Grid Margin="0,0,0,12">
                                         <Grid.ColumnDefinitions>
@@ -1444,12 +1509,27 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
-                                            <TextBlock Text="County" Style="{StaticResource FieldLabel}"/>
-                                            <TextBlock x:Name="txt_detail_county" Foreground="#1F2937" FontSize="13"/>
+                                            <TextBlock Text="County / District" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_county" Foreground="#1F2937" FontSize="13" TextWrapping="Wrap"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="1">
-                                            <TextBlock Text="State" Style="{StaticResource FieldLabel}"/>
-                                            <TextBlock x:Name="txt_detail_state" Foreground="#1F2937" FontSize="13"/>
+                                            <TextBlock Text="State / Region" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_state" Foreground="#1F2937" FontSize="13" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Country" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_country" Foreground="#1F2937" FontSize="13" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="Centroid (lat, long)" Style="{StaticResource FieldLabel}"/>
+                                            <TextBlock x:Name="txt_detail_latlon" Foreground="#4B5563" FontSize="12"/>
                                         </StackPanel>
                                     </Grid>
                                 </StackPanel>
@@ -1566,14 +1646,30 @@
                     
                     <!-- Header / Title for Settings -->
                     <TextBlock Text="API Settings" FontSize="18" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,8"/>
-                    <TextBlock Text="Configure your Lightbox RE integration here to search and fetch cadastral properties."
-                               FontSize="13" Foreground="#64748B" Margin="0,0,0,24"/>
+                    <TextBlock Text="Worldwide search works without any key. A LightBox RE key is optional — it upgrades US addresses to surveyed cadastral parcels with APN, zoning and flood-zone data."
+                               FontSize="13" Foreground="#64748B" Margin="0,0,0,24" TextWrapping="Wrap"/>
+
+                    <!-- Worldwide source card -->
+                    <GroupBox Header="OpenStreetMap — worldwide (no key required)" Style="{StaticResource T3PremiumCard}">
+                        <StackPanel>
+                            <TextBlock Text="Every address on earth resolves through the OpenStreetMap stack, with no account or key:"
+                                       FontSize="12.5" Foreground="#3F3F46" Margin="0,0,0,12" TextWrapping="Wrap"/>
+                            <StackPanel Margin="12,0,0,0">
+                                <TextBlock Text="• Nominatim geocodes the address and returns the matched object's outline" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                <TextBlock Text="• Overpass adds the plots, site boundaries, fences and footprints mapped around it" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                <TextBlock Text="• Where nothing is mapped, an approximate plot is offered at the right coordinates and flagged as such" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                <TextBlock Text="• Coverage and accuracy follow OpenStreetMap — always verify against a survey before construction use" FontSize="12" Foreground="#B45309" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <TextBlock Text="Data © OpenStreetMap contributors, ODbL 1.0"
+                                       FontSize="11" Foreground="#9CA3AF" FontStyle="Italic" Margin="0,12,0,0"/>
+                        </StackPanel>
+                    </GroupBox>
 
                     <!-- API Key card -->
-                    <GroupBox Header="Lightbox RE API Key" Style="{StaticResource T3PremiumCard}">
+                    <GroupBox Header="LightBox RE API Key (optional, US only)" Style="{StaticResource T3PremiumCard}">
                         <StackPanel>
-                            <TextBlock Text="This key is used to authenticate requests to Lightbox RE API." FontSize="12.5" Foreground="#64748B" Margin="0,0,0,16" TextWrapping="Wrap"/>
-                            
+                            <TextBlock Text="This key is used to authenticate requests to the LightBox RE API. Leave it blank to use OpenStreetMap everywhere." FontSize="12.5" Foreground="#64748B" Margin="0,0,0,16" TextWrapping="Wrap"/>
+
                             <TextBlock Text="API Key" Style="{StaticResource FieldLabel}"/>
                             <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
@@ -1627,9 +1723,9 @@
                     <!-- Informative/Alert Box -->
                     <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="12" Padding="20,16" Margin="0,8,0,16">
                         <StackPanel>
-                            <TextBlock Text="About Lightbox API Integration" FontSize="14" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,8"/>
-                                    <TextBlock Text="Lightbox RE provides comprehensive coverage of US property boundaries and assessor information. Key features of this integration include:" FontSize="12.5" Foreground="#3F3F46" Margin="0,0,0,12" TextWrapping="Wrap"/>
-                            
+                            <TextBlock Text="About the LightBox API Integration" FontSize="14" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,8"/>
+                                    <TextBlock Text="LightBox RE provides comprehensive coverage of US property boundaries and assessor information. With a key configured, US addresses use it in preference to OpenStreetMap:" FontSize="12.5" Foreground="#3F3F46" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
                             <StackPanel Margin="12,0,0,0">
                                 <TextBlock Text="• Cadastral boundary coordinates (lat/long polygons)" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4"/>
                                 <TextBlock Text="• Detailed property metadata (APN, zoning, land use, county)" FontSize="12" Foreground="#3F3F46" Margin="0,0,0,4"/>

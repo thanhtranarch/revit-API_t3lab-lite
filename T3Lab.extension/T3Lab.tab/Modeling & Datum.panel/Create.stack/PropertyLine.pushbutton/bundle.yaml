@@ -1,9 +1,9 @@
 title: "Property\nLine"
-tooltip: "Create US property lines from Lightbox parcel data."
+tooltip: "Draw property lines anywhere in the world — just type the address."
 description: |
-  Paste or import a Lightbox parcel export
-  Automatically calculates bearing and distance for each boundary segment
-  Places a closed property line loop at the correct site coordinates
-  Supports metes-and-bounds descriptions and coordinate-based input
+  Type any address on earth and pick the matching boundary
+  Uses OpenStreetMap worldwide (no API key) and LightBox cadastral parcels for US addresses
+  Places a closed property line loop at the project base point, survey point or world origin
+  Optionally writes the site latitude/longitude into the project location
 author: "Tran Tien Thanh"
-version: "1.0.0"
+version: "2.0.0"

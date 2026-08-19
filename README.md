@@ -48,7 +48,7 @@ The tab exposes **7 panels**. Buttons marked *(DQT)* were developed in collabora
 | Tool | Description |
 |------|-------------|
 | **CAD to BIM** (pulldown) | **CAD to Elements** (map DWG layers → Walls / Floors / Beams), **Point Cloud to Model** (Scan-to-BIM wizard detecting walls, floors, ceilings, doors, windows, columns, stairs, roofs), **Room To Floor**, **Door Threshold**, **Image to Drafting**, **Text to Element**. |
-| **Property Line** | Build a closed property-line loop from Lightbox parcel data with computed bearings and distances. |
+| **Property Line** | Type any address worldwide and draw its property boundary: OpenStreetMap everywhere (no API key), LightBox cadastral parcels for US addresses. |
 | **Tile Layout** | 3-step wizard: extract floor boundaries, pick a tile pattern per floor, generate and place a tiled layout. |
 | **Element Adjust** (pulldown) | **Auto Join** (rule-based joining, Shift+Click for defaults) *(DQT)*, **Split Elements** at levels, **Wall Cut Profile** from linked-model intersections, **Auto Adj Base Offset**. |
 | **FamiGen** | Family generator — from CAD blocks (DWG → .rfa), from a JSON schema, or from built-in batch presets. |
