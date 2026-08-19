@@ -56,6 +56,7 @@ from Autodesk.Revit.DB import (
     PointCloudInstance,
     IFailuresPreprocessor,
     FailureProcessingResult,
+    FailureSeverity,
     ElementId,
     FamilySymbol,
     DetailLine,
@@ -85,14 +86,36 @@ XAML_FILE  = os.path.join(EXT_DIR, 'lib', 'GUI', 'Tools', 'PointCloud.xaml')
 # DEFINE VARIABLES
 # ==============================================================================
 logger        = script.get_logger()
-doc           = revit.doc
-uidoc         = revit.uidoc
 # Read from the Application, not the document: `revit.doc` is None when this
 # tool is launched from the Assistant pane or with no project open, and the
 # old `int(revit.doc.Application.VersionNumber)` raised at IMPORT time
 # ('NoneType' object has no attribute 'Application') so the window never opened.
-from Snippets._host import get_revit_version
+from Snippets._host import get_revit_version, resolve_doc, host_uiapp
 REVIT_VERSION = get_revit_version()
+
+# Same null-document trap, one layer deeper: `revit.doc` is None from the
+# Assistant pane, and ElementBuilder runs a FilteredElementCollector in
+# PointCloudModelWindow.__init__ — a bare `revit.doc` took the window down
+# before it ever rendered. resolve_doc() is the repo-wide fallback chain and
+# hands back an actionable message instead of a null-document crash.
+doc, DOC_ERROR = resolve_doc()
+
+
+def _resolve_uidoc():
+    """Best available UIDocument; None when no view context exists."""
+    try:
+        if revit.uidoc is not None:
+            return revit.uidoc
+    except Exception:
+        pass
+    uiapp = host_uiapp()
+    try:
+        return uiapp.ActiveUIDocument if uiapp is not None else None
+    except Exception:
+        return None
+
+
+uidoc = _resolve_uidoc()
 
 # CLASS / FUNCTIONS
 # ==============================================================================
@@ -539,6 +562,7 @@ class PointCloudAnalyzer(object):
         self._grid_angles = self._load_grid_angles()
         self._xy_index    = None   # built lazily by _points_near
         self._footprint_cells = None   # built lazily (500 mm occupancy)
+        self._levels_cache    = None   # built lazily by _all_levels
 
     def _points_near(self, cx, cy, ex, ey):
         """
@@ -592,9 +616,21 @@ class PointCloudAnalyzer(object):
                     return cand, True, u"Snapped {:.1f}°".format(math.degrees(cand))
         return a, False, u"{:.2f}°".format(math.degrees(a))
 
+    def _all_levels(self):
+        """Project levels, queried once. _best_level runs per detected element,
+        so a fresh FilteredElementCollector sweep each call turned level
+        lookup into the dominant cost of a large detection run."""
+        if self._levels_cache is None:
+            try:
+                self._levels_cache = list(
+                    FilteredElementCollector(doc).OfClass(Level).ToElements())
+            except Exception:
+                self._levels_cache = []
+        return self._levels_cache
+
     def _best_level(self, z_ft):
         """Find the closest Level element at or below z_ft."""
-        levels = FilteredElementCollector(doc).OfClass(Level).ToElements()
+        levels = self._all_levels()
         best      = None
         best_diff = float('inf')
         for lv in levels:
@@ -679,11 +715,22 @@ class PointCloudAnalyzer(object):
                     continue
                 thresh = max(10, max(counts.values()) * 0.25)
 
-                # Merge consecutive dense bins into thickness bands
+                # Merge consecutive dense bins into thickness bands.
+                # The gap tolerance must span a whole wall, not just sampling
+                # noise: a wall scanned from both sides gives TWO dense faces
+                # with an EMPTY core between them (no points inside solid
+                # masonry). A 100 mm tolerance split every partition thicker
+                # than ~150 mm into two parallel walls, and each half-band
+                # then measured ~0 thickness and fell back to the 75 mm floor
+                # clamp — so every generated wall also got the thinnest wall
+                # type in the project. Merging across max_thickness lets both
+                # faces land in one band; the 900 mm band-width guard below
+                # still throws out genuine oblique smears.
+                max_gap_bins = max(2, int(max_thickness / bin_n))
                 bands, band = [], []
                 for k in sorted(counts.keys()):
                     if counts[k] >= thresh:
-                        if band and k - band[-1] > 2:
+                        if band and k - band[-1] > max_gap_bins:
                             bands.append(band)
                             band = []
                         band.append(k)
@@ -1304,6 +1351,41 @@ class PointCloudAnalyzer(object):
 
 # ── Section 6: ElementBuilder ─────────────────────────────────────────────────
 
+class WarningSwallower(IFailuresPreprocessor):
+    """
+    Suppress Revit's modal warning dialogs during batch creation.
+
+    Scan-derived geometry is noisy by nature, so nearly every element raises
+    a warning: walls slightly off axis, walls overlapping at unmitred corners,
+    floors/ceilings overlapping a wall, openings not fully inside their host.
+    Without a preprocessor each of those stops the batch on a modal dialog —
+    with a TransactionGroup open and hundreds of elements queued the user sees
+    a frozen Revit and kills the process, losing the whole session. Warnings
+    are deleted; genuine errors are resolved and the commit proceeds.
+    """
+
+    def PreprocessFailures(self, failuresAccessor):
+        fail_list = failuresAccessor.GetFailureMessages()
+        if fail_list.Count == 0:
+            return FailureProcessingResult.Continue
+
+        has_error = False
+        for failure in fail_list:
+            severity = failure.GetSeverity()
+            if severity == FailureSeverity.Warning:
+                failuresAccessor.DeleteWarning(failure)
+            elif severity == FailureSeverity.Error:
+                has_error = True
+                try:
+                    failuresAccessor.ResolveFailure(failure)
+                except Exception:
+                    pass
+
+        if has_error:
+            return FailureProcessingResult.ProceedWithCommit
+        return FailureProcessingResult.Continue
+
+
 class ElementBuilder(object):
     """Creates Revit elements from DetectedElement data inside named Transactions."""
 
@@ -1313,13 +1395,35 @@ class ElementBuilder(object):
         self._floor_types = self._load_floor_types()
         self._levels      = self._load_levels()
 
+    def _start(self, t):
+        """Start a transaction with warnings suppressed.
+
+        Must run after Start(): the options object is per-transaction, and a
+        rollback has to clear its own failures or the next commit inherits
+        them.
+        """
+        t.Start()
+        try:
+            opts = t.GetFailureHandlingOptions()
+            opts.SetFailuresPreprocessor(WarningSwallower())
+            opts.SetClearAfterRollback(True)
+            t.SetFailureHandlingOptions(opts)
+        except Exception as ex:
+            logger.debug("failure handling options: {}".format(ex))
+
     def _load_wall_types(self):
+        if self.doc is None:
+            return []
         return list(FilteredElementCollector(self.doc).OfClass(WallType).ToElements())
 
     def _load_floor_types(self):
+        if self.doc is None:
+            return []
         return list(FilteredElementCollector(self.doc).OfClass(FloorType).ToElements())
 
     def _load_levels(self):
+        if self.doc is None:
+            return {}
         lvs = FilteredElementCollector(self.doc).OfClass(Level).ToElements()
         return {lv.Name: lv for lv in lvs}
 
@@ -1389,7 +1493,7 @@ class ElementBuilder(object):
             return None
 
         with Transaction(self.doc, "T3Lab: Create Wall") as t:
-            t.Start()
+            self._start(t)
             try:
                 wall = Wall.Create(self.doc, wline, wt.Id, lv.Id,
                                    height_ft, 0.0, False, False)
@@ -1411,7 +1515,7 @@ class ElementBuilder(object):
         cl = self._rect_curve_loop(d['corners_xy'], d['z_ft'])
 
         with Transaction(self.doc, "T3Lab: Create Floor") as t:
-            t.Start()
+            self._start(t)
             try:
                 if REVIT_VERSION >= 2022:
                     profile = List[CurveLoop]()
@@ -1441,7 +1545,7 @@ class ElementBuilder(object):
         cl = self._rect_curve_loop(d['corners_xy'], d['z_ft'])
 
         with Transaction(self.doc, "T3Lab: Create Ceiling") as t:
-            t.Start()
+            self._start(t)
             try:
                 if REVIT_VERSION >= 2022:
                     from Autodesk.Revit.DB import Ceiling, CeilingType
@@ -1496,7 +1600,7 @@ class ElementBuilder(object):
         pt  = XYZ(d['cx'], d['cy'], d['z_bot_ft'])
 
         with Transaction(self.doc, "T3Lab: Create Column") as t:
-            t.Start()
+            self._start(t)
             try:
                 if not sym.IsActive:
                     sym.Activate()
@@ -1540,7 +1644,7 @@ class ElementBuilder(object):
             return None
 
         with Transaction(self.doc, "T3Lab: Create {}".format(elem.Type)) as t:
-            t.Start()
+            self._start(t)
             try:
                 if not sym.IsActive:
                     sym.Activate()
@@ -1579,7 +1683,7 @@ class ElementBuilder(object):
         n       = len(pts)
 
         with Transaction(self.doc, "T3Lab: Create Roof") as t:
-            t.Start()
+            self._start(t)
             try:
                 ca = CurveArray()
                 for i in range(n):
@@ -1615,6 +1719,7 @@ class ElementBuilder(object):
 
         counts = {k: 0 for k in ['Wall', 'Floor', 'Ceiling', 'Column',
                                   'Door', 'Window', 'Stair', 'Roof']}
+        skipped       = {'Stair': 0}
         errors        = 0
         created_walls = {}   # id(detected wall _data dict) → Revit Wall element
 
@@ -1654,7 +1759,11 @@ class ElementBuilder(object):
                     if r:   counts['Roof'] += 1
                     else:   errors += 1
                 elif elem.Type == 'Stair':
-                    counts['Stair'] += 1  # marker only
+                    # build_stair_marker is a stub — creation needs the
+                    # Architecture stairs API. Counting it as created reported
+                    # "N Stairs" in the summary for elements that were never
+                    # placed; track it separately and tell the truth.
+                    skipped['Stair'] += 1
 
             # Pass 3: doors / windows — host into the wall each opening was
             # detected in; fall back to any created wall
@@ -1679,7 +1788,7 @@ class ElementBuilder(object):
                 tg.RollBack()
             raise
 
-        return {'counts': counts, 'errors': errors}
+        return {'counts': counts, 'errors': errors, 'skipped': skipped}
 
 
 # ── Section 7: WPF Wizard Window ──────────────────────────────────────────────
@@ -2063,9 +2172,15 @@ class PointCloudModelWindow(forms.WPFWindow):
             summary = self._builder.build_all(selected, self._wall_height_ft)
             counts  = summary['counts']
             errors  = summary['errors']
+            skipped = summary.get('skipped') or {}
             parts   = [u"{} {}".format(v, k)
                        for k, v in counts.items() if v > 0]
             msg = (u"Created: " + u", ".join(parts)) if parts else u"No elements created."
+            n_stair = skipped.get('Stair', 0)
+            if n_stair:
+                msg += (u"\n{} stair(s) detected but NOT created — stair "
+                        u"creation is not supported yet; model them "
+                        u"manually.".format(n_stair))
             if errors:
                 msg += u"\n{} element(s) failed — see pyRevit log.".format(errors)
             TaskDialog.Show("Point Cloud to Model", msg)
@@ -2140,6 +2255,22 @@ def _pick_region_into(state):
 
 if __name__ == '__main__':
     try:
+        # No target document — bail with the actionable message from
+        # resolve_doc() rather than letting ElementBuilder's collector throw
+        # inside PointCloudModelWindow.__init__ (window never opens, and the
+        # traceback names FilteredElementCollector rather than the real cause).
+        if doc is None:
+            TaskDialog.Show("Point Cloud to Model",
+                            DOC_ERROR or u"No Revit model is open.")
+            raise SystemExit
+        if uidoc is None:
+            TaskDialog.Show(
+                "Point Cloud to Model",
+                u"This tool needs an active Revit view to select a point "
+                u"cloud in.\nOpen the model's plan or 3D view and run it "
+                u"from the T3Lab ribbon button.")
+            raise SystemExit
+
         # Dialog loop: picking must happen while Execute is still on the
         # stack (valid Revit API context). Each pick button CLOSES the
         # dialog with a request; the pick runs here; the dialog re-opens
