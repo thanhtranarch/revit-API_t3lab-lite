@@ -18,6 +18,13 @@ T3Lab UI consistency audit theo chuẩn Lumina (CPython 3, chạy ngoài Revit).
 File UI-locked (DWGManagement, ExportManager, T3LabAssistant) chỉ báo info,
 không tính vi phạm.
 
+File Revit-native (T3LabAssistant, UIStandardShowcase) cố tình mặc "da" của
+chính Revit — Segoe UI + palette GUI/RevitTheme.py, đổi theo Light/Dark của
+host — thay cho Lumina. Với các file này, 3 luật CHỈ thuộc về Lumina được bỏ
+qua: font Segoe UI, root thiếu Hanken Grotesk/Inter, và block shared styles.
+Mọi luật còn lại (copyright, WindowChrome, glyph chrome, dot-notation) vẫn áp
+dụng đầy đủ.
+
 Usage:
     python3 dev/audit_ui.py           # báo cáo đầy đủ
     python3 dev/audit_ui.py --quiet   # chỉ vi phạm, exit 1 nếu có
@@ -44,6 +51,19 @@ UI_LOCKED = {"DWGManagement.xaml", "ExportManager.xaml",
              # Xem docs/assistant-revit-ui.md.
              "T3LabAssistant.xaml"}
 
+# XAML cố tình mặc "da" của Revit thay vì Lumina: font hệ thống Segoe UI, màu
+# lấy từ GUI/RevitTheme.py qua {DynamicResource T3Theme*} nên đổi theo Light/Dark
+# của host. Đây là lựa chọn thiết kế, không phải file chưa migrate — chỉ 3 luật
+# thuần Lumina dưới đây được miễn, phần còn lại vẫn bị soi như mọi file khác.
+REVIT_THEMED = {
+    # Chat surface trong DockablePane — xem docs/assistant-revit-ui.md.
+    "T3LabAssistant.xaml",
+    # Bản tham chiếu của tool dialog Revit-native (Segoe UI 12, viền 1px vuông,
+    # nút 23px). File này nằm ngoài sync_wpf_styles.py nên không có block shared
+    # styles, và mọi style của nó tự định nghĩa bằng token theme.
+    "UIStandardShowcase.xaml",
+}
+
 # Item-template XAML (root là list-row <Border>/<DataTemplate>, không phải cửa sổ)
 # — chuẩn miễn trừ copyright cho các file này.
 COPYRIGHT_EXEMPT = {"CadtoFloorLayerItem.xaml"}
@@ -66,6 +86,7 @@ OLD_PALETTE = {
 
 def audit_file(src, base):
     issues = []
+    revit_themed = base in REVIT_THEMED
     is_window = re.search(r'<\s*Window[\s>]', src) is not None
 
     for hexv, name in OLD_PALETTE.items():
@@ -75,13 +96,28 @@ def audit_file(src, base):
 
     if re.search(r'FontFamily="[^"]*Manrope', src):
         issues.append("FontFamily Manrope (cấm)")
-    for m in re.finditer(r'FontFamily="([^"]*Segoe UI[^"]*)"', src):
-        issues.append("FontFamily Segoe UI (%s)" % m.group(1))
+    if not revit_themed:
+        # Segoe UI là font UI của chính Revit: cấm trong file Lumina, nhưng bắt
+        # buộc trong file Revit-native.
+        for m in re.finditer(r'FontFamily="([^"]*Segoe UI[^"]*)"', src):
+            issues.append("FontFamily Segoe UI (%s)" % m.group(1))
 
     if is_window:
         wtag = re.search(r'<Window\b[^>]*>', src, re.S)
-        if wtag and not re.search(r'FontFamily="(Hanken Grotesk|Inter)[^"]*"', wtag.group(0)):
+        if wtag and not revit_themed and not re.search(
+                r'FontFamily="(Hanken Grotesk|Inter)[^"]*"', wtag.group(0)):
             issues.append("Window root thiếu FontFamily Hanken Grotesk/Inter")
+        # Chiều ngược lại: file Revit-native PHẢI khai Segoe UI ở root. Bỏ qua
+        # file UI-locked — chúng không được sửa nên báo chỉ tạo nhiễu.
+        if (wtag and revit_themed and base not in UI_LOCKED
+                and not re.search(r'FontFamily="Segoe UI"', wtag.group(0))):
+            issues.append("Window root Revit-native thiếu FontFamily Segoe UI")
+        # Caption: file Revit-native VAN tu ve caption bang WindowChrome.
+        # Dialog that cua Revit dung title bar goc cua Windows, nhung caption
+        # goc di theo theme cua WINDOWS chu khong theo Revit — Revit dark tren
+        # Windows light se ra thanh tieu de trang tren cua so toi. Tu ve la cach
+        # duy nhat trong WPF thuan de caption di theo Revit.
+        # Xem docs/revit-native-ui.md.
         chrome = re.search(r'<WindowChrome\b(.*?)/>', src, re.S)
         if chrome:
             if "\n" not in chrome.group(0):
@@ -91,7 +127,7 @@ def audit_file(src, base):
                                    "UseAeroCaptionButtons") if a not in chrome.group(1)]
             if missing:
                 issues.append("WindowChrome thiếu: %s" % ",".join(missing))
-        else:
+        elif not revit_themed:
             issues.append("không có WindowChrome")
 
     if base not in COPYRIGHT_EXEMPT:
@@ -123,7 +159,7 @@ def audit_file(src, base):
     if "&#x25A1;" in src:
         issues.append("maximize dùng white square (phải &#xE922;)")
 
-    if "T3LAB SHARED STYLES" not in src:
+    if not revit_themed and "T3LAB SHARED STYLES" not in src:
         issues.append("thiếu block shared styles")
 
     return issues, ("A" if is_window else "B")

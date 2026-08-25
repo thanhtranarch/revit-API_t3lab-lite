@@ -4,7 +4,7 @@ pyRevit extension for Revit automation.
 Framework: IronPython 2.7 + WPF + Revit API
 
 ## Rules
-- Always follow `.claude/rules/ui-design-standard.md` for any UI work (T3Lab Lumina design system, utilizing Hanken Grotesk and ultra-thin scrollbars)
+- Always follow `.claude/rules/ui-design-standard.md` for any UI work. It now describes **two tracks**: **Revit-native** (Segoe UI 12, square 1px chrome, colours from `GUI/RevitTheme.py` following Revit Light/Dark) for new tools and for `UIStandardShowcase.xaml`; **Lumina** (Hanken Grotesk, rounded cards) for the ~50 tool XAMLs not yet migrated. Read the table at the top of that file before editing any XAML — the ultra-thin scrollbar applies to both.
 - XAML files go in `T3Lab.extension/lib/GUI/Tools/`
 - Python dialog classes stay in `T3Lab.extension/lib/GUI/`
 - Keep Revit API logic separate from WPF/UI code
@@ -80,7 +80,9 @@ Agent definitions: `.claude/agents/`
 
 | Resource | Path |
 |----------|------|
-| Canonical UI | `.claude/standard/UIStandardShowcase.xaml` |
+| Canonical UI (Revit-native) | `.claude/standard/UIStandardShowcase.xaml` |
+| Revit theme palette (light/dark tokens) | `T3Lab.extension/lib/GUI/RevitTheme.py` |
+| Revit-native UI research + host palette bridge | `docs/revit-native-ui.md` |
 | All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
 | Shared styles | `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` |
 | Logo asset | `T3Lab.extension/lib/GUI/T3Lab_logo.png` |
