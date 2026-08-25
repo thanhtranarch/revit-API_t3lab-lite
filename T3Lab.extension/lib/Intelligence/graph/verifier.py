@@ -68,6 +68,15 @@ _COUNT_QUESTION = (
 # almost certainly cut off by the token budget.
 _ENDINGS = u'.!?:;)]}"\'`…。！？'
 
+# Refusal/tool-error phrases are only checked in this many leading chars of
+# the (folded) answer. A genuine refusal IS the answer, so it opens the
+# response; a legitimate technical explanation can legally contain the same
+# words mid-sentence ("vật liệu X không hỗ trợ tham số Y", a schedule column
+# literally named "Error Code") without being a refusal or a leaked error.
+# Unqualified anywhere-in-text matching flagged those as 'refusal'/'tool_error'
+# and cost a real DONE result its score for nothing.
+_LEADING_ZONE_CHARS = 120
+
 
 def _fold(text):
     folded = vi_text.fold_diacritics(text or u'').lower()
@@ -126,13 +135,14 @@ class Verifier(object):
             score -= 0.4
 
         folded = _fold(text)
-        padded = u' ' + folded + u' '
+        lead_folded = folded[:_LEADING_ZONE_CHARS]
+        padded = u' ' + lead_folded + u' '
 
         if any((u' ' + p + u' ') in padded for p in _REFUSAL_PHRASES):
             reasons.append('refusal')
             score -= 0.5
 
-        low = text.lower()
+        low = text[:_LEADING_ZONE_CHARS].lower()
         if any(m in low for m in _TOOL_ERROR_MARKERS):
             reasons.append('tool_error')
             score -= 0.4

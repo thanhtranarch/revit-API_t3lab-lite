@@ -154,17 +154,60 @@ def _class_attr_set(src, class_name, attr):
     raise AssertionError('could not find {}.{}'.format(class_name, attr))
 
 
+def _teach_boundary_constants():
+    """{class-attr name: string value} for `_TEACH_*_TOOL = 'x'` constants.
+
+    `_teach_handle_boundary` dispatches on `tool_name == self._TEACH_X_TOOL`
+    rather than a literal string, because those tools are handled locally
+    (no Revit) by a shared helper instead of the main branch chain. Resolving
+    the constants lets the drift check below see through the indirection
+    instead of treating every teaching tool as unimplemented.
+    """
+    out = {}
+    pat = re.compile(r"^\s*(_TEACH_[A-Z_]+)\s*=\s*'([a-z0-9_]+)'\s*$")
+    for line in _SERVER_SRC.splitlines():
+        m = pat.match(line)
+        if m:
+            out[m.group(1)] = m.group(2)
+    return out
+
+
 def _dispatch_branches():
-    """{tool_name: source_text} for each `elif tool_name == 'x':` branch."""
+    """{tool_name: source_text} for each dispatch branch.
+
+    Covers both the literal `elif tool_name == 'x':` chain in
+    `_handle_tool_call`, and `_teach_handle_boundary`'s
+    `if tool_name == self._TEACH_X_TOOL:` branches (see
+    `_teach_boundary_constants`) — a different method, but still a real,
+    reachable dispatch site for those tool names.
+    """
     lines = _SERVER_SRC.splitlines()
+    consts = _teach_boundary_constants()
+    # (line_no, name or None). A None entry is a boundary marker only — the
+    # next method definition — so a branch slice can never leak past the
+    # method it lives in (the const-dispatch branches sit in a *different*,
+    # much shorter method than the main elif chain, so without this a branch
+    # near the end of that method would swallow unrelated code below it).
     starts = []
     pat = re.compile(r"^\s*(?:el)?if\s+tool_name\s*==\s*'([a-z0-9_]+)'\s*:")
+    const_pat = re.compile(
+        r"^\s*if\s+tool_name\s*==\s*self\.(_TEACH_[A-Z_]+)\s*:")
+    def_pat = re.compile(r"^\s{4}def\s+\w+\(")
     for i, line in enumerate(lines):
         m = pat.match(line)
         if m:
             starts.append((i, m.group(1)))
+            continue
+        m = const_pat.match(line)
+        if m and m.group(1) in consts:
+            starts.append((i, consts[m.group(1)]))
+            continue
+        if def_pat.match(line):
+            starts.append((i, None))
     out = {}
     for idx, (line_no, name) in enumerate(starts):
+        if name is None:
+            continue
         end = starts[idx + 1][0] if idx + 1 < len(starts) else len(lines)
         out[name] = '\n'.join(lines[line_no:end])
     return out

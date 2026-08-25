@@ -1,6 +1,6 @@
 # T3Lab Assistant — knowledge, skills, trí thông minh & tốc độ
 
-> Cập nhật 2026-08-02 (mục 7, 8). Các file liên quan:
+> Cập nhật 2026-08-16 (mục 13). Các file liên quan:
 > `lib/Intelligence/telemetry.py`, `conversation.py`, `feedback.py`,
 > `knowledge/query_builder.py`, `knowledge/rerank.py`,
 > `agent_loop.py`, `agents/dispatcher.py`, `skills_engine.py`,
@@ -583,3 +583,78 @@ python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3
 ```
 QA thật: máy B chỉ có `qwen3:14b` vanilla + repo đã commit `teacher_exemplars.json`
 → mở Assistant hỏi task đã dạy → phản hồi bám mẫu, không cần model đã train.
+
+---
+
+## 13. Rà soát trí thông minh toàn diện + 2 fix an toàn (2026-08-16)
+
+Đợt định kỳ rà lại "trí thông minh" của assistant: độ chính xác câu trả lời, hiểu
+ngữ cảnh, logic quyết định, tích hợp dữ liệu ngoài, nợ kỹ thuật/nghẽn hiệu năng.
+Đọc trực tiếp mã nguồn `language/`, `graph/`, `knowledge/`, `agents/`,
+`learning/`, `nlu_engine.py`, các provider, và test suite hiện có — không suy
+đoán từ tài liệu.
+
+### 13.1 Kết luận chung
+
+Hệ thống trưởng thành hơn một "chatbot bảng từ khoá" điển hình nhiều: lớp
+`graph/` và `language/` được thiết kế **bảo thủ có chủ đích**, có tài liệu hoá kỹ
+các false-positive đã từng gặp, và có test suite lớn đang xanh (134/396/~860+
+check). Vòng self-study/distillation là thật, không phải nửa vời. Hai điểm sửa
+được ngay đợt này (an toàn, có test bao phủ) — phần còn lại đưa vào backlog vì
+rủi ro/quy mô vượt một đợt rà soát tự động không có người theo dõi trực tiếp.
+
+### 13.2 Fix #1 — `dev/test_tool_registry.py` không thấy 7 tool dạy/train
+
+`_dispatch_branches()` chỉ khớp `elif tool_name == 'x':` theo chuỗi literal.
+7 tool `t3lab_begin_teaching`/`t3lab_end_teaching`/`t3lab_set_teaching_mode`/
+`t3lab_mark_sandbox`/`t3lab_training_status`/`t3lab_train_model`/
+`t3lab_build_exemplars` được dispatch **thật** qua `_teach_handle_boundary`
+(`core/server.py`), nhưng bằng `tool_name == self._TEACH_X_TOOL` (hằng số class,
+không phải chuỗi literal) — nên checker báo "thiếu dispatch branch" dù cả 7 tool
+đều chạy được. Một test đỏ "được biết là false positive" huấn luyện người đọc bỏ
+qua kỷ luật mà chính file này tồn tại để ép buộc.
+
+Sửa: `_dispatch_branches()` resolve thêm các hằng `_TEACH_*_TOOL = '...'` và
+khớp `tool_name == self._TEACH_X_TOOL`, đồng thời chặn biên mỗi branch tại `def `
+tiếp theo (không chỉ tại `elif tool_name ==` tiếp theo) — nếu không, branch cuối
+cùng (`t3lab_build_exemplars`) sẽ "nuốt" luôn mã không liên quan phía dưới trong
+cùng method và làm hỏng test khác (`test_every_argument_read_is_declared` báo
+nhầm arg `x` chưa khai báo — thật ra đọc từ tool khác ở xa phía dưới).
+
+### 13.3 Fix #2 — `graph/verifier.py` khớp refusal/tool_error trên toàn văn bản
+
+`_REFUSAL_PHRASES`/`_TOOL_ERROR_MARKERS` trước đây quét **toàn bộ** câu trả lời.
+Một giải thích kỹ thuật hợp lệ chứa cụm khớp giữa câu (vd. "Vật liệu Concrete
+không hỗ trợ tham số Fire Rating") bị gắn nhãn `refusal` sai, kéo điểm xuống dưới
+`RETRY_THRESHOLD`, khiến executor coi một kết quả `DONE` đúng là `FAILED` và tốn
+một lượt fallback/adapt vô ích.
+
+Sửa: chỉ quét trong `_LEADING_ZONE_CHARS = 120` ký tự đầu (đã fold+lower) — một
+refusal/tool-error thật gần như luôn **mở đầu** câu trả lời; nội dung hợp lệ
+chứa từ khoá tương tự ở giữa/cuối câu không còn bị vạ lây.
+
+### Kiểm chứng (H)
+```bash
+python3 dev/test_tool_registry.py
+python3 dev/test_graph_agents.py       # verifier + orchestrator + trace — không hồi quy
+python3 dev/test_language.py
+python3 dev/test_assistant_routing.py
+python3 dev/test_knowledge.py
+python3 dev/audit_tools.py --quiet && python3 dev/audit_ui.py --quiet && python3 dev/sync_wpf_styles.py --check
+```
+Tất cả xanh. Không sửa file XAML nào.
+
+### 13.4 Backlog — chưa sửa đợt này (theo impact/effort)
+
+| Mục | Vị trí | Impact | Effort | Vì sao chưa sửa đợt này |
+|---|---|---|---|---|
+| Vốn từ category `language/entities.py` (~35) hụt so với `_BIC_NAMES` (~75+) trong `core/server.py` — miss routing/entity-hint/ellipsis cho phần lớn category MEP/kết cấu/annotation | `language/entities.py` | Trung bình | M | Nên sinh tự động từ `_BIC_NAMES`/`_BIC_ALIASES` thay vì tay — cần review kỹ để không phá 134 test hiện có |
+| Ellipsis chỉ nối lại khi follow-up thêm category/level/sheet; màu/vật liệu/warning không được | `language/analyzer.py` (`resolve_ellipsis`) | Thấp-Trung bình | S | Cần thêm test case trước khi mở rộng tập thay thế |
+| BM25-only, không đồng nghĩa/embedding trên đường injection mặc định → câu hỏi diễn giải khác từ (không trùng token) với văn bản tiêu chuẩn trả về rỗng | `knowledge/vi_text.py`, script.py `_build_knowledge_reference` | Trung bình | M | Cần bảng đồng nghĩa domain BIM VI — nội dung cần người thẩm định, không tự soạn |
+| Chunk PDF không nối qua trang — bảng/mệnh đề bị cắt ngang biên trang thành 2 chunk mồ côi | `knowledge/chunker.py` | Trung bình | M | Cần test với PDF tiêu chuẩn thật để tránh nối sai |
+| `nlu_engine.py` (2273 dòng) chạy trước mọi tin nhắn với bộ chuẩn hoá/alias **riêng**, tách khỏi `language/normalizer.py` — đúng lớp lỗi mà `language/` sinh ra để giải quyết nhưng `nlu_engine.py` chưa migrate | `nlu_engine.py` | Trung bình | L | Module lớn, chạy trước mọi lượt chat — rủi ro hồi quy cao, cần bộ test mở rộng trước khi đụng |
+| `OllamaProvider`/`LmStudioProvider.chat_stream()` không override — đường trả lời `/knowledge` block toàn văn thay vì stream từng token thật (đường agentic `chat_agent` đã stream đúng) | `ollama_provider.py`, `lmstudio_provider.py` | Trung bình | S-M | Ollama giờ là provider mặc định (mục 9.1) nên đáng làm sớm, nhưng cần test hành vi stream thật, ngoài phạm vi đợt rà soát |
+
+Không phát hiện thêm nợ kỹ thuật mới ngoài các mục trên — các mục Thấp còn treo
+từ §7.2/§8 (đã rà lại ở §9.4) vẫn giữ nguyên trạng thái, không đổi.
+
