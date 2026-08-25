@@ -135,7 +135,7 @@ def parse_command(user_input, context=""):
 
         user_content = "Command: {}\nContext: {}".format(user_input, context)
         body_data = {
-            "model": "claude-haiku-4-5-20251001",
+            "model": "claude-haiku-4-5",
             "max_tokens": 300,
             "system": SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_content}],
