@@ -21,11 +21,12 @@ Không làm việc bằng trí nhớ từ cycle trước — nội dung file có
 
   1. pyRevit UI Design System/T3LAB_UI_STANDARD.md
      → CHUẨN DUY NHẤT: token màu, 7 size chữ, spacing, chiều cao, bo góc,
-       12 luật bố cục, 5 pattern P1-P5, 8 component chrome, checklist review.
+       12 luật bố cục, 5 pattern P1-P5, 8 component chrome, 14 component
+       data-dense, checklist review.
        Đây là FILE MẪU ĐỂ REFER — không phải file runtime.
 
   2. pyRevit UI Design System/T3Lab.Styles.xaml
-     → 92 resource key T3.* — nguồn duy nhất của brush/size/style.
+     → 106 resource key T3.* — nguồn duy nhất của brush/size/style.
        `python3 dev/sync_t3_styles.py` NHÚNG nội dung file này vào
        <Window.Resources> của từng tool XAML, giữa 2 marker "T3 STYLES".
        Sửa ở NGUỒN rồi chạy sync; KHÔNG BAO GIỜ sửa tay khối đã nhúng.
@@ -36,6 +37,13 @@ Không làm việc bằng trí nhớ từ cycle trước — nội dung file có
        IOException: Assembly.GetEntryAssembly() returns null. Nạp dictionary
        từ Python sau đó cũng vô ích vì {StaticResource} resolve NGAY LÚC PARSE.
        Chi tiết: 08-design-system-authority.md §5.
+
+  2b. T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml
+     → FILE MẪU. Render đủ 5 pattern (P1-P5) đúng như mock chuẩn, dùng
+       96/106 key. Cần dựng UI thì MỞ FILE NÀY, tìm pattern của mình,
+       COPY khối đó — nhanh và an toàn hơn viết từ đầu. Nó nằm trong gate
+       như mọi file khác nên không bao giờ lệch chuẩn.
+       Sửa sai chỗ nào thì sửa vào stylesheet, KHÔNG sửa riêng trong showcase.
 
   3. .claude/rules/new-tool-standard.md
      → Luật cho MỌI tool/script mới và mọi file được migrate: bố cục file,
