@@ -21,19 +21,25 @@ Không làm việc bằng trí nhớ từ cycle trước — nội dung file có
 
   1. pyRevit UI Design System/T3LAB_UI_STANDARD.md
      → CHUẨN DUY NHẤT: token màu, 7 size chữ, spacing, chiều cao, bo góc,
-       12 luật bố cục, 5 pattern P1-P5, checklist review.
+       12 luật bố cục, 5 pattern P1-P5, 8 component chrome, checklist review.
        Đây là FILE MẪU ĐỂ REFER — không phải file runtime.
 
   2. pyRevit UI Design System/T3Lab.Styles.xaml
-     → 84 resource key T3.* — nguồn duy nhất của brush/size/style.
-       Bản RUNTIME mà tool thật merge nằm ở
-       T3Lab.extension/lib/GUI/Resources/T3Lab.Styles.xaml, sinh bằng
-       `python3 dev/sync_t3_styles.py`. Sửa ở NGUỒN rồi chạy sync,
-       không bao giờ sửa bản deploy.
+     → 92 resource key T3.* — nguồn duy nhất của brush/size/style.
+       `python3 dev/sync_t3_styles.py` NHÚNG nội dung file này vào
+       <Window.Resources> của từng tool XAML, giữa 2 marker "T3 STYLES".
+       Sửa ở NGUỒN rồi chạy sync; KHÔNG BAO GIỜ sửa tay khối đã nhúng.
+
+       KHÔNG dùng <ResourceDictionary Source="..."/>. Đã thử và pyRevit CHẾT
+       lúc mở tool (BatchOut, 2026-08-28): pyRevit nạp XAML bằng XamlReader
+       trên stream nên WPF không có base URI và không có entry assembly →
+       IOException: Assembly.GetEntryAssembly() returns null. Nạp dictionary
+       từ Python sau đó cũng vô ích vì {StaticResource} resolve NGAY LÚC PARSE.
+       Chi tiết: 08-design-system-authority.md §5.
 
   3. .claude/rules/new-tool-standard.md
      → Luật cho MỌI tool/script mới và mọi file được migrate: bố cục file,
-       14 luật XAML, khung script.py (9 luật), checklist trước khi commit.
+       15 luật XAML, khung script.py (9 luật), checklist trước khi commit.
 
   4. docs/ui-governance/08-design-system-authority.md
      → Thẩm quyền, hệ UI đã bị bỏ, luật migration, file UI-locked,
@@ -57,7 +63,7 @@ Gặp Hanken Grotesk, Inter, Manrope, #0F172A, #3B82F6, #E2E8F0, #64748B,
 DEBT cần migrate, KHÔNG phải chuẩn để tuân theo.
 
 ════════════════════════════════════════════════════════════════
-BA LUẬT KHÔNG BAO GIỜ ĐƯỢC VI PHẠM
+BỐN LUẬT KHÔNG BAO GIỜ ĐƯỢC VI PHẠM
 ════════════════════════════════════════════════════════════════
 A. NGÔN NGỮ UI LÀ TIẾNG ANH. Mọi chữ người dùng đọc — label, nút, header,
    tooltip, empty state, thông báo lỗi/cảnh báo/thành công — phải là tiếng
@@ -75,6 +81,12 @@ C. KHÔNG ĐỤNG BUSINESS LOGIC / REVIT API. Transaction và biên transaction,
    logic, category logic, tạo/xoá element, output behavior — bất khả xâm phạm.
    Đổi UI thì mọi x:Name và event handler phải còn NGUYÊN: script.py bám vào
    chúng bằng chuỗi, đổi = AttributeError lúc runtime = tool chết.
+
+D. HAI CÁI BẪY LÀM CHẾT TOOL NGAY LÚC PARSE — kiểm mỗi lần sửa XAML:
+   - x:Key TRÙNG giữa khối nhúng và style của tool → WPF ném "Item has
+     already been added". audit_t3.py bắt ở mức P0.
+   - StaticResource trên CHÍNH thẻ <Window> không resolve được (attribute
+     parse trước Window.Resources) → dùng DynamicResource ở đó.
 
 ════════════════════════════════════════════════════════════════
 PHẠM VI
@@ -125,7 +137,7 @@ Migration một file theo đúng 7 bước ở 08-design-system-authority.md §6
 ════════════════════════════════════════════════════════════════
 TUYỆT ĐỐI KHÔNG
 ════════════════════════════════════════════════════════════════
-1. KHÔNG vi phạm ba luật A/B/C ở trên.
+1. KHÔNG vi phạm bốn luật A/B/C/D ở trên.
 2. KHÔNG xoá code chỉ vì trông như không được dùng (pyRevit nạp động).
 3. KHÔNG thêm dependency mới. Chỉ stock WPF + IronPython 2.7 + .NET 4.8.
 4. KHÔNG tự sửa Design System (pyRevit UI Design System/*) hay thêm style
@@ -137,7 +149,7 @@ TUYỆT ĐỐI KHÔNG
 9. KHÔNG nới gate. Gate là:
       python3 dev/audit_tools.py --quiet     (code tĩnh)
       python3 dev/audit_t3.py --quiet        (luật T3)
-      python3 dev/sync_t3_styles.py --check  (stylesheet deploy đồng bộ)
+      python3 dev/sync_t3_styles.py --check  (khối nhúng khớp nguồn)
    audit_t3 soi ĐẦY ĐỦ file đã khai T3; file legacy chỉ được đếm
    (--legacy / --legacy-count), TRỪ luật copyright và luật tiếng Anh —
    hai luật đó áp cho MỌI file. Thêm mục vào PENDING_GAP, sửa script để
@@ -169,7 +181,8 @@ KẾT THÚC CYCLE
 2. Cập nhật 3 file: BASELINE.md · CHANGELOG.md (entry mới trên cùng) ·
    PRIORITY_QUEUE.md.
 3. Commit MỘT commit cho MỘT cycle, gồm cả thay đổi code lẫn 3 file trên.
-   Branch: claude/pyrevit-uiux-governance-i3fauh
+   Tạo branch MỚI từ main mỗi cycle: claude/ui-governance-cycle-<N>, rồi mở
+   PR mới. KHÔNG chồng commit lên branch của PR đã merge.
    Message: "ui-governance: cycle <N> — <tóm tắt 1 dòng>"
 4. Kết thúc bằng: danh sách NEEDS VERIFICATION (checklist test trong Revit)
    + việc còn dang dở + một việc quan trọng nhất cho cycle sau.
@@ -197,11 +210,13 @@ trong routine. Chúng sẽ lệch nhau sau vài lần sửa, và không ai biế
 loại doc drift mà bộ governance này sinh ra để chống. Prompt chỉ giữ: đường dẫn, thứ tự
 đọc, ba luật không được vi phạm, ngân sách, điều cấm, và cách kết thúc cycle.
 
-### Ba luật được nhắc thẳng trong prompt
+### Bốn luật được nhắc thẳng trong prompt
 
-Ngôn ngữ UI, copyright và ranh giới business logic được viết **trong** prompt chứ không
-chỉ trỏ file — vì đây là ba thứ mà một lần vi phạm là thấy ngay ở sản phẩm cuối, và là
-ba thứ agent dễ vô tình phá nhất khi đang tập trung sửa màu với margin.
+Ngôn ngữ UI, copyright, ranh giới business logic và hai cái bẫy parse-time được viết
+**trong** prompt chứ không chỉ trỏ file — vì đây là những thứ mà một lần vi phạm là
+thấy ngay ở sản phẩm cuối, và là những thứ agent dễ vô tình phá nhất khi đang tập
+trung sửa màu với margin. Luật D được thêm sau khi cả hai cái bẫy đó thật sự làm chết
+BatchOut trong Revit (2026-08-28).
 
 ### Dùng thủ công thay vì routine
 
