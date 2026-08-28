@@ -82,7 +82,7 @@ có cách nào khác. Style **có** `x:Key` thì không — nó là component m�
 `T3Lab.Styles.xaml`.
 
 ## Checklist review (dán vào PR)
-Merge `T3Lab.Styles.xaml`, không tự định nghĩa brush · đúng một trong P1–P5 · size S/M/L
+Nhúng `T3Lab.Styles.xaml` bằng `dev/sync_t3_styles.py`, không tự định nghĩa brush · đúng một trong P1–P5 · size S/M/L
 · có đúng một dòng copyright ở footer trái · mọi chữ hiển thị là tiếng Anh
 · Segoe UI 13, không size lạ · margin chia hết 4 · đúng một primary, ngoài cùng phải
 · có `IsDefault` + `IsCancel` · grid một cột `*`, tắt scroll ngang · có empty state

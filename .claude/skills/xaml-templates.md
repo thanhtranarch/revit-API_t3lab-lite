@@ -18,17 +18,16 @@ XAML thì không. `audit_t3.py` bắt lỗi này bằng cách dò dấu tiếng 
 ```xml
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
         Title="Tool name" Width="560" Height="420" MinWidth="560" MinHeight="420"
         FontFamily="Segoe UI" FontSize="13"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
-        Background="{StaticResource T3.Canvas}"
+        Background="{DynamicResource T3.Canvas}"
         WindowStartupLocation="CenterOwner">
   <Window.Resources>
     <ResourceDictionary>
-      <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="../Resources/T3Lab.Styles.xaml"/>
-      </ResourceDictionary.MergedDictionaries>
+      <!-- `python3 dev/sync_t3_styles.py` nhúng stylesheet vào đây -->
     </ResourceDictionary>
   </Window.Resources>
 
@@ -39,6 +38,19 @@ XAML thì không. `audit_t3.py` bắt lỗi này bằng cách dò dấu tiếng 
   </DockPanel>
 </Window>
 ```
+
+> **Nhúng, KHÔNG dùng `MergedDictionaries`.** pyRevit nạp XAML bằng `XamlReader` trên
+> một stream nên WPF không có base URI và không có entry assembly; mọi
+> `<ResourceDictionary Source="..."/>` tương đối đều ném
+> `IOException: Assembly.GetEntryAssembly() returns null` và tool chết ngay lúc mở
+> (đã thử với BatchOut 2026-08-28). Nạp dictionary từ Python sau đó cũng không cứu
+> được, vì `{StaticResource}` được resolve NGAY LÚC PARSE.
+> Chạy `python3 dev/sync_t3_styles.py` để nhúng; `--check` để verify. **Không sửa tay
+> khối giữa 2 marker `T3 STYLES`.**
+
+> Trên **chính thẻ `<Window>`** phải dùng `DynamicResource`, không phải `StaticResource`:
+> attribute của Window được parse TRƯỚC `Window.Resources`, nên `StaticResource` ở đó
+> không tìm thấy key. Bên trong cây con thì `StaticResource` bình thường.
 
 ## Title bar (40px)
 

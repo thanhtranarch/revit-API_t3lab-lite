@@ -42,11 +42,11 @@ không hardcode màu, size, margin. Logic Revit dùng lại được thì đẩy
 
 ---
 
-## 2 · XAML — 14 luật, `audit_t3.py` kiểm tra tự động
+## 2 · XAML — 15 luật, `audit_t3.py` kiểm tra tự động
 
 | # | Luật | Vi phạm |
 |---|------|---------|
-| 1 | Merge `T3Lab.Styles.xaml`; **không** `<Style x:Key>` nào trong file tool (implicit style không key thì được) | P1/P2 |
+| 1 | Nhúng stylesheet bằng `dev/sync_t3_styles.py`; **không** `<Style x:Key>` nào tự viết trong file tool (implicit style không key thì được) | P1/P2 |
 | 2 | Không hex cứng — mọi màu là `{StaticResource T3.*}` | P2 |
 | 3 | Font chỉ `Segoe UI` (text) và `Consolas` (số, ID, log) | P2 |
 | 4 | FontSize chỉ `19 · 15 · 13 · 11.5 · 11 · 12.5` | P2 |
@@ -59,6 +59,7 @@ không hardcode màu, size, margin. Logic Revit dùng lại được thì đẩy
 | 11 | **Không bọc** `DataGrid`/`ListBox`/`ListView` trong `ScrollViewer` | **P0** |
 | 12 | Có empty state (`T3.Empty`) cho mọi list/grid | P2 |
 | 13 | **Copyright BẮT BUỘC**: đúng MỘT `<TextBlock Style="{StaticResource T3.Copyright}"/>` ở footer, sát trái, trước câu trạng thái | P2 |
+| 15 | Không `x:Key` trùng nhau — WPF crash ngay lúc parse | **P0** |
 | 14 | **Mọi chữ hiển thị phải là TIẾNG ANH** — `Text` · `Content` · `Header` · `ToolTip` · empty state · thông báo lỗi | P2 |
 
 Thêm hai thứ `audit_t3.py` cũng bắt: `<Grid.RowDefinition/>` dot-notation (**P0**,
@@ -69,27 +70,30 @@ crash `EMPTYPROPERTYELEMENT` lúc mở tool) và mọi `Effect` (P2).
 ```xml
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tên tool" Height="420" Width="560" MinHeight="420" MinWidth="560"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="Tool name" Height="420" Width="560" MinHeight="420" MinWidth="560"
         FontFamily="Segoe UI" FontSize="13"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
-        Background="{StaticResource T3.Canvas}"
+        Background="{DynamicResource T3.Canvas}"
         WindowStartupLocation="CenterOwner">
   <Window.Resources>
     <ResourceDictionary>
-      <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="../Resources/T3Lab.Styles.xaml"/>
-      </ResourceDictionary.MergedDictionaries>
+      <!-- chạy `python3 dev/sync_t3_styles.py` để nhúng stylesheet vào đây -->
     </ResourceDictionary>
   </Window.Resources>
   <!-- nội dung + footer có copyright: xem .claude/skills/xaml-templates.md -->
 </Window>
 ```
 
-> `Source="../Resources/T3Lab.Styles.xaml"` là **bản deploy** trong extension, sinh ra
-> bằng `python3 dev/sync_t3_styles.py` từ nguồn `pyRevit UI Design System/T3Lab.Styles.xaml`.
-> Sửa stylesheet thì sửa ở **nguồn**, rồi chạy sync — đừng sửa bản deploy.
-> `dev/sync_t3_styles.py --check` báo lệch.
+> **Nhúng, KHÔNG dùng `MergedDictionaries`.** pyRevit nạp XAML bằng `XamlReader` trên
+> một stream nên WPF không có base URI và không có entry assembly; mọi
+> `<ResourceDictionary Source="..."/>` tương đối đều ném
+> `IOException: Assembly.GetEntryAssembly() returns null` và tool chết ngay lúc mở
+> (đã thử với BatchOut 2026-08-28). Nạp dictionary từ Python sau đó cũng không cứu
+> được, vì `{StaticResource}` được resolve NGAY LÚC PARSE.
+> Chạy `python3 dev/sync_t3_styles.py` để nhúng; `--check` để verify. **Không sửa tay
+> khối giữa 2 marker `T3 STYLES`.**
 
 ---
 

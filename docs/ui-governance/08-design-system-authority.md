@@ -131,27 +131,39 @@ hex/size/margin. **Không tạo style mới trong file tool**; style mới phả
 
 ## 5 · Cách merge stylesheet vào một tool
 
-```xml
-<Window x:Class="..." FontFamily="Segoe UI" FontSize="13"
-        UseLayoutRounding="True" SnapsToDevicePixels="True"
-        TextOptions.TextFormattingMode="Display"
-        Background="{StaticResource T3.Canvas}"
-        MinWidth="560" MinHeight="420">
-  <Window.Resources>
-    <ResourceDictionary>
-      <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="../../lib/T3Lab.Styles.xaml"/>
-      </ResourceDictionary.MergedDictionaries>
-    </ResourceDictionary>
-  </Window.Resources>
-  ...
-</Window>
+```bash
+python3 dev/sync_t3_styles.py           # nhúng stylesheet vào mọi tool đã khai T3
+python3 dev/sync_t3_styles.py --check   # verify, exit 1 nếu lệch
 ```
 
-> `Source` là đường dẫn tương đối từ file XAML tới bản `T3Lab.Styles.xaml` được deploy
-> trong extension. Vị trí deploy chính thức của file style **chưa được chốt**
-> (`pyRevit UI Design System/` là thư mục nguồn, không nằm trong `T3Lab.extension/`) —
-> xem `DESIGN SYSTEM GAP #1` trong `PRIORITY_QUEUE.md`.
+Script chép nội dung `T3Lab.Styles.xaml` vào `<Window.Resources>` của từng tool XAML,
+giữa hai marker `T3 STYLES`. **Không sửa tay khối đó** — sửa ở nguồn rồi chạy sync.
+
+### Vì sao nhúng chứ không `MergedDictionaries`
+
+Đã thử `<ResourceDictionary Source="../Resources/T3Lab.Styles.xaml"/>` và pyRevit
+**chết ngay lúc mở tool** (BatchOut, 2026-08-28):
+
+```
+System.IO.IOException: Assembly.GetEntryAssembly() returns null.
+Set the Application.ResourceAssembly property or use the
+pack://application:,,,/assemblyname;component/ syntax ...
+```
+
+pyRevit nạp XAML bằng `XamlReader` trên một stream, nên WPF không có base URI và
+không có entry assembly; mọi `Source` tương đối bị resolve thành `pack://application`
+rồi ném IOException. Nạp dictionary từ Python **sau** khi cửa sổ dựng xong cũng không
+cứu được, vì `{StaticResource}` trong XAML được resolve NGAY LÚC PARSE.
+
+Nhúng là cách duy nhất còn lại — và là cách repo này vốn đã dùng cho chuẩn Lumina cũ.
+Giá phải trả: mỗi tool XAML nặng thêm ~970 dòng sinh tự động.
+
+### Hai cái bẫy khi nhúng
+
+1. **`x:Key` trùng** giữa khối nhúng và style của tool → WPF ném
+   `Item has already been added` ngay lúc parse. `audit_t3.py` bắt lỗi này ở mức **P0**.
+2. **`StaticResource` trên chính thẻ `<Window>`** không resolve được — attribute của
+   Window parse TRƯỚC `Window.Resources`. Dùng `DynamicResource` ở đó.
 
 ---
 
@@ -207,6 +219,7 @@ Việc gỡ khoá là quyết định của user, không phải của routine.
 |--------|--------|-----------|
 | `dev/audit_tools.py --quiet` | Code tĩnh (bundle, cấu trúc script) — trung lập với Design System | ✅ Gate |
 | `dev/audit_t3.py --quiet` | **Luật T3** (§4) | ✅ Gate |
+| `dev/sync_t3_styles.py --check` | Khối stylesheet nhúng khớp nguồn | ✅ Gate |
 | ~~`dev/audit_ui.py`~~ · ~~`dev/sync_wpf_styles.py`~~ | Chuẩn Lumina đã bỏ | ❌ **Đã xoá 2026-08-28** |
 
 ### `dev/audit_t3.py` hoạt động thế nào
