@@ -1,6 +1,29 @@
-# UI Design Standard
+# UI Design Standard — ⚠️ RETIRED 2026-08-28
 
-Two tracks live in this repo. Read this section before touching any XAML — picking
+> **This document is no longer binding. Do not follow it.**
+>
+> The single UI standard for this repo is now:
+> **`pyRevit UI Design System/T3LAB_UI_STANDARD.md`** +
+> **`pyRevit UI Design System/T3Lab.Styles.xaml`** (82 `T3.*` resource keys).
+>
+> Both tracks described below — **Lumina** and **Revit-native** — have been dropped,
+> along with Terra v2 and Kinetix before them. This file is kept for one purpose only:
+> to **identify** legacy code that still needs migrating. Its palette, fonts, styles
+> and rules are a description of the past, not a spec for new work.
+>
+> Migration is governed by `docs/ui-governance/08-design-system-authority.md`.
+> The daily governance routine lives in `docs/ui-governance/`.
+>
+> Note also that `dev/audit_ui.py` and `dev/sync_wpf_styles.py` enforce the rules
+> below, so they now gate a retired standard and will fail files that were correctly
+> migrated to T3. They must not be used as a pass/fail gate — see
+> `docs/ui-governance/PRIORITY_QUEUE.md` Q1.
+
+---
+
+## (Historical) Two tracks
+
+Two tracks lived in this repo. Read this section before touching any XAML — picking
 the wrong one is the most common way a change gets reverted.
 
 | Track | What it is | Reference file | Who uses it today |

@@ -4,7 +4,9 @@ pyRevit extension for Revit automation.
 Framework: IronPython 2.7 + WPF + Revit API
 
 ## Rules
-- Always follow `.claude/rules/ui-design-standard.md` for any UI work. It now describes **two tracks**: **Revit-native** (Segoe UI 12, square 1px chrome, colours from `GUI/RevitTheme.py` following Revit Light/Dark) for new tools and for `UIStandardShowcase.xaml`; **Lumina** (Hanken Grotesk, rounded cards) for the ~50 tool XAMLs not yet migrated. Read the table at the top of that file before editing any XAML — the ultra-thin scrollbar applies to both.
+- **UI standard — one source, no exceptions:** `pyRevit UI Design System/T3LAB_UI_STANDARD.md` + `pyRevit UI Design System/T3Lab.Styles.xaml`. Read both before any UI work. Every colour, size, margin and control style comes from `{StaticResource T3.*}`; a tool XAML never defines its own brush, style or hex.
+- **The old standards are dead** (2026-08-28). Lumina, Revit-native, Terra v2 and Kinetix are no longer binding. `.claude/rules/ui-design-standard.md`, `.claude/standard/UIStandardShowcase.xaml` and `lib/GUI/Resources/WPF_styles.xaml` are kept only to *identify* legacy code that still needs migrating — never as the standard to follow. Same for `dev/audit_ui.py` and `dev/sync_wpf_styles.py`: they enforce the retired Lumina rules and must not be used as a pass/fail gate. The only static gate is `python3 dev/audit_tools.py --quiet`.
+- Migration is governed by `docs/ui-governance/08-design-system-authority.md` — read it before editing any XAML. Full migration of a file requires QA in Revit before it counts as done.
 - XAML files go in `T3Lab.extension/lib/GUI/Tools/`
 - Python dialog classes stay in `T3Lab.extension/lib/GUI/`
 - Keep Revit API logic separate from WPF/UI code
@@ -65,7 +67,8 @@ Spawn the appropriate agent based on the task:
 | Build a new pushbutton end-to-end | `@tool-builder-agent` |
 | Review or test completed code | `@qa-agent` |
 | Standardize script.py structure to BatchOut frame | `@script-frame-agent` |
-| Audit & fix ALL XAML files for UI consistency | `@ui-police-agent` |
+| Audit & fix ALL XAML files for UI consistency | `@ui-police-agent` ⚠️ enforces the retired Lumina rules — prefer `@ui-governance-agent` |
+| Daily UI/UX governance cycle (audit · score · standardize · track) | `@ui-governance-agent` |
 
 Agent definitions: `.claude/agents/`
 
@@ -80,11 +83,14 @@ Agent definitions: `.claude/agents/`
 
 | Resource | Path |
 |----------|------|
-| Canonical UI (Revit-native) | `.claude/standard/UIStandardShowcase.xaml` |
-| Revit theme palette (light/dark tokens) | `T3Lab.extension/lib/GUI/RevitTheme.py` |
-| Revit-native UI research + host palette bridge | `docs/revit-native-ui.md` |
+| **UI standard (the only one)** | `pyRevit UI Design System/T3LAB_UI_STANDARD.md` |
+| **UI stylesheet — 82 `T3.*` keys** | `pyRevit UI Design System/T3Lab.Styles.xaml` |
+| **UI governance routine + prompt** | `docs/ui-governance/` (start at `README.md`) |
 | All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
-| Shared styles | `T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml` |
+| ~~Canonical UI (Revit-native)~~ | ~~`.claude/standard/UIStandardShowcase.xaml`~~ — retired 2026-08-28 |
+| ~~Shared styles (Lumina)~~ | ~~`T3Lab.extension/lib/GUI/Resources/WPF_styles.xaml`~~ — retired, legacy only |
+| Revit theme palette (legacy Revit-native) | `T3Lab.extension/lib/GUI/RevitTheme.py` |
+| Revit-native UI research (legacy) | `docs/revit-native-ui.md` |
 | Logo asset | `T3Lab.extension/lib/GUI/T3Lab_logo.png` |
 | Example XAML (simple) | `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` |
 | Example XAML (wizard nav) | `T3Lab.extension/lib/GUI/Tools/ExportManagerTest.xaml` |
