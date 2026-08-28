@@ -66,6 +66,11 @@ SYNC_END = "<!-- ═══ HẾT T3 STYLES ═══ -->"
 # Trống từ 2026-08-28: GAP #4 đã đóng bằng 8 component chrome trong stylesheet.
 PENDING_GAP = {}
 
+# File render NHIỀU cửa sổ mẫu trong một file. Luật "đúng một primary" áp cho MỘT
+# cửa sổ, nên ở đây nó không áp dụng — mỗi card là một cửa sổ riêng. Mọi luật khác
+# vẫn soi đầy đủ.
+MULTI_WINDOW = {"UIStandardShowcase.xaml"}
+
 
 # ── Chuẩn T3 (T3LAB_UI_STANDARD.md) ───────────────────────────────────────
 FONTS_OK = {"Segoe UI", "Consolas",
@@ -296,11 +301,17 @@ def audit(src, base, keys):
                 if tag in ("ListBox", "ListView") \
                         and attrs.get("VirtualizingPanel.IsVirtualizing") != "True":
                     issues.append(("P1", "<%s> thiếu VirtualizingPanel.IsVirtualizing=\"True\"" % tag))
-            for anc in ancestors(el):
-                if local(anc.tag) == "ScrollViewer":
-                    issues.append(("P0", "<%s> bị bọc trong <ScrollViewer> "
-                                         "— mất virtualization, treo Revit trên model lớn" % tag))
-                    break
+            # Bọc trong ScrollViewer chỉ chết khi list được đo với chiều cao VÔ HẠN.
+            # Khai Height/MaxHeight là đã chặn — virtualization vẫn chạy. Không khai
+            # mới là lỗi: WPF realize toàn bộ row, model lớn là treo Revit.
+            bounded = "Height" in attrs or "MaxHeight" in attrs
+            if not bounded:
+                for anc in ancestors(el):
+                    if local(anc.tag) == "ScrollViewer":
+                        issues.append(("P0", "<%s> bị bọc trong <ScrollViewer> mà không khai "
+                                             "Height/MaxHeight — đo với chiều cao vô hạn, mất "
+                                             "virtualization, treo Revit trên model lớn" % tag))
+                        break
             stars = [c for c in el.iter()
                      if local(c.tag).endswith("Column")
                      and c.attrib.get("Width", "").strip() == "*"]
@@ -319,7 +330,7 @@ def audit(src, base, keys):
     if n_local_style:
         issues.append(("P2", "%d <Style x:Key> định nghĩa trong file tool — component "
                              "mới phải thêm vào T3Lab.Styles.xaml" % n_local_style))
-    if n_primary > 1:
+    if n_primary > 1 and base not in MULTI_WINDOW:
         issues.append(("P2", "%d nút T3.Button.Primary — chuẩn cho đúng một" % n_primary))
     if has_list and not has_empty:
         issues.append(("P2", "có list/grid nhưng không thấy empty state (T3.Empty)"))
