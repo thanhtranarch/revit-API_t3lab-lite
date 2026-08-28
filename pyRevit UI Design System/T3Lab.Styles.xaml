@@ -996,4 +996,179 @@
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
 
+  <!-- ══════════════════ 15 · DATA-DENSE UI ══════════════════
+       Thêm 2026-08-28 từ 5 mock chuẩn (P1–P5). Trước đó mỗi tool tự dựng chip
+       filter, search box, header list, log có severity, dải tally… bằng tay —
+       đúng thứ Design System sinh ra để chống. ══════════════════ -->
+
+  <!-- Chip filter: RadioButton cùng GroupName. Chip đang chọn = nền Ink, chữ trắng. -->
+  <Style x:Key="T3.Chip" TargetType="RadioButton">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Caption}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.TextSecondary}"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Margin" Value="0,0,4,0"/>
+    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="bd" Background="Transparent"
+                  BorderBrush="Transparent" BorderThickness="1"
+                  CornerRadius="{StaticResource T3.R.Control}" Padding="10,4">
+            <ContentPresenter VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="bd" Property="Background" Value="{StaticResource T3.SurfaceSunken}"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="bd" Property="Background" Value="{StaticResource T3.Ink}"/>
+              <Setter Property="Foreground" Value="{StaticResource T3.Surface}"/>
+              <Setter Property="FontWeight" Value="SemiBold"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Search box: kính lúp + placeholder lấy từ Tag. Không cần converter. -->
+  <Style x:Key="T3.Search" TargetType="TextBox">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Body}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+    <Setter Property="Height"     Value="{StaticResource T3.H.Control}"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="bd" Background="{StaticResource T3.Surface}"
+                  BorderBrush="{StaticResource T3.BorderStrong}" BorderThickness="1"
+                  CornerRadius="{StaticResource T3.R.Control}" Padding="8,0">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
+                         FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center"
+                         Foreground="{StaticResource T3.TextDisabled}"/>
+              <Grid Grid.Column="1">
+                <TextBlock x:Name="ph" Text="{TemplateBinding Tag}"
+                           Foreground="{StaticResource T3.TextDisabled}"
+                           VerticalAlignment="Center" Visibility="Collapsed"/>
+                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+              </Grid>
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Text" Value="">
+              <Setter TargetName="ph" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource T3.Ink}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Header của list tự dựng (không phải DataGrid). Nhãn dùng T3.ListHeader.Label. -->
+  <Style x:Key="T3.ListHeader" TargetType="Border">
+    <Setter Property="Background"  Value="{StaticResource T3.SurfaceSunken}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+    <Setter Property="Height"  Value="{StaticResource T3.H.Row}"/>
+    <Setter Property="Padding" Value="16,0"/>
+  </Style>
+
+  <Style x:Key="T3.ListHeader.Label" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Label}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Meter: thanh tỉ lệ TĨNH (pass rate, coverage). KHÁC ProgressBar — không cam,
+       vì không có gì đang chạy. -->
+  <Style x:Key="T3.Meter" TargetType="ProgressBar">
+    <Setter Property="Height" Value="4"/>
+    <Setter Property="Background"  Value="{StaticResource T3.Border}"/>
+    <Setter Property="Foreground"  Value="{StaticResource T3.Ink}"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ProgressBar">
+          <Border Background="{TemplateBinding Background}"
+                  CornerRadius="{StaticResource T3.R.Pill}" ClipToBounds="True">
+            <Grid>
+              <Rectangle x:Name="PART_Track"/>
+              <Rectangle x:Name="PART_Indicator" HorizontalAlignment="Left"
+                         Fill="{TemplateBinding Foreground}"/>
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Ô "không có giá trị": — none — / n/a. Mờ, KHÔNG để trống. -->
+  <Style x:Key="T3.Cell.Muted" TargetType="TextBlock" BasedOn="{StaticResource T3.Cell.Mono}">
+    <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
+  </Style>
+
+  <!-- Icon của callout: Segoe MDL2, canh đỉnh dòng chữ đầu. -->
+  <Style x:Key="T3.Callout.Icon" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Caption}"/>
+    <Setter Property="Margin"     Value="0,0,8,0"/>
+    <Setter Property="VerticalAlignment" Value="Top"/>
+  </Style>
+
+  <!-- Chấm trạng thái 6px. Fill đặt tại chỗ dùng: Success/Warning/Danger/Progress. -->
+  <Style x:Key="T3.Dot" TargetType="Ellipse">
+    <Setter Property="Width"  Value="6"/>
+    <Setter Property="Height" Value="6"/>
+    <Setter Property="Margin" Value="0,0,8,0"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
+  <!-- Dòng log: timestamp mờ + chữ theo severity. Màu KHÔNG BAO GIỜ đứng một mình —
+       dòng luôn chứa chữ ok / skipped / failed. -->
+  <Style x:Key="T3.Log.Time" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font.Mono}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Mono}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.TextDisabled}"/>
+    <Setter Property="Margin"     Value="0,0,12,0"/>
+  </Style>
+
+  <Style x:Key="T3.Log.Ok" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font.Mono}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Mono}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.Success.Text}"/>
+  </Style>
+
+  <Style x:Key="T3.Log.Skipped" TargetType="TextBlock" BasedOn="{StaticResource T3.Log.Ok}">
+    <Setter Property="Foreground" Value="{StaticResource T3.Warning.Text}"/>
+  </Style>
+
+  <Style x:Key="T3.Log.Failed" TargetType="TextBlock" BasedOn="{StaticResource T3.Log.Ok}">
+    <Setter Property="Foreground" Value="{StaticResource T3.Danger.Text}"/>
+  </Style>
+
+  <Style x:Key="T3.Log.Plain" TargetType="TextBlock" BasedOn="{StaticResource T3.Log.Ok}">
+    <Setter Property="Foreground" Value="{StaticResource T3.Text}"/>
+  </Style>
+
+  <!-- Dải tally dưới log: chấm + "176 ok". -->
+  <Style x:Key="T3.Tally" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+    <Setter Property="FontSize"   Value="{StaticResource T3.Size.Caption}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.TextSecondary}"/>
+    <Setter Property="Margin"     Value="0,0,16,0"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+
 </ResourceDictionary>

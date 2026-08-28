@@ -57,12 +57,22 @@ XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'UIStandardShowcase.xaml')
 
 
 class ShowcaseItem(object):
-    """Simple model for UI Standard Showcase Grid binding"""
-    def __init__(self, item_id, name, category, status):
+    """Một hàng của bảng P4 trong showcase.
+
+    `T3.StatusPill` cần đúng 2 property: StatusText (chữ) và Severity
+    ("Success" / "Warning" / "Danger"). Trạng thái KHÔNG BAO GIỜ chỉ bằng màu —
+    chấm màu luôn đi kèm chữ.
+    """
+
+    def __init__(self, item_id, name, category, template, status_text,
+                 severity, issues):
         self._id = item_id
         self._name = name
         self._category = category
-        self._status = status
+        self._template = template
+        self._status_text = status_text
+        self._severity = severity
+        self._issues = issues
 
     @property
     def id(self):
@@ -77,8 +87,26 @@ class ShowcaseItem(object):
         return self._category
 
     @property
+    def template(self):
+        return self._template
+
+    @property
+    def issues(self):
+        return self._issues
+
+    # T3.StatusPill bind vào 2 tên này
+    @property
+    def StatusText(self):
+        return self._status_text
+
+    @property
+    def Severity(self):
+        return self._severity
+
+    # Giữ lại cho code cũ còn đọc .status
+    @property
     def status(self):
-        return self._status
+        return self._status_text
 
 
 class UIShowcaseWindow(forms.WPFWindow):
@@ -280,18 +308,28 @@ class UIShowcaseWindow(forms.WPFWindow):
         self.Close()
 
     def _load_sample_data(self):
-        # Create list of sample compliant and non-compliant items
+        """Dữ liệu mẫu cho bảng P4. Chữ hiển thị phải là TIẾNG ANH (luật 12)."""
         items = [
-            ShowcaseItem("104231", "01_Plan_Mặt bằng định vị cột", "Floor Plan", "Compliant"),
-            ShowcaseItem("104232", "02_Plan_Mặt bằng kích thước cột", "Floor Plan", "Compliant"),
-            ShowcaseItem("104235", "Detail_Chi tiết nối thép cột", "Detail View", "Compliant"),
-            ShowcaseItem("104240", "3D_Phối cảnh tổng thể", "3D View", "Non-Compliant (Template missing)"),
-            ShowcaseItem("104245", "Section_Mặt cắt đứng dọc nhà", "Section", "Compliant"),
-            ShowcaseItem("104250", "Elevation_Mặt đứng trục A-D", "Elevation", "Compliant"),
-            ShowcaseItem("104255", "Schedule_Thống kê cốt thép dầm", "Schedule", "Compliant"),
-            ShowcaseItem("104260", "Legend_Ký hiệu ghi chú chung", "Legend", "Compliant"),
-            ShowcaseItem("104265", "Drafting_Chi tiết cấu tạo sê nô", "Drafting View", "Non-Compliant (Naming standard)"),
-            ShowcaseItem("104272", "Elevation_Mặt đứng trục E-H", "Elevation", "Needs Review")
+            ShowcaseItem("104231", "01_Plan_Column setting-out", "Floor Plan",
+                         "ARC_Plan_1-100", "Compliant", "Success", "0"),
+            ShowcaseItem("104232", "02_Plan_Column dimensions", "Floor Plan",
+                         "ARC_Plan_1-100", "Compliant", "Success", "0"),
+            ShowcaseItem("104235", "Detail_Column rebar splice", "Detail View",
+                         "\u2014 none \u2014", "Template missing", "Danger", "1"),
+            ShowcaseItem("104240", "3D_Overall perspective", "3D View",
+                         "\u2014 none \u2014", "Naming standard", "Danger", "2"),
+            ShowcaseItem("104245", "Section_Longitudinal section", "Section",
+                         "ARC_Sect_1-50", "Needs review", "Warning", "1"),
+            ShowcaseItem("104250", "Elevation_Grid A-D", "Elevation",
+                         "ARC_Elev_1-100", "Compliant", "Success", "0"),
+            ShowcaseItem("104255", "Schedule_Beam rebar take-off", "Schedule",
+                         "n/a", "Compliant", "Success", "0"),
+            ShowcaseItem("104261", "Detail_Pad footing M1", "Detail View",
+                         "STR_Det_1-25", "Naming standard", "Danger", "1"),
+            ShowcaseItem("104266", "Plan_Services ceiling", "Ceiling Plan",
+                         "ARC_Plan_1-100", "Compliant", "Success", "0"),
+            ShowcaseItem("104270", "Elevation_Grid 1-9", "Elevation",
+                         "ARC_Elev_1-100", "Needs review", "Warning", "3"),
         ]
         self.sample_grid.ItemsSource = ObservableCollection[object](items)
 

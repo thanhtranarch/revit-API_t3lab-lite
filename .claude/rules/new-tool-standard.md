@@ -7,6 +7,10 @@
 
 Gate: `python3 dev/audit_t3.py --quiet` phải xanh trước khi commit.
 
+**File mẫu:** `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` render cả 5
+pattern đúng chuẩn. Mở nó, tìm pattern của tool mình, copy khối đó — nhanh hơn và
+an toàn hơn viết từ đầu.
+
 ---
 
 ## 0 · Trước khi viết dòng đầu tiên

@@ -81,6 +81,25 @@ tool: đó là override chỉ có hiệu lực trong đúng container chứa nó
 có cách nào khác. Style **có** `x:Key` thì không — nó là component mới, phải vào
 `T3Lab.Styles.xaml`.
 
+## Component data-dense (thêm 2026-08-28)
+
+Rút từ 5 mock chuẩn. Trước đó mỗi tool tự dựng bằng tay — đúng thứ Design System
+sinh ra để chống:
+
+`T3.Chip` chip filter (RadioButton cùng GroupName, chip chọn = nền Ink) ·
+`T3.Search` ô tìm có kính lúp + placeholder lấy từ `Tag` ·
+`T3.ListHeader` + `T3.ListHeader.Label` header của list tự dựng ·
+`T3.Meter` thanh tỉ lệ TĨNH (pass rate) — khác `T3.ProgressBar`, không cam vì không
+có gì đang chạy · `T3.Cell.Muted` ô "— none —" / "n/a" ·
+`T3.Callout.Icon` icon của callout · `T3.Dot` chấm trạng thái 6px ·
+`T3.Log.Time/.Ok/.Skipped/.Failed/.Plain` dòng log · `T3.Tally` dải đếm dưới log.
+
+## File mẫu — copy từ đây
+
+`T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` render **cả 5 pattern**
+đúng như mock, dùng 96/106 key. Viết tool mới thì mở nó ra, tìm pattern của mình,
+copy khối đó. Nó nằm trong gate như mọi file khác nên không bao giờ lệch chuẩn.
+
 ## Checklist review (dán vào PR)
 Nhúng `T3Lab.Styles.xaml` bằng `dev/sync_t3_styles.py`, không tự định nghĩa brush · đúng một trong P1–P5 · size S/M/L
 · có đúng một dòng copyright ở footer trái · mọi chữ hiển thị là tiếng Anh
