@@ -7,9 +7,12 @@
 
 Gate: `python3 dev/audit_t3.py --quiet` phải xanh trước khi commit.
 
-**File mẫu:** `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` render cả 5
-pattern đúng chuẩn. Mở nó, tìm pattern của tool mình, copy khối đó — nhanh hơn và
-an toàn hơn viết từ đầu.
+**File mẫu:** `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` — MỘT cửa sổ
+T3 hợp lệ chứa toàn bộ component, chia 5 nhóm đổi bằng rail bên trái: Foundations
+(token · type · spacing · radius) · Controls (nút · field · chọn · disclosure) ·
+Data (summary · list · grid) · Feedback (progress · log · callout · status) ·
+Patterns (công thức P1–P5). Mở nó, tìm component của tool mình, copy khối đó —
+nhanh hơn và an toàn hơn viết từ đầu.
 
 ---
 

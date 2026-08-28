@@ -5,6 +5,80 @@
 
 ---
 
+## Cycle 0f — 2026-08-28 — SHOWCASE: 5 CỬA SỔ GIẢ → 1 CỬA SỔ THẬT
+
+```
+DATE:                   2026-08-28
+CYCLE:                  0f (user yêu cầu: gộp các UI trong showcase thành 1 UI)
+TOOLS AUDITED:          1 (UIStandardShowcase)
+ISSUES FOUND:           4
+ISSUES FIXED:           4
+ISSUES REMAINING:       0 (chưa QA trong Revit — NEEDS VERIFICATION)
+REGRESSIONS:            0
+DESIGN SYSTEM GAPS:     #2 vẫn mở · #5 MỚI (không có indeterminate progress)
+NEXT PRIORITIES:        QA showcase trong Revit · Q4 quét P0 · Q2 audit 6 tool
+COMMIT:                 <điền sha sau khi commit>
+```
+
+**Vấn đề gốc: file mẫu dạy sai.** Bản trước xếp chồng **5 "cửa sổ giả"** trong một
+`ScrollViewer` — mỗi card có `T3.TitleBar` + `T3.FooterBar` riêng. Không tool thật nào
+lồng chrome vào chrome, nên ai copy từ đó cũng copy nhầm một tầng chrome thừa. Nó cũng
+không bao giờ render Foundations (token, thang size, spacing, radius) và bỏ hẳn 3 chrome
+component `T3.Rail.Tile` · `T3.Rail.Logo` · `T3.TabItem.Hidden`.
+
+**Đã làm.** Dựng lại thành **MỘT cửa sổ T3 hợp lệ** — một title bar, một rail 64px, một
+footer, một dòng copyright, một primary thật (`IsDefault`, ngoài cùng phải) — nội dung
+chia 5 nhóm đổi bằng rail:
+
+| Rail | Nhóm | Component |
+|------|------|-----------|
+| 0 | Foundations | 25 swatch token · thang 7 size · spacing 4/8/12/16/24/32 · radius 0/2/4/8 |
+| 1 | Controls | 4 vai trò nút + disabled · TextBox/Mono/Search · ComboBox · CheckBox 3 trạng thái · RadioButton · Chip · Expander · ComboBox.Toggle · Pill |
+| 2 | Data | summary strip + `T3.Meter` · `T3.ListHeader` + ListBox · DataGrid thật + `T3.StatusPill` + `T3.Empty` |
+| 3 | Feedback | ProgressBar · LogBox 5 mức severity · tally · 4 callout · 4 dòng status |
+| 4 | Patterns | công thức P1–P5: dùng khi nào · thứ tự thân · hợp đồng footer · luật cứng |
+
+**4 vấn đề đã sửa**
+
+1. **P2 — chrome lồng chrome** (nêu trên). Sửa bằng cách dựng lại toàn bộ file.
+2. **P2 — `T3.ComboBox.Toggle` dùng `FontFamily="Hanken Grotesk"` và `CornerRadius="8"`.**
+   Vết còn sót của Lumina, lọt vào stylesheet lúc đóng GAP #4. Font ngoài chuẩn và bo góc
+   8 là của **cửa sổ**, không phải control. Đã đổi sang `{StaticResource T3.Font}` ·
+   `T3.Size.Body` · `T3.H.Control` · `T3.R.Control`. Gate không bắt được vì nó strip khối
+   style đã nhúng trước khi soi — luật font/radius chỉ áp cho phần tool tự viết.
+3. **P2 — `UIShowcaseDialog.py` còn kéo theo bộ theme sáng/tối của chuẩn Revit-native đã
+   bỏ** (`RevitTheme.apply`, `chk_dark_preview`, `host_report`, `_adopt_host_font`). Nó
+   bind vào những `x:Name` không còn tồn tại và chỉ sống sót nhờ `try/except` trần — đúng
+   thứ luật S3 cấm. Đã gỡ; class giờ chỉ nạp XAML, nạp dữ liệu mẫu, xử lý chrome + rail.
+   `_adopt_host_font` cũng phải đi: chuẩn T3 quy định Segoe UI, không đọc font của shell.
+4. **P3 — empty state để `Collapsed` cứng trong XAML.** File mẫu mà dạy như vậy thì mọi
+   tool copy về đều có empty state chết. Giờ `_load_sample_data()` bật/tắt nó theo số hàng
+   thật.
+
+**DESIGN SYSTEM GAP #5 (mới) — không có indeterminate progress.** `T3.ProgressBar` dùng
+`ControlTemplate` tự viết, không có storyboard cho `IsIndeterminate` nên bar chỉ đứng im,
+không phải "đang chạy". Bản dựng đầu tiên của cycle này có render một mẫu vật như vậy — đã
+gỡ và thay bằng callout nói rõ: **T3 không có indeterminate bar, đếm việc trước rồi báo
+n / total**. Nếu sau này có tool thật cần nó thì đó là component mới, thêm vào stylesheet,
+không phải mỗi tool tự chế.
+
+**Tài liệu đã đồng bộ:** `T3LAB_UI_STANDARD.md` (§File mẫu) · `new-tool-standard.md` ·
+`xaml-templates.md` · `ROUTINE_PROMPT.md` (§2b) · `BASELINE.md` (showcase LEGACY → T3) ·
+`.claude/CLAUDE.md` (82 → 106 key, thêm dòng file mẫu) · `dev/audit_t3.py` (comment
+`MULTI_WINDOW`: nó là gallery phải render nút primary làm mẫu vật, không phải 5 cửa sổ).
+`DESIGN.md` — bản đặc tả Lumina còn sót lại sau đợt dọn 2026-08-28, trỏ vào các file đã
+xoá — đã thay bằng biển chỉ đường sang `pyRevit UI Design System/`.
+
+**Gate:** `sync_t3_styles --check` ✓ · `audit_t3 --quiet` ✓ (2 file T3, 0 vi phạm) ·
+`audit_tools --quiet` ✓
+
+**NEEDS VERIFICATION — cần Revit thật.** Chưa mở được showcase trong Revit ở phiên này.
+Phải kiểm 4 điểm: (a) rail đổi nhóm được, tile đang mở giữ nền Ink; (b) `T3.TabItem.Hidden`
+ẩn được header tab mà nội dung vẫn hiện; (c) `T3.Search` hiện placeholder lấy từ `Tag`;
+(d) `T3.Chip` render đúng trạng thái chọn. Chưa QA thì **chưa tick** là xong.
+
+---
+
 ## Cycle 0e — 2026-08-28 — SỬA LỖI CHẾT TOOL: NHÚNG THAY VÌ MERGEDDICTIONARIES
 
 ```

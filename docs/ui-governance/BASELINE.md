@@ -76,15 +76,17 @@
 | TagChecker | `Tools/TagChecker.xaml` | LEGACY | A | — | — | 43 | — | — | — | — | — | 0 |
 | TextToElement | `Tools/TextToElement.xaml` | LEGACY | A | — | — | 41 | — | — | — | — | — | 0 |
 | TileLayout | `Tools/TileLayout.xaml` | LEGACY | A | — | — | 41 | — | — | — | — | — | 0 |
-| UIStandardShowcase | `Tools/UIStandardShowcase.xaml` | LEGACY | A | — | — | 46 | — | — | — | — | — | 0 |
+| UIStandardShowcase | `Tools/UIStandardShowcase.xaml` | **T3** | — | — | — | 0 | — | — | — | — | — | 0 |
 
 ## Ghi chú kiểm kê cycle 0
 
 - **0/51 file đạt chuẩn T3.** Toàn bộ tool đang dùng hệ Lumina đã bị bỏ (hex cứng
   38–58 màu/file, `FontFamily="Hanken Grotesk"`, block `T3LAB SHARED STYLES`).
   Đây là điểm xuất phát, không phải lỗi của cycle nào.
-- **`UIStandardShowcase.xaml` không còn là file tham chiếu.** Nó minh hoạ chuẩn cũ.
-  File tham chiếu duy nhất là `pyRevit UI Design System/T3Lab.Styles.xaml`.
+- **`UIStandardShowcase.xaml` đã được dựng lại (2026-08-28) và LÀ file mẫu.** Bản
+  kiểm kê cycle 0 ghi nó LEGACY vì lúc đó nó còn là showcase của chuẩn Lumina cũ.
+  Nay nó là MỘT cửa sổ T3 hợp lệ chứa toàn bộ component, 0 vi phạm, nằm trong gate.
+  Nguồn luật vẫn là `pyRevit UI Design System/` — showcase chỉ render lại nó.
 - **`CadtoFloorLayerItem.xaml` và `ParameterSelector.xaml` là variant B** (root `<Grid>`)
   — không có title bar/footer riêng, chấm điểm bỏ qua các tiêu chí đó.
 - Cột `Pattern` và `Size` để trống cho tới khi tool được audit sâu lần đầu — phân loại

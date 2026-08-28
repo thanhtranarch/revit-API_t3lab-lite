@@ -906,10 +906,10 @@
       <Setter Property="Foreground" Value="{StaticResource T3.Ink}"/>
       <Setter Property="BorderBrush" Value="{StaticResource T3.Border}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="Padding" Value="8,0,8,0"/>
-      <Setter Property="FontSize" Value="13"/>
-      <Setter Property="FontFamily" Value="Hanken Grotesk"/>
-      <Setter Property="Height" Value="32"/>
+      <Setter Property="Padding" Value="{StaticResource T3.Pad.Field}"/>
+      <Setter Property="FontSize" Value="{StaticResource T3.Size.Body}"/>
+      <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
+      <Setter Property="Height" Value="{StaticResource T3.H.Control}"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
       <Setter Property="Template">
           <Setter.Value>
@@ -918,7 +918,7 @@
                           Background="{TemplateBinding Background}"
                           BorderBrush="{TemplateBinding BorderBrush}"
                           BorderThickness="{TemplateBinding BorderThickness}"
-                          CornerRadius="8">
+                          CornerRadius="{StaticResource T3.R.Control}">
                       <Grid>
                           <Grid.ColumnDefinitions>
                               <ColumnDefinition Width="*"/>

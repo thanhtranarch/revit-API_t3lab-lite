@@ -96,9 +96,24 @@ có gì đang chạy · `T3.Cell.Muted` ô "— none —" / "n/a" ·
 
 ## File mẫu — copy từ đây
 
-`T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` render **cả 5 pattern**
-đúng như mock, dùng 96/106 key. Viết tool mới thì mở nó ra, tìm pattern của mình,
-copy khối đó. Nó nằm trong gate như mọi file khác nên không bao giờ lệch chuẩn.
+`T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` là **MỘT cửa sổ T3 hợp lệ**
+— một title bar, một rail, một footer, một copyright, một primary — chứa toàn bộ
+component, chia 5 nhóm đổi bằng rail bên trái:
+
+| Rail | Nhóm | Có gì |
+|------|------|-------|
+| 0 | Foundations | 25 token màu, thang 7 size, spacing 4/8/12/16/24/32, radius 0/2/4/8 |
+| 1 | Controls | 4 vai trò nút (+ disabled), TextBox / Mono / Search, ComboBox, CheckBox 3 trạng thái, RadioButton, Chip, Expander, ComboBox.Toggle, Pill |
+| 2 | Data | summary strip + `T3.Meter`, `T3.ListHeader` + ListBox, DataGrid thật + `T3.StatusPill` + empty state |
+| 3 | Feedback | ProgressBar, LogBox 5 mức severity, tally, 4 callout, 4 dòng status |
+| 4 | Patterns | công thức P1–P5: dùng khi nào, thứ tự thân, hợp đồng footer, luật cứng |
+
+Viết tool mới thì mở nó ra, tìm component của mình, copy khối đó. Nó nằm trong gate
+như mọi file khác nên không bao giờ lệch chuẩn.
+
+> Trước 2026-08-28 file này vẽ **5 "cửa sổ giả" xếp chồng**, mỗi card có title bar và
+> footer riêng — nó dạy sai, vì tool thật không bao giờ lồng chrome vào chrome. Giờ
+> nó là một cửa sổ duy nhất.
 
 ## Checklist review (dán vào PR)
 Nhúng `T3Lab.Styles.xaml` bằng `dev/sync_t3_styles.py`, không tự định nghĩa brush · đúng một trong P1–P5 · size S/M/L

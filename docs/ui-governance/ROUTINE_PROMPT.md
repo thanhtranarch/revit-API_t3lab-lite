@@ -39,10 +39,13 @@ Không làm việc bằng trí nhớ từ cycle trước — nội dung file có
        Chi tiết: 08-design-system-authority.md §5.
 
   2b. T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml
-     → FILE MẪU. Render đủ 5 pattern (P1-P5) đúng như mock chuẩn, dùng
-       96/106 key. Cần dựng UI thì MỞ FILE NÀY, tìm pattern của mình,
-       COPY khối đó — nhanh và an toàn hơn viết từ đầu. Nó nằm trong gate
-       như mọi file khác nên không bao giờ lệch chuẩn.
+     → FILE MẪU. MỘT cửa sổ T3 hợp lệ (một title bar, một rail, một footer,
+       một copyright, một primary) chứa toàn bộ component, chia 5 nhóm đổi
+       bằng rail bên trái: 0 Foundations · 1 Controls · 2 Data ·
+       3 Feedback · 4 Patterns (công thức P1-P5). Cần dựng UI thì MỞ FILE
+       NÀY, tìm component của mình, COPY khối đó — nhanh và an toàn hơn
+       viết từ đầu. Nó nằm trong gate như mọi file khác nên không bao giờ
+       lệch chuẩn.
        Sửa sai chỗ nào thì sửa vào stylesheet, KHÔNG sửa riêng trong showcase.
 
   3. .claude/rules/new-tool-standard.md
