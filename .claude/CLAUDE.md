@@ -87,7 +87,7 @@ Agent definitions: `.claude/agents/`
 | Resource | Path |
 |----------|------|
 | **UI standard (the only one)** | `pyRevit UI Design System/T3LAB_UI_STANDARD.md` |
-| **UI stylesheet — 82 `T3.*` keys** | `pyRevit UI Design System/T3Lab.Styles.xaml` |
+| **UI stylesheet — 106 `T3.*` keys** | `pyRevit UI Design System/T3Lab.Styles.xaml` |
 | **UI governance routine + prompt** | `docs/ui-governance/` (start at `README.md`) |
 | All XAML files | `T3Lab.extension/lib/GUI/Tools/` |
 | **Rule for every new tool** | `.claude/rules/new-tool-standard.md` |
@@ -96,8 +96,9 @@ Agent definitions: `.claude/agents/`
 | Revit theme palette (legacy Revit-native) | `T3Lab.extension/lib/GUI/RevitTheme.py` |
 | Revit-native UI research (legacy) | `docs/revit-native-ui.md` |
 | Logo asset | `T3Lab.extension/lib/GUI/T3Lab_logo.png` |
-| Example XAML (simple) | `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` |
-| Example XAML (wizard nav) | `T3Lab.extension/lib/GUI/Tools/ExportManagerTest.xaml` |
+| **File mẫu — every component in one window** | `T3Lab.extension/lib/GUI/Tools/UIStandardShowcase.xaml` |
+| Example XAML (migrated tool) | `T3Lab.extension/lib/GUI/Tools/ExportManager.xaml` |
+| Example XAML (wizard nav, legacy) | `T3Lab.extension/lib/GUI/Tools/ExportManagerTest.xaml` |
 | Python dialogs | `T3Lab.extension/lib/GUI/` (FamilyLoaderDialog.py, etc.) |
 | Snippets | `T3Lab.extension/lib/Snippets/` |
 | Bilingual VI/EN analysis | `T3Lab.extension/lib/Intelligence/language/` |

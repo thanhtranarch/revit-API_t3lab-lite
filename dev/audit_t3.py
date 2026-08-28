@@ -66,9 +66,10 @@ SYNC_END = "<!-- ═══ HẾT T3 STYLES ═══ -->"
 # Trống từ 2026-08-28: GAP #4 đã đóng bằng 8 component chrome trong stylesheet.
 PENDING_GAP = {}
 
-# File render NHIỀU cửa sổ mẫu trong một file. Luật "đúng một primary" áp cho MỘT
-# cửa sổ, nên ở đây nó không áp dụng — mỗi card là một cửa sổ riêng. Mọi luật khác
-# vẫn soi đầy đủ.
+# Gallery component: file phải RENDER nút primary như một mẫu vật, ngoài cái primary
+# thật ở footer. Luật "đúng một primary" là luật về cửa sổ tool, không áp cho catalogue
+# — showcase vẫn chỉ có MỘT primary thật (footer, IsDefault), cái còn lại là hàng mẫu
+# trong nhóm Controls. Mọi luật khác vẫn soi đầy đủ.
 MULTI_WINDOW = {"UIStandardShowcase.xaml"}
 
 

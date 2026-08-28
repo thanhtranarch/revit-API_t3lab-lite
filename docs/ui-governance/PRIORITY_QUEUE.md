@@ -62,6 +62,22 @@ ra để chống.
 
 ---
 
+### GAP #5 · Không có indeterminate progress
+
+`T3.ProgressBar` dùng `ControlTemplate` tự viết, không có storyboard cho
+`IsIndeterminate`. Đặt `IsIndeterminate="True"` chỉ ra một thanh track rỗng đứng im —
+tệ hơn không có gì, vì nó trông như tool đã treo.
+
+Phát hiện 2026-08-28 khi dựng lại showcase (cycle 0f); mẫu vật indeterminate đã bị gỡ
+khỏi showcase và thay bằng callout nói rõ T3 không có nó.
+
+**Đề xuất:** giữ nguyên như hiện tại. Chuẩn T3 (P3) vốn đã yêu cầu **đếm việc trước rồi
+báo `n / total`** — một thanh chỉ quay không cho người dùng biết có nên chờ hay không.
+Chỉ thêm component `T3.ProgressBar.Indeterminate` khi có một tool thật không thể đếm
+trước được số việc, và khi đó nó vào stylesheet, không phải mỗi tool tự chế.
+
+---
+
 ## Đã hoàn thành
 
 ### ✅ GAP #4 · Chrome wizard & cửa sổ — 2026-08-28

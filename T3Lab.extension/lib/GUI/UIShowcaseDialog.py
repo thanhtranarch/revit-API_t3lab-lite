@@ -1,63 +1,43 @@
 # -*- coding: utf-8 -*-
-"""
-T3Lab UI Standard Showcase Dialog
-GUI classes for reviewing standard UI components and styling.
+"""T3 UI Standard Showcase — cửa sổ tham chiếu của Design System.
 
-The showcase is the reference implementation of the **Revit-native** tool
-window: Segoe UI 12, square hairline chrome, and every colour resolved from
-``GUI.RevitTheme`` rather than typed into the XAML. That means this class has
-one job beyond loading the file — call ``RevitTheme.apply()`` so the
-``{DynamicResource T3Theme*}`` keys the XAML binds to actually exist. Without
-it the window falls back to the literal light-theme brushes declared at the
-top of ``Window.Resources`` and never follows Revit into dark mode.
+MỘT cửa sổ, năm nhóm component, đổi bằng rail bên trái. Đây là file mẫu để
+copy khi dựng tool mới: mở nhóm cần dùng trong Revit, tìm khối tương ứng trong
+`lib/GUI/Tools/UIStandardShowcase.xaml`, copy nguyên khối, đổi chữ.
+
+Class này chỉ làm 3 việc — nạp XAML, nạp dữ liệu mẫu cho bảng, xử lý chrome
+cửa sổ (min/max/close + rail). Không có logic Revit nào; showcase không đụng
+vào model.
+
+Lịch sử: bản trước còn kéo theo bộ theme sáng/tối của chuẩn "Revit-native" đã
+bị bỏ (`RevitTheme.apply`, `chk_dark_preview`, `host_report`…). Chuẩn T3 chỉ có
+một bảng màu, khai trong `T3Lab.Styles.xaml` và nhúng thẳng vào XAML, nên toàn
+bộ khối đó đã được gỡ — nó bind vào những `x:Name` không còn tồn tại và chỉ
+sống sót nhờ `try/except`, đúng thứ luật S3 cấm.
 """
 
 import os
-import sys
+
 import clr
-clr.AddReference('System')
 clr.AddReference('PresentationCore')
 clr.AddReference('PresentationFramework')
 clr.AddReference('WindowsBase')
 
-import System
-from System.Windows import (Thickness, GridLength, GridUnitType,
-                            HorizontalAlignment, VerticalAlignment, FontWeights,
-                            MessageBox, MessageBoxButton, MessageBoxImage, MessageBoxResult, WindowState)
-from System.Windows.Controls import (RowDefinition, ColumnDefinition, Border,
-                                      StackPanel, TextBlock, TextBox, Button,
-                                      ComboBox, ComboBoxItem, DataGrid, Orientation,
-                                      DataGridTextColumn, DataGridCheckBoxColumn,
-                                      ScrollViewer, TabControl, TabItem, CheckBox)
-from System.Windows.Media import SolidColorBrush, BrushConverter
-from System.Windows.Data import Binding
+from System.Windows import (MessageBox, MessageBoxButton, MessageBoxImage,
+                            Visibility, WindowState)
+from System.Windows.Controls.Primitives import ToggleButton
 from System.Collections.ObjectModel import ObservableCollection
 
-from pyrevit import revit, DB, forms
+from pyrevit import forms
 
-# Revit's own light/dark palette. Guarded: the showcase must still open (in
-# light values) on a host where the theme bridge cannot import, rather than
-# taking the whole window down over a colour lookup.
-try:
-    from GUI import RevitTheme as _theme
-except Exception:
-    try:
-        import RevitTheme as _theme          # flat sys.path (deployed extension)
-    except Exception:
-        _theme = None
-
-# XAML Path
-# Single copy, in the extension — so this works when the extension is deployed
-# on its own (e.g. %APPDATA%\pyRevit\Extensions) without the repo checkout.
-# The repo-side duplicate under .claude/standard/ was removed on 2026-08-28
-# together with the retired Lumina standard it demonstrated; the UI standard is
-# now `pyRevit UI Design System/`, not this showcase.
-GUI_DIR = os.path.dirname(__file__)  # [repo]/T3Lab.extension/lib/GUI
+# XAML nằm cùng extension, không phụ thuộc repo checkout — tool vẫn chạy khi
+# extension được deploy riêng (vd %APPDATA%\pyRevit\Extensions).
+GUI_DIR = os.path.dirname(__file__)                       # [ext]/lib/GUI
 XAML_FILE = os.path.join(GUI_DIR, 'Tools', 'UIStandardShowcase.xaml')
 
 
 class ShowcaseItem(object):
-    """Một hàng của bảng P4 trong showcase.
+    """Một hàng của bảng trong nhóm Data.
 
     `T3.StatusPill` cần đúng 2 property: StatusText (chữ) và Severity
     ("Success" / "Warning" / "Danger"). Trạng thái KHÔNG BAO GIỜ chỉ bằng màu —
@@ -94,7 +74,7 @@ class ShowcaseItem(object):
     def issues(self):
         return self._issues
 
-    # T3.StatusPill bind vào 2 tên này
+    # T3.StatusPill bind vào đúng 2 tên này
     @property
     def StatusText(self):
         return self._status_text
@@ -103,194 +83,19 @@ class ShowcaseItem(object):
     def Severity(self):
         return self._severity
 
-    # Giữ lại cho code cũ còn đọc .status
-    @property
-    def status(self):
-        return self._status_text
-
 
 class UIShowcaseWindow(forms.WPFWindow):
-    """Window class for T3Lab UI Standard Showcase.
-
-    The window has no caption of its own: the XAML declares
-    ``WindowStyle="SingleBorderWindow"`` and lets Windows draw the title
-    bar, the way ``Autodesk.UI.Windows.ChildWindow`` does for Revit's own
-    dialogs. There are therefore no minimise/maximise/close handlers here
-    — the OS owns those buttons. ``close_button_clicked`` stays, for the
-    OK and Cancel buttons.
-    """
+    """Cửa sổ showcase. Caption do XAML tự vẽ (WindowStyle="None" + WindowChrome)."""
 
     def __init__(self):
         forms.WPFWindow.__init__(self, XAML_FILE)
-        self._skin = None
-        self._pinned = False        # True while previewing the non-host skin
-        self._adopt_host_font()
-        self._apply_theme()
-        self._load_sample_data()
-        # Revit 2024+ raises UIApplication.ThemeChanged, but that event does not
-        # exist on 2023 and needs a UIApplication we do not hold here. Re-syncing
-        # when the window is activated covers the same case with no version
-        # dependency: flip Revit's theme, click back into the tool, it follows.
-        try:
-            self.Activated += self._window_activated
-        except Exception:
-            pass
+        self._load_sample_data()          # nạp NGAY, không đợi Loaded (luật S7)
 
-    # ── Theme ────────────────────────────────────────────────────────────────
-
-    def _adopt_host_font(self):
-        """Take the OS message font instead of the hardcoded Segoe UI 12.
-
-        The XAML declares Segoe UI 12 so it still renders standalone, but that
-        is only correct on a default Windows. Revit's dialogs use the shell's
-        message font, which changes with the user's text-scaling setting and
-        with some locales — so read it and let the whole window inherit.
-        """
-        if _theme is None:
-            return
-        family, size = _theme.host_font()
-        if family is None:
-            return
-        try:
-            self.FontFamily = family
-            if size and size > 0:
-                self.FontSize = size
-        except Exception:
-            pass
-
-    def _apply_theme(self, theme=None):
-        """Write the T3Theme* brushes into Window.Resources.
-
-        Every colour in the XAML is a DynamicResource against these keys, so a
-        second call with a different theme re-skins the live window — no
-        rebuild, no reload of the XAML. Where Revit exposes its own brush for a
-        token, that is what lands here; see the host bridge in RevitTheme.
-        """
-        if _theme is None:
-            return
-        try:
-            self._skin = _theme.apply(self, theme)
-        except Exception as ex:
-            print("Warning: theme not applied: {}".format(ex))
-            return
-        try:
-            self.chk_dark_preview.IsChecked = (self._skin == 'dark')
-        except Exception:
-            pass
-        self._report_palette_source()
-
-    def _report_palette_source(self):
-        """Show how much of the window is Revit's own palette, not our copy.
-
-        The whole point of the host bridge is that these colours are the host's,
-        so the count belongs where it can be checked at a glance rather than in
-        a log nobody opens. On a version that exposes nothing it reads 0/N,
-        which is the honest answer, not a failure.
-        """
-        try:
-            report = _theme.host_report(self._skin)
-        except Exception:
-            return
-        live = sum(1 for _v, src in report.values() if src == 'revit')
-        state = "Previewing {}".format(self._skin) if self._pinned else "Ready"
-
-        if live:
-            text = "{} · palette {}/{} live from Revit".format(
-                state, live, len(report))
-        else:
-            # Not a failure. The curated values ARE Revit's, decoded from
-            # UIFramework.dll, so this is the same palette by a different route.
-            # What matters is that it is not a MIXTURE: a few live values among
-            # many copied ones is what produces a colour that does not belong.
-            try:
-                usable, resolved, total = _theme.host_coverage(self._skin)
-                why = _theme.host_error()
-            except Exception:
-                usable, resolved, total, why = True, 0, 0, None
-            text = "{} · palette from T3Lab copy of Revit".format(state)
-            if total and not usable:
-                text += " (host answered {}/{}, below threshold)".format(
-                    resolved, total)
-            elif why:
-                text += " ({})".format(why[:90])
-        try:
-            self.status_text.Text = text
-        except Exception:
-            pass
-
-    def _window_activated(self, sender, e):
-        """Follow Revit if its theme changed while the tool was in the back."""
-        if _theme is None or self._pinned:
-            return
-        try:
-            if _theme.current_theme() != self._skin:
-                self._apply_theme()
-        except Exception:
-            pass
-
-    def theme_preview_clicked(self, sender, e):
-        """Preview the other skin without restarting Revit.
-
-        Revit stays the real source of truth (``UIThemeManager.CurrentTheme``);
-        this pins the palette so both skins can be reviewed side by side while
-        designing a tool, and unpins as soon as the choice lands back on the
-        host's own theme. It is an ordinary check box in an ordinary group box —
-        it used to be a glyph button in a custom caption bar, which is not a
-        control Revit has anywhere.
-        """
-        if _theme is None:
-            return
-        try:
-            other = 'dark' if bool(self.chk_dark_preview.IsChecked) else 'light'
-        except Exception:
-            return
-        # Unpin BEFORE asking, or current_theme() hands back the pin we set on
-        # the previous click instead of what Revit is actually running.
-        try:
-            _theme.force_theme(None)
-            host = _theme.current_theme()
-        except Exception:
-            host = None
-        self._pinned = (other != host)
-        try:
-            _theme.force_theme(other if self._pinned else None)
-        except Exception:
-            pass
-        self._apply_theme(other)
+    # ── Chrome cửa sổ ────────────────────────────────────────────────────────
 
     def setup_icon(self):
-        """No icon. Revit dialogs do not put one in the caption.
-
-        pyRevit's own setup_icon() assigns the pushbutton PNG to Window.Icon,
-        which is where the T3Lab logo in the corner came from. Revit's
-        ChildWindow strips the caption icon instead (RemoveWindowIcon /
-        WS_EX_DLGMODALFRAME), so overriding this to do nothing — together
-        with WindowStyle="ToolWindow" in the XAML — is what matches it.
-        """
+        """Không gắn icon vào caption — caption là của mình, không có chỗ cho nó."""
         return
-
-    def _unused_setup_icon(self):
-        """Kept for reference: the previous icon-loading behaviour."""
-        try:
-            # Resolve the pushbutton's icon.png path relative to this file
-            current_dir = os.path.dirname(__file__)  # lib/GUI
-            extension_dir = os.path.dirname(os.path.dirname(current_dir))  # T3Lab.extension
-            icon_path = os.path.join(extension_dir, "T3Lab.tab", "Standard.panel", "UIStandard.pushbutton", "icon.png")
-            if os.path.exists(icon_path):
-                self.set_icon(icon_path)
-            else:
-                # Fallback to default pyRevit icon
-                super(UIShowcaseWindow, self).setup_icon()
-        except Exception as e:
-            # Silence icon loading errors to prevent window initialization crash
-            print("Warning: Failed to load window icon: {}".format(e))
-
-    # ── Window chrome ────────────────────────────────────────────────────────
-    # The caption is ours again. Not by preference — a Revit dialog uses the
-    # native one — but because the native caption follows the WINDOWS theme, so
-    # Revit-dark on a light Windows renders a white title bar above a dark
-    # window. Painting it ourselves is the only pure-WPF way to make it follow
-    # Revit. See docs/revit-native-ui.md.
 
     def minimize_button_clicked(self, sender, e):
         self.WindowState = WindowState.Minimized
@@ -304,20 +109,42 @@ class UIShowcaseWindow(forms.WPFWindow):
             self.btn_maximize.ToolTip = "Restore"
 
     def close_button_clicked(self, sender, e):
-        """Caption close, and the OK / Cancel buttons."""
+        """Nút close ở caption, và Close / Done ở footer."""
         self.Close()
 
+    # ── Rail ─────────────────────────────────────────────────────────────────
+
+    def rail_clicked(self, sender, e):
+        """Đổi nhóm component. Tag của tile = index của TabItem.
+
+        ToggleButton không tự nhóm như RadioButton, nên phải tự bỏ chọn các tile
+        còn lại — và ép tile vừa bấm luôn ở trạng thái checked, kể cả khi người
+        dùng bấm lại đúng tile đang mở (nếu không nó tự bỏ chọn và rail trông
+        như không có nhóm nào đang mở).
+        """
+        try:
+            index = int(str(sender.Tag))
+        except (TypeError, ValueError):
+            return
+
+        self.content_tabs.SelectedIndex = index
+        for tile in self.rail_tiles.Children:
+            if isinstance(tile, ToggleButton):
+                tile.IsChecked = (tile is sender)
+
+    # ── Dữ liệu mẫu ──────────────────────────────────────────────────────────
+
     def _load_sample_data(self):
-        """Dữ liệu mẫu cho bảng P4. Chữ hiển thị phải là TIẾNG ANH (luật 12)."""
+        """Dữ liệu mẫu cho bảng nhóm Data. Chữ hiển thị là TIẾNG ANH (luật 14)."""
         items = [
             ShowcaseItem("104231", "01_Plan_Column setting-out", "Floor Plan",
                          "ARC_Plan_1-100", "Compliant", "Success", "0"),
             ShowcaseItem("104232", "02_Plan_Column dimensions", "Floor Plan",
                          "ARC_Plan_1-100", "Compliant", "Success", "0"),
             ShowcaseItem("104235", "Detail_Column rebar splice", "Detail View",
-                         "\u2014 none \u2014", "Template missing", "Danger", "1"),
+                         "— none —", "Template missing", "Danger", "1"),
             ShowcaseItem("104240", "3D_Overall perspective", "3D View",
-                         "\u2014 none \u2014", "Naming standard", "Danger", "2"),
+                         "— none —", "Naming standard", "Danger", "2"),
             ShowcaseItem("104245", "Section_Longitudinal section", "Section",
                          "ARC_Sect_1-50", "Needs review", "Warning", "1"),
             ShowcaseItem("104250", "Elevation_Grid A-D", "Elevation",
@@ -332,21 +159,24 @@ class UIShowcaseWindow(forms.WPFWindow):
                          "ARC_Elev_1-100", "Needs review", "Warning", "3"),
         ]
         self.sample_grid.ItemsSource = ObservableCollection[object](items)
+        # Empty state chỉ hiện khi thật sự không có hàng nào — đây là cách mọi
+        # tool phải làm, không phải để Collapsed vĩnh viễn trong XAML.
+        self.grid_empty.Visibility = \
+            Visibility.Collapsed if items else Visibility.Visible
 
 
 def show_ui_standard_showcase():
-    """Launch the UI Standard Showcase Dialog"""
+    """Mở showcase."""
     try:
-        window = UIShowcaseWindow()
-        window.ShowDialog()
-    except Exception as e:
-        print("\nFATAL ERROR: {}".format(str(e)))
+        UIShowcaseWindow().ShowDialog()
+    except Exception as ex:
         import traceback
         traceback.print_exc()
-        
         MessageBox.Show(
-            "Error starting UI Standard Showcase:\n\n{}".format(str(e)),
-            "Error",
+            "Could not open the UI Standard Showcase.\n\n{}\n\n"
+            "Check that lib/GUI/Tools/UIStandardShowcase.xaml is present and "
+            "that the embedded T3 stylesheet is in sync "
+            "(python3 dev/sync_t3_styles.py).".format(ex),
+            "T3 UI Standard Showcase",
             MessageBoxButton.OK,
-            MessageBoxImage.Error
-        )
+            MessageBoxImage.Error)
