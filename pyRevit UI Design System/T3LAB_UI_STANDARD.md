@@ -64,6 +64,23 @@ Kích thước cửa sổ: S 420×260–320 (NoResize) · M 560×420–560 · L 
 - **P5 Confirmation** (S) — headline là câu hỏi có số ("Delete 34 view templates?"), nút phá huỷ màu đỏ
   mang tên thao tác + số, và KHÔNG phải `IsDefault` (Cancel mới là). Bản success dùng lại vỏ này ở thì quá khứ.
 
+## Chrome cửa sổ & wizard — 8 component (thêm 2026-08-28)
+
+Tool nhiều bước có sidebar rail không khớp P1–P5. Thay vì tự chế pattern thứ 6,
+dùng 8 component này; chúng mang sẵn giá trị hình dạng riêng nên file tool không
+bao giờ phải tự viết số lạ:
+
+`T3.WinCtrl` nút minimize/maximize · `T3.WinClose` nút đóng (hover đỏ) ·
+`T3.TabItem.Hidden` tab ẩn cho wizard điều khiển bằng code-behind ·
+`T3.Rail.Tile` ô rail 42×42 (ToggleButton) · `T3.Rail.Logo` ô logo 42×42 ·
+`T3.Pill` dải ngang 36px · `T3.ComboBox.Toggle` nút mở của combo nhỏ ·
+`T3.ScrollBar.Thumb` thumb thanh cuộn.
+
+Implicit style (`<Style TargetType="X">` **không** có `x:Key`) được phép trong file
+tool: đó là override chỉ có hiệu lực trong đúng container chứa nó, và stock WPF không
+có cách nào khác. Style **có** `x:Key` thì không — nó là component mới, phải vào
+`T3Lab.Styles.xaml`.
+
 ## Checklist review (dán vào PR)
 Merge `T3Lab.Styles.xaml`, không tự định nghĩa brush · đúng một trong P1–P5 · size S/M/L
 · có đúng một dòng copyright ở footer trái · mọi chữ hiển thị là tiếng Anh

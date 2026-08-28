@@ -46,7 +46,7 @@ không hardcode màu, size, margin. Logic Revit dùng lại được thì đẩy
 
 | # | Luật | Vi phạm |
 |---|------|---------|
-| 1 | Merge `T3Lab.Styles.xaml`; **không** `<Style>` nào định nghĩa trong file tool | P1/P2 |
+| 1 | Merge `T3Lab.Styles.xaml`; **không** `<Style x:Key>` nào trong file tool (implicit style không key thì được) | P1/P2 |
 | 2 | Không hex cứng — mọi màu là `{StaticResource T3.*}` | P2 |
 | 3 | Font chỉ `Segoe UI` (text) và `Consolas` (số, ID, log) | P2 |
 | 4 | FontSize chỉ `19 · 15 · 13 · 11.5 · 11 · 12.5` | P2 |

@@ -5,6 +5,46 @@
 
 ---
 
+## Cycle 0d — 2026-08-28 — 8 COMPONENT CHROME · GAP #4 ĐÓNG
+
+```
+DATE:                   2026-08-28
+CYCLE:                  0d
+TOOLS AUDITED:          1 (ExportManager / BatchOut — dọn nốt)
+ISSUES FOUND:           12 waiver tồn từ cycle 0c + 1 lỗi over-broad của gate
+ISSUES FIXED:           13 — PENDING_GAP nay RỖNG
+ISSUES REMAINING:       0
+SCORE CHANGES:          — (chưa chấm điểm)
+REGRESSIONS:            —
+DESIGN SYSTEM GAPS:     #4 ĐÓNG · #2 vẫn mở
+NEXT PRIORITIES:        QA BatchOut trong Revit · Q4 quét P0 · Q2 audit 6 tool đầu
+COMMIT:                 <điền sha sau khi commit>
+```
+
+User duyệt hướng 1 của GAP #4. Thêm 8 component vào `T3Lab.Styles.xaml`
+(84 → 92 key): `T3.WinCtrl` · `T3.WinClose` · `T3.TabItem.Hidden` · `T3.Rail.Tile`
+· `T3.Rail.Logo` · `T3.Pill` · `T3.ComboBox.Toggle` · `T3.ScrollBar.Thumb`.
+
+**Đo lại thì gap nhỏ hơn ước tính.** Trong 26 `<Style>` bị báo ở cycle 0c: 15 là
+**định nghĩa chết** (sót lại sau đợt swap style trước, không ai tham chiếu — xoá 420
+dòng), 5 là **implicit style** hợp lệ, chỉ 6 cái thật sự cần nâng thành component.
+Xoá 15 style chết gỡ luôn 8/11 vi phạm `CornerRadius`.
+
+**Hai chỗ chỉnh trong gate — cả hai là lỗi của gate, không phải nới luật:**
+1. Gate đếm mọi `<Style>` là "component đặt sai chỗ". Sai: style **không** có `x:Key`
+   là override chỉ có hiệu lực trong container chứa nó (vd `ItemContainerStyle`),
+   stock WPF không có cách nào khác. Nay chỉ style **có** `x:Key` mới bị tính.
+2. Regex tìm style của tôi giả định `x:Key` đứng trước `TargetType` → bỏ sót
+   `ScrollBarThumbStyle`. Đã dùng regex không phụ thuộc thứ tự attribute.
+
+**BatchOut: 0 vi phạm, 0 waiver.** `PENDING_GAP` rỗng. 1112 dòng (từ 2083).
+Kiểm chứng: 14 `x:Name` mất so với main đều là PART_/template nội bộ của các style đã
+nâng lên stylesheet, **không cái nào được script.py dùng**. Ba gate xanh.
+
+**Vẫn CHƯA verify trong Revit.**
+
+---
+
 ## Cycle 0c — 2026-08-28 — COPYRIGHT · TIẾNG ANH · MIGRATE BATCHOUT
 
 ```
