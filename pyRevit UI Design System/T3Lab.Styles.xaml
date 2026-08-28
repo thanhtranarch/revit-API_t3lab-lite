@@ -48,7 +48,7 @@
   <SolidColorBrush x:Key="T3.Danger.Border"  Color="#F6D5D5"/>
 
   <!-- Amber CHỈ dùng cho dòng copyright ở footer. Không button, không border, không nhãn khác. -->
-  <SolidColorBrush x:Key="T3.Copyright"      Color="#F59E0B"/>
+  <SolidColorBrush x:Key="T3.Copyright.Fg"   Color="#F59E0B"/>
 
   <!-- Cam CHỈ dùng cho tiến trình đang chạy. Không button, không border, không brand. -->
   <SolidColorBrush x:Key="T3.Progress.Track" Color="#ECECEF"/>
@@ -129,7 +129,7 @@
   <Style x:Key="T3.Copyright" TargetType="TextBlock">
     <Setter Property="FontFamily" Value="{StaticResource T3.Font}"/>
     <Setter Property="FontSize"   Value="{StaticResource T3.Size.Label}"/>
-    <Setter Property="Foreground" Value="{StaticResource T3.Copyright}"/>
+    <Setter Property="Foreground" Value="{StaticResource T3.Copyright.Fg}"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="Text" Value="© Copyright by T3Lab"/>
   </Style>

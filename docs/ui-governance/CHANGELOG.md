@@ -5,6 +5,65 @@
 
 ---
 
+## Cycle 0e — 2026-08-28 — SỬA LỖI CHẾT TOOL: NHÚNG THAY VÌ MERGEDDICTIONARIES
+
+```
+DATE:                   2026-08-28
+CYCLE:                  0e (hotfix — user báo BatchOut không mở được)
+TOOLS AUDITED:          1 (ExportManager / BatchOut)
+ISSUES FOUND:           2 lỗi P0 do chính tôi gây ra
+ISSUES FIXED:           2
+ISSUES REMAINING:       0
+REGRESSIONS:            1 — DO ROUTINE GÂY RA, đã sửa (xem dưới)
+DESIGN SYSTEM GAPS:     #2 vẫn mở
+NEXT PRIORITIES:        QA lại BatchOut trong Revit · Q4 quét P0 · Q2 audit 6 tool
+COMMIT:                 <điền sha sau khi commit>
+```
+
+**REGRESSION do routine gây ra — bài học quan trọng nhất tới giờ.**
+
+Cycle 0c migrate BatchOut sang `<ResourceDictionary Source="../Resources/T3Lab.Styles.xaml"/>`.
+Tôi đã ghi rõ đó là rủi ro số 1 và chưa verify được trong Revit. User test và nó **chết
+ngay lúc mở**:
+
+```
+System.IO.IOException: Assembly.GetEntryAssembly() returns null.
+Set the Application.ResourceAssembly property or use the
+pack://application:,,,/assemblyname;component/ syntax ...
+```
+
+Nguyên nhân: pyRevit nạp XAML bằng `XamlReader` trên một stream → WPF không có base URI
+và không có entry assembly → mọi `Source` tương đối bị resolve thành `pack://application`
+rồi ném IOException. Nạp dictionary từ Python sau đó cũng không cứu được, vì
+`{StaticResource}` được resolve NGAY LÚC PARSE.
+
+**Sửa: nhúng (inline).** `dev/sync_t3_styles.py` viết lại — chép nội dung stylesheet
+vào `<Window.Resources>` của từng tool XAML giữa hai marker `T3 STYLES`. Đây chính là
+cơ chế repo vốn đã dùng cho chuẩn Lumina cũ (`sync_wpf_styles.py`) và đã được chứng
+minh chạy được. Giá phải trả: mỗi tool XAML nặng thêm ~970 dòng sinh tự động.
+Bản deploy `lib/GUI/Resources/T3Lab.Styles.xaml` đã xoá — không ai nạp nó nữa.
+
+**Lỗi P0 thứ hai, tự tìm thấy khi verify:** tôi đặt trùng `x:Key="T3.Copyright"` cho cả
+`SolidColorBrush` lẫn `Style` trong stylesheet. Nhúng vào là WPF ném
+`Item has already been added` ngay lúc parse — **crash MỌI tool dùng T3**, không riêng
+BatchOut. Brush đổi thành `T3.Copyright.Fg`; style giữ `T3.Copyright`.
+
+**Ba chỗ chỉnh trong công cụ:**
+1. `sync_t3_styles.py` — viết lại theo cơ chế nhúng. Bug đầu tiên của bản viết lại:
+   `styles_body()` bắt nhầm chuỗi `<ResourceDictionary` trong **comment hướng dẫn** ở
+   đầu stylesheet nên cắt sai vùng; đã dùng regex neo đầu dòng.
+2. `audit_t3.py` — cắt khối nhúng ra trước khi soi: nó là Design System, không phải
+   markup của tool. Không cắt thì 90 style và mọi `Color="#..."` của stylesheet bị báo
+   là vi phạm của tool.
+3. `audit_t3.py` — thêm luật 15: **`x:Key` trùng = P0**. Đã test bằng file dựng riêng:
+   bắt đúng, exit 1.
+
+**Trạng thái:** ExportManager 2076 dòng, XML hợp lệ, 91 key, 0 key trùng, 0 resource
+mồ côi, ba gate xanh. **Vẫn cần user mở lại trong Revit** — lần này rủi ro đã chuyển từ
+"cơ chế nạp" (đã loại bỏ) sang "visual còn đúng không".
+
+---
+
 ## Cycle 0d — 2026-08-28 — 8 COMPONENT CHROME · GAP #4 ĐÓNG
 
 ```

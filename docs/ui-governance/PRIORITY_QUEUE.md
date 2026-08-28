@@ -84,9 +84,13 @@ Hai chỗ chỉnh trong gate, cả hai là lỗi của gate chứ không phải 
 ### ✅ GAP #1 · Vị trí deploy `T3Lab.Styles.xaml` — 2026-08-28
 
 Chốt: thư mục `pyRevit UI Design System/` là **file mẫu để refer**, không phải artifact
-runtime. Bản deploy nằm ở `T3Lab.extension/lib/GUI/Resources/T3Lab.Styles.xaml`, sinh
-bằng `python3 dev/sync_t3_styles.py` (`--check` để verify). Tool merge bản deploy bằng
-`Source="../Resources/T3Lab.Styles.xaml"`. Migration hết bị chặn.
+runtime. `python3 dev/sync_t3_styles.py` **nhúng** nội dung stylesheet vào
+`<Window.Resources>` của từng tool XAML, giữa hai marker `T3 STYLES`.
+
+**Bản `MergedDictionaries` đã thử và THẤT BẠI** (2026-08-28): pyRevit nạp XAML bằng
+`XamlReader` không có base URI → `IOException: Assembly.GetEntryAssembly() returns null`
+→ BatchOut chết ngay lúc mở. Chi tiết + hai cái bẫy khi nhúng:
+`08-design-system-authority.md` §5.
 
 ### ✅ GAP #3 · Copyright — 2026-08-28
 

@@ -54,6 +54,10 @@ UI_LOCKED = {"DWGManagement.xaml", "T3LabAssistant.xaml"}
 COPYRIGHT_EXEMPT = {"CadtoFloorLayerItem.xaml"}
 COPYRIGHT_TEXT = "© Copyright by T3Lab"
 
+# Marker của khối stylesheet được nhúng bởi dev/sync_t3_styles.py.
+SYNC_BEGIN = "<!-- ═══ T3 STYLES — SINH TỰ ĐỘNG"
+SYNC_END = "<!-- ═══ HẾT T3 STYLES ═══ -->"
+
 # ── Vi phạm ĐANG HOÃN vì Design System chưa có câu trả lời ───────────────
 # KHÔNG phải chỗ để nới luật. Mỗi mục phải gắn với một DESIGN SYSTEM GAP đang
 # chờ user duyệt trong docs/ui-governance/PRIORITY_QUEUE.md, và luôn được IN RA
@@ -138,10 +142,20 @@ def audit(src, base, keys):
     issues = []
     must = []
     debt = []
+    src_full = src
 
     used_keys = set(re.findall(r"\{StaticResource (T3\.[^}]+)\}", src))
-    merges_sheet = "T3Lab.Styles.xaml" in src
+    merges_sheet = SYNC_BEGIN in src
     declared = merges_sheet or bool(used_keys)
+
+    # Khối T3 STYLES là Design System được nhúng vào, KHÔNG phải code của tool.
+    # Mọi luật dưới đây soi markup do người viết tool tạo ra, nên cắt nó đi trước.
+    # (Nhúng thay vì MergedDictionaries vì pyRevit nạp XAML không có base URI —
+    #  xem docstring của dev/sync_t3_styles.py.)
+    if merges_sheet and SYNC_END in src:
+        i = src.index(SYNC_BEGIN)
+        j = src.index(SYNC_END, i) + len(SYNC_END)
+        src = src[:i] + src[j:]
 
     # ── Nợ migration (tính cho mọi file, kể cả file đã khai T3) ──────────
     for f in DEAD_FONTS:
@@ -157,7 +171,14 @@ def audit(src, base, keys):
     if "T3Theme" in src:
         debt.append("còn token Revit-native T3Theme*")
     if not merges_sheet:
-        debt.append("chưa merge T3Lab.Styles.xaml")
+        debt.append("chưa nhúng stylesheet T3")
+
+    # ── x:Key trùng: WPF ném "Item has already been added" NGAY lúc parse ──
+    keys = re.findall(r'<[A-Za-z:]+[^>]*?x:Key="([^"]+)"', src_full)
+    dup = sorted({k for k in keys if keys.count(k) > 1})
+    for k in dup:
+        must.append(("P0", 'x:Key="%s" bị định nghĩa %d lần — WPF crash lúc parse'
+                     % (k, keys.count(k))))
 
     # ── Copyright: BẮT BUỘC ở MỌI file, kể cả file chưa migrate ─────────
     # Luật 11 của T3LAB_UI_STANDARD.md. Đây là luật duy nhất áp cho cả legacy,
@@ -315,7 +336,8 @@ def audit(src, base, keys):
         if not has_cancel:
             issues.append(("P2", "không có nút IsCancel=\"True\""))
         if not merges_sheet:
-            issues.append(("P1", "không merge T3Lab.Styles.xaml"))
+            issues.append(("P1", "chưa nhúng stylesheet T3 — chạy "
+                             "`python3 dev/sync_t3_styles.py`"))
 
     return issues, declared, debt, must
 
